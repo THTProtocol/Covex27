@@ -1,64 +1,31 @@
 @import "tailwindcss";
-
-/* ── Covex27 dark Kaspa theme ─────────────────────────────────────── */
-
 @theme {
   --color-kaspa-green: #49EACB;
   --color-kaspa-gold: #E8AF34;
-  --color-surface: #0A0A0D;
-  --color-surface-raised: #111116;
-  --color-surface-card: #16161D;
-  --color-border: #1E1E28;
-  --color-text-primary: #F3F4F6;
-  --color-text-secondary: #9CA3AF;
-  --color-text-muted: #6B7280;
+  --color-surface-base: #05050A;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
-
-/* ── Global resets ────────────────────────────────────────────────── */
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
+*, *::before, *::after { box-sizing: border-box; }
 body {
   margin: 0;
-  background: #0A0A0D;
+  background: radial-gradient(circle at 50% 0%, #11111a 0%, var(--color-surface-base) 100%);
+  background-attachment: fixed;
   color: #F3F4F6;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
-
-#root {
-  min-height: 100svh;
+.glass-panel {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
-
-/* ── Scrollbar ────────────────────────────────────────────────────── */
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.kaspa-glow-text { text-shadow: 0 0 20px rgba(73, 234, 203, 0.5); }
+.cyber-input {
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(73,234,203,0.2);
+  color: #49EACB; transition: all 0.3s ease;
 }
-::-webkit-scrollbar-track {
-  background: #0A0A0D;
-}
-::-webkit-scrollbar-thumb {
-  background: #1E1E28;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #2E2E3A;
-}
-
-/* ── Glass panel utility ──────────────────────────────────────────── */
-
-.glass {
-  background: rgba(17, 17, 22, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-}
+.cyber-input:focus { outline: none; border-color: #49EACB; box-shadow: 0 0 15px rgba(73,234,203,0.2); }

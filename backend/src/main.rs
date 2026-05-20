@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use axum::{
     extract::State,
     http::StatusCode,
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use kaspa_addresses::{Address, Prefix};
@@ -12,6 +12,8 @@ use kaspa_wrpc_client::prelude::*;
 use kaspa_wrpc_client::KaspaRpcClient;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::io::Write;
+use std::process::Command;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info};
@@ -57,6 +59,20 @@ struct UtxosResponse {
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
+}
+
+// ── Compile types ─────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct CompileRequest {
+    code: String,
+}
+
+#[derive(Serialize)]
+struct CompileResponse {
+    success: bool,
+    script_template_hash: String,
+    bytecode: String,
 }
 
 // ── Environment helpers ─────────────────────────────────────────────────
@@ -168,6 +184,113 @@ async fn health_handler() -> &'static str {
     "OK"
 }
 
+// ── Compile handler ──────────────────────────────────────────────────
+
+async fn compile_handler(
+    Json(payload): Json<CompileRequest>,
+) -> Result<Json<CompileResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let code = payload.code.trim().to_string();
+
+    if code.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "No SilverScript code provided".into(),
+            }),
+        ));
+    }
+
+    // Write SilverScript code to a temp file
+    let tmpdir = env::temp_dir();
+    let input_path = tmpdir.join("covex27_covenant.sil");
+    let output_path = tmpdir.join("covex27_covenant.json");
+
+    {
+        let mut file = std::fs::File::create(&input_path).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to create temp file: {e}"),
+                }),
+            )
+        })?;
+        file.write_all(code.as_bytes()).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to write temp file: {e}"),
+                }),
+            )
+        })?;
+    }
+
+    // Run `silverc compile <input> -o <output>`
+    let output = Command::new("silverc")
+        .arg("compile")
+        .arg(&input_path)
+        .arg("-o")
+        .arg(&output_path)
+        .output()
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to execute silverc: {e}. Is the compiler installed?"),
+                }),
+            )
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(ErrorResponse {
+                error: format!("Compilation failed:\n{}", stderr.trim()),
+            }),
+        ));
+    }
+
+    // Parse the output JSON
+    let raw = std::fs::read_to_string(&output_path).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to read compiler output: {e}"),
+            }),
+        )
+    })?;
+
+    // silverc outputs { "scriptTemplateHash": "...", "bytecode": "..." }
+    let parsed: serde_json::Value = serde_json::from_str(&raw).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to parse compiler output: {e}"),
+            }),
+        )
+    })?;
+
+    let script_template_hash = parsed["scriptTemplateHash"]
+        .as_str()
+        .unwrap_or("unknown")
+        .to_string();
+
+    let bytecode = parsed["bytecode"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
+    // Clean up temp files
+    let _ = std::fs::remove_file(&input_path);
+    let _ = std::fs::remove_file(&output_path);
+
+    Ok(Json(CompileResponse {
+        success: true,
+        script_template_hash,
+        bytecode,
+    }))
+}
+
 // ── Main ────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -236,6 +359,7 @@ async fn main() -> Result<()> {
         .route("/api/health", get(health_handler))
         .route("/api/status", get(status_handler))
         .route("/api/utxos", get(utxos_handler))
+        .route("/api/compile", post(compile_handler))
         .layer(cors)
         .with_state(state);
 

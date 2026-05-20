@@ -3,6 +3,7 @@ import DagBackground from './components/DagBackground';
 import Explorer from './pages/Explorer';
 import CovenantInteractive from './pages/CovenantInteractive';
 import HostCovenant from './pages/HostCovenant';
+import CreateCovenant from './pages/CreateCovenant';
 import Terms from './pages/Terms';
 
 /* ── Navigation link helper ───────────────────────────────────── */
@@ -38,6 +39,9 @@ export default function App() {
             <NavLink to="/" end className={navLinkClass}>
               Explorer
             </NavLink>
+            <NavLink to="/create" className={navLinkClass}>
+              Create
+            </NavLink>
             <NavLink to="/host" className={navLinkClass}>
               Host Covenant
             </NavLink>
@@ -59,6 +63,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Explorer />} />
           <Route path="/covenant/:id" element={<CovenantInteractive />} />
+          <Route path="/create" element={<CreateCovenant />} />
           <Route path="/host" element={<HostCovenant />} />
           <Route path="/terms" element={<Terms />} />
         </Routes>

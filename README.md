@@ -3,8 +3,8 @@
 <br/>
 
 ```
- ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
-██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+ ██████╗ ██╗   ██╗██╗   ██╗███████╗██╗  ██╗
+██╔════╝██║   ██║██║   ██║██╔════╝╚██╗██╔╝
 ██║     ██║   ██║██║   ██║█████╗   ╚███╔╝ 
 ██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
 ╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
@@ -51,9 +51,9 @@
 
 <br/>
 
-## ▸ What is Covex27?
+## ▸ What is Covex?
 
-Covex27 is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockDAG](https://kaspa.org). It connects to a Kaspa wRPC node, continuously indexes covenant UTXOs into a local SQLite database, and serves a premium glassmorphism React UI for browsing, compiling, and deploying SilverScript covenants.
+Covex is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockDAG](https://kaspa.org). It connects to a Kaspa wRPC node, continuously indexes covenant UTXOs into a local SQLite database, and serves a premium glassmorphism React UI for browsing, compiling, and deploying SilverScript covenants.
 
 ```
  Chain is the truth. Covex is the window.
@@ -135,7 +135,7 @@ graph TD
                ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┼─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
                                           ▼
                │              ┌──────────────────────────┐                      │
-                              │   COVEX27 BACKEND (Rust) │
+                              │   COVEX BACKEND (Rust) │
                │              │   Axum HTTP Server :3001  │                      │
                               │  ┌──────────────────────┐ │
                │              │  │  GET /api/utxos      │ │                      │
@@ -186,7 +186,7 @@ graph TD
                         Tailwind CSS v4               animated background
 
   SaaS Platform        Tiered subscriptions          Explorer (Free), Creator
-                        via Pricing page              ($27/mo), Enterprise
+                        via Pricing page              (27,000 KAS/month), Enterprise
   ─────────────────────────────────────────────────────────────────
 ```
 
@@ -203,20 +203,20 @@ graph TD
                          fresh from the node on every request.
                          Indexer runs in the background.
 
-  Non-custodial          Covex27 never holds KAS, keys, or funds.
+  Non-custodial          Covex never holds KAS, keys, or funds.
                          All value lives in UTXO covenant scripts.
 
   Read-first             Every deployed covenant is visible to
                          anyone — paid or not, always.
 
-  Tiered SaaS            Explorer (Free), Creator ($27/mo),
+  Tiered SaaS            Explorer (Free), Creator (27,000 KAS/month),
                          Enterprise (Custom). Pay for compiler
                          access and priority features.
 
   Network-agnostic       One codebase. One binary. Switch between
                          Mainnet and TN12 with a single env var.
 
-  No admin switches      Covex27 cannot pause, modify, or reverse
+  No admin switches      Covex cannot pause, modify, or reverse
                          any covenant once deployed. Immutable by design.
   ─────────────────────────────────────────────────────────────────
 ```
@@ -233,7 +233,7 @@ graph TD
   Explorer       Free             UTXO scanning, DAG visualization,
                                   public covenant registry, search
 
-  Creator        $27/month        Everything in Explorer,
+  Creator        27,000 KAS       Everything in Explorer,
                                   SilverScript compiler, priority
                                   API, deployment templates
 
@@ -249,10 +249,18 @@ graph TD
 
 ---
 
+## ▸ All on Kaspa, Paid with KAS
+
+Covex is built entirely on the Kaspa BlockDAG ecosystem. From indexing covenants to deploying smart contracts, everything happens natively on Kaspa. Our SaaS platform accepts payments exclusively in KAS cryptocurrency, embracing a fully decentralized economic model. There are no third-party payment processors or fiat gateways - just pure peer-to-peer transactions on the most advanced BlockDAG in existence.
+
+<br/>
+
+---
+
 ## ▸ Project Structure
 
 ```
-Covex27/
+Covex/
 │
 ├── .env                          Local config (git-ignored)
 ├── .env.example                  Template with docs
@@ -368,10 +376,10 @@ curl -X POST http://localhost:3001/api/compile \
 
 ```
 $ cargo build --release
-   Compiling covex27-backend v0.1.0
+   Compiling covex-backend v0.1.0
     Finished `release` profile [optimized] target(s)
 
-$ ls -lh target/release/covex27-backend
+$ ls -lh target/release/covex-backend
 -rwxr-xr-x  13M  ELF 64-bit LSB executable, x86-64
 ```
 
@@ -400,12 +408,12 @@ $ ls -lh target/release/covex27-backend
 
 ```
   No admin keys
-  Covex27 holds no privileged keys over any covenant.
+  Covex holds no privileged keys over any covenant.
   No mechanism exists to pause, modify, or drain covenant UTXOs.
 
   No custody
   All KAS is held in UTXO covenant scripts on-chain.
-  Covex27 UI never touches private keys.
+  Covex UI never touches private keys.
 
   Durable local storage
   Covenant data persists in SQLite across restarts.
@@ -441,7 +449,7 @@ $ ls -lh target/release/covex27-backend
 
 ## ▸ Contributing
 
-We welcome contributions to Covex27! Here's how you can help:
+We welcome contributions to Covex! Here's how you can help:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -488,7 +496,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ║   Built on Rust  -  Powered by Kaspa  -  SQLite-backed       ║
 ║   Non-custodial  -  Open source  -  SaaS-ready               ║
 ║                                                              ║
-║                  (c) 2026 Covex27 Protocol                   ║
+║                  (c) 2026 Covex Protocol                     ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 ```

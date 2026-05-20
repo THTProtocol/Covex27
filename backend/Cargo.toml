@@ -1,0 +1,32 @@
+[package]
+name = "covex27-backend"
+version = "0.1.0"
+edition = "2021"
+description = "Covex27 — Kaspa covenant explorer backend"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Kaspa wRPC client stack
+kaspa-wrpc-client = "0.15"
+kaspa-rpc-core = "0.15"
+kaspa-consensus-core = "0.15"
+kaspa-addresses = "0.15"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling & logging
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# .env loading
+dotenvy = "0.15"

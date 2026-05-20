@@ -186,7 +186,7 @@ graph TD
                         Tailwind CSS v4               animated background
 
   SaaS Platform        Tiered subscriptions          Explorer (Free), Creator
-                        via Pricing page              (27,000 KAS/month), Enterprise
+                        via Pricing page              (100 KAS), Priority (500 KAS), Enterprise (1000 KAS)
   ─────────────────────────────────────────────────────────────────
 ```
 
@@ -209,9 +209,9 @@ graph TD
   Read-first             Every deployed covenant is visible to
                          anyone — paid or not, always.
 
-  Tiered SaaS            Explorer (Free), Creator (27,000 KAS/month),
-                         Enterprise (Custom). Pay for compiler
-                         access and priority features.
+  Tiered SaaS            Explorer (Free), Creator (100 KAS),
+                         Priority (500 KAS), Enterprise (1000 KAS).
+                         Pay for visibility and featured placement.
 
   Network-agnostic       One codebase. One binary. Switch between
                          Mainnet and TN12 with a single env var.
@@ -219,6 +219,38 @@ graph TD
   No admin switches      Covex cannot pause, modify, or reverse
                          any covenant once deployed. Immutable by design.
   ─────────────────────────────────────────────────────────────────
+```
+
+<br/>
+
+---
+
+## ▸ Interactive Covenant UI Showcase
+
+Covex enables developers to create stunning interactive user interfaces for their covenants. These UIs allow users to interact directly with covenant functionality through their wallets:
+
+### 🎨 UI Components
+- **Dynamic Parameter Inputs**: Customizable form fields for covenant parameters
+- **Real-time Validation**: Instant feedback on input values
+- **Wallet Integration**: Direct wallet deep-linking for transactions
+- **Live Data Feeds**: Real-time updates from the BlockDAG
+- **Visual Transaction Previews**: Clear representation of covenant execution
+
+### 🖼️ Sample UI Layouts
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Covenant Interaction Panel                                     │
+├─────────────────────────────────────────────────────────────────┤
+│  Escrow Payment                                                 │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Amount: [100.00 KAS             ]                         │ │
+│  │ Payer:  [kaspatest:qrwx...7890]                            │ │
+│  │ Payee:  [kaspatest:abcd...1234]                            │ │
+│  │ Timeout: [100000 DAA Score      ]                          │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  [ Review Transaction ]  [ Send to Wallet ]                     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 <br/>
@@ -233,25 +265,37 @@ graph TD
   Explorer       Free             UTXO scanning, DAG visualization,
                                   public covenant registry, search
 
-  Creator        27,000 KAS       Everything in Explorer,
-                                  SilverScript compiler, priority
-                                  API, deployment templates
+  Creator        100 KAS          Custom interactive covenant UI,
+                                  Basic visibility in explorer
 
-  Enterprise     Custom           Everything in Creator,
-                                  dedicated wRPC node, SLA,
-                                  private deployment, 24/7 support
+  Priority       500 KAS          Enhanced visibility and promotion,
+                                  Featured placement in categories,
+                                  Custom branding options
+
+  Enterprise     1,000 KAS        Maximum visibility and priority,
+                                  Top placement in all listings,
+                                  Dedicated support,
+                                  Custom domain integration
   ─────────────────────────────────────────────────────────────────
 
-  All plans include public covenant access. Cancel anytime.
+  All covenants appear in the public registry. Paid tiers add 
+  interactive UI panels and increased visibility.
 ```
 
 <br/>
 
 ---
 
-## ▸ All on Kaspa, Paid with KAS
+## ▸ All on BlockDAG, Paid with KAS
 
-Covex is built entirely on the Kaspa BlockDAG ecosystem. From indexing covenants to deploying smart contracts, everything happens natively on Kaspa. Our SaaS platform accepts payments exclusively in KAS cryptocurrency, embracing a fully decentralized economic model. There are no third-party payment processors or fiat gateways - just pure peer-to-peer transactions on the most advanced BlockDAG in existence.
+Covex is built entirely on the Kaspa BlockDAG ecosystem. From indexing covenants to deploying smart contracts, everything happens natively on the BlockDAG. Our SaaS platform accepts payments exclusively in KAS cryptocurrency, embracing a fully decentralized economic model. There are no third-party payment processors or fiat gateways - just pure peer-to-peer transactions on the most advanced BlockDAG in existence.
+
+### Key Benefits:
+- **True Decentralization**: No intermediaries or centralized services
+- **Native Integration**: Seamless operation within the Kaspa ecosystem
+- **Instant Settlements**: KAS payments processed immediately on-chain
+- **Programmable Money**: Covenants execute exactly as programmed
+- **Unstoppable Infrastructure**: Resistant to censorship and shutdown
 
 <br/>
 
@@ -479,7 +523,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## ▸ Acknowledgments
 
-- [Kaspa Blockchain](https://kaspa.org) for the revolutionary BlockDAG technology
+- [Kaspa BlockDAG](https://kaspa.org) for the revolutionary BlockDAG technology
 - [SilverScript](https://github.com/silverscript) team for the covenant language
 - Rust and Tokio communities for exceptional async runtime
 - React and Vite ecosystems for modern frontend development

@@ -1,0 +1,73 @@
+import { useEffect } from 'react';
+
+const FEATURES = [
+  ['10 BPS', '10 blocks per second on mainnet since Rust rewrite (2024).'],
+  ['BlockDAG', 'Parallel blocks coexist via GHOSTDAG. No orphaned work.'],
+  ['GHOSTDAG', 'Proven consensus: Greedy Heaviest Observed Sub-Tree DAG.'],
+  ['DAGKNIGHT', 'Next-gen protocol targeting 100+ BPS without sacrificing security.'],
+  ['kHeavyHash', 'ASIC-resistant Proof-of-Work, optical-miner friendly.'],
+  ['UTXO Model', 'Bitcoin-compatible with native covenants via Toccata.'],
+  ['Rust Node', 'Full node rewritten in Rust (2024). Memory-safe.'],
+  ['Open Source', 'ISC License. No premine. Fair launch.'],
+];
+
+const PAPERS = [
+  ['GHOSTDAG Protocol', 'Sompolinsky et al., 2018', 'https://eprint.iacr.org/2018/104.pdf'],
+  ['DAGKNIGHT Protocol', 'Sompolinsky, Wyborski & Zohar, 2021', 'https://eprint.iacr.org/2021/911'],
+  ['Kaspa Whitepaper', 'Kaspa Research, 2023', 'https://kaspa.org/wp-content/uploads/2023/04/Kaspa-Whitepaper.pdf'],
+  ['Toccata Hardfork', 'Kaspa Improvement Proposal', 'https://kaspa.org/toccata-hard-fork-kaspa-covenants/'],
+  ['Rusty Kaspa', 'Michael Sutton et al., 2024', 'https://kaspa.org/rusty-kaspa/'],
+];
+
+export default function WhatIsKaspa({ open, onClose }) {
+  useEffect(() => { if (open) { const p = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = p; }; } }, [open]);
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}/>
+      <div className="relative z-10 w-full max-w-lg h-full overflow-y-auto bg-[#0d0d14] border-l border-white/10 shadow-2xl">
+        <div className="sticky top-0 z-10 bg-[#0d0d14]/95 backdrop-blur-md border-b border-white/10 px-6 py-4 flex items-center justify-between">
+          <div><h2 className="text-lg font-semibold text-white">Understanding Kaspa</h2><p className="text-xs text-gray-500">Technical reference with citations</p></div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div className="p-6 space-y-8">
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold text-kaspa-green">What is Kaspa?</h3>
+            <div className="space-y-2 text-sm text-gray-300 leading-relaxed">
+              <p>Kaspa is a decentralized, open-source Layer-1 blockchain built on a <strong className="text-white">BlockDAG</strong>. Instead of a single chain, the BlockDAG allows multiple blocks to be created and processed concurrently.</p>
+              <p>Kaspa operates at <strong className="text-white">10 blocks per second (10 BPS)</strong> on mainnet, achieved through the Rust rewrite in 2024. It uses the <strong className="text-white">GHOSTDAG protocol</strong> to order parallel blocks without discarding valid work. The next-generation <strong className="text-white">DAGKNIGHT protocol</strong> targets 100+ BPS.</p>
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold text-kaspa-green">Technical Specifications</h3>
+            <div className="grid grid-cols-2 gap-2">{FEATURES.map(([l,d])=>(<div key={l} className="p-3 rounded-xl bg-white/[0.03] border border-white/5"><p className="text-sm font-semibold text-white">{l}</p><p className="text-xs text-gray-500 mt-0.5">{d}</p></div>))}</div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold text-kaspa-green">Whitepapers and Research</h3>
+            <div className="space-y-2">{PAPERS.map(([t,a,u])=>(<a key={t} href={u} target="_blank" rel="noopener noreferrer" className="block p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors"><p className="text-sm font-medium text-white">{t}</p><p className="text-xs text-gray-500">{a}</p></a>))}</div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold text-kaspa-green">What is a Covenant?</h3>
+            <div className="space-y-2 text-sm text-gray-300 leading-relaxed">
+              <p>A <strong className="text-white">covenant</strong> is a programmable spending condition on a UTXO. It restricts how funds can be spent in future transactions.</p>
+              <p>Kaspa introduced native covenants through the <strong className="text-white">Toccata hardfork</strong>, using <strong className="text-white">SilverScript</strong>, a domain-specific language compiled to Kaspa bytecode.</p>
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold text-kaspa-green">How Covex Helps</h3>
+            <div className="space-y-2 text-sm text-gray-300 leading-relaxed">
+              <p>Covex is a <strong className="text-white">read-only BlockDAG explorer</strong> and <strong className="text-white">covenant marketplace</strong>. It connects directly to your Kaspa node via wRPC with no intermediary.</p>
+              <ul className="list-disc list-inside space-y-1 text-gray-400">
+                <li>Indexes covenant UTXOs from the BlockDAG in real time into SQLite</li>
+                <li>Provides a searchable registry of all deployed covenant types</li>
+                <li>Covenant authors pay a one-time KAS fee for an interactive UI and visibility</li>
+              </ul>
+              <p className="mt-2 p-3 rounded-xl bg-kaspa-green/[0.04] border border-kaspa-green/20 text-xs text-gray-400"><span className="text-kaspa-green font-semibold">Direct connection. No proxy.</span> Covex connects to your Kaspa node via wRPC WebSocket. All data comes from the BlockDAG itself.</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}

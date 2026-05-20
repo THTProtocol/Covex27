@@ -1,85 +1,76 @@
 import { useEffect, useRef } from 'react';
 
-const N = 80, W = 80, H = 28;
-const BG = '#0A0A0D';
+const BG = '#05050A';
 
-class Block {
+class Particle {
   constructor(cw, ch) {
-    this.cw = cw; this.ch = ch;
-    this.reset(true);
+    this.x = Math.random() * cw;
+    this.y = Math.random() * ch;
+    this.r = Math.random() * 1.2 + 0.3;
+    this.vx = (Math.random() - 0.5) * 0.15;
+    this.vy = (Math.random() - 0.5) * 0.15;
   }
-  reset(init) {
-    this.x = Math.random() * this.cw;
-    this.y = init ? Math.random() * this.ch : -H - Math.random() * 200;
-    this.vx = (Math.random() - 0.5) * 1.2;
-    this.vy = 0.8 + Math.random() * 1.2;
-    this.hex = Array.from({length:8},()=>'0123456789ABCDEF'[Math.random()*16|0]).join('');
-    this.layer = Math.random() * 5 | 0;
-  }
-  update() {
-    this.x += this.vx * 0.25; this.y += this.vy * 0.25;
-    if (this.x > this.cw + W) this.x = -W;
-    if (this.x < -W) this.x = this.cw + W;
-    if (this.y > this.ch + H + 50) this.reset();
+  update(cw, ch) {
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.x < 0) this.x = cw;
+    if (this.x > cw) this.x = 0;
+    if (this.y < 0) this.y = ch;
+    if (this.y > ch) this.y = 0;
   }
   draw(ctx) {
-    const {x,y,hex} = this;
-    ctx.fillStyle = '#4b7294';
-    ctx.beginPath(); ctx.roundRect(x-W/2, y-H/2, W, H, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(hex, x, y);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(73,234,203,0.30)';
+    ctx.fill();
   }
 }
 
 export default function DagBackground() {
   const ref = useRef(null);
   useEffect(() => {
-    const c = ref.current, ctx = c.getContext('2d');
-    let blocks = [], id;
-    const resize = () => { c.width = innerWidth; c.height = innerHeight; };
-    resize(); addEventListener('resize', resize);
-    blocks = Array.from({length:N}, ()=>new Block(c.width,c.height));
+    const c = ref.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    let particles = [];
+    let animId;
+    const resize = () => {
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
+      particles = Array.from({ length: 200 }, () => new Particle(c.width, c.height));
+    };
+    resize();
+    window.addEventListener('resize', resize);
 
-    (function anim() {
-      ctx.fillStyle = BG; ctx.fillRect(0,0,c.width,c.height);
-      const s = [...blocks].sort((a,b)=>a.y-b.y);
-
-      for (let i=0;i<s.length;i++)
-        for (let j=i+1;j<s.length;j++) {
-          const a=s[i],b=s[j],dy=b.y-a.y;
-          if (dy>120) break;
-          const d=Math.hypot(b.x-a.x,dy);
-          if (d<160) {
-            ctx.strokeStyle=`rgba(255,255,255,${(0.1*(1-d/160)).toFixed(2)})`;
-            ctx.lineWidth=0.5; ctx.beginPath();
-            ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    const animate = () => {
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, c.width, c.height);
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i], b = particles[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 80) {
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = `rgba(73,234,203,${(0.04 * (1 - dist / 80)).toFixed(3)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
           }
         }
-
-      const chain = s.filter(n=>n.layer===2);
-      ctx.strokeStyle='rgba(73,234,203,0.25)'; ctx.lineWidth=8;
-      for (let i=0;i<chain.length-1;i++) {
-        ctx.beginPath(); ctx.moveTo(chain[i].x,chain[i].y);
-        ctx.lineTo(chain[i+1].x,chain[i+1].y); ctx.stroke();
       }
-      ctx.strokeStyle='#49EACB'; ctx.lineWidth=2.5;
-      for (let i=0;i<chain.length-1;i++) {
-        ctx.beginPath(); ctx.moveTo(chain[i].x,chain[i].y);
-        ctx.lineTo(chain[i+1].x,chain[i+1].y); ctx.stroke();
-      }
-
-      for (const b of s) { b.draw(ctx); b.update(); }
-
-      ctx.strokeStyle='#49EACB'; ctx.lineWidth=2;
-      for (const n of chain) {
-        ctx.beginPath();
-        ctx.roundRect(n.x-W/2,n.y-H/2,W,H,4); ctx.stroke();
-      }
-      id=requestAnimationFrame(anim);
-    })();
-
-    return () => { cancelAnimationFrame(id); removeEventListener('resize',resize); };
+      for (const p of particles) { p.update(c.width, c.height); p.draw(ctx); }
+      const g = ctx.createRadialGradient(c.width / 2, c.height / 2, 0, c.width / 2, c.height / 2, Math.min(c.width, c.height) * 0.6);
+      g.addColorStop(0, 'rgba(73,234,203,0.03)');
+      g.addColorStop(0.6, 'rgba(73,234,203,0.01)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, c.width, c.height);
+      animId = requestAnimationFrame(animate);
+    };
+    animate();
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
   }, []);
-  return <canvas ref={ref} className="fixed inset-0 -z-10" style={{background:BG}} />;
+  return <canvas ref={ref} className="fixed inset-0 -z-10" style={{ background: BG }} />;
 }

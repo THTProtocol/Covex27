@@ -1,4 +1,9 @@
-# COVEX | The Kaspa Covenant Explorer
+ ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
+██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+██║     ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
+╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
+ ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
 
 Covex operates natively on Kaspa Mainnet (currently deployed on TN12 for testing). It utilizes a high-performance Rust wRPC indexer to scan the BlockDAG for covenant UTXOs in real-time, paired with a React glassmorphism UI.
 

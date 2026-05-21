@@ -5,7 +5,6 @@ import LegalModal from '../components/LegalModal';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const DEPLOY_FEE_KAS = 1;
-const DEPLOY_FEE_SOMPI = 100_000_000;
 
 export default function CreateCovenant() {
   const [accepted, setAccepted] = useState(false);
@@ -193,7 +192,7 @@ export default function CreateCovenant() {
                   className="w-full inline-flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm shadow-[0_0_30px_rgba(73,234,203,0.25)] hover:shadow-[0_0_50px_rgba(73,234,203,0.4)] hover:brightness-110 active:scale-[0.97] transition-all duration-200 disabled:opacity-50"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M12 2l3 7 7 1-5 4 2 7-7-4-7 4 2-7-5-4 7-1z" />
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z" />
                   </svg>
                   {address ? (connecting ? 'Signing...' : 'Deploy via Connected Wallet') : 'Deploy (Open Wallet App)'}
                 </button>

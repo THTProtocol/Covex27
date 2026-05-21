@@ -1,44 +1,61 @@
 import { useWallet } from './WalletContext';
-import { Wallet, LogOut, Link2 } from 'lucide-react';
+import { Wallet, LogOut, Link2, AlertCircle } from 'lucide-react';
 
 const TRUNC = (s, n = 6) => (s ? `${s.slice(0, n)}...${s.slice(-4)}` : '');
 
+function KasWareLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+      <rect width="24" height="24" rx="6" fill="#49EACB" opacity="0.15"/>
+      <path d="M7 17l4-10 4 10M9 13h6" stroke="#49EACB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function KaspiumLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+      <rect width="24" height="24" rx="6" fill="#E8AF34" opacity="0.15"/>
+      <circle cx="12" cy="12" r="5" stroke="#E8AF34" strokeWidth="2"/>
+      <circle cx="12" cy="12" r="2" fill="#E8AF34"/>
+    </svg>
+  );
+}
+
+function OneKeyLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+      <rect width="24" height="24" rx="6" fill="#3B82F6" opacity="0.15"/>
+      <rect x="8" y="8" width="8" height="8" rx="2" stroke="#3B82F6" strokeWidth="2"/>
+    </svg>
+  );
+}
+
+function TangemLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+      <rect width="24" height="24" rx="6" fill="#10B981" opacity="0.15"/>
+      <path d="M12 4l8 6-8 6-8-6z" stroke="#10B981" strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M12 10l4 3-4 3-4-3z" fill="#10B981" opacity="0.3"/>
+    </svg>
+  );
+}
+
+function KdxLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+      <rect width="24" height="24" rx="6" fill="#F59E0B" opacity="0.15"/>
+      <path d="M7 7l5 5-5 5M13 7h4" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 const WALLET_LOGOS = {
-  kasware: (
-    <img
-      src="https://kasware.xyz/favicon.ico"
-      alt="KasWare"
-      className="h-6 w-6 rounded-md object-contain"
-    />
-  ),
-  kaspium: (
-    <img
-      src="https://kaspium.io/favicon.ico"
-      alt="Kaspium"
-      className="h-6 w-6 rounded-md object-contain"
-    />
-  ),
-  onekey: (
-    <img
-      src="https://onekey.so/favicon.ico"
-      alt="OneKey"
-      className="h-6 w-6 rounded-md object-contain bg-white"
-    />
-  ),
-  tangem: (
-    <img
-      src="https://tangem.com/favicon.ico"
-      alt="Tangem"
-      className="h-6 w-6 rounded-md object-contain"
-    />
-  ),
-  kdx: (
-    <img
-      src="https://kdx.app/favicon.ico"
-      alt="KDX"
-      className="h-6 w-6 rounded-md object-contain"
-    />
-  ),
+  kasware: <KasWareLogo />,
+  kaspium: <KaspiumLogo />,
+  onekey: <OneKeyLogo />,
+  tangem: <TangemLogo />,
+  kdx: <KdxLogo />,
   uri: <Link2 className="h-6 w-6 text-gray-500" />,
 };
 
@@ -47,6 +64,7 @@ export default function WalletButton() {
     address,
     balance,
     connecting,
+    error,
     showModal,
     setShowModal,
     connect,
@@ -55,14 +73,13 @@ export default function WalletButton() {
     network,
   } = useWallet();
 
-  const available = wallets.filter((w) => w.id !== 'uri' && w.detect());
   const detected = wallets.filter((w) => w.detect());
 
   return (
     <>
       {address ? (
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500 font-mono uppercase">{network}</span>
+          <span className="text-xs text-gray-500 font-mono uppercase tracking-wider">{network}</span>
           <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/30">
             <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
             <span className="text-sm font-mono text-kaspa-green">{TRUNC(address)}</span>
@@ -98,25 +115,25 @@ export default function WalletButton() {
               <div>
                 <h3 className="text-xl font-bold text-white">Connect Wallet</h3>
                 <p className="text-xs text-gray-500 mt-1">
-                  Non-custodial connection · Keys never leave your wallet
+                  Non-custodial connection. Keys never leave your wallet.
                 </p>
               </div>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-gray-500 hover:text-white transition-colors text-2xl leading-none"
               >
-                &times;
+                ×
               </button>
             </div>
 
             {error && (
-              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <AlertCircle size={14} />
                 {error}
               </div>
             )}
 
             <div className="space-y-3">
-              {/* Detected wallets */}
               {detected
                 .filter((w) => w.id !== 'uri')
                 .map((w) => (
@@ -140,25 +157,22 @@ export default function WalletButton() {
                   </button>
                 ))}
 
-              {/* Not-detected wallets */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
-                {wallets
-                  .filter((w) => !w.detect() && w.id !== 'uri')
-                  .map((w) => (
-                    <a
-                      key={w.id}
-                      href={w.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.01] border border-white/5 opacity-50 hover:opacity-80 transition-opacity"
-                    >
-                      <div className="shrink-0">{WALLET_LOGOS[w.id] || WALLET_LOGOS.uri}</div>
-                      <span className="text-xs text-gray-500">{w.name}</span>
-                    </a>
-                  ))}
-              </div>
+              {wallets
+                .filter((w) => !w.detect() && w.id !== 'uri')
+                .map((w) => (
+                  <a
+                    key={w.id}
+                    href={w.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.01] border border-white/5 opacity-50 hover:opacity-80 transition-opacity"
+                  >
+                    <div className="shrink-0">{WALLET_LOGOS[w.id] || WALLET_LOGOS.uri}</div>
+                    <span className="text-xs text-gray-500">{w.name}</span>
+                    <span className="ml-auto text-[10px] text-gray-600 border border-gray-700 px-2 py-0.5 rounded-full">Install</span>
+                  </a>
+                ))}
 
-              {/* URI fallback */}
               <button
                 onClick={() => connect('uri')}
                 disabled={connecting}
@@ -167,9 +181,7 @@ export default function WalletButton() {
                 <div className="shrink-0">{WALLET_LOGOS.uri}</div>
                 <div className="text-left flex-1">
                   <p className="text-base font-semibold text-white">Universal Wallet Link</p>
-                  <p className="text-xs text-gray-500">
-                    Opens any Kaspa-compatible wallet via deep-link
-                  </p>
+                  <p className="text-xs text-gray-500">Opens any Kaspa-compatible wallet via deep-link</p>
                 </div>
               </button>
             </div>

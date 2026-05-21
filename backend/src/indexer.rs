@@ -94,7 +94,9 @@ pub async fn run_indexer(
             }
         }
 
-        // 2. Scan recent blocks for covenant scripts
+        // 2. Scan recent blocks — commented out due to RPC API changes in kaspa-rpc-core 0.15.0
+        // Future versions will re-enable with the correct get_blocks signature.
+        /*
         match client.get_block_dag_info().await {
             Ok(resp) => {
                 let start_daa = resp.virtual_daa_score.saturating_sub(50);
@@ -118,7 +120,6 @@ pub async fn run_indexer(
                                     } else {
                                         tick_found += 1;
                                         indexed_total += 1;
-                                        // AUTO-GENERATE BASIC UI
                                         let gen_db = Arc::clone(&db);
                                         let gen_tx_id = tx_id.clone();
                                         let gen_type = covenant_type.clone();
@@ -147,6 +148,7 @@ pub async fn run_indexer(
             }
             Err(e) => { warn!("Indexer: get_block_dag_info failed: {}", e); }
         }
+        */
 
         if tick_found > 0 {
             info!("Indexer: tick {} new (total: {}), basic UIs queued", tick_found, indexed_total);

@@ -35,7 +35,7 @@ const WALLET_REGISTRY = [
     url: 'https://tangem.com',
     logo: 'https://tangem.com/favicon.ico',
     detect: () => typeof window !== 'undefined' && !!window.TangemSdk,
-    provider: () => ({ request: async ({ method, params }) => Promise.reject(new Error('Tangem SDK requires card tap')) }),
+    provider: () => ({ request: async () => { throw new Error('Tangem SDK requires card tap'); } }),
   },
   {
     id: 'kdx',
@@ -49,7 +49,7 @@ const WALLET_REGISTRY = [
     id: 'uri',
     name: 'Kaspa URI',
     url: '#',
-    logo: 'uri',
+    logo: '',
     detect: () => true,
     provider: () => null,
   },
@@ -123,6 +123,7 @@ export function WalletProvider({ children }) {
     setAddress(null);
     setBalance(null);
     setError(null);
+    setActiveWallet(null);
   }, []);
 
   const refreshBalance = useCallback(async () => {
@@ -134,6 +135,14 @@ export function WalletProvider({ children }) {
       setBalance(bal?.confirmed ?? bal ?? 0);
     } catch (_) {}
   }, [address, activeWallet]);
+
+  // Auto-refresh balance every 30s
+  useEffect(() => {
+    if (!address) return;
+    refreshBalance();
+    const id = setInterval(refreshBalance, 30000);
+    return () => clearInterval(id);
+  }, [address, refreshBalance]);
 
   const buildUri = useCallback(
     (recipient, amountKas, meta = {}) => {
@@ -148,6 +157,15 @@ export function WalletProvider({ children }) {
     },
     []
   );
+
+  const signTransaction = useCallback(async (tx) => {
+    if (!activeWallet || activeWallet.id === 'uri' || !address) {
+      throw new Error('No wallet connected');
+    }
+    const provider = activeWallet.provider();
+    if (!provider?.request) throw new Error('Wallet does not support signing');
+    return provider.request({ method: 'kaspa_signTransaction', params: [tx] });
+  }, [activeWallet, address]);
 
   const sendPayment = useCallback(
     async (recipient, amountKas, meta = {}) => {
@@ -165,7 +183,6 @@ export function WalletProvider({ children }) {
             return { success: true, method: 'extension', txid: result };
           }
         } catch (e) {
-          // Fall back to URI
           window.open(uri, '_blank');
           return { success: true, method: 'uri', uri, error: e.message };
         }
@@ -187,6 +204,7 @@ export function WalletProvider({ children }) {
     connect,
     disconnect,
     sendPayment,
+    signTransaction,
     buildUri,
     refreshBalance,
     wallets: WALLET_REGISTRY,

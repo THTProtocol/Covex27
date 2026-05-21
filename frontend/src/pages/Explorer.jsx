@@ -6,19 +6,11 @@ const KAS = (s) => (s / 1e8).toLocaleString(undefined, { minimumFractionDigits: 
 const TRUNC = (s, n = 10) => (s && s.length > n * 2 + 2 ? `${s.slice(0, n)}...${s.slice(-n)}` : s);
 
 const TIER_COLORS = {
-  FREE: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   EXPLORER: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   CREATOR: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   PRO: 'bg-kaspa-gold/10 text-kaspa-gold border-kaspa-gold/20',
   MAX: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-};
-
-const VERIFICATION_BADGE = {
-  FREE: null,
-  EXPLORER: null,
-  CREATOR: 'VERIFIED',
-  PRO: 'VERIFIED',
-  MAX: 'VERIFIED',
+  FREE: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
 };
 
 const CATEGORY_COLORS = {
@@ -54,14 +46,14 @@ export default function Explorer() {
       const totalKas = items.reduce((sum, c) => sum + (c.amount_kaspa || 0), 0);
       setStats({
         total: d.grand_total ?? items.length,
-        active: items.filter((c) => c.amount_kaspa > 0).length,
+        active: items.filter((c) => (c.amount_kaspa || 0) > 0).length,
         totalKas,
       });
-      setLiveStats((p) => ({
+      setLiveStats({
         bps: 10,
         tps: items.length,
         indexed: d.grand_total ?? items.length,
-      }));
+      });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -138,7 +130,7 @@ export default function Explorer() {
           <div>
             <h2 className="text-2xl font-semibold text-white tracking-tight">Covenant Explorer</h2>
             <p className="text-sm text-gray-400 mt-1">
-              {stats.total} total indexed · {stats.active} active · {filtered.length} showing
+              {stats.total} total indexed / {stats.active} active / {filtered.length} showing
             </p>
           </div>
           <button
@@ -187,7 +179,7 @@ export default function Explorer() {
           </div>
         </div>
 
-        {/* Filters row 1: status + tiers */}
+        {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 mb-3">
           {tiers.map((t) => (
             <button
@@ -202,17 +194,15 @@ export default function Explorer() {
               {t === 'all'
                 ? 'All Tiers'
                 : t === 'CREATOR'
-                ? `Creator (100 KAS)`
+                ? 'Creator (100 KAS)'
                 : t === 'PRO'
-                ? `PRO (500 KAS)`
+                ? 'PRO (500 KAS)'
                 : t === 'MAX'
-                ? `MAX (1000 KAS)`
+                ? 'MAX (1000 KAS)'
                 : t}
             </button>
           ))}
         </div>
-
-        {/* Filters row 2: categories */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
           {categories.map((cat) => (
             <button
@@ -264,7 +254,7 @@ export default function Explorer() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/5">
-                    {['Covenant', 'Category', 'Locked KAS', 'Tier', 'Action'].map((h) => (
+                    {['Covenant', 'Category', 'Locked KAS', 'Tier', 'Status', 'Action'].map((h) => (
                       <th
                         key={h}
                         className="px-5 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -275,74 +265,81 @@ export default function Explorer() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {filtered.map((c) => (
-                    <tr key={c.tx_id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center"
-                            style={{
-                              background: `${(CATEGORY_COLORS[c.category] || '#49EACB')}10`,
-                              borderColor: `${CATEGORY_COLORS[c.category] || '#49EACB'}30`,
-                            }}
-                          >
-                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke={CATEGORY_COLORS[c.category] || '#49EACB'} strokeWidth="2" strokeLinecap="round">
-                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                              <circle cx="8.5" cy="8.5" r="1.5" />
-                              <polyline points="21 15 16 10 5 21" />
-                            </svg>
-                          </div>
-                          <div>
-                            <Link
-                              to={`/covenant/${c.tx_id}`}
-                              className="text-kaspa-green font-mono text-xs hover:underline font-medium"
+                  {filtered.map((c) => {
+                    const verified = c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
+                    return (
+                      <tr key={c.tx_id || c.id} className="hover:bg-white/[0.03] transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center"
+                              style={{
+                                background: `${(CATEGORY_COLORS[c.category] || '#49EACB')}10`,
+                                borderColor: `${CATEGORY_COLORS[c.category] || '#49EACB'}30`,
+                              }}
                             >
-                              {c.name || TRUNC(c.tx_id)}
-                            </Link>
-                            {c.description && (
-                              <p className="text-gray-500 text-xs mt-0.5 line-clamp-1">
-                                {c.description}
-                              </p>
-                            )}
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke={CATEGORY_COLORS[c.category] || '#49EACB'} strokeWidth="2" strokeLinecap="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                              </svg>
+                            </div>
+                            <div>
+                              <Link
+                                to={`/covenant/${c.tx_id}`}
+                                className="text-kaspa-green font-mono text-xs hover:underline font-medium"
+                              >
+                                {c.name || TRUNC(c.tx_id)}
+                              </Link>
+                              {c.description && (
+                                <p className="text-gray-500 text-xs mt-0.5 line-clamp-1">
+                                  {c.description}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/5 text-gray-300 border border-white/10">
-                          {c.category || 'General'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 font-mono text-sm text-white tabular-nums">
-                        {c.amount_kaspa?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
-                            TIER_COLORS[c.tier] || TIER_COLORS.FREE
-                          }`}
-                        >
-                          {c.tier || 'FREE'}
-                        </span>
-                        {c.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER' ? (
-                          <span className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            VERIFIED
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/5 text-gray-300 border border-white/10">
+                            {c.category || 'General'}
                           </span>
-                        ) : (
-                          <span className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                            DANGER
+                        </td>
+                        <td className="px-5 py-4 font-mono text-sm text-white tabular-nums">
+                          {(c.amount_kaspa || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
+                              TIER_COLORS[c.tier] || TIER_COLORS.FREE
+                            }`}
+                          >
+                            {c.tier || 'FREE'}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <Link
-                          to={`/covenant/${c.tx_id}`}
-                          className="text-xs font-medium text-gray-400 hover:text-kaspa-green transition-colors"
-                        >
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-5 py-4">
+                          {verified ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                              VERIFIED
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                              UNVERIFIED
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <Link
+                            to={`/covenant/${c.tx_id}`}
+                            className="text-xs font-medium text-gray-400 hover:text-kaspa-green transition-colors"
+                          >
+                            View
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

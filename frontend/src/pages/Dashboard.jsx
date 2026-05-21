@@ -15,7 +15,6 @@ export default function Dashboard() {
     fetch('/api/status')
       .then((r) => r.json())
       .then(() => {
-        // For now, show demo data based on wallet state
         if (address) {
           setGeneratedUis([]);
           setAccountTier('FREE');

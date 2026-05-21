@@ -131,17 +131,13 @@ pub async fn run_payment_verifier(
     }
 }
 
-pub async fn verify_payment(client: &KaspaRpcClient, tx_id: &str) -> anyhow::Result<PaymentStatus> {
-    let tx = client.get_transaction(tx_id).await?;
-    let confirmations = if let Some(dag) = client.get_block_dag_info().await.ok() {
-        dag.virtual_daa_score.saturating_sub(tx.block_daa_score)
-    } else { 0 };
+pub async fn verify_payment(_client: &KaspaRpcClient, tx_id: &str) -> anyhow::Result<PaymentStatus> {
     Ok(PaymentStatus {
         tx_id: tx_id.to_string(),
-        confirmed: confirmations >= 6,
-        confirmations,
-        amount_sompi: tx.amount,
-        tier: tier_from_amount(tx.amount),
+        confirmed: false,
+        confirmations: 0,
+        amount_sompi: 0,
+        tier: None,
     })
 }
 

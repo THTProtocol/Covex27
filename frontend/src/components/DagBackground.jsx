@@ -66,7 +66,7 @@ export default function DagBackground() {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(BG);
-    scene.fog = new THREE.FogExp2(BG, 0.0009);
+    scene.fog = new THREE.FogExp2(BG, 0.0002);
 
     const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 2000);
     camera.position.set(0, 0, 320);

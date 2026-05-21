@@ -22,6 +22,14 @@ const WALLET_REGISTRY = [
     provider: () => window.__kaspium,
   },
   {
+    id: 'kastle',
+    name: 'Kastle',
+    url: 'https://kastle.app',
+    logo: 'https://kastle.app/favicon.ico',
+    detect: () => typeof window !== 'undefined' && !!window.kastle?.kaspa,
+    provider: () => window.kastle?.kaspa,
+  },
+  {
     id: 'onekey',
     name: 'OneKey',
     url: 'https://onekey.so',

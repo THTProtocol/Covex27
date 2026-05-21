@@ -1,18 +1,19 @@
 import React, { useEffect } from 'react';
 import { X, Zap, Globe, Shield, Cpu, FileText, ExternalLink, Code, Layers, Server, BookOpen } from 'lucide-react';
 
-const WhatIsKaspa = ({ isOpen, onClose }) => {
-  // Strictly obey the parent component. If it doesn't say open, stay invisible.
+// FIXED: Changed 'isOpen' to 'open' to match App.jsx perfectly
+const WhatIsKaspa = ({ open, onClose }) => {
+  
   useEffect(() => {
-    if (isOpen) {
+    if (open) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
     return () => { document.body.style.overflow = 'unset'; };
-  }, [isOpen]);
+  }, [open]);
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[99999] bg-[#0a0a0a] overflow-y-auto w-full h-full animate-in fade-in duration-300">

@@ -1,7 +1,6 @@
 use crate::db;
-use crate::covenant_types::{CovenantCategory, CovenantRecord};
+use crate::covenant_types::CovenantCategory;
 use kaspa_addresses::Address;
-use kaspa_consensus_core::tx::ScriptPublicKey;
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;

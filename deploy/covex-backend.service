@@ -1,0 +1,30 @@
+[Unit]
+Description=Covex Backend - Kaspa Covenant Indexer API
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/home/deploy/Covex27/backend
+EnvironmentFile=/home/deploy/Covex27/.env
+ExecStart=/home/deploy/Covex27/backend/target/release/covex27-backend
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=covex-backend
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/home/deploy/Covex27
+ReadOnlyPaths=/etc/ssl/certs
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

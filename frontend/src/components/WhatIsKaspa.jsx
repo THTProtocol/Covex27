@@ -1,143 +1,183 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { X, Zap, Globe, Shield, Cpu, FileText, ExternalLink, Code, Layers, Server, BookOpen } from 'lucide-react';
 
-const FEATURES = [
-  ['10 BPS', '10 blocks per second on mainnet since Rust rewrite (2024).'],
-  ['BlockDAG', 'Parallel blocks coexist via GHOSTDAG. No orphaned work.'],
-  ['GHOSTDAG', 'Proven consensus: Greedy Heaviest Observed Sub-Tree DAG.'],
-  ['DAGKNIGHT', 'Next-gen protocol targeting 100+ BPS without sacrificing security.'],
-  ['kHeavyHash', 'ASIC-resistant Proof-of-Work, optical-miner friendly.'],
-  ['UTXO Model', 'Bitcoin-compatible UTXO model with native covenants via Toccata.'],
-  ['Rust Node', 'Full node rewritten in Rust (2024). Memory-safe, high-performance.'],
-  ['Open Source', 'ISC License. No premine. Fair launch.'],
-];
-
-const PAPERS = [
-  ['GHOSTDAG Protocol', 'Sompolinsky et al., 2018', 'https://eprint.iacr.org/2018/104.pdf'],
-  ['DAGKNIGHT Protocol', 'Sompolinsky, Wyborski & Zohar, 2021', 'https://eprint.iacr.org/2021/911'],
-  ['Kaspa Whitepaper', 'Kaspa Research, 2023', 'https://kaspa.org/wp-content/uploads/2023/04/Kaspa-Whitepaper.pdf'],
-  ['Toccata Hardfork', 'Kaspa Improvement Proposal', 'https://medium.com/@michaelsuttonil/kaspa-covenants-toccata-hard-fork-outlook-a4d81a40900c'],
-  ['Rusty Kaspa', 'Michael Sutton et al., 2024', 'https://kaspa.org/rusty-kaspa/'],
-];
-
-export default function WhatIsKaspa({ open, onClose }) {
+const WhatIsKaspa = ({ isOpen, onClose }) => {
+  // Strictly obey the parent component. If it doesn't say open, stay invisible.
   useEffect(() => {
-    if (open) {
-      const p = document.body.style.overflow;
+    if (isOpen) {
       document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = p; };
+    } else {
+      document.body.style.overflow = 'unset';
     }
-  }, [open]);
-  if (!open) return null;
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div
-        className="relative z-10 w-full max-w-xl h-full ml-auto overflow-y-auto bg-[#0B0B10] border-l border-white/10 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-20 bg-[#0B0B10]/95 backdrop-blur-md border-b border-white/10 px-8 py-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">Understanding Kaspa</h2>
-            <p className="text-xs text-gray-500 mt-1">Technical reference with citations</p>
+    <div className="fixed inset-0 z-[99999] bg-[#0a0a0a] overflow-y-auto w-full h-full animate-in fade-in duration-300">
+      
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-50 flex justify-between items-center p-6 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#1f1f1f]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-[#49EACB]/10 flex items-center justify-center border border-[#49EACB]/30">
+            <Globe size={18} className="text-[#49EACB]" />
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <h2 className="text-xl font-bold text-white tracking-wide">Understanding Kaspa</h2>
+        </div>
+        <button 
+          onClick={onClose} 
+          className="p-2 bg-[#111111] border border-[#1f1f1f] rounded-lg text-gray-400 hover:text-white hover:border-[#49EACB] transition-all"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Main Content Container */}
+      <div className="max-w-6xl mx-auto px-6 py-12 space-y-16 pb-24">
+        
+        {/* Hero Section */}
+        <div className="text-center max-w-3xl mx-auto space-y-6">
+          <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
+            The Fastest, Open-Source, <br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#49EACB] to-[#3bc2a6]">Decentralized Layer-1</span>
+          </h1>
+          <p className="text-lg text-gray-400 leading-relaxed">
+            Kaspa is a revolutionary BlockDAG that fundamentally solves the blockchain trilemma. 
+            Instead of discarding parallel blocks as "orphans," Kaspa incorporates them all into the consensus, 
+            enabling unprecedented transaction speeds without sacrificing security or decentralization.
+          </p>
         </div>
 
-        <div className="p-8 space-y-10">
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">What is Kaspa?</h3>
-            <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-              <p>
-                Kaspa is a decentralized, open-source Layer-1 BlockDAG. Instead of a single chain, the BlockDAG allows multiple blocks to be created and processed concurrently, with no orphaned work.
+        {/* Core Architecture Grid */}
+        <div className="space-y-6">
+          <h3 className="text-2xl font-semibold text-white flex items-center gap-2">
+            <Layers size={24} className="text-[#49EACB]" /> Core Architecture
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#49EACB]/5 rounded-bl-full -z-10 group-hover:bg-[#49EACB]/10 transition-colors" />
+              <Zap size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <h4 className="text-lg font-bold text-white mb-2">10 Blocks Per Second</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Running at 10 BPS on mainnet since the Rust rewrite, making it the fastest Proof-of-Work network on earth. Transactions settle almost instantly.
               </p>
-              <p>
-                Kaspa operates at <strong className="text-white">10 blocks per second (10 BPS)</strong> on mainnet, achieved through the Rust rewrite in 2024. It uses the <strong className="text-white">GHOSTDAG protocol</strong> to order parallel blocks. The next-generation <strong className="text-white">DAGKNIGHT protocol</strong> targets 100+ BPS.
-              </p>
-              <div className="p-4 rounded-xl bg-kaspa-green/[0.04] border border-kaspa-green/20 text-xs text-gray-400">
-                <span className="text-kaspa-green font-semibold">Toccata Hardfork</span>: Native UTXO covenants via SilverScript. Live on TN12 testnet. Mainnet activation expected June 2026.
-              </div>
             </div>
-          </section>
 
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">Technical Specifications</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {FEATURES.map(([l, d]) => (
-                <div key={l} className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                  <p className="text-sm font-semibold text-white">{l}</p>
-                  <p className="text-xs text-gray-500 mt-1">{d}</p>
+            <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#49EACB]/5 rounded-bl-full -z-10 group-hover:bg-[#49EACB]/10 transition-colors" />
+              <Globe size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <h4 className="text-lg font-bold text-white mb-2">BlockDAG Engine</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Blocks are not a single chain. Multiple blocks are created concurrently and ordered mathematically via the GHOSTDAG consensus protocol.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#49EACB]/5 rounded-bl-full -z-10 group-hover:bg-[#49EACB]/10 transition-colors" />
+              <Shield size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <h4 className="text-lg font-bold text-white mb-2">Nakamoto Consensus</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Kaspa retains the exact security assumptions of Bitcoin. No pre-mine, no ICO, 100% fair launched, and purely decentralized.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#49EACB]/5 rounded-bl-full -z-10 group-hover:bg-[#49EACB]/10 transition-colors" />
+              <Server size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <h4 className="text-lg font-bold text-white mb-2">kHeavyHash PoW</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                An ASIC-resistant, optical-miner friendly algorithm that secures the network efficiently while preventing centralized mining dominance.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#49EACB]/5 rounded-bl-full -z-10 group-hover:bg-[#49EACB]/10 transition-colors" />
+              <Code size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <h4 className="text-lg font-bold text-white mb-2">Native Covenants</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Introduced in the Toccata hardfork via SilverScript. Enables stateless smart contracts and programmable UTXOs directly on Layer-1.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#49EACB]/5 rounded-bl-full -z-10 group-hover:bg-[#49EACB]/10 transition-colors" />
+              <Cpu size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <h4 className="text-lg font-bold text-white mb-2">DAGKNIGHT</h4>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                The next evolutionary step in Kaspa's consensus mechanism, targeting 100+ BPS by automatically adapting to network latency in real-time.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Whitepapers & Research */}
+        <div className="space-y-6">
+          <h3 className="text-2xl font-semibold text-white flex items-center gap-2">
+            <BookOpen size={24} className="text-[#49EACB]" /> Research Library
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <a href="https://eprint.iacr.org/2018/104.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB] transition-colors">
+                  <FileText size={20} />
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">Whitepapers and Research</h3>
-            <div className="space-y-2">
-              {PAPERS.map(([t, a, u]) => (
-                <a
-                  key={t}
-                  href={u}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors"
-                >
-                  <p className="text-sm font-medium text-white">{t}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{a}</p>
-                </a>
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">What is a Covenant?</h3>
-            <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-              <p>
-                A <strong className="text-white">covenant</strong> is a programmable spending condition on a UTXO. It restricts how funds can be spent in future transactions, enabling trust-minimized protocols directly on Kaspa.
-              </p>
-              <p>
-                Kaspa introduced native covenants through the <strong className="text-white">Toccata hardfork</strong>. They are written in <strong className="text-white">SilverScript</strong>, a domain-specific language that compiles to Kaspa bytecode.
-              </p>
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">How Covex Helps</h3>
-            <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-              <p>
-                Covex is a <strong className="text-white">stateful covenant indexer and SaaS platform</strong>. It connects directly to your Kaspa node via wRPC WebSocket, with no intermediary or proxy.
-              </p>
-              <ul className="list-disc list-inside space-y-1.5 text-gray-400">
-                <li>Indexes covenant UTXOs from the BlockDAG in real time into SQLite</li>
-                <li>Provides a searchable registry of all deployed covenant types</li>
-                <li>Covenant authors pay a one-time KAS fee for an interactive UI and visibility</li>
-                <li>All covenants are visible publicly; tiers add UI generation and visibility</li>
-              </ul>
-              <div className="p-4 rounded-xl bg-kaspa-green/[0.04] border border-kaspa-green/20 text-xs text-gray-400">
-                <span className="text-kaspa-green font-semibold">Direct connection. No proxy.</span> Covex connects to your Kaspa node via wRPC WebSocket. Chain is the truth. Covex is the window.
+                <div>
+                  <h4 className="text-white font-medium">PHANTOM & GHOSTDAG</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">A Scalable Generalization of Nakamoto Consensus</p>
+                </div>
               </div>
-            </div>
-          </section>
+              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+            </a>
 
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">Wallet Ecosystem</h3>
-            <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-              <p>
-                Covex supports non-custodial connections to KasWare, Kaspium, Kastle, and Kaspa Web Wallet. All signing happens in your wallet; Covex never touches your keys.
-              </p>
-              <p>
-                <a href="https://kaspa.org/build" target="_blank" rel="noopener noreferrer" className="text-kaspa-green hover:underline">Kaspa Developer Build Page</a>, Official WASM SDK and node access.
-              </p>
-            </div>
-          </section>
+            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB] transition-colors">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">DAGKNIGHT Protocol</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Parameterless Generalization of Nakamoto Consensus</p>
+                </div>
+              </div>
+              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+            </a>
+
+            <a href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB] transition-colors">
+                  <Code size={20} />
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">Toccata Covenants</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">SilverScript Smart Contract Architecture</p>
+                </div>
+              </div>
+              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+            </a>
+
+            <a href="https://github.com/kaspanet/rusty-kaspa" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB] transition-colors">
+                  <Cpu size={20} />
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">Rusty Kaspa</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">High-Performance Rust Node Implementation</p>
+                </div>
+              </div>
+              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+            </a>
+
+          </div>
         </div>
+
       </div>
     </div>
   );
-}
+};
+
+export default WhatIsKaspa;

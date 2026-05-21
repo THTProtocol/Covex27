@@ -131,7 +131,7 @@ function KaspaPromo() {
 
       {/* Main Headline */}
       <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-6 max-w-4xl mx-auto leading-[1.1]">
-        Smart Contracts for <br className="hidden md:block"/>
+        Interactive Covenants for <br className="hidden md:block"/>
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#49EACB] to-white">The Kaspa BlockDAG</span>
       </h2>
 

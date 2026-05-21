@@ -150,30 +150,6 @@ curl -X POST http://localhost:3001/api/compile \
 
 <br/>
 
-## 📸 Screenshots
-
-<div align="center">
-  
-  *Dashboard View*
-  
-  ![Dashboard](https://raw.githubusercontent.com/THTProtocol/Covex27/master/screenshots/dashboard.png)
-  
-  *Covenant Explorer*
-  
-  ![Explorer](https://raw.githubusercontent.com/THTProtocol/Covex27/master/screenshots/explorer.png)
-  
-  *UI Builder*
-  
-  ![UI Builder](https://raw.githubusercontent.com/THTProtocol/Covex27/master/screenshots/ui-builder.png)
-  
-  *Wallet Connect*
-  
-  ![Wallet](https://raw.githubusercontent.com/THTProtocol/Covex27/master/screenshots/wallet-connect.png)
-  
-</div>
-
-<br/>
-
 ## 🏗️ Architecture
 
 ```
@@ -234,33 +210,14 @@ All covenants appear in the public registry. Paid tiers add interactive UI panel
 
 <br/>
 
-## 🛠 Tech Stack
-
-| Layer | Technology | Purpose |
-|---|---|---|
-| DAG Indexer | kaspa-wrpc-client v0.15.0 | Polls node for covenant UTXOs |
-| Storage | rusqlite v0.31 (bundled) | Durable on-disk covenant store |
-| API Server | axum 0.7 + tower-http | REST endpoints on :3001 |
-| Compiler | silverc binary | Compile .sil to bytecode |
-| Frontend | React 19 + Vite + Tailwind v4 | Glassmorphism UI |
-| Background | Three.js | Live BlockDAG visualization |
-
-<br/>
-
-## 💰 Pricing
-
-| Tier | Price | Includes |
-|---|---|---|
-| Explorer | Free | Browse, search, read-only covenant view |
-| Creator | 100 KAS | Interactive UI generation + standard listing |
-| PRO | 500 KAS | Featured + higher ranking + advanced UI tools |
-| MAX | 1,000 KAS | Top placement + full UI design suite + custom branding |
-
-All covenants appear in the public registry. Paid tiers add interactive UI panels and increased visibility. One-time payment, permanent listing.
-
-<br/>
-
 ## 🔐 Security
+
+- **No admin keys:** COVEX holds no privileged keys over any covenant.
+- **No custody:** All KAS is held in UTXO covenant scripts on-chain.
+- **Immutable covenants:** SilverScript covenant scripts are final the moment they hit the chain.
+- **Non-custodial platform:** COVEX never stores or has access to private keys. All signing happens in your wallet.
+
+<br/>
 
 - **No admin keys:** COVEX holds no privileged keys over any covenant.
 - **No custody:** All KAS is held in UTXO covenant scripts on-chain.

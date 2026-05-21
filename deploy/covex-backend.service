@@ -1,30 +1,22 @@
 [Unit]
-Description=Covex Backend - Kaspa Covenant Indexer API
+Description=Covex27 Backend - Rust Kaspa Covenant Explorer API
 After=network.target
 
 [Service]
 Type=simple
-User=deploy
-WorkingDirectory=/home/deploy/Covex27/backend
-EnvironmentFile=/home/deploy/Covex27/.env
-ExecStart=/home/deploy/Covex27/backend/target/release/covex27-backend
+User=kasparov
+WorkingDirectory=/home/kasparov/Covex27
+Environment="KASPA_NETWORK=testnet-12"
+Environment="KASPA_WRPC_URL=ws://178.105.76.81:17110"
+Environment="BIND_ADDR=0.0.0.0:3001"
+Environment="DB_PATH=/home/kasparov/Covex27/covex.db"
+Environment="COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
+Environment="RUST_LOG=covex27_backend=debug,kaspa_wrpc=info"
+ExecStart=/home/kasparov/Covex27/backend/target/release/covex27-backend
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=covex-backend
-
-# Security hardening
-NoNewPrivileges=yes
-PrivateTmp=yes
-ProtectSystem=strict
-ProtectHome=yes
-ReadWritePaths=/home/deploy/Covex27
-ReadOnlyPaths=/etc/ssl/certs
-
-# Resource limits
-LimitNOFILE=65536
-LimitNPROC=4096
 
 [Install]
 WantedBy=multi-user.target

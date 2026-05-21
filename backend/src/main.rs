@@ -26,10 +26,11 @@ mod payment_verifier;
 mod ui_generator;
 
 struct AppState {
-    client: Arc<KaspaRpcClient>,
+    client: Arc<std::sync::Mutex<Option<Arc<KaspaRpcClient>>>>,
     network: NetworkId,
     db: Arc<Mutex<rusqlite::Connection>>,
     treasury_address: String,
+    w_rpc_url: String,
 }
 
 #[derive(Serialize)]
@@ -171,12 +172,30 @@ fn compute_script_hash(script_hex: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+async fn root_handler() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "app": "Covex27",
+        "version": "1.0.0",
+        "description": "Kaspa Covenant Explorer - Rust Backend",
+        "endpoints": {
+            "/": "this info",
+            "/health": "basic health check",
+            "/status": "node connection + DB stats",
+            "/covenants": "list all covenants"
+        }
+    }))
+}
+
 async fn health_handler() -> &'static str { "OK" }
 
 async fn status_handler(State(state): State<Arc<AppState>>) -> Result<Json<StatusResponse>, StatusCode> {
-    let connected = state.client.is_connected();
-    let (tip_hash, tip_daa_score) = if connected {
-        match state.client.get_block_dag_info().await {
+    let rpc: Option<Arc<KaspaRpcClient>> = {
+        let guard = state.client.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        guard.clone()
+    };
+    let connected = rpc.as_ref().map(|c| c.is_connected()).unwrap_or(false);
+    let (tip_hash, tip_daa_score) = if let Some(ref c) = rpc {
+        match c.get_block_dag_info().await {
             Ok(resp) => (
                 resp.virtual_parent_hashes.first().map(|h| h.to_string()),
                 Some(resp.virtual_daa_score),
@@ -195,7 +214,7 @@ async fn status_handler(State(state): State<Arc<AppState>>) -> Result<Json<Statu
         connected,
         network: env_or("KASPA_NETWORK", "testnet-12"),
         network_id: state.network.network_type as u8,
-        w_rpc_url: env_or("KASPA_WRPC_URL", "ws://127.0.0.1:17110"),
+        w_rpc_url: state.w_rpc_url.clone(),
         tip_hash,
         tip_daa_score,
         total_covenants,
@@ -552,15 +571,25 @@ async fn payment_verify_handler(
     State(state): State<Arc<AppState>>,
     query: Query<PaymentVerifyQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.client.is_connected() {
-        return Err((
+    let rpc_client = {
+        let guard = state.client.lock().map_err(|_| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: "Lock error".into() }))
+        })?;
+        match guard.as_ref() {
+            Some(c) if c.is_connected() => Some(c.clone()),
+            _ => None,
+        }
+    };
+    let rpc_client = match rpc_client {
+        Some(c) => c,
+        None => return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             Json(ErrorResponse {
                 error: "wRPC node not connected".into(),
             }),
-        ));
-    }
-    match payment_verifier::verify_payment(&state.client, &query.tx_id).await {
+        )),
+    };
+    match payment_verifier::verify_payment(&rpc_client, &query.tx_id).await {
         Ok(status) => Ok(Json(serde_json::json!({
             "tx_id": status.tx_id,
             "confirmed": status.confirmed,
@@ -611,31 +640,34 @@ async fn main() -> Result<()> {
     let db = Arc::new(db::open_db(&db_path)?);
     info!("Database opened at {db_path}");
 
-    info!("Connecting to Kaspa wRPC node...");
-    let client = Arc::new(
-        KaspaRpcClient::new_with_args(WrpcEncoding::Borsh, Some(&w_rpc_url), None, None, None)
-            .context("Failed to create KaspaRpcClient")?,
-    );
-    client
-        .connect(None)
-        .await
-        .context("Failed to connect to wRPC node")?;
-    info!("Connected to wRPC node");
-
-    // Spawn indexer
-    let indexer_db = Arc::clone(&db);
-    let indexer_client = Arc::clone(&client);
-    let indexer_seeds = covenant_seeds.clone();
+    // Try wRPC connection in background - don't block server startup
+    let client: Arc<Mutex<Option<Arc<KaspaRpcClient>>>> = Arc::new(Mutex::new(None));
+    let w_rpc_url_clone = w_rpc_url.clone();
+    let db_clone = Arc::clone(&db);
+    let seeds_clone = covenant_seeds.clone();
+    let treasury_addr_clone = treasury_address.clone();
+    let client_clone = Arc::clone(&client);
     tokio::spawn(async move {
-        indexer::run_indexer(indexer_client, indexer_db, indexer_seeds).await;
-    });
-
-    // Spawn payment verifier
-    let payment_db = Arc::clone(&db);
-    let payment_client = Arc::clone(&client);
-    let payment_treasury = treasury_address.clone();
-    tokio::spawn(async move {
-        payment_verifier::run_payment_verifier(payment_client, payment_db, payment_treasury).await;
+        info!("[wRPC] Attempting connection to {w_rpc_url_clone} in background...");
+        match KaspaRpcClient::new_with_args(WrpcEncoding::Borsh, Some(&w_rpc_url_clone), None, None, None) {
+            Ok(rpc_client) => {
+                match rpc_client.connect(None).await {
+                    Ok(_) => {
+                        info!("[wRPC] Connected!");
+                        let rpc = Arc::new(rpc_client);
+                        *client_clone.lock().unwrap() = Some(rpc.clone());
+                        let idx_client = rpc.clone();
+                        let idx_db = Arc::clone(&db_clone);
+                        tokio::spawn(async move { indexer::run_indexer(idx_client, idx_db, seeds_clone).await; });
+                        let pay_client = rpc.clone();
+                        let pay_db = Arc::clone(&db_clone);
+                        tokio::spawn(async move { payment_verifier::run_payment_verifier(pay_client, pay_db, treasury_addr_clone).await; });
+                    }
+                    Err(e) => error!("[wRPC] Connection failed: {e} - running without node"),
+                }
+            }
+            Err(e) => error!("[wRPC] Client creation failed: {e} - running without node"),
+        }
     });
 
     let state = Arc::new(AppState {
@@ -643,6 +675,7 @@ async fn main() -> Result<()> {
         network,
         db,
         treasury_address,
+        w_rpc_url,
     });
 
     let cors = CorsLayer::new()
@@ -651,6 +684,10 @@ async fn main() -> Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
+        .route("/", get(root_handler))
+        .route("/health", get(health_handler))
+        .route("/status", get(status_handler))
+        .route("/covenants", get(covenants_handler))
         .route("/api/health", get(health_handler))
         .route("/api/status", get(status_handler))
         .route("/api/utxos", get(utxos_handler))

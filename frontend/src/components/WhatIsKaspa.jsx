@@ -129,7 +129,7 @@ export default function WhatIsKaspa({ open, onClose }) {
             <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">Wallet Ecosystem</h3>
             <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
               <p>
-                Covex supports non-custodial connections to KasWare, Kaspium, OneKey, Tangem, and KDX wallets. All signing happens in your wallet; Covex never touches your keys.
+                Covex supports non-custodial connections to KasWare, Kaspium, Kastle, and Kaspa Web Wallet. All signing happens in your wallet; Covex never touches your keys.
               </p>
               <p>
                 <a href="https://kaspa.org/build" target="_blank" rel="noopener noreferrer" className="text-kaspa-green hover:underline">Kaspa Developer Build Page</a>, Official WASM SDK and node access.

@@ -2,29 +2,28 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
 const BG = '#07080D';
-const NODE_TEAL = '#49EACB';
-const NODE_GOLD = '#E8AF34';
+const TEAL = '#49EACB';
+const GOLD = '#E8AF34';
+const BLUE = '#3B82F6';
 
 function createBlockDAG() {
   const nodes = [];
   let id = 0;
-  const depthLayers = 6;
-  const nodesPerLayer = 28;
+  const depthLayers = 8;
+  const nodesPerLayer = 24;
 
-  // Create concentric layers
   for (let layer = 0; layer < depthLayers; layer++) {
-    const radius = 30 + layer * 50;
-    const count = nodesPerLayer - layer * 2;
+    const radius = 25 + layer * 45;
+    const count = nodesPerLayer - layer;
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + layer * 0.4;
-      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 18;
-      const y = Math.sin(angle) * radius * 0.55 + (Math.random() - 0.5) * 14;
-      const z = (layer - depthLayers / 2) * 30 + (Math.random() - 0.5) * 20;
+      const angle = (i / count) * Math.PI * 2 + layer * 0.35;
+      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 16;
+      const y = Math.sin(angle) * radius * 0.5 + (Math.random() - 0.5) * 12;
+      const z = (layer - depthLayers / 2) * 28 + (Math.random() - 0.5) * 18;
       nodes.push({
         id: id++,
         layer,
         x, y, z,
-        original: { x, y, z },
         angle,
         isChain: false,
         isTip: false,
@@ -32,35 +31,31 @@ function createBlockDAG() {
     }
   }
 
-  // Build edges: each node connects to 1-3 nodes in the next outer layer
+  // Build forward edges: each node connects to 1-3 nearest nodes in next layer
   for (const n of nodes) {
     if (n.layer >= depthLayers - 1) continue;
     const outer = nodes.filter((x) => x.layer === n.layer + 1);
-    const closest = outer
-      .sort((a, b) => {
-        const da = Math.abs(a.angle - n.angle);
-        const db = Math.abs(b.angle - n.angle);
-        return da - db;
-      })
-      .slice(0, 2 + Math.floor(Math.random() * 2));
-    closest.forEach((c) => {
-      if (!n.edges) n.edges = [];
-      n.edges.push(c);
+    const sorted = [...outer].sort((a, b) => {
+      const da = Math.min(Math.abs(a.angle - n.angle), Math.PI * 2 - Math.abs(a.angle - n.angle));
+      const db = Math.min(Math.abs(b.angle - n.angle), Math.PI * 2 - Math.abs(b.angle - n.angle));
+      return da - db;
     });
+    const edgeCount = 2 + Math.floor(Math.random() * 2);
+    n.edges = sorted.slice(0, Math.min(edgeCount, sorted.length));
   }
 
-  // Mark consensus chain (longest path)
+  // Mark consensus chain (greedy heaviest sub-tree)
   let current = nodes[0];
   current.isChain = true;
   while (current && current.layer < depthLayers - 1) {
-    const candidates = current.edges || [];
-    if (!candidates.length) break;
-    const next = candidates[Math.floor(Math.random() * candidates.length)];
+    const targets = current.edges || [];
+    if (!targets.length) break;
+    const next = targets[0];
     next.isChain = true;
     current = next;
   }
 
-  // Mark tip nodes
+  // Mark all nodes in last layer as tips
   nodes.filter((n) => n.layer >= depthLayers - 1).forEach((n) => { n.isTip = true; });
 
   return nodes;
@@ -85,10 +80,11 @@ export default function DagBackground() {
     try {
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(BG);
-      scene.fog = new THREE.FogExp2(BG, 0.00025);
+      scene.fog = new THREE.FogExp2(BG, 0.0002);
 
-      const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
-      camera.position.set(0, -10, 200);
+      const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 1, 2000);
+      camera.position.set(0, -15, 220);
+      camera.lookAt(0, 0, 0);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -97,52 +93,65 @@ export default function DagBackground() {
 
       const nodes = createBlockDAG();
 
-      // Node materials
-      const tealMat = new THREE.MeshBasicMaterial({ color: NODE_TEAL, transparent: true, opacity: 0.25 });
-      const goldMat = new THREE.MeshBasicMaterial({ color: NODE_GOLD, transparent: true, opacity: 0.7 });
-      const chainGlow = new THREE.MeshBasicMaterial({ color: NODE_TEAL, transparent: true, opacity: 0.10 });
-      const tipGlow = new THREE.MeshBasicMaterial({ color: NODE_GOLD, transparent: true, opacity: 0.12 });
-
       const nodeGroup = new THREE.Group();
       const nodeData = [];
+      const chainEdges = [];
 
       nodes.forEach((n) => {
-        const radius = n.isChain ? 3.2 : n.isTip ? 2.4 : 1.5;
-        const geo = new THREE.SphereGeometry(radius, 16, 16);
-        const mat = n.isChain ? chainGlow : n.isTip ? goldMat : tealMat;
-        const mesh = new THREE.Mesh(geo, mat.clone());
+        const baseRadius = n.isChain ? 3.0 : n.isTip ? 2.2 : 1.3;
+        const geo = new THREE.SphereGeometry(baseRadius, 18, 18);
+
+        // Regular nodes: subtle teal glow
+        const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+          color: TEAL, transparent: true, opacity: n.isChain ? 0.9 : n.isTip ? 0.65 : 0.2
+        }));
         mesh.position.set(n.x, n.y, n.z);
         nodeGroup.add(mesh);
         nodeData.push({ mesh, node: n });
 
-        // Outer glow ring for chain nodes
+        // Chain nodes get dramatic glow
         if (n.isChain) {
-          const glowGeo = new THREE.SphereGeometry(radius * 3.5, 10, 10);
-          const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color: NODE_TEAL, transparent: true, opacity: 0.06 }));
-          glow.position.copy(mesh.position);
-          nodeGroup.add(glow);
-          n._glow = glow;
+          // Inner glow
+          const innerGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(baseRadius * 2.5, 12, 12),
+            new THREE.MeshBasicMaterial({ color: TEAL, transparent: true, opacity: 0.15 })
+          );
+          innerGlow.position.copy(mesh.position);
+          nodeGroup.add(innerGlow);
+          n._innerGlow = innerGlow;
 
-          const ringGeo = new THREE.RingGeometry(radius * 4, radius * 4.5, 32);
-          const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: NODE_TEAL, transparent: true, opacity: 0.05, side: THREE.DoubleSide }));
+          // Middle glow
+          const midGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(baseRadius * 4.5, 10, 10),
+            new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.06 })
+          );
+          midGlow.position.copy(mesh.position);
+          nodeGroup.add(midGlow);
+          n._midGlow = midGlow;
+
+          // Outer ring
+          const ringGeo = new THREE.RingGeometry(baseRadius * 5, baseRadius * 5.8, 40);
+          const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+            color: TEAL, transparent: true, opacity: 0.08, side: THREE.DoubleSide
+          }));
           ring.position.copy(mesh.position);
           nodeGroup.add(ring);
           n._ring = ring;
         }
 
         if (n.isTip) {
-          const tGlow = new THREE.Mesh(
-            new THREE.SphereGeometry(6, 10, 10),
-            tipGlow.clone()
+          const tipGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(baseRadius * 4, 8, 8),
+            new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.15 })
           );
-          tGlow.position.copy(mesh.position);
-          nodeGroup.add(tGlow);
-          n._tGlow = tGlow;
+          tipGlow.position.copy(mesh.position);
+          nodeGroup.add(tipGlow);
+          n._tipGlow = tipGlow;
         }
       });
       scene.add(nodeGroup);
 
-      // Edges
+      // Draw edges
       nodes.forEach((n) => {
         if (!n.edges) return;
         n.edges.forEach((target) => {
@@ -153,27 +162,41 @@ export default function DagBackground() {
           ];
           const geo = new THREE.BufferGeometry().setFromPoints(points);
           const mat = new THREE.LineBasicMaterial({
-            color: isChainEdge ? NODE_TEAL : 0x0e2a25,
+            color: isChainEdge ? new THREE.Color(TEAL) : new THREE.Color(0x0d1f1a),
             transparent: true,
-            opacity: isChainEdge ? 0.22 : 0.04,
+            opacity: isChainEdge ? 0.35 : 0.03,
+            linewidth: 1,
           });
           const line = new THREE.Line(geo, mat);
           scene.add(line);
+
+          // Chain edges get a glow tube
           if (isChainEdge) {
-            (n._edges || (n._edges = [])).push({ line, target });
+            const midPoint = new THREE.Vector3().addVectors(
+              new THREE.Vector3(n.x, n.y, n.z),
+              new THREE.Vector3(target.x, target.y, target.z)
+            ).multiplyScalar(0.5);
+            const glowGeo = new THREE.SphereGeometry(1.8, 8, 8);
+            const glowMesh = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
+              color: TEAL, transparent: true, opacity: 0.08
+            }));
+            glowMesh.position.copy(midPoint);
+            nodeGroup.add(glowMesh);
+            chainEdges.push({ line, glow: glowMesh, from: points[0], to: points[1], mid: midPoint });
           }
         });
       });
 
-      // Flow particles along chain edges
+      // Flow particles along chain
       const flowParticles = [];
       const chainNodes = nodes.filter((n) => n.isChain && n.edges);
       chainNodes.forEach((n) => {
         n.edges.forEach((target) => {
           if (!target.isChain) return;
-          for (let i = 0; i < 2; i++) {
-            const geo = new THREE.SphereGeometry(0.5, 6, 6);
-            const mat = new THREE.MeshBasicMaterial({ color: NODE_GOLD, transparent: true, opacity: 0.8 });
+          const count = 3;
+          for (let i = 0; i < count; i++) {
+            const geo = new THREE.SphereGeometry(0.55, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.9 });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.position.copy(new THREE.Vector3(n.x, n.y, n.z));
             scene.add(mesh);
@@ -181,61 +204,53 @@ export default function DagBackground() {
               mesh,
               from: new THREE.Vector3(n.x, n.y, n.z),
               to: new THREE.Vector3(target.x, target.y, target.z),
-              progress: Math.random(),
-              speed: 0.004 + Math.random() * 0.006,
+              progress: i / count,
+              speed: 0.005 + Math.random() * 0.004,
             });
           }
         });
       });
 
-      // Background particle field
-      const pCount = 600;
-      const pPos = new Float32Array(pCount * 3);
-      for (let i = 0; i < pCount; i++) {
-        pPos[i * 3] = (Math.random() - 0.5) * 900;
-        pPos[i * 3 + 1] = (Math.random() - 0.5) * 600;
-        pPos[i * 3 + 2] = (Math.random() - 0.5) * 400;
+      // Background teal particles
+      const bgCount = 800;
+      const bgPos = new Float32Array(bgCount * 3);
+      for (let i = 0; i < bgCount; i++) {
+        bgPos[i * 3] = (Math.random() - 0.5) * 1000;
+        bgPos[i * 3 + 1] = (Math.random() - 0.5) * 650;
+        bgPos[i * 3 + 2] = (Math.random() - 0.5) * 450;
       }
-      const pGeo = new THREE.BufferGeometry();
-      pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-      const pMat = new THREE.PointsMaterial({
-        color: NODE_TEAL,
-        size: 0.9,
-        transparent: true,
-        opacity: 0.12,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      const particles = new THREE.Points(pGeo, pMat);
-      scene.add(particles);
+      const bgGeo = new THREE.BufferGeometry();
+      bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+      const bgParticles = new THREE.Points(bgGeo, new THREE.PointsMaterial({
+        color: TEAL, size: 0.7, transparent: true, opacity: 0.1,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      scene.add(bgParticles);
 
-      // Ambient star particles (gold)
-      const sCount = 120;
-      const sPos = new Float32Array(sCount * 3);
-      for (let i = 0; i < sCount; i++) {
-        sPos[i * 3] = (Math.random() - 0.5) * 1000;
-        sPos[i * 3 + 1] = (Math.random() - 0.5) * 700;
-        sPos[i * 3 + 2] = (Math.random() - 0.5) * 500;
+      // Gold ambient stars
+      const starCount = 160;
+      const starPos = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount; i++) {
+        starPos[i * 3] = (Math.random() - 0.5) * 1100;
+        starPos[i * 3 + 1] = (Math.random() - 0.5) * 750;
+        starPos[i * 3 + 2] = (Math.random() - 0.5) * 550;
       }
-      const sGeo = new THREE.BufferGeometry();
-      sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
-      const sMat = new THREE.PointsMaterial({
-        color: NODE_GOLD,
-        size: 1.2,
-        transparent: true,
-        opacity: 0.08,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      const stars = new THREE.Points(sGeo, sMat);
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+        color: GOLD, size: 1.0, transparent: true, opacity: 0.06,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
       scene.add(stars);
 
-      let mx = 0, my = 0;
+      // Mouse parallax
+      let mx = 0, my = 0, targetMx = 0, targetMy = 0;
       onMove = (e) => {
-        mx = (e.clientX / window.innerWidth) * 2 - 1;
-        my = -(e.clientY / window.innerHeight) * 2 + 1;
+        targetMx = (e.clientX / window.innerWidth) * 2 - 1;
+        targetMy = -(e.clientY / window.innerHeight) * 2 + 1;
       };
-      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mousemove', onMove, { passive: true });
+
       onResize = () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -246,49 +261,81 @@ export default function DagBackground() {
       let t = 0;
 
       function animate() {
-        t += 0.003;
+        t += 0.0035;
 
-        // Gentle auto-rotation + mouse parallax
-        scene.rotation.y = Math.sin(t * 0.12) * 0.04 + mx * 0.02;
-        scene.rotation.x = Math.cos(t * 0.08) * 0.02 + my * 0.01;
+        // Smooth mouse follow
+        mx += (targetMx - mx) * 0.03;
+        my += (targetMy - my) * 0.03;
 
-        // Pulse chain nodes
+        // Camera orbit with parallax
+        const orbitY = Math.sin(t * 0.1) * 0.05;
+        const orbitX = Math.cos(t * 0.07) * 0.03;
+        scene.rotation.y = orbitY + mx * 0.03;
+        scene.rotation.x = orbitX + my * 0.015;
+        scene.rotation.z = Math.sin(t * 0.05) * 0.01;
+
+        // Animate nodes
         nodeData.forEach(({ node, mesh }) => {
-          if (node.isChain && node._glow) {
-            const pulse = 0.05 + Math.sin(t * 3.5 + node.id * 0.25) * 0.04;
-            node._glow.material.opacity = pulse;
-            node._glow.scale.setScalar(1 + pulse * 0.6);
+          if (node.isChain) {
+            // Dramatic pulsing chain nodes
+            const pulse = Math.sin(t * 4 + node.id * 0.3) * 0.5 + 0.5; // 0..1
+            mesh.material.opacity = 0.7 + pulse * 0.3;
+            mesh.scale.setScalar(1 + pulse * 0.35);
+
+            if (node._innerGlow) {
+              node._innerGlow.material.opacity = 0.08 + pulse * 0.15;
+              node._innerGlow.scale.setScalar(1 + pulse * 0.5);
+            }
+            if (node._midGlow) {
+              node._midGlow.material.opacity = 0.03 + pulse * 0.07;
+              node._midGlow.scale.setScalar(1 + pulse * 0.3);
+            }
             if (node._ring) {
-              node._ring.material.opacity = 0.03 + Math.sin(t * 2.2 + node.id) * 0.025;
+              node._ring.material.opacity = 0.04 + pulse * 0.08;
+              node._ring.rotation.z += 0.008;
             }
           }
-          if (node.isTip && node._tGlow) {
-            node._tGlow.material.opacity = 0.06 + Math.sin(t * 4 + node.id) * 0.04;
-            node._tGlow.scale.setScalar(1 + Math.sin(t * 3 + node.id) * 0.3);
-            mesh.scale.setScalar(1 + Math.sin(t * 2.5 + node.id) * 0.1);
+
+          if (node.isTip) {
+            const pulse = Math.sin(t * 3 + node.id) * 0.5 + 0.5;
+            mesh.scale.setScalar(1 + pulse * 0.2);
+            mesh.material.opacity = 0.55 + pulse * 0.25;
+            if (node._tipGlow) {
+              node._tipGlow.material.opacity = 0.08 + pulse * 0.12;
+              node._tipGlow.scale.setScalar(1 + pulse * 0.5);
+            }
           }
+        });
+
+        // Pulse chain edge glows
+        chainEdges.forEach((ce, i) => {
+          const pulse = Math.sin(t * 3.5 + i * 0.5) * 0.5 + 0.5;
+          ce.glow.material.opacity = 0.04 + pulse * 0.1;
+          ce.glow.scale.setScalar(1 + pulse * 0.4);
+          ce.line.material.opacity = 0.2 + pulse * 0.25;
         });
 
         // Animate flow particles
         flowParticles.forEach((fp) => {
           fp.progress = (fp.progress + fp.speed) % 1;
           fp.mesh.position.lerpVectors(fp.from, fp.to, fp.progress);
-          const sz = 0.4 + Math.sin(t * 5 + fp.progress * Math.PI) * 0.3;
-          fp.mesh.scale.setScalar(sz);
+          const fadepulse = Math.sin(fp.progress * Math.PI);
+          fp.mesh.material.opacity = 0.6 + fadepulse * 0.4;
+          fp.mesh.scale.setScalar(0.4 + fadepulse * 0.7);
         });
 
-        // Rotate particle fields
-        particles.rotation.y += 0.00008;
-        particles.rotation.x += 0.00004;
-        stars.rotation.y -= 0.0001;
-        stars.rotation.x -= 0.00005;
+        // Rotate background fields
+        bgParticles.rotation.y += 0.00006;
+        bgParticles.rotation.x += 0.00003;
+        stars.rotation.y -= 0.00012;
+        stars.rotation.x -= 0.00007;
 
         renderer.render(scene, camera);
         animId = requestAnimationFrame(animate);
       }
       animate();
     } catch (err) {
-      console.warn('DagBackground: init failed, falling back to static gradient:', err.message);
+      console.warn('DagBackground: init failed:', err.message);
       return () => {
         if (renderer) {
           window.removeEventListener('mousemove', onMove);

@@ -136,7 +136,7 @@ export default function Explorer() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">Connect a Hot Wallet</p>
-              <p className="text-xs text-gray-500">KasWare, Kaspium, Kastle, OneKey, Tangem, KDX for instant signing</p>
+              <p className="text-xs text-gray-500">KasWare, Kaspium, Kastle, Kaspa Web Wallet for instant signing</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

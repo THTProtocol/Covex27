@@ -1,27 +1,20 @@
 <div align="center">
-  
   <br/>
   
   ```
-   ██████╗ ██████╗ ██╗   ██╗██╗  ██╗███████╗
-  ██╔════╝██╔═══██╗██║   ██║╚██╗██╔╝╚══███╔╝
-  ██║     ██║   ██║██║   ██║ ╚███╔╝   ███╔╝ 
-  ██║     ██║   ██║██║   ██║ ██╔██╗  ███╔╝  
-  ╚██████╗╚██████╔╝╚██████╔╝██╔╝ ██╗███████╗
-   ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝
+   ██████╗  ██████╗ ██╗   ██╗███████╗██╗  ██╗
+  ██╔════╝ ██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+  ██║      ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+  ██║      ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
+  ╚██████╗ ╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
+   ╚═════╝  ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
   ```
   
-  <br/>
-  
-  **COVEX - Covenant Explorer for Kaspa**
-  
-  *The Premier Stateful Indexer for Covenant-Based Applications*
-  
-  <br/>
+  <h3>The Premier Covenant Indexing and Management Platform for Kaspa</h3>
   
   [![Language](https://img.shields.io/badge/Language-Rust_1.80+-orange?style=for-the-badge&labelColor=0a0a0a&color=orange)](https://rust-lang.org)
   [![Network](https://img.shields.io/badge/Network-Kaspa_TN12-00ff41?style=for-the-badge&labelColor=0a0a0a&color=00ff41)](https://kaspa.org)
-  [![Build](https://img.shields.io/badge/Build-Stable-success?style=for-the-badge&labelColor=0a0a0a&color=00ff41)](https://github.com/THTProtocol/Covex27)
+  [![Build](https://img.shields.io/badge/Build-Stable-success?style=for-the-badge&labelColor=0a0a0a&color=00ff41)](https://github.com/THTProtocol/COVEX)
   [![Storage](https://img.shields.io/badge/Storage-SQLite-blue?style=for-the-badge&labelColor=0a0a0a&color=blue)](https://sqlite.org)
   [![Frontend](https://img.shields.io/badge/Frontend-React_19-blue?style=for-the-badge&labelColor=0a0a0a&color=blue)](https://react.dev)
   [![License](https://img.shields.io/badge/License-MIT-6366f1?style=for-the-badge&labelColor=0a0a0a&color=6366f1)](LICENSE)
@@ -31,12 +24,11 @@
   ```
   Index. Compile. Deploy. All on the BlockDAG.
   ```
-  
 </div>
 
-<br/>
+---
 
-## What is COVEX?
+## 🚀 What is COVEX?
 
 COVEX is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockDAG](https://kaspa.org). It continuously indexes covenant UTXOs from a Kaspa wRPC node into a local SQLite database, providing a premium glassmorphism UI for browsing, compiling, and deploying SilverScript covenants.
 
@@ -44,206 +36,212 @@ COVEX is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockD
 Chain is the truth. COVEX is the window.
 ```
 
-<br/>
+---
 
-## 🌟 Key Features
+## 🌟 Advanced Features
 
-### Production-Grade Covenant Indexer
-- Continuous wRPC-based scanning of the Kaspa BlockDAG at 10 BPS
-- Covenant detection via script opcode introspection (OP_BLAKE2B patterns)
-- KIP-17 (extended script opcodes) and KIP-20 (covenant IDs) support
-- Reorg-resilient stateful architecture with SQLite persistence
-- **Zero synthetic data**—only real covenants indexed from the live TN12 node
+### 📊 Real-Time Covenant Indexing
+- **10 BPS Scanning**: Continuous wRPC-based scanning at 10 Blocks Per Second
+- **Script Opcode Introspection**: Advanced detection via OP_BLAKE2B patterns (aa20-aa23)
+- **KIP Compliance**: Full KIP-17 (extended opcodes) and KIP-20 (covenant IDs) support
+- **Toccata Hard-Fork Ready**: TN12 live with mainnet activation scheduled for Q3 2026
+- **Reorg-Resilient Architecture**: Stateful design with SQLite persistence for data integrity
 
-### On-Chain Payment Verification
-- Zero-trust payment verification confirmed on-chain via wRPC
-- Automatic tier upgrades with DAA confirmation tracking
-- One-time KAS payments for tier access (Explorer, Creator, PRO, MAX)
-- QR code generation for exact treasury address and payment amounts
+### 🔐 Secure Payment Processing
+- **Zero-Trust Verification**: All payments confirmed directly on-chain via wRPC
+- **Tiered Access Model**: Automatic upgrades with DAA-based confirmation tracking
+- **Multi-Tier Pricing**: Explorer (Free) → Creator (100 KAS) → PRO (500 KAS) → MAX (1000 KAS)
+- **QR Payment Generation**: One-click treasury address + exact amount QR codes
 
-### Non-Custodial Wallet Connect Hub
-- Full Wallet Connect support (KasWare, Kaspium, OneKey, Tangem, KDX)
-- Rusty Kaspa WASM SDK integration for signing without key storage
-- All covenant interactions route through your connected wallet
-- URI deep-link fallback for any `kaspa:` or `kaspatest:` compatible wallet
+### 🦊 Non-Custodial Wallet Integration
+- **Universal Wallet Connect**: KasWare, Kaspium, OneKey, Tangem, and KDX support
+- **WASM SDK Integration**: In-browser signing without key storage
+- **Deep-Link Fallback**: URI schemes for `kaspa:` and `kaspatest:` compatible wallets
+- **End-to-End Security**: All covenant interactions routed through user's connected wallet
 
-### Interactive Customizable UI Builder
-- Tier-based UI builder for paid covenants
-- Real-time live preview with primary color and layout selection
-- Component toggles and MAX tier custom branding options
-- Generated UI is fully interactable with glassmorphism design
+### 🎨 Interactive UI Builder
+- **Real-Time Customization**: Live preview of color schemes, layouts, and components
+- **Tier-Based Access**: Advanced tools unlocked with Creator/PRO/MAX tiers
+- **Component Management**: Toggle wallet buttons, parameter forms, and featured banners
+- **MAX Tier Branding**: Custom logo URLs and editorial layout controls
 
-### SilverScript Compiler Bridge
-- Bridge to native `silverc` compiler for real-time compilation
-- Bytecode preview and script template hash output
-- Security linting and AST validation
-- Temporary file management with automatic cleanup
+### ⚡ SilverScript Compilation
+- **Native Compiler Bridge**: Direct integration with `silverc` binary for real-time compilation
+- **Bytecode Preview**: Visual feedback on generated script templates
+- **AST Validation**: Security linting and syntax checking before deployment
+- **Ephemeral File Management**: Automatic cleanup of temporary compilation artifacts
 
-### Premium Glassmorphism UI
-- React 19 + Vite + Tailwind v4 + Framer Motion
-- True glassmorphism design with backdrop-blur effects
-- Responsive design for all device sizes with zero lag
-- Tier-based SaaS access control with pricing page
+### 💎 Premium Glassmorphism Interface
+- **Modern Tech Stack**: React 19 + Vite + Tailwind v4 + Framer Motion
+- **True Glass Effects**: Backdrop-blur, rgba backgrounds, and thin border designs
+- **Responsive Architecture**: Zero-lag experience across all device sizes
+- **Three.js BlockDAG Visualization**: Live animated DAG background with consensus chain highlighting
 
-### Production-Grade Architecture
-- Rust backend: Axum + tokio + rusqlite + kaspa-wrpc-client 0.15.0
-- SQLite with bundled feature for zero-setup durability
-- Rate-limited API with CORS and 5MB request body cap
-- Docker-ready with `docker-compose.yml` for backend + frontend
-- Mainnet/Testnet toggle via `.env` variable (KASPA_NETWORK)
+### ⚙️ Enterprise-Grade Infrastructure
+- **Rust Backend**: Axum 0.7 + tokio + rusqlite + kaspa-wrpc-client 0.15.0
+- **SQLite Persistence**: Bundled feature for zero-setup durability and reliability
+- **Rate-Limited Security**: CORS protection with 5MB request body cap
+- **Docker Orchestration**: Production-ready `docker-compose.yml` for seamless deployment
+- **Network Agnostic**: Toggle between mainnet/testnet with single `.env` variable
 
-<br/>
+---
 
 ## 🚀 Quick Start
 
-### Requirements
-
+### Prerequisites
 - Rust toolchain 1.80+
 - Node.js 20+
 - Kaspa node with wRPC enabled (`kaspad` or `kaspa-node`)
-- `silverc` compiler (for covenant creation)
+- `silverc` compiler for covenant compilation
 
 ### Installation
-
 ```bash
-git clone https://github.com/THTProtocol/Covex27.git
-cd Covex27
+# Clone repository
+git clone https://github.com/THTProtocol/COVEX.git
+cd COVEX
+
+# Environment setup
 cp .env.example .env
 ```
 
 ### Configuration
-
-Edit the `.env` file:
-
+Edit your `.env` file with appropriate settings:
 ```bash
-# .env
-KASPA_NETWORK=testnet-12
-KASPA_WRPC_URL=ws://127.0.0.1:17110
-BIND_ADDR=0.0.0.0:3001
-DB_PATH=../covex.db
+KASPA_NETWORK=testnet-12           # or mainnet
+KASPA_WRPC_URL=ws://127.0.0.1:17110 # Your Kaspa node endpoint
+BIND_ADDR=0.0.0.0:3001             # API server binding
+DB_PATH=../covex.db                # SQLite database path
 RUST_LOG=covex27_backend=debug,kaspa_wrpc=info
 ```
 
-### Build & Run
-
+### Building and Running
 ```bash
-# Backend
+# Backend compilation (in background)
 cd backend
 cargo build --release
-./target/release/covex27-backend
+./target/release/covex27-backend &
 
-# Frontend (separate terminal)
-cd frontend
+# Frontend development server
+cd ../frontend
 npm install
-npm run dev          # Vite on :5173, proxies /api/* -> :3001
+npm run dev  # Access at http://localhost:5173
 ```
 
-### Verify Installation
-
+### Verification Commands
 ```bash
+# Health check
 curl http://localhost:3001/api/health
+
+# View indexed covenants
 curl http://localhost:3001/api/covenants
+
+# Test compilation
 curl -X POST http://localhost:3001/api/compile \
   -H "Content-Type: application/json" \
   -d '{"code":"covenant Test {}"}'
 ```
 
-<br/>
+---
 
-## 🏗️ Architecture
+## 🏗️ Architecture Overview
 
 ```
     Kaspa Node (kaspad)
-          |
-          | wRPC WebSocket
-          v
-    +----------------------+
-    |   Rust Indexer       |   tokio::spawn loop  
-    |   Background Task    |   polls every ~12s
-    +-----------+----------+
-                |  INSERT OR REPLACE
-                v
-          +-------------+
-          |  SQLite DB  |   covex.db
-          +------+------+
-                 |  SELECT
-                 v
-    +----------------------+
-    |   Axum API Server    |   :3001
-    |   /api/covenants     |
-    |   /api/compile       |
-    +-----------+----------+
-                |  JSON
-                v
-    +----------------------+
-    |   React Frontend     |   :5173
-    |   Vite + Tailwind v4 |
-    |   Three.js BlockDAG  |
-    +----------------------+
+          │
+          │ wRPC WebSocket
+          ▼
+    ┌──────────────────────┐
+    │   Rust Indexer       │ ◄── tokio::spawn loop (12s intervals)
+    │   Background Task    │
+    └──────────┬───────────┘
+               │ INSERT OR REPLACE
+               ▼
+         ┌─────────────┐
+         │  SQLite DB  │ ◄── covex.db (persistent storage)
+         └──────┬──────┘
+                │ SELECT
+                ▼
+    ┌──────────────────────┐     JSON
+    │   Axum API Server    │ ◄────────────┐
+    │   /api/covenants     │              │
+    │   /api/compile       │              │
+    └──────────┬───────────┘              │
+               │                          │
+               ▼                          │
+    ┌──────────────────────┐              │
+    │   React Frontend     │ ◄────────────┘
+    │   Vite + Tailwind v4 │
+    │   Three.js BlockDAG  │
+    └──────────────────────┘
 ```
 
-<br/>
+---
 
-## 🛠 Tech Stack
+## 🛠 Technology Stack
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| DAG Indexer | kaspa-wrpc-client v0.15.0 | Polls node for covenant UTXOs |
-| Storage | rusqlite v0.31 (bundled) | Durable on-disk covenant store |
-| API Server | axum 0.7 + tower-http | REST endpoints on :3001 |
-| Compiler | silverc binary | Compile .sil to bytecode |
-| Frontend | React 19 + Vite + Tailwind v4 | Glassmorphism UI |
-| Background | Three.js | Live BlockDAG visualization |
+| Layer        | Technology              | Purpose                              |
+|--------------|-------------------------|--------------------------------------|
+| Indexer      | kaspa-wrpc-client 0.15  | Real-time covenant UTXO polling      |
+| Storage      | rusqlite 0.31           | Persistent covenant database         |
+| API          | Axum 0.7                | RESTful endpoints                    |
+| Compiler     | silverc                 | SilverScript → Bytecode compilation  |
+| Frontend     | React 19 + Vite         | Interactive user interface           |
+| Visualization| Three.js                | Live BlockDAG rendering              |
 
-<br/>
+---
 
-## 💰 Pricing
+## 💰 Pricing Tiers
 
-| Tier | Price | Includes |
-|---|---|---|
-| Explorer | Free | Browse, search, read-only covenant view |
-| Creator | 100 KAS | Interactive UI generation + standard listing |
-| PRO | 500 KAS | Featured + higher ranking + advanced UI tools |
-| MAX | 1,000 KAS | Top placement + full UI design suite + custom branding |
+| Tier     | Cost    | Features                                                   |
+|----------|---------|------------------------------------------------------------|
+| Explorer | Free    | Browse, search, read-only covenant view                    |
+| Creator  | 100 KAS | Interactive UI generation + standard listing               |
+| PRO      | 500 KAS | Featured placement + advanced UI tools                     |
+| MAX      | 1000 KAS| Top placement + full UI design suite + custom branding     |
 
-All covenants appear in the public registry. Paid tiers add interactive UI panels and increased visibility. One-time payment, permanent listing.
+> All covenants appear in the public registry. Paid tiers enhance visibility and interactivity. One-time payment, permanent listing.
 
-<br/>
+---
 
-## 🔐 Security
+## 🔒 Security Model
 
-- **No admin keys:** COVEX holds no privileged keys over any covenant.
-- **No custody:** All KAS is held in UTXO covenant scripts on-chain.
-- **Immutable covenants:** SilverScript covenant scripts are final the moment they hit the chain.
-- **Non-custodial platform:** COVEX never stores or has access to private keys. All signing happens in your wallet.
+- **No Private Key Storage**: COVEX never holds or accesses user private keys
+- **Immutable Deployments**: Covenant scripts are final upon chain confirmation
+- **Client-Side Signing**: All transactions signed directly in user's wallet
+- **Zero Trust Architecture**: Payment verification conducted entirely on-chain
 
-<br/>
+---
 
-- **No admin keys:** COVEX holds no privileged keys over any covenant.
-- **No custody:** All KAS is held in UTXO covenant scripts on-chain.
-- **Immutable covenants:** SilverScript covenant scripts are final the moment they hit the chain.
-- **Non-custodial platform:** COVEX never stores or has access to private keys. All signing happens in your wallet.
+## 📡 API Endpoints
 
-<br/>
+| Method | Endpoint              | Description                          |
+|--------|-----------------------|--------------------------------------|
+| GET    | `/api/health`         | Server health check                  |
+| GET    | `/api/status`         | Node connection and DAG information  |
+| GET    | `/api/covenants`      | Indexed covenant retrieval           |
+| GET    | `/api/utxos`          | Covenant UTXO entries                |
+| GET    | `/api/tiers`          | Pricing tier definitions             |
+| POST   | `/api/compile`        | SilverScript compilation service     |
+| POST   | `/api/generate-ui`    | Interactive covenant UI generation   |
+| GET    | `/api/verify-payment` | On-chain payment verification        |
 
-## 📚 API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /api/health | Server health |
-| GET | /api/status | Node connection + DAG info |
-| GET | /api/covenants | All indexed covenants from SQLite |
-| GET | /api/utxos | Covenant UTXO entries |
-| GET | /api/tiers | Pricing tier definitions |
-| POST | /api/compile | Compile SilverScript code |
-| POST | /api/generate-ui | Generate interactive covenant UI |
-| GET | /api/verify-payment | Verify on-chain payment |
-
-<br/>
+---
 
 ## 📄 License
 
-COVEX is released under the MIT License.
+COVEX is released under the MIT License. See [LICENSE](LICENSE) for full details.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the Kaspa community! Please see our [Contribution Guidelines](CONTRIBUTING.md) for details on how to get involved.
+
+---
+
+## 📞 Support
+
+For technical issues, please [open an issue](https://github.com/THTProtocol/COVEX/issues) on GitHub.
 
 ```
 COVEX v1.0.0 Ultimate Release

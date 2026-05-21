@@ -1,17 +1,19 @@
 [package]
 name = "covex27-backend"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
-description = "Covex27 -- Kaspa covenant explorer backend"
+description = "Covex -- The Stateful Kaspa Covenant Indexer and SaaS Platform"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-axum = "0.7"
-tower-http = { version = "0.5", features = ["cors"] }
+axum = { version = "0.7", features = ["macros"] }
+tower-http = { version = "0.5", features = ["cors", "limit"] }
+tower = { version = "0.4", features = ["limit", "util"] }
 kaspa-wrpc-client = "0.15.0"
 kaspa-rpc-core = "0.15.0"
 kaspa-consensus-core = "0.15.0"
 kaspa-addresses = "0.15.0"
+kaspa-txscript = "0.15.0"
 workflow-core = "0.18.0"
 wasm-bindgen = "=0.2.115"
 serde = { version = "1", features = ["derive"] }
@@ -21,3 +23,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
 rusqlite = { version = "0.31", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
+blake2b_simd = "1"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }

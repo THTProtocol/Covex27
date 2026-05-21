@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 @theme {
   --color-kaspa-green: #49EACB;
   --color-kaspa-gold: #E8AF34;
@@ -6,7 +7,9 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
 *, *::before, *::after { box-sizing: border-box; }
+
 body {
   margin: 0;
   background: radial-gradient(circle at 50% 0%, #11111a 0%, var(--color-surface-base) 100%);
@@ -16,6 +19,7 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
+
 .glass-panel {
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(24px);
@@ -23,9 +27,46 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
-.kaspa-glow-text { text-shadow: 0 0 20px rgba(73, 234, 203, 0.5); }
-.cyber-input {
-  background: rgba(0,0,0,0.4); border: 1px solid rgba(73,234,203,0.2);
-  color: #49EACB; transition: all 0.3s ease;
+
+.kaspa-glow-text {
+  text-shadow: 0 0 20px rgba(73, 234, 203, 0.5);
 }
-.cyber-input:focus { outline: none; border-color: #49EACB; box-shadow: 0 0 15px rgba(73,234,203,0.2); }
+
+.cyber-input {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(73,234,203,0.2);
+  color: #49EACB;
+  transition: all 0.3s ease;
+}
+
+.cyber-input:focus {
+  outline: none;
+  border-color: #49EACB;
+  box-shadow: 0 0 15px rgba(73,234,203,0.2);
+}
+
+.cyber-input::placeholder {
+  color: rgba(73,234,203,0.15);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* Selection */
+::selection {
+  background: rgba(73,234,203,0.2);
+  color: #49EACB;
+}

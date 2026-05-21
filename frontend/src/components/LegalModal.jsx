@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
 
-/* ───────────────────────────────────────────────────────────────────
-   LegalModal — full-screen glassmorphism legal warning overlay
-   Blocks all interaction until the user accepts.
-   ─────────────────────────────────────────────────────────────────── */
-
 export default function LegalModal({ onAccept }) {
   const [visible, setVisible] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
+  const [checked, setChecked] = useState(false);
 
-  // Lock body scroll while modal is open
   useEffect(() => {
     if (visible) {
       const prev = document.body.style.overflow;
@@ -20,7 +15,6 @@ export default function LegalModal({ onAccept }) {
 
   const handleAccept = () => {
     setFadeOut(true);
-    // Let the fade animation play, then remove
     setTimeout(() => {
       setVisible(false);
       onAccept?.();
@@ -31,25 +25,9 @@ export default function LegalModal({ onAccept }) {
 
   return (
     <div
-      className={`
-        fixed inset-0 z-50 flex items-center justify-center p-6
-        bg-black/80 backdrop-blur-xl
-        transition-opacity duration-300
-        ${fadeOut ? 'opacity-0' : 'opacity-100'}
-      `}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl transition-opacity duration-300 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
     >
-      <div
-        className={`
-          max-w-lg w-full rounded-2xl
-          bg-[#111116]/95 backdrop-blur-xl
-          border border-white/10
-          shadow-[0_0_80px_rgba(0,0,0,0.6)]
-          p-8 space-y-6
-          transition-transform duration-300
-          ${fadeOut ? 'scale-95' : 'scale-100'}
-        `}
-      >
-        {/* Icon */}
+      <div className={`max-w-lg w-full rounded-2xl bg-[#111116]/95 backdrop-blur-xl border border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.6)] p-8 space-y-6 transition-transform duration-300 ${fadeOut ? 'scale-95' : 'scale-100'}`}>
         <div className="flex items-center justify-center">
           <div className="h-14 w-14 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
             <svg className="h-7 w-7 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -60,49 +38,56 @@ export default function LegalModal({ onAccept }) {
           </div>
         </div>
 
-        {/* Title */}
-        <h2 className="text-xl font-semibold text-white text-center">
-          Important Legal Notice
-        </h2>
+        <h2 className="text-xl font-semibold text-white text-center">Important Legal Disclaimer</h2>
 
-        {/* Body */}
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-          <p>
-            Covex is a <strong className="text-white">non-custodial</strong> explorer.
-            Users are solely responsible for their covenants. Hosting or deploying
-            illegal, malicious, or exploitative smart contracts is strictly
-            prohibited.
+        <div className="space-y-3 text-xs text-gray-400 leading-relaxed max-h-60 overflow-y-auto font-mono whitespace-pre-wrap pr-2">
+          <p className="text-gray-300 font-semibold">
+            Covex is a non-custodial blockchain explorer and SaaS platform. By proceeding, you acknowledge and agree to the following:
           </p>
 
-          <div className="p-4 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs text-gray-400 space-y-2">
-            <p className="text-red-400 font-semibold">
-              By proceeding, you acknowledge and agree that:
-            </p>
+          <div className="p-4 rounded-xl bg-red-500/[0.06] border border-red-500/20 space-y-2">
+            <p className="text-red-400 font-semibold text-sm">Critical Notices:</p>
             <ul className="list-disc list-inside space-y-1 pl-1">
-              <li>Covenants are immutable once deployed to the Kaspa network.</li>
-              <li>Covex does not review, audit, or endorse any covenant code.</li>
-              <li>You bear full legal and financial responsibility for the covenants you create and deploy.</li>
-              <li>Violations of applicable law or platform policy may result in permanent delisting.</li>
+              <li>Covenants deployed to the Kaspa BlockDAG are <strong className="text-white">permanently immutable</strong>. They cannot be changed, deleted, or reversed by anyone - including Covex.</li>
+              <li>Covex <strong className="text-white">does not create, modify, or have any control</strong> over on-chain covenants. We only index publicly visible data and generate optional UI interfaces for paid users.</li>
+              <li>Covex <strong className="text-white">never stores or has access to your private keys</strong>. All signing and transaction authorization occurs exclusively within your own wallet application.</li>
+              <li>It is <strong className="text-white">solely your responsibility</strong> to ensure any covenant you create, deploy, or interact with is legal in your jurisdiction.</li>
+              <li>Covex provides <strong className="text-white">no legal, financial, or investment advice</strong>. We are a technology platform, not a law firm or financial advisor.</li>
+              <li>Covex has <strong className="text-white">no connection to predictive markets, gambling, or any illegal activity</strong>. We provide covenant indexing and UI generation tools only.</li>
+              <li>All payments occur <strong className="text-white">on-chain in KAS</strong>. After payment confirmation, users receive exactly the service promised: account upgrade, interactive UI generation, and visibility boost.</li>
+              <li>Payments are <strong className="text-white">non-refundable</strong> once confirmed on the Kaspa network.</li>
+              <li>Covex provides <strong className="text-white">no warranty of any kind</strong>. Blockchain data may be subject to reorgs, latency, or incomplete propagation.</li>
             </ul>
           </div>
+
+          <p>
+            By clicking Accept, you confirm you have read, understood, and agree to the full
+            <a href="/terms" className="text-kaspa-green hover:underline mx-1">Terms and Conditions</a>
+            available on this platform. You accept all risks associated with using a decentralized blockchain
+            protocol and agree that Covex and its developers bear no liability for any outcomes.
+          </p>
         </div>
 
-        {/* Accept button */}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => setChecked(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-kaspa-green focus:ring-kaspa-green/30"
+          />
+          <span className="text-xs text-gray-400 leading-relaxed">
+            I have read and agree to the Covex Terms and Conditions, including the non-custodial nature of the platform, immutable covenant deployments, on-chain payment terms, SaaS subscription terms, SilverScript compiler disclaimer, no liability for locked funds, and acceptable use policy.
+          </span>
+        </label>
+
         <button
           onClick={handleAccept}
-          className="
-            w-full px-6 py-3.5 rounded-xl
-            bg-white text-black font-semibold text-sm
-            hover:bg-gray-200
-            active:scale-[0.97]
-            transition-all duration-200
-            focus:outline-none focus:ring-2 focus:ring-white/30
-          "
+          disabled={!checked}
+          className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 ${checked ? 'bg-white text-black hover:bg-gray-200 active:scale-[0.97]' : 'bg-white/[0.05] text-gray-600 cursor-not-allowed border border-white/5'}`}
         >
-          I Agree and Understand the Risks
+          I Accept and Understand the Risks
         </button>
 
-        {/* Reject hint */}
         <p className="text-xs text-gray-600 text-center">
           You must accept these terms before using the Covenant Creator.
         </p>

@@ -1,79 +1,207 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const WalletContext = createContext(null);
+
 const KASPA_NETWORK = 'kaspatest';
 
-const WALLETS = [
+const WALLET_REGISTRY = [
   {
-    id: 'kasware', name: 'KasWare', url: 'https://kasware.xyz',
-    logo: 'K', detect: () => typeof window !== 'undefined' && !!window.kasware,
-    connect: async () => { const a = await window.kasware.request({ method: 'kaspa_requestAccounts' }); return a?.[0] || null; },
-    getBalance: async (addr) => { const b = await window.kasware.request({ method: 'kaspa_getBalance', params: [addr] }); return b?.confirmed || 0; },
-    send: async (tx) => window.kasware.request({ method: 'kaspa_sendTransaction', params: [tx] }),
+    id: 'kasware',
+    name: 'KasWare',
+    url: 'https://kasware.xyz',
+    logo: 'https://kasware.xyz/favicon.ico',
+    detect: () => typeof window !== 'undefined' && !!window.kasware,
+    provider: () => window.kasware,
   },
   {
-    id: 'kaspium', name: 'Kaspium', url: 'https://kaspium.io',
-    logo: 'M', detect: () => typeof window !== 'undefined' && !!window.__kaspium,
-    connect: async () => { const a = await window.__kaspium.request({ method: 'kaspa_requestAccounts' }); return a?.[0] || null; },
-    getBalance: async (addr) => { const b = await window.__kaspium.request({ method: 'kaspa_getBalance', params: [addr] }); return b?.confirmed || 0; },
-    send: async (tx) => window.__kaspium.request({ method: 'kaspa_sendTransaction', params: [tx] }),
+    id: 'kaspium',
+    name: 'Kaspium',
+    url: 'https://kaspium.io',
+    logo: 'https://kaspium.io/favicon.ico',
+    detect: () => typeof window !== 'undefined' && !!window.__kaspium,
+    provider: () => window.__kaspium,
   },
   {
-    id: 'onekey', name: 'OneKey', url: 'https://onekey.so',
-    logo: 'O', detect: () => typeof window !== 'undefined' && !!window.$onekey?.kaspa,
-    connect: async () => { const a = await window.$onekey.kaspa.request({ method: 'kaspa_requestAccounts' }); return a?.[0] || null; },
-    getBalance: async (addr) => { const b = await window.$onekey.kaspa.request({ method: 'kaspa_getBalance', params: [addr] }); return b?.confirmed || 0; },
-    send: async (tx) => window.$onekey.kaspa.request({ method: 'kaspa_sendTransaction', params: [tx] }),
+    id: 'onekey',
+    name: 'OneKey',
+    url: 'https://onekey.so',
+    logo: 'https://onekey.so/favicon.ico',
+    detect: () => typeof window !== 'undefined' && !!window.$onekey?.kaspa,
+    provider: () => window.$onekey?.kaspa,
   },
-  { id: 'uri', name: 'Kaspa URI', url: '#', logo: 'URI', detect: () => true, connect: async () => null, getBalance: async () => null, send: async () => { throw new Error('URI flow'); } },
+  {
+    id: 'tangem',
+    name: 'Tangem',
+    url: 'https://tangem.com',
+    logo: 'https://tangem.com/favicon.ico',
+    detect: () => typeof window !== 'undefined' && !!window.TangemSdk,
+    provider: () => ({ request: async ({ method, params }) => Promise.reject(new Error('Tangem SDK requires card tap')) }),
+  },
+  {
+    id: 'kdx',
+    name: 'KDX',
+    url: 'https://kdx.app',
+    logo: 'https://kdx.app/favicon.ico',
+    detect: () => typeof window !== 'undefined' && !!window.kdx,
+    provider: () => window.kdx,
+  },
+  {
+    id: 'uri',
+    name: 'Kaspa URI',
+    url: '#',
+    logo: 'uri',
+    detect: () => true,
+    provider: () => null,
+  },
 ];
 
 export function WalletProvider({ children }) {
-  const [wallet, setWallet] = useState(null);
+  const [activeWallet, setActiveWallet] = useState(null);
   const [address, setAddress] = useState(null);
   const [balance, setBalance] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => { const d = WALLETS.find(w => w.detect()); if (d) setWallet(d); }, []);
-  useEffect(() => { const id = setInterval(() => { if (!wallet || wallet.id==='uri') { const d = WALLETS.find(w => w.detect()); if (d && d.id!=='uri') setWallet(d); } }, 2000); return () => clearInterval(id); }, [wallet]);
+  // Auto-detect available wallets
+  useEffect(() => {
+    const detected = WALLET_REGISTRY.find(
+      (w) => w.id !== 'uri' && w.detect()
+    );
+    if (detected && !activeWallet) {
+      setActiveWallet(detected);
+    }
+    const id = setInterval(() => {
+      if (!activeWallet || activeWallet.id === 'uri') {
+        const d = WALLET_REGISTRY.find(
+          (w) => w.id !== 'uri' && w.detect()
+        );
+        if (d) setActiveWallet(d);
+      }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [activeWallet]);
 
   const connect = useCallback(async (walletId) => {
-    setConnecting(true); setError(null);
+    setConnecting(true);
+    setError(null);
     try {
-      const w = WALLETS.find(x => x.id === walletId) || wallet;
-      if (!w) throw new Error('No wallet');
-      if (w.id === 'uri') { setWallet(w); setShowModal(false); setConnecting(false); return null; }
-      const addr = await w.connect();
-      if (addr) { setWallet(w); setAddress(addr); setShowModal(false); try { setBalance(await w.getBalance(addr)); } catch(_){} }
-      setConnecting(false); return addr;
-    } catch(e) { setError(e.message); setConnecting(false); return null; }
-  }, [wallet]);
+      const w = WALLET_REGISTRY.find((x) => x.id === walletId) || activeWallet;
+      if (!w) throw new Error('No wallet selected');
+      if (w.id === 'uri') {
+        setActiveWallet(w);
+        setShowModal(false);
+        setConnecting(false);
+        return null;
+      }
+      const provider = w.provider();
+      if (!provider) throw new Error(`Wallet ${w.name} not available`);
+      const accounts = await provider.request({ method: 'kaspa_requestAccounts' });
+      if (accounts && accounts[0]) {
+        const addr = accounts[0];
+        setActiveWallet(w);
+        setAddress(addr);
+        setShowModal(false);
+        try {
+          const bal = await provider.request({ method: 'kaspa_getBalance', params: [addr] });
+          setBalance(bal?.confirmed ?? bal ?? 0);
+        } catch (_) {
+          setBalance(0);
+        }
+        setConnecting(false);
+        return addr;
+      }
+      throw new Error('No accounts returned');
+    } catch (e) {
+      setError(e.message || 'Connection failed');
+      setConnecting(false);
+      return null;
+    }
+  }, [activeWallet]);
 
-  const disconnect = () => { setAddress(null); setBalance(null); setError(null); };
-
-  const buildUri = useCallback((recipient, amount, meta = {}) => {
-    const p = ['kaspatest:' + recipient];
-    const q = [];
-    if (amount) q.push('amount=' + amount);
-    if (meta.scriptHash) q.push('scriptHash=' + meta.scriptHash);
-    if (q.length) p.push('?' + q.join('&'));
-    return p.join('');
+  const disconnect = useCallback(() => {
+    setAddress(null);
+    setBalance(null);
+    setError(null);
   }, []);
 
-  const sendPayment = useCallback(async (recipient, amountSompi, meta = {}) => {
-    const uri = buildUri(recipient, amountSompi / 1e8, meta);
-    if (wallet?.send) { try { return { success: true, method: 'extension', txid: await wallet.send({ to: recipient, amount: amountSompi, ...meta }) }; } catch(_){} }
-    window.location.href = uri;
-    return { success: true, method: 'uri', uri };
-  }, [wallet, buildUri]);
+  const refreshBalance = useCallback(async () => {
+    if (!address || !activeWallet || activeWallet.id === 'uri') return;
+    try {
+      const provider = activeWallet.provider();
+      if (!provider) return;
+      const bal = await provider.request({ method: 'kaspa_getBalance', params: [address] });
+      setBalance(bal?.confirmed ?? bal ?? 0);
+    } catch (_) {}
+  }, [address, activeWallet]);
+
+  const buildUri = useCallback(
+    (recipient, amountKas, meta = {}) => {
+      const prefix = KASPA_NETWORK === 'kaspatest' ? 'kaspatest:' : 'kaspa:';
+      const addr = recipient.replace(/^(kaspatest:|kaspa:)/, '');
+      const q = [];
+      if (amountKas) q.push(`amount=${amountKas}`);
+      if (meta.scriptHash) q.push(`scriptHash=${meta.scriptHash}`);
+      let uri = `${prefix}${addr}`;
+      if (q.length) uri += `?${q.join('&')}`;
+      return uri;
+    },
+    []
+  );
+
+  const sendPayment = useCallback(
+    async (recipient, amountKas, meta = {}) => {
+      const amountSompi = Math.floor(parseFloat(amountKas) * 100_000_000);
+      const uri = buildUri(recipient, amountKas, meta);
+      if (activeWallet && activeWallet.id !== 'uri' && address) {
+        try {
+          const provider = activeWallet.provider();
+          if (provider?.request) {
+            const result = await provider.request({
+              method: 'kaspa_sendTransaction',
+              params: [{ to: recipient, amount: amountSompi, ...meta }],
+            });
+            await refreshBalance();
+            return { success: true, method: 'extension', txid: result };
+          }
+        } catch (e) {
+          // Fall back to URI
+          window.open(uri, '_blank');
+          return { success: true, method: 'uri', uri, error: e.message };
+        }
+      }
+      window.open(uri, '_blank');
+      return { success: true, method: 'uri', uri };
+    },
+    [activeWallet, address, buildUri, refreshBalance]
+  );
+
+  const value = {
+    activeWallet,
+    address,
+    balance,
+    connecting,
+    error,
+    showModal,
+    setShowModal,
+    connect,
+    disconnect,
+    sendPayment,
+    buildUri,
+    refreshBalance,
+    wallets: WALLET_REGISTRY,
+    network: KASPA_NETWORK,
+  };
 
   return (
-    <WalletContext.Provider value={{ wallet, address, balance, connecting, error, showModal, setShowModal, connect, disconnect, sendPayment, buildUri, wallets: WALLETS, network: KASPA_NETWORK }}>
+    <WalletContext.Provider value={value}>
       {children}
     </WalletContext.Provider>
   );
 }
 
-export function useWallet() { return useContext(WalletContext); }
+export function useWallet() {
+  const ctx = useContext(WalletContext);
+  if (!ctx) throw new Error('useWallet must be used within WalletProvider');
+  return ctx;
+}

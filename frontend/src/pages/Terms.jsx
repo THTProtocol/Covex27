@@ -1,13 +1,8 @@
 import { Link } from 'react-router-dom';
 
-/* ───────────────────────────────────────────────────────────────────
-   Terms & Conditions — legal page
-   ─────────────────────────────────────────────────────────────────── */
-
 export default function Terms() {
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-10 space-y-8">
-      {/* Back link */}
       <Link
         to="/"
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green transition-colors"
@@ -18,143 +13,113 @@ export default function Terms() {
         Explorer
       </Link>
 
-      {/* Header */}
-      <div className="glass p-8">
+      <div className="glass-panel p-8">
         <h1 className="text-2xl font-semibold text-white tracking-tight">
-          Terms &amp; Conditions
+          Terms and Conditions
         </h1>
-        <p className="text-sm text-gray-500 mt-2">
-          Last updated: May 2026
-        </p>
+        <p className="text-sm text-gray-500 mt-2">Last updated: May 2026</p>
       </div>
 
-      {/* Body */}
-      <div className="glass p-8 space-y-8 text-sm text-gray-300 leading-relaxed">
-
+      <div className="glass-panel p-8 space-y-8 text-sm text-gray-300 leading-relaxed">
         {/* 1. Non-Custodial Nature */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">
-            1. Non-Custodial Operation
-          </h2>
+          <h2 className="text-base font-semibold text-white">1. Non-Custodial Operation</h2>
           <p>
-            Covex is a read-only blockchain explorer and does not custody, hold,
-            transmit, control, or manage user funds at any time. All covenant
-            interactions are executed via wallet deep-links
-            (<code className="text-kaspa-green text-xs bg-black/30 px-1.5 py-0.5 rounded font-mono">kaspatest:</code> /
-            <code className="text-kaspa-green text-xs bg-black/30 px-1.5 py-0.5 rounded font-mono">kaspa:</code> URIs)
-            that open in the user&apos;s own wallet application.
+            Covex ("the Platform") is a read-only blockchain explorer. The Platform does not custody,
+            hold, transmit, control, or manage user funds at any time. All covenant interactions are
+            executed via wallet deep-links that open in the user's own wallet application.
           </p>
           <p>
-            At no point does Covex access, request, or store private keys,
-            seed phrases, or wallet credentials. Users are solely responsible
-            for the security of their own signing keys and for verifying all
-            transaction details — including amounts, recipient addresses, and
-            covenant scripts — within their wallet before signing.
+            At no point does Covex access, request, or store private keys, seed phrases, or wallet
+            credentials. Users are solely responsible for the security of their own signing keys and
+            for verifying all transaction details — including amounts, recipient addresses, and covenant
+            scripts — within their wallet before signing.
           </p>
         </section>
 
-        {/* 2. User Responsibility */}
+        {/* 2. Covenant Indexing */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">
-            2. User Responsibility
-          </h2>
+          <h2 className="text-base font-semibold text-white">2. Covenant Indexing and UI Generation</h2>
           <p>
-            By using Covex, you acknowledge and agree that:
+            Covex indexes publicly available blockchain data from the Kaspa BlockDAG. All covenants
+            displayed are immutable on-chain records. The Platform:
           </p>
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
-            <li>
-              You are solely responsible for any transactions you initiate
-              through the wallet deep-links provided by this platform.
-            </li>
-            <li>
-              You have independently verified the authenticity and correctness
-              of the covenant address and script before interacting with it.
-            </li>
-            <li>
-              Covex provides information &quot;as is&quot; without warranty of
-              any kind. Blockchain data is presented as retrieved from the
-              underlying Kaspa node and may be subject to reorgs, latency, or
-              incomplete propagation.
-            </li>
-            <li>
-              You understand the risks inherent to interacting with smart
-              contracts and covenants on a public blockchain, including but
-              not limited to irreversible loss of funds, script vulnerabilities,
-              and network congestion.
-            </li>
+            <li>Does not create, modify, or control any on-chain covenant.</li>
+            <li>Indexes covenant UTXOs via direct wRPC connection to a Kaspa node.</li>
+            <li>Generates optional interactive UI interfaces for paid users triggered by verified on-chain payments.</li>
+            <li>Provides visibility services (featured listings, search ranking) for paid tiers.</li>
           </ul>
         </section>
 
-        {/* 3. Protocol Fees */}
+        {/* 3. Payment Terms */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">
-            3. Protocol &amp; Listing Fees
-          </h2>
+          <h2 className="text-base font-semibold text-white">3. On-Chain Payment Terms</h2>
           <p>
-            The Host Covenant feature allows third parties to submit their
-            covenant for listing on the Covex explorer for a fee of
-            <strong className="text-white"> 100 KAS</strong>. This fee is paid
-            directly to the Covex treasury address via a Kaspa wallet deep-link.
-          </p>
-          <p>
-            Listing fees are:
+            All payments on Covex occur on-chain in KAS. Upon payment confirmation:
           </p>
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
-            <li>
-              Non-refundable once the transaction is confirmed on the Kaspa
-              network.
-            </li>
-            <li>
-              Collected by the Covex Protocol treasury and used to fund ongoing
-              development, infrastructure, and maintenance of the explorer.
-            </li>
-            <li>
-              Subject to change at the discretion of the Covex development team.
-              The current fee will always be displayed on the Host Covenant page
-              at the time of payment.
-            </li>
+            <li>User accounts are automatically upgraded to the corresponding tier.</li>
+            <li>Interactive UI generation is triggered for the associated covenant.</li>
+            <li>Visibility boost settings are applied based on tier level.</li>
+          </ul>
+          <p>
+            Payment tiers are defined at the time of payment. All payments are non-refundable once
+            confirmed on the Kaspa network. Covex guarantees that upon confirmed payment, users receive
+            exactly the service described at their tier level.
+          </p>
+        </section>
+
+        {/* 4. User Responsibility */}
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold text-white">4. User Responsibility</h2>
+          <p>By using Covex, you acknowledge that:</p>
+          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
+            <li>You are solely responsible for any transactions initiated through wallet deep-links.</li>
+            <li>You must independently verify the authenticity of covenant addresses and scripts.</li>
+            <li>Covenants deployed to the Kaspa BlockDAG are permanently immutable and cannot be changed.</li>
+            <li>It is solely your liability to ensure any covenant you create or interact with is legal in your jurisdiction.</li>
+            <li>Covex provides no legal advice and has no connection to predictive markets, gambling, or any illegal activity.</li>
+            <li>We cannot change covenants once deployed on the Kaspa BlockDAG.</li>
           </ul>
         </section>
 
-        {/* 4. No Financial Advice */}
+        {/* 5. No Financial Advice */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">
-            4. No Financial or Legal Advice
-          </h2>
+          <h2 className="text-base font-semibold text-white">5. No Financial or Legal Advice</h2>
           <p>
-            Nothing on Covex constitutes financial, investment, legal, or tax
-            advice. Data displayed on the explorer — including covenant types,
-            locked amounts, and transaction history — is provided for
-            informational purposes only and should not be relied upon for
-            decision-making without independent verification.
+            Nothing on Covex constitutes financial, investment, legal, or tax advice. Data displayed on
+            the Platform — including covenant types, locked amounts, and transaction history — is provided
+            for informational purposes only and should not be relied upon for decision-making without
+            independent verification.
           </p>
         </section>
 
-        {/* 5. Indemnification */}
+        {/* 6. Disclaimer */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">
-            5. Limitation of Liability &amp; Indemnification
-          </h2>
+          <h2 className="text-base font-semibold text-white">6. Disclaimer of Warranty</h2>
           <p>
-            To the fullest extent permitted by applicable law, the Covex
-            Protocol, its developers, contributors, and affiliates shall not
-            be liable for any direct, indirect, incidental, special,
-            consequential, or punitive damages arising from your use of the
-            explorer, including but not limited to loss of funds, data
-            inaccuracies, or wallet deep-link failures.
-          </p>
-          <p>
-            You agree to indemnify and hold harmless the Covex team against
-            any claims, damages, or expenses arising from your use of the
-            platform or violation of these terms.
+            Covex provides information "as is" without warranty of any kind. Blockchain data is presented
+            as retrieved from the underlying Kaspa node and may be subject to reorgs, latency, or
+            incomplete propagation. The Platform makes no guarantees regarding the accuracy, completeness,
+            or timeliness of indexed data.
           </p>
         </section>
 
-        {/* 6. Contact */}
+        {/* 7. Limitation of Liability */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">
-            6. Contact
-          </h2>
+          <h2 className="text-base font-semibold text-white">7. Limitation of Liability</h2>
+          <p>
+            To the fullest extent permitted by applicable law, Covex, its developers, contributors, and
+            affiliates shall not be liable for any direct, indirect, incidental, special, consequential,
+            or punitive damages arising from your use of the Platform, including but not limited to loss
+            of funds, data inaccuracies, or wallet deep-link failures.
+          </p>
+        </section>
+
+        {/* 8. Contact */}
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold text-white">8. Contact</h2>
           <p>
             For questions about these terms, reach out via the
             <a
@@ -168,6 +133,13 @@ export default function Terms() {
             or open an issue.
           </p>
         </section>
+      </div>
+
+      <div className="glass-panel p-6 text-xs text-gray-600 text-center">
+        <p>
+          Chain is the truth. Covex is the window. All covenants remain immutable on-chain; Covex only
+          indexes them publicly and generates custom interactive UIs for paid users.
+        </p>
       </div>
     </div>
   );

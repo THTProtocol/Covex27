@@ -1,0 +1,55 @@
+# Covex Docker Compose
+# Production-ready deployment with Rust backend + React frontend + SQLite
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3001:3001"
+    environment:
+      - KASPA_NETWORK=${KASPA_NETWORK:-testnet-12}
+      - KASPA_WRPC_URL=${KASPA_WRPC_URL:-ws://host.docker.internal:17110}
+      - BIND_ADDR=0.0.0.0:3001
+      - DB_PATH=/data/covex.db
+      - COVENANT_TREASURY_ADDRESS=${COVENANT_TREASURY_ADDRESS:-kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq}
+      - RUST_LOG=${RUST_LOG:-covex27_backend=debug,kaspa_wrpc=info}
+    volumes:
+      - covex_data:/data
+    restart: unless-stopped
+    networks:
+      - covex_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - covex_net
+
+  # Optional: nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - covex_net
+    profiles:
+      - production
+
+volumes:
+  covex_data:
+
+networks:
+  covex_net:

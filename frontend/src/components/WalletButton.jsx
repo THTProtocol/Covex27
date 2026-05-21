@@ -113,6 +113,7 @@ export default function WalletButton() {
         <button
           onClick={() => setShowModal(true)}
           disabled={connecting}
+          data-wallet-trigger
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-kaspa-green text-black hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] disabled:opacity-50"
         >
           <Wallet size={16} />

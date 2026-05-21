@@ -123,10 +123,55 @@ export default function Explorer() {
         </motion.div>
       </section>
 
+      {/* Wallet Connect Section */}
+      <div className="max-w-6xl mx-auto px-4 pb-4">
+        <div className="glass-panel p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-5 border border-kaspa-green/10">
+          <div className="flex items-center gap-4">
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 flex items-center justify-center">
+              <svg className="h-5 w-5 text-kaspa-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="9" y1="21" x2="9" y2="9" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Connect a Hot Wallet</p>
+              <p className="text-xs text-gray-500">KasWare, Kaspium, Kastle, OneKey, Tangem, KDX for instant signing</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const ctx = document.querySelector('[data-wallet-trigger]');
+                if (ctx) ctx.click();
+              }}
+              className="px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:shadow-[0_0_20px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all flex items-center gap-2"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Connect Wallet
+            </button>
+            <Link
+              to="/pricing"
+              className="px-5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-gray-300 text-sm font-medium hover:bg-white/[0.08] transition-all flex items-center gap-2"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <rect x="8" y="8" width="8" height="8" rx="1" />
+              </svg>
+              Pay with QR Code
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Explorer */}
       <div className="max-w-6xl mx-auto px-4 pb-20">
         {/* Stats row */}
-        <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+        <div className="flex flex-wrap items-center justify-between mb-6 gap-4 mt-8">
           <div>
             <h2 className="text-2xl font-semibold text-white tracking-tight">Covenant Explorer</h2>
             <p className="text-sm text-gray-400 mt-1">
@@ -330,12 +375,22 @@ export default function Explorer() {
                           )}
                         </td>
                         <td className="px-5 py-4">
-                          <Link
-                            to={`/covenant/${c.tx_id}`}
-                            className="text-xs font-medium text-gray-400 hover:text-kaspa-green transition-colors"
-                          >
-                            View
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/covenant/${c.tx_id}`}
+                              className="text-xs font-medium text-gray-400 hover:text-kaspa-green transition-colors"
+                            >
+                              View
+                            </Link>
+                            {!verified && (
+                              <Link
+                                to={`/covenant/${c.tx_id}`}
+                                className="text-xs font-medium px-2 py-1 rounded-lg bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 hover:bg-kaspa-gold/20 transition-all"
+                              >
+                                Upgrade
+                              </Link>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

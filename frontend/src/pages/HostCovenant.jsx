@@ -2,10 +2,10 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 /* ───────────────────────────────────────────────────────────────────
-   Host Covenant — pay 100 KAS to list an interactive covenant UI
+   Host Covenant: pay 100 KAS to list an interactive covenant UI
    ─────────────────────────────────────────────────────────────────── */
 
-// Covex treasury address — replace with actual treasury
+// Covex treasury address: replace with actual treasury
 const TREASURY_ADDRESS = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 
 // 100 KAS in sompi
@@ -14,11 +14,11 @@ const LISTING_FEE_KAS = 100;
 
 const TEMPLATES = [
   { value: '', label: 'Select a template…' },
-  { value: 'standard', label: 'Standard — Basic detail card with locked amount' },
-  { value: 'premium', label: 'Premium — Full interactive UI with amount input & wallet link' },
-  { value: 'pool', label: 'Community Pool — Multi-party contribution tracker' },
-  { value: 'escrow', label: 'Escrow Game — Conditional release with oracle hook' },
-  { value: 'prediction', label: 'Prediction Market — Binary outcome settlement display' },
+  { value: 'standard', label: 'Standard: Basic detail card with locked amount' },
+  { value: 'premium', label: 'Premium: Full interactive UI with amount input and wallet link' },
+  { value: 'pool', label: 'Community Pool: Multi-party contribution tracker' },
+  { value: 'escrow', label: 'Escrow Game: Conditional release with oracle hook' },
+  { value: 'prediction', label: 'Prediction Market: Binary outcome settlement display' },
 ];
 
 /* ── Validators ────────────────────────────────────────────────── */

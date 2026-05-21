@@ -79,7 +79,7 @@ Covex is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockD
 - Zero-trust payment verification: all payments confirmed on-chain via wRPC
 - Automatic tier upgrades upon payment confirmation (6+ DAA confirmations)
 - Tier-specific address monitoring with memo/tag logic
-- One-time KAS payments: Explorer (free), Creator (100 KAS), Priority (500 KAS), Enterprise (1000 KAS)
+- One-time KAS payments: Explorer (free), Creator (100 KAS), PRO (500 KAS), MAX (1000 KAS)
 - Payment verifier background task with DAA-based confirmation tracking
 
 ### 💰 Non-Custodial Wallet Connect Hub
@@ -212,7 +212,7 @@ graph TD
                         Tailwind CSS v4               animated background
 
   SaaS Platform        Tiered subscriptions          Explorer (Free), Creator
-                        via Pricing page              (100 KAS), Priority (500 KAS), Enterprise (1000 KAS)
+                        via Pricing page              (100 KAS), PRO (500 KAS), MAX (1000 KAS)
   ─────────────────────────────────────────────────────────────────
 ```
 
@@ -236,7 +236,7 @@ graph TD
                          anyone — paid or not, always.
 
   Tiered SaaS            Explorer (Free), Creator (100 KAS),
-                         Priority (500 KAS), Enterprise (1000 KAS).
+                         PRO (500 KAS), MAX (1000 KAS).
                          Pay for visibility and featured placement.
 
   Network-agnostic       One codebase. One binary. Switch between
@@ -292,16 +292,14 @@ Covex enables developers to create stunning interactive user interfaces for thei
                                   public covenant registry, search
 
   Creator        100 KAS          Custom interactive covenant UI,
-                                  Basic visibility in explorer
+                                  standard registry listing, wallet buttons
 
-  Priority       500 KAS          Enhanced visibility and promotion,
-                                  Featured placement in categories,
-                                  Custom branding options
+  PRO            500 KAS          Featured listings + higher search ranking,
+                                  custom images, advanced UI tools
 
-  Enterprise     1,000 KAS        Maximum visibility and priority,
-                                  Top placement in all listings,
-                                  Dedicated support,
-                                  Custom domain integration
+  MAX            1,000 KAS        Maximum visibility with top placement,
+                                  full UI design suite, custom branding
+```
   ─────────────────────────────────────────────────────────────────
 
   All covenants appear in the public registry. Paid tiers add 
@@ -570,7 +568,7 @@ claim outputs. All through the user's own wallet. Covex never touches a private 
 **Phase 3: SaaS Monetization**
 The platform needed a sustainable model. One-time KAS payments were chosen over subscriptions:
 a covenant author pays once and gets permanent value. Explorer (free read-only), Creator (100 KAS
-interactive UI), Priority (500 KAS featured placement), Enterprise (1000 KAS custom domain).
+interactive UI), PRO (500 KAS featured placement), MAX (1000 KAS full suite custom domain).
 On-chain verification guaranteed every promise. When the payment verifier confirms 6+ DAA
 confirmations, the account upgrades instantly. The UI generator fires, produces a fully
 interactive page with form builders, wallet buttons, and real-time validation, and serves it

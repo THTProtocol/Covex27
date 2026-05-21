@@ -9,16 +9,16 @@ const TIER_COLORS = {
   FREE: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   EXPLORER: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   CREATOR: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  PRIORITY: 'bg-kaspa-gold/10 text-kaspa-gold border-kaspa-gold/20',
-  ENTERPRISE: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  PRO: 'bg-kaspa-gold/10 text-kaspa-gold border-kaspa-gold/20',
+  MAX: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 };
 
 const VERIFICATION_BADGE = {
   FREE: null,
   EXPLORER: null,
   CREATOR: 'VERIFIED',
-  PRIORITY: 'VERIFIED',
-  ENTERPRISE: 'VERIFIED',
+  PRO: 'VERIFIED',
+  MAX: 'VERIFIED',
 };
 
 const CATEGORY_COLORS = {
@@ -75,7 +75,7 @@ export default function Explorer() {
     return () => clearInterval(t);
   }, [fetchCovenants]);
 
-  const tiers = ['all', 'ENTERPRISE', 'PRIORITY', 'CREATOR', 'FREE'];
+  const tiers = ['all', 'MAX', 'PRO', 'CREATOR', 'FREE'];
   const categories = ['all', ...new Set(covenants.map((c) => c.category).filter(Boolean))];
 
   let filtered = [...covenants];
@@ -203,10 +203,10 @@ export default function Explorer() {
                 ? 'All Tiers'
                 : t === 'CREATOR'
                 ? `Creator (100 KAS)`
-                : t === 'PRIORITY'
-                ? `Priority (500 KAS)`
-                : t === 'ENTERPRISE'
-                ? `Enterprise (1000 KAS)`
+                : t === 'PRO'
+                ? `PRO (500 KAS)`
+                : t === 'MAX'
+                ? `MAX (1000 KAS)`
                 : t}
             </button>
           ))}

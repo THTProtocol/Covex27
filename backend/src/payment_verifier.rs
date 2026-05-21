@@ -110,9 +110,9 @@ pub async fn run_payment_verifier(
                                                 };
                                                 let ui_html = crate::ui_generator::generate_enhanced_ui(&config, &gen_tier);
                                                 let slug = format!("covenant-{}", &gen_cid[..16]);
-                                                let featured = gen_tier == "ENTERPRISE" || gen_tier == "PRIORITY";
+                                                let featured = gen_tier == "MAX" || gen_tier == "PRO";
                                                 let _ = db::save_generated_ui(&gen_db, &gen_cid, &gen_cid, &gen_tier, &ui_html, "{}", &slug, featured);
-                                                let priority: i32 = match gen_tier.as_str() { "ENTERPRISE" => 100, "PRIORITY" => 50, "CREATOR" => 10, _ => 0 };
+                                                let priority: i32 = match gen_tier.as_str() { "MAX" => 100, "PRO" => 50, "CREATOR" => 10, _ => 0 };
                                                 let _ = db::set_visibility(&gen_db, &gen_cid, &gen_tier, featured, priority, None);
                                                 info!("Payment Verifier: Enhanced UI generated for verified covenant {}", &gen_cid[..16]);
                                             });

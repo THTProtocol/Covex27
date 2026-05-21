@@ -55,17 +55,17 @@ pub fn generate_basic_ui(config: &UiGenerationConfig) -> String {
     )
 }
 
-/// Enhanced UI for CREATOR/PRIORITY/ENTERPRISE tier covenants.
+/// Enhanced UI for CREATOR/PRO/MAX tier covenants.
 /// Full disclosure: all fields, logic summary, receiving addresses, verified badge, customization hooks.
 pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) -> String {
     let form_html = build_form_html(&config.parameters);
-    let verified_badge = format!(
+    let verified_banner = format!(
         r#"<div class="verified-banner"><div class="verified-icon">V</div>
     <div class="verified-text"><strong>VERIFIED COVENANT</strong> ({tier} tier)<p>Full transparency. All receiving addresses, logic, and parameters disclosed.</p></div></div>"#,
         tier = verified_tier
     );
     let tier_color = match verified_tier {
-        "ENTERPRISE" => "#A855F7", "PRIORITY" => "#E8AF34", _ => "#3B82F6",
+        "MAX" => "#A855F7", "PRO" => "#E8AF34", _ => "#3B82F6",
     };
 
     format!(

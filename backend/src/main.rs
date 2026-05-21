@@ -479,13 +479,16 @@ async fn generate_ui_handler(
         category: payload.category.unwrap_or_else(|| "General".into()),
         script_hash: "script_hash_placeholder".into(),
         parameters: params,
+        is_enhanced: true,
+        disclosure_level: "full".into(),
+        creator_addr: payload.tx_id.clone(),
     };
 
-    let ui_html = ui_generator::generate_covenant_ui(&config);
+    let ui_html = ui_generator::generate_enhanced_ui(&config, &account_tier);
     let slug = format!("covenant-{}", &payload.tx_id[..16]);
 
     // Save to database
-    let featured = account_tier == "ENTERPRISE" || account_tier == "PRIORITY";
+    let featured = account_tier == "MAX" || account_tier == "PRO";
     db::save_generated_ui(
         &state.db,
         &payload.tx_id,
@@ -507,8 +510,8 @@ async fn generate_ui_handler(
 
     // Set visibility based on tier
     let priority = match account_tier.as_str() {
-        "ENTERPRISE" => 100,
-        "PRIORITY" => 50,
+        "MAX" => 100,
+        "PRO" => 50,
         "CREATOR" => 10,
         _ => 0,
     };

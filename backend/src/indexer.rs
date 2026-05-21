@@ -48,7 +48,7 @@ pub async fn run_indexer(
                         let tx_id = entry.outpoint.transaction_id.to_string();
                         let address = entry.address.map(|a| a.to_string()).unwrap_or_default();
                         let amount_sompi = entry.utxo_entry.amount;
-                        let script_hex = entry.utxo_entry.script_public_key.script().to_string();
+                        let script_hex = hex::encode(entry.utxo_entry.script_public_key.script());
                         let script_hash = crate::compute_script_hash(&script_hex);
                         let category = CovenantCategory::from_script_ops(&script_hex);
                         let covenant_type = classify_covenant(&script_hex);
@@ -104,7 +104,7 @@ pub async fn run_indexer(
                         let block_daa = block.header.daa_score;
                         for tx in block.transactions {
                             for (idx, output) in tx.outputs.iter().enumerate() {
-                                let spk_hex = output.script_public_key.script().to_string();
+                                let spk_hex = hex::encode(output.script_public_key.script());
                                 if is_covenant_script(&spk_hex) {
                                     let tx_id = format!("{}:{}", tx.id(), idx);
                                     let amount_sompi = output.value;

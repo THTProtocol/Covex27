@@ -130,34 +130,34 @@ pub fn get_tiers() -> Vec<TierInfo> {
             features: vec![
                 "Everything in Explorer".into(),
                 "Full disclosure: all fields, logic summary".into(),
-                "Enhanced interactive UI generation".into(),
+                "Automatic interactive UI generation".into(),
                 "Form builder + wallet-integrated buttons".into(),
-                "Customizable UI (branding, extra fields)".into(),
+                "Standard registry listing".into(),
                 "Verified badge on covenant detail page".into(),
             ],
             color: "blue".into(), featured: false,
         },
         TierInfo {
-            name: "PRIORITY".into(), label: "Priority".into(), price_kas: 500, price_sompi: 50_000_000_00,
+            name: "PRO".into(), label: "PRO".into(), price_kas: 500, price_sompi: 50_000_000_00,
             features: vec![
                 "Everything in Creator".into(),
                 "Featured listing placement".into(),
                 "Higher search ranking".into(),
                 "Priority indexing queue".into(),
-                "Custom UI color palette".into(),
+                "Custom UI advanced tools".into(),
                 "Custom covenant images".into(),
             ],
             color: "gold".into(), featured: true,
         },
         TierInfo {
-            name: "ENTERPRISE".into(), label: "Enterprise".into(), price_kas: 1000, price_sompi: 100_000_000_00,
+            name: "MAX".into(), label: "MAX".into(), price_kas: 1000, price_sompi: 100_000_000_00,
             features: vec![
-                "Everything in Priority".into(),
-                "Maximum visibility - top row".into(),
+                "Everything in PRO".into(),
+                "Maximum visibility - top placement".into(),
                 "Custom domain embedding".into(),
                 "Dedicated indexing resources".into(),
                 "Premium branding options".into(),
-                "Priority node queue access".into(),
+                "Full UI design suite".into(),
                 "Custom color palette UI".into(),
             ],
             color: "purple".into(), featured: false,
@@ -167,8 +167,8 @@ pub fn get_tiers() -> Vec<TierInfo> {
 
 pub fn tier_from_amount(sompi: u64) -> Option<&'static str> {
     let kas = sompi as f64 / 100_000_000.0;
-    if kas >= 990.0 { Some("ENTERPRISE") }
-    else if kas >= 490.0 { Some("PRIORITY") }
+    if kas >= 990.0 { Some("MAX") }
+    else if kas >= 490.0 { Some("PRO") }
     else if kas >= 90.0 { Some("CREATOR") }
     else { None }
 }

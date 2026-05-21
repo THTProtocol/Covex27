@@ -64,9 +64,9 @@ export default function Dashboard() {
               </div>
             )}
             <span className={`px-4 py-2 rounded-xl text-sm font-semibold border ${
-              accountTier === 'ENTERPRISE'
+              accountTier === 'MAX'
                 ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-                : accountTier === 'PRIORITY'
+                : accountTier === 'PRO'
                 ? 'bg-kaspa-gold/10 text-kaspa-gold border-kaspa-gold/30'
                 : accountTier === 'CREATOR'
                 ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'

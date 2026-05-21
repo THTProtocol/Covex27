@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 const tierValue = (t) => ({ MAX: 3, PRO: 2, CREATOR: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
@@ -42,6 +44,41 @@ export default function CovenantInteractive() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [config, setConfig] = useState(DEFAULT_UI_CONFIG);
   const [activeTab, setActiveTab] = useState('interact');
+
+  // Upgrade payment state
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeTier, setUpgradeTier] = useState(null);
+  const [upgradeQr, setUpgradeQr] = useState(false);
+  const [upgradePaid, setUpgradePaid] = useState(false);
+  const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+  const TIER_OPTIONS = [
+    { id: 'CREATOR', price: 100, label: 'Creator', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
+    { id: 'PRO', price: 500, label: 'PRO', color: '#E8AF34', desc: 'Featured placement, advanced UI tools, covenant images.' },
+    { id: 'MAX', price: 1000, label: 'MAX', color: '#A855F7', desc: 'Top placement, full UI suite, custom branding.' },
+  ];
+
+  const handleUpgrade = async (tier) => {
+    setUpgradeTier(tier);
+    setShowUpgrade(true);
+    setUpgradeQr(false);
+    setUpgradePaid(false);
+  };
+
+  const handleUpgradePay = async (tier) => {
+    try {
+      if (address) {
+        const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
+        if (result.success) setUpgradePaid(true);
+      } else {
+        window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
+        setUpgradePaid(true);
+      }
+    } catch {
+      window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
+    }
+  };
+
+  const getUpgradeUri = (tier) => `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`;
 
   useEffect(() => {
     setLoading(true);
@@ -201,6 +238,17 @@ export default function CovenantInteractive() {
             <p className="text-xs text-gray-500 mb-1">TXID</p>
             <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
           </div>
+
+          {/* Upgrade this Covenant button for FREE/EXPLORER tier */}
+          {!verified && (
+            <button
+              onClick={() => handleUpgrade(TIER_OPTIONS[0])}
+              className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all"
+            >
+              <ArrowUp size={18} />
+              Upgrade this Covenant
+            </button>
+          )}
 
           {/* Customize UI button for paid tiers */}
           {canCustomize && (
@@ -524,6 +572,96 @@ export default function CovenantInteractive() {
           non-custodially through your own wallet. You bear full responsibility for verifying all transaction details before signing.
         </p>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgrade && upgradeTier && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
+          <div className="w-full max-w-lg bg-[#0f0f14] rounded-3xl border border-white/[0.06] shadow-2xl p-7 space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white tracking-tight">
+                Upgrade Covenant: {covenant.name || TRUNC(covenant.tx_id)}
+              </h3>
+              <button onClick={() => setShowUpgrade(false)} className="text-gray-500 hover:text-white transition-colors text-2xl leading-none">
+                &times;
+              </button>
+            </div>
+
+            {upgradeQr ? (
+              <div className="flex flex-col items-center space-y-5">
+                <div className="p-4 bg-white rounded-xl">
+                  <QRCodeCanvas value={getUpgradeUri(upgradeTier)} size={200} level="H" includeMargin={false} />
+                </div>
+                <p className="text-sm text-gray-300 text-center">
+                  Pay exactly <span className="font-bold text-kaspa-green">{upgradeTier.price} KAS</span>
+                </p>
+                <p className="text-xs text-gray-500 break-all font-mono">{getUpgradeUri(upgradeTier)}</p>
+                <button onClick={() => setUpgradeQr(false)} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm hover:bg-white/10 transition-colors">
+                  Back to Payment Options
+                </button>
+              </div>
+            ) : upgradePaid ? (
+              <div className="text-center space-y-5">
+                <div className="h-16 w-16 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                  <Check size={28} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-white">Payment Sent</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Your payment of {upgradeTier.price} KAS is being processed. After 6 confirmations (approximately 1-2 minutes), your covenant will be upgraded to {upgradeTier.label} tier and unlock the interactive UI builder.
+                  </p>
+                </div>
+                <button onClick={() => setShowUpgrade(false)} className="w-full py-3 rounded-xl bg-kaspa-green text-black font-semibold text-sm active:scale-[0.97] transition-all">
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-400">
+                  Select a tier to upgrade this covenant. After payment, you will unlock the interactive UI builder, full disclosure, and a verified badge.
+                </p>
+                <div className="space-y-2">
+                  {TIER_OPTIONS.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setUpgradeTier(t)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${
+                        upgradeTier.id === t.id
+                          ? 'border-kaspa-green/40 bg-kaspa-green/[0.04] ring-1 ring-kaspa-green/30'
+                          : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <div className="shrink-0 h-10 w-10 rounded-xl flex items-center justify-center border" style={{ backgroundColor: `${t.color}15`, borderColor: `${t.color}40` }}>
+                        <span className="text-sm font-bold" style={{ color: t.color }}>{t.label.slice(0, 1)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white">{t.label}</p>
+                        <p className="text-xs text-gray-500">{t.desc}</p>
+                      </div>
+                      <span className="text-sm font-bold text-kaspa-green tabular-nums">{t.price} KAS</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => handleUpgradePay(upgradeTier)}
+                    className="flex-1 py-3 rounded-xl bg-kaspa-green text-black font-semibold text-sm active:scale-[0.97] transition-all"
+                  >
+                    Pay {upgradeTier.price} KAS
+                  </button>
+                  <button
+                    onClick={() => setUpgradeQr(true)}
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-white/10 text-gray-300 text-sm hover:bg-white/[0.04] transition-colors"
+                  >
+                    <QrCode size={16} />
+                    QR Code
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-600 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

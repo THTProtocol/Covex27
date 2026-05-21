@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { X, Zap, Globe, Shield, Cpu, FileText, ExternalLink, Code, Layers, Server } from 'lucide-react';
 
-const WhatIsKaspa = ({ isOpen, onClose }) => {
+// Notice: isOpen = true ensures it renders even if the parent doesn't explicitly pass the prop
+const WhatIsKaspa = ({ isOpen = true, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';

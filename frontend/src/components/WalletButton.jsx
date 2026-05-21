@@ -25,20 +25,20 @@ const WalletButton = () => {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/80 backdrop-blur-sm">
-          {/* Side Drawer spanning full height */}
-          <div className="w-full sm:w-[400px] h-full bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm">
+          {/* Absolute positioning locks it to the right and forces full screen height */}
+          <div className="absolute top-0 right-0 h-screen w-full sm:w-[400px] bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col">
             
             {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0">
+            <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0 bg-[#0a0a0a]">
               <h2 className="text-xl font-semibold text-white">Connect Wallet</h2>
               <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
                 <X size={24} />
               </button>
             </div>
 
-            {/* Scrollable Wallet List */}
-            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+            {/* Scrollable Wallet List (flex-1 forces it to take up all remaining space) */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
               {wallets.map((wallet) => {
                 const Icon = wallet.icon;
                 return (

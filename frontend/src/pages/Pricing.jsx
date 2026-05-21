@@ -1,307 +1,237 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useWallet } from '../components/WalletContext';
-import { QRCodeCanvas as QRCode } from 'qrcode.react';
+import React, { useState } from 'react';
+import { Check, X as XIcon, ArrowLeft, Wallet, QrCode, Box, Sparkles, CheckCircle } from 'lucide-react';
 
-const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-
-const TIERS = [
-  {
-    id: 'explorer',
-    name: 'Explorer',
-    subtitle: 'Free Read-Only Access',
-    priceKAS: 0,
-    period: 'free forever',
-    color: 'border-gray-500/30 bg-gray-500/5',
-    accent: '#6B7280',
-    desc: 'Browse all indexed covenants on the Kaspa BlockDAG. Read-only contract view with script display, parameters, and on-chain status verification.',
-    features: [
-      'Browse all indexed covenants',
-      'Public read-only contract view',
-      'Script display and parameters',
-      'On-chain status verification',
-      'Search and filter capabilities',
-    ],
-    missing: ['No interactive UI generation', 'No featured placement', 'No custom forms'],
-  },
-  {
-    id: 'creator',
-    name: 'Creator',
-    subtitle: 'Custom Interactive UI',
-    priceKAS: 100,
-    period: 'one-time',
-    color: 'border-blue-500/30 bg-blue-500/5',
-    accent: '#3B82F6',
-    popular: false,
-    desc: 'Generate a fully interactive UI for your covenant with drag-and-drop forms, wallet integration, and a public listing. One-time payment for permanent listing.',
-    features: [
-      'Everything in Explorer',
-      'Automatic interactive UI generation',
-      'Form builder with parameter inputs',
-      'Wallet-integrated interact buttons',
-      'Shareable/embeddable view',
-      'Standard registry listing',
-    ],
-    missing: ['No featured placement', 'No PRO-level tools', 'No top placement'],
-  },
-  {
-    id: 'pro',
-    name: 'PRO',
-    subtitle: 'Better Visibility + Advanced Tools',
-    priceKAS: 500,
-    period: 'one-time',
-    color: 'border-kaspa-gold/30 bg-kaspa-gold/5',
-    accent: '#E8AF34',
-    popular: true,
-    desc: 'Everything in Creator plus better visibility with featured listings, higher search ranking, and advanced UI customization tools.',
-    features: [
-      'Everything in Creator',
-      'Featured listings placement',
-      'Higher search ranking',
-      'Suggested covenant placement',
-      'Custom covenant image upload',
-      'Advanced UI tools',
-    ],
-    missing: [],
-  },
-  {
-    id: 'max',
-    name: 'MAX',
-    subtitle: 'Maximum Visibility + Full Suite',
-    priceKAS: 1000,
-    period: 'one-time',
-    color: 'border-purple-500/30 bg-purple-500/5',
-    accent: '#A855F7',
-    popular: false,
-    desc: 'The ultimate tier. Everything in PRO plus maximum visibility with top placement everywhere, a full UI design suite, and maximum configuration power.',
-    features: [
-      'Everything in PRO',
-      'Top placement on explorer',
-      'Premium branding options',
-      'Custom domain embedding',
-      'Dedicated indexer priority',
-      'Full UI design suite',
-      'Custom color palette',
-    ],
-    missing: [],
-  },
+// Mock data for the user's deployed covenants
+const myCovenants = [
+  { id: 'cov_1', name: 'AtomicSwap', address: 'kaspa:q...7fa', date: '2026-05-20' },
+  { id: 'cov_2', name: 'TransferWithTimeout', address: 'kaspa:q...8b2', date: '2026-05-21' }
 ];
 
-export default function Pricing() {
-  const { address, sendPayment, connecting } = useWallet();
-  const [paying, setPaying] = useState(null);
-  const [paid, setPaid] = useState(null);
-  const [showQRModal, setShowQRModal] = useState(false);
+const Pricing = () => {
+  const [step, setStep] = useState('pricing'); // pricing, select, pay, success
   const [selectedTier, setSelectedTier] = useState(null);
+  const [selectedCovenant, setSelectedCovenant] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handlePay = async (tier) => {
-    if (tier.priceKAS === 0) return;
-    setPaying(tier.id);
-    try {
-      if (address) {
-        const result = await sendPayment(TREASURY, tier.priceKAS, { memo: `covex:${tier.id}` });
-        if (result.success) {
-          setPaid(tier.id);
-        }
-      } else {
-        window.location.href = `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.priceKAS}`;
-      }
-    } catch (e) {
-      // URI fallback handled in sendPayment
-    }
-    setPaying(null);
-  };
-
-  const handleQRPay = (tier) => {
+  const handleSelectTier = (tier) => {
     setSelectedTier(tier);
-    setShowQRModal(true);
+    setStep('select');
   };
 
-  const getPaymentURI = (tier) => {
-    return `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.priceKAS}`;
+  const handleCheckout = () => {
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setStep('success');
+    }, 2000);
   };
 
-  return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-10">
-      {/* Hero */}
-      <div className="text-center mb-12">
-        <h1 className="text-3xl sm:text-4xl font-semibold text-white tracking-tight">Pricing</h1>
-        <p className="text-sm text-gray-400 mt-3 max-w-xl mx-auto">
-          One-time KAS payment. Your covenant gets a permanent interactive UI and visibility boost.
-          No subscriptions. No recurring charges.
-        </p>
-      </div>
+  const reset = () => {
+    setStep('pricing');
+    setSelectedTier(null);
+    setSelectedCovenant(null);
+  };
 
-      {/* Value props */}
-      <div className="glass-panel p-6 mb-10 max-w-4xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-          {[
-            ['Pay for Visibility', 'Your covenant appears prominently. Users interact via their own wallet.'],
-            ['Automatic UI Generation', 'Paid listings get custom interactive panels with forms, validation, and wallet integration.'],
-            ['One-Time Fee, Forever', 'Pay once, listed permanently. No subscriptions. No recurring billing.'],
-          ].map(([t, d]) => (
-            <div key={t} className="space-y-1">
-              <p className="text-sm font-semibold text-white">{t}</p>
-              <p className="text-xs text-gray-500">{d}</p>
-            </div>
-          ))}
+  // --- VIEW: 1. PRICING GRID ---
+  if (step === 'pricing') {
+    return (
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-16 animate-in fade-in duration-300">
+        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-wide">Pricing</h1>
+          <p className="text-lg text-gray-400">
+            One-time KAS payment. Your covenant gets a permanent interactive UI and visibility boost. <br/>
+            No subscriptions. No recurring charges.
+          </p>
         </div>
-      </div>
 
-      {/* Tier cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {TIERS.map((t) => (
-          <div
-            key={t.id}
-            className={`glass-panel p-6 flex flex-col border ${t.color} ${t.popular ? 'ring-1 ring-kaspa-gold/50' : ''}`}
-          >
-            {t.popular && (
-              <div className="text-center mb-3">
-                <span className="inline-block px-3 py-0.5 rounded-full text-xs font-semibold bg-kaspa-gold/20 text-kaspa-gold">
-                  RECOMMENDED
-                </span>
-              </div>
-            )}
-
-            <div className="text-center mb-5">
-              <h3 className="text-lg font-semibold text-white">{t.name}</h3>
-              <p className="text-xs text-gray-500 mt-1">{t.subtitle}</p>
-              <div className="mt-3">
-                <div className="space-y-1">
-                  <span className="text-3xl font-bold text-white tabular-nums">
-                    {t.priceKAS === 0 ? 'Free' : t.priceKAS.toLocaleString()}
-                  </span>
-                  {t.priceKAS > 0 && <span className="text-sm text-kaspa-green font-medium ml-1">KAS</span>}
-                  <p className="text-xs text-gray-500">{t.period}</p>
-                </div>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* FREE */}
+          <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 flex flex-col hover:border-[#49EACB]/30 transition-all">
+            <h3 className="text-xl font-semibold text-white text-center">Explorer</h3>
+            <p className="text-xs text-gray-500 text-center mb-6">Free Read-Only Access</p>
+            <div className="text-center mb-8">
+              <span className="text-4xl font-bold text-white">Free</span>
+              <p className="text-xs text-gray-500 mt-2">free forever</p>
             </div>
-
-            <ul className="space-y-2 text-sm flex-1">
-              {t.features.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <svg className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span className="text-gray-300 text-xs">{f}</span>
-                </li>
+            <div className="space-y-4 flex-1">
+              {['Browse all indexed covenants', 'Public read-only contract view', 'Script display and parameters', 'On-chain status verification', 'Search and filter capabilities'].map((feature, i) => (
+                <div key={i} className="flex gap-3 text-sm text-gray-300"><Check size={18} className="text-[#49EACB] shrink-0" /> {feature}</div>
               ))}
-            </ul>
-
-            {t.missing.length > 0 && (
-              <ul className="space-y-2 text-sm mt-4 pt-4 border-t border-white/5">
-                {t.missing.map((f) => (
-                  <li key={f} className="flex items-start gap-2 opacity-40">
-                    <svg className="h-3.5 w-3.5 text-gray-600 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                    <span className="text-gray-600 text-xs">{f}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-6 space-y-3">
-              {t.priceKAS === 0 ? (
-                <Link
-                  to="/"
-                  className="block w-full text-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-white/5 text-white border border-white/10 hover:bg-white/10 active:scale-[0.97]"
-                >
-                  Explore Covenants
-                </Link>
-              ) : paid === t.id ? (
-                <div className="block w-full text-center px-4 py-3 rounded-xl text-sm font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  Payment Sent - Verifying...
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={() => handlePay(t)}
-                    disabled={paying === t.id || connecting}
-                    className={`block w-full text-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                      t.popular
-                        ? 'bg-kaspa-green text-black shadow-[0_0_20px_rgba(73,234,203,0.2)] hover:shadow-[0_0_40px_rgba(73,234,203,0.3)]'
-                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                    } active:scale-[0.97] disabled:opacity-50`}
-                  >
-                    {paying === t.id ? 'Processing...' : `Pay ${t.priceKAS.toLocaleString()} KAS`}
-                  </button>
-                  <button
-                    onClick={() => handleQRPay(t)}
-                    className="block w-full text-center px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 active:scale-[0.97] mt-2"
-                  >
-                    Pay with QR Code
-                  </button>
-                </>
-              )}
+              {['No interactive UI generation', 'No featured placement', 'No custom forms'].map((feature, i) => (
+                <div key={i} className="flex gap-3 text-sm text-gray-600"><XIcon size={18} className="shrink-0" /> {feature}</div>
+              ))}
             </div>
+            <button className="w-full mt-8 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] text-white font-medium transition-all">
+              Explore Covenants
+            </button>
           </div>
-        ))}
-      </div>
 
-      {/* Treasury info + disclaimers */}
-      <div className="glass-panel p-6 mt-10 text-center max-w-3xl mx-auto space-y-4">
-        <p className="text-sm text-gray-400">
-          All on-chain covenants are visible in the public registry. Paying for a tier adds an
-          interactive UI and visibility boost. All payments are one-time and non-refundable.
-        </p>
-        <p className="text-xs text-gray-600 font-mono break-all">
-          Treasury: {TREASURY}
-        </p>
-        <div className="text-xs text-gray-600 space-y-1">
-          <p>Payments are processed on-chain in KAS only. No fiat, no subscriptions, no recurring billing.</p>
-          <p>Covex never stores private keys. All transactions are signed in your own wallet.</p>
+          {/* CREATOR */}
+          <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 flex flex-col hover:border-[#49EACB]/30 transition-all">
+            <h3 className="text-xl font-semibold text-white text-center">Creator</h3>
+            <p className="text-xs text-gray-500 text-center mb-6">Custom Interactive UI</p>
+            <div className="text-center mb-8">
+              <span className="text-4xl font-bold text-[#49EACB]">100</span> <span className="text-sm text-[#49EACB]">KAS</span>
+              <p className="text-xs text-gray-500 mt-2">one-time</p>
+            </div>
+            <div className="space-y-4 flex-1">
+              {['Everything in Explorer', 'Automatic interactive UI generation', 'Form builder with parameter inputs', 'Wallet-integrated interact buttons', 'Shareable/embeddable view', 'Standard registry listing'].map((feature, i) => (
+                <div key={i} className="flex gap-3 text-sm text-gray-300"><Check size={18} className="text-[#49EACB] shrink-0" /> {feature}</div>
+              ))}
+            </div>
+            <button onClick={() => handleSelectTier({ name: 'Creator', price: 100 })} className="w-full mt-8 py-3 rounded-xl border border-[#49EACB] text-[#49EACB] hover:bg-[#49EACB] hover:text-black font-medium transition-all">
+              Pay 100 KAS
+            </button>
+          </div>
+
+          {/* PRO */}
+          <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 flex flex-col hover:border-[#49EACB]/50 shadow-[0_0_30px_rgba(73,234,203,0.05)] transition-all">
+            <h3 className="text-xl font-semibold text-white text-center">PRO</h3>
+            <p className="text-xs text-gray-500 text-center mb-6">Better Visibility + Advanced Tools</p>
+            <div className="text-center mb-8">
+              <span className="text-4xl font-bold text-[#49EACB]">500</span> <span className="text-sm text-[#49EACB]">KAS</span>
+              <p className="text-xs text-gray-500 mt-2">one-time</p>
+            </div>
+            <div className="space-y-4 flex-1">
+              {['Everything in Creator', 'Featured listings placement', 'Higher search ranking', 'Suggested covenant placement', 'Custom covenant image upload', 'Advanced UI tools'].map((feature, i) => (
+                <div key={i} className="flex gap-3 text-sm text-gray-300"><Check size={18} className="text-[#49EACB] shrink-0" /> {feature}</div>
+              ))}
+            </div>
+            <button onClick={() => handleSelectTier({ name: 'PRO', price: 500 })} className="w-full mt-8 py-3 rounded-xl bg-[#49EACB] hover:bg-[#3bc2a6] text-black font-semibold shadow-[0_0_15px_rgba(73,234,203,0.2)] transition-all">
+              Pay 500 KAS
+            </button>
+          </div>
+
+          {/* MAX */}
+          <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 flex flex-col hover:border-[#49EACB]/30 transition-all">
+            <h3 className="text-xl font-semibold text-white text-center">MAX</h3>
+            <p className="text-xs text-gray-500 text-center mb-6">Maximum Visibility + Full Suite</p>
+            <div className="text-center mb-8">
+              <span className="text-4xl font-bold text-[#49EACB]">1,000</span> <span className="text-sm text-[#49EACB]">KAS</span>
+              <p className="text-xs text-gray-500 mt-2">one-time</p>
+            </div>
+            <div className="space-y-4 flex-1">
+              {['Everything in PRO', 'Top placement on explorer', 'Premium branding options', 'Custom domain embedding', 'Dedicated indexer priority', 'Full UI design suite', 'Custom color palette'].map((feature, i) => (
+                <div key={i} className="flex gap-3 text-sm text-gray-300"><Check size={18} className="text-[#49EACB] shrink-0" /> {feature}</div>
+              ))}
+            </div>
+            <button onClick={() => handleSelectTier({ name: 'MAX', price: 1000 })} className="w-full mt-8 py-3 rounded-xl border border-[#49EACB] text-[#49EACB] hover:bg-[#49EACB] hover:text-black font-medium transition-all">
+              Pay 1,000 KAS
+            </button>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* QR Code Modal */}
-      {showQRModal && selectedTier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
-          <div className="w-full max-w-md glass-panel rounded-3xl p-8 space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold text-white">Pay with QR Code</h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  Scan this QR code with your Kaspa wallet to pay {selectedTier.priceKAS} KAS
-                </p>
-              </div>
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="text-gray-500 hover:text-white transition-colors text-2xl leading-none"
+  // --- VIEW: 2. SELECT COVENANT ---
+  if (step === 'select') {
+    return (
+      <div className="relative z-10 max-w-2xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <button onClick={reset} className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] mb-8 text-sm transition-colors">
+          <ArrowLeft size={16} /> Back to Pricing
+        </button>
+        <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 shadow-2xl">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-white mb-2">Select a Covenant</h2>
+            <p className="text-gray-400 text-sm">Choose which deployed covenant you are upgrading to <span className="text-[#49EACB] font-semibold">{selectedTier.name}</span>.</p>
+          </div>
+          <div className="space-y-3">
+            {myCovenants.map(cov => (
+              <button 
+                key={cov.id} 
+                onClick={() => { setSelectedCovenant(cov); setStep('pay'); }}
+                className="w-full flex items-center justify-between p-4 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] transition-all group text-left"
               >
-                ×
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB]">
+                    <Box size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-medium">{cov.name}</h4>
+                    <p className="text-xs text-gray-500 font-mono mt-0.5">{cov.address}</p>
+                  </div>
+                </div>
+                <span className="text-sm text-[#49EACB] opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
               </button>
-            </div>
-
-            <div className="flex flex-col items-center space-y-4">
-              <div className="p-4 bg-white rounded-xl">
-                <QRCode 
-                  value={getPaymentURI(selectedTier)} 
-                  size={200} 
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-              
-              <div className="text-center space-y-2">
-                <p className="text-sm text-gray-300">
-                  Pay exactly <span className="font-bold text-kaspa-green">{selectedTier.priceKAS} KAS</span>
-                </p>
-                <p className="text-xs text-gray-500 break-all font-mono">
-                  {getPaymentURI(selectedTier)}
-                </p>
-              </div>
-              
-              <div className="pt-4 border-t border-white/10 w-full">
-                <p className="text-xs text-gray-500 text-center">
-                  After payment, your covenant will be upgraded automatically within 6 confirmations.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
+
+  // --- VIEW: 3. PAYMENT ---
+  if (step === 'pay') {
+    return (
+      <div className="relative z-10 max-w-md mx-auto px-6 py-16 animate-in fade-in slide-in-from-right-8 duration-300">
+        <button onClick={() => setStep('select')} className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] mb-8 text-sm transition-colors">
+          <ArrowLeft size={16} /> Back to Selection
+        </button>
+        <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 shadow-2xl text-center">
+          <h2 className="text-xl font-bold text-white mb-6">Complete Upgrade</h2>
+          
+          <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-4 mb-8 text-left">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Target Covenant</p>
+            <p className="text-white font-medium">{selectedCovenant.name}</p>
+            <div className="border-t border-[#1f1f1f] my-3"></div>
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-400">{selectedTier.name} Tier Upgrade</p>
+              <p className="text-lg font-bold text-[#49EACB]">{selectedTier.price} KAS</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button 
+              onClick={handleCheckout}
+              disabled={isProcessing}
+              className="w-full flex items-center justify-center gap-2 py-4 bg-[#49EACB] hover:bg-[#3bc2a6] text-black font-bold rounded-xl transition-all disabled:opacity-70"
+            >
+              {isProcessing ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Awaiting Transaction...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2"><Wallet size={20} /> Pay with Web3 Wallet</span>
+              )}
+            </button>
+            <button 
+              disabled={isProcessing}
+              className="w-full flex items-center justify-center gap-2 py-4 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] text-white font-medium rounded-xl transition-all"
+            >
+              <QrCode size={20} className="text-gray-400" /> Show QR Code
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- VIEW: 4. SUCCESS ---
+  if (step === 'success') {
+    return (
+      <div className="relative z-10 max-w-md mx-auto px-6 py-16 animate-in zoom-in-95 duration-500">
+        <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-10 shadow-2xl text-center">
+          <div className="w-20 h-20 mx-auto bg-[#49EACB]/10 rounded-full flex items-center justify-center mb-6">
+            <CheckCircle size={40} className="text-[#49EACB]" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Upgrade Complete</h2>
+          <p className="text-gray-400 text-sm mb-8">
+            <span className="text-white font-medium">{selectedCovenant.name}</span> has been upgraded to the <span className="text-[#49EACB] font-semibold">{selectedTier.name}</span> tier.
+          </p>
+          <button 
+            onClick={reset} // Wire this to route to your UI Builder later
+            className="w-full flex items-center justify-center gap-2 py-4 bg-[#49EACB] hover:bg-[#3bc2a6] text-black font-bold rounded-xl shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all"
+          >
+            <Sparkles size={20} /> Enter UI Builder
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default Pricing;

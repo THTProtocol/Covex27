@@ -126,7 +126,7 @@ function KaspaPromo() {
       {/* Network Status Badge */}
       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#1f1f1f] text-gray-400 text-xs font-mono mb-8">
         <div className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_8px_#49EACB] animate-pulse" />
-        TN-12 LIVE
+        TN-10 LIVE
       </div>
 
       {/* Main Headline */}

@@ -1,227 +1,130 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { useWallet } from '../components/WalletContext';
-import LegalModal from '../components/LegalModal';
+import React, { useState } from 'react';
+import { FileCode, Code, AlertTriangle, ArrowLeft, Terminal, CheckCircle } from 'lucide-react';
 
-const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-const DEPLOY_FEE_KAS = 1;
+const CreateCovenant = () => {
+  const [code, setCode] = useState(`// SilverScript covenant example:
+// pragma silverscript 2026.0;
 
-export default function CreateCovenant() {
-  const [accepted, setAccepted] = useState(false);
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const { address, sendPayment, connecting, buildUri } = useWallet();
-
-  const compile = async () => {
-    if (!code.trim()) return;
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const r = await fetch('/api/compile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
-      setResult(d);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+contract TransferWithTimeout {
+    state {
+        payee: Address,
+        amount: u64,
+        timeout: DaaScore
     }
-  };
 
-  const deployUri = useMemo(
-    () =>
-      result?.script_template_hash
-        ? buildUri(DEPLOYER, DEPLOY_FEE_KAS, {
-            scriptHash: result.script_template_hash,
-          })
-        : null,
-    [result, buildUri]
-  );
-
-  const handleDeploy = async () => {
-    if (!result?.script_template_hash) return;
-    if (address) {
-      try {
-        await sendPayment(DEPLOYER, DEPLOY_FEE_KAS, {
-          scriptHash: result.script_template_hash,
-        });
-      } catch {
-        if (deployUri) window.open(deployUri, '_blank');
-      }
-    } else if (deployUri) {
-      window.open(deployUri, '_blank');
+    entrypoint function claim() {
+        require(opTx.outputs[0].address == state.payee);
+        require(opTx.outputs[0].amount == state.amount);
     }
+}`);
+
+  const [status, setStatus] = useState('idle'); // idle, compiling, success
+
+  const handleCompile = () => {
+    setStatus('compiling');
+    // Hook this into your Rust wasm-compiler later. For now, it simulates the pipeline.
+    setTimeout(() => {
+      setStatus('success');
+      setTimeout(() => setStatus('idle'), 3000);
+    }, 1500);
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-10 space-y-8">
-      {!accepted && <LegalModal onAccept={() => setAccepted(true)} />}
-
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green transition-colors"
+    <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 animate-in fade-in duration-300">
+      
+      {/* Universal Back Button */}
+      <button 
+        onClick={() => window.history.back()} 
+        className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
       >
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M19 12H5m6-6-6 6 6 6" />
-        </svg>
+        <ArrowLeft size={16} />
         Explorer
-      </Link>
+      </button>
 
-      {/* Header */}
-      <div className="glass-panel p-8 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-kaspa-gold/10 border border-kaspa-gold/30 flex items-center justify-center">
-            <svg className="h-5 w-5 text-kaspa-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
+      {/* Main Container - Heavily frosted to block the DAG background */}
+      <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl shadow-2xl overflow-hidden">
+        
+        {/* Header */}
+        <div className="p-8 border-b border-[#1f1f1f] flex items-center gap-5 bg-[#0a0a0a]">
+          <div className="w-14 h-14 rounded-xl bg-[#49EACB]/10 flex items-center justify-center border border-[#49EACB]/30 shrink-0">
+            <FileCode size={28} className="text-[#49EACB]" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-white tracking-tight">Create Covenant</h1>
-            <p className="text-sm text-gray-500">
-              Write SilverScript, compile to Kaspa bytecode, and deploy to the BlockDAG
-            </p>
+            <h1 className="text-2xl font-bold text-white tracking-wide">Create Covenant</h1>
+            <p className="text-sm text-gray-400 mt-1">Write SilverScript, compile to Kaspa bytecode, and deploy to the BlockDAG</p>
           </div>
         </div>
-      </div>
 
-      {/* Editor */}
-      <div className="glass-panel p-8 space-y-6">
-        <textarea
-          value={code}
-          onChange={(e) => {
-            setCode(e.target.value);
-            setResult(null);
-            setError(null);
-          }}
-          spellCheck={false}
-          placeholder={`// SilverScript covenant example:\n// pragma silverscript ^0.1.0;\n\ncontract TransferWithTimeout {\n    state {\n        payee: Address,\n        amount: u64,\n        timeout: DaaScore\n    }\n\n    entrypoint function claim() {\n        require(opTx.outputs[0].address == state.payee);\n        require(opTx.outputs[0].amount == state.amount);\n    }\n\n    entrypoint function reclaim() {\n        require(opTx.daaScore >= state.timeout);\n    }\n}`}
-          className="w-full h-80 px-5 py-4 rounded-xl bg-black/40 border border-white/10 text-white font-mono text-sm leading-relaxed placeholder:text-gray-700 focus:outline-none focus:border-kaspa-gold/50 focus:ring-1 focus:ring-kaspa-gold/20 transition-colors resize-y"
-        />
-        <button
-          onClick={compile}
-          disabled={!code.trim() || loading}
-          className={`w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
-            code.trim() && !loading
-              ? 'bg-kaspa-gold text-black shadow-[0_0_30px_rgba(232,175,52,0.25)] hover:shadow-[0_0_50px_rgba(232,175,52,0.4)] active:scale-[0.97]'
-              : 'bg-white/[0.04] text-gray-600 border border-white/5 cursor-not-allowed'
-          }`}
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Compiling...
-            </>
-          ) : (
-            <>
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <polyline points="16 18 22 12 16 6" />
-                <polyline points="8 6 2 12 8 18" />
-              </svg>
-              Compile Covenant
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="glass-panel p-6 border-red-500/30">
-          <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-red-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-            <div>
-              <p className="text-sm font-semibold text-red-400">Compilation Failed</p>
-              <p className="text-xs text-red-300/80 mt-1 font-mono whitespace-pre-wrap">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success */}
-      {result && (
-        <div className="glass-panel p-8 space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-              <svg className="h-4 w-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-white">Compilation Successful</h2>
-          </div>
-
-          <div>
-            <p className="text-xs text-gray-500 mb-1.5">Script Template Hash</p>
-            <div className="p-4 rounded-xl bg-black/40 border border-white/5 font-mono text-sm text-kaspa-green break-all">
-              {result.script_template_hash}
-            </div>
-          </div>
-
-          {result.bytecode && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1.5">
-                Bytecode <span className="text-gray-600">({result.bytecode.length} hex)</span>
-              </p>
-              <div className="p-4 rounded-xl bg-black/40 border border-white/5 font-mono text-xs text-gray-400 break-all max-h-32 overflow-y-auto">
-                {result.bytecode}
+        {/* Editor Area */}
+        <div className="p-8 space-y-6">
+          
+          <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-[#2a2a2a]">
+              <div className="flex items-center gap-2 text-gray-400 text-xs font-mono tracking-wider">
+                <Terminal size={14} className="text-[#49EACB]" />
+                <span>contract.ss</span>
               </div>
             </div>
-          )}
-
-          <div className="space-y-3">
-            {deployUri && (
-              <>
-                <button
-                  onClick={handleDeploy}
-                  disabled={connecting}
-                  className="w-full inline-flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm shadow-[0_0_30px_rgba(73,234,203,0.25)] hover:shadow-[0_0_50px_rgba(73,234,203,0.4)] hover:brightness-110 active:scale-[0.97] transition-all duration-200 disabled:opacity-50"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z" />
-                  </svg>
-                  {address ? (connecting ? 'Signing...' : 'Deploy via Connected Wallet') : 'Deploy (Open Wallet App)'}
-                </button>
-                <div className="p-4 rounded-xl bg-black/30 border border-white/5 font-mono text-xs text-gray-400 break-all">
-                  <span className="text-gray-600">URI: </span>
-                  {deployUri}
-                </div>
-              </>
-            )}
+            
+            <textarea
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              spellCheck="false"
+              className="w-full h-[400px] bg-transparent text-[#e6e6e6] font-mono text-sm p-5 focus:outline-none resize-none custom-scrollbar leading-relaxed"
+              style={{ tabSize: 4 }}
+            />
           </div>
 
-          <p className="text-xs text-gray-600 text-center">
-            Deployment fee: {DEPLOY_FEE_KAS} KAS (paid to Kaspa network, not Covex)
-          </p>
+          {/* Action Bar */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleCompile}
+              disabled={status === 'compiling' || status === 'success'}
+              className={`flex items-center gap-2 px-8 py-3 rounded-xl font-semibold transition-all ${
+                status === 'success' 
+                  ? 'bg-green-500/10 text-green-400 border border-green-500/30'
+                  : 'bg-[#49EACB] hover:bg-[#3bc2a6] text-black shadow-[0_0_20px_rgba(73,234,203,0.2)] hover:shadow-[0_0_25px_rgba(73,234,203,0.4)]'
+              } disabled:opacity-70 disabled:cursor-not-allowed`}
+            >
+              {status === 'compiling' ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Compiling...
+                </span>
+              ) : status === 'success' ? (
+                <span className="flex items-center gap-2">
+                  <CheckCircle size={20} />
+                  Compiled Successfully
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Code size={20} />
+                  Compile Covenant
+                </span>
+              )}
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Disclaimers */}
-      <div className="glass-panel p-6 text-xs text-gray-600 space-y-2">
-        <p className="text-gray-500 font-semibold">Deployment Notice</p>
-        <p>
-          Covenants deployed to the Kaspa BlockDAG are <span className="text-gray-400">permanently immutable</span>.
-          They cannot be changed, deleted, or reversed. You bear full legal and financial responsibility.
-        </p>
-        <p>
-          Covex is a <span className="text-gray-400">non-custodial platform</span>. We never access your private
-          keys. All signing happens in your own wallet application.
-        </p>
+        {/* Footer / Deployment Notice */}
+        <div className="p-6 bg-[#0a0a0a] border-t border-[#1f1f1f]">
+          <div className="flex gap-4 items-start p-4 rounded-xl border border-yellow-900/30 bg-yellow-900/5">
+            <AlertTriangle size={20} className="text-yellow-600 shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-300 tracking-wide uppercase">Deployment Notice</h4>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Covenants deployed to the Kaspa BlockDAG are <strong className="text-gray-300">permanently immutable</strong>. They cannot be changed, deleted, or reversed. You bear full legal and financial responsibility.
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Covex is a <strong className="text-gray-300">non-custodial platform</strong>. We never access your private keys. All signing happens in your own wallet application.
+              </p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
-}
+};
+
+export default CreateCovenant;

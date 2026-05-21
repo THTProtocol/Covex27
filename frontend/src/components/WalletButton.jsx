@@ -152,7 +152,7 @@ const WalletButton = () => {
                   <div className="p-3 border border-yellow-900/50 bg-yellow-900/10 rounded-xl flex gap-3 items-start">
                     <AlertTriangle size={18} className="text-yellow-600 mt-0.5 shrink-0" />
                     <p className="text-xs text-yellow-600 leading-relaxed">
-                      <strong>Security Warning:</strong> Never enter a Mainnet seed phrase or private key into a browser application. Use this only for Testnet-12 development.
+                      <strong>Security Warning:</strong> Never enter a Mainnet seed phrase or private key into a browser application. Use this only for Testnet-10 development.
                     </p>
                   </div>
 
@@ -193,7 +193,7 @@ const WalletButton = () => {
             {/* Footer */}
             <div className="p-6 border-t border-[#1f1f1f] shrink-0 bg-[#0a0a0a]">
                 <p className="text-xs text-gray-600 text-center">
-                  Covex Testnet-12 Environment
+                  Covex Testnet-10 Environment
                 </p>
             </div>
           </div>

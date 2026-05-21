@@ -1,23 +1,26 @@
 import React, { useEffect } from 'react';
-import { X, Zap, Network, Shield, Cpu, FileText, ExternalLink, Code, Layers, Pickaxe } from 'lucide-react';
+import { X, Zap, Globe, Shield, Cpu, FileText, ExternalLink, Code, Layers, Server } from 'lucide-react';
 
 const WhatIsKaspa = ({ isOpen, onClose }) => {
   useEffect(() => {
-    if (isOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = 'unset';
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-[#0a0a0a] overflow-y-auto custom-scrollbar animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[99999] bg-[#0a0a0a] overflow-y-auto w-full h-full">
       
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 flex justify-between items-center p-6 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-[#1f1f1f]">
+      <div className="sticky top-0 z-50 flex justify-between items-center p-6 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#1f1f1f]">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-[#49EACB]/10 flex items-center justify-center border border-[#49EACB]/30">
-            <Network size={18} className="text-[#49EACB]" />
+            <Globe size={18} className="text-[#49EACB]" />
           </div>
           <h2 className="text-xl font-bold text-white tracking-wide">Understanding Kaspa</h2>
         </div>
@@ -30,7 +33,7 @@ const WhatIsKaspa = ({ isOpen, onClose }) => {
       </div>
 
       {/* Main Content Container */}
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-16">
+      <div className="max-w-6xl mx-auto px-6 py-12 space-y-16 pb-24">
         
         {/* Hero Section */}
         <div className="text-center max-w-3xl mx-auto space-y-6">
@@ -50,7 +53,7 @@ const WhatIsKaspa = ({ isOpen, onClose }) => {
           <h3 className="text-2xl font-semibold text-white flex items-center gap-2">
             <Layers size={24} className="text-[#49EACB]" /> Core Architecture
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
             <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group">
               <Zap size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
@@ -61,7 +64,7 @@ const WhatIsKaspa = ({ isOpen, onClose }) => {
             </div>
 
             <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group">
-              <Network size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <Globe size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
               <h4 className="text-lg font-bold text-white mb-2">BlockDAG Engine</h4>
               <p className="text-sm text-gray-400 leading-relaxed">
                 Blocks are not a single chain. Multiple blocks are created concurrently and ordered mathematically via the GHOSTDAG consensus protocol.
@@ -77,7 +80,7 @@ const WhatIsKaspa = ({ isOpen, onClose }) => {
             </div>
 
             <div className="p-6 bg-[#111111] border border-[#1f1f1f] rounded-2xl hover:border-[#49EACB]/50 transition-colors group">
-              <Pickaxe size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
+              <Server size={28} className="text-[#49EACB] mb-4 group-hover:scale-110 transition-transform" />
               <h4 className="text-lg font-bold text-white mb-2">kHeavyHash PoW</h4>
               <p className="text-sm text-gray-400 leading-relaxed">
                 An ASIC-resistant, optical-miner friendly algorithm that secures the network efficiently while preventing centralized mining dominance.
@@ -108,32 +111,32 @@ const WhatIsKaspa = ({ isOpen, onClose }) => {
           <h3 className="text-2xl font-semibold text-white flex items-center gap-2">
             <FileText size={24} className="text-[#49EACB]" /> Research & Whitepapers
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            <a href="https://eprint.iacr.org/2018/104.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+            <a href="https://eprint.iacr.org/2018/104.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-between p-6 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB]">
-                  <FileText size={20} />
+                <div className="w-12 h-12 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB]">
+                  <FileText size={24} />
                 </div>
                 <div>
-                  <h4 className="text-white font-medium">PHANTOM & GHOSTDAG</h4>
-                  <p className="text-xs text-gray-500">A Scalable Generalization of Nakamoto Consensus</p>
+                  <h4 className="text-white font-medium text-lg">PHANTOM & GHOSTDAG</h4>
+                  <p className="text-sm text-gray-500 mt-1">A Scalable Generalization of Nakamoto Consensus</p>
                 </div>
               </div>
-              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+              <ExternalLink size={20} className="text-gray-500 group-hover:text-[#49EACB]" />
             </a>
 
-            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-between p-6 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB]">
-                  <FileText size={20} />
+                <div className="w-12 h-12 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB]">
+                  <FileText size={24} />
                 </div>
                 <div>
-                  <h4 className="text-white font-medium">DAGKNIGHT Protocol</h4>
-                  <p className="text-xs text-gray-500">Parameterless Generalization of Nakamoto Consensus</p>
+                  <h4 className="text-white font-medium text-lg">DAGKNIGHT Protocol</h4>
+                  <p className="text-sm text-gray-500 mt-1">Parameterless Generalization of Nakamoto Consensus</p>
                 </div>
               </div>
-              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+              <ExternalLink size={20} className="text-gray-500 group-hover:text-[#49EACB]" />
             </a>
 
           </div>

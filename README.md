@@ -234,6 +234,32 @@ All covenants appear in the public registry. Paid tiers add interactive UI panel
 
 <br/>
 
+## 🛠 Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| DAG Indexer | kaspa-wrpc-client v0.15.0 | Polls node for covenant UTXOs |
+| Storage | rusqlite v0.31 (bundled) | Durable on-disk covenant store |
+| API Server | axum 0.7 + tower-http | REST endpoints on :3001 |
+| Compiler | silverc binary | Compile .sil to bytecode |
+| Frontend | React 19 + Vite + Tailwind v4 | Glassmorphism UI |
+| Background | Three.js | Live BlockDAG visualization |
+
+<br/>
+
+## 💰 Pricing
+
+| Tier | Price | Includes |
+|---|---|---|
+| Explorer | Free | Browse, search, read-only covenant view |
+| Creator | 100 KAS | Interactive UI generation + standard listing |
+| PRO | 500 KAS | Featured + higher ranking + advanced UI tools |
+| MAX | 1,000 KAS | Top placement + full UI design suite + custom branding |
+
+All covenants appear in the public registry. Paid tiers add interactive UI panels and increased visibility. One-time payment, permanent listing.
+
+<br/>
+
 ## 🔐 Security
 
 - **No admin keys:** COVEX holds no privileged keys over any covenant.

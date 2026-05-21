@@ -54,7 +54,7 @@ export default function WhatIsKaspa({ open, onClose }) {
             <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">What is Kaspa?</h3>
             <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
               <p>
-                Kaspa is a decentralized, open-source Layer-1 blockchain built on a <strong className="text-white">BlockDAG</strong>. Instead of a single chain, the BlockDAG allows multiple blocks to be created and processed concurrently — no orphaned work.
+                Kaspa is a decentralized, open-source Layer-1 BlockDAG. Instead of a single chain, the BlockDAG allows multiple blocks to be created and processed concurrently, with no orphaned work.
               </p>
               <p>
                 Kaspa operates at <strong className="text-white">10 blocks per second (10 BPS)</strong> on mainnet, achieved through the Rust rewrite in 2024. It uses the <strong className="text-white">GHOSTDAG protocol</strong> to order parallel blocks. The next-generation <strong className="text-white">DAGKNIGHT protocol</strong> targets 100+ BPS.
@@ -111,13 +111,13 @@ export default function WhatIsKaspa({ open, onClose }) {
             <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">How Covex Helps</h3>
             <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
               <p>
-                Covex is a <strong className="text-white">stateful covenant indexer and SaaS platform</strong>. It connects directly to your Kaspa node via wRPC WebSocket — no intermediary, no proxy.
+                Covex is a <strong className="text-white">stateful covenant indexer and SaaS platform</strong>. It connects directly to your Kaspa node via wRPC WebSocket, with no intermediary or proxy.
               </p>
               <ul className="list-disc list-inside space-y-1.5 text-gray-400">
                 <li>Indexes covenant UTXOs from the BlockDAG in real time into SQLite</li>
                 <li>Provides a searchable registry of all deployed covenant types</li>
                 <li>Covenant authors pay a one-time KAS fee for an interactive UI and visibility</li>
-                <li>All covenants are visible publicly — tiers add UI generation and visibility</li>
+                <li>All covenants are visible publicly; tiers add UI generation and visibility</li>
               </ul>
               <div className="p-4 rounded-xl bg-kaspa-green/[0.04] border border-kaspa-green/20 text-xs text-gray-400">
                 <span className="text-kaspa-green font-semibold">Direct connection. No proxy.</span> Covex connects to your Kaspa node via wRPC WebSocket. Chain is the truth. Covex is the window.
@@ -129,10 +129,10 @@ export default function WhatIsKaspa({ open, onClose }) {
             <h3 className="text-sm font-semibold text-kaspa-green uppercase tracking-widest">Wallet Ecosystem</h3>
             <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
               <p>
-                Covex supports non-custodial connections to KasWare, Kaspium, OneKey, Tangem, and KDX wallets. All signing happens in your wallet — Covex never touches your keys.
+                Covex supports non-custodial connections to KasWare, Kaspium, Kastle, and Kaspa Web Wallet. All signing happens in your wallet; Covex never touches your keys.
               </p>
               <p>
-                <a href="https://kaspa.org/build" target="_blank" rel="noopener noreferrer" className="text-kaspa-green hover:underline">Kaspa Developer Build Page</a> — Official WASM SDK and node access.
+                <a href="https://kaspa.org/build" target="_blank" rel="noopener noreferrer" className="text-kaspa-green hover:underline">Kaspa Developer Build Page</a>, Official WASM SDK and node access.
               </p>
             </div>
           </section>

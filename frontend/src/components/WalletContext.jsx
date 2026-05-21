@@ -30,28 +30,12 @@ const WALLET_REGISTRY = [
     provider: () => window.kastle?.kaspa,
   },
   {
-    id: 'onekey',
-    name: 'OneKey',
-    url: 'https://onekey.so',
-    logo: 'https://onekey.so/favicon.ico',
-    detect: () => typeof window !== 'undefined' && !!window.$onekey?.kaspa,
-    provider: () => window.$onekey?.kaspa,
-  },
-  {
-    id: 'tangem',
-    name: 'Tangem',
-    url: 'https://tangem.com',
-    logo: 'https://tangem.com/favicon.ico',
-    detect: () => typeof window !== 'undefined' && !!window.TangemSdk,
-    provider: () => ({ request: async () => { throw new Error('Tangem SDK requires card tap'); } }),
-  },
-  {
-    id: 'kdx',
-    name: 'KDX',
-    url: 'https://kdx.app',
-    logo: 'https://kdx.app/favicon.ico',
-    detect: () => typeof window !== 'undefined' && !!window.kdx,
-    provider: () => window.kdx,
+    id: 'kaspa-web',
+    name: 'Kaspa Web Wallet',
+    url: 'https://kaspa-ng.org',
+    logo: '',
+    detect: () => false,
+    provider: () => null,
   },
   {
     id: 'uri',
@@ -74,7 +58,7 @@ export function WalletProvider({ children }) {
   // Auto-detect available wallets
   useEffect(() => {
     const detected = WALLET_REGISTRY.find(
-      (w) => w.id !== 'uri' && w.detect()
+      (w) => w.id !== 'uri' && w.id !== 'kaspa-web' && w.detect()
     );
     if (detected && !activeWallet) {
       setActiveWallet(detected);
@@ -82,7 +66,7 @@ export function WalletProvider({ children }) {
     const id = setInterval(() => {
       if (!activeWallet || activeWallet.id === 'uri') {
         const d = WALLET_REGISTRY.find(
-          (w) => w.id !== 'uri' && w.detect()
+          (w) => w.id !== 'uri' && w.id !== 'kaspa-web' && w.detect()
         );
         if (d) setActiveWallet(d);
       }
@@ -96,7 +80,7 @@ export function WalletProvider({ children }) {
     try {
       const w = WALLET_REGISTRY.find((x) => x.id === walletId) || activeWallet;
       if (!w) throw new Error('No wallet selected');
-      if (w.id === 'uri') {
+      if (w.id === 'uri' || w.id === 'kaspa-web') {
         setActiveWallet(w);
         setShowModal(false);
         setConnecting(false);
@@ -135,7 +119,7 @@ export function WalletProvider({ children }) {
   }, []);
 
   const refreshBalance = useCallback(async () => {
-    if (!address || !activeWallet || activeWallet.id === 'uri') return;
+    if (!address || !activeWallet || activeWallet.id === 'uri' || activeWallet.id === 'kaspa-web') return;
     try {
       const provider = activeWallet.provider();
       if (!provider) return;
@@ -179,7 +163,7 @@ export function WalletProvider({ children }) {
     async (recipient, amountKas, meta = {}) => {
       const amountSompi = Math.floor(parseFloat(amountKas) * 100_000_000);
       const uri = buildUri(recipient, amountKas, meta);
-      if (activeWallet && activeWallet.id !== 'uri' && address) {
+      if (activeWallet && activeWallet.id !== 'uri' && activeWallet.id !== 'kaspa-web' && address) {
         try {
           const provider = activeWallet.provider();
           if (provider?.request) {

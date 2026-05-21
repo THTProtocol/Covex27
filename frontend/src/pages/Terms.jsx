@@ -25,15 +25,15 @@ export default function Terms() {
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-white">1. Non-Custodial Operation</h2>
           <p>
-            Covex ("the Platform") is a read-only blockchain explorer. The Platform does not custody,
+            Covex ("the Platform") is a read-only BlockDAG explorer. The Platform does not custody,
             hold, transmit, control, or manage user funds at any time. All covenant interactions are
             executed via wallet deep-links that open in the user's own wallet application.
           </p>
           <p>
             At no point does Covex access, request, or store private keys, seed phrases, or wallet
             credentials. Users are solely responsible for the security of their own signing keys and
-            for verifying all transaction details — including amounts, recipient addresses, and covenant
-            scripts — within their wallet before signing.
+            for verifying all transaction details, including amounts, recipient addresses, and covenant
+            scripts, within their wallet before signing.
           </p>
         </section>
 
@@ -41,7 +41,7 @@ export default function Terms() {
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-white">2. Covenant Indexing and UI Generation</h2>
           <p>
-            Covex indexes publicly available blockchain data from the Kaspa BlockDAG. All covenants
+            Covex indexes publicly available BlockDAG data from the Kaspa network. All covenants
             displayed are immutable on-chain records. The Platform:
           </p>
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
@@ -89,7 +89,7 @@ export default function Terms() {
           <h2 className="text-base font-semibold text-white">5. No Financial or Legal Advice</h2>
           <p>
             Nothing on Covex constitutes financial, investment, legal, or tax advice. Data displayed on
-            the Platform — including covenant types, locked amounts, and transaction history — is provided
+            the Platform, including covenant types, locked amounts, and transaction history, is provided
             for informational purposes only and should not be relied upon for decision-making without
             independent verification.
           </p>

@@ -1,0 +1,4 @@
+[2m2026-05-21T16:22:07.272452Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Covex backend -- network: testnet-12  wRPC: ws://127.0.0.1:17110  bind: 0.0.0.0:3002
+[2m2026-05-21T16:22:07.272494Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Treasury: kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
+[2m2026-05-21T16:22:07.273839Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Database opened at ../covex.db
+[2m2026-05-21T16:22:07.273858Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Connecting to Kaspa wRPC node...

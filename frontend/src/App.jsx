@@ -119,30 +119,30 @@ export default function App() {
 
 function KaspaPromo() {
   return (
-    <section className="relative z-10 py-20 px-4">
-      <div className="max-w-5xl mx-auto text-center">
-        <div className="glass-panel p-10 sm:p-14 rounded-3xl border border-kaspa-green/10">
+    <section className="relative z-10 min-h-[70vh] flex items-center py-16 px-4">
+      <div className="max-w-5xl mx-auto text-center w-full">
+        <div className="glass-panel p-10 sm:p-16 rounded-3xl border border-kaspa-green/10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-kaspa-green/10 text-kaspa-green text-xs font-medium mb-6 border border-kaspa-green/20">
             <span className="h-1.5 w-1.5 rounded-full bg-kaspa-green" />
             Built on Kaspa BlockDAG
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-            The Fastest Decentralized Ledger on Earth
+          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-5 tracking-tight leading-tight">
+            The Fastest Decentralized<br />Ledger on Earth
           </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto mb-8 leading-relaxed">
+          <p className="text-base sm:text-lg text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed">
             Kaspa processes <strong className="text-white">10 blocks per second</strong> with parallel block processing via the GHOSTDAG protocol.
-            Native SilverScript covenants enable programmable spending conditions. Learn the technology before you interact.
+            Native SilverScript covenants enable programmable spending conditions on the world's first pure BlockDAG.
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto mb-10">
             {[
               ['10 BPS', 'Block Production'],
               ['GHOSTDAG', 'Consensus Protocol'],
               ['Toccata', 'Native Covenants'],
               ['Rust Node', 'Production Ready'],
             ].map(([val, label]) => (
-              <div key={label} className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-                <p className="text-lg font-bold text-white">{val}</p>
-                <p className="text-xs text-gray-500">{label}</p>
+              <div key={label} className="p-5 rounded-xl bg-white/[0.03] border border-white/5">
+                <p className="text-xl font-bold text-white">{val}</p>
+                <p className="text-xs text-gray-500 mt-1">{label}</p>
               </div>
             ))}
           </div>
@@ -150,9 +150,9 @@ function KaspaPromo() {
             href="https://kaspa.org"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all"
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-kaspa-green text-black font-semibold text-base hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all"
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
               <polyline points="15 3 21 3 21 9" />
               <line x1="10" y1="14" x2="21" y2="3" />

@@ -42,7 +42,7 @@ export default function LegalModal({ onAccept }) {
 
         <div className="space-y-3 text-xs text-gray-400 leading-relaxed max-h-60 overflow-y-auto font-mono whitespace-pre-wrap pr-2">
           <p className="text-gray-300 font-semibold">
-            Covex is a non-custodial blockchain explorer and SaaS platform. By proceeding, you acknowledge and agree to the following:
+            Covex is a non-custodial BlockDAG explorer and SaaS platform. By proceeding, you acknowledge and agree to the following:
           </p>
 
           <div className="p-4 rounded-xl bg-red-500/[0.06] border border-red-500/20 space-y-2">
@@ -56,14 +56,14 @@ export default function LegalModal({ onAccept }) {
               <li>Covex has <strong className="text-white">no connection to predictive markets, gambling, or any illegal activity</strong>. We provide covenant indexing and UI generation tools only.</li>
               <li>All payments occur <strong className="text-white">on-chain in KAS</strong>. After payment confirmation, users receive exactly the service promised: account upgrade, interactive UI generation, and visibility boost.</li>
               <li>Payments are <strong className="text-white">non-refundable</strong> once confirmed on the Kaspa network.</li>
-              <li>Covex provides <strong className="text-white">no warranty of any kind</strong>. Blockchain data may be subject to reorgs, latency, or incomplete propagation.</li>
+              <li>Covex provides <strong className="text-white">no warranty of any kind</strong>. BlockDAG data may be subject to reorgs, latency, or incomplete propagation.</li>
             </ul>
           </div>
 
           <p>
             By clicking Accept, you confirm you have read, understood, and agree to the full
             <a href="/terms" className="text-kaspa-green hover:underline mx-1">Terms and Conditions</a>
-            available on this platform. You accept all risks associated with using a decentralized blockchain
+            available on this platform. You accept all risks associated with using a decentralized BlockDAG
             protocol and agree that Covex and its developers bear no liability for any outcomes.
           </p>
         </div>

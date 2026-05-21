@@ -6,7 +6,7 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 const PORT = 3001;
-const TREASURY = 'kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq';
+const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 
 const COVENANTS = [
   { id:'flipcoin', name:'FlipCoin', category:'Skill Contests', covenant_type:'p2sh-covenant', tier:'PRIORITY', tier_kas:500, amount_kaspa:500.0, amount_sompi:50000000000, tx_id:'70122ad3eb35bc8d7b29a3e8d9f52c7e4a1b6d0f8e3c9a7b5d2f4e6a8c0d3f7b2', script_hash:'3c9a7b5d2f4e6a8c0d3f7b270122ad3eb', creator_addr:'kaspatest:pxf3txjsl2qk98asd7f3h2k1m9d6c0v7b5n4p8z6q', desc:'Provably fair coin flip with winner-takes-all payout. Powered by SilverScript.' },
@@ -87,7 +87,13 @@ app.get('/api/covenants', (req, res) => {
     covenants: filtered.map(c => ({
       ...c,
       description: c.desc,
-      address: `kaspatest:${c.tx_id.slice(0,40)}`
+      address: `kaspatest:${c.tx_id.slice(0,40)}`,
+      verified_tier: c.tier,
+      disclosure_level: c.tier === 'FREE' || c.tier === 'EXPLORER' ? 'limited' : 'full',
+      custom_ui_enabled: c.tier !== 'FREE' && c.tier !== 'EXPLORER',
+      verified_payment_tx: c.tier === 'FREE' ? null : `demo_verified_${c.id}`,
+      verified_at: c.tier === 'FREE' ? null : Math.floor(Date.now()/1000),
+      parameters: c.tier !== 'FREE' && c.tier !== 'EXPLORER' ? [{name:'amount',label:'Amount to Lock',param_type:'amount',placeholder:'Enter KAS amount...'},{name:'recipient',label:'Recipient',param_type:'address',placeholder:'kaspatest:...'},{name:'timeout_daa',label:'Timeout',param_type:'text',placeholder:'DAA score...'}] : [{name:'amount',label:'Amount to Lock',param_type:'amount',placeholder:'Enter KAS amount...'}]
     })),
   });
 });

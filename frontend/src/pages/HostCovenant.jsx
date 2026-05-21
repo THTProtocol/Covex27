@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
    ─────────────────────────────────────────────────────────────────── */
 
 // Covex treasury address — replace with actual treasury
-const TREASURY_ADDRESS = 'kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq';
+const TREASURY_ADDRESS = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 
 // 100 KAS in sompi
 const LISTING_FEE_SOMPI = 100_000_000_00; // 100 * 10^8

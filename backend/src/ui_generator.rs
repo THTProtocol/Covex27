@@ -172,7 +172,7 @@ body{background:radial-gradient(circle at 50% 0%,#11111a 0%,#05050A 100%);backgr
 .success-box{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:16px;margin-top:16px;display:none;color:#10B981;font-size:13px}"#;
 
 const INTERACT_SCRIPT: &str = r#"<script>
-const TREASURY="kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq";
+const TREASURY="kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m";
 let wallet=null,address=null;
 const se=id=>document.getElementById(id);
 function detect(){let w=null;if(window.kasware)w='kasware';else if(window.__kaspium)w='kaspium';else if(window.$onekey?.kaspa)w='onekey';if(w){wallet=w;se('wallet-indicator')?.remove();connect();}else{se('interact-btn').textContent='Open Wallet App';se('interact-btn').disabled=false;}}

@@ -591,7 +591,7 @@ async fn main() -> Result<()> {
     let bind_addr = env_or("BIND_ADDR", "0.0.0.0:3001");
     let treasury_address = env_or(
         "COVENANT_TREASURY_ADDRESS",
-        "kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m",
     );
     let network = resolve_network(&network_str)?;
 

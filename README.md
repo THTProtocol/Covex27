@@ -12,7 +12,7 @@
 
 <br/>
 
-**Covex v1.0.0 Definitive Release**
+**Covex v1.0.0 Ultimate Release**
 
 *Index. Compile. Deploy. All on the BlockDAG.*
 
@@ -77,6 +77,7 @@ Chain is the truth. Covex is the window.
 - Tier-specific address monitoring with memo/tag logic
 - One-time KAS payments: Explorer (Free), Creator (100 KAS), PRO (500 KAS), MAX (1000 KAS)
 - Payment verifier background task with DAA-based confirmation tracking
+- Prominent "Pay with QR Code" button that generates a QR code for exact treasury address + amount
 
 ### Non-Custodial Wallet Connect Hub
 - Full Wallet Connect section with KasWare, Kaspium, OneKey, Tangem, and KDX support
@@ -279,7 +280,7 @@ curl -X POST http://localhost:3001/api/compile \
 Covex is released under the MIT License.
 
 ```
-Covex v1.0.0 Definitive Release
+Covex v1.0.0 Ultimate Release
 Live DAG background. Prominent Kaspa panel.
 Real covenants only. Customizable interactive UI builder.
 Working wallet connect. Clean design. Perfect.

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
+import QRCode from 'qrcode.react';
 
 const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 
@@ -90,6 +91,8 @@ export default function Pricing() {
   const { address, sendPayment, connecting } = useWallet();
   const [paying, setPaying] = useState(null);
   const [paid, setPaid] = useState(null);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedTier, setSelectedTier] = useState(null);
 
   const handlePay = async (tier) => {
     if (tier.priceKAS === 0) return;
@@ -107,6 +110,15 @@ export default function Pricing() {
       // URI fallback handled in sendPayment
     }
     setPaying(null);
+  };
+
+  const handleQRPay = (tier) => {
+    setSelectedTier(tier);
+    setShowQRModal(true);
+  };
+
+  const getPaymentURI = (tier) => {
+    return `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.priceKAS}`;
   };
 
   return (
@@ -190,7 +202,7 @@ export default function Pricing() {
               </ul>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 space-y-3">
               {t.priceKAS === 0 ? (
                 <Link
                   to="/"
@@ -203,17 +215,25 @@ export default function Pricing() {
                   Payment Sent - Verifying...
                 </div>
               ) : (
-                <button
-                  onClick={() => handlePay(t)}
-                  disabled={paying === t.id || connecting}
-                  className={`block w-full text-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                    t.popular
-                      ? 'bg-kaspa-green text-black shadow-[0_0_20px_rgba(73,234,203,0.2)] hover:shadow-[0_0_40px_rgba(73,234,203,0.3)]'
-                      : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                  } active:scale-[0.97] disabled:opacity-50`}
-                >
-                  {paying === t.id ? 'Processing...' : `Pay ${t.priceKAS.toLocaleString()} KAS`}
-                </button>
+                <>
+                  <button
+                    onClick={() => handlePay(t)}
+                    disabled={paying === t.id || connecting}
+                    className={`block w-full text-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                      t.popular
+                        ? 'bg-kaspa-green text-black shadow-[0_0_20px_rgba(73,234,203,0.2)] hover:shadow-[0_0_40px_rgba(73,234,203,0.3)]'
+                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                    } active:scale-[0.97] disabled:opacity-50`}
+                  >
+                    {paying === t.id ? 'Processing...' : `Pay ${t.priceKAS.toLocaleString()} KAS`}
+                  </button>
+                  <button
+                    onClick={() => handleQRPay(t)}
+                    className="block w-full text-center px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 active:scale-[0.97] mt-2"
+                  >
+                    Pay with QR Code
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -234,6 +254,54 @@ export default function Pricing() {
           <p>Covex never stores private keys. All transactions are signed in your own wallet.</p>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {showQRModal && selectedTier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
+          <div className="w-full max-w-md glass-panel rounded-3xl p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-white">Pay with QR Code</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Scan this QR code with your Kaspa wallet to pay {selectedTier.priceKAS} KAS
+                </p>
+              </div>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="text-gray-500 hover:text-white transition-colors text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center space-y-4">
+              <div className="p-4 bg-white rounded-xl">
+                <QRCode 
+                  value={getPaymentURI(selectedTier)} 
+                  size={200} 
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+              
+              <div className="text-center space-y-2">
+                <p className="text-sm text-gray-300">
+                  Pay exactly <span className="font-bold text-kaspa-green">{selectedTier.priceKAS} KAS</span>
+                </p>
+                <p className="text-xs text-gray-500 break-all font-mono">
+                  {getPaymentURI(selectedTier)}
+                </p>
+              </div>
+              
+              <div className="pt-4 border-t border-white/10 w-full">
+                <p className="text-xs text-gray-500 text-center">
+                  After payment, your covenant will be upgraded automatically within 6 confirmations.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

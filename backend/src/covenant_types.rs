@@ -167,10 +167,15 @@ pub fn get_tiers() -> Vec<TierInfo> {
 
 pub fn tier_from_amount(sompi: u64) -> Option<&'static str> {
     let kas = sompi as f64 / 100_000_000.0;
-    if kas >= 990.0 { Some("MAX") }
-    else if kas >= 490.0 { Some("PRO") }
-    else if kas >= 90.0 { Some("CREATOR") }
-    else { None }
+    if kas >= 1000.0 {
+        Some("MAX")
+    } else if kas >= 500.0 {
+        Some("PRO")
+    } else if kas >= 100.0 {
+        Some("CREATOR")
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

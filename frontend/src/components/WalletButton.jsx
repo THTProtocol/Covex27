@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { X, Smartphone, Globe, Wallet } from 'lucide-react';
+import { X, Smartphone, Globe, Wallet, HardDrive, Monitor } from 'lucide-react';
 
 const wallets = [
   { id: 'kasware', name: 'KasWare Wallet', desc: 'Kaspa Web3 Extension', icon: Wallet, tag: 'Recommended' },
   { id: 'kaspium', name: 'Kaspium', desc: 'Official Mobile Wallet', icon: Smartphone },
   { id: 'web', name: 'Kaspa Web Wallet', desc: 'Browser Wallet', icon: Globe },
+  { id: 'tangem', name: 'Tangem', desc: 'Hardware Wallet', icon: HardDrive },
+  { id: 'onekey', name: 'OneKey', desc: 'Hardware Wallet', icon: HardDrive },
+  { id: 'ledger', name: 'Ledger', desc: 'Hardware Wallet', icon: HardDrive },
+  { id: 'kdx', name: 'KDX', desc: 'Desktop Node & Wallet', icon: Monitor },
 ];
 
 const WalletButton = () => {
@@ -12,7 +16,6 @@ const WalletButton = () => {
 
   return (
     <>
-      {/* The Trigger Button in your Header */}
       <button 
         onClick={() => setIsOpen(true)}
         className="flex items-center gap-2 px-5 py-2.5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] text-white rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm"
@@ -21,41 +24,52 @@ const WalletButton = () => {
         CONNECT WALLET
       </button>
 
-      {/* The Centered Web3 Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl w-full max-w-sm shadow-2xl flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-[#1f1f1f]">
-              <h2 className="text-lg font-semibold text-white">Connect Wallet</h2>
+        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/80 backdrop-blur-sm">
+          {/* Side Drawer spanning full height */}
+          <div className="w-full sm:w-[400px] h-full bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0">
+              <h2 className="text-xl font-semibold text-white">Connect Wallet</h2>
               <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
-                <X size={20} />
+                <X size={24} />
               </button>
             </div>
-            <div className="p-4 space-y-3">
+
+            {/* Scrollable Wallet List */}
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
               {wallets.map((wallet) => {
                 const Icon = wallet.icon;
                 return (
                   <button 
                     key={wallet.id}
-                    className="w-full flex items-center gap-4 p-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group"
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center group-hover:text-[#49EACB] text-gray-400 transition-colors">
-                      <Icon size={20} />
+                    <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center group-hover:text-[#49EACB] text-gray-400 transition-colors shrink-0">
+                      <Icon size={24} />
                     </div>
                     <div className="text-left flex-1">
                       <div className="text-white font-medium flex items-center gap-2">
                         {wallet.name}
                         {wallet.tag && (
-                          <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/10 text-[#49EACB] px-1.5 py-0.5 rounded-sm">
+                          <span className="text-[10px] uppercase tracking-wider bg-[#49EACB]/10 text-[#49EACB] px-2 py-0.5 rounded-sm shrink-0">
                             {wallet.tag}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">{wallet.desc}</div>
+                      <div className="text-sm text-gray-500">{wallet.desc}</div>
                     </div>
                   </button>
                 );
               })}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-6 border-t border-[#1f1f1f] shrink-0 bg-[#0a0a0a]">
+                <p className="text-xs text-gray-500 text-center">
+                    Covex supports all major Kaspa ecosystem wallets.
+                </p>
             </div>
           </div>
         </div>

@@ -117,49 +117,78 @@ export default function App() {
   );
 }
 
+import { Terminal, Database, Code2, Zap } from 'lucide-react';
+
 function KaspaPromo() {
   return (
-    <section className="relative z-10 min-h-[70vh] flex items-center py-16 px-4">
-      <div className="max-w-5xl mx-auto text-center w-full">
-        <div className="glass-panel p-10 sm:p-16 rounded-3xl border border-kaspa-green/10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-kaspa-green/10 text-kaspa-green text-xs font-medium mb-6 border border-kaspa-green/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-kaspa-green" />
-            Built on Kaspa BlockDAG
+    <section className="relative z-10 flex flex-col items-center justify-center pt-24 pb-16 px-6 text-center animate-in fade-in duration-700">
+      
+      {/* Network Status Badge */}
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#1f1f1f] text-gray-400 text-xs font-mono mb-8">
+        <div className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_8px_#49EACB] animate-pulse" />
+        TN-12 LIVE
+      </div>
+
+      {/* Main Headline */}
+      <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-6 max-w-4xl mx-auto leading-[1.1]">
+        Smart Contracts for <br className="hidden md:block"/>
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#49EACB] to-white">The Kaspa BlockDAG</span>
+      </h2>
+
+      {/* Subtitle */}
+      <p className="text-base md:text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed mb-16">
+        Covex is the native indexing and deployment layer for SilverScript covenants. Compile, deploy, and interact with programmable UTXOs at 10 blocks per second.
+      </p>
+
+      {/* Sleek Data Bar */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 p-6 rounded-2xl bg-[#0a0a0a]/80 backdrop-blur-md border border-[#1f1f1f] shadow-2xl">
+        
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="w-10 h-10 rounded-lg bg-[#111111] border border-[#1f1f1f] flex items-center justify-center text-[#49EACB]">
+            <Terminal size={18} />
           </div>
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-5 tracking-tight leading-tight">
-            The Fastest Decentralized<br />Ledger on Earth
-          </h2>
-          <p className="text-base sm:text-lg text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            Kaspa processes <strong className="text-white">10 blocks per second</strong> with parallel block processing via the GHOSTDAG protocol.
-            Native SilverScript covenants enable programmable spending conditions on the world's first pure BlockDAG.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto mb-10">
-            {[
-              ['10 BPS', 'Block Production'],
-              ['GHOSTDAG', 'Consensus Protocol'],
-              ['Toccata', 'Native Covenants'],
-              ['Rust Node', 'Production Ready'],
-            ].map(([val, label]) => (
-              <div key={label} className="p-5 rounded-xl bg-white/[0.03] border border-white/5">
-                <p className="text-xl font-bold text-white">{val}</p>
-                <p className="text-xs text-gray-500 mt-1">{label}</p>
-              </div>
-            ))}
+          <div className="text-left">
+            <p className="text-xs text-gray-500 font-mono">LANGUAGE</p>
+            <p className="text-sm font-semibold text-white">SilverScript</p>
           </div>
-          <a
-            href="https://kaspa.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-kaspa-green text-black font-semibold text-base hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-            Visit Kaspa.org
-          </a>
         </div>
+
+        <div className="hidden md:block w-px h-10 bg-[#1f1f1f]"></div>
+
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="w-10 h-10 rounded-lg bg-[#111111] border border-[#1f1f1f] flex items-center justify-center text-[#49EACB]">
+            <Zap size={18} />
+          </div>
+          <div className="text-left">
+            <p className="text-xs text-gray-500 font-mono">SPEED</p>
+            <p className="text-sm font-semibold text-white">10 BPS</p>
+          </div>
+        </div>
+
+        <div className="hidden md:block w-px h-10 bg-[#1f1f1f]"></div>
+
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="w-10 h-10 rounded-lg bg-[#111111] border border-[#1f1f1f] flex items-center justify-center text-[#49EACB]">
+            <Database size={18} />
+          </div>
+          <div className="text-left">
+            <p className="text-xs text-gray-500 font-mono">INDEXER</p>
+            <p className="text-sm font-semibold text-white">Covex Engine</p>
+          </div>
+        </div>
+
+        <div className="hidden md:block w-px h-10 bg-[#1f1f1f]"></div>
+
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="w-10 h-10 rounded-lg bg-[#111111] border border-[#1f1f1f] flex items-center justify-center text-[#49EACB]">
+            <Code2 size={18} />
+          </div>
+          <div className="text-left">
+            <p className="text-xs text-gray-500 font-mono">RUNTIME</p>
+            <p className="text-sm font-semibold text-white">Toccata</p>
+          </div>
+        </div>
+
       </div>
     </section>
   );

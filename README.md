@@ -13,7 +13,7 @@
   
   <br/>
   
-  **Covex v1.0.0 — Covenant Explorer for Kaspa**
+  **COVEX - Covenant Explorer for Kaspa**
   
   *The Premier Stateful Indexer for Covenant-Based Applications*
   
@@ -36,12 +36,12 @@
 
 <br/>
 
-## What is Covex?
+## What is COVEX?
 
-Covex is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockDAG](https://kaspa.org). It continuously indexes covenant UTXOs from a Kaspa wRPC node into a local SQLite database, providing a premium glassmorphism UI for browsing, compiling, and deploying SilverScript covenants.
+COVEX is a **stateful covenant indexer and SaaS platform** for the [Kaspa BlockDAG](https://kaspa.org). It continuously indexes covenant UTXOs from a Kaspa wRPC node into a local SQLite database, providing a premium glassmorphism UI for browsing, compiling, and deploying SilverScript covenants.
 
 ```
-Chain is the truth. Covex is the window.
+Chain is the truth. COVEX is the window.
 ```
 
 <br/>
@@ -236,10 +236,10 @@ All covenants appear in the public registry. Paid tiers add interactive UI panel
 
 ## 🔐 Security
 
-- **No admin keys:** Covex holds no privileged keys over any covenant.
+- **No admin keys:** COVEX holds no privileged keys over any covenant.
 - **No custody:** All KAS is held in UTXO covenant scripts on-chain.
 - **Immutable covenants:** SilverScript covenant scripts are final the moment they hit the chain.
-- **Non-custodial platform:** Covex never stores or has access to private keys. All signing happens in your wallet.
+- **Non-custodial platform:** COVEX never stores or has access to private keys. All signing happens in your wallet.
 
 <br/>
 
@@ -260,10 +260,10 @@ All covenants appear in the public registry. Paid tiers add interactive UI panel
 
 ## 📄 License
 
-Covex is released under the MIT License.
+COVEX is released under the MIT License.
 
 ```
-Covex v1.0.0 Ultimate Release
+COVEX v1.0.0 Ultimate Release
 Live DAG background. Prominent Kaspa panel.
 Real covenants only. Customizable interactive UI builder.
 Working wallet connect. Clean design. Perfect.

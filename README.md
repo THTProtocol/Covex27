@@ -1,20 +1,35 @@
-# Covex
+<div align="center">
 
-**The Stateful Kaspa Covenant Indexer and SaaS Platform**
+<br>
 
 ```
- ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
-██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
-██║     ██║   ██║██║   ██║█████╗   ╚███╔╝
-██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗
-╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
- ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
+ ██████╗  ██████╗  ██╗   ██╗ ███████╗ ██╗  ██╗
+██╔════╝ ██╔═══██╗ ██║   ██║ ██╔════╝ ╚██╗██╔╝
+██║      ██║   ██║ ██║   ██║ █████╗    ╚███╔╝
+██║      ██║   ██║ ╚██╗ ██╔╝ ██╔══╝    ██╔██╗
+╚██████╗ ╚██████╔╝  ╚████╔╝  ███████╗ ██╔╝ ██╗
+ ╚═════╝  ╚═════╝    ╚═══╝   ╚══════╝ ╚═╝  ╚═╝
 ```
 
-> **DAG is the truth. Covex is the window.**  
+<h3>The Stateful Kaspa Covenant Indexer and SaaS Platform</h3>
+
+[Testnet-10](https://kaspa.org) &nbsp; [Rust](https://www.rust-lang.org) &nbsp; [React](https://react.dev) &nbsp; [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
+<br>
+
+> **DAG is the truth. Covex is the window.**
+>
 > Index -- Discover -- Customize -- Deploy. All on the BlockDAG.
 
+<br>
+
 ---
+
+**Built by HIGH TABLE PROTOCOL**
+
+<br>
+
+</div>
 
 ## Overview
 
@@ -25,9 +40,9 @@ Covex does not create, modify, or custody any on-chain covenant. It indexes publ
 ### Network Support
 
 | Network | Status | wRPC Port | Address Prefix |
-|---------|--------|-----------|----------------|
-| Testnet-10 | Live | 17110 | `kaspatest:` |
-| Mainnet | Toccata-ready | 16110 | `kaspa:` |
+|:--------|:-------|:----------|:---------------|
+| **Testnet-10** | `LIVE` | 17110 | `kaspatest:` |
+| **Mainnet** | `TOCCATA HF` | 16110 | `kaspa:` |
 
 The backend is architected for a zero-code network switch. Change one environment variable and restart to target Mainnet when the Toccata hardfork activates native covenant support on the production chain.
 
@@ -180,12 +195,12 @@ Returns `{ total, covenants: [...] }` where each covenant includes: `tx_id`, `ad
 
 One-time KAS payment. No subscriptions. No recurring charges. Your covenant gets a permanent interactive UI and visibility boost.
 
-| Tier | Price | Confirmation | Disclosure | UI | Visibility |
-|------|-------|-------------|------------|----|-----------|
-| EXPLORER | Free | None | Limited (tx_id, hash, amount) | Basic + danger banner | Standard |
-| CREATOR | 100 KAS | 6 blocks | Full (all fields, logic summary) | Enhanced + verified badge | Standard |
-| PRO | 500 KAS | 6 blocks | Full | Enhanced + featured placement | Priority + featured |
-| MAX | 1,000 KAS | 6 blocks | Full | Enhanced + custom domain | Top placement |
+| Tier | Price | Confirmations | Disclosure | UI |
+|:-----|:------|:--------------|:-----------|:---|
+| **EXPLORER** | Free | -- | Limited | Basic + danger banner |
+| **CREATOR** | `100 KAS` | 6 blocks | Full | Enhanced + verified badge |
+| **PRO** | `500 KAS` | 6 blocks | Full | Enhanced + featured |
+| **MAX** | `1,000 KAS` | 6 blocks | Full | Enhanced + custom domain |
 
 Payment flow: Send KAS from your creator address to the Covex treasury. The payment verifier detects the UTXO, matches it to your covenant by creator address, waits 6 confirmations, then upgrades your record and regenerates your UI.
 
@@ -391,4 +406,4 @@ Covex indexes publicly available blockchain data. All on-chain covenants remain 
 
 ---
 
-**Covex** -- Built by [THTProtocol](https://github.com/THTProtocol) for the Kaspa ecosystem.
+**Covex** -- Built by **HIGH TABLE PROTOCOL** for the Kaspa ecosystem.

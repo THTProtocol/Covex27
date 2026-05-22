@@ -93,16 +93,15 @@ async fn main() {
     });
 
     // --- Routes ---
+    let app = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/health", get(|| async { "OK" }))
         .route("/api/covenants", get(covenants_handler))
         .route("/api/status", get(status_handler))
         .route("/api/tiers", get(tiers_handler))
-        .layer(Extension(db.clone()));
-
-    // --- CORS ---
-    let app = tower_http::cors::CorsLayer::permissive().on(app);
+        .layer(Extension(db.clone()))
+        .layer(app);
 
     info!("Serving on {}", addr);
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)

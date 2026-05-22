@@ -1,123 +1,99 @@
 <div align="center">
 
-```
-   ▄████▄   ▒█████  ██▒   █▓▓█████ ▒██   ██▒
-  ▒██▀ ▀█  ▒██▒  ██▓██░   █▒▓█   ▀ ▒▒ █ █ ▒░
-  ▒▓█    ▄ ▒██░  ██▒▓██  █▒░▒███   ░░  █   ░
-  ▒▓▓▄ ▄██▒▒██   ██░ ▒██ █░░▒▓█  ▄  ░ █ █ ▒
-  ▒ ▓███▀ ░░ ████▓▒░  ▒▀█░  ░▒████▒▒██▒ ▒██▒
-  ░ ░▒ ▒  ░░ ▒░▒░▒░   ░ ▐░  ░░ ▒░ ░▒▒ ░ ░▓ ░
-    ░  ▒     ░ ▒ ▒░   ░ ░░   ░ ░  ░░░   ░▒ ░
-  ░        ░ ░ ░ ▒      ░░     ░    ░    ░
-  ░ ░          ░ ░       ░     ░  ░ ░    ░
-  ░                     ░
-```
+```text
+ ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
+██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+██║     ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
+╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
+ ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
+The Stateful Kaspa Covenant Indexer 🪟
+DAG is the truth. Covex is the window.
 
-### Covex — Kaspa Covenant Indexer
+Index → Discover → Customize → Deploy • All on the BlockDAG.
 
-> DAG is the truth. Covex is the window.
+🪟 What is Covex?
+Covex is a high-performance, non-custodial indexer and Custom UI builder for Kaspa's native UTXO smart contracts (Covenants). Built entirely in Rust and React, Covex abstracts the complexity of SilverScript into a seamless, interactive, and beautifully designed frontend experience.
 
----
+Currently live on Kaspa Testnet-10 in preparation for the Toccata Hardfork.
 
-[![Rust](https://img.shields.io/badge/Rust-1.80+-orange?logo=rust&logoColor=white&style=flat-square)](https://rust-lang.org)
-[![Network](https://img.shields.io/badge/Network-Testnet_10-49EACB?style=flat-square)](https://kaspa.org)
-[![Frontend](https://img.shields.io/badge/Frontend-React_19-61DAFB?logo=react&style=flat-square)](https://react.dev)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+⚡ Core Features
+Historic BlockDAG Crawler: Automatically traverses the Kaspa DAG to discover and index historical covenants.
 
-</div>
+Live Mempool Indexing: Connects directly to local kaspad nodes via wRPC to instantly capture new SilverScript deployments.
 
----
+Custom UI Builder: A payment-gated SaaS layer allowing market makers to customize how their covenants are displayed (Creator, PRO, and MAX tiers).
 
-## What is Covex?
+Oracle Ready: Architecture explicitly designed to handle off-chain cryptographic signatures (DLCs) for Predictive Markets.
+🏗 Architecture
+Covex is built for high-throughput (10+ BPS) environments. It does not rely on third-party APIs or proxies—it speaks directly to the Kaspa node.
 
-Covex indexes **SilverScript covenant UTXOs** from the Kaspa BlockDAG into a local
-SQLite database and serves them through a React frontend with a payment-gated
-interactive UI Builder.
+Current Testnet-10 Stack
+Fragment kodu
+graph TD
+    subgraph Client [User Environment]
+        Browser[React Frontend]
+        Wallet[KasWare / Kaspium]
+    end
 
-> Live on **Kaspa Testnet-10** at [hightable.pro](https://hightable.pro)
+    subgraph Hetzner Server [Covex Infrastructure]
+        Nginx[Nginx Web Server]
+        
+        subgraph Rust Backend [Covex27-API]
+            Axum[Axum API Server]
+            LiveIdx[Live wRPC Indexer]
+            Crawler[Historic DAG Crawler]
+            PayVerify[Payment Verifier]
+        end
+        
+        DB[(SQLite DB)]
+        Kaspad[Kaspad Node TN10]
+    end
 
----
+    Browser -- HTTPS --> Nginx
+    Wallet -. SilverScript TX .-> Kaspad
+    
+    Nginx -- Proxy /api/* --> Axum
+    Axum -- Read/Write --> DB
+    
+    LiveIdx -- Stream New TXs --> Kaspad
+    Crawler -- Batch Scan DAG --> Kaspad
+    PayVerify -- Verify Treasury UTXOs --> Kaspad
+    
+    LiveIdx & Crawler & PayVerify -- INSERT/UPDATE --> DB
+    
+    classDef kaspa fill:#49EACB,stroke:#000,stroke-width:2px,color:#000;
+    class Kaspad,Wallet kaspa;
+Future Mainnet Stack (Post-Toccata)
+Fragment kodu
+graph TD
+    subgraph Client [User Environment]
+        Browser[Covex Pro Frontend]
+        Wallet[Kaspa Native Wallets]
+    end
 
-## Architecture
+    subgraph Cloud Infrastructure [Covex Mainnet Cluster]
+        LB[Load Balancer]
+        API1[Rust Axum API Fleet]
+        
+        subgraph Indexing Fleet
+            Crawler[Distributed DAG Crawlers]
+            LiveIdx[Live Mempool Indexers]
+        end
+        
+        DB[(PostgreSQL Cluster)]
+    end
 
-```
-   Browser                     kaspad (TN10)
-      │                       ╱         ╲
-      │  HTTPS              ╱   wRPC      ╲
-      ▼                   ▼      :17110    ▼
-   ┌──────┐          ┌──────────┐     ┌──────────┐
-   │Nginx │          │  Historic│     │   Live   │
-   │ :443 │          │  Crawler │     │ Indexer  │
-   └──┬───┘          └────┬─────┘     └────┬─────┘
-      │                   │                │
-      │  /api/*           └───────┬────────┘
-      ▼                           │
-   ┌──────────┐                   ▼
-   │  Axum    │             ┌──────────┐
-   │  :3005   │◄─────────── │ SQLite   │
-   └──────────┘             │ covex.db │
-                            └──────────┘
-```
+    subgraph Kaspa Network
+        KNode1[Kaspad Archival Node]
+    end
 
-| Component | Technology | Role |
-|:----------|:-----------|:-----|
-| Backend | Rust + Axum 0.7 + Tokio | API server, crawler, indexer, payment verifier |
-| Database | SQLite (`rusqlite` 0.31) | Covenant store with 8 tables, checkpointed crawler state |
-| Frontend | React 19 + Vite + Tailwind v4 | Glass-morphism SPA with Framer Motion |
-| Proxy | Nginx 1.24 | Static delivery + reverse proxy |
-
----
-
-## Features
-
-- **Historic BlockDAG Crawler** — walks the selected-parent DAG backward from tip to
-  genesis, scanning every block for covenant opcodes (`aa20`–`aa23`), checkpointed to SQLite
-- **Live Mempool Indexer** — polls seed addresses via wRPC every 10s, auto-generates
-  basic UIs for every discovered covenant
-- **Payment-Gated UI Builder** — one-time KAS payments (Creator 100 / PRO 500 / MAX 1000)
-  unlock progressive customization tiers with live preview panel
-- **On-Chain Payment Verifier** — monitors treasury address, matches UTXOs to covenant
-  creators, auto-upgrades after 6 DAA confirmations
-- **Non-Custodial Wallet Suite** — KasWare, Kaspium, Kastle, KDX with inline SVG logos,
-  URI fallback, QR codes. Keys stay in user's wallet
-
----
-
-## Quick Start
-
-```bash
-git clone https://github.com/THTProtocol/Covex27.git && cd Covex27
-cp deploy/.env.production .env
-
-# Backend
-cd backend && cargo build --release
-./target/release/covex27-backend &
-
-# Frontend
-cd ../frontend && npm install && npm run build
-# nginx serves dist/ -- or run dev server: npm run dev
-```
-
-**Node requirement:** kaspad must have UTXO index + wRPC Borsh enabled:
-```bash
-kaspad --testnet --utxoindex --rpclisten-borsh=0.0.0.0:17110
-```
-
----
-
-## API
-
-| Endpoint | Returns |
-|:---------|:--------|
-| `GET /health` | `"OK"` |
-| `GET /status` | `{"total_covenants":N, "active_covenants":N, ...}` |
-| `GET /covenants` | `{"total":N, "covenants":[...]}` |
-| `GET /tiers` | `{"tiers":[...]}` |
-
----
-
-```
-Covex v1.0.0 — Live on Kaspa Testnet-10
-Rust · Axum · SQLite · React · Nginx
-Crawler · Indexer · Verifier · Builder
-```
+    Browser --> LB --> API1
+    Wallet -. TX .-> KNode1
+    
+    API1 -- Read/Write --> DB
+    Crawler & LiveIdx --> DB
+    Crawler & LiveIdx -- wRPC --> KNode1
+    
+    classDef kaspa fill:#49EACB,stroke:#000,stroke-width:2px,color:#000;
+    class KNode1,Wallet kaspa;🛠 Technology StackComponentTechnologyPurposeNodekaspadDirect wRPC access to Testnet-10BackendRust + AxumHigh-concurrency indexing and REST APIDatabaseSQLiteFast, local state persistenceFrontendReact + Vite + TailwindResponsive, cyberpunk-styled UIProxyNginxSecure routing and API reverse-proxy🚀 Getting StartedEnsure your Kaspa node is exposing the Borsh wRPC endpoint:Bashkaspad --testnet --utxoindex --rpclisten-borsh=0.0.0.0:17110

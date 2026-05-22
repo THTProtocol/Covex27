@@ -99,7 +99,7 @@ const Pricing = () => {
                 <div key={i} className="flex gap-3 text-sm text-gray-300"><Check size={18} className="text-[#49EACB] shrink-0" /> {feature}</div>
               ))}
             </div>
-            <button onClick={() => handleSelectTier({ name: 'PRO', price: 500 })} className="w-full mt-8 py-3 rounded-xl bg-[#49EACB] hover:bg-[#3bc2a6] text-black font-semibold shadow-[0_0_15px_rgba(73,234,203,0.2)] transition-all">
+            <button onClick={() => handleSelectTier({ name: 'PRO', price: 500 })} className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none">
               Pay 500 KAS
             </button>
           </div>

@@ -40,11 +40,21 @@ pub async fn run_crawler(
             continue;
         }
 
-        let dag_info = match client.get_block_dag_info().await {
-            Ok(info) => info,
-            Err(e) => {
+        let dag_info = match tokio::time::timeout(
+            std::time::Duration::from_secs(15),
+            client.get_block_dag_info(),
+        )
+        .await
+        {
+            Ok(Ok(info)) => info,
+            Ok(Err(e)) => {
                 warn!("Crawler: get_block_dag_info failed: {}", e);
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                continue;
+            }
+            Err(_elapsed) => {
+                warn!("Crawler: get_block_dag_info timed out after 15s");
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 continue;
             }
         };

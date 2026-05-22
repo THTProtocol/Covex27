@@ -5,8 +5,8 @@
 ```
 ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
 ██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
-██║     ██║   ██║██║   ██║█████╗   ╚███╔╝
-██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗
+██║     ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
 ╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
  ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
 ```
@@ -35,11 +35,11 @@
 
 ## Overview
 
-Covex is a high-performance, non-custodial indexer for Kaspa native UTXO smart contracts (Covenants). It connects to a local kaspad node via wRPC, discovers covenant deployments across the Testnet-10 BlockDAG, and automatically generates interactive HTML UIs for every detected contract. The entire system runs as a single Rust binary on a Hetzner VPS behind Nginx.
+Covex is a high-performance, non-custodial indexer for Kaspa native UTXO smart contracts (Covenants). It connects to a local kaspad node via wRPC, discovers covenant deployments across the Testnet-10 BlockDAG, and automatically generates interactive HTML UIs for every detected contract. The entire system runs as a single Rust binary.
 
 The backend spawns three concurrent background tasks on startup: a **historic crawler** that walks the selected-parent chain backward from the virtual tip to discover past covenants, a **live indexer** that polls seed addresses every 10 seconds for new UTXOs, and a **payment verifier** that monitors the treasury address for on-chain tier purchases. Every covenant record is stored in a local SQLite database with full script disclosure, tier metadata, and generated UI pages.
 
-A separate React + Vite frontend provides the browser-facing covenant explorer, pricing page, dashboard, and wallet integration. The frontend and backend are independent — the backend is a pure JSON API, and the frontend is a static SPA served by Nginx alongside proxied `/api/*` requests.
+A separate React + Vite frontend provides the browser-facing covenant explorer, pricing page, dashboard, and wallet integration. The frontend and backend are independent — the backend is a pure JSON API, and the frontend is a static SPA.
 
 ### Network Support
 
@@ -56,9 +56,7 @@ Covex runs inside a single Rust process. The Axum HTTP server binds to `127.0.0.
 
 ```mermaid
 graph LR
-    Browser[Browser] --> Nginx[Nginx :443]
-    Nginx --> Frontend[React SPA]
-    Nginx --> Backend[Covex27-API :3001]
+    Browser[Browser] --> Backend[Covex27-API :3001]
     Backend --> DB[("SQLite covex.db")]
 
     Indexer[Indexer] --> Kaspa[("kaspad :17110")]
@@ -153,7 +151,6 @@ The `CovenantCategory` enum defines nine categories. Four are currently detectab
 | Database | SQLite via rusqlite 0.31 | 6 tables, 15 indexes, `Mutex<Connection>` shared via `Arc` |
 | Hashing | SHA-256 (sha2 0.10) | Script hash computation for covenant deduplication |
 | Frontend | React 18 + Vite 5 | Static SPA — cyberpunk covenant browser and dashboard |
-| Reverse Proxy | Nginx | SSL termination (certbot), `/api/*` proxy to `:3001`, static asset serving |
 | Deployment | systemd + bash | Two service units (kaspad + covex27-api), unified deploy script |
 
 ---
@@ -194,8 +191,6 @@ Crawl state is checkpointed to `crawler_state` (single row, id=1). The crawler r
 
 ## API Reference
 
-Base URL: `https://hightable.pro/api` — Nginx proxies to `127.0.0.1:3001`.
-
 | Method | Path | Response |
 |:---|:---|:---|
 | `GET` | `/` | `{"status":"ok","app":"Covex v1.0.0","network":"testnet-10"}` |
@@ -217,9 +212,9 @@ Covenant creators purchase verification and visibility by sending KAS to the Cov
 | `PRO` | `500` | `50,000,000,00` | gold | Yes | Featured listing, priority indexing, custom images, higher search ranking |
 | `MAX` | `1,000` | `100,000,000,00` | purple | — | Top placement, custom domain, premium branding, full UI design suite |
 
-Tier detection threshold: `tier_from_amount()` checks `amount_sompi >= 100_000_000_00` for MAX, `>= 50_000_000_00` for PRO, `>= 10_000_000_00` for CREATOR.
+Tier detection: `tier_from_amount()` checks `amount_sompi >= 100_000_000_00` for MAX, `>= 50_000_000_00` for PRO, `>= 10_000_000_00` for CREATOR.
 
-Treasury address: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
+Treasury: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
 
 ---
 
@@ -230,15 +225,14 @@ Treasury address: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27l
 - Rust 1.80+ stable toolchain
 - Node.js 20+ and npm
 - kaspad synced to Testnet-10 with `--testnet --utxoindex --rpclisten-borsh=0.0.0.0:17110`
-- Nginx with SSL (certbot)
 
-### Quick Deploy (Hetzner VPS)
+### Quick Deploy
 
 ```bash
 sudo bash deploy/deploy-hetzner.sh
 ```
 
-This installs all system dependencies, builds both the Rust backend (release) and React frontend, installs Nginx config for `hightable.pro`, and creates the systemd service unit.
+Installs all system dependencies, builds the Rust backend (release) and React frontend, and creates the systemd service unit.
 
 ### Unified Deploy (production update)
 
@@ -246,7 +240,7 @@ This installs all system dependencies, builds both the Rust backend (release) an
 sudo bash deploy/deploy_all.sh
 ```
 
-Hard-resets to `origin/master`, rebuilds backend and frontend, reconfigures kaspad and covex27-api systemd services, updates Nginx, and runs a health report. Fully idempotent.
+Hard-resets to `origin/master`, rebuilds backend and frontend, reconfigures kaspad and covex27-api systemd services, and runs a health report. Fully idempotent.
 
 ### Environment
 
@@ -269,7 +263,7 @@ cargo build --release
 ./target/release/covex27-backend
 ```
 
-On startup the binary opens the SQLite database, connects to kaspad via wRPC, spawns three background tasks (indexer, crawler, payment verifier), then binds the HTTP server. The process is managed by systemd (`covex27-api.service`) on the production host:
+On startup the binary opens the SQLite database, connects to kaspad via wRPC, spawns three background tasks (indexer, crawler, payment verifier), then binds the HTTP server:
 
 ```ini
 [Unit]
@@ -320,9 +314,8 @@ Covex27/
 │           └── DagBackground.jsx   # Animated BlockDAG background
 ├── deploy/
 │   ├── .env.production             # Production environment template
-│   ├── deploy-hetzner.sh           # Fresh Hetzner VPS deployment (deps, build, configure)
+│   ├── deploy-hetzner.sh           # Fresh deployment (deps, build, configure)
 │   ├── deploy_all.sh               # Unified production update (reset, rebuild, restart)
-│   ├── nginx-covex.conf            # Nginx site config (SPA + /api/* proxy)
 │   └── covex-backend.service       # systemd unit for backend
 ├── scripts/
 │   └── generate_covex_health_report.sh  # Production health diagnostic report

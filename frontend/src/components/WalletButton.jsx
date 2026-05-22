@@ -1,22 +1,32 @@
 import { useState } from 'react';
 import { useWallet } from './WalletContext';
-import { X, Wallet, Download, ExternalLink } from 'lucide-react';
+import { X, Wallet, ExternalLink, AlertTriangle } from 'lucide-react';
 
 export default function WalletButton() {
-  const { address, balance, connecting, wallets, connect, disconnect } = useWallet();
+  const { address, balance, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect } = useWallet();
   const [open, setOpen] = useState(false);
+
+  const handleWalletClick = async (wallet) => {
+    const detected = wallet.detect ? wallet.detect() : false;
+    if (detected) {
+      await connect(wallet.id);
+      setOpen(false);
+    } else {
+      window.open(wallet.url, '_blank');
+    }
+  };
 
   if (address) {
     return (
       <button
         onClick={() => disconnect()}
-        className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#49EACB]/30 hover:border-[#49EACB] text-[#49EACB] rounded-xl font-medium transition-all text-sm"
+        className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#49EACB]/30 hover:border-red-500/50 text-[#49EACB] hover:text-red-400 rounded-xl font-medium transition-all text-sm group"
         title="Click to disconnect"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB] animate-pulse" />
-        {address.slice(0, 8)}...{address.slice(-4)}
+        <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB] group-hover:bg-red-400" />
+        <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
         {balance !== null && (
-          <span className="text-gray-500 ml-1 text-xs">
+          <span className="text-gray-500 text-xs">
             ({(balance / 1e8).toFixed(2)} KAS)
           </span>
         )}
@@ -27,7 +37,7 @@ export default function WalletButton() {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => { clearError(); setOpen(true); }}
         className="flex items-center gap-2 px-5 py-2.5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] text-white rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm"
       >
         <Wallet size={16} className="text-[#49EACB]" />
@@ -37,7 +47,7 @@ export default function WalletButton() {
       {open && (
         <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div
-            className="absolute top-0 right-0 h-screen w-full sm:w-[420px] bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col"
+            className="absolute top-0 right-0 h-screen w-full sm:w-[420px] bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col animate-in slide-in-from-right-5 duration-200"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0">
@@ -50,22 +60,34 @@ export default function WalletButton() {
             <div className="flex-1 overflow-y-auto p-6">
               <p className="text-sm text-gray-500 mb-4">Select a Kaspa wallet to connect to Covex (TN12 Testnet)</p>
 
+              {/* Error display */}
+              {error && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2.5">
+                  <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-red-300">{error}</p>
+                    <button onClick={clearError} className="text-xs text-red-400 hover:text-red-300 mt-1 underline">
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {connecting && (
+                <div className="mb-4 p-3 rounded-lg bg-[#49EACB]/[0.06] border border-[#49EACB]/20 text-center">
+                  <p className="text-sm text-[#49EACB] animate-pulse">Connecting to wallet...</p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 {wallets.map((wallet) => {
                   const detected = wallet.detect ? wallet.detect() : false;
                   return (
                     <button
                       key={wallet.id}
-                      onClick={async () => {
-                        if (detected) {
-                          await connect(wallet.id);
-                          setOpen(false);
-                        } else {
-                          window.open(wallet.url, '_blank');
-                        }
-                      }}
+                      onClick={() => handleWalletClick(wallet)}
                       disabled={connecting}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group disabled:opacity-50"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group disabled:opacity-50 text-left"
                     >
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-[#0a0a0a] border border-[#1f1f1f]">
                         {wallet.logo ? (
@@ -89,12 +111,14 @@ export default function WalletButton() {
                           )}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          {detected ? 'Click to connect' : wallet.sub || 'Install'}
+                          {detected && !connecting ? 'Click to connect' : wallet.sub || 'Install'}
                         </div>
                       </div>
                       {!detected ? (
                         <ExternalLink size={14} className="text-gray-600 group-hover:text-[#49EACB] transition-colors shrink-0" />
-                      ) : null}
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-[#49EACB] shadow-[0_0_4px_#49EACB] shrink-0" />
+                      )}
                     </button>
                   );
                 })}
@@ -103,7 +127,7 @@ export default function WalletButton() {
 
             <div className="p-6 border-t border-[#1f1f1f] shrink-0">
               <p className="text-xs text-gray-600 text-center">
-                TN12 Testnet · Non-custodial · Multi-wallet
+                TN12 Testnet · Non-custodial · Keys stay in your wallet
               </p>
             </div>
           </div>

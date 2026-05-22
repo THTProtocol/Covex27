@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
 import {
   KaspaWalletProvider as KasFlowProvider,
   kaswareAdapter,
@@ -66,104 +66,58 @@ function getProvider(name) {
   }
 }
 
+// ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
+function kasToSompi(amountKas) {
+  // Split at decimal, handle exactly
+  const [whole = '0', frac = ''] = String(amountKas).split('.');
+  const paddedFrac = (frac + '00000000').slice(0, 8);
+  return BigInt(whole) * 100_000_000n + BigInt(paddedFrac);
+}
+
 const DESKTOP_WALLETS = ['KasWare', 'Kastle', 'Kasperia', 'OKX', 'KaspaCom'];
 const MOBILE_WALLETS = ['Kasanova', 'Kaspium', 'OKX', 'KaspaCom', 'Tangem'];
 function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent); }
 
 // ── All wallets unified ──
 const ALL_WALLETS = [
-  {
-    id: 'KasWare',
-    name: 'KasWare Wallet',
-    url: WALLET_INSTALL_URLS.KasWare,
-    logo: WALLET_LOGOS.KasWare,
-    sub: 'Chrome · Firefox',
-    detect: () => detectWallet('KasWare'),
-    provider: () => getProvider('KasWare'),
-    recommended: true,
-  },
-  {
-    id: 'Kastle',
-    name: 'Kastle',
-    url: WALLET_INSTALL_URLS.Kastle,
-    logo: WALLET_LOGOS.Kastle,
-    sub: 'Chrome',
-    detect: () => detectWallet('Kastle'),
-    provider: () => getProvider('Kastle'),
-  },
-  {
-    id: 'Kasperia',
-    name: 'Kasperia',
-    url: WALLET_INSTALL_URLS.Kasperia,
-    logo: WALLET_LOGOS.Kasperia,
-    sub: 'Chrome',
-    detect: () => detectWallet('Kasperia'),
-    provider: () => getProvider('Kasperia'),
-  },
-  {
-    id: 'OKX',
-    name: 'OKX Wallet',
-    url: WALLET_INSTALL_URLS.OKX,
-    logo: WALLET_LOGOS.OKX,
-    sub: 'Chrome · Mobile',
-    detect: () => detectWallet('OKX'),
-    provider: () => getProvider('OKX'),
-  },
-  {
-    id: 'Kasanova',
-    name: 'Kasanova',
-    url: WALLET_INSTALL_URLS.Kasanova,
-    logo: WALLET_LOGOS.Kasanova,
-    sub: 'iOS · Android',
-    detect: () => detectWallet('Kasanova'),
-    provider: () => getProvider('Kasanova'),
-  },
-  {
-    id: 'Kaspium',
-    name: 'Kaspium',
-    url: WALLET_INSTALL_URLS.Kaspium,
-    logo: WALLET_LOGOS.Kaspium,
-    sub: 'iOS · Android',
-    detect: () => detectWallet('Kaspium'),
-    provider: () => getProvider('Kaspium'),
-  },
-  {
-    id: 'KaspaCom',
-    name: 'Kaspa Web Wallet',
-    url: WALLET_INSTALL_URLS.KaspaCom,
-    logo: WALLET_LOGOS.KaspaCom,
-    sub: 'Web · Mobile',
-    detect: () => detectWallet('KaspaCom'),
-    provider: () => getProvider('KaspaCom'),
-  },
-  {
-    id: 'Tangem',
-    name: 'Tangem',
-    url: WALLET_INSTALL_URLS.Tangem,
-    logo: WALLET_LOGOS.Tangem,
-    sub: 'iOS · Android',
-    detect: () => detectWallet('Tangem'),
-    provider: () => getProvider('Tangem'),
-  },
+  { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
+  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
+  { id: 'Kasperia', name: 'Kasperia', url: WALLET_INSTALL_URLS.Kasperia, logo: WALLET_LOGOS.Kasperia, sub: 'Chrome', detect: () => detectWallet('Kasperia'), provider: () => getProvider('Kasperia') },
+  { id: 'OKX', name: 'OKX Wallet', url: WALLET_INSTALL_URLS.OKX, logo: WALLET_LOGOS.OKX, sub: 'Chrome · Mobile', detect: () => detectWallet('OKX'), provider: () => getProvider('OKX') },
+  { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', detect: () => detectWallet('Kasanova'), provider: () => getProvider('Kasanova') },
+  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', detect: () => detectWallet('Kaspium'), provider: () => getProvider('Kaspium') },
+  { id: 'KaspaCom', name: 'Kaspa Web Wallet', url: WALLET_INSTALL_URLS.KaspaCom, logo: WALLET_LOGOS.KaspaCom, sub: 'Web · Mobile', detect: () => detectWallet('KaspaCom'), provider: () => getProvider('KaspaCom') },
+  { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
 ];
 
 function WalletBridge({ children }) {
   const kf = useKasFlowWallet();
 
-  // Direct extension state (primary path)
+  // ── State: connected wallet identity (stores WHICH wallet, not just address) ──
+  const [activeWalletId, setActiveWalletId] = useState(null);     // 'KasWare' | 'Kastle' | null
   const [activeAddress, setActiveAddress] = useState(null);
   const [activeBalance, setActiveBalance] = useState(null);
   const [activeNetwork, setActiveNetwork] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
+  const balanceTimerRef = useRef(null);
 
+  // ── Resolve active wallet/provider from connected ID (not detect-guessing) ──
+  const walletMeta = activeWalletId ? ALL_WALLETS.find(w => w.id === activeWalletId) : null;
+
+  function getActiveProvider() {
+    if (!activeWalletId || !activeAddress) return null;
+    return getProvider(activeWalletId);
+  }
+
+  // ── Connect ──
   const connectWallet = useCallback(async (walletId) => {
     const wallet = ALL_WALLETS.find(w => w.id === walletId);
-    if (!wallet) return;
+    if (!wallet) { setError('Unknown wallet'); return; }
 
     const detected = wallet.detect();
     if (!detected) {
-      // Not installed — open install page
+      setError(`${wallet.name} not installed. Opening download page...`);
       window.open(wallet.url, '_blank');
       return;
     }
@@ -175,7 +129,7 @@ function WalletBridge({ children }) {
       const provider = wallet.provider();
       if (!provider) throw new Error('Provider not available');
 
-      // Get accounts
+      // Get accounts — try multiple provider APIs
       let accounts;
       if (typeof provider.requestAccounts === 'function') {
         accounts = await provider.requestAccounts();
@@ -192,10 +146,11 @@ function WalletBridge({ children }) {
       }
 
       if (!accounts || accounts.length === 0) {
-        throw new Error('No accounts returned');
+        throw new Error('No accounts returned from wallet');
       }
 
       const addr = accounts[0];
+      setActiveWalletId(walletId);
       setActiveAddress(addr);
 
       // Validate network
@@ -208,62 +163,107 @@ function WalletBridge({ children }) {
         }
         setActiveNetwork(net || null);
         if (net && net !== REQUIRED_NETWORK) {
-          console.warn(`[Covex] Network mismatch: ${net} — expected ${REQUIRED_NETWORK}`);
+          console.warn(`[Covex] Network mismatch: got ${net}, expected ${REQUIRED_NETWORK}`);
+          setError(`Wrong network: ${net}. Please switch to ${REQUIRED_NETWORK} in your wallet.`);
         }
       } catch (_) {}
 
       // Get balance
-      try {
-        let bal;
-        if (typeof provider.getBalance === 'function') {
-          bal = await provider.getBalance();
-        } else if (typeof provider.request === 'function') {
-          bal = await provider.request({ method: 'getBalance' });
-        }
-        if (bal) {
-          const available = bal.available !== undefined ? Number(bal.available)
-            : bal.confirmed !== undefined ? Number(bal.confirmed)
-            : null;
-          setActiveBalance(available);
-        }
-      } catch (_) {}
+      await refreshBalanceForProvider(provider);
+
+      // Also connect via KasFlow for dual-path reliability
+      if (walletId === 'KasWare') {
+        try { await kf.connect('kasware'); } catch (_) {}
+      }
     } catch (err) {
       setError(err.message || 'Connection failed');
+      setActiveWalletId(null);
+      setActiveAddress(null);
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [kf]);
 
-  const disconnectWallet = useCallback(() => {
+  // ── Balance refresh helper ──
+  async function refreshBalanceForProvider(provider) {
+    if (!provider) return;
+    try {
+      let bal;
+      if (typeof provider.getBalance === 'function') {
+        bal = await provider.getBalance();
+      } else if (typeof provider.request === 'function') {
+        bal = await provider.request({ method: 'getBalance' });
+      }
+      if (bal) {
+        const available = bal.available !== undefined ? Number(bal.available)
+          : bal.confirmed !== undefined ? Number(bal.confirmed)
+          : null;
+        setActiveBalance(available);
+      }
+    } catch (_) {}
+  }
+
+  // ── Disconnect (actually closes provider connections) ──
+  const disconnectWallet = useCallback(async () => {
+    const provider = getActiveProvider();
+    // Try to disconnect the provider if supported
+    if (provider) {
+      try {
+        if (typeof provider.disconnect === 'function') await provider.disconnect();
+        else if (typeof provider.close === 'function') await provider.close();
+      } catch (_) {}
+    }
+    // Disconnect KasFlow too
+    try { kf.disconnect(); } catch (_) {}
+
+    setActiveWalletId(null);
     setActiveAddress(null);
     setActiveBalance(null);
     setActiveNetwork(null);
     setError(null);
-  }, []);
+  }, [kf]);
 
-  // Auto-refresh balance
+  // ── Auto-refresh balance every 15s ──
   useEffect(() => {
+    if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);
     if (!activeAddress) return;
-    const wallet = ALL_WALLETS.find(w => w.detect());
-    if (!wallet) return;
-    const interval = setInterval(async () => {
-      try {
-        const provider = wallet.provider();
-        if (!provider) return;
-        let bal;
-        if (typeof provider.getBalance === 'function') {
-          bal = await provider.getBalance();
-        }
-        if (bal) {
-          const available = bal.available !== undefined ? Number(bal.available)
-            : bal.confirmed !== undefined ? Number(bal.confirmed) : null;
-          setActiveBalance(available);
-        }
-      } catch (_) {}
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [activeAddress]);
 
+    balanceTimerRef.current = setInterval(() => {
+      const provider = getActiveProvider();
+      if (provider) refreshBalanceForProvider(provider);
+    }, 15000);
+
+    return () => {
+      if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);
+    };
+  }, [activeAddress, activeWalletId]);
+
+  // ── Auto-connect on mount if wallet was previously connected ──
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Check if any wallet is already authorized (kasware auto-detection)
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_connected_wallet') : null;
+    if (saved && ALL_WALLETS.find(w => w.id === saved && w.detect())) {
+      connectWallet(saved).catch(() => {});
+    } else {
+      // Auto-detect first available wallet (prefer KasWare)
+      const autoWallet = ALL_WALLETS.find(w => w.detect());
+      if (autoWallet) {
+        connectWallet(autoWallet.id).catch(() => {});
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Persist connected wallet ID ──
+  useEffect(() => {
+    if (activeWalletId && typeof localStorage !== 'undefined') {
+      localStorage.setItem('covex_connected_wallet', activeWalletId);
+    } else if (!activeWalletId && typeof localStorage !== 'undefined') {
+      localStorage.removeItem('covex_connected_wallet');
+    }
+  }, [activeWalletId]);
+
+  // ── URI builder ──
   const buildUri = useCallback((recipient, amountKas, meta = {}) => {
     const prefix = 'kaspatest:';
     const addr = recipient.replace(/^(kaspatest:|kaspa:)/, '');
@@ -275,13 +275,14 @@ function WalletBridge({ children }) {
     return uri;
   }, []);
 
+  // ── Send payment (uses connected wallet's provider, not detect-guess) ──
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
-    const wallet = ALL_WALLETS.find(w => w.detect());
-    const provider = wallet ? wallet.provider() : null;
+    const provider = getActiveProvider();
 
+    // Path 1: Extension payment via connected wallet
     if (provider && activeAddress) {
       try {
-        const amountSompi = BigInt(Math.floor(parseFloat(amountKas) * 100_000_000));
+        const amountSompi = kasToSompi(amountKas);
         let txid;
         if (typeof provider.sendKaspa === 'function') {
           txid = await provider.sendKaspa(recipient, amountSompi);
@@ -289,83 +290,73 @@ function WalletBridge({ children }) {
           const result = await provider.sendTransaction({ to: recipient, amount: amountSompi });
           txid = result.txId || result.txid;
         } else if (typeof provider.request === 'function') {
-          const result = await provider.request({
-            method: 'sendTransaction',
-            params: { to: recipient, amount: String(amountSompi) },
-          });
+          const result = await provider.request({ method: 'sendTransaction', params: { to: recipient, amount: String(amountSompi) } });
           txid = result.txId || result.txid;
         }
         if (txid) return { success: true, method: 'extension', txid };
-      } catch (_) {
-        // Fall through to URI
-      }
+      } catch (_) { /* fall through */ }
     }
 
-    // Also try KasFlow bridge
+    // Path 2: KasFlow fallback
     if (kf.connected && kf.address) {
       try {
-        const amountSompi = BigInt(Math.floor(parseFloat(amountKas) * 100_000_000));
+        const amountSompi = kasToSompi(amountKas);
         const result = await kf.sendTransaction({ to: recipient, amount: amountSompi });
         return { success: true, method: 'kasflow', txid: result.txId };
       } catch (_) {}
     }
 
+    // Path 3: URI fallback
     const uri = buildUri(recipient, amountKas, meta);
     window.open(uri, '_blank');
     return { success: true, method: 'uri', uri };
-  }, [activeAddress, kf, buildUri]);
+  }, [activeAddress, activeWalletId, kf, buildUri]);
 
-  // Get active wallet list (filtered by mobile/desktop)
+  // ── Sign message ──
+  const signMessage = useCallback(async (message) => {
+    const provider = getActiveProvider();
+    if (!provider || !activeAddress) throw new Error('No wallet connected');
+
+    if (typeof provider.signMessage === 'function') return await provider.signMessage(message);
+    if (typeof provider.request === 'function') return await provider.request({ method: 'signMessage', params: { message } });
+    throw new Error('signMessage not available on this wallet');
+  }, [activeAddress, activeWalletId]);
+
+  // ── Active wallet list (filtered by mobile/desktop) ──
   const targetList = isMobile() ? MOBILE_WALLETS : DESKTOP_WALLETS;
   const activeWallets = ALL_WALLETS.filter(w => targetList.includes(w.id));
 
   const value = {
+    // Connected state
+    activeWalletId,
     address: activeAddress,
     balance: activeBalance,
-    connecting: connecting || kf.connecting,
-    error: error || kf.error?.message || null,
+    connecting,
+    error,
     network: activeNetwork || KASPA_NETWORK,
 
-    // Wallet list for UI
+    // Wallet metadata
+    walletMeta,
     wallets: activeWallets,
     allWallets: ALL_WALLETS,
 
-    // Connection
+    // Actions
     connect: connectWallet,
     disconnect: disconnectWallet,
-
-    // Payment
     sendPayment,
+    signMessage,
     sendKaspa: async (recipient, amountSompi) => {
-      const wallet = ALL_WALLETS.find(w => w.detect());
-      const p = wallet ? wallet.provider() : null;
-      if (!p || !activeAddress) throw new Error('No wallet connected');
-      if (typeof p.sendKaspa === 'function') return await p.sendKaspa(recipient, amountSompi);
-      throw new Error('sendKaspa not available on this wallet');
-    },
-    signMessage: async (message) => {
-      const wallet = ALL_WALLETS.find(w => w.detect());
-      const p = wallet ? wallet.provider() : null;
-      if (!p || !activeAddress) throw new Error('No wallet connected');
-      if (typeof p.signMessage === 'function') return await p.signMessage(message);
-      if (typeof p.request === 'function') return await p.request({ method: 'signMessage', params: { message } });
-      throw new Error('signMessage not available on this wallet');
-    },
-    signTransaction: async () => {
-      throw new Error('signTransaction not implemented');
+      const provider = getActiveProvider();
+      if (!provider || !activeAddress) throw new Error('No wallet connected');
+      if (typeof provider.sendKaspa === 'function') return await provider.sendKaspa(recipient, amountSompi);
+      throw new Error('sendKaspa not supported');
     },
     buildUri,
     refreshBalance: async () => {
-      const wallet = ALL_WALLETS.find(w => w.detect());
-      if (!wallet || !activeAddress) return;
-      const p = wallet.provider();
-      if (!p) return;
-      try {
-        let bal;
-        if (typeof p.getBalance === 'function') bal = await p.getBalance();
-        if (bal) setActiveBalance(bal.available !== undefined ? Number(bal.available) : Number(bal.confirmed || 0));
-      } catch (_) {}
+      const provider = getActiveProvider();
+      if (provider) await refreshBalanceForProvider(provider);
     },
+    clearError: () => setError(null),
   };
 
   return (
@@ -387,7 +378,7 @@ export function WalletProvider({ children }) {
       config={{
         appName: 'Covex',
         network: 'testnet-12',
-        autoConnect: false,
+        autoConnect: true,
         adapters: [kaswareAdapter()],
       }}
     >

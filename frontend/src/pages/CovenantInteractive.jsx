@@ -115,11 +115,10 @@ export default function CovenantInteractive() {
     setToast({ type: 'success', msg: `${tier.label} tier unlocked! UI Builder is now available.` });
   };
 
-  // STEP 4: Covenant Interaction Proof — sign a message via extension
+  // STEP 4: Covenant Interaction Proof — sign via connected wallet
   const handleInteract = async () => {
-    const kasWareWallet = wallets.find(w => w.id === 'KasWare' && w.detect());
-    if (!kasWareWallet) {
-      setToast({ type: 'error', msg: 'KasWare extension required for covenant interaction proof.' });
+    if (!address) {
+      setToast({ type: 'error', msg: 'Connect your wallet first to prove covenant interaction.' });
       return;
     }
     const covenantAddr = covenant?.address || covenant?.tx_id || id;
@@ -127,15 +126,7 @@ export default function CovenantInteractive() {
     setInteracting(true);
     setInteractResult(null);
     try {
-      const provider = kasWareWallet.provider();
-      let sig;
-      if (typeof provider.signMessage === 'function') {
-        sig = await provider.signMessage(message);
-      } else if (typeof provider.request === 'function') {
-        sig = await provider.request({ method: 'signMessage', params: { message } });
-      } else {
-        throw new Error('signMessage not supported by this wallet');
-      }
+      const sig = await signMessage(message);
       setInteractResult({
         success: true,
         message,
@@ -442,7 +433,7 @@ export default function CovenantInteractive() {
                   />
                 </div>
 
-                {address && (
+                {address ? (
                   <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/20">
                     <p className="text-xs text-emerald-400 font-mono mb-1">CONNECTED WALLET</p>
                     <p className="text-sm font-mono text-white truncate">{address}</p>
@@ -452,6 +443,16 @@ export default function CovenantInteractive() {
                       </p>
                     )}
                   </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+                    <p className="text-xs text-amber-400 font-mono mb-1">WALLET NOT CONNECTED</p>
+                    <p className="text-sm text-gray-400">
+                      Connect your Kaspa wallet to interact with this covenant, sign proof messages, and pay for premium upgrades.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Click "CONNECT WALLET" in the top navigation bar to get started.
+                    </p>
+                  </div>
                 )}
 
                 <button
@@ -460,7 +461,7 @@ export default function CovenantInteractive() {
                   className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-50 flex items-center justify-center gap-3 uppercase tracking-wide"
                 >
                   {address ? <ShieldCheck size={24} /> : <Lock size={24} />}
-                  {connecting ? 'PROCESSING...' : address ? 'Sign & Execute' : 'Open Wallet to Execute'}
+                  {connecting ? 'PROCESSING...' : address ? 'Sign & Execute' : 'Connect Wallet to Execute'}
                 </button>
 
                 {deployUri && (

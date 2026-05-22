@@ -97,9 +97,9 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/health", get(|| async { "OK" }))
-        .route("/api/covenants", get(covenants_handler))
-        .route("/api/status", get(status_handler))
-        .route("/api/tiers", get(tiers_handler))
+        .route("/covenants", get(covenants_handler))
+        .route("/status", get(status_handler))
+        .route("/tiers", get(tiers_handler))
         .layer(Extension(db.clone()))
         .layer(app);
 

@@ -8,6 +8,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 use tracing::{info, warn, error};
 
 mod covenant_types;
+mod crawler;
 mod db;
 mod indexer;
 mod payment_verifier;
@@ -36,6 +37,10 @@ async fn main() {
         .filter(|s| !s.is_empty())
         .map(|s| s.trim().to_string())
         .collect();
+    let crawl_start_daa: u64 = env::var("CRAWL_START_DAA")
+        .unwrap_or_else(|_| "1".to_string())
+        .parse()
+        .unwrap_or(1);
 
     info!("Covex backend -- network: {}  wRPC: {}  bind: {}", env::var("KASPA_NETWORK").unwrap_or_else(|_| "testnet-10".to_string()), wrpc_url, addr);
     info!("Treasury: {}", treasury);
@@ -90,6 +95,13 @@ async fn main() {
     let pay_treasury = treasury.clone();
     tokio::spawn(async move {
         payment_verifier::run_payment_verifier(pay_client, pay_db, pay_treasury).await;
+    });
+
+    // --- Background: Historic Crawler ---
+    let crawl_db = Arc::clone(&db);
+    let crawl_client = Arc::clone(&client);
+    tokio::spawn(async move {
+        crawler::run_crawler(crawl_client, crawl_db, crawl_start_daa).await;
     });
 
     // --- Routes ---

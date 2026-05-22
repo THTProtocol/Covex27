@@ -86,6 +86,12 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         );
         CREATE INDEX IF NOT EXISTS idx_vis_tier ON visibilities(tier);
         CREATE INDEX IF NOT EXISTS idx_vis_featured ON visibilities(featured);
+
+        CREATE TABLE IF NOT EXISTS crawler_state (
+            id            INTEGER PRIMARY KEY CHECK (id = 1),
+            last_scanned_daa INTEGER NOT NULL DEFAULT 0
+        );
+        INSERT OR IGNORE INTO crawler_state (id, last_scanned_daa) VALUES (1, 0);
         ",
     )?;
     Ok(Mutex::new(conn))
@@ -341,4 +347,27 @@ pub fn get_visibilities(db: &Mutex<Connection>) -> anyhow::Result<Vec<serde_json
     let mut result = Vec::new();
     for row in rows { result.push(row?); }
     Ok(result)
+}
+
+// ─── Crawler State ─────────────────────────────────────────────
+
+pub fn get_last_scanned_daa(db: &Mutex<Connection>) -> anyhow::Result<u64> {
+    let conn = db.lock().unwrap();
+    let daa: i64 = conn
+        .query_row(
+            "SELECT last_scanned_daa FROM crawler_state WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    Ok(daa as u64)
+}
+
+pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE crawler_state SET last_scanned_daa = ?1 WHERE id = 1",
+        rusqlite::params![daa as i64],
+    )?;
+    Ok(())
 }

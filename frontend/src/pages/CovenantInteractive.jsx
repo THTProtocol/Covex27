@@ -38,7 +38,7 @@ export default function CovenantInteractive() {
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
-  const { address, balance, sendPayment, connecting, buildUri, signMessage, sendKaspa, kaswareDetected } = useWallet();
+  const { address, balance, sendPayment, connecting, buildUri, signMessage, wallets, connect, disconnect } = useWallet();
 
   // UI Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -74,32 +74,29 @@ export default function CovenantInteractive() {
 
   const handleUpgradePay = async (tier) => {
     try {
-      if (kaswareDetected && window.kasware) {
-        // Direct extension payment — real SaaS flow
-        const amountSompi = BigInt(tier.price * 100_000_000);
-        const txid = await window.kasware.sendKaspa(TREASURY, amountSompi);
+      if (address) {
+        // Use the unified sendPayment from context — handles all wallet providers
+        const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
 
         // POST to backend for verification
-        try {
-          await fetch('/api/verify-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tx_id: txid,
-              covenant_address: covenant?.address || covenant?.tx_id || id,
-              tier: tier.id,
-            }),
-          });
-        } catch (_) {
-          // Best-effort — txid was already returned
+        if (result.txid) {
+          try {
+            await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tx_id: result.txid,
+                covenant_address: covenant?.address || covenant?.tx_id || id,
+                tier: tier.id,
+              }),
+            });
+          } catch (_) {}
         }
 
         setUpgradePaid(true);
-        setToast({ type: 'success', msg: `Payment sent! TXID: ${TRUNC(txid, 10)}` });
-      } else if (address) {
-        // Fallback via bridge
-        const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
-        if (result.success) setUpgradePaid(true);
+        if (result.txid) {
+          setToast({ type: 'success', msg: `Payment sent! TXID: ${TRUNC(result.txid, 10)}` });
+        }
       } else {
         window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
         setUpgradePaid(true);
@@ -120,7 +117,8 @@ export default function CovenantInteractive() {
 
   // STEP 4: Covenant Interaction Proof — sign a message via extension
   const handleInteract = async () => {
-    if (!kaswareDetected || !window.kasware) {
+    const kasWareWallet = wallets.find(w => w.id === 'KasWare' && w.detect());
+    if (!kasWareWallet) {
       setToast({ type: 'error', msg: 'KasWare extension required for covenant interaction proof.' });
       return;
     }
@@ -129,7 +127,15 @@ export default function CovenantInteractive() {
     setInteracting(true);
     setInteractResult(null);
     try {
-      const sig = await window.kasware.signMessage(message);
+      const provider = kasWareWallet.provider();
+      let sig;
+      if (typeof provider.signMessage === 'function') {
+        sig = await provider.signMessage(message);
+      } else if (typeof provider.request === 'function') {
+        sig = await provider.request({ method: 'signMessage', params: { message } });
+      } else {
+        throw new Error('signMessage not supported by this wallet');
+      }
       setInteractResult({
         success: true,
         message,
@@ -353,15 +359,11 @@ export default function CovenantInteractive() {
             <p className="text-xs text-gray-500 mb-2 uppercase tracking-widest">Bi-Directional Proof</p>
             <button
               onClick={handleInteract}
-              disabled={interacting || !kaswareDetected}
-              className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.97] ${
-                kaswareDetected
-                  ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-600/30'
-                  : 'bg-gray-900 text-gray-600 cursor-not-allowed'
-              }`}
+              disabled={interacting}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.97] bg-gray-800 text-white hover:bg-gray-700 border border-gray-600/30 disabled:opacity-50"
             >
               <MessageSquare size={16} />
-              {interacting ? 'SIGNING...' : kaswareDetected ? 'Interact — Sign Proof Message' : 'Install KasWare to Interact'}
+              {interacting ? 'SIGNING...' : 'Interact — Sign Proof Message'}
             </button>
             {interactResult && (
               <div className={`mt-3 p-3 rounded-lg text-xs font-mono break-all border ${

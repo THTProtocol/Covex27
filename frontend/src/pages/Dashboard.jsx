@@ -4,7 +4,7 @@ import { useWallet } from '../components/WalletContext';
 import { LayoutDashboard, ExternalLink, ShieldCheck, PlusCircle } from 'lucide-react';
 
 export default function Dashboard() {
-  const { address, balance, activeWallet } = useWallet();
+  const { address, balance } = useWallet();
   const [generatedUis, setGeneratedUis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [accountTier, setAccountTier] = useState('FREE');

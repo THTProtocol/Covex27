@@ -99,7 +99,7 @@ export default function Terms() {
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-white">6. Disclaimer of Warranty</h2>
           <p>
-            Covex provides information "as is" without warranty of any kind. Blockchain data is presented
+            Covex provides information "as is" without warranty of any kind. BlockDAG data is presented
             as retrieved from the underlying Kaspa node and may be subject to reorgs, latency, or
             incomplete propagation. The Platform makes no guarantees regarding the accuracy, completeness,
             or timeliness of indexed data.
@@ -137,7 +137,7 @@ export default function Terms() {
 
       <div className="glass-panel p-6 text-xs text-gray-600 text-center">
         <p>
-          Chain is the truth. Covex is the window. All covenants remain immutable on-chain; Covex only
+          DAG is the truth. Covex is the window. All covenants remain immutable on-chain; Covex only
           indexes them publicly and generates custom interactive UIs for paid users.
         </p>
       </div>

@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=kasparov
 WorkingDirectory=/home/kasparov/Covex27
-Environment="KASPA_NETWORK=testnet-12"
-Environment="KASPA_WRPC_URL=ws://178.105.76.81:17110"
+Environment="KASPA_NETWORK=testnet-10"
+Environment="KASPA_WRPC_URL=ws://127.0.0.1:17110"
 Environment="BIND_ADDR=0.0.0.0:3001"
 Environment="DB_PATH=/home/kasparov/Covex27/covex.db"
 Environment="COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"

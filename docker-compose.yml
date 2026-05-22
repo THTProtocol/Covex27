@@ -1,5 +1,5 @@
 # Covex Docker Compose
-# Production-ready deployment with Rust backend + React frontend + SQLite
+# Testnet-10 deployment with Rust backend + React frontend + SQLite
 
 services:
   backend:
@@ -9,7 +9,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - KASPA_NETWORK=${KASPA_NETWORK:-testnet-12}
+      - KASPA_NETWORK=${KASPA_NETWORK:-testnet-10}
       - KASPA_WRPC_URL=${KASPA_WRPC_URL:-ws://host.docker.internal:17110}
       - BIND_ADDR=0.0.0.0:3001
       - DB_PATH=/data/covex.db

@@ -98,7 +98,7 @@ export default function App() {
             <div className="flex items-center gap-4">
               <span>Non-custodial. Keys stay in your wallet.</span>
               <span className="text-white/20">|</span>
-              <span>Chain is the truth. Covex is the window.</span>
+              <span>DAG is the truth. Covex is the window.</span>
             </div>
           </div>
           <div className="max-w-6xl mx-auto mt-4 text-center text-xs text-gray-700">

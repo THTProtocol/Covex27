@@ -6,14 +6,13 @@ use std::sync::Mutex;
 use tracing::{info, warn, error, debug};
 
 /// Historic BlockDAG Crawler
-/// Descends the virtual chain from tip toward origin, processing blocks
-/// in reverse-DAA order, scanning for covenant UTXOs.
 ///
-/// Uses get_virtual_chain_from_block to walk the selected-parent chain,
-/// processes each block's outputs for covenant script patterns, and
-/// persists via the shared DB layer. Checkpoint survives restarts.
+/// Polls the virtual tip periodically and walks the selected-parent chain
+/// backwards to discover covenant UTXOs that predate the live indexer.
+///
+/// Checkpointed via crawler_state table — survives restarts.
 
-const CHAIN_DEPTH: u64 = 50;
+const MAX_WALK_DISTANCE: u64 = 500; // blocks per tick
 
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
@@ -37,7 +36,6 @@ pub async fn run_crawler(
 
     loop {
         if !client.is_connected() {
-            warn!("Crawler: wRPC disconnected, reconnecting...");
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             continue;
         }
@@ -53,113 +51,127 @@ pub async fn run_crawler(
 
         let virtual_daa = dag_info.virtual_daa_score;
 
+        // Nothing to scan
         if scan_daa >= virtual_daa {
-            debug!("Crawler: at tip (scan={}, virtual={})", scan_daa, virtual_daa);
+            // Persist checkpoint
             let _ = db::update_last_scanned_daa(&db, scan_daa);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
         }
 
-        // Walk the virtual chain from the tip hash downward
-        let tip_hash = dag_info.virtual_parent_hashes.first().cloned();
-        match client
-            .get_virtual_chain_from_block(tip_hash.unwrap_or_default(), true)
-            .await
-        {
-            Ok(chain_resp) => {
-                // added_chain_block_hashes: blocks from origin toward tip (DAA ascending)
-                let block_hashes = &chain_resp.added_chain_block_hashes;
-                if block_hashes.is_empty() {
-                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                    continue;
+        // Walk selected parent chain backwards from a known tip
+        let tip_hash = match dag_info.virtual_parent_hashes.first() {
+            Some(h) => h.clone(),
+            None => {
+                warn!("Crawler: no virtual parent hashes — node still syncing?");
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                continue;
+            }
+        };
+
+        info!(
+            "Crawler: walking from tip DAA {} (scanned={})",
+            virtual_daa, scan_daa
+        );
+
+        // Follow selected parent chain backward
+        let mut current_hash = tip_hash;
+        let mut walked = 0u64;
+        let mut batch_found = 0usize;
+
+        for _step in 0..MAX_WALK_DISTANCE {
+            // Check connection
+            if !client.is_connected() {
+                break;
+            }
+
+            // Fetch block
+            let block = match client.get_block(current_hash.clone(), false).await {
+                Ok(b) => b,
+                Err(e) => {
+                    debug!("Crawler: get_block failed at {}: {}", current_hash, e);
+                    break;
                 }
+            };
 
-                // Take the last CHAIN_DEPTH hashes (closest to tip)
-                let start_idx = block_hashes.len().saturating_sub(CHAIN_DEPTH as usize);
-                let batch: Vec<_> = block_hashes[start_idx..].to_vec();
+            let block_daa = block.header.daa_score;
 
-                let mut batch_found = 0usize;
-                let mut max_daa = scan_daa;
+            // Stop when we've covered all unscanned blocks
+            if block_daa <= scan_daa {
+                scan_daa = scan_daa.max(block_daa);
+                break;
+            }
 
-                for block_hash in &batch {
-                    match client.get_block(block_hash.clone(), true).await {
-                        Ok(block) => {
-                            let block_daa = block.header.daa_score;
-                            if block_daa <= scan_daa {
-                                continue;
-                            }
-                            if block_daa > max_daa {
-                                max_daa = block_daa;
-                            }
+            // Extract covenant outputs from this block
+            for tx in &block.transactions {
+                for (out_idx, output) in tx.outputs.iter().enumerate() {
+                    let spk_bytes = output.script_public_key.script();
+                    let spk_hex = hex::encode(spk_bytes);
 
-                            for (tx_idx, tx) in block.transactions.iter().enumerate() {
-                                // Build a stable identifier from block hash + position
-                                let tx_hash = tx
-                                    .verbose_data
-                                    .as_ref()
-                                    .map(|vd| vd.transaction_id.to_string())
-                                    .unwrap_or_else(|| {
-                                        format!("{}-{}", block_hash.to_string(), tx_idx)
-                                    });
+                    if !looks_like_covenant(&spk_hex) {
+                        continue;
+                    }
 
-                                for (out_idx, output) in tx.outputs.iter().enumerate() {
-                                    let spk_bytes = output.script_public_key.script();
-                                    let spk_hex = hex::encode(spk_bytes);
+                    let tx_hash = tx
+                        .verbose_data
+                        .as_ref()
+                        .map(|vd| vd.transaction_id.to_string())
+                        .unwrap_or_else(|| format!("{}-tx", block.hash().to_string()));
+                    let tx_id = format!("{}:{}", tx_hash, out_idx);
+                    let amount_sompi = output.value;
+                    let covenant_type = classify_covenant(&spk_hex);
+                    let category = categorize(&spk_hex);
+                    let address = format!("kaspatest:{}", &tx_hash[..32]);
+                    let script_hash = crate::compute_script_hash(&spk_hex);
 
-                                    if !looks_like_covenant(&spk_hex) {
-                                        continue;
-                                    }
-
-                                    let tx_id = format!("{}:{}", tx_hash, out_idx);
-                                    let amount_sompi = output.value;
-                                    let covenant_type = classify_covenant(&spk_hex);
-                                    let category = categorize(&spk_hex);
-                                    let address = format!("kaspatest:{}", &tx_hash[..32]);
-                                    let script_hash = crate::compute_script_hash(&spk_hex);
-
-                                    if let Err(e) = db::insert_covenant(
-                                        &db, &tx_id, &address, amount_sompi,
-                                        &script_hash, &spk_hex, &covenant_type,
-                                        &category, &address, "", block_daa,
-                                    ) {
-                                        if !e.to_string().contains("UNIQUE") {
-                                            error!("Crawler: insert failed {}: {}", &tx_id[..16], e);
-                                        }
-                                    } else {
-                                        batch_found += 1;
-                                        debug!(
-                                            "Crawler: found {} {} @ DAA {} ({} KAS)",
-                                            covenant_type, &tx_id[..16],
-                                            block_daa,
-                                            amount_sompi as f64 / 100_000_000.0
-                                        );
-                                    }
-                                }
-                            }
+                    match db::insert_covenant(
+                        &db, &tx_id, &address, amount_sompi,
+                        &script_hash, &spk_hex, &covenant_type,
+                        &category, &address, "", block_daa,
+                    ) {
+                        Ok(_) => {
+                            batch_found += 1;
+                            debug!(
+                                "Crawler: found {} {} @ DAA {} ({} KAS)",
+                                covenant_type, &tx_id[..16],
+                                block_daa,
+                                amount_sompi as f64 / 100_000_000.0
+                            );
                         }
+                        Err(e) if e.to_string().contains("UNIQUE") => {}
                         Err(e) => {
-                            warn!("Crawler: get_block failed for {}: {}", block_hash, e);
+                            error!("Crawler: insert failed {}: {}", &tx_id[..16], e);
                         }
                     }
                 }
-
-                if max_daa > scan_daa {
-                    scan_daa = max_daa;
-                    total_found += batch_found as u64;
-                    info!(
-                        "Crawler: scanned to DAA {} (tick: {}, total: {})",
-                        scan_daa, batch_found, total_found
-                    );
-                    let _ = db::update_last_scanned_daa(&db, scan_daa);
-                }
             }
-            Err(e) => {
-                warn!("Crawler: get_virtual_chain_from_block failed: {}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+            walked += 1;
+            scan_daa = scan_daa.max(block_daa);
+
+            // Follow selected parent
+            match block.header.selected_parent_hash {
+                Some(parent_hash) => {
+                    current_hash = parent_hash;
+                }
+                None => {
+                    debug!("Crawler: reached genesis at DAA {}", block_daa);
+                    break;
+                }
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        total_found += batch_found as u64;
+
+        info!(
+            "Crawler: walked {} blocks, found {} new (total: {}), now at DAA {}",
+            walked, batch_found, total_found, scan_daa
+        );
+
+        let _ = db::update_last_scanned_daa(&db, scan_daa);
+
+        // Pace the crawler
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }
 

@@ -84,6 +84,7 @@ pub async fn run_indexer(
                                 let ui_html = crate::ui_generator::generate_basic_ui(&config);
                                 let slug = format!("covenant-{}", &gen_tx_id[..16]);
                                 let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, "FREE", &ui_html, "{}", &slug, false);
+                                let _ = db::set_visibility(&gen_db, &gen_tx_id, "FREE", false, 0, None);
                                 debug!("Indexer: auto-generated basic UI for {}", &gen_tx_id[..16]);
                             });
                         }

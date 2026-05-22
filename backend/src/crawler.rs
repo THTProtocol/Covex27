@@ -1,4 +1,6 @@
 use crate::db;
+use crate::ui_generator;
+use crate::covenant_types;
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
@@ -147,6 +149,33 @@ pub async fn run_crawler(
                                 block_daa,
                                 amount_sompi as f64 / 100_000_000.0
                             );
+
+                            // Auto-generate basic UI for every discovered covenant
+                            let gen_db = Arc::clone(&db);
+                            let gen_tx_id = tx_id.clone();
+                            let gen_type = covenant_type.clone();
+                            let gen_cat = category.clone();
+                            let gen_hash = script_hash.clone();
+                            let gen_addr = address.clone();
+                            tokio::spawn(async move {
+                                let params = ui_generator::extract_parameters_from_script("aa20", &gen_hash);
+                                let config = covenant_types::UiGenerationConfig {
+                                    covenant_id: gen_tx_id.clone(),
+                                    covenant_name: format!("{} {}", gen_type, &gen_tx_id[..8]),
+                                    category: gen_cat,
+                                    script_hash: gen_hash,
+                                    parameters: params,
+                                    is_enhanced: false,
+                                    disclosure_level: "limited".into(),
+                                    creator_addr: gen_addr,
+                                };
+                                let ui_html = ui_generator::generate_basic_ui(&config);
+                                let slug = format!("covenant-{}", &gen_tx_id[..16]);
+                                let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, "FREE", &ui_html, "{}", &slug, false);
+                                // Create visibility record so covenant appears in listings
+                                let _ = db::set_visibility(&gen_db, &gen_tx_id, "FREE", false, 0, None);
+                                debug!("Crawler: auto-generated basic UI + visibility for {}", &gen_tx_id[..16]);
+                            });
                         }
                         Err(e) if e.to_string().contains("UNIQUE") => {}
                         Err(e) => {

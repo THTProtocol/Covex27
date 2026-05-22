@@ -66,7 +66,7 @@ pub async fn run_crawler(
         // Walk virtual selected parent chain from tip to scan_daa
         let start_tip_hash = dag_info.virtual_parent_hashes.first().cloned();
         match client
-            .get_virtual_selected_parent_chain_from_block(
+            .get_virtual_chain_from_block(
                 start_tip_hash.unwrap_or_default(),
                 true,
             )
@@ -112,7 +112,7 @@ pub async fn run_crawler(
                                         continue;
                                     }
 
-                                    let tx_hash = tx.verbose_data.transaction_id.to_string();
+                                    let tx_hash = tx.verbose_data.unwrap().transaction_id.to_string();
                                     let tx_id = format!("{}:{}", tx_hash, idx);
                                     let amount_sompi = output.value;
 

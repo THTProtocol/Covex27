@@ -116,7 +116,7 @@ pub async fn run_crawler(
                         .verbose_data
                         .as_ref()
                         .map(|vd| vd.transaction_id.to_string())
-                        .unwrap_or_else(|| format!("{}-tx", block.hash().to_string()));
+                        .unwrap_or_else(|| format!("{}-tx", block.header.hash.to_string()));
                     let tx_id = format!("{}:{}", tx_hash, out_idx);
                     let amount_sompi = output.value;
                     let covenant_type = classify_covenant(&spk_hex);
@@ -149,8 +149,8 @@ pub async fn run_crawler(
             walked += 1;
             scan_daa = scan_daa.max(block_daa);
 
-            // Follow selected parent
-            match block.header.selected_parent_hash {
+            // Follow selected parent (first parent in level 0)
+            match block.header.parents_by_level.first().and_then(|v| v.first()) {
                 Some(parent_hash) => {
                     current_hash = parent_hash;
                 }

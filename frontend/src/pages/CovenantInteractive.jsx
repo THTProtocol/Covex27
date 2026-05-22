@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2 } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -38,7 +38,7 @@ export default function CovenantInteractive() {
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
-  const { address, balance, sendPayment, connecting, buildUri } = useWallet();
+  const { address, balance, sendPayment, connecting, buildUri, signMessage, sendKaspa, kaswareDetected } = useWallet();
 
   // UI Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -56,6 +56,8 @@ export default function CovenantInteractive() {
     typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null
   );
   const [toast, setToast] = useState(null);
+  const [interactResult, setInteractResult] = useState(null);
+  const [interacting, setInteracting] = useState(false);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
     { id: 'CREATOR', price: 100, label: 'Creator', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
@@ -72,15 +74,38 @@ export default function CovenantInteractive() {
 
   const handleUpgradePay = async (tier) => {
     try {
-      if (address) {
+      if (kaswareDetected && window.kasware) {
+        // Direct extension payment — real SaaS flow
+        const amountSompi = BigInt(tier.price * 100_000_000);
+        const txid = await window.kasware.sendKaspa(TREASURY, amountSompi);
+
+        // POST to backend for verification
+        try {
+          await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tx_id: txid,
+              covenant_address: covenant?.address || covenant?.tx_id || id,
+              tier: tier.id,
+            }),
+          });
+        } catch (_) {
+          // Best-effort — txid was already returned
+        }
+
+        setUpgradePaid(true);
+        setToast({ type: 'success', msg: `Payment sent! TXID: ${TRUNC(txid, 10)}` });
+      } else if (address) {
+        // Fallback via bridge
         const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
         if (result.success) setUpgradePaid(true);
       } else {
         window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
         setUpgradePaid(true);
       }
-    } catch {
-      window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
+    } catch (err) {
+      setToast({ type: 'error', msg: `Payment failed: ${err.message || 'Unknown error'}` });
     }
   };
 
@@ -91,6 +116,38 @@ export default function CovenantInteractive() {
     setCovexPaidTier(tier.label);
     setShowUpgrade(false);
     setToast({ type: 'success', msg: `${tier.label} tier unlocked! UI Builder is now available.` });
+  };
+
+  // STEP 4: Covenant Interaction Proof — sign a message via extension
+  const handleInteract = async () => {
+    if (!kaswareDetected || !window.kasware) {
+      setToast({ type: 'error', msg: 'KasWare extension required for covenant interaction proof.' });
+      return;
+    }
+    const covenantAddr = covenant?.address || covenant?.tx_id || id;
+    const message = `Interact with Covenant: ${covenantAddr}`;
+    setInteracting(true);
+    setInteractResult(null);
+    try {
+      const sig = await window.kasware.signMessage(message);
+      setInteractResult({
+        success: true,
+        message,
+        signature: sig,
+        timestamp: new Date().toISOString(),
+      });
+      setToast({ type: 'success', msg: 'Covenant interaction proven! Message signed.' });
+    } catch (err) {
+      setInteractResult({
+        success: false,
+        message,
+        error: err.message || 'User rejected signature',
+        timestamp: new Date().toISOString(),
+      });
+      setToast({ type: 'error', msg: `Interaction failed: ${err.message || 'User rejected'}` });
+    } finally {
+      setInteracting(false);
+    }
   };
 
   useEffect(() => {
@@ -262,14 +319,63 @@ export default function CovenantInteractive() {
 
           {/* Upgrade this Covenant button for FREE/EXPLORER tier */}
           {!verified && (
-            <button
-              onClick={() => handleUpgrade(TIER_OPTIONS[0])}
-              className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all"
-            >
-              <ArrowUp size={18} />
-              Upgrade this Covenant
-            </button>
+            <div className="mt-6 space-y-3">
+              <button
+                onClick={() => handleUpgrade(TIER_OPTIONS[0])}
+                className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all"
+              >
+                <ArrowUp size={18} />
+                Upgrade this Covenant
+              </button>
+
+              {/* STEP 3: Direct SaaS tier buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleUpgrade(TIER_OPTIONS[1])}
+                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#E8AF34]/30 bg-[#E8AF34]/[0.06] text-[#E8AF34] font-semibold text-sm hover:bg-[#E8AF34]/10 hover:shadow-[0_0_20px_rgba(232,175,52,0.15)] active:scale-[0.97] transition-all"
+                >
+                  <ArrowUp size={14} />
+                  Upgrade to PRO (500 KAS)
+                </button>
+                <button
+                  onClick={() => handleUpgrade(TIER_OPTIONS[2])}
+                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#A855F7]/30 bg-[#A855F7]/[0.06] text-[#A855F7] font-semibold text-sm hover:bg-[#A855F7]/10 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)] active:scale-[0.97] transition-all"
+                >
+                  <ArrowUp size={14} />
+                  Upgrade to MAX (1000 KAS)
+                </button>
+              </div>
+            </div>
           )}
+
+          {/* STEP 4: Covenant Interaction Proof */}
+          <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+            <p className="text-xs text-gray-500 mb-2 uppercase tracking-widest">Bi-Directional Proof</p>
+            <button
+              onClick={handleInteract}
+              disabled={interacting || !kaswareDetected}
+              className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.97] ${
+                kaswareDetected
+                  ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-600/30'
+                  : 'bg-gray-900 text-gray-600 cursor-not-allowed'
+              }`}
+            >
+              <MessageSquare size={16} />
+              {interacting ? 'SIGNING...' : kaswareDetected ? 'Interact — Sign Proof Message' : 'Install KasWare to Interact'}
+            </button>
+            {interactResult && (
+              <div className={`mt-3 p-3 rounded-lg text-xs font-mono break-all border ${
+                interactResult.success
+                  ? 'bg-emerald-500/[0.06] border-emerald-500/20 text-emerald-400'
+                  : 'bg-red-500/[0.06] border-red-500/20 text-red-400'
+              }`}>
+                <p className="font-semibold mb-1">{interactResult.success ? '✓ SIGNED' : '✗ REJECTED'}</p>
+                <p className="text-gray-500">Msg: {interactResult.message.slice(0, 60)}...</p>
+                {interactResult.success && <p>Sig: {interactResult.signature.slice(0, 50)}...</p>}
+                {!interactResult.success && <p>Error: {interactResult.error}</p>}
+              </div>
+            )}
+          </div>
 
           {/* Customize UI button for paid tiers */}
           {canCustomize && (

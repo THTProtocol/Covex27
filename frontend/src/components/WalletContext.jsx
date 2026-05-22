@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import {
   KaspaWalletProvider as KasFlowProvider,
   kaswareAdapter,
@@ -8,18 +8,13 @@ import {
 const WalletContext = createContext(null);
 
 const KASPA_NETWORK = 'kaspatest';
+const REQUIRED_NETWORK = 'testnet-12';
 
-// Real Kaspa wallet logos as inline SVG data URIs
+// Wallet logo paths — point to real PNG assets in /public/wallets/
 const WALLET_LOGOS = {
-  kasware: 'data:image/svg+xml,' + encodeURIComponent(
-    '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#0A0A0D"/><path d="M24 6L40 14.5v19L24 41.5 8 33.5v-19L24 6z" fill="#49EACB" opacity="0.9"/><text x="24" y="31" text-anchor="middle" font-family="Arial Black" font-size="18" fill="#0A0A0D" font-weight="900">K</text></svg>'
-  ),
-  kaspium: 'data:image/svg+xml,' + encodeURIComponent(
-    '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#1a1a2e"/><defs><linearGradient id="kg" x1="10" y1="10" x2="38" y2="38"><stop stop-color="#3B82F6"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs><path d="M14 24l10-14 10 14-10 14-10-14z" fill="url(#kg)" stroke="#60A5FA" stroke-width="1"/><circle cx="24" cy="24" r="5" fill="#1a1a2e" stroke="#60A5FA" stroke-width="1.5"/></svg>'
-  ),
-  kastle: 'data:image/svg+xml,' + encodeURIComponent(
-    '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#0F0F1A"/><path d="M8 34V16l16-8 16 8v18H8z" fill="none" stroke="#A78BFA" stroke-width="2"/><path d="M14 28h6v8h-6zM26 20h6v16h-6z" fill="#A78BFA" opacity="0.8"/><path d="M14 36h20" stroke="#A78BFA" stroke-width="2"/></svg>'
-  ),
+  kasware: '/wallets/kasware.png',
+  kaspium: '/wallets/kaspium.png',
+  kastle: '/wallets/kastle.png',
   kdx: 'data:image/svg+xml,' + encodeURIComponent(
     '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#0D1117"/><rect x="8" y="12" width="32" height="24" rx="2" fill="none" stroke="#58A6FF" stroke-width="2"/><rect x="12" y="16" width="24" height="14" rx="1" fill="#58A6FF" opacity="0.2"/><path d="M18 24h12" stroke="#58A6FF" stroke-width="2" stroke-linecap="round"/><rect x="14" y="36" width="20" height="3" rx="1.5" fill="#30363D"/></svg>'
   ),
@@ -30,6 +25,9 @@ const WALLET_LOGOS = {
     '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#0a1628"/><circle cx="24" cy="24" r="14" fill="none" stroke="#49EACB" stroke-width="2"/><path d="M24 10A14 14 0 0110 24" fill="none" stroke="#E8AF34" stroke-width="2.5" stroke-linecap="round"/><circle cx="24" cy="24" r="3" fill="#49EACB"/></svg>'
   ),
 };
+
+// Direct kasware extension detection and helpers
+const getKasware = () => (typeof window !== 'undefined' && window.kasware) ? window.kasware : null;
 
 const EXTRA_WALLETS = [
   {
@@ -77,6 +75,83 @@ const EXTRA_WALLETS = [
 function WalletBridge({ children }) {
   const kf = useKasFlowWallet();
 
+  // Direct kasware state
+  const [kaswareAddress, setKaswareAddress] = useState(null);
+  const [kaswareBalance, setKaswareBalance] = useState(null);
+  const [kaswareNetwork, setKaswareNetwork] = useState(null);
+  const [kaswareConnecting, setKaswareConnecting] = useState(false);
+  const [kaswareError, setKaswareError] = useState(null);
+
+  const kaswareDetected = getKasware() !== null;
+
+  // Direct connect via window.kasware
+  const connectKasware = useCallback(async () => {
+    const kw = getKasware();
+    if (!kw) throw new Error('KasWare extension not detected. Install from kasware.xyz');
+
+    setKaswareConnecting(true);
+    setKaswareError(null);
+
+    try {
+      // Network validation
+      const network = await kw.getNetwork();
+      setKaswareNetwork(network);
+      if (network !== REQUIRED_NETWORK) {
+        alert(`Wrong network detected: ${network}. Please switch to ${REQUIRED_NETWORK} in your KasWare extension settings.`);
+        setKaswareConnecting(false);
+        return;
+      }
+
+      // Request accounts
+      const accounts = await kw.requestAccounts();
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts returned from KasWare');
+      }
+
+      const addr = accounts[0];
+      setKaswareAddress(addr);
+
+      // Fetch balance
+      try {
+        const bal = await kw.getBalance();
+        setKaswareBalance(bal?.available !== undefined ? Number(bal.available) : null);
+      } catch (_) {
+        // Balance fetch is best-effort
+      }
+    } catch (err) {
+      setKaswareError(err.message || 'Failed to connect to KasWare');
+    } finally {
+      setKaswareConnecting(false);
+    }
+  }, []);
+
+  const disconnectKasware = useCallback(() => {
+    setKaswareAddress(null);
+    setKaswareBalance(null);
+    setKaswareNetwork(null);
+    setKaswareError(null);
+  }, []);
+
+  // Auto-refresh balance when address is set
+  useEffect(() => {
+    if (!kaswareAddress) return;
+    const interval = setInterval(async () => {
+      const kw = getKasware();
+      if (!kw) return;
+      try {
+        const bal = await kw.getBalance();
+        setKaswareBalance(bal?.available !== undefined ? Number(bal.available) : null);
+      } catch (_) {}
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [kaswareAddress]);
+
+  // Determine active state: prefer direct kasware, fall back to KasFlow
+  const activeAddress = kaswareAddress || kf.address;
+  const activeBalance = kaswareAddress ? kaswareBalance : (kf.balance ? Number(kf.balance.available) : null);
+  const activeConnecting = kaswareConnecting || kf.connecting;
+  const activeError = kaswareError || kf.error?.message || null;
+
   const buildUri = useCallback((recipient, amountKas, meta = {}) => {
     const prefix = KASPA_NETWORK === 'kaspatest' ? 'kaspatest:' : 'kaspa:';
     const addr = recipient.replace(/^(kaspatest:|kaspa:)/, '');
@@ -89,6 +164,21 @@ function WalletBridge({ children }) {
   }, []);
 
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
+    // Try direct kasware first
+    const kw = getKasware();
+    if (kaswareAddress && kw) {
+      try {
+        const amountSompi = Math.floor(parseFloat(amountKas) * 100_000_000);
+        const txid = await kw.sendKaspa(recipient, amountSompi);
+        return { success: true, method: 'extension', txid };
+      } catch (_) {
+        const uri = buildUri(recipient, amountKas, meta);
+        window.open(uri, '_blank');
+        return { success: true, method: 'uri', uri };
+      }
+    }
+
+    // Fall back to KasFlow bridge
     if (kf.connected && kf.address) {
       try {
         const amountSompi = BigInt(Math.floor(parseFloat(amountKas) * 100_000_000));
@@ -100,10 +190,11 @@ function WalletBridge({ children }) {
         return { success: true, method: 'uri', uri };
       }
     }
+
     const uri = buildUri(recipient, amountKas, meta);
     window.open(uri, '_blank');
     return { success: true, method: 'uri', uri };
-  }, [kf.connected, kf.address, kf.sendTransaction, buildUri]);
+  }, [kaswareAddress, kf.connected, kf.address, kf.sendTransaction, buildUri]);
 
   // Merge KasFlow adapters + extra wallets into unified wallet list
   const kasflowWallets = (kf.adapters || []).map(a => ({
@@ -122,25 +213,67 @@ function WalletBridge({ children }) {
   const allWallets = [...kasflowWallets, ...extraFiltered];
 
   const value = {
-    activeWallet: kf.currentAdapter
-      ? { id: kf.currentAdapter.metadata.name, name: kf.currentAdapter.metadata.displayName }
-      : null,
-    address: kf.address,
-    balance: kf.balance ? Number(kf.balance.available) : null,
-    connecting: kf.connecting,
-    error: kf.error?.message || null,
+    // Active wallet info
+    activeWallet: activeAddress
+      ? { id: 'kasware', name: 'KasWare Wallet' }
+      : (kf.currentAdapter
+        ? { id: kf.currentAdapter.metadata.name, name: kf.currentAdapter.metadata.displayName }
+        : null),
+    address: activeAddress,
+    balance: activeBalance,
+    connecting: activeConnecting,
+    error: activeError,
+    network: KASPA_NETWORK,
+
+    // Direct kasware info
+    kaswareDetected,
+    kaswareNetwork,
+
+    // Modal state
     showModal: kf.isModalOpen,
     setShowModal: (v) => v ? kf.openModal() : kf.closeModal(),
-    connect: (id) => kf.connect(id),
-    disconnect: kf.disconnect,
+
+    // Connection actions
+    connect: async (id) => {
+      if (id === 'kasware' && kaswareDetected) {
+        await connectKasware();
+      } else {
+        await kf.connect(id);
+      }
+    },
+    disconnect: () => {
+      disconnectKasware();
+      kf.disconnect();
+    },
+
+    // Payment / signing
     sendPayment,
+    sendKaspa: async (recipient, amountSompi) => {
+      const kw = getKasware();
+      if (!kw || !kaswareAddress) throw new Error('KasWare not connected');
+      return await kw.sendKaspa(recipient, amountSompi);
+    },
+    signMessage: async (message) => {
+      const kw = getKasware();
+      if (!kw || !kaswareAddress) throw new Error('KasWare not connected');
+      return await kw.signMessage(message);
+    },
     signTransaction: async () => {
       throw new Error('signTransaction not implemented via KasFlow bridge');
     },
     buildUri,
-    refreshBalance: kf.refreshBalance,
+    refreshBalance: async () => {
+      const kw = getKasware();
+      if (kw && kaswareAddress) {
+        try {
+          const bal = await kw.getBalance();
+          setKaswareBalance(bal?.available !== undefined ? Number(bal.available) : null);
+        } catch (_) {}
+      }
+      kf.refreshBalance();
+    },
+
     wallets: allWallets,
-    network: KASPA_NETWORK,
   };
 
   return (

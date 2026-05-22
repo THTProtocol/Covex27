@@ -152,7 +152,7 @@ pub async fn run_crawler(
             // Follow selected parent (first parent in level 0)
             match block.header.parents_by_level.first().and_then(|v| v.first()) {
                 Some(parent_hash) => {
-                    current_hash = parent_hash;
+                    current_hash = *parent_hash;
                 }
                 None => {
                     debug!("Crawler: reached genesis at DAA {}", block_daa);

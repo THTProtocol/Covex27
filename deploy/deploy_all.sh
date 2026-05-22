@@ -14,16 +14,16 @@
 #   - git installed
 #   - systemd (Hetzner Linux)
 #
-# IMMUTABLE CONSTANTS (testnet-10):
+# IMMUTABLE CONSTANTS (testnet-12):
 #   TREASURY: kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
-#   NETWORK:  testnet-10
+#   NETWORK:  testnet-12
 #   DOMAIN:   hightable.pro
 # ============================================================================
 set -euo pipefail
 
 # ---- CONSTANTS -------------------------------------------------------------
 TREASURY="kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
-NETWORK="testnet-10"
+NETWORK="testnet-12"
 KASPAD_BIN="/home/kasparov/.cargo/bin/kaspad"
 KASPA_DATA_DIR="/home/kasparov/kaspa-tn10-data"
 KASPA_USER="kasparov"
@@ -83,8 +83,8 @@ echo ""
 
 # 2.1 — Project .env
 cat > "${PROJECT_DIR}/.env" <<'DOTENV'
-KASPA_NETWORK=testnet-10
-KASPA_WRPC_URL=ws://127.0.0.1:17110
+KASPA_NETWORK=testnet-12
+KASPA_WRPC_URL=ws://127.0.0.1:17217
 COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
 DOTENV
 echo "[2.1] Project .env written: ${PROJECT_DIR}/.env"
@@ -93,8 +93,8 @@ cat "${PROJECT_DIR}/.env"
 # 2.2 — Deploy .env.production
 cat > "${PROJECT_DIR}/deploy/.env.production" <<'DOTENVPROD'
 # Covex Production Environment - Hetzner VPS (hightable.pro)
-KASPA_NETWORK=testnet-10
-KASPA_WRPC_URL=ws://127.0.0.1:17110
+KASPA_NETWORK=testnet-12
+KASPA_WRPC_URL=ws://127.0.0.1:17217
 BIND_ADDR=127.0.0.1:3001
 DB_PATH=../covex.db
 COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
@@ -130,13 +130,13 @@ echo ""
 
 cat > /etc/systemd/system/kaspad.service <<KASPADSVC
 [Unit]
-Description=Kaspa Full Node (testnet-10)
+Description=Kaspa Full Node (testnet-12)
 After=network.target
 
 [Service]
 Type=simple
 User=${KASPA_USER}
-ExecStart=${KASPAD_BIN} --testnet --utxoindex --appdir=${KASPA_DATA_DIR} --rpclisten=0.0.0.0:16110 --rpclisten-borsh=0.0.0.0:17110 --listen=0.0.0.0:16111
+ExecStart=${KASPAD_BIN} --testnet --utxoindex --appdir=${KASPA_DATA_DIR} --rpclisten=0.0.0.0:16217 --rpclisten-borsh=0.0.0.0:17217 --listen=0.0.0.0:16218
 
 Restart=always
 RestartSec=10
@@ -180,7 +180,7 @@ Type=simple
 User=root
 WorkingDirectory=${PROJECT_DIR}
 Environment="KASPA_NETWORK=${NETWORK}"
-Environment="KASPA_WRPC_URL=ws://127.0.0.1:17110"
+Environment="KASPA_WRPC_URL=ws://127.0.0.1:17217"
 Environment="BIND_ADDR=127.0.0.1:${BACKEND_PORT}"
 Environment="DB_PATH=${PROJECT_DIR}/covex.db"
 Environment="COVENANT_TREASURY_ADDRESS=${TREASURY}"
@@ -361,7 +361,7 @@ set -euo pipefail
 
 REPORT="/root/Covex27/Covex_Health_Report.md"
 TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-NETWORK="testnet-10"
+NETWORK="testnet-12"
 TREASURY="kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
 BACKEND_PORT=3001
 DOMAIN="hightable.pro"
@@ -378,7 +378,7 @@ SYNC_STATUS="unknown"
 SYNC_DETAIL=""
 if $KASPAD_ACTIVE; then
     RESP=$(curl -sf --max-time 5 -X POST -H 'Content-Type: application/json' \
-        -d '{"getBlockDagInfoRequest":{}}' http://127.0.0.1:16110 2>/dev/null || echo '{}')
+        -d '{"getBlockDagInfoRequest":{}}' http://127.0.0.1:16217 2>/dev/null || echo '{}')
     NET_REPORT=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin).get('getBlockDagInfoResponse',{}); print(d.get('network','unknown'))" 2>/dev/null || echo "unknown")
     DAA=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin).get('getBlockDagInfoResponse',{}); print(d.get('virtualDaaScore','N/A'))" 2>/dev/null || echo "N/A")
     if [ "$NET_REPORT" = "$NETWORK" ]; then

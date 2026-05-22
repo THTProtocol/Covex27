@@ -35,7 +35,7 @@
 
 ## Overview
 
-Covex is a high-performance, non-custodial indexer for Kaspa native UTXO smart contracts (Covenants). It connects to a local kaspad node via wRPC, discovers covenant deployments across the Testnet-10 BlockDAG, and automatically generates interactive HTML UIs for every detected contract. The entire system runs as a single Rust binary.
+Covex is a high-performance, non-custodial indexer for Kaspa native UTXO smart contracts (Covenants). It connects to a local kaspad node via wRPC, discovers covenant deployments across the Testnet-12 BlockDAG, and automatically generates interactive HTML UIs for every detected contract. The entire system runs as a single Rust binary.
 
 The backend spawns three concurrent background tasks on startup: a **historic crawler** that walks the selected-parent chain backward from the virtual tip to discover past covenants, a **live indexer** that polls seed addresses every 10 seconds for new UTXOs, and a **payment verifier** that monitors the treasury address for on-chain tier purchases. Every covenant record is stored in a local SQLite database with full script disclosure, tier metadata, and generated UI pages.
 
@@ -45,7 +45,7 @@ A separate React + Vite frontend provides the browser-facing covenant explorer, 
 
 | Network | Status | wRPC Port | Address Prefix |
 |:---|:---|:---|:---|
-| Testnet-10 | Active | `:17110` | `kaspatest:` |
+| Testnet-12 | Active | `:17217` | `kaspatest:` |
 | Mainnet | Planned | — | `kaspa:` |
 
 ---
@@ -59,7 +59,7 @@ graph LR
     Browser[Browser] --> Backend[Covex27-API :3001]
     Backend --> DB[("SQLite covex.db")]
 
-    Indexer[Indexer] --> Kaspa[("kaspad :17110")]
+    Indexer[Indexer] --> Kaspa[("kaspad :17217")]
     Crawler[Crawler] --> Kaspa
     Verifier[Payment Verifier] --> Kaspa
 
@@ -145,7 +145,7 @@ The `CovenantCategory` enum defines nine categories. Four are currently detectab
 
 | Layer | Technology | Purpose |
 |:---|:---|:---|
-| Node | kaspad v0.15 | wRPC (Borsh encoding) — Testnet-10 full node with `--utxoindex` |
+| Node | kaspad v0.15 | wRPC (Borsh encoding) — Testnet-12 full node with `--utxoindex` |
 | Backend | Rust 1.80 · Axum 0.7 · Tokio 1 | Async HTTP server with three concurrent background tasks |
 | wRPC Client | kaspa-wrpc-client 0.15 | Borsh-encoded WebSocket RPC to kaspad |
 | Database | SQLite via rusqlite 0.31 | 6 tables, 15 indexes, `Mutex<Connection>` shared via `Arc` |
@@ -224,7 +224,7 @@ Treasury: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn6835
 
 - Rust 1.80+ stable toolchain
 - Node.js 20+ and npm
-- kaspad synced to Testnet-10 with `--testnet --utxoindex --rpclisten-borsh=0.0.0.0:17110`
+- kaspad synced to Testnet-12 with `--testnet --utxoindex --rpclisten-borsh=0.0.0.0:17217`
 
 ### Quick Deploy
 
@@ -246,7 +246,7 @@ Hard-resets to `origin/master`, rebuilds backend and frontend, reconfigures kasp
 
 ```bash
 KASPA_NETWORK=testnet-10
-KASPA_WRPC_URL=ws://127.0.0.1:17110
+KASPA_WRPC_URL=ws://127.0.0.1:17217
 BIND_ADDR=127.0.0.1:3001
 DB_PATH=../covex.db
 COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m

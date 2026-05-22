@@ -23,7 +23,7 @@ const Explorer = () => {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <h1 className="text-4xl font-bold mb-2">Covenant Explorer</h1>
-      <p className="text-gray-400 mb-8">Live covenants on Kaspa Testnet-10</p>
+      <p className="text-gray-400 mb-8">Live covenants on Kaspa Testnet-12 (Toccata)</p>
 
       {loading && <p className="text-lg">Loading from the BlockDAG...</p>}
       {error && <p className="text-red-500">{error}</p>}

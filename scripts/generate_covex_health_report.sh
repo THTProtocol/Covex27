@@ -58,7 +58,7 @@ echo ""
 echo "**Generated:** $TIMESTAMP"
 echo "**System:** WSL (Windows Subsystem for Linux)"
 echo "**Project:** /home/kasparov/Covex27"
-echo "**Network:** testnet-10"
+echo "**Network:** testnet-12"
 echo ""
 echo "---"
 echo ""
@@ -125,11 +125,11 @@ echo ""
 echo "4. Start Covex backend:"
 echo '```bash'
 echo "cd $COVEX_DIR"
-echo "KASPA_NETWORK=testnet-10 KASPA_WRPC_URL=ws://127.0.0.1:17110 ./backend/target/release/covex27-backend"
+echo "KASPA_NETWORK=testnet-12 KASPA_WRPC_URL=ws://127.0.0.1:17217 ./backend/target/release/covex27-backend"
 echo '```'
 echo ""
 echo "### Network Status"
-echo "- Configured network: testnet-10"
+echo "- Configured network: testnet-12"
 echo "- Backend reporting: $BACKEND_NETWORK"
 
 if [ -n "$TESTNET_FILES" ] && [ "$TESTNET_COUNT" -gt 0 ] 2>/dev/null; then

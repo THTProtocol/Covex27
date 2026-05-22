@@ -27,7 +27,7 @@ async fn main() {
     // --- Config ---
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     let addr: SocketAddr = bind_addr.parse().expect("Invalid BIND_ADDR");
-    let wrpc_url = env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string());
+    let wrpc_url = env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string());
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "../covex.db".to_string());
     let treasury = env::var("COVENANT_TREASURY_ADDRESS")
         .unwrap_or_else(|_| "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string());
@@ -42,7 +42,7 @@ async fn main() {
         .parse()
         .unwrap_or(1);
 
-    info!("Covex backend -- network: {}  wRPC: {}  bind: {}", env::var("KASPA_NETWORK").unwrap_or_else(|_| "testnet-10".to_string()), wrpc_url, addr);
+    info!("Covex backend -- network: {}  wRPC: {}  bind: {}", env::var("KASPA_NETWORK").unwrap_or_else(|_| "testnet-12".to_string()), wrpc_url, addr);
     info!("Treasury: {}", treasury);
 
     // --- Open DB ---
@@ -124,7 +124,7 @@ async fn main() {
 // ─── Handlers ────────────────────────────────────────────────
 
 async fn root_handler() -> Json<serde_json::Value> {
-    Json(json!({"status": "ok", "app": "Covex v1.0.0", "network": "testnet-10"}))
+    Json(json!({"status": "ok", "app": "Covex v1.0.0", "network": "testnet-12"}))
 }
 
 async fn status_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>) -> Json<serde_json::Value> {
@@ -133,7 +133,7 @@ async fn status_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connection>
     let verified = db::count_verified_covenants(&db).unwrap_or(0);
     Json(json!({
         "status": "ok",
-        "network": "testnet-10",
+        "network": "testnet-12",
         "node_connected": true,
         "total_covenants": total,
         "active_covenants": active,
@@ -181,7 +181,7 @@ async fn tiers_handler() -> Json<serde_json::Value> {
     Json(json!({"tiers": tiers}))
 }
 
-/// Compute a blake2b-based script hash from hex (matching TN10 conventions)
+/// Compute a blake2b-based script hash from hex (matching TN12 conventions)
 pub fn compute_script_hash(script_hex: &str) -> String {
     use sha2::{Sha256, Digest};
     let bytes = hex::decode(script_hex).unwrap_or_default();

@@ -6,11 +6,14 @@ use std::sync::Mutex;
 use tracing::{info, warn, error, debug};
 
 /// Historic BlockDAG Crawler
-/// Walks blocks from CRAWL_START_DAA forward by requesting the virtual
-/// selected parent chain from the tip down to the scanned height, then
-/// processes each block for covenant UTXOs.
+/// Descends the virtual chain from tip toward origin, processing blocks
+/// in reverse-DAA order, scanning for covenant UTXOs.
+///
+/// Uses get_virtual_chain_from_block to walk the selected-parent chain,
+/// processes each block's outputs for covenant script patterns, and
+/// persists via the shared DB layer. Checkpoint survives restarts.
 
-const BATCH_SIZE: usize = 50;
+const CHAIN_DEPTH: u64 = 50;
 
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
@@ -19,7 +22,6 @@ pub async fn run_crawler(
 ) {
     info!("Historic Crawler started (start_daa={})", start_daa);
 
-    // Resume from checkpoint or start from env
     let mut scan_daa = match db::get_last_scanned_daa(&db) {
         Ok(daa) if daa > 0 => {
             info!("Crawler: resuming from checkpoint DAA {}", daa);
@@ -40,7 +42,6 @@ pub async fn run_crawler(
             continue;
         }
 
-        // Get current state
         let dag_info = match client.get_block_dag_info().await {
             Ok(info) => info,
             Err(e) => {
@@ -53,58 +54,55 @@ pub async fn run_crawler(
         let virtual_daa = dag_info.virtual_daa_score;
 
         if scan_daa >= virtual_daa {
-            debug!(
-                "Crawler: at tip (scan={}, virtual={}), sleeping 60s",
-                scan_daa, virtual_daa
-            );
-            // Update checkpoint
+            debug!("Crawler: at tip (scan={}, virtual={})", scan_daa, virtual_daa);
             let _ = db::update_last_scanned_daa(&db, scan_daa);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
         }
 
-        // Walk virtual selected parent chain from tip to scan_daa
-        let start_tip_hash = dag_info.virtual_parent_hashes.first().cloned();
+        // Walk the virtual chain from the tip hash downward
+        let tip_hash = dag_info.virtual_parent_hashes.first().cloned();
         match client
-            .get_virtual_chain_from_block(
-                start_tip_hash.unwrap_or_default(),
-                true,
-            )
+            .get_virtual_chain_from_block(tip_hash.unwrap_or_default(), true)
             .await
         {
             Ok(chain_resp) => {
-                let hashes: Vec<_> = chain_resp
-                    .accepted_transaction_ids
-                    .iter()
-                    .take(BATCH_SIZE)
-                    .cloned()
-                    .collect();
-
-                if hashes.is_empty() {
+                // added_chain_block_hashes: blocks from origin toward tip (DAA ascending)
+                let block_hashes = &chain_resp.added_chain_block_hashes;
+                if block_hashes.is_empty() {
                     tokio::time::sleep(std::time::Duration::from_secs(30)).await;
                     continue;
                 }
 
+                // Take the last CHAIN_DEPTH hashes (closest to tip)
+                let start_idx = block_hashes.len().saturating_sub(CHAIN_DEPTH as usize);
+                let batch: Vec<_> = block_hashes[start_idx..].to_vec();
+
                 let mut batch_found = 0usize;
                 let mut max_daa = scan_daa;
 
-                // Process each block
-                for hash in &hashes {
-                    match client.get_block(hash.clone(), false).await {
+                for block_hash in &batch {
+                    match client.get_block(block_hash.clone(), true).await {
                         Ok(block) => {
                             let block_daa = block.header.daa_score;
-
-                            // Skip blocks below our scan position
                             if block_daa <= scan_daa {
                                 continue;
                             }
-
                             if block_daa > max_daa {
                                 max_daa = block_daa;
                             }
 
-                            for tx in &block.transactions {
-                                for (idx, output) in tx.outputs.iter().enumerate() {
+                            for (tx_idx, tx) in block.transactions.iter().enumerate() {
+                                // Build a stable identifier from block hash + position
+                                let tx_hash = tx
+                                    .verbose_data
+                                    .as_ref()
+                                    .map(|vd| vd.transaction_id.to_string())
+                                    .unwrap_or_else(|| {
+                                        format!("{}-{}", block_hash.to_string(), tx_idx)
+                                    });
+
+                                for (out_idx, output) in tx.outputs.iter().enumerate() {
                                     let spk_bytes = output.script_public_key.script();
                                     let spk_hex = hex::encode(spk_bytes);
 
@@ -112,10 +110,8 @@ pub async fn run_crawler(
                                         continue;
                                     }
 
-                                    let tx_hash = tx.verbose_data.unwrap().transaction_id.to_string();
-                                    let tx_id = format!("{}:{}", tx_hash, idx);
+                                    let tx_id = format!("{}:{}", tx_hash, out_idx);
                                     let amount_sompi = output.value;
-
                                     let covenant_type = classify_covenant(&spk_hex);
                                     let category = categorize(&spk_hex);
                                     let address = format!("kaspatest:{}", &tx_hash[..32]);
@@ -142,30 +138,28 @@ pub async fn run_crawler(
                             }
                         }
                         Err(e) => {
-                            warn!("Crawler: get_block failed: {}", e);
+                            warn!("Crawler: get_block failed for {}: {}", block_hash, e);
                         }
                     }
                 }
 
-                // Advance
-                scan_daa = max_daa;
-                total_found += batch_found as u64;
-
-                if batch_found > 0 || max_daa > scan_daa {
+                if max_daa > scan_daa {
+                    scan_daa = max_daa;
+                    total_found += batch_found as u64;
                     info!(
                         "Crawler: scanned to DAA {} (tick: {}, total: {})",
                         scan_daa, batch_found, total_found
                     );
+                    let _ = db::update_last_scanned_daa(&db, scan_daa);
                 }
-                let _ = db::update_last_scanned_daa(&db, scan_daa);
             }
             Err(e) => {
-                warn!("Crawler: get_virtual_selected_parent_chain failed: {}", e);
+                warn!("Crawler: get_virtual_chain_from_block failed: {}", e);
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
 }
 

@@ -38,44 +38,35 @@ The backend is architected for a zero-code network switch. Change one environmen
 Covex runs as three concurrent subsystems inside a single Rust binary, connected to a local kaspad full node via wRPC (WebSocket RPC). All state persists in a local SQLite database for zero-dependency operation.
 
 ```mermaid
-graph TD
-    subgraph External["External"]
-        User["Browser / API Client"]
-        Wallet["KasWare / Kaspium Wallet"]
+graph LR
+    Browser["Browser"] --> Nginx["Nginx"]
+    Nginx --> Covex["Covex Backend"]
+    Covex --> DB[("SQLite")]
+
+    Crawler["Historic Crawler"] --> Kaspa[("kaspad")]
+    Indexer["Live Indexer"] --> Kaspa
+    PayVerifier["Payment Verifier"] --> Kaspa
+
+    Crawler --> DB
+    Indexer --> DB
+    PayVerifier --> DB
+
+    Wallet["Wallet"] -.-> Kaspa
+    Kaspa -.-> Crawler
+    Kaspa -.-> Indexer
+
+    subgraph Core["Covex Core (Rust)"]
+        Crawler
+        Indexer
+        PayVerifier
     end
 
-    subgraph Hetzner["Hetzner Bare Metal"]
-        Nginx["Nginx"]
-        Backend["Covex Backend<br/>Rust + Axum :3005"]
-
-        subgraph Subsystems["Background Subsystems"]
-            Crawler["Historic Crawler<br/>walks selected-parent chain<br/>500 blocks/tick"]
-            Indexer["Live Indexer<br/>polls seed UTXOs<br/>10s interval"]
-            PayVerifier["Payment Verifier<br/>monitors treasury<br/>6-conf threshold"]
-        end
-
-        DB["SQLite<br/>covex.db"]
-        Kaspad["kaspad<br/>Full Node"]
-    end
-
-    User -->|"HTTPS :443"| Nginx
-    Nginx -->|"proxy /api/*"| Backend
-    Backend -->|"read/write"| DB
-
-    Crawler -->|"get_block + get_block_dag_info"| Kaspad
-    Indexer -->|"get_utxos_by_addresses"| Kaspad
-    PayVerifier -->|"get_utxos_by_addresses"| Kaspad
-
-    Crawler -->|"INSERT"| DB
-    Indexer -->|"INSERT + auto-gen UI"| DB
-    PayVerifier -->|"INSERT payments + upgrade covenants"| DB
-
-    Wallet -.->|"SilverScript TX"| Kaspad
-
-    classDef kaspa fill:#49EACB,stroke:#0A0A0D,stroke-width:1px,color:#000
-    class Kaspad,Wallet kaspa
-    classDef storage fill:#1A1A2E,stroke:#333,color:#E0E0E0
-    class DB,Backend,Crawler,Indexer,PayVerifier storage
+    style Kaspa fill:#49EACB,stroke:#0A0A0D,color:#000
+    style Wallet fill:#49EACB,stroke:#0A0A0D,color:#000
+    style DB fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Covex fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Nginx fill:#1A1A2E,stroke:#333,color:#E0E0E0
+    style Browser fill:#1A1A2E,stroke:#333,color:#E0E0E0
 ```
 
 ### Subsystem Detail

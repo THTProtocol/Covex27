@@ -81,17 +81,17 @@ export default function App() {
         </div>
 
         {/* Footer */}
-        <footer className="relative z-10 border-t border-white/5 bg-[#0A0A0D]/60 backdrop-blur-md py-8 px-4">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-600">
+        <footer className="relative z-10 border-t border-white/5 bg-[#0A0A0D]/80 backdrop-blur-md py-8 px-4">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
             <div className="flex items-center gap-6">
-              <Link to="/terms" className="hover:text-gray-400 transition-colors">
+              <Link to="/terms" className="hover:text-white transition-colors">
                 Terms and Conditions
               </Link>
               <a
                 href="https://github.com/THTProtocol/Covex27"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-gray-400 transition-colors"
+                className="hover:text-white transition-colors"
               >
                 GitHub
               </a>
@@ -99,7 +99,7 @@ export default function App() {
                 href="https://kaspa.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-gray-400 transition-colors"
+                className="hover:text-white transition-colors"
               >
                 Kaspa.org
               </a>
@@ -110,7 +110,7 @@ export default function App() {
               <span>DAG is the truth. Covex is the window.</span>
             </div>
           </div>
-          <div className="max-w-6xl mx-auto mt-4 text-center text-xs text-gray-700">
+          <div className="max-w-6xl mx-auto mt-4 text-center text-xs text-gray-500">
             <p>
               Covex indexes publicly available covenant data from the Kaspa BlockDAG. It does not
               create, modify, or control any on-chain covenant. All covenants remain immutable on-chain;

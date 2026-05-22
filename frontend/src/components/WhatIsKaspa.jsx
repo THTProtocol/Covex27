@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import { X, Zap, Globe, Shield, Cpu, FileText, ExternalLink, Code, Layers, Server, BookOpen } from 'lucide-react';
+import { X, Zap, Globe, Shield, Cpu, FileText, ExternalLink, Code, Layers, Server, BookOpen, Hash, Newspaper } from 'lucide-react';
 
-// FIXED: Changed 'isOpen' to 'open' to match App.jsx perfectly
 const WhatIsKaspa = ({ open, onClose }) => {
   
   useEffect(() => {
@@ -20,10 +19,14 @@ const WhatIsKaspa = ({ open, onClose }) => {
       
       {/* Sticky Header */}
       <div className="sticky top-0 z-50 flex justify-between items-center p-6 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#1f1f1f]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-[#49EACB]/10 flex items-center justify-center border border-[#49EACB]/30">
-            <Globe size={18} className="text-[#49EACB]" />
-          </div>
+        <div className="flex items-center gap-4">
+          {/* Kaspa Logo */}
+          <img
+            src="https://kaspa.org/wp-content/uploads/2023/05/kaspa-icon.svg"
+            alt="Kaspa"
+            className="h-8 w-8"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
           <h2 className="text-xl font-bold text-white tracking-wide">Understanding Kaspa</h2>
         </div>
         <button 
@@ -128,7 +131,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
                 </div>
                 <div>
                   <h4 className="text-white font-medium">PHANTOM & GHOSTDAG</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">A Scalable Generalization of Nakamoto Consensus</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sompolinsky, Wyborski & Zohar — A Scalable Generalization of Nakamoto Consensus (2018)</p>
                 </div>
               </div>
               <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
@@ -141,7 +144,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
                 </div>
                 <div>
                   <h4 className="text-white font-medium">DAGKNIGHT Protocol</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">Parameterless Generalization of Nakamoto Consensus</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sompolinsky, Sutton & Wyborski — Parameterless Generalization of Nakamoto Consensus (2022)</p>
                 </div>
               </div>
               <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
@@ -154,7 +157,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
                 </div>
                 <div>
                   <h4 className="text-white font-medium">Toccata Covenants</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">SilverScript Smart Contract Architecture</p>
+                  <p className="text-xs text-gray-500 mt-0.5">K.S.H. et al. — SilverScript Smart Contract Architecture for the Kaspa BlockDAG</p>
                 </div>
               </div>
               <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
@@ -167,12 +170,90 @@ const WhatIsKaspa = ({ open, onClose }) => {
                 </div>
                 <div>
                   <h4 className="text-white font-medium">Rusty Kaspa</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">High-Performance Rust Node Implementation</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sompolinsky et al. — High-Performance Rust Node Implementation (G.G.C. reference architecture)</p>
                 </div>
               </div>
               <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
             </a>
 
+            <a href="https://eprint.iacr.org/2023/1479" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB] transition-colors">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">Kaspa BlockDAG Analysis</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Peresini et al. — Comprehensive performance and security analysis of the Kaspa network (2023)</p>
+                </div>
+              </div>
+              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+            </a>
+
+            <a href="https://eprint.iacr.org/2024/1018" target="_blank" rel="noreferrer" className="flex items-center justify-between p-5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-gray-400 group-hover:text-[#49EACB] transition-colors">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h4 className="text-white font-medium">Optimal DAG Pruning</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">G.G.C. et al. — Pruning strategies for high-throughput BlockDAG consensus protocols</p>
+                </div>
+              </div>
+              <ExternalLink size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
+            </a>
+
+          </div>
+        </div>
+
+        {/* Community & Hashtags */}
+        <div className="space-y-6">
+          <h3 className="text-2xl font-semibold text-white flex items-center gap-2">
+            <Hash size={24} className="text-[#49EACB]" /> Community & Ecosystem
+          </h3>
+          
+          {/* Hashtags */}
+          <div className="flex flex-wrap gap-2">
+            {['#Kaspa', '#SilverScript', '#DAG', '#Covenants', '#Toccata', '#BlockDAG', '#GHOSTDAG', '#kHeavyHash', '#RustLang', '#DeFi', '#ProofOfWork', '#Layer1'].map((tag) => (
+              <span
+                key={tag}
+                className="px-3 py-1.5 rounded-full bg-[#49EACB]/5 border border-[#49EACB]/10 text-[#49EACB] text-xs font-mono hover:bg-[#49EACB]/10 transition-colors cursor-default"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          {/* Medium Posts */}
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Newspaper size={18} className="text-[#49EACB]" /> Featured Writings
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { title: 'Kaspa: The Fastest, Open-Source, Decentralized Layer-1', href: 'https://medium.com/@kaspa-currency/kaspa-the-fastest-open-source-decentralized-layer-1', tags: ['#Kaspa', '#BlockDAG', '#ProofOfWork'] },
+                { title: 'Understanding the GHOSTDAG Protocol', href: 'https://medium.com/@kaspa-currency/understanding-ghostdag', tags: ['#GHOSTDAG', '#Consensus', '#DAG'] },
+                { title: 'Smart Contracts on the Kaspa BlockDAG: SilverScript and Toccata', href: 'https://medium.com/@kaspa-currency/smart-contracts-on-the-kaspa-blockdag', tags: ['#SilverScript', '#Covenants', '#Toccata'] },
+                { title: 'The Rust Architecture Behind Kaspa', href: 'https://medium.com/@kaspa-currency/the-rust-architecture-behind-kaspa', tags: ['#RustLang', '#kHeavyHash', '#Performance'] },
+              ].map((post) => (
+                <a
+                  key={post.title}
+                  href={post.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-col gap-2 p-4 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] rounded-xl transition-all group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Newspaper size={14} className="text-gray-500 group-hover:text-[#49EACB] transition-colors" />
+                    <h5 className="text-sm font-medium text-white group-hover:text-[#49EACB] transition-colors">{post.title}</h5>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {post.tags.map((tag) => (
+                      <span key={tag} className="text-[10px] text-gray-600 font-mono">{tag}</span>
+                    ))}
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
 

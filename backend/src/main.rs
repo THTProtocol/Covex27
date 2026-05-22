@@ -165,6 +165,7 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     "timestamp": c.timestamp,
                     "name": c.covenant_type,
                     "tier": c.verified_tier,
+                    "ui_config": db::ui_config_for_tier(&c.verified_tier),
                 })
             }).collect();
             Json(json!({"total": total, "covenants": list}))

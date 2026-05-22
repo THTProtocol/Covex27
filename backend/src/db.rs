@@ -167,12 +167,26 @@ const COVENANT_SELECT: &str =
 
 pub fn get_all_covenants(db: &Mutex<Connection>) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
-    let sql = format!("{} WHERE is_active = 1 ORDER BY timestamp DESC", COVENANT_SELECT);
+    // Tier-weighted sort: MAX=100, PRO=50, CREATOR=10, FREE=0 — then by timestamp
+    let sql = format!(
+        "{} WHERE is_active = 1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'CREATOR' THEN 10 ELSE 0 END DESC, timestamp DESC",
+        COVENANT_SELECT
+    );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], |row| row_to_covenant(row))?;
     let mut result = Vec::new();
     for row in rows { result.push(row?); }
     Ok(result)
+}
+
+/// Resolve ui_config for a tier: glow + expanded for PRO/MAX, basic for others
+pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
+    match tier {
+        "MAX" => serde_json::json!({"glow": true, "expanded": true, "priority": 100, "label": "MAX"}),
+        "PRO" => serde_json::json!({"glow": true, "expanded": false, "priority": 50, "label": "PRO"}),
+        "CREATOR" => serde_json::json!({"glow": false, "expanded": false, "priority": 10, "label": "CREATOR"}),
+        _ => serde_json::json!({"glow": false, "expanded": false, "priority": 0, "label": "FREE"}),
+    }
 }
 
 pub fn get_covenant_by_txid(db: &Mutex<Connection>, tx_id: &str) -> anyhow::Result<Option<DbCovenant>> {

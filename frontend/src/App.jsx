@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
-import { WalletModal } from '@kasflow/wallet-connector/react';
 import DagBackground from './components/DagBackground';
 import WhatIsKaspa from './components/WhatIsKaspa';
 import Explorer from './pages/Explorer';
@@ -118,7 +117,6 @@ export default function App() {
           </div>
         </footer>
       </BrowserRouter>
-      <WalletModal />
     </WalletProvider>
   );
 }

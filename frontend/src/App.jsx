@@ -10,6 +10,7 @@ import CreateCovenant from './pages/CreateCovenant';
 import Pricing from './pages/Pricing';
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
+import Deploy from './pages/Deploy';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
@@ -52,6 +53,9 @@ export default function App() {
               <NavLink to="/dashboard" className={NL}>
                 Dashboard
               </NavLink>
+              <NavLink to="/deploy" className={NL}>
+                Deploy
+              </NavLink>
               <WalletButton />
             </div>
           </div>
@@ -72,6 +76,7 @@ export default function App() {
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/deploy" element={<Deploy />} />
           </Routes>
         </div>
 
@@ -130,7 +135,7 @@ function KaspaPromo() {
       {/* Network Status Badge */}
       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#1f1f1f] text-gray-400 text-xs font-mono mb-8">
         <div className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_8px_#49EACB] animate-pulse" />
-        TN-10 LIVE
+        TN-12 LIVE (TOCCATA)
       </div>
 
       {/* Main Headline */}

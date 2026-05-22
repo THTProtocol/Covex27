@@ -327,20 +327,20 @@ export default function CovenantInteractive() {
 
               {/* STEP 3: Direct SaaS tier buttons */}
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleUpgrade(TIER_OPTIONS[1])}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#E8AF34]/30 bg-[#E8AF34]/[0.06] text-[#E8AF34] font-semibold text-sm hover:bg-[#E8AF34]/10 hover:shadow-[0_0_20px_rgba(232,175,52,0.15)] active:scale-[0.97] transition-all"
-                >
-                  <ArrowUp size={14} />
-                  Upgrade to PRO (500 KAS)
-                </button>
-                <button
-                  onClick={() => handleUpgrade(TIER_OPTIONS[2])}
-                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#A855F7]/30 bg-[#A855F7]/[0.06] text-[#A855F7] font-semibold text-sm hover:bg-[#A855F7]/10 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)] active:scale-[0.97] transition-all"
-                >
-                  <ArrowUp size={14} />
-                  Upgrade to MAX (1000 KAS)
-                </button>
+              <button
+                onClick={() => handleUpgrade(TIER_OPTIONS[1])}
+                className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
+              >
+                <ArrowUp size={14} />
+                Upgrade to PRO (500 KAS)
+              </button>
+              <button
+                onClick={() => handleUpgrade(TIER_OPTIONS[2])}
+                className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
+              >
+                <ArrowUp size={14} />
+                Upgrade to MAX (1000 KAS)
+              </button>
               </div>
             </div>
           )}
@@ -351,7 +351,7 @@ export default function CovenantInteractive() {
             <button
               onClick={handleInteract}
               disabled={interacting}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.97] bg-gray-800 text-white hover:bg-gray-700 border border-gray-600/30 disabled:opacity-50"
+              className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
             >
               <MessageSquare size={16} />
               {interacting ? 'SIGNING...' : 'Interact — Sign Proof Message'}

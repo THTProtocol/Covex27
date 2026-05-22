@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -50,6 +50,12 @@ export default function CovenantInteractive() {
   const [upgradeTier, setUpgradeTier] = useState(null);
   const [upgradeQr, setUpgradeQr] = useState(false);
   const [upgradePaid, setUpgradePaid] = useState(false);
+
+  // Anti-bypass: paid tier from localStorage
+  const [covexPaidTier, setCovexPaidTier] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null
+  );
+  const [toast, setToast] = useState(null);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
     { id: 'CREATOR', price: 100, label: 'Creator', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
@@ -79,6 +85,20 @@ export default function CovenantInteractive() {
   };
 
   const getUpgradeUri = (tier) => `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`;
+
+  const handleSimulatePayment = (tier) => {
+    localStorage.setItem('covex_paid_tier', tier.label);
+    setCovexPaidTier(tier.label);
+    setShowUpgrade(false);
+    setToast({ type: 'success', msg: `${tier.label} tier unlocked! UI Builder is now available.` });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
 
   useEffect(() => {
     setLoading(true);
@@ -138,14 +158,15 @@ export default function CovenantInteractive() {
   }
 
   const verified = isVerified(covenant);
-  const canCustomize = covenantTierVal >= 1;
-  const canBrand = covenantTierVal >= 2;
-  const canMaxLayout = covenantTierVal >= 3;
+  const effectiveTierVal = Math.max(covenantTierVal, covexPaidTier ? tierValue(covexPaidTier) : 0);
+  const canCustomize = effectiveTierVal >= 1;
+  const canBrand = effectiveTierVal >= 2;
+  const canMaxLayout = effectiveTierVal >= 3;
 
   // Preview style based on config
   const previewStyle = {
     primaryColor: config.primaryColor,
-    background: config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' : config.bgStyle === 'dark' ? '#0A0A0D' : '#111116',
+    background: config.bgColor || (config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' : config.bgStyle === 'dark' ? '#0A0A0D' : '#111116'),
     borderColor: config.bgStyle === 'glass' ? 'rgba(255,255,255,0.08)' : config.bgStyle === 'dark' ? '#222' : '#1a1a2e',
   };
 
@@ -357,13 +378,42 @@ export default function CovenantInteractive() {
                 </a>
               </div>
             ) : (
-              <div className="space-y-8 overflow-y-auto">
+              <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
                 <h3 className="text-sm font-semibold text-white uppercase tracking-widest flex items-center gap-2">
                   <LayoutTemplate size={16} className="text-kaspa-green" />
                   UI Builder
                 </h3>
 
                 <div className="space-y-6">
+                  {/* Title Override */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Type size={12} /> Title Override
+                    </p>
+                    <input
+                      type="text"
+                      value={config.titleOverride || ''}
+                      onChange={(e) => setConfig((s) => ({ ...s, titleOverride: e.target.value }))}
+                      placeholder={covenant.name || 'Covenant Title'}
+                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 transition-colors"
+                    />
+                    <p className="text-[10px] text-gray-600">Leave blank to use covenant name</p>
+                  </div>
+
+                  {/* Description Override */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Ruler size={12} /> Description Override
+                    </p>
+                    <textarea
+                      rows="3"
+                      value={config.descOverride || ''}
+                      onChange={(e) => setConfig((s) => ({ ...s, descOverride: e.target.value }))}
+                      placeholder={covenant.description || 'Covenant description...'}
+                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 transition-colors resize-none"
+                    />
+                  </div>
+
                   {/* Color */}
                   <div className="space-y-2">
                     <p className="text-xs text-gray-500 uppercase tracking-wider">Primary Color</p>
@@ -385,14 +435,32 @@ export default function CovenantInteractive() {
                     </div>
                   </div>
 
+                  {/* Background Color */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Background Color</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {['#0A0A0D', '#0D1117', '#111116', '#1a1a2e'].map((bg) => (
+                        <button
+                          key={bg}
+                          onClick={() => setConfig((s) => ({ ...s, bgColor: bg }))}
+                          className="h-10 rounded-lg border-2 transition-all"
+                          style={{
+                            backgroundColor: bg,
+                            borderColor: config.bgColor === bg ? '#49EACB' : 'rgba(255,255,255,0.08)'
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Background Style */}
                   <div className="space-y-2">
                     <p className="text-xs text-gray-500 uppercase tracking-wider">Background Style</p>
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { val: 'glass', label: 'Glass', desc: 'Frosted transparent' },
-                        { val: 'dark', label: 'Dark', desc: 'Solid dark card' },
-                        { val: 'light', label: 'Light', desc: 'High contrast' },
+                        { val: 'glass', label: 'Glass', desc: 'Frosted' },
+                        { val: 'dark', label: 'Dark', desc: 'Solid' },
+                        { val: 'light', label: 'Light', desc: 'Contrast' },
                       ].map((opt) => (
                         <button
                           key={opt.val}
@@ -410,9 +478,29 @@ export default function CovenantInteractive() {
                     </div>
                   </div>
 
-                  {/* Layout */}
+                  {/* Layout Toggle: Compact / Expanded */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Layout</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Card Layout</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Compact', 'Expanded'].map((lyt) => (
+                        <button
+                          key={lyt}
+                          onClick={() => setConfig((s) => ({ ...s, cardLayout: lyt }))}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            (config.cardLayout || 'Compact') === lyt
+                              ? 'border-kaspa-green/50 bg-kaspa-green/[0.04]'
+                              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-white">{lyt}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Layout Style */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Layout Style</p>
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         { val: 'card', label: 'Card', lock: false },
@@ -437,6 +525,26 @@ export default function CovenantInteractive() {
                     </div>
                   </div>
 
+                  {/* Button Styling */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Button Style</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Solid', 'Outline', 'Ghost', 'Pill'].map((bs) => (
+                        <button
+                          key={bs}
+                          onClick={() => setConfig((s) => ({ ...s, buttonStyle: bs }))}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            (config.buttonStyle || 'Solid') === bs
+                              ? 'border-kaspa-green/50 bg-kaspa-green/[0.04]'
+                              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-white">{bs}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Toggles */}
                   <div className="space-y-3">
                     <p className="text-xs text-gray-500 uppercase tracking-wider">Components</p>
@@ -445,7 +553,7 @@ export default function CovenantInteractive() {
                       { key: 'showParamForm', label: 'Show Parameter Form', icon: Code, tierReq: 1 },
                       { key: 'showFeaturedBanner', label: 'Featured Banner', icon: ImagePlus, tierReq: 2 },
                     ].map((opt) => {
-                      const locked = covenantTierVal < opt.tierReq;
+                      const locked = effectiveTierVal < opt.tierReq;
                       return (
                         <button
                           key={opt.key}
@@ -485,6 +593,18 @@ export default function CovenantInteractive() {
                       />
                     </div>
                   )}
+
+                  {/* Apply & Publish */}
+                  <button
+                    onClick={() => {
+                      localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(config));
+                      setToast({ type: 'success', msg: 'UI configuration saved & published!' });
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-4 mt-4 bg-kaspa-green hover:bg-[#3bc2a6] text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(73,234,203,0.2)] transition-all active:scale-[0.97]"
+                  >
+                    <Save size={18} />
+                    Apply &amp; Publish
+                  </button>
                 </div>
               </div>
             )}
@@ -526,8 +646,8 @@ export default function CovenantInteractive() {
                 <img src={config.customLogoUrl} alt="Logo" className="h-8 object-contain rounded" onError={(e) => (e.target.style.display='none')} />
               </div>
             )}
-            <h4 className="text-white font-bold text-lg mb-1">{covenant.name || TRUNC(covenant.tx_id)}</h4>
-            <p className="text-sm text-gray-400 mb-4">{covenant.description || covenant.desc || 'Covenant deployed on Kaspa BlockDAG.'}</p>
+            <h4 className="text-white font-bold text-lg mb-1">{config.titleOverride || covenant.name || TRUNC(covenant.tx_id)}</h4>
+            <p className="text-sm text-gray-400 mb-4">{config.descOverride || covenant.description || covenant.desc || 'Covenant deployed on Kaspa BlockDAG.'}</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
                 <p className="text-[10px] text-gray-500">Locked</p>
@@ -572,6 +692,20 @@ export default function CovenantInteractive() {
           non-custodially through your own wallet. You bear full responsibility for verifying all transaction details before signing.
         </p>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-right-4 duration-300">
+          <div className={`px-5 py-3.5 rounded-2xl shadow-2xl border flex items-center gap-3 ${
+            toast.type === 'success'
+              ? 'bg-emerald-900/40 border-emerald-500/30 text-emerald-300'
+              : 'bg-gray-900/40 border-gray-500/30 text-gray-300'
+          }`}>
+            <CheckCircle2 size={18} className="text-emerald-400" />
+            <span className="text-sm font-medium">{toast.msg}</span>
+          </div>
+        </div>
+      )}
 
       {/* Upgrade Modal */}
       {showUpgrade && upgradeTier && (
@@ -656,6 +790,18 @@ export default function CovenantInteractive() {
                     QR Code
                   </button>
                 </div>
+                <div className="relative flex items-center py-2">
+                  <div className="flex-grow border-t border-white/10"></div>
+                  <span className="flex-shrink-0 mx-3 text-[10px] text-gray-600 uppercase">Testnet Faucet</span>
+                  <div className="flex-grow border-t border-white/10"></div>
+                </div>
+                <button
+                  onClick={() => handleSimulatePayment(upgradeTier)}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-kaspa-gold/40 bg-kaspa-gold/[0.05] text-kaspa-gold font-semibold text-sm hover:bg-kaspa-gold/10 hover:border-kaspa-gold/60 transition-all"
+                >
+                  <Zap size={16} />
+                  Simulate tKAS Payment (Faucet)
+                </button>
                 <p className="text-[11px] text-gray-600 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
               </div>
             )}

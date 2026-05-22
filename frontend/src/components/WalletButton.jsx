@@ -1,13 +1,65 @@
 import React, { useState } from 'react';
-import { X, Smartphone, Globe, Wallet, Monitor, Key, Hash, ChevronLeft, Download, AlertTriangle } from 'lucide-react';
+import { X, ChevronLeft, Download, AlertTriangle, Wallet, Key, Hash } from 'lucide-react';
+
+// Inline SVG wallet logos
+const KasWareLogo = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
+    <rect width="48" height="48" rx="12" fill="#111"/>
+    <path d="M24 8L38 16v16L24 40 10 32V16L24 8z" fill="#49EACB" opacity="0.9"/>
+    <path d="M24 14L33 19.5v11L24 35.5 15 30.5v-11L24 14z" fill="#111"/>
+    <circle cx="24" cy="25" r="4" fill="#49EACB"/>
+  </svg>
+);
+const KaspiumLogo = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
+    <rect width="48" height="48" rx="12" fill="#1a1a2e"/>
+    <path d="M14 24l10-14 10 14-10 14-10-14z" fill="url(#kg2)" stroke="#3B82F6" strokeWidth="1.5"/>
+    <defs><linearGradient id="kg2" x1="14" y1="10" x2="34" y2="38"><stop stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/></linearGradient></defs>
+    <circle cx="24" cy="24" r="5" fill="#1a1a2e" stroke="#60A5FA" strokeWidth="1.5"/>
+  </svg>
+);
+const KastleLogo = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
+    <rect width="48" height="48" rx="12" fill="#0f0f1a"/>
+    <path d="M10 36V14l14-8 14 8v22H10z" fill="none" stroke="#A78BFA" strokeWidth="2"/>
+    <path d="M16 28h6v8h-6zM26 20h6v16h-6z" fill="#A78BFA" opacity="0.8"/>
+    <path d="M16 36h16" stroke="#A78BFA" strokeWidth="2"/>
+  </svg>
+);
+const KaspaWebLogo = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
+    <rect width="48" height="48" rx="12" fill="#0a1628"/>
+    <circle cx="24" cy="24" r="14" fill="none" stroke="#49EACB" strokeWidth="2"/>
+    <path d="M24 10A14 14 0 0110 24" fill="none" stroke="#E8AF34" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M13 17l7 7-7 7" fill="none" stroke="#49EACB" strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx="24" cy="24" r="3" fill="#49EACB"/>
+  </svg>
+);
+const KasanovaLogo = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
+    <rect width="48" height="48" rx="12" fill="#1a0a1a"/>
+    <path d="M12 16l12-6 12 6v16l-12 6-12-6V16z" fill="none" stroke="#EC4899" strokeWidth="2"/>
+    <circle cx="24" cy="24" r="6" fill="#EC4899" opacity="0.7"/>
+    <path d="M20 24h8M24 20v8" stroke="#1a0a1a" strokeWidth="2"/>
+  </svg>
+);
+const KDXLogo = () => (
+  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
+    <rect width="48" height="48" rx="12" fill="#0d1117"/>
+    <rect x="10" y="14" width="28" height="20" rx="2" fill="none" stroke="#58A6FF" strokeWidth="2"/>
+    <rect x="14" y="18" width="20" height="12" rx="1" fill="#58A6FF" opacity="0.2"/>
+    <path d="M20 26h8" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round"/>
+    <rect x="16" y="36" width="16" height="3" rx="1.5" fill="#30363D"/>
+  </svg>
+);
 
 const wallets = [
-  { id: 'kasware', name: 'KasWare Wallet', desc: 'Browser Extension', icon: Wallet, tag: 'Recommended', url: 'https://www.kasware.xyz/' },
-  { id: 'kaspium', name: 'Kaspium', desc: 'Official Mobile Wallet', icon: Smartphone, url: 'https://kaspium.io/' },
-  { id: 'kastle', name: 'Kastle Wallet', desc: 'Mobile Web3 Wallet', icon: Smartphone, url: 'https://kastle.xyz/' },
-  { id: 'kasanova', name: 'Kasanova', desc: 'Mobile Wallet', icon: Smartphone, url: '#' },
-  { id: 'web', name: 'Kaspa Web', desc: 'Browser Wallet', icon: Globe, url: 'https://wallet.kaspanet.io/' },
-  { id: 'kdx', name: 'KDX', desc: 'Desktop Node & Wallet', icon: Monitor, url: 'https://kdx.app/' },
+  { id: 'kasware', name: 'KasWare Wallet', desc: 'Browser Extension', Logo: KasWareLogo, tag: 'Recommended', url: 'https://www.kasware.xyz/' },
+  { id: 'kaspium', name: 'Kaspium', desc: 'Official Mobile Wallet', Logo: KaspiumLogo, url: 'https://kaspium.io/' },
+  { id: 'kastle', name: 'Kastle Wallet', desc: 'Mobile Web3 Wallet', Logo: KastleLogo, url: 'https://kastle.xyz/' },
+  { id: 'kasanova', name: 'Kasanova', desc: 'Mobile Wallet', Logo: KasanovaLogo, url: '#' },
+  { id: 'web', name: 'Kaspa Web', desc: 'Browser Wallet', Logo: KaspaWebLogo, url: 'https://wallet.kaspanet.io/' },
+  { id: 'kdx', name: 'KDX', desc: 'Desktop Node & Wallet', Logo: KDXLogo, url: 'https://kdx.app/' },
 ];
 
 const WalletButton = () => {
@@ -87,7 +139,7 @@ const WalletButton = () => {
                   {/* Web3 & Mobile Wallets */}
                   <div className="space-y-3">
                     {wallets.map((wallet) => {
-                      const Icon = wallet.icon;
+                      const WalletLogo = wallet.Logo;
                       const isExtensionMissing = wallet.id === 'kasware' && typeof window === 'object' && !window.kasware;
                       
                       return (
@@ -97,8 +149,8 @@ const WalletButton = () => {
                           disabled={isConnecting}
                           className="w-full flex items-center gap-4 p-4 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group disabled:opacity-50"
                         >
-                          <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center group-hover:text-[#49EACB] text-gray-400 transition-colors shrink-0">
-                            <Icon size={24} />
+                          <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+                            <WalletLogo />
                           </div>
                           <div className="text-left flex-1">
                             <div className="text-white font-medium flex items-center gap-2">

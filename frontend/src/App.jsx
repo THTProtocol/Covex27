@@ -63,6 +63,10 @@ export default function App() {
               <Explorer />
               <KaspaPromo />
             </>} />
+            <Route path="/explorer" element={<>
+              <Explorer />
+              <KaspaPromo />
+            </>} />
             <Route path="/covenant/:id" element={<CovenantInteractive />} />
             <Route path="/create" element={<CreateCovenant />} />
             <Route path="/pricing" element={<Pricing />} />

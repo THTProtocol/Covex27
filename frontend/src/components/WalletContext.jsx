@@ -4,12 +4,18 @@ const WalletContext = createContext(null);
 
 const KASPA_NETWORK = 'kaspatest';
 
+// Inline SVG wallet logos (for rendering in modals)
+const KasWareLogoSvg = `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#111"/><path d="M24 8L38 16v16L24 40 10 32V16L24 8z" fill="#49EACB" opacity="0.9"/><path d="M24 14L33 19.5v11L24 35.5 15 30.5v-11L24 14z" fill="#111"/><circle cx="24" cy="25" r="4" fill="#49EACB"/></svg>`;
+const KaspiumLogoSvg = `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#1a1a2e"/><defs><linearGradient id="kg2" x1="14" y1="10" x2="34" y2="38"><stop stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/></linearGradient></defs><path d="M14 24l10-14 10 14-10 14-10-14z" fill="url(#kg2)" stroke="#3B82F6" strokeWidth="1.5"/><circle cx="24" cy="24" r="5" fill="#1a1a2e" stroke="#60A5FA" strokeWidth="1.5"/></svg>`;
+const KastleLogoSvg = `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#0f0f1a"/><path d="M10 36V14l14-8 14 8v22H10z" fill="none" stroke="#A78BFA" strokeWidth="2"/><path d="M16 28h6v8h-6zM26 20h6v16h-6z" fill="#A78BFA" opacity="0.8"/><path d="M16 36h16" stroke="#A78BFA" strokeWidth="2"/></svg>`;
+const KaspaWebLogoSvg = `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#0a1628"/><circle cx="24" cy="24" r="14" fill="none" stroke="#49EACB" strokeWidth="2"/><path d="M24 10A14 14 0 0110 24" fill="none" stroke="#E8AF34" strokeWidth="2.5" strokeLinecap="round"/><path d="M13 17l7 7-7 7" fill="none" stroke="#49EACB" strokeWidth="1.5" strokeLinecap="round"/><circle cx="24" cy="24" r="3" fill="#49EACB"/></svg>`;
+
 const WALLET_REGISTRY = [
   {
     id: 'kasware',
     name: 'KasWare',
     url: 'https://kasware.xyz',
-    logo: 'https://kasware.xyz/favicon.ico',
+    logo: `data:image/svg+xml,${encodeURIComponent(KasWareLogoSvg)}`,
     detect: () => typeof window !== 'undefined' && !!window.kasware,
     provider: () => window.kasware,
   },
@@ -17,7 +23,7 @@ const WALLET_REGISTRY = [
     id: 'kaspium',
     name: 'Kaspium',
     url: 'https://kaspium.io',
-    logo: 'https://kaspium.io/favicon.ico',
+    logo: `data:image/svg+xml,${encodeURIComponent(KaspiumLogoSvg)}`,
     detect: () => typeof window !== 'undefined' && !!window.__kaspium,
     provider: () => window.__kaspium,
   },
@@ -25,7 +31,7 @@ const WALLET_REGISTRY = [
     id: 'kastle',
     name: 'Kastle',
     url: 'https://kastle.app',
-    logo: 'https://kastle.app/favicon.ico',
+    logo: `data:image/svg+xml,${encodeURIComponent(KastleLogoSvg)}`,
     detect: () => typeof window !== 'undefined' && !!window.kastle?.kaspa,
     provider: () => window.kastle?.kaspa,
   },
@@ -33,7 +39,7 @@ const WALLET_REGISTRY = [
     id: 'kaspa-web',
     name: 'Kaspa Web Wallet',
     url: 'https://kaspa-ng.org',
-    logo: '',
+    logo: `data:image/svg+xml,${encodeURIComponent(KaspaWebLogoSvg)}`,
     detect: () => false,
     provider: () => null,
   },

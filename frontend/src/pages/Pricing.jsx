@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Check, X as XIcon, ArrowLeft, Wallet, QrCode, Box, Sparkles, CheckCircle } from 'lucide-react';
 
 // Mock data for the user's deployed covenants
@@ -8,6 +9,7 @@ const myCovenants = [
 ];
 
 const Pricing = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState('pricing'); // pricing, select, pay, success
   const [selectedTier, setSelectedTier] = useState(null);
   const [selectedCovenant, setSelectedCovenant] = useState(null);
@@ -61,7 +63,7 @@ const Pricing = () => {
                 <div key={i} className="flex gap-3 text-sm text-gray-600"><XIcon size={18} className="shrink-0" /> {feature}</div>
               ))}
             </div>
-            <button className="w-full mt-8 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] text-white font-medium transition-all">
+            <button onClick={() => navigate('/')} className="w-full mt-8 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] text-white font-medium transition-all">
               Explore Covenants
             </button>
           </div>

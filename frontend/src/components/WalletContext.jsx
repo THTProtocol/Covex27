@@ -90,7 +90,7 @@ const ALL_WALLETS = [
   { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
 ];
 
-// ── TN12 Mnemonic Dev Mode — local key derivation via kaspa-wasm ──
+// ── TN12 Dev Mode — local key derivation via kaspa-wasm ──
 function loadKaspaWasm() {
   // Dynamically import the WASM module to avoid blocking initial render
   return import('@onekeyfe/kaspa-wasm').catch(() => null);
@@ -128,6 +128,28 @@ async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   derived.free();
 
   return { privateKeyHex, address: addressStr };
+}
+
+async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
+  const wasm = await loadKaspaWasm();
+  if (!wasm) throw new Error('kaspa-wasm module failed to load');
+
+  const { PrivateKey } = wasm;
+
+  // Strip 0x prefix if present
+  const cleanHex = hexKey.replace(/^0x/i, '');
+
+  if (!/^[0-9a-fA-F]{64}$/.test(cleanHex)) {
+    throw new Error('Invalid private key hex. Must be 64 hex characters (32 bytes).');
+  }
+
+  const pk = new PrivateKey(cleanHex);
+  const address = pk.toAddress(networkId);
+  const addressStr = address.toString();
+
+  pk.free();
+
+  return { privateKeyHex: cleanHex, address: addressStr };
 }
 
 // ── TN12 Mnemonic Panel sub-component ──

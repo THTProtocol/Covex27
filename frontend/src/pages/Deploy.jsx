@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key } from 'lucide-react';
+import DevWalletModal from '../components/DevWalletModal';
 
 const SILVERSCRIPT_TEMPLATE = `// SilverScript Covenant — Deploy to TN12 (Toccata)
 // pragma silverscript 2026.0;
@@ -25,10 +26,11 @@ contract TransferWithTimeout {
 const DEPLOYER_ADDR = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 
 export default function Deploy() {
-  const { address, connecting, signMessage } = useWallet();
+  const { address, connecting, signMessage, isDevMode } = useWallet();
   const [code, setCode] = useState(SILVERSCRIPT_TEMPLATE);
   const [status, setStatus] = useState('idle'); // idle | deploying | success | error
   const [result, setResult] = useState(null);
+  const [devWalletOpen, setDevWalletOpen] = useState(false);
 
   const handleDeploy = useCallback(async () => {
     if (!address || !code.trim()) return;
@@ -132,6 +134,21 @@ export default function Deploy() {
             <p className="text-xs text-gray-500">
               Click "CONNECT WALLET" in the top navigation bar to get started.
             </p>
+
+            {/* TN12 Dev Wallet — isolated from extension flow */}
+            <div className="mt-5 pt-5 border-t border-[#1f1f1f]">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-3">Testing / Dev Only</p>
+              <button
+                onClick={() => setDevWalletOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
+              >
+                <Key size={16} />
+                Connect TN12 Dev Wallet
+              </button>
+              <p className="text-[9px] text-gray-600 mt-2 text-center leading-relaxed">
+                Derives keys locally via kaspa-wasm. For covenant testing — no browser extensions required.
+              </p>
+            </div>
           </div>
         )}
 
@@ -139,15 +156,23 @@ export default function Deploy() {
         {isConnected && (
           <div className="p-8 space-y-6">
             {/* Connected Wallet Banner */}
-            <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/20 flex items-center justify-between">
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${
+              isDevMode
+                ? 'bg-yellow-600/[0.04] border-yellow-600/30'
+                : 'bg-emerald-500/[0.04] border-emerald-500/20'
+            }`}>
               <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  isDevMode ? 'bg-yellow-400' : 'bg-emerald-400'
+                }`} />
                 <div>
-                  <p className="text-xs text-emerald-400 font-mono">CONNECTED</p>
+                  <p className={`text-xs font-mono ${isDevMode ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                    {isDevMode ? 'DEV MODE (LOCAL KEY)' : 'CONNECTED'}
+                  </p>
                   <p className="text-sm font-mono text-white truncate max-w-[300px]">{address}</p>
                 </div>
               </div>
-              <span className="text-[10px] text-emerald-400/70 font-mono">TOCCATA TN12</span>
+              <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>TOCCATA TN12</span>
             </div>
 
             {/* Code Editor */}
@@ -294,6 +319,9 @@ export default function Deploy() {
           </div>
         </div>
       </div>
+
+      {/* TN12 Dev Wallet Modal */}
+      <DevWalletModal isOpen={devWalletOpen} onClose={() => setDevWalletOpen(false)} />
     </div>
   );
 }

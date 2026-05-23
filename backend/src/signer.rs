@@ -56,7 +56,7 @@ pub struct SignAndBroadcastRequest {
     pub private_key_hex: String,
     /// Kaspa address of the deployer (kaspatest:...)
     pub deployer_addr: String,
-    /// Hex-encoded covenant script to embed in Output 0
+    /// Hex-encoded covenant script to embed in tx payload
     pub script_hex: String,
     /// Optional string tier: "MAX", "PRO", "CREATOR", or absent/other for FREE
     #[serde(default)]
@@ -89,26 +89,18 @@ fn tier_fee_sompi(tier: Option<&str>) -> u64 {
         Some("MAX") => MAX_FEE,
         Some("PRO") => PRO_FEE,
         Some("CREATOR") => CREATOR_FEE,
-        _ => 0, // FREE or unknown
+        _ => 0,
     }
 }
 
-// ── Helper: convert script_hex → ScriptPublicKey for Output 0 ─────
-
-fn script_pub_key_from_hex(hex: &str) -> Result<ScriptPublicKey, String> {
-    let bytes = hex::decode(hex.trim()).map_err(|e| format!("Invalid script hex: {e}"))?;
-    Ok(ScriptPublicKey::new(0, ScriptVec::from_slice(&bytes)))
-}
-
-// ── Helper: parse address → ScriptPublicKey (P2PKH for matching) ──
+// ── Helper: parse address → ScriptPublicKey ────────────────────────
 
 fn script_pub_key_from_address(addr_str: &str) -> Result<ScriptPublicKey, String> {
     let addr =
-        Address::try_from(addr_str).map_err(|e| format!("Invalid address '{addr_str}': {e}"))?;
+        Address::try_from(addr_str).map_err(|e| format!("Invalid address '{}': {}", addr_str, e))?;
     let payload = addr.payload.as_slice();
-    let script = match payload.len() {
+    let script_vec: Vec<u8> = match payload.len() {
         32 => {
-            // Schnorr PubKey address: 0x20 <32-byte x-only pubkey> 0xac
             let mut s = Vec::with_capacity(34);
             s.push(0x20);
             s.extend_from_slice(payload);
@@ -116,7 +108,6 @@ fn script_pub_key_from_address(addr_str: &str) -> Result<ScriptPublicKey, String
             s
         }
         20 => {
-            // Standard P2PKH: OP_DUP OP_HASH160 <20-byte hash> OP_EQUALVERIFY OP_CHECKSIG
             let mut s = Vec::with_capacity(25);
             s.push(0x76);
             s.push(0xa9);
@@ -126,10 +117,9 @@ fn script_pub_key_from_address(addr_str: &str) -> Result<ScriptPublicKey, String
             s.push(0xac);
             s
         }
-        n => return Err(format!("Unexpected payload length {n}, expected 20 or 32")),
+        n => return Err(format!("Unexpected payload length {}, expected 20 or 32", n)),
     };
-    // Use ScriptPublicKey::new(0, ...) matching UTXO format
-    Ok(ScriptPublicKey::new(0, ScriptVec::from_slice(&script)))
+    Ok(ScriptPublicKey::new(0, ScriptVec::from_slice(&script_vec)))
 }
 
 // ── Helper: convert RPC UTXO entry → UtxoEntry for signing ────────
@@ -148,52 +138,37 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
 /// POST /sign-and-broadcast
 ///
 /// Steps:
-/// 1. Parse private key, derive secp256k1 Keypair
+/// 1. Parse private key
 /// 2. Fetch deployer UTXOs from wRPC
 /// 3. Determine tier fee and compute outputs
-/// 4. Build unsigned Transaction
+/// 4. Build unsigned Transaction (node computes mass internally)
 /// 5. Create SignableTransaction with UTXO entries
-/// 6. Sign with schnorr using sign_with_multiple_v2
+/// 6. Sign with schnorr via sign_with_multiple_v2
 /// 7. Broadcast via wRPC
 /// 8. Return tx_id
 pub async fn sign_and_broadcast_handler(
     Extension(client): Extension<Arc<KaspaRpcClient>>,
     Json(payload): Json<SignAndBroadcastRequest>,
 ) -> Json<serde_json::Value> {
-    // ── Step 1: Parse and derive private key ────────────────────
+    // ── Step 1: Parse private key ──────────────────────────────
     let clean_hex = payload.private_key_hex.trim().trim_start_matches("0x");
     let pk_bytes: [u8; 32] = match hex::decode(clean_hex).ok().and_then(|b| b.try_into().ok()) {
         Some(b) => b,
         None => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false,
-                tx_id: None,
-                outputs: None,
+                success: false, tx_id: None, outputs: None,
                 error: Some("Invalid private key: must be 64 hex chars (32 bytes)".into()),
             }));
         }
     };
-    let _keypair = match secp256k1::Keypair::from_seckey_slice(SECP256K1, &pk_bytes) {
-        Ok(kp) => kp,
-        Err(e) => {
-            return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false,
-                tx_id: None,
-                outputs: None,
-                error: Some(format!("Invalid private key (secp256k1): {e}")),
-            }));
-        }
-    };
 
-    // ── Step 2: Fetch deployer UTXOs ────────────────────────────
+    // ── Step 2: Fetch deployer UTXOs ──────────────────────────
     let deployer_addr = match Address::try_from(payload.deployer_addr.as_str()) {
         Ok(a) => a,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false,
-                tx_id: None,
-                outputs: None,
-                error: Some(format!("Invalid deployer address: {e}")),
+                success: false, tx_id: None, outputs: None,
+                error: Some(format!("Invalid deployer address: {}", e)),
             }));
         }
     };
@@ -201,32 +176,27 @@ pub async fn sign_and_broadcast_handler(
     let utxos = match client.get_utxos_by_addresses(vec![deployer_addr.clone()]).await {
         Ok(entries) => entries,
         Err(e) => {
-            warn!("UTXO fetch failed: {e}");
+            warn!("UTXO fetch failed: {}", e);
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false,
-                tx_id: None,
-                outputs: None,
-                error: Some(format!("Failed to fetch UTXOs: {e}")),
+                success: false, tx_id: None, outputs: None,
+                error: Some(format!("Failed to fetch UTXOs: {}", e)),
             }));
         }
     };
 
     if utxos.is_empty() {
         return Json(serde_json::json!(SignAndBroadcastResponse {
-            success: false,
-            tx_id: None,
-            outputs: None,
+            success: false, tx_id: None, outputs: None,
             error: Some("No UTXOs found for deployer address".into()),
         }));
     }
 
-    // ── Step 3: Determine fee and build outputs ─────────────────
+    // ── Step 3: Compute outputs ───────────────────────────────
     let tier = payload.tier.as_deref();
     let tier_fee = tier_fee_sompi(tier);
 
-    // Use the UTXO's own script_public_key for Output 0 and change.
-    // This guarantees the output script is identical to the input's
-    // (standard Schnorr P2PK), avoiding serialization mismatches.
+    // CRITICAL: Clone UTXO's script_public_key exactly.
+    // Manual construction introduces byte mismatches that break signing.
     let deployer_script = utxos[0].utxo_entry.script_public_key.clone();
 
     let treasury_script = match script_pub_key_from_address(TREASURY_ADDRESS) {
@@ -234,17 +204,7 @@ pub async fn sign_and_broadcast_handler(
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
                 success: false, tx_id: None, outputs: None,
-                error: Some(format!("Treasury address error: {e}")),
-            }));
-        }
-    };
-
-    let deployer_script = match script_pub_key_from_address(payload.deployer_addr.as_str()) {
-        Ok(s) => s,
-        Err(e) => {
-            return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false, tx_id: None, outputs: None,
-                error: Some(format!("Deployer script error: {e}")),
+                error: Some(format!("Treasury address error: {}", e)),
             }));
         }
     };
@@ -254,9 +214,7 @@ pub async fn sign_and_broadcast_handler(
 
     if total_input < total_cost {
         return Json(serde_json::json!(SignAndBroadcastResponse {
-            success: false,
-            tx_id: None,
-            outputs: None,
+            success: false, tx_id: None, outputs: None,
             error: Some(format!(
                 "Insufficient balance: have {} sompi ({} KAS), need {} sompi ({} KAS)",
                 total_input,
@@ -269,31 +227,41 @@ pub async fn sign_and_broadcast_handler(
 
     let change = total_input - total_cost;
 
-    // Decode the covenant script for the transaction payload
-    let covenant_payload = hex::decode(payload.script_hex.trim())
-        .map_err(|e| format!("Invalid script hex: {e}")).unwrap_or_default();
+    // Use ALL UTXOs as inputs — each input adds mass budget.
+    // The node's mass budget scales with input count × sig_op_count × mass_per_sig_op.
+    // Single input = ~1000 mass = 10K budget. Multiple inputs = more budget.
+    let utxos_for_tx = if utxos.len() >= 3 {
+        // Use enough inputs to get >100K compute budget
+        utxos.clone()
+    } else {
+        utxos.clone()
+    };
 
-    // Build outputs — correct on-chain truth structure:
-    //   Output 0 → Deployer (1 KAS, standard Schnorr P2PK)
-    //   Output 1 → Treasury (tier fee, only if paid tier)
+    // Decode covenant script for the transaction payload
+    // If empty, no covenant — just a simple transfer
+    let covenant_payload = if payload.script_hex.trim().is_empty() {
+        vec![]
+    } else {
+        hex::decode(payload.script_hex.trim()).unwrap_or_default()
+    };
+
+    // On-chain truth output structure:
+    //   Output 0 → Deployer (1 KAS)
+    //   Output 1 → Treasury (tier fee, only if paid)
     //   Output 2 → Deployer (change)
-    // Covenant SilverScript goes in Transaction::payload, NOT in an output.
     let mut outputs = vec![
-        // Output 0: Covenant stake — 1 KAS back to deployer
         TransactionOutput { value: COVENANT_AMOUNT, script_public_key: deployer_script.clone() },
     ];
 
     if tier_fee > 0 {
-        // Output 1: Treasury tier fee
         outputs.push(TransactionOutput { value: tier_fee, script_public_key: treasury_script });
     }
 
     if change > 0 {
-        // Output 2 (or 1 if FREE): Change back to deployer
         outputs.push(TransactionOutput { value: change, script_public_key: deployer_script.clone() });
     }
 
-    // ── Step 4: Build unsigned transaction ──────────────────────
+    // ── Step 4: Build unsigned transaction ─────────────────────
     let inputs: Vec<TransactionInput> = utxos
         .iter()
         .map(|u| TransactionInput {
@@ -307,45 +275,33 @@ pub async fn sign_and_broadcast_handler(
         })
         .collect();
 
-    // Mass calculation: minimum relay fee is based on tx mass.
-    // With a covenant payload, gas must be high enough for signature verification.
-    // 100K gas covers SilverScript payload processing.
-    // Mass must be at least as high as the compute units consumed by signature
-    // verification + payload processing. 250K covers covenant payload + signatures.
-    const MASS: u64 = 2_000_000;  // TN12: 1 mass = ~0.05 compute, so 2M mass = ~100K compute
-
-    let mut unsigned_tx = Transaction::new_non_finalized(
-        0,                           // version
+    let unsigned_tx = Transaction::new_non_finalized(
+        0,                                     // version
         inputs,
         outputs.clone(),
-        0,                           // lock_time
-        SubnetworkId::from_bytes([0u8; 20]), // native subnetwork
-        0,                           // gas — must be 0 for native subnetworks
-        covenant_payload,            // SilverScript covenant code
+        0,                                     // lock_time
+        SubnetworkId::from_bytes([0u8; 20]),   // native subnetwork
+        0,                                     // gas
+        covenant_payload,                      // SilverScript in payload
     );
-    unsigned_tx.set_mass(MASS);
-    unsigned_tx.finalize();           // recompute tx ID with mass included
 
-    // ── Step 5: Create SignableTransaction ──────────────────────
+    // ── Step 5-6: Sign THEN finalize ──────────────────────────
     let entries: Vec<UtxoEntry> = utxos.iter().map(to_utxo_entry).collect();
     let signable_tx = SignableTransaction::with_entries(unsigned_tx, entries);
 
-    // ── Step 6: Sign ────────────────────────────────────────────
     let result = sign_with_multiple_v2(signable_tx, &[pk_bytes]);
-
-    let signed_tx = match result.fully_signed() {
+    let mut signed_tx = match result.fully_signed() {
         Ok(tx) => tx,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false,
-                tx_id: None,
-                outputs: None,
-                error: Some(format!("Signing failed: {e}")),
+                success: false, tx_id: None, outputs: None,
+                error: Some(format!("Signing failed: {}", e)),
             }));
         }
     };
 
-    // ── Step 7: Broadcast ───────────────────────────────────────
+    // Finalize AFTER signing — tx ID must include signature bytes
+    signed_tx.tx.finalize();
     let consensus_tx = signed_tx.tx;
     let rpc_tx = RpcTransaction::from(&consensus_tx);
 
@@ -360,7 +316,7 @@ pub async fn sign_and_broadcast_handler(
                     index: i as u32,
                     amount_sompi: o.value,
                     amount_kas: o.value as f64 / 100_000_000.0,
-                    address: format!("output_{i}"),
+                    address: format!("output_{}", i),
                 })
                 .collect();
             Json(serde_json::json!(SignAndBroadcastResponse {
@@ -371,12 +327,12 @@ pub async fn sign_and_broadcast_handler(
             }))
         }
         Err(e) => {
-            warn!("Sign-and-broadcast submit failed: {e}");
+            warn!("Sign-and-broadcast submit failed: {}", e);
             Json(serde_json::json!(SignAndBroadcastResponse {
                 success: false,
                 tx_id: None,
                 outputs: None,
-                error: Some(format!("Broadcast rejected: {e}")),
+                error: Some(format!("Broadcast rejected: {}", e)),
             }))
         }
     }

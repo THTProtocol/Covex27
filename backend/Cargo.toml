@@ -14,7 +14,6 @@ kaspa-rpc-core = "0.15.0"
 kaspa-consensus-core = "0.15.0"
 kaspa-addresses = "0.15.0"
 kaspa-txscript = "0.15.0"
-kaspa-wallet-core = "0.15.0"
 workflow-core = "0.18.0"
 wasm-bindgen = "=0.2.115"
 serde = { version = "1", features = ["derive"] }

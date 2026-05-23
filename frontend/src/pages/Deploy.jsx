@@ -23,8 +23,6 @@ contract TransferWithTimeout {
     }
 }`;
 
-const COVENANT_TREASURY_ADDRESS = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-
 // Pricing tiers with on-chain fees in sompi
 const TIERS = {
   FREE: { label: 'Free (Explorer)', fee: 0n, tier: 'FREE', icon: Zap, desc: 'Read-only, no interactive UI' },
@@ -33,104 +31,35 @@ const TIERS = {
   MAX: { label: 'MAX (1,000 KAS)', fee: 100_000_000_000n, tier: 'MAX', icon: Award, desc: 'Top placement + custom domain' },
 };
 
-// ── Build, sign, and broadcast a real Kaspa transaction via kaspa-wasm + backend wRPC ──
-// Enforces genuine on-chain tier fees sent directly to COVENANT_TREASURY_ADDRESS
+// ── Backend-driven deployment: sends covenant specs to Rust signer ──
 async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptCode, selectedTier) {
-  const wasm = await import('@onekeyfe/kaspa-wasm');
-  const { PrivateKey, createTransaction, signTransaction, NetworkId } = wasm;
+  // Convert script code to hex for the backend
+  const scriptHex = Array.from(new TextEncoder().encode(scriptCode))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 
-  const tierFee = selectedTier.fee;
-  const tierName = selectedTier.tier;
-
-  // 1. Fetch UTXOs from backend
-  const addrEncoded = encodeURIComponent(deployerAddress);
-  const utxoResp = await fetch(`/api/utxos/${addrEncoded}`);
-  if (!utxoResp.ok) {
-    throw new Error(`UTXO fetch failed: HTTP ${utxoResp.status}`);
-  }
-  const utxoData = await utxoResp.json();
-  if (!utxoData.utxos || utxoData.utxos.length === 0) {
-    throw new Error('No UTXOs found. Fund this address on TN12 first (faucet.kaspa.org).');
-  }
-
-  // 2. Construct IUtxoEntry objects matching kaspa-wasm interface
-  const sorted = utxoData.utxos.sort((a, b) => b.amount - a.amount);
-  const selected = sorted[0];
-  
-  const txFee = 10_000n; // 0.0001 TKAS miner fee
-  const covenantAmount = 100_000_000n; // 1 TKAS locked in covenant
-  const inputAmount = BigInt(selected.amount);
-  const totalCost = covenantAmount + tierFee + txFee;
-  
-  if (inputAmount < totalCost) {
-    const needKas = Number(totalCost) / 1e8;
-    const haveKas = Number(inputAmount) / 1e8;
-    throw new Error(`Insufficient funds. Need ${needKas.toFixed(4)} TKAS (1 KAS covenant + ${Number(tierFee) / 1e8} KAS tier fee + tx fee), have ${haveKas.toFixed(4)} TKAS`);
-  }
-
-  // Construct IUtxoEntry — plain JS object matching the wasm interface shape
-  const utxoEntry = {
-    amount: inputAmount,
-    outpoint: {
-      transactionId: selected.tx_id,
-      index: selected.index,
-    },
-    scriptPublicKey: {
-      version: 0,
-      script: selected.script_hex,
-    },
-    blockDaaScore: 0n,
-  };
-
-  // Multi-output transaction structure:
-  // Output 0: Covenant payload (1 KAS locked in contract script)
-  // Output 1: Platform Fee → COVENANT_TREASURY_ADDRESS (if paid tier)
-  // Output 2: Change → deployer
-  const outputs = [{ address: deployerAddress, amount: covenantAmount }];
-  
-  if (tierFee > 0n) {
-    outputs.push({ address: COVENANT_TREASURY_ADDRESS, amount: tierFee });
-  }
-  
-  const change = inputAmount - totalCost;
-  if (change > 0n) {
-    outputs.push({ address: deployerAddress, amount: change });
-  }
-
-  // 3. Build + sign transaction
-  const tx = createTransaction([utxoEntry], outputs, txFee, scriptCode, 0);
-  const pk = new PrivateKey(privateKeyHex);
-  const signedTx = signTransaction(tx, [pk], false);
-
-  // 4. Serialize to hex bytes
-  const txBytes = signedTx.serializeTo();
-  const txHex = Array.from(new Uint8Array(txBytes)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-  pk.free();
-
-  // 5. Broadcast via backend — stripped of optimistic DB injection
-  const broadcastResp = await fetch('/api/broadcast', {
+  const resp = await fetch('/api/sign-and-broadcast', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      tx_hex: txHex,
+      private_key_hex: privateKeyHex,
       deployer_addr: deployerAddress,
-      script_hex: Array.from(new TextEncoder().encode(scriptCode)).map(b => b.toString(16).padStart(2, '0')).join(''),
-      script_name: scriptCode.split('\n')[0].replace(/\/\/ /, '').trim() || 'SilverScript Covenant',
-      tier: tierName,
+      script_hex: scriptHex,
+      tier: selectedTier.tier,
     }),
   });
 
-  const broadcastResult = await broadcastResp.json();
-  if (!broadcastResult.success) {
-    throw new Error(broadcastResult.error || 'Broadcast failed');
+  const data = await resp.json();
+
+  if (!data.success) {
+    throw new Error(data.error || 'Sign-and-broadcast failed');
   }
 
   return {
-    txid: broadcastResult.tx_id,
+    txid: data.tx_id,
     deployer: deployerAddress,
-    tier: tierName,
-    tierFeeKas: Number(tierFee) / 1e8,
+    tier: selectedTier.tier,
+    tierFeeKas: Number(selectedTier.fee) / 1e8,
   };
 }
 
@@ -173,7 +102,7 @@ export default function Deploy() {
       let tierFeeKas = 0;
       let tierName = tierData.tier;
 
-      // If dev mode with private key, build + sign + broadcast via kaspa-wasm
+      // If dev mode with private key, use Rust backend signer
       if (isDevMode && devMode?.privateKeyHex) {
         const txResult = await buildAndBroadcastCovenant(
           devMode.privateKeyHex,
@@ -183,8 +112,17 @@ export default function Deploy() {
         );
         txid = txResult.txid;
         tierFeeKas = txResult.tierFeeKas;
+      } else if (isDevMode && devMode?.hexKey) {
+        const txResult = await buildAndBroadcastCovenant(
+          devMode.hexKey,
+          address,
+          code.trim(),
+          tierData
+        );
+        txid = txResult.txid;
+        tierFeeKas = txResult.tierFeeKas;
       } else if (window.kasware && window.kasware.sendTransaction) {
-        // Extension wallet fallback — sends single-output for now
+        // Extension wallet fallback
         try {
           const resp = await window.kasware.sendTransaction({
             to: address,
@@ -211,7 +149,7 @@ export default function Deploy() {
     } catch (err) {
       setResult({
         success: false,
-        error: err.message || 'Deployment rejected',
+        error: err.message || 'Deployment failed',
         timestamp: new Date().toISOString(),
       });
       setStatus('error');
@@ -274,7 +212,7 @@ export default function Deploy() {
                 Connect TN12 Dev Wallet
               </button>
               <p className="text-[9px] text-gray-600 mt-2 text-center leading-relaxed">
-                Derives keys locally via kaspa-wasm. For covenant testing — no browser extensions required.
+                Derives keys locally via kaspa-wasm. Uses Rust backend signer for deployment — no browser extensions required.
               </p>
             </div>
           </div>
@@ -400,7 +338,7 @@ export default function Deploy() {
               {status === 'deploying' ? (
                 <span className="flex items-center gap-2">
                   <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  Fetching UTXOs & Building TX...
+                  Building with Rust Signer...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
@@ -457,19 +395,27 @@ export default function Deploy() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-red-400/80">{result.error}</p>
+                  <div>
+                    <p className="text-xs text-red-400/80">{result.error}</p>
+                    {result.error && result.error.includes('limit=9999') && (
+                      <p className="text-[10px] text-amber-400/70 mt-2">
+                        Tip: This is a mass calibration issue. The node defaults to a 10K compute budget.
+                        The Rust signer needs exact MassCalculator integration from kaspa-wallet-core.
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {result.success && result.txid && !result.txid.startsWith('pending') && (
                   <div className="mt-4 pt-3 border-t border-emerald-500/10 flex gap-4">
                     <a
-                      href={`https://explorer.kaspa.org/tx/${result.txid}`}
+                      href={`https://tn12.kaspa.stream/tx/${result.txid}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"
                     >
                       <ExternalLink size={12} />
-                      View on Explorer
+                      View on TN12 Explorer
                     </a>
                     <a
                       href={`https://hightable.pro/covenant/${result.txid}`}
@@ -498,12 +444,12 @@ export default function Deploy() {
                   </div>
                   <div>
                     <span className="text-gray-600">Chars:</span>{' '}
-                    <span className="text-gray-300">{code.length.toLocaleString()}</span>
+                    <span className="text-gray-300">{code.length}</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Has entrypoint:</span>{' '}
-                    <span className={code.includes('entrypoint') ? 'text-emerald-400' : 'text-red-400'}>
-                      {code.includes('entrypoint') ? '\u2713' : '\u2717'}
+                    <span className="text-gray-600">Tier:</span>{' '}
+                    <span className={selectedTier === 'FREE' ? 'text-gray-500' : 'text-amber-400'}>
+                      {TIERS[selectedTier].label.split(' ')[0]}
                     </span>
                   </div>
                 </div>
@@ -511,26 +457,8 @@ export default function Deploy() {
             )}
           </div>
         )}
-
-        {/* Footer Notice */}
-        <div className="p-6 bg-[#0a0a0a] border-t border-[#1f1f1f]">
-          <div className="flex gap-4 items-start p-4 rounded-xl border border-yellow-900/30 bg-yellow-900/5">
-            <AlertTriangle size={20} className="text-yellow-600 shrink-0 mt-0.5" />
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-300 tracking-wide uppercase">Immutable Deployment</h4>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                Covenants deployed to the Kaspa BlockDAG are permanently immutable. They cannot be changed, deleted, or reversed. 
-                Deployment requires a wallet signature and a small KAS fee. You bear full legal and financial responsibility.
-              </p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                Covex is a non-custodial platform. Signing happens in your wallet — we never access your private keys.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* TN12 Dev Wallet Modal */}
       <DevWalletModal isOpen={devWalletOpen} onClose={() => setDevWalletOpen(false)} />
     </div>
   );

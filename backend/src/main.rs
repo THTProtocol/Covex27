@@ -13,6 +13,7 @@ mod db;
 mod indexer;
 mod payment_verifier;
 mod ui_generator;
+mod broadcast;
 
 #[tokio::main]
 async fn main() {
@@ -112,8 +113,9 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
+        .merge(broadcast::broadcast_routes())
         .layer(Extension(db.clone()))
-        .layer(app);
+        .layer(Extension(client.clone()));
 
     info!("Serving on {}", addr);
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)

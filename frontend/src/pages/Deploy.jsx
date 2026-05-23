@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key } from 'lucide-react';
+import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
 
 const SILVERSCRIPT_TEMPLATE = `// SilverScript Covenant — Deploy to TN12 (Toccata)
@@ -25,12 +25,110 @@ contract TransferWithTimeout {
 
 const DEPLOYER_ADDR = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 
+// ── Build, sign, and broadcast a real Kaspa transaction via kaspa-wasm + backend wRPC ──
+async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptCode) {
+  const wasm = await import('@onekeyfe/kaspa-wasm');
+  const { PrivateKey, createTransaction, signTransaction, NetworkId } = wasm;
+
+  // 1. Fetch UTXOs from backend
+  const addrEncoded = encodeURIComponent(deployerAddress);
+  const utxoResp = await fetch(`/api/utxos/${addrEncoded}`);
+  if (!utxoResp.ok) {
+    throw new Error(`UTXO fetch failed: HTTP ${utxoResp.status}`);
+  }
+  const utxoData = await utxoResp.json();
+  if (!utxoData.utxos || utxoData.utxos.length === 0) {
+    throw new Error('No UTXOs found. Fund this address on TN12 first (faucet.kaspa.org).');
+  }
+
+  // 2. Construct IUtxoEntry objects matching kaspa-wasm interface
+  const sorted = utxoData.utxos.sort((a, b) => b.amount - a.amount);
+  const selected = sorted[0];
+  
+  const fee = 10_000n; // 0.0001 TKAS
+  const covenantAmount = 100_000_000n; // 1 TKAS
+  const inputAmount = BigInt(selected.amount);
+  const change = inputAmount - covenantAmount - fee;
+  
+  if (change < 0n) {
+    throw new Error(`Insufficient funds. UTXO has ${(Number(inputAmount) / 1e8).toFixed(4)} TKAS, need ${(Number(covenantAmount + fee) / 1e8).toFixed(4)} TKAS`);
+  }
+
+  // Construct IUtxoEntry — plain JS object matching the wasm interface shape
+  const utxoEntry = {
+    amount: inputAmount,
+    outpoint: {
+      transactionId: selected.tx_id,
+      index: selected.index,
+    },
+    scriptPublicKey: {
+      version: 0,
+      script: selected.script_hex,
+    },
+    blockDaaScore: 0n,
+  };
+
+  // Payment outputs
+  const outputs = [{ address: deployerAddress, amount: covenantAmount }];
+  if (change > 0n) {
+    outputs.push({ address: deployerAddress, amount: change });
+  }
+
+  // 3. Build + sign transaction
+  const tx = createTransaction([utxoEntry], outputs, fee, scriptCode, 0);
+  const pk = new PrivateKey(privateKeyHex);
+  const signedTx = signTransaction(tx, [pk], false);
+
+  // 4. Serialize to hex bytes
+  const txBytes = signedTx.serializeTo();
+  const txHex = Array.from(new Uint8Array(txBytes)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  pk.free();
+
+  // 5. Broadcast via backend
+  const broadcastResp = await fetch('/api/broadcast', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tx_hex: txHex,
+      deployer_addr: deployerAddress,
+      script_hex: Array.from(new TextEncoder().encode(scriptCode)).map(b => b.toString(16).padStart(2, '0')).join(''),
+      script_name: scriptCode.split('\n')[0].replace(/\/\/ /, '').trim() || 'SilverScript Covenant',
+    }),
+  });
+
+  const broadcastResult = await broadcastResp.json();
+  if (!broadcastResult.success) {
+    throw new Error(broadcastResult.error || 'Broadcast failed');
+  }
+
+  return {
+    txid: broadcastResult.tx_id,
+    deployer: deployerAddress,
+  };
+}
+
 export default function Deploy() {
-  const { address, connecting, signMessage, isDevMode } = useWallet();
+  const { address, signMessage, isDevMode, devMode } = useWallet();
   const [code, setCode] = useState(SILVERSCRIPT_TEMPLATE);
-  const [status, setStatus] = useState('idle'); // idle | deploying | success | error
+  const [status, setStatus] = useState('idle');
   const [result, setResult] = useState(null);
   const [devWalletOpen, setDevWalletOpen] = useState(false);
+  const [balance, setBalance] = useState(null);
+
+  // Fetch balance when connected
+  const fetchBalance = useCallback(async () => {
+    if (!address) return;
+    try {
+      const resp = await fetch(`/api/balance/${encodeURIComponent(address)}`);
+      const data = await resp.json();
+      if (data.balance !== undefined && data.balance !== null) {
+        setBalance(data.balance);
+      }
+    } catch (_) {}
+  }, [address]);
+
+  useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
   const handleDeploy = useCallback(async () => {
     if (!address || !code.trim()) return;
@@ -38,35 +136,31 @@ export default function Deploy() {
     setResult(null);
 
     try {
-      // STEP 1: Sign the SilverScript payload as proof-of-authorship
+      // Sign the payload for proof-of-authorship
       const message = `DEPLOY_COVENANT:${code.trim()}`;
       const signature = await signMessage(message);
 
-      // STEP 2: Construct and broadcast transaction
-      // In production, this would use kaspad RPC to build + sign + broadcast
-      // For now, we use window.kasware as the signing provider
-      const payload = {
-        script: code.trim(),
-        signature,
-        deployer: address,
-        network: 'testnet-12',
-        timestamp: Date.now(),
-      };
-
-      // Attempt native KasWare send if available
       let txid = null;
-      if (window.kasware && window.kasware.sendTransaction) {
+
+      // If dev mode with private key, build + sign + broadcast via kaspa-wasm
+      if (isDevMode && devMode?.privateKeyHex) {
+        const txResult = await buildAndBroadcastCovenant(
+          devMode.privateKeyHex,
+          address,
+          code.trim()
+        );
+        txid = txResult.txid;
+      } else if (window.kasware && window.kasware.sendTransaction) {
+        // Extension wallet fallback
         try {
-          // Minimal deployment UTXO — sends 1 KAS to self with covenant script as OP_RETURN-like data
-          const { kasToSompi } = await import('../components/WalletContext');
           const resp = await window.kasware.sendTransaction({
             to: address,
-            amount: (100_000_000).toString(), // 1 KAS
+            amount: (100_000_000).toString(),
             data: code.trim(),
           });
           txid = typeof resp === 'string' ? resp : resp?.txid || resp?.transactionId;
         } catch (kasErr) {
-          console.warn('KasWare sendTransaction failed, using signed payload only:', kasErr.message);
+          console.warn('KasWare sendTransaction failed:', kasErr.message);
         }
       }
 
@@ -77,7 +171,6 @@ export default function Deploy() {
         txid: txid || 'pending (signed payload ready)',
         deployer: address,
         timestamp: new Date().toISOString(),
-        payload,
       });
       setStatus('success');
     } catch (err) {
@@ -88,7 +181,7 @@ export default function Deploy() {
       });
       setStatus('error');
     }
-  }, [address, code, signMessage]);
+  }, [address, code, signMessage, isDevMode, devMode]);
 
   const isConnected = !!address;
   const canDeploy = isConnected && code.trim().length > 0 && status !== 'deploying';
@@ -172,7 +265,18 @@ export default function Deploy() {
                   <p className="text-sm font-mono text-white truncate max-w-[300px]">{address}</p>
                 </div>
               </div>
-              <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>TOCCATA TN12</span>
+              <div className="flex items-center gap-3">
+                {balance !== null ? (
+                  <span className="text-[11px] font-mono text-gray-400">
+                    {(balance / 1e8).toFixed(4)} KAS
+                  </span>
+                ) : (
+                  <button onClick={fetchBalance} className="text-[10px] text-gray-500 hover:text-[#49EACB] transition-colors">
+                    <Wallet size={12} className="inline mr-1" />Refresh
+                  </button>
+                )}
+                <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>TOCCATA TN12</span>
+              </div>
             </div>
 
             {/* Code Editor */}
@@ -208,7 +312,7 @@ export default function Deploy() {
               {status === 'deploying' ? (
                 <span className="flex items-center gap-2">
                   <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  Signing & Broadcasting...
+                  Fetching UTXOs & Building TX...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
@@ -232,7 +336,7 @@ export default function Deploy() {
                     <AlertTriangle size={20} className="text-red-400" />
                   )}
                   <p className={`text-sm font-semibold ${result.success ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {result.success ? 'COVENANT SIGNED & BROADCAST' : 'DEPLOYMENT FAILED'}
+                    {result.success ? 'COVENANT DEPLOYED & BROADCAST' : 'DEPLOYMENT FAILED'}
                   </p>
                 </div>
 
@@ -240,7 +344,7 @@ export default function Deploy() {
                   <div className="space-y-2 text-xs font-mono">
                     <div className="flex justify-between py-1 border-b border-white/5">
                       <span className="text-gray-500">TXID</span>
-                      <span className="text-[#49EACB]">{result.txid.slice(0, 30)}...</span>
+                      <span className="text-[#49EACB]">{result.txid.length > 30 ? result.txid.slice(0, 30) + '...' : result.txid}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-white/5">
                       <span className="text-gray-500">Deployer</span>
@@ -259,8 +363,8 @@ export default function Deploy() {
                   <p className="text-xs text-red-400/80">{result.error}</p>
                 )}
 
-                {result.success && (
-                  <div className="mt-4 pt-3 border-t border-emerald-500/10">
+                {result.success && result.txid && !result.txid.startsWith('pending') && (
+                  <div className="mt-4 pt-3 border-t border-emerald-500/10 flex gap-4">
                     <a
                       href={`https://explorer.kaspa.org/tx/${result.txid}`}
                       target="_blank"
@@ -268,7 +372,16 @@ export default function Deploy() {
                       className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"
                     >
                       <ExternalLink size={12} />
-                      View on Kaspa Explorer
+                      View on Explorer
+                    </a>
+                    <a
+                      href={`https://hightable.pro/covenant/${result.txid}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"
+                    >
+                      <ExternalLink size={12} />
+                      View on Covex
                     </a>
                   </div>
                 )}
@@ -293,7 +406,7 @@ export default function Deploy() {
                   <div>
                     <span className="text-gray-600">Has entrypoint:</span>{' '}
                     <span className={code.includes('entrypoint') ? 'text-emerald-400' : 'text-red-400'}>
-                      {code.includes('entrypoint') ? '✓' : '✗'}
+                      {code.includes('entrypoint') ? '\u2713' : '\u2717'}
                     </span>
                   </div>
                 </div>

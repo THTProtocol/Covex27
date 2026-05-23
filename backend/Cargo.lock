@@ -561,6 +561,7 @@ dependencies = [
  "uuid 1.23.1",
  "wasm-bindgen",
  "workflow-core",
+ "workflow-serializer",
 ]
 
 [[package]]

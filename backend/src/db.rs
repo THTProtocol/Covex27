@@ -104,13 +104,14 @@ pub fn insert_covenant(
     covenant_type: &str, category: &str,
     creator_addr: &str, description: &str,
     block_daa_score: u64,
+    verified_tier: &str,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     let amount = amount_sompi as f64 / 100_000_000.0;
     conn.execute(
         "INSERT OR REPLACE INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'FREE', 1, ?10, unixepoch())",
-        params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, block_daa_score],
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch())",
+        params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, block_daa_score],
     )?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet } from 'lucide-react';
+import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet, Zap, TrendingUp, Award } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
 
 const SILVERSCRIPT_TEMPLATE = `// SilverScript Covenant — Deploy to TN12 (Toccata)
@@ -23,12 +23,24 @@ contract TransferWithTimeout {
     }
 }`;
 
-const DEPLOYER_ADDR = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+const COVENANT_TREASURY_ADDRESS = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+
+// Pricing tiers with on-chain fees in sompi
+const TIERS = {
+  FREE: { label: 'Free (Explorer)', fee: 0n, tier: 'FREE', icon: Zap, desc: 'Read-only, no interactive UI' },
+  CREATOR: { label: 'Creator (100 KAS)', fee: 10_000_000_000n, tier: 'CREATOR', icon: Code, desc: 'Interactive UI + full disclosure' },
+  PRO: { label: 'PRO (500 KAS)', fee: 50_000_000_000n, tier: 'PRO', icon: TrendingUp, desc: 'Featured listing + priority indexing' },
+  MAX: { label: 'MAX (1,000 KAS)', fee: 100_000_000_000n, tier: 'MAX', icon: Award, desc: 'Top placement + custom domain' },
+};
 
 // ── Build, sign, and broadcast a real Kaspa transaction via kaspa-wasm + backend wRPC ──
-async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptCode) {
+// Enforces genuine on-chain tier fees sent directly to COVENANT_TREASURY_ADDRESS
+async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptCode, selectedTier) {
   const wasm = await import('@onekeyfe/kaspa-wasm');
   const { PrivateKey, createTransaction, signTransaction, NetworkId } = wasm;
+
+  const tierFee = selectedTier.fee;
+  const tierName = selectedTier.tier;
 
   // 1. Fetch UTXOs from backend
   const addrEncoded = encodeURIComponent(deployerAddress);
@@ -45,13 +57,15 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
   const sorted = utxoData.utxos.sort((a, b) => b.amount - a.amount);
   const selected = sorted[0];
   
-  const fee = 10_000n; // 0.0001 TKAS
-  const covenantAmount = 100_000_000n; // 1 TKAS
+  const txFee = 10_000n; // 0.0001 TKAS miner fee
+  const covenantAmount = 100_000_000n; // 1 TKAS locked in covenant
   const inputAmount = BigInt(selected.amount);
-  const change = inputAmount - covenantAmount - fee;
+  const totalCost = covenantAmount + tierFee + txFee;
   
-  if (change < 0n) {
-    throw new Error(`Insufficient funds. UTXO has ${(Number(inputAmount) / 1e8).toFixed(4)} TKAS, need ${(Number(covenantAmount + fee) / 1e8).toFixed(4)} TKAS`);
+  if (inputAmount < totalCost) {
+    const needKas = Number(totalCost) / 1e8;
+    const haveKas = Number(inputAmount) / 1e8;
+    throw new Error(`Insufficient funds. Need ${needKas.toFixed(4)} TKAS (1 KAS covenant + ${Number(tierFee) / 1e8} KAS tier fee + tx fee), have ${haveKas.toFixed(4)} TKAS`);
   }
 
   // Construct IUtxoEntry — plain JS object matching the wasm interface shape
@@ -68,14 +82,23 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
     blockDaaScore: 0n,
   };
 
-  // Payment outputs
+  // Multi-output transaction structure:
+  // Output 0: Covenant payload (1 KAS locked in contract script)
+  // Output 1: Platform Fee → COVENANT_TREASURY_ADDRESS (if paid tier)
+  // Output 2: Change → deployer
   const outputs = [{ address: deployerAddress, amount: covenantAmount }];
+  
+  if (tierFee > 0n) {
+    outputs.push({ address: COVENANT_TREASURY_ADDRESS, amount: tierFee });
+  }
+  
+  const change = inputAmount - totalCost;
   if (change > 0n) {
     outputs.push({ address: deployerAddress, amount: change });
   }
 
   // 3. Build + sign transaction
-  const tx = createTransaction([utxoEntry], outputs, fee, scriptCode, 0);
+  const tx = createTransaction([utxoEntry], outputs, txFee, scriptCode, 0);
   const pk = new PrivateKey(privateKeyHex);
   const signedTx = signTransaction(tx, [pk], false);
 
@@ -85,7 +108,7 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
 
   pk.free();
 
-  // 5. Broadcast via backend
+  // 5. Broadcast via backend — stripped of optimistic DB injection
   const broadcastResp = await fetch('/api/broadcast', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -94,6 +117,7 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
       deployer_addr: deployerAddress,
       script_hex: Array.from(new TextEncoder().encode(scriptCode)).map(b => b.toString(16).padStart(2, '0')).join(''),
       script_name: scriptCode.split('\n')[0].replace(/\/\/ /, '').trim() || 'SilverScript Covenant',
+      tier: tierName,
     }),
   });
 
@@ -105,6 +129,8 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
   return {
     txid: broadcastResult.tx_id,
     deployer: deployerAddress,
+    tier: tierName,
+    tierFeeKas: Number(tierFee) / 1e8,
   };
 }
 
@@ -115,6 +141,7 @@ export default function Deploy() {
   const [result, setResult] = useState(null);
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [balance, setBalance] = useState(null);
+  const [selectedTier, setSelectedTier] = useState('FREE');
 
   // Fetch balance when connected
   const fetchBalance = useCallback(async () => {
@@ -136,22 +163,28 @@ export default function Deploy() {
     setResult(null);
 
     try {
+      const tierData = TIERS[selectedTier] || TIERS.FREE;
+
       // Sign the payload for proof-of-authorship
       const message = `DEPLOY_COVENANT:${code.trim()}`;
       const signature = await signMessage(message);
 
       let txid = null;
+      let tierFeeKas = 0;
+      let tierName = tierData.tier;
 
       // If dev mode with private key, build + sign + broadcast via kaspa-wasm
       if (isDevMode && devMode?.privateKeyHex) {
         const txResult = await buildAndBroadcastCovenant(
           devMode.privateKeyHex,
           address,
-          code.trim()
+          code.trim(),
+          tierData
         );
         txid = txResult.txid;
+        tierFeeKas = txResult.tierFeeKas;
       } else if (window.kasware && window.kasware.sendTransaction) {
-        // Extension wallet fallback
+        // Extension wallet fallback — sends single-output for now
         try {
           const resp = await window.kasware.sendTransaction({
             to: address,
@@ -170,6 +203,8 @@ export default function Deploy() {
         signature: signature.slice(0, 50) + '...',
         txid: txid || 'pending (signed payload ready)',
         deployer: address,
+        tier: tierName,
+        tierFeeKas,
         timestamp: new Date().toISOString(),
       });
       setStatus('success');
@@ -181,7 +216,7 @@ export default function Deploy() {
       });
       setStatus('error');
     }
-  }, [address, code, signMessage, isDevMode, devMode]);
+  }, [address, code, signMessage, isDevMode, devMode, selectedTier]);
 
   const isConnected = !!address;
   const canDeploy = isConnected && code.trim().length > 0 && status !== 'deploying';
@@ -303,6 +338,59 @@ export default function Deploy() {
               />
             </div>
 
+            {/* Tier Selector */}
+            <div className="space-y-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Platform Tier Fee</p>
+              <div className="grid grid-cols-4 gap-2">
+                {Object.entries(TIERS).map(([key, tier]) => {
+                  const Icon = tier.icon;
+                  const isSelected = selectedTier === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedTier(key)}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all text-center ${
+                        isSelected
+                          ? key === 'MAX'
+                            ? 'border-purple-500/60 bg-purple-500/[0.08] shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                            : key === 'PRO'
+                            ? 'border-amber-500/60 bg-amber-500/[0.08] shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                            : key === 'CREATOR'
+                            ? 'border-blue-500/60 bg-blue-500/[0.08] shadow-[0_0_12px_rgba(59,130,246,0.3)]'
+                            : 'border-[#49EACB]/60 bg-[#49EACB]/[0.06] shadow-[0_0_10px_rgba(73,234,203,0.2)]'
+                          : 'border-[#2a2a2a] bg-transparent hover:border-zinc-600'
+                      }`}
+                    >
+                      <Icon size={16} className={
+                        isSelected
+                          ? key === 'MAX' ? 'text-purple-400'
+                          : key === 'PRO' ? 'text-amber-400'
+                          : key === 'CREATOR' ? 'text-blue-400'
+                          : 'text-[#49EACB]'
+                          : 'text-gray-500'
+                      } />
+                      <span className={`text-[11px] font-semibold leading-tight ${
+                        isSelected ? 'text-white' : 'text-gray-400'
+                      }`}>
+                        {key === 'FREE' ? 'Free' : key === 'CREATOR' ? 'Creator' : key}
+                      </span>
+                      <span className={`text-[9px] leading-tight ${
+                        isSelected ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
+                        {tier.fee > 0n ? `${Number(tier.fee) / 1e8} KAS` : 'No fee'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTier !== 'FREE' && (
+                <p className="text-[10px] text-amber-400/70 flex items-center gap-1">
+                  <AlertTriangle size={10} />
+                  {TIERS[selectedTier].fee > 0n ? `${(Number(TIERS[selectedTier].fee) / 1e8).toFixed(0)} KAS will be deducted from your wallet and sent to the treasury address.` : ''}
+                </p>
+              )}
+            </div>
+
             {/* Deploy Button */}
             <button
               onClick={handleDeploy}
@@ -345,6 +433,15 @@ export default function Deploy() {
                     <div className="flex justify-between py-1 border-b border-white/5">
                       <span className="text-gray-500">TXID</span>
                       <span className="text-[#49EACB]">{result.txid.length > 30 ? result.txid.slice(0, 30) + '...' : result.txid}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-white/5">
+                      <span className="text-gray-500">Tier</span>
+                      <span className={`${
+                        result.tier === 'MAX' ? 'text-purple-400'
+                        : result.tier === 'PRO' ? 'text-amber-400'
+                        : result.tier === 'CREATOR' ? 'text-blue-400'
+                        : 'text-gray-400'
+                      }`}>{result.tier}{result.tierFeeKas > 0 ? ` (${result.tierFeeKas} KAS fee)` : ''}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-white/5">
                       <span className="text-gray-500">Deployer</span>

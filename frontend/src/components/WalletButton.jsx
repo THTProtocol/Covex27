@@ -91,10 +91,20 @@ export default function WalletButton() {
                     >
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-[#0a0a0a] border border-[#1f1f1f]">
                         {wallet.logo ? (
-                          <img src={wallet.logo} alt={wallet.name} className="w-9 h-9 object-contain rounded-md" onError={(e) => { e.target.style.display = 'none'; }} />
-                        ) : (
-                          <Wallet size={18} className="text-gray-500" />
-                        )}
+                          <img
+                            src={wallet.logo}
+                            alt={wallet.name}
+                            className="w-9 h-9 object-contain rounded-md"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const fallback = e.target.nextElementSibling;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <span className={`w-9 h-9 rounded-md items-center justify-center text-xs font-bold text-white/60 bg-white/5 ${wallet.logo ? 'hidden' : 'flex'}`}>
+                          {wallet.name?.charAt(0) || '?'}
+                        </span>
                       </div>
                       <div className="text-left flex-1 min-w-0">
                         <div className="text-white font-medium text-sm flex items-center gap-2">

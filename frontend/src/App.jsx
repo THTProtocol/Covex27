@@ -6,7 +6,6 @@ import DagBackground from './components/DagBackground';
 import WhatIsKaspa from './components/WhatIsKaspa';
 import Explorer from './pages/Explorer';
 import CovenantInteractive from './pages/CovenantInteractive';
-import CreateCovenant from './pages/CreateCovenant';
 import Pricing from './pages/Pricing';
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
@@ -44,9 +43,6 @@ export default function App() {
               <NavLink to="/" end className={NL}>
                 Explorer
               </NavLink>
-              <NavLink to="/create" className={NL}>
-                Create
-              </NavLink>
               <NavLink to="/pricing" className={NL}>
                 Pricing
               </NavLink>
@@ -72,7 +68,6 @@ export default function App() {
               <KaspaPromo />
             </>} />
             <Route path="/covenant/:id" element={<CovenantInteractive />} />
-            <Route path="/create" element={<CreateCovenant />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/terms" element={<Terms />} />

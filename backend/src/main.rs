@@ -10,10 +10,12 @@ use tracing::{info, warn, error};
 mod covenant_types;
 mod crawler;
 mod db;
+mod dev_wallets;
 mod indexer;
 mod payment_verifier;
 mod ui_generator;
 mod broadcast;
+mod signer;
 
 #[tokio::main]
 async fn main() {
@@ -86,8 +88,9 @@ async fn main() {
     let idx_db = Arc::clone(&db);
     let idx_client = Arc::clone(&client);
     let idx_seeds = seed_addrs.clone();
+    let idx_treasury = treasury.clone();
     tokio::spawn(async move {
-        indexer::run_indexer(idx_client, idx_db, idx_seeds).await;
+        indexer::run_indexer(idx_client, idx_db, idx_seeds, idx_treasury).await;
     });
 
     // --- Background: Payment Verifier ---
@@ -101,8 +104,9 @@ async fn main() {
     // --- Background: Historic Crawler ---
     let crawl_db = Arc::clone(&db);
     let crawl_client = Arc::clone(&client);
+    let crawl_treasury = treasury.clone();
     tokio::spawn(async move {
-        crawler::run_crawler(crawl_client, crawl_db, crawl_start_daa).await;
+        crawler::run_crawler(crawl_client, crawl_db, crawl_treasury, crawl_start_daa).await;
     });
 
     // --- Routes ---
@@ -114,6 +118,7 @@ async fn main() {
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .merge(broadcast::broadcast_routes())
+        .merge(signer::signer_routes())
         .layer(Extension(db.clone()))
         .layer(Extension(client.clone()));
 

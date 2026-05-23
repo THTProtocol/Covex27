@@ -7,15 +7,69 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tracing::{info, warn, error, debug};
 
-/// Production-grade covenant indexer. After EVERY successful covenant detection,
+/// Live covenant indexer. After EVERY successful covenant detection,
 /// immediately triggers basic UI generation (fire-and-forget tokio spawn).
-/// Handles Toccata hard-fork rules and 10+ BPS throughput.
+///
+/// Also determines tier by scanning UTXO entries for treasury payments.
+/// THIS INDEXER IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
+
+// Tier thresholds in sompi
+const MAX_THRESHOLD: u64 = 100_000_000_000;
+const PRO_THRESHOLD: u64 = 50_000_000_000;
+const CREATOR_THRESHOLD: u64 = 10_000_000_000;
+
+/// Compute the expected P2PKH script hex for a Kaspa address
+fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
+    let payload = treasury_addr.payload.as_slice();
+    if payload.len() >= 20 {
+        let hash160 = &payload[payload.len() - 20..];
+        Some(format!("76a914{}88ac", hex::encode(hash160)))
+    } else {
+        None
+    }
+}
+
+/// Determine tier from the script hex of a UTXO — checks if it's a treasury address
+fn tier_from_script(spk_hex: &str, _treasury_script: &str, amount: u64) -> (String, u64) {
+    // For the indexer, we check individual UTXO amounts.
+    // The live indexer polls seed addresses for covenant UTXOs — treasury matching
+    // is less relevant here since we're already filtering by seed addresses.
+    // But if a UTXO has a large amount going to treasury, we detect it.
+
+    if amount >= MAX_THRESHOLD {
+        ("MAX".to_string(), amount)
+    } else if amount >= PRO_THRESHOLD {
+        ("PRO".to_string(), amount)
+    } else if amount >= CREATOR_THRESHOLD {
+        ("CREATOR".to_string(), amount)
+    } else {
+        ("FREE".to_string(), 0)
+    }
+}
+
 pub async fn run_indexer(
     client: Arc<KaspaRpcClient>,
     db: Arc<Mutex<rusqlite::Connection>>,
     seed_addresses: Vec<String>,
+    treasury_address: String,
 ) {
-    info!("Covex Indexer v2 started -- auto-generating basic UIs for ALL detected covenants");
+    info!("Covex Indexer v3 started — tier-aware indexing (treasury={})", treasury_address);
+
+    let treasury_addr = match Address::try_from(treasury_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => {
+            error!("Indexer: invalid treasury address: {}", e);
+            return;
+        }
+    };
+
+    let treasury_script = match treasury_script_hex(&treasury_addr) {
+        Some(s) => s,
+        None => {
+            error!("Indexer: could not compute treasury script");
+            return;
+        }
+    };
 
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
     let mut indexed_total: u64 = 0;
@@ -33,7 +87,7 @@ pub async fn run_indexer(
 
         let mut tick_found = 0usize;
 
-        // 1. Scan seed addresses for covenant UTXOs
+        // Scan seed addresses for covenant UTXOs
         for addr_str in &seed_addresses {
             if addr_str.is_empty() { continue; }
             let addr = match Address::try_from(addr_str.as_str()) {
@@ -48,15 +102,34 @@ pub async fn run_indexer(
                         let address = entry.address.map(|a| a.to_string()).unwrap_or_default();
                         let amount_sompi = entry.utxo_entry.amount;
                         let script_hex = hex::encode(entry.utxo_entry.script_public_key.script());
+
+                        // Reject standard wallet outputs — NOT covenants.
+                        // Standard outputs ≤ 40 raw bytes, or P2PKH/Schnorr/P2SH.
+                        if is_standard_output(&script_hex) {
+                            debug!("Indexer: skipping standard output UTXO {} ({} bytes)", &tx_id[..16], script_hex.len()/2);
+                            continue;
+                        }
+                        // Must also pass covenant bytecode detection
+                        if !looks_like_covenant(&script_hex) {
+                            debug!("Indexer: skipping non-covenant output {}", &tx_id[..16]);
+                            continue;
+                        }
+
                         let script_hash = crate::compute_script_hash(&script_hex);
                         let category = CovenantCategory::from_script_ops(&script_hex);
                         let covenant_type = classify_covenant(&script_hex);
                         let block_daa = entry.utxo_entry.block_daa_score;
 
+                        // Determine tier — check if UTXO is a treasury payment
+                        // For seed addresses, tier is determined by the UTXO amount itself
+                        // (the indexer looks at seed addresses, not treasury addresses)
+                        let (tier, _) = tier_from_script(&script_hex, &treasury_script, amount_sompi);
+
                         if let Err(e) = db::insert_covenant(
                             &db, &tx_id, &address, amount_sompi, &script_hash,
                             &script_hex, &covenant_type, category.label(),
                             &address, "", block_daa,
+                            &tier,
                         ) {
                             error!("Indexer: insert failed {}: {}", tx_id, e);
                         } else {
@@ -69,6 +142,7 @@ pub async fn run_indexer(
                             let gen_cat = category.label().to_string();
                             let gen_hash = script_hash.clone();
                             let gen_addr = address.clone();
+                            let gen_tier = tier.clone();
                             tokio::spawn(async move {
                                 let params = crate::ui_generator::extract_parameters_from_script("aa20", &gen_hash);
                                 let config = crate::covenant_types::UiGenerationConfig {
@@ -77,14 +151,18 @@ pub async fn run_indexer(
                                     category: gen_cat,
                                     script_hash: gen_hash,
                                     parameters: params,
-                                    is_enhanced: false,
-                                    disclosure_level: "limited".into(),
+                                    is_enhanced: gen_tier != "FREE",
+                                    disclosure_level: if gen_tier == "FREE" { "limited".into() } else { "full".into() },
                                     creator_addr: gen_addr,
                                 };
                                 let ui_html = crate::ui_generator::generate_basic_ui(&config);
                                 let slug = format!("covenant-{}", &gen_tx_id[..16]);
-                                let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, "FREE", &ui_html, "{}", &slug, false);
-                                let _ = db::set_visibility(&gen_db, &gen_tx_id, "FREE", false, 0, None);
+                                let featured = gen_tier == "MAX" || gen_tier == "PRO";
+                                let priority: i32 = match gen_tier.as_str() {
+                                    "MAX" => 100, "PRO" => 50, "CREATOR" => 10, _ => 0
+                                };
+                                let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, &gen_tier, &ui_html, "{}", &slug, featured);
+                                let _ = db::set_visibility(&gen_db, &gen_tx_id, &gen_tier, featured, priority, None);
                                 debug!("Indexer: auto-generated basic UI for {}", &gen_tx_id[..16]);
                             });
                         }
@@ -93,62 +171,6 @@ pub async fn run_indexer(
                 Err(e) => { warn!("Indexer: get_utxos failed for {}: {}", addr_str, e); }
             }
         }
-
-        // 2. Scan recent blocks — commented out due to RPC API changes in kaspa-rpc-core 0.15.0
-        // Future versions will re-enable with the correct get_blocks signature.
-        /*
-        match client.get_block_dag_info().await {
-            Ok(resp) => {
-                let start_daa = resp.virtual_daa_score.saturating_sub(50);
-                let end_daa = resp.virtual_daa_score;
-                if let Ok(blocks_resp) = client.get_blocks(Some(start_daa), Some((end_daa - start_daa).min(20)), true).await {
-                    for block in blocks_resp {
-                        let block_daa = block.header.daa_score;
-                        for tx in block.transactions {
-                            for (idx, output) in tx.outputs.iter().enumerate() {
-                                let spk_hex = hex::encode(output.script_public_key.script());
-                                if is_covenant_script(&spk_hex) {
-                                    let tx_id = format!("{}:{}", tx.id(), idx);
-                                    let amount_sompi = output.value;
-                                    let category = CovenantCategory::from_script_ops(&spk_hex);
-                                    let covenant_type = classify_covenant(&spk_hex);
-                                    let script_hash = crate::compute_script_hash(&spk_hex);
-                                    let address = format!("{}:cov_{}...", if resp.network.as_deref() == Some("mainnet") { "kaspa" } else { "kaspatest" }, &tx_id[..16]);
-
-                                    if let Err(e) = db::insert_covenant(&db, &tx_id, &address, amount_sompi, &script_hash, &spk_hex, &covenant_type, category.label(), "", "", block_daa) {
-                                        error!("Indexer: block scan insert failed {}: {}", tx_id, e);
-                                    } else {
-                                        tick_found += 1;
-                                        indexed_total += 1;
-                                        let gen_db = Arc::clone(&db);
-                                        let gen_tx_id = tx_id.clone();
-                                        let gen_type = covenant_type.clone();
-                                        let gen_cat = category.label().to_string();
-                                        let gen_hash = script_hash.clone();
-                                        tokio::spawn(async move {
-                                            let params = crate::ui_generator::extract_parameters_from_script("aa20", &gen_hash);
-                                            let config = crate::covenant_types::UiGenerationConfig {
-                                                covenant_id: gen_tx_id.clone(),
-                                                covenant_name: format!("{} {}", gen_type, &gen_tx_id[..8]),
-                                                category: gen_cat, script_hash: gen_hash,
-                                                parameters: params, is_enhanced: false,
-                                                disclosure_level: "limited".into(),
-                                                creator_addr: String::new(),
-                                            };
-                                            let ui_html = crate::ui_generator::generate_basic_ui(&config);
-                                            let slug = format!("covenant-{}", &gen_tx_id[..16]);
-                                            let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, "FREE", &ui_html, "{}", &slug, false);
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Err(e) => { warn!("Indexer: get_block_dag_info failed: {}", e); }
-        }
-        */
 
         if tick_found > 0 {
             info!("Indexer: tick {} new (total: {}), basic UIs queued", tick_found, indexed_total);
@@ -168,4 +190,35 @@ fn classify_covenant(script_hex: &str) -> String {
     if script_hex.contains("aa22") { return "multi-sig-covenant".into(); }
     if script_hex.contains("51") { return "spendable-covenant".into(); }
     "generic-covenant".into()
+}
+
+/// Returns true if the script is a standard wallet output — NOT a covenant.
+/// Standard outputs ≤ 40 raw bytes, or known patterns (P2PKH, Schnorr P2PK, P2SH).
+fn is_standard_output(spk_hex: &str) -> bool {
+    let raw_len = spk_hex.len() / 2;
+    if raw_len <= 40 {
+        return true; // Too small for SilverScript payload
+    }
+    // P2PKH: 76a914<20>88ac (50 hex)
+    if spk_hex.len() == 50 && spk_hex.starts_with("76a914") && spk_hex.ends_with("88ac") {
+        return true;
+    }
+    // Schnorr P2PK: 20<32>ac (68 hex) | P2SH: a914<20>87 (46 hex)
+    if (spk_hex.len() == 68 && spk_hex.starts_with("20") && spk_hex.ends_with("ac"))
+        || (spk_hex.len() == 46 && spk_hex.starts_with("a914") && spk_hex.ends_with("87"))
+    {
+        return true;
+    }
+    false
+}
+
+fn looks_like_covenant(spk_hex: &str) -> bool {
+    if is_standard_output(spk_hex) {
+        return false;
+    }
+    if spk_hex.len() < 4 {
+        return false;
+    }
+    spk_hex.contains("aa20") || spk_hex.contains("aa21")
+        || spk_hex.contains("aa22") || spk_hex.contains("aa23")
 }

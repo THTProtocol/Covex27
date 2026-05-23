@@ -8,9 +8,11 @@ User=kasparov
 WorkingDirectory=/home/kasparov/Covex27
 Environment="KASPA_NETWORK=testnet-12"
 Environment="KASPA_WRPC_URL=ws://127.0.0.1:17217"
-Environment="BIND_ADDR=0.0.0.0:3001"
+Environment="BIND_ADDR=0.0.0.0:3005"
 Environment="DB_PATH=/home/kasparov/Covex27/covex.db"
 Environment="COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
+Environment="COVENANT_SEED_ADDRESSES=kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353,kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs,kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
+Environment="CRAWL_START_DAA=1"
 Environment="RUST_LOG=covex27_backend=debug,kaspa_wrpc=info"
 ExecStart=/home/kasparov/Covex27/backend/target/release/covex27-backend
 Restart=always

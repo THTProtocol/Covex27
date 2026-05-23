@@ -1,7 +1,9 @@
 use crate::db;
 use crate::ui_generator;
 use crate::covenant_types;
+use kaspa_addresses::Address;
 use kaspa_rpc_core::api::rpc::RpcApi;
+use kaspa_rpc_core::RpcTransaction;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -13,15 +15,123 @@ use tracing::{info, warn, error, debug};
 /// backwards to discover covenant UTXOs that predate the live indexer.
 ///
 /// Checkpointed via crawler_state table — survives restarts.
+///
+/// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
+/// Tier determination: scans all transaction outputs for a transfer to
+/// COVENANT_TREASURY_ADDRESS, then maps the amount to a tier.
 
-const MAX_WALK_DISTANCE: u64 = 500; // blocks per tick
+const MAX_WALK_DISTANCE: u64 = 500;
+
+// Tier thresholds in sompi (1 KAS = 100_000_000 sompi)
+const MAX_THRESHOLD: u64 = 100_000_000_000;
+const PRO_THRESHOLD: u64 = 50_000_000_000;
+const CREATOR_THRESHOLD: u64 = 10_000_000_000;
+
+/// Compute the expected P2PKH script hex for a Kaspa address.
+/// P2PKH script: OP_DUP OP_HASH160 <20-byte pubkey-hash> OP_EQUALVERIFY OP_CHECKSIG
+/// = 76a914 + <20-byte hash> + 88ac
+fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
+    let payload = treasury_addr.payload.as_slice();
+    // Kaspa testnet addresses have a version byte + 20-byte pubkey hash
+    // Payload is: [version] [20-byte hash]
+    if payload.len() >= 20 {
+        let hash160 = &payload[payload.len() - 20..];
+        Some(format!("76a914{}88ac", hex::encode(hash160)))
+    } else {
+        None
+    }
+}
+
+/// PROTOCOL ENFORCEMENT: Output-position-based tier determination.
+///
+/// A valid paid-tier covenant transaction MUST follow this structure:
+///   Output 0: Covenant payload (1 KAS locked in contract script)
+///   Output 1: Tier Payment → Treasury (100/500/1000 KAS)
+///   Output 2: Change → Deployer
+///
+/// If Output 1 does not exist or does not go to the treasury,
+/// the transaction is indexed as "FREE" — no tier benefits.
+///
+/// This is the ON-CHAIN TRUTH. A covenant with no treasury output
+/// at position 1 has no paid tier, regardless of what any API claims.
+fn determine_tier_from_outputs(
+    tx: &RpcTransaction,
+    treasury_script: &str,
+) -> (String, u64) {
+    // Output 1 MUST exist and MUST be a treasury payment
+    if tx.outputs.len() < 2 {
+        return ("FREE".to_string(), 0);
+    }
+
+    let output_1 = &tx.outputs[1];
+    let spk_hex = hex::encode(output_1.script_public_key.script());
+    let amount = output_1.value;
+
+    // Verify this is the treasury address (P2PKH match)
+    let is_treasury = spk_hex == treasury_script
+        || (spk_hex.starts_with("76a914")
+            && spk_hex.ends_with("88ac")
+            && spk_hex.len() == 50
+            && spk_hex[6..46] == treasury_script[6..46]);
+
+    if !is_treasury {
+        debug!(
+            "Crawler: Output[1] is NOT treasury (got {} hex), marking FREE",
+            &spk_hex[..16]
+        );
+        return ("FREE".to_string(), 0);
+    }
+
+    // Output 1 IS treasury — determine tier by amount
+    let tier = if amount >= MAX_THRESHOLD {
+        "MAX"
+    } else if amount >= PRO_THRESHOLD {
+        "PRO"
+    } else if amount >= CREATOR_THRESHOLD {
+        "CREATOR"
+    } else {
+        // Payment to treasury but below minimum tier threshold
+        debug!(
+            "Crawler: treasury Output[1] below tier minimum ({} sompi, need >= {}), marking FREE",
+            amount, CREATOR_THRESHOLD
+        );
+        return ("FREE".to_string(), 0);
+    };
+
+    debug!(
+        "Crawler: Output[1] treasury payment verified: {} sompi ({} KAS) → tier={}",
+        amount,
+        amount as f64 / 100_000_000.0,
+        tier
+    );
+
+    (tier.to_string(), amount)
+}
 
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
     db: Arc<Mutex<rusqlite::Connection>>,
+    treasury_address: String,
     start_daa: u64,
 ) {
-    info!("Historic Crawler started (start_daa={})", start_daa);
+    let treasury_addr = match Address::try_from(treasury_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => {
+            error!("Crawler: invalid treasury address '{}': {}", treasury_address, e);
+            return;
+        }
+    };
+
+    let treasury_script = match treasury_script_hex(&treasury_addr) {
+        Some(s) => s,
+        None => {
+            error!("Crawler: could not compute treasury script from address");
+            return;
+        }
+    };
+
+    info!("Historic Crawler started (treasury={}, script_prefix={:?}, start_daa={})",
+        treasury_address, &treasury_script[..12], start_daa);
 
     let mut scan_daa = match db::get_last_scanned_daa(&db) {
         Ok(daa) if daa > 0 => {
@@ -65,7 +175,6 @@ pub async fn run_crawler(
 
         // Nothing to scan
         if scan_daa >= virtual_daa {
-            // Persist checkpoint
             let _ = db::update_last_scanned_daa(&db, scan_daa);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
@@ -92,12 +201,10 @@ pub async fn run_crawler(
         let mut batch_found = 0usize;
 
         for _step in 0..MAX_WALK_DISTANCE {
-            // Check connection
             if !client.is_connected() {
                 break;
             }
 
-            // Fetch block
             let block = match client.get_block(current_hash.clone(), false).await {
                 Ok(b) => b,
                 Err(e) => {
@@ -108,7 +215,6 @@ pub async fn run_crawler(
 
             let block_daa = block.header.daa_score;
 
-            // Stop when we've covered all unscanned blocks
             if block_daa <= scan_daa {
                 scan_daa = scan_daa.max(block_daa);
                 break;
@@ -116,6 +222,10 @@ pub async fn run_crawler(
 
             // Extract covenant outputs from this block
             for tx in &block.transactions {
+                // First, check if this transaction has a treasury payment →
+                // this determines tier for ALL covenant outputs in this tx
+                let (tx_tier, _treasury_amount) = determine_tier_from_outputs(tx, &treasury_script);
+
                 for (out_idx, output) in tx.outputs.iter().enumerate() {
                     let spk_bytes = output.script_public_key.script();
                     let spk_hex = hex::encode(spk_bytes);
@@ -140,14 +250,16 @@ pub async fn run_crawler(
                         &db, &tx_id, &address, amount_sompi,
                         &script_hash, &spk_hex, &covenant_type,
                         &category, &address, "", block_daa,
+                        &tx_tier,
                     ) {
                         Ok(_) => {
                             batch_found += 1;
                             debug!(
-                                "Crawler: found {} {} @ DAA {} ({} KAS)",
+                                "Crawler: found {} {} @ DAA {} ({} KAS) tier={}",
                                 covenant_type, &tx_id[..16],
                                 block_daa,
-                                amount_sompi as f64 / 100_000_000.0
+                                amount_sompi as f64 / 100_000_000.0,
+                                tx_tier
                             );
 
                             // Auto-generate basic UI for every discovered covenant
@@ -157,6 +269,7 @@ pub async fn run_crawler(
                             let gen_cat = category.clone();
                             let gen_hash = script_hash.clone();
                             let gen_addr = address.clone();
+                            let gen_tier = tx_tier.to_string();
                             tokio::spawn(async move {
                                 let params = ui_generator::extract_parameters_from_script("aa20", &gen_hash);
                                 let config = covenant_types::UiGenerationConfig {
@@ -165,16 +278,19 @@ pub async fn run_crawler(
                                     category: gen_cat,
                                     script_hash: gen_hash,
                                     parameters: params,
-                                    is_enhanced: false,
-                                    disclosure_level: "limited".into(),
+                                    is_enhanced: gen_tier != "FREE",
+                                    disclosure_level: if gen_tier == "FREE" { "limited".into() } else { "full".into() },
                                     creator_addr: gen_addr,
                                 };
                                 let ui_html = ui_generator::generate_basic_ui(&config);
                                 let slug = format!("covenant-{}", &gen_tx_id[..16]);
-                                let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, "FREE", &ui_html, "{}", &slug, false);
-                                // Create visibility record so covenant appears in listings
-                                let _ = db::set_visibility(&gen_db, &gen_tx_id, "FREE", false, 0, None);
-                                debug!("Crawler: auto-generated basic UI + visibility for {}", &gen_tx_id[..16]);
+                                let featured = gen_tier == "MAX" || gen_tier == "PRO";
+                                let priority: i32 = match gen_tier.as_str() {
+                                    "MAX" => 100, "PRO" => 50, "CREATOR" => 10, _ => 0
+                                };
+                                let _ = db::save_generated_ui(&gen_db, &gen_tx_id, &gen_tx_id, &gen_tier, &ui_html, "{}", &slug, featured);
+                                let _ = db::set_visibility(&gen_db, &gen_tx_id, &gen_tier, featured, priority, None);
+                                debug!("Crawler: auto-generated basic UI + visibility for {} (tier={})", &gen_tx_id[..16], gen_tier);
                             });
                         }
                         Err(e) if e.to_string().contains("UNIQUE") => {}
@@ -214,7 +330,33 @@ pub async fn run_crawler(
     }
 }
 
+/// Returns true if the script is a standard wallet output that should NEVER be indexed as a covenant.
+/// Standard Kaspa outputs are always ≤ 40 hex chars (20 raw bytes max for P2PKH/P2PK/P2SH/script-hash).
+/// Real SilverScript covenant payloads start at 100+ bytes.
+fn is_standard_output(spk_hex: &str) -> bool {
+    let raw_len = spk_hex.len() / 2; // hex chars → raw bytes
+    if raw_len <= 40 {
+        return true; // Too small to be a real covenant
+    }
+    // P2PKH: 76a914<20>88ac (25 raw bytes = 50 hex)
+    if spk_hex.len() == 50 && spk_hex.starts_with("76a914") && spk_hex.ends_with("88ac") {
+        return true;
+    }
+    // Schnorr P2PK: 20<32-byte-pubkey>ac (34 raw bytes = 68 hex)
+    // P2SH: a914<20-byte-hash>87 (23 raw bytes = 46 hex)
+    if (spk_hex.len() == 68 && spk_hex.starts_with("20") && spk_hex.ends_with("ac"))
+        || (spk_hex.len() == 46 && spk_hex.starts_with("a914") && spk_hex.ends_with("87"))
+    {
+        return true;
+    }
+    false
+}
+
 fn looks_like_covenant(spk_hex: &str) -> bool {
+    // Reject standard wallet transfers first — they are NOT covenants.
+    if is_standard_output(spk_hex) {
+        return false;
+    }
     if spk_hex.len() < 4 {
         return false;
     }

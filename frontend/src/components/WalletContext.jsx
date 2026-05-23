@@ -14,8 +14,8 @@ const REQUIRED_NETWORK = 'testnet-12';
 const WALLET_LOGOS = {
   KasWare:  'https://lh3.googleusercontent.com/GWR2Bode3QAzDrsZJHVRsYhCN60azRCtL1xoOBxqCYcDpbMD_avwiFkuiAOAkuyLnEh9DGOAoZSbWDcNUhiZ7X6RZE8=s128',
   Kastle:   'https://lh3.googleusercontent.com/byDg7ykj9UUJRur0v8jFr9orcj7N1_M6LuqtwnJxlnVNk4GV0JrhFmS0Xp0U9QRgxGZa4wf7-8M29v7kfEBc-Ha9kg=s128',
-  Kasperia: 'https://lh3.googleusercontent.com/b08QPuruZqIwLRmpcTrN54hmxY6YEQgVKS4y1s7LAYiXvsWRUK2SIivLecsxgoCuoH66jNLnQLzjMWXtFr0=s128',
-  OKX:      'https://lh3.googleusercontent.com/2bBevW79q6gRZTFdm42CzUetuEKndq4fn41HQGknMpKMF_d-Ae2sJJzgfFUAVb1bJKCBb4ptZ9EAPp-QhWYIvc35yw=s128',
+  Kasperia: 'https://raw.githubusercontent.com/THTProtocol/Covex27/refs/heads/master/frontend/public/icons.svg',
+  OKX:      'https://raw.githubusercontent.com/THTProtocol/Covex27/refs/heads/master/frontend/public/icons.svg',
   Kasanova: 'https://kasanova.app/favicon.ico',
   Kaspium:  'https://kaspium.io/favicon.ico',
   KaspaCom: 'https://wallet.kaspa.com/favicon.ico',

@@ -63,7 +63,7 @@ const Pricing = () => {
                 <div key={i} className="flex gap-3 text-sm text-gray-600"><XIcon size={18} className="shrink-0" /> {feature}</div>
               ))}
             </div>
-            <button onClick={() => navigate('/')} className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none">
+            <button onClick={() => navigate('/')} className="w-full px-4 py-2.5 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-lg transition-all duration-200 shadow-[0_0_10px_rgba(73,234,203,0.25)] hover:shadow-[0_0_18px_rgba(73,234,203,0.5)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none text-sm">
               Explore Covenants
             </button>
           </div>

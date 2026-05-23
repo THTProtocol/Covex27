@@ -1,5 +1,3 @@
-use crate::db;
-use crate::covenant_types;
 use axum::{extract::Path, Extension, Json, Router, routing::{get, post}};
 use kaspa_addresses::Address;
 use kaspa_consensus_core::tx::Transaction;
@@ -8,24 +6,32 @@ use kaspa_rpc_core::RpcTransaction;
 use kaspa_wrpc_client::KaspaRpcClient;
 use serde::Deserialize;
 use std::sync::Arc;
-use std::sync::Mutex;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 use workflow_serializer::prelude::BorshDeserialize;
 
 // ── TX broadcast endpoint ────────────────────────────────────────
+//
+// STRICT: This endpoint ONLY receives the signed hex, broadcasts it to the
+// local node's mempool via wRPC, and returns the tx_id. No database writes
+// whatsoever. The crawler is the ONLY code path allowed to index covenants
+// into covex.db — it discovers them natively on the DAG and verifies
+// treasury outputs to determine tier.
 
 #[derive(Deserialize, Debug)]
 pub struct BroadcastRequest {
     pub tx_hex: String,
     pub deployer_addr: String,
+    #[serde(default)]
     pub script_hex: String,
+    #[serde(default)]
     pub script_name: Option<String>,
+    #[serde(default)]
+    pub tier: Option<String>,
 }
 
 /// POST /broadcast — accepts a signed Kaspa transaction hex, parses, broadcasts via wRPC
 pub async fn broadcast_handler(
     Extension(client): Extension<Arc<KaspaRpcClient>>,
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Json(payload): Json<BroadcastRequest>,
 ) -> Json<serde_json::Value> {
     let tx_hex = payload.tx_hex.trim();
@@ -56,77 +62,19 @@ pub async fn broadcast_handler(
 
     let rpc_tx: RpcTransaction = RpcTransaction::from(&consensus_tx);
 
-    // Submit to node via wRPC
+    // Submit to node via wRPC — no DB writes, no auto-indexing
     match client.submit_transaction(rpc_tx, false).await {
         Ok(tx_id) => {
             let tx_id_str = tx_id.to_string();
-            let tx_id_for_response = tx_id_str.clone();
             info!("Broadcast success: tx_id={}", tx_id_str);
-
-            // Auto-index the deployed covenant
-            let script_hex = payload.script_hex.clone();
-            let deployer = payload.deployer_addr.clone();
-            let script_name = payload.script_name.clone();
-            if !script_hex.is_empty() {
-                let db2 = Arc::clone(&db);
-                tokio::spawn(async move {
-                    let category = covenant_types::CovenantCategory::from_script_ops(&script_hex);
-                    let script_hash = crate::compute_script_hash(&script_hex);
-                    let covenant_type = if script_hex.starts_with("aa20") {
-                        "p2sh-covenant"
-                    } else {
-                        "silverscript-covenant"
-                    };
-                    let amount = 100_000_000u64; // 1 KAS
-
-                    if let Err(e) = db::insert_covenant(
-                        &db2,
-                        &tx_id_str,
-                        &deployer,
-                        amount,
-                        &script_hash,
-                        &script_hex,
-                        covenant_type,
-                        category.label(),
-                        &deployer,
-                        "Deployed via Covex Dev Wallet",
-                        0,
-                    ) {
-                        error!("Failed to auto-index deployed covenant {}: {}", tx_id_str, e);
-                        return;
-                    }
-                    info!("Auto-indexed deployed covenant: {} (type: {})", &tx_id_str[..16], covenant_type);
-
-                    // Auto-generate basic UI
-                    let params = crate::ui_generator::extract_parameters_from_script("aa20", &script_hash);
-                    let config = crate::covenant_types::UiGenerationConfig {
-                        covenant_id: tx_id_str.clone(),
-                        covenant_name: script_name.unwrap_or_else(|| {
-                            format!("{} {}", covenant_type, &tx_id_str[..8])
-                        }),
-                        category: category.label().to_string(),
-                        script_hash,
-                        parameters: params,
-                        is_enhanced: false,
-                        disclosure_level: "limited".into(),
-                        creator_addr: deployer,
-                    };
-                    let ui_html = crate::ui_generator::generate_basic_ui(&config);
-                    let slug = format!("covenant-{}", &tx_id_str[..16]);
-                    let _ = db::save_generated_ui(&db2, &tx_id_str, &tx_id_str, "FREE", &ui_html, "{}", &slug, false);
-                    let _ = db::set_visibility(&db2, &tx_id_str, "FREE", false, 0, None);
-                    info!("Auto-generated basic UI for deployed covenant {}", &tx_id_str[..16]);
-                });
-            }
-
             Json(serde_json::json!({
                 "success": true,
-                "tx_id": tx_id_for_response,
+                "tx_id": tx_id_str,
                 "error": null
             }))
         }
         Err(e) => {
-            error!("Broadcast failed: {}", e);
+            warn!("Broadcast failed: {}", e);
             Json(serde_json::json!({
                 "success": false,
                 "tx_id": null,

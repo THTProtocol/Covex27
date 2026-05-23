@@ -550,6 +550,7 @@ dependencies = [
  "kaspa-txscript",
  "kaspa-wrpc-client",
  "rusqlite",
+ "secp256k1",
  "serde",
  "serde_json",
  "sha2",

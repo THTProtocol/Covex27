@@ -14,6 +14,13 @@
 //
 // STRICT: No DB writes. Returns tx_id only. Crawler discovers and
 // indexes the covenant on-chain.
+//
+// ── SIGHASH FIX (TN12 Toccata fork) ─────────────────────────────
+// kaspa-consensus-core v0.15.0's `payload_hash()` returns ZERO for
+// SUBNETWORK_ID_NATIVE, but the TN12 node was patched to always include
+// payload in sighash. We use a vendored copy of the crate with the fix:
+// `payload_hash` now always hashes the payload regardless of subnetwork.
+// See: vendor/kaspa-consensus-core/src/hashing/sighash.rs
 
 use axum::{Extension, Json, Router, routing::post};
 use kaspa_addresses::Address;
@@ -26,10 +33,11 @@ use kaspa_consensus_core::tx::{
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::{RpcTransaction, RpcUtxosByAddressesEntry};
 use kaspa_wrpc_client::KaspaRpcClient;
-use secp256k1::SECP256K1;
 use serde::Deserialize;
 use std::sync::Arc;
 use tracing::{info, warn};
+
+use crate::dev_wallets;
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -52,7 +60,8 @@ const CREATOR_FEE: u64 = 100 * 100_000_000;
 
 #[derive(Deserialize, Debug)]
 pub struct SignAndBroadcastRequest {
-    /// 64-char hex private key (32 bytes)
+    /// 64-char hex private key (32 bytes) — ignored when use_dev_mode is true
+    #[serde(default)]
     pub private_key_hex: String,
     /// Kaspa address of the deployer (kaspatest:...)
     pub deployer_addr: String,
@@ -64,6 +73,9 @@ pub struct SignAndBroadcastRequest {
     /// Optional custom script name for covenant embedding
     #[serde(default)]
     pub covenant_name: Option<String>,
+    /// If true, load private key from dev_wallets.rs (wallet 1)
+    #[serde(default)]
+    pub use_dev_mode: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -138,20 +150,31 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
 /// POST /sign-and-broadcast
 ///
 /// Steps:
-/// 1. Parse private key
+/// 1. Resolve private key (dev mode → dev_wallets.rs, otherwise from request)
 /// 2. Fetch deployer UTXOs from wRPC
 /// 3. Determine tier fee and compute outputs
-/// 4. Build unsigned Transaction (node computes mass internally)
+/// 4. Build unsigned Transaction (native subnetwork, version 0)
 /// 5. Create SignableTransaction with UTXO entries
 /// 6. Sign with schnorr via sign_with_multiple_v2
-/// 7. Broadcast via wRPC
-/// 8. Return tx_id
+/// 7. Finalize AFTER signing
+/// 8. Broadcast via wRPC
+/// 9. Return tx_id
 pub async fn sign_and_broadcast_handler(
     Extension(client): Extension<Arc<KaspaRpcClient>>,
     Json(payload): Json<SignAndBroadcastRequest>,
 ) -> Json<serde_json::Value> {
-    // ── Step 1: Parse private key ──────────────────────────────
-    let clean_hex = payload.private_key_hex.trim().trim_start_matches("0x");
+    // ── Step 1: Resolve private key ──────────────────────────────
+    let private_key_hex: String = if payload.use_dev_mode {
+        if payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS {
+            dev_wallets::DEV_WALLET_2_PRIVATE_KEY.to_string()
+        } else {
+            dev_wallets::DEV_WALLET_1_PRIVATE_KEY.to_string()
+        }
+    } else {
+        payload.private_key_hex.clone()
+    };
+
+    let clean_hex = private_key_hex.trim().trim_start_matches("0x");
     let pk_bytes: [u8; 32] = match hex::decode(clean_hex).ok().and_then(|b| b.try_into().ok()) {
         Some(b) => b,
         None => {
@@ -191,12 +214,11 @@ pub async fn sign_and_broadcast_handler(
         }));
     }
 
-    // ── Step 3: Compute outputs ───────────────────────────────
+    // ── Step 3: Select UTXOs and compute outputs ──────────────
     let tier = payload.tier.as_deref();
     let tier_fee = tier_fee_sompi(tier);
 
-    // CRITICAL: Clone UTXO's script_public_key exactly.
-    // Manual construction introduces byte mismatches that break signing.
+    // Clone UTXO's script_public_key exactly — avoids byte mismatches
     let deployer_script = utxos[0].utxo_entry.script_public_key.clone();
 
     let treasury_script = match script_pub_key_from_address(TREASURY_ADDRESS) {
@@ -210,7 +232,27 @@ pub async fn sign_and_broadcast_handler(
     };
 
     let total_cost = COVENANT_AMOUNT + tier_fee + TX_FEE;
-    let total_input: u64 = utxos.iter().map(|u| u.utxo_entry.amount).sum();
+
+    // Decode covenant script for the transaction payload
+    let covenant_payload = if payload.script_hex.trim().is_empty() {
+        vec![]
+    } else {
+        hex::decode(payload.script_hex.trim()).unwrap_or_default()
+    };
+
+    // Use 1 largest UTXO to keep mass under 500K cap
+    let max_inputs = 1usize;
+    let chosen_utxos: Vec<&RpcUtxosByAddressesEntry> = if utxos.len() <= max_inputs {
+        utxos.iter().collect()
+    } else {
+        let mut sorted: Vec<&RpcUtxosByAddressesEntry> = utxos.iter().collect();
+        sorted.sort_by_key(|u| u.utxo_entry.amount);
+        sorted.reverse(); // largest first
+        sorted.truncate(max_inputs);
+        sorted
+    };
+
+    let total_input: u64 = chosen_utxos.iter().map(|u| u.utxo_entry.amount).sum();
 
     if total_input < total_cost {
         return Json(serde_json::json!(SignAndBroadcastResponse {
@@ -227,24 +269,6 @@ pub async fn sign_and_broadcast_handler(
 
     let change = total_input - total_cost;
 
-    // Use ALL UTXOs as inputs — each input adds mass budget.
-    // The node's mass budget scales with input count × sig_op_count × mass_per_sig_op.
-    // Single input = ~1000 mass = 10K budget. Multiple inputs = more budget.
-    let utxos_for_tx = if utxos.len() >= 3 {
-        // Use enough inputs to get >100K compute budget
-        utxos.clone()
-    } else {
-        utxos.clone()
-    };
-
-    // Decode covenant script for the transaction payload
-    // If empty, no covenant — just a simple transfer
-    let covenant_payload = if payload.script_hex.trim().is_empty() {
-        vec![]
-    } else {
-        hex::decode(payload.script_hex.trim()).unwrap_or_default()
-    };
-
     // On-chain truth output structure:
     //   Output 0 → Deployer (1 KAS)
     //   Output 1 → Treasury (tier fee, only if paid)
@@ -252,17 +276,15 @@ pub async fn sign_and_broadcast_handler(
     let mut outputs = vec![
         TransactionOutput { value: COVENANT_AMOUNT, script_public_key: deployer_script.clone() },
     ];
-
     if tier_fee > 0 {
         outputs.push(TransactionOutput { value: tier_fee, script_public_key: treasury_script });
     }
-
     if change > 0 {
         outputs.push(TransactionOutput { value: change, script_public_key: deployer_script.clone() });
     }
 
     // ── Step 4: Build unsigned transaction ─────────────────────
-    let inputs: Vec<TransactionInput> = utxos
+    let inputs: Vec<TransactionInput> = chosen_utxos
         .iter()
         .map(|u| TransactionInput {
             previous_outpoint: TransactionOutpoint {
@@ -271,7 +293,7 @@ pub async fn sign_and_broadcast_handler(
             },
             signature_script: vec![],
             sequence: 0,
-            sig_op_count: 0,
+            sig_op_count: 1,
         })
         .collect();
 
@@ -286,7 +308,33 @@ pub async fn sign_and_broadcast_handler(
     );
 
     // ── Step 5-6: Sign THEN finalize ──────────────────────────
-    let entries: Vec<UtxoEntry> = utxos.iter().map(to_utxo_entry).collect();
+    let entries: Vec<UtxoEntry> = chosen_utxos.iter().map(|u| to_utxo_entry(u)).collect();
+
+    // ── DIAGNOSTIC LOGGING ───────────────────────────────────
+    let first_utxo = &chosen_utxos[0];
+    warn!(
+        "[SIGNER-DIAG] tx_inputs={}  utxo_entries={}  pk_prefix={}",
+        unsigned_tx.inputs.len(),
+        entries.len(),
+        &private_key_hex[..10.min(private_key_hex.len())],
+    );
+    warn!(
+        "[SIGNER-DIAG] input[0] outpoint={}:{}",
+        first_utxo.outpoint.transaction_id, first_utxo.outpoint.index,
+    );
+    warn!(
+        "[SIGNER-DIAG] entry[0] amount={} script_len={}",
+        entries[0].amount,
+        entries[0].script_public_key.script().len(),
+    );
+    warn!(
+        "[SIGNER-DIAG] tx.payload_len={} tx.subnetwork_id={:?} tx.version={} tx.gas={}",
+        unsigned_tx.payload.len(),
+        unsigned_tx.subnetwork_id,
+        unsigned_tx.version,
+        unsigned_tx.gas,
+    );
+
     let signable_tx = SignableTransaction::with_entries(unsigned_tx, entries);
 
     let result = sign_with_multiple_v2(signable_tx, &[pk_bytes]);

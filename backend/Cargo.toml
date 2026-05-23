@@ -30,3 +30,6 @@ hex = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 workflow-serializer = "0.18.0"
 secp256k1 = "0.29.1"
+
+[patch.crates-io]
+kaspa-consensus-core = { path = "vendor/kaspa-consensus-core" }

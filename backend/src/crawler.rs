@@ -148,11 +148,9 @@ fn classify(hex: &str) -> String {
     if hex.starts_with("aa20") && hex.ends_with("87") { "p2sh-covenant".into() }
     else if hex.contains("aa21") { "extended-covenant".into() }
     else if hex.contains("aa22") { "multi-sig-covenant".into() }
+    else if hex.contains("aa23") { "community-pool-covenant".into() }
     else { "generic-covenant".into() }
 }
 fn categorize(hex: &str) -> String {
-    if hex.is_empty() { "General".into() }
-    else if hex.contains("aa21") { "Escrow & Custody".into() }
-    else if hex.contains("aa22") { "Tournaments".into() }
-    else { "General".into() }
+    crate::covenant_types::CovenantCategory::from_script_ops(hex).label().to_string()
 }

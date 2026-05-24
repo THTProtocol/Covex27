@@ -112,37 +112,62 @@ The React frontend renders in the exact order returned. **No frontend re-sorting
 
 ## Covenant Classification
 
-Both crawler and indexer classify every detected covenant. The crawler inspects `tx.payload`; the indexer inspects output script public key hex. Their classification logic is isomorphic:
+Both crawler and indexer classify every detected covenant using the 9-category `CovenantCategory` enum. The crawler inspects `tx.payload`; the indexer inspects output script public key hex. Both route through `CovenantCategory::from_script_ops()` — a shared classification function with 9 distinct detection branches.
 
 ```mermaid
 graph LR
-    Hex["raw hex"] --> P1{"starts 'aa20'<br>+ ends '87'?"}
-    P1 -->|Yes| P2SH["p2sh-covenant"]
-    P1 -->|No| P2{"contains 'aa21'?"}
-    P2 -->|Yes| Extended["extended-covenant"]
-    P2 -->|No| P3{"contains 'aa22'?"}
-    P3 -->|Yes| MultiSig["multi-sig-covenant"]
-    P3 -->|No| P4{"contains '51'?"}
-    P4 -->|Yes| Spendable["spendable-covenant"]
-    P4 -->|No| Generic["generic-covenant"]
-
-    Hex --> Cat{"category?"}
-    Cat -->|"'aa21' present"| Escrow["Escrow & Custody"]
-    Cat -->|"'aa22' present"| Tournament["Tournaments"]
-    Cat -->|"'aa20'/'aa21' + no '51'"| Skill["Skill Contests"]
-    Cat -->|default| General["General"]
+    Hex["raw hex"] --> Flash{"raw_len < 80<br>+ any aa2x?"}
+    Flash -->|Yes| FlashOut["Flash Covenant"]
+    Flash -->|No| E1{"contains 'aa21'?"}
+    E1 -->|Yes| Gov{"also '51' + '52'?"}
+    Gov -->|Yes| Governance["Governance"]
+    Gov -->|No| Escrow["Escrow & Custody"]
+    E1 -->|No| E2{"contains 'aa22'?"}
+    E2 -->|Yes| Tournament["Tournament"]
+    E2 -->|No| E3{"contains 'aa23'?"}
+    E3 -->|Yes| Pool["Community Pool"]
+    E3 -->|No| E4{"contains 'aa20'?"}
+    E4 -->|Yes| Pred{"also '52' or '53'?"}
+    Pred -->|Yes| Predictive["Predictive Market"]
+    Pred -->|No| Struct{"raw_len > 120?"}
+    Struct -->|Yes| Settlement["Structured Settlement"]
+    Struct -->|No| Skill["Skill Contest"]
+    E4 -->|No| General["General"]
 
     style Hex fill:#1A1A2E,stroke:#49EACB,color:#49EACB
-    style P2SH fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Extended fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style MultiSig fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Spendable fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Generic fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style FlashOut fill:#1A1A2E,stroke:#EF4444,color:#EF4444
+    style Governance fill:#1A1A2E,stroke:#A855F7,color:#A855F7
     style Escrow fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
     style Tournament fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Pool fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Predictive fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Settlement fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
     style Skill fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style General fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style General fill:#1A1A2E,stroke:#666,color:#E0E0E0
 ```
+
+| Category | Detection Rule | Active |
+|:---|:---|:---|
+| **Flash** | Any `aa20`/`aa21`/`aa22`/`aa23` AND raw bytes < 80 | ✓ |
+| **Escrow & Custody** | Contains `aa21`, no multi-outcome markers | ✓ |
+| **Tournaments** | Contains `aa22` | ✓ |
+| **Community Pool** | Contains `aa23` | ✓ |
+| **Governance** | Contains `aa21` AND `51` (OP_1) AND `52` (OP_2) — multi-outcome voting | ✓ |
+| **Predictive Markets** | Contains `aa20` AND `52` (OP_2) or `53` (OP_3) — binary/ternary markets | ✓ |
+| **Structured Settlement** | Contains `aa20`, raw bytes > 120, no OP_2/OP_3 | ✓ |
+| **Skill Contests** | Contains `aa20`/`aa21` with `51` (OP_1), single-outcome | ✓ |
+| **General** | Opcodes present, no specific pattern matched | ✓ |
+
+Classification types (the `covenant_type` column, assigned by the `classify()` / `classify_covenant()` functions):
+
+| Type | Detection |
+|:---|:---|
+| `p2sh-covenant` | Starts `aa20` AND ends `87` |
+| `extended-covenant` | Contains `aa21` |
+| `multi-sig-covenant` | Contains `aa22` |
+| `community-pool-covenant` | Contains `aa23` |
+| `spendable-covenant` | Contains `51` (indexer only) |
+| `generic-covenant` | No opcode match (fallback) |
 
 <br>
 

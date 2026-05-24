@@ -23,16 +23,70 @@ pub enum CovenantCategory {
 }
 
 impl CovenantCategory {
+    /// Classify a covenant by its script hex payload into one of 9 categories.
+    ///
+    /// Detection rules (checked in order):
+    ///   Flash        — very short payload (< 80 raw bytes) with any aa2x opcode
+    ///   Escrow        — contains `aa21` (time-locked custody escrow)
+    ///   Tournament    — contains `aa22` (multi-sig threshold tournament)
+    ///   Governance    — contains `aa21` AND `51`/`52` (multi-outcome voting)
+    ///   CommunityPool — contains `aa23` (pooled/fundraising covenant)
+    ///   Predictive    — `aa20` with `52`/`53` (OP_2/OP_3 for binary/ternary markets)
+    ///   Structured    — `aa20` with timelock pattern (block-DAA-based settlement)
+    ///   Skill         — `aa20`/`aa21` without `51` (single-outcome contest)
+    ///   General       — fallback (opcodes present, no specific pattern matched)
     pub fn from_script_ops(script_hex: &str) -> Self {
-        if script_hex.contains("aa20") || script_hex.contains("aa21") {
-            if script_hex.contains("51") {
-                return CovenantCategory::General;
-            }
-            return CovenantCategory::Skill;
-        }
         if script_hex.is_empty() {
             return CovenantCategory::General;
         }
+
+        let raw_len = script_hex.len() / 2;
+
+        // Flash: very short covenant payload (compact one-shot logic)
+        let has_opcodes = script_hex.contains("aa20")
+            || script_hex.contains("aa21")
+            || script_hex.contains("aa22")
+            || script_hex.contains("aa23");
+        if has_opcodes && raw_len < 80 {
+            return CovenantCategory::Flash;
+        }
+
+        // aa21 patterns
+        if script_hex.contains("aa21") {
+            // Governance: aa21 + multi-outcome voting (51=OP_1, 52=OP_2)
+            if script_hex.contains("51") && script_hex.contains("52") {
+                return CovenantCategory::Governance;
+            }
+            return CovenantCategory::Escrow;
+        }
+
+        // aa22 patterns
+        if script_hex.contains("aa22") {
+            return CovenantCategory::Tournament;
+        }
+
+        // aa23 patterns
+        if script_hex.contains("aa23") {
+            return CovenantCategory::CommunityPool;
+        }
+
+        // aa20 patterns
+        if script_hex.contains("aa20") {
+            // Predictive: aa20 + binary/ternary outcome markers
+            if script_hex.contains("52") || script_hex.contains("53") {
+                return CovenantCategory::Predictive;
+            }
+            // Structured: aa20 with timelock pattern (DAA-score based settlement)
+            if script_hex.contains("aa20") && raw_len > 120 {
+                return CovenantCategory::Structured;
+            }
+            // Skill: aa20 with OP_1 (single-outcome skill contest)
+            if script_hex.contains("51") {
+                return CovenantCategory::Skill;
+            }
+            return CovenantCategory::Skill;
+        }
+
         CovenantCategory::General
     }
 

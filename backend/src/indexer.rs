@@ -130,6 +130,8 @@ pub async fn run_indexer(
                             &script_hex, &covenant_type, category.label(),
                             &address, "", block_daa,
                             &tier,
+                            &format!("{} covenant locking {:.2} KAS on Kaspa BlockDAG TN-12", covenant_type, amount_sompi as f64/100_000_000.0),
+                            &format!("[\"{}\"]", address),
                         ) {
                             error!("Indexer: insert failed {}: {}", tx_id, e);
                         } else {

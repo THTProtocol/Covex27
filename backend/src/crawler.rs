@@ -46,6 +46,12 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
     (tier.to_string(), amount)
 }
 
+/// Auto-generate a logic summary from covenant type, category and amount
+fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64) -> String {
+    let kas = amount_sompi as f64 / 100_000_000.0;
+    format!("{} covenant (category: {}) locking {:.2} KAS on Kaspa BlockDAG TN-12. Extracted automatically from on-chain UTXO data.", covenant_type, category, kas)
+}
+
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
     db: Arc<Mutex<rusqlite::Connection>>,
@@ -104,7 +110,9 @@ pub async fn run_crawler(
                 let addr = format!("kaspatest:{}", &txh[..32]);
                 let shash = crate::compute_script_hash(&pl);
 
-                match db::insert_covenant(&db, &tid, &addr, amt, &shash, &pl, &ctype, &cat, &addr, "", daa, &tier) {
+                let summary = auto_summary(&ctype, &cat, amt);
+                let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
+                match db::insert_covenant(&db, &tid, &addr, amt, &shash, &pl, &ctype, &cat, &addr, "", daa, &tier, &summary, &recv_addrs) {
                     Ok(_) => {
                         batch += 1;
                         info!("Crawler: FOUND {} {} DAA={} amt={}K tier={} pl={}", ctype, &tid[..16], daa, amt as f64/1e8, tier, &pl[..40.min(pl.len())]);

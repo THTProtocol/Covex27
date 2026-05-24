@@ -184,7 +184,7 @@ const Explorer = () => {
 
               return (
                 <Link
-                  to={`/covenant/${c.tx_id}`}
+                  to={`/covenant/${encodeURIComponent(c.tx_id)}`}
                   key={c.tx_id || i}
                   className={`block border rounded-xl p-6 transition-all duration-300 ${style.card} ${
                     isPremium ? 'neon-card-hover hover:-translate-y-0.5' : 'hover:border-emerald-500/30 hover:bg-zinc-900/60'

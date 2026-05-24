@@ -36,17 +36,17 @@ export default function App() {
                 <defs>
                   <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#49EACB"/>
-                    <stop offset="100%" stopColor="#00D2FF"/>
+                    <stop offset="100%" stopColor="#7e14ff"/>
                   </linearGradient>
                 </defs>
-                <circle cx="24" cy="23" r="22" fill="none" stroke="url(#navGrad)" strokeWidth="1.5" opacity="0.3"/>
-                <path d="M34 12C31 8 26 6 20 6C10 6 8 16 8 23s2 17 12 17c6 0 11-2 14-6" fill="none" stroke="url(#navGrad)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="24" cy="1" r="2.5" fill="#49EACB" opacity="0.8"/>
-                <circle cx="44" cy="13" r="2" fill="#00D2FF" opacity="0.6"/>
-                <circle cx="45" cy="32" r="2.5" fill="#49EACB" opacity="0.5"/>
-                <circle cx="3" cy="13" r="2" fill="#00D2FF" opacity="0.6"/>
-                <circle cx="4" cy="32" r="2" fill="#49EACB" opacity="0.5"/>
-                <circle cx="24" cy="23" r="3" fill="#49EACB"/>
+                <path d="M22 7L18 11L10 17L8 25L10 33L18 38L22 40" stroke="url(#navGrad)" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                <circle cx="22" cy="7" r="2.5" fill="#49EACB" opacity="0.9"/>
+                <circle cx="18" cy="11" r="2" fill="#00D2FF" opacity="0.8"/>
+                <circle cx="10" cy="17" r="2.5" fill="#49EACB" opacity="0.9"/>
+                <circle cx="8" cy="25" r="3" fill="#49EACB"/>
+                <circle cx="10" cy="33" r="2.5" fill="#49EACB" opacity="0.9"/>
+                <circle cx="18" cy="38" r="2" fill="#00D2FF" opacity="0.8"/>
+                <circle cx="22" cy="40" r="2.5" fill="#7e14ff" opacity="0.9"/>
               </svg>
               <span className="bg-gradient-to-r from-[#49EACB] to-white bg-clip-text text-transparent">COVEX</span>
             </Link>

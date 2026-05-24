@@ -246,6 +246,7 @@ export default function CovenantInteractive() {
   }, [covenant, amount, address, deployUri, sendPayment]);
 
   const covenantTierVal = tierValue(covenant?.verified_tier || covenant?.tier || 'FREE');
+  const tier = (covenant?.verified_tier || covenant?.tier || 'FREE').toUpperCase();
 
   if (loading) {
     return (
@@ -600,7 +601,7 @@ export default function CovenantInteractive() {
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${covenant.is_active ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-red-400'}`} />
                     <span className={`text-[10px] font-semibold ${covenant.is_active ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {covenant.is_active ? 'ACTIVE — Unspent UTXO' : 'INACTIVE — Spent or expired'}
+                      {covenant.is_active ? 'Active: Unspent UTXO' : 'Inactive'}
                     </span>
                   </div>
                 </div>

@@ -27,10 +27,10 @@ const PAPERS = [
 ];
 
 const POSTS = [
-  { title: 'Kaspa: The Fastest, Open-Source, Decentralized Layer-1', href: 'https://medium.com/@kaspa-currency/kaspa-the-fastest-open-source-decentralized-layer-1' },
-  { title: 'Understanding the GHOSTDAG Protocol', href: 'https://medium.com/@kaspa-currency/understanding-ghostdag' },
-  { title: 'Smart Contracts on Kaspa: SilverScript and Toccata', href: 'https://medium.com/@kaspa-currency/smart-contracts-on-the-kaspa-blockdag' },
-  { title: 'The Rust Architecture Behind Kaspa', href: 'https://medium.com/@kaspa-currency/the-rust-architecture-behind-kaspa' },
+  { title: 'Kaspa Official Website', href: 'https://kaspa.org' },
+  { title: 'Kaspa GitHub Repository', href: 'https://github.com/kaspanet/rusty-kaspa' },
+  { title: 'Kaspa Documentation', href: 'https://github.com/kaspanet/docs' },
+  { title: 'Kaspa Explorer (Mainnet)', href: 'https://explorer.kaspa.org' },
 ];
 
 export default function WhatIsKaspaPage() {

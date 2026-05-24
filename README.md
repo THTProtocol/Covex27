@@ -112,51 +112,83 @@ The React frontend renders in the exact order returned. **No frontend re-sorting
 
 ## Covenant Classification
 
-Both crawler and indexer classify every detected covenant using the 9-category `CovenantCategory` enum. The crawler inspects `tx.payload`; the indexer inspects output script public key hex. Both route through `CovenantCategory::from_script_ops()` — a shared classification function with 9 distinct detection branches.
+Both crawler and indexer classify every detected covenant using the `CovenantCategory` enum — 9 categories, driven by a shared `from_script_ops()` function. The crawler inspects `tx.payload`; the indexer inspects output script public key hex. The classification flows through **three stages** below, and PRO/MAX tier creators can override the detected category with a **custom label** via the Trust Builder.
+
+### Stage 1 — Opcode Dispatch
+
+Every covenant payload hits a five-way opcode fork. Fast-path: payloads shorter than 80 bytes are classified as **Flash** covenants.
 
 ```mermaid
 graph LR
-    Hex["raw hex"] --> Flash{"raw_len < 80<br>+ any aa2x?"}
-    Flash -->|Yes| FlashOut["Flash Covenant"]
-    Flash -->|No| E1{"contains 'aa21'?"}
-    E1 -->|Yes| Gov{"also '51' + '52'?"}
-    Gov -->|Yes| Governance["Governance"]
-    Gov -->|No| Escrow["Escrow & Custody"]
-    E1 -->|No| E2{"contains 'aa22'?"}
-    E2 -->|Yes| Tournament["Tournament"]
-    E2 -->|No| E3{"contains 'aa23'?"}
-    E3 -->|Yes| Pool["Community Pool"]
-    E3 -->|No| E4{"contains 'aa20'?"}
-    E4 -->|Yes| Pred{"also '52' or '53'?"}
-    Pred -->|Yes| Predictive["Predictive Market"]
-    Pred -->|No| Struct{"raw_len > 120?"}
-    Struct -->|Yes| Settlement["Structured Settlement"]
-    Struct -->|No| Skill["Skill Contest"]
-    E4 -->|No| General["General"]
+    Hex["payload hex"] --> Size{"raw_len < 80?"}
+    Size -->|Yes| Flash["Flash Covenant"]
+    Size -->|No| O1{"contains 'aa21'?"}
+    O1 -->|Yes| A21["→ aa21 branch"]
+    O1 -->|No| O2{"contains 'aa22'?"}
+    O2 -->|Yes| A22["→ aa22 branch"]
+    O2 -->|No| O3{"contains 'aa23'?"}
+    O3 -->|Yes| Pool["Community Pool"]
+    O3 -->|No| O4{"contains 'aa20'?"}
+    O4 -->|Yes| A20["→ aa20 branch"]
+    O4 -->|No| General["General"]
 
     style Hex fill:#1A1A2E,stroke:#49EACB,color:#49EACB
-    style FlashOut fill:#1A1A2E,stroke:#EF4444,color:#EF4444
-    style Governance fill:#1A1A2E,stroke:#A855F7,color:#A855F7
-    style Escrow fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Tournament fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Flash fill:#EF4444,stroke:#EF4444,color:#FFF
     style Pool fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Predictive fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Settlement fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
-    style Skill fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
     style General fill:#1A1A2E,stroke:#666,color:#E0E0E0
 ```
 
-| Category | Detection Rule | Active |
-|:---|:---|:---|
-| **Flash** | Any `aa20`/`aa21`/`aa22`/`aa23` AND raw bytes < 80 | ✓ |
-| **Escrow & Custody** | Contains `aa21`, no multi-outcome markers | ✓ |
-| **Tournaments** | Contains `aa22` | ✓ |
-| **Community Pool** | Contains `aa23` | ✓ |
-| **Governance** | Contains `aa21` AND `51` (OP_1) AND `52` (OP_2) — multi-outcome voting | ✓ |
-| **Predictive Markets** | Contains `aa20` AND `52` (OP_2) or `53` (OP_3) — binary/ternary markets | ✓ |
-| **Structured Settlement** | Contains `aa20`, raw bytes > 120, no OP_2/OP_3 | ✓ |
-| **Skill Contests** | Contains `aa20`/`aa21` with `51` (OP_1), single-outcome | ✓ |
-| **General** | Opcodes present, no specific pattern matched | ✓ |
+### Stage 2 — aa21 / aa20 Sub-Branches
+
+**aa21 branch** (time-based custody patterns):
+
+```mermaid
+graph LR
+    A21["payload w/ aa21"] --> Gov{"has '51' + '52'?"}
+    Gov -->|Yes| Governance["Governance"]
+    Gov -->|No| Escrow["Escrow & Custody"]
+
+    style A21 fill:#1A1A2E,stroke:#49EACB,color:#49EACB
+    style Governance fill:#A855F7,stroke:#A855F7,color:#FFF
+    style Escrow fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+```
+
+**aa20 branch** (single-outcome patterns):
+
+```mermaid
+graph LR
+    A20["payload w/ aa20"] --> P1{"has '52' or '53'?"}
+    P1 -->|Yes| Predictive["Predictive Market"]
+    P1 -->|No| P2{"raw_len > 120?"}
+    P2 -->|Yes| Settlement["Structured Settlement"]
+    P2 -->|No| Skill["Skill Contest"]
+
+    style A20 fill:#1A1A2E,stroke:#49EACB,color:#49EACB
+    style Predictive fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Settlement fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+    style Skill fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
+```
+
+### Stage 3 — Custom Category Override (PRO / MAX)
+
+Paid-tier covenant creators can set a custom category name via the **Trust Builder** (`UiBuilder.jsx` → `POST /api/covenants/:id/ui-config` with `custom_category` field). The backend validates wallet ownership against on-chain `creator_addr` and writes the override to both `generated_uis.ui_config` and `covenants.category`.
+
+Custom categories are free-form strings. If set, they replace the auto-detected category on the Explorer card and detail page. If left blank, the auto-detected category remains. This allows DAO treasuries, insurance pools, lotteries, or any niche use case to surface under a descriptive label.
+
+### Category Summary
+
+| Category | Detection Rule | Overridable |
+|:---|:---|:---:|
+| **Flash** | Any `aa20`–`aa23` + payload < 80 raw bytes | — |
+| **Governance** | `aa21` + `51` (OP_1) + `52` (OP_2) — multi-outcome voting | — |
+| **Escrow & Custody** | `aa21`, no multi-outcome markers | — |
+| **Tournament** | `aa22` | — |
+| **Community Pool** | `aa23` | — |
+| **Predictive Markets** | `aa20` + `52` (OP_2) or `53` (OP_3) | — |
+| **Structured Settlement** | `aa20`, payload > 120 bytes, no OP_2/OP_3 | — |
+| **Skill Contests** | `aa20`/`aa21` with `51` (OP_1), single-outcome | — |
+| **General** | Fallback (opcodes present, no specific pattern) | — |
+| **Custom** | Creator-defined free-form string | ✓ PRO/MAX |
 
 Classification types (the `covenant_type` column, assigned by the `classify()` / `classify_covenant()` functions):
 

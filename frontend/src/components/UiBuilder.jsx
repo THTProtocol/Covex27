@@ -21,6 +21,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
     verified_source_url: '',
     developer_notes: '',
     interaction_schema: '',
+    custom_category: '',
   });
 
   // Load existing trust config from backend
@@ -36,6 +37,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
             interaction_schema: typeof d.trust_config.interaction_schema === 'string'
               ? d.trust_config.interaction_schema
               : JSON.stringify(d.trust_config.interaction_schema || {}, null, 2),
+            custom_category: d.trust_config.custom_category || prev.custom_category,
           }));
         }
       })
@@ -57,6 +59,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
           verified_source_url: form.verified_source_url,
           developer_notes: form.developer_notes,
           interaction_schema: form.interaction_schema,
+          custom_category: form.custom_category,
         }),
       });
 
@@ -138,6 +141,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
           { id: 'source', icon: Code2, label: 'Open Source' },
           { id: 'notes', icon: FileText, label: 'Safety Notes' },
           { id: 'interaction', icon: MousePointerClick, label: 'Buttons' },
+          { id: 'category', icon: Terminal, label: 'Category' },
         ].map(s => {
           const Icon = s.icon;
           return (
@@ -277,6 +281,42 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
             } catch (_) {}
             return null;
           })()}
+        </div>
+      )}
+
+      {/* === SECTION: Custom Category === */}
+      {activeSection === 'category' && (
+        <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-start gap-2">
+            <Terminal size={14} className="text-gray-400 mt-0.5" />
+            <div>
+              <p className="text-xs text-gray-300 font-semibold mb-1">Custom Category Override</p>
+              <p className="text-[11px] text-gray-600 mb-3">
+                Override the auto-detected category with your own label. Useful if your covenant doesn't
+                fit neatly into a predefined bucket, or you want a more descriptive name.
+                The original auto-detected category will still display on the card unless you override it.
+              </p>
+            </div>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              value={form.custom_category}
+              onChange={e => setForm(f => ({ ...f, custom_category: e.target.value }))}
+              placeholder={covenant?.category || 'e.g. Insurance Fund, DAO Treasury, Lottery'}
+              className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50 transition-colors font-mono"
+            />
+          </div>
+          <p className="text-[10px] text-gray-600">
+            Leave blank to keep auto-detected category: <span className="text-gray-400">{covenant?.category || 'General'}</span>
+          </p>
+          {form.custom_category && form.custom_category.trim().length > 0 && (
+            <div className="p-3 rounded-lg bg-purple-500/[0.04] border border-purple-500/20">
+              <p className="text-xs text-purple-400">
+                ✓ Category will be set to "<span className="font-semibold">{form.custom_category}</span>" instead of "{covenant?.category || 'General'}".
+              </p>
+            </div>
+          )}
         </div>
       )}
 

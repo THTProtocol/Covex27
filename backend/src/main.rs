@@ -207,6 +207,7 @@ struct UiConfigRequest {
     verified_source_url: Option<String>,
     developer_notes: Option<String>,
     interaction_schema: Option<String>,
+    custom_category: Option<String>,
 }
 
 /// POST /covenants/:id/ui-config — Secured endpoint.
@@ -252,8 +253,9 @@ async fn ui_config_handler(
     let source_url = payload.verified_source_url.as_deref().unwrap_or("");
     let notes = payload.developer_notes.as_deref().unwrap_or("");
     let schema = payload.interaction_schema.as_deref().unwrap_or("");
+    let custom_cat = payload.custom_category.as_deref().unwrap_or("");
 
-    match db::save_ui_trust_config(&db, &covenant_id, &covenant.creator_addr, source_url, notes, schema) {
+    match db::save_ui_trust_config(&db, &covenant_id, &covenant.creator_addr, source_url, notes, schema, custom_cat) {
         Ok(()) => {
             info!("Trust config saved for covenant {} by creator {}", covenant_id, wallet_addr);
             Json(json!({"success": true, "message": "Trust configuration saved successfully."}))

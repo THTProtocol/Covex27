@@ -288,7 +288,7 @@ pub fn save_generated_ui(db: &Mutex<Connection>, covenant_id: &str, owner_addres
     Ok(())
 }
 
-/// Save trust-verification UI config (verified_source_url, developer_notes, interaction_schema).
+/// Save trust-verification UI config (verified_source_url, developer_notes, interaction_schema, custom_category).
 /// Caller MUST validate that wallet_addr == on-chain creator_addr before calling.
 pub fn save_ui_trust_config(
     db: &Mutex<Connection>,
@@ -297,12 +297,14 @@ pub fn save_ui_trust_config(
     verified_source_url: &str,
     developer_notes: &str,
     interaction_schema: &str,
+    custom_category: &str,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     let ui_config = serde_json::json!({
         "verified_source_url": verified_source_url,
         "developer_notes": developer_notes,
         "interaction_schema": interaction_schema,
+        "custom_category": custom_category,
         "trust_configured_at": chrono::Utc::now().timestamp(),
     });
     conn.execute(
@@ -310,6 +312,13 @@ pub fn save_ui_trust_config(
          VALUES (?1, ?2, 'TRUSTED', '', ?3, ?4, 1, 0, unixepoch(), unixepoch())",
         params![covenant_id, owner_address, ui_config.to_string(), format!("trust-{}", covenant_id)],
     )?;
+    // If custom_category is set, update the covenants table too
+    if !custom_category.is_empty() {
+        conn.execute(
+            "UPDATE covenants SET category = ?1 WHERE tx_id = ?2",
+            params![custom_category, covenant_id],
+        )?;
+    }
     Ok(())
 }
 

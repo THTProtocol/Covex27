@@ -1,4 +1,4 @@
-use axum::{routing::get, Router, Json, Extension};
+use axum::{routing::{get, post}, Router, Json, Extension, extract::Path};
 use serde_json::json;
 use std::net::SocketAddr;
 use std::env;
@@ -115,6 +115,8 @@ async fn main() {
         .route("/", get(root_handler))
         .route("/health", get(|| async { "OK" }))
         .route("/covenants", get(covenants_handler))
+        .route("/covenants/:id/ui-config", post(ui_config_handler))
+        .route("/covenants/:id/trust-config", get(trust_config_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .merge(broadcast::broadcast_routes())
@@ -154,6 +156,12 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
         Ok(records) => {
             let total = records.len();
             let list: Vec<serde_json::Value> = records.into_iter().map(|c| {
+                let trust_config = db::get_ui_trust_config(&db, &c.tx_id).ok().flatten();
+                let has_verified_source = trust_config.as_ref()
+                    .and_then(|tc| tc.get("verified_source_url"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false);
                 json!({
                     "tx_id": c.tx_id,
                     "address": c.address,
@@ -173,6 +181,8 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     "name": c.covenant_type,
                     "tier": c.verified_tier,
                     "ui_config": db::ui_config_for_tier(&c.verified_tier),
+                    "trust_config": trust_config,
+                    "has_verified_source": has_verified_source,
                 })
             }).collect();
             Json(json!({"total": total, "covenants": list}))
@@ -187,6 +197,84 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
 async fn tiers_handler() -> Json<serde_json::Value> {
     let tiers = covenant_types::get_tiers();
     Json(json!({"tiers": tiers}))
+}
+
+// ─── Trust-Verification UI Config ──────────────────────────
+
+#[derive(serde::Deserialize)]
+struct UiConfigRequest {
+    creator_addr: String,
+    verified_source_url: Option<String>,
+    developer_notes: Option<String>,
+    interaction_schema: Option<String>,
+}
+
+/// POST /covenants/:id/ui-config — Secured endpoint.
+/// Verifies that the connected wallet address matches the on-chain creator_addr.
+async fn ui_config_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<UiConfigRequest>,
+) -> Json<serde_json::Value> {
+    // 1. Fetch the on-chain creator_addr for this covenant
+    let covenant = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => c,
+        Ok(None) => return Json(json!({"success": false, "error": "Covenant not found"})),
+        Err(e) => return Json(json!({"success": false, "error": format!("DB error: {}", e)})),
+    };
+
+    // 2. Strict wallet binding — wallet must match on-chain creator
+    let wallet_addr = payload.creator_addr.trim().to_lowercase();
+    let onchain_creator = covenant.creator_addr.trim().to_lowercase();
+    if wallet_addr != onchain_creator {
+        warn!(
+            "UI config rejected: wallet {} != on-chain creator {} for covenant {}",
+            wallet_addr, onchain_creator, covenant_id
+        );
+        return Json(json!({
+            "success": false,
+            "error": "WALLET MISMATCH: Only the covenant creator can configure UI settings.",
+            "onchain_creator": covenant.creator_addr,
+            "provided_wallet": payload.creator_addr,
+        }));
+    }
+
+    // 3. Only PRO/MAX tiers can configure trust settings
+    let tier = covenant.verified_tier.to_uppercase();
+    if tier != "PRO" && tier != "MAX" {
+        return Json(json!({
+            "success": false,
+            "error": format!("Trust builder requires PRO or MAX tier. Current tier: {}", tier),
+        }));
+    }
+
+    // 4. Persist the trust config
+    let source_url = payload.verified_source_url.as_deref().unwrap_or("");
+    let notes = payload.developer_notes.as_deref().unwrap_or("");
+    let schema = payload.interaction_schema.as_deref().unwrap_or("");
+
+    match db::save_ui_trust_config(&db, &covenant_id, &covenant.creator_addr, source_url, notes, schema) {
+        Ok(()) => {
+            info!("Trust config saved for covenant {} by creator {}", covenant_id, wallet_addr);
+            Json(json!({"success": true, "message": "Trust configuration saved successfully."}))
+        }
+        Err(e) => {
+            error!("Failed to save trust config: {}", e);
+            Json(json!({"success": false, "error": format!("DB save failed: {}", e)}))
+        }
+    }
+}
+
+/// GET /covenants/:id/trust-config — Public read endpoint.
+async fn trust_config_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    match db::get_ui_trust_config(&db, &covenant_id) {
+        Ok(Some(config)) => Json(json!({"success": true, "trust_config": config})),
+        Ok(None) => Json(json!({"success": true, "trust_config": null, "message": "No trust config set"})),
+        Err(e) => Json(json!({"success": false, "error": e.to_string()})),
+    }
 }
 
 /// Compute a blake2b-based script hash from hex (matching TN12 conventions)

@@ -1,28 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { Terminal, Database, Code2, Zap, ChevronDown } from 'lucide-react';
+import { Terminal, Database, Code2, Zap, ChevronDown, ShieldCheck, Globe, ExternalLink, Info } from 'lucide-react';
 
 const TIER_STYLES = {
   MAX: {
-    card: 'shadow-[0_0_15px_#49EACB] border-[#49EACB] bg-zinc-900/90',
-    badge: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/50',
+    card: 'border-zinc-700/80 bg-zinc-900/90 neon-card-max',
+    badge: 'bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/40 shadow-[0_0_8px_rgba(168,85,247,0.2)]',
     glow: 'shadow-[0_0_25px_#49EACB]',
     label: 'MAX',
   },
   PRO: {
-    card: 'shadow-[0_0_10px_#49EACB] border-[#49EACB] bg-zinc-900/80',
-    badge: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50',
+    card: 'border-zinc-700/80 bg-zinc-900/80 neon-card-pro',
+    badge: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.2)]',
     glow: 'shadow-[0_0_15px_#49EACB]',
     label: 'PRO',
   },
   CREATOR: {
-    card: 'border-zinc-600 bg-zinc-900/70',
-    badge: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/50',
+    card: 'border-zinc-700/60 bg-zinc-900/70',
+    badge: 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/40 shadow-[0_0_6px_rgba(59,130,246,0.15)]',
     glow: '',
     label: 'CREATOR',
   },
   FREE: {
-    card: 'border-zinc-700 bg-zinc-900/50',
-    badge: 'bg-gray-500/20 text-gray-400',
+    card: 'border-zinc-800/80 bg-zinc-900/50',
+    badge: 'bg-gray-500/15 text-gray-400 ring-1 ring-gray-500/30',
     glow: '',
     label: 'FREE',
   },
@@ -167,8 +167,9 @@ const Explorer = () => {
                 <div
                   key={c.tx_id || i}
                   className={`border rounded-xl p-6 transition-all duration-300 ${style.card} ${
-                    isPremium ? 'hover:shadow-[0_0_20px_#49EACB]' : 'hover:border-emerald-500/50'
-                  }`}
+                    isPremium ? 'neon-card-hover hover:-translate-y-0.5' : 'hover:border-emerald-500/30 hover:bg-zinc-900/60'
+                  } animate-in fade-in slide-in-from-bottom-4`}
+                  style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-3">
@@ -189,6 +190,53 @@ const Explorer = () => {
                   <p className={`text-sm mb-3 ${isMax ? 'text-gray-200' : 'text-gray-400'}`}>
                     {c.description || 'No description provided.'}
                   </p>
+
+                  {/* Trust Badges */}
+                  {c.trust_config && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {(() => {
+                        const tc = c.trust_config;
+                        const hasSource = tc.verified_source_url && tc.verified_source_url.trim().length > 0;
+                        const hasNotes = tc.developer_notes && tc.developer_notes.trim().length > 0;
+                        const hasInteract = (() => {
+                          try {
+                            const schema = typeof tc.interaction_schema === 'string'
+                              ? JSON.parse(tc.interaction_schema || '[]')
+                              : tc.interaction_schema;
+                            return Array.isArray(schema) && schema.length > 0;
+                          } catch (_) { return false; }
+                        })();
+                        return (
+                          <>
+                            {hasSource && (
+                              <a
+                                href={tc.verified_source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-emerald-500/[0.08] border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/[0.15] transition-colors shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+                                title="Verified Open-Source — click to view on GitHub"
+                              >
+                                <ShieldCheck size={11} />
+                                ✓ Verified Open-Source
+                              </a>
+                            )}
+                            {hasNotes && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-blue-500/[0.08] border border-blue-500/25 text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.15)]">
+                                <Info size={11} />
+                                Dev Notes
+                              </span>
+                            )}
+                            {hasInteract && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-purple-500/[0.08] border border-purple-500/25 text-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.15)]">
+                                <Terminal size={11} />
+                                Interactive
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   {/* Compact stats */}
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-1">

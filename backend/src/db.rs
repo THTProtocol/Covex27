@@ -288,6 +288,44 @@ pub fn save_generated_ui(db: &Mutex<Connection>, covenant_id: &str, owner_addres
     Ok(())
 }
 
+/// Save trust-verification UI config (verified_source_url, developer_notes, interaction_schema).
+/// Caller MUST validate that wallet_addr == on-chain creator_addr before calling.
+pub fn save_ui_trust_config(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    owner_address: &str,
+    verified_source_url: &str,
+    developer_notes: &str,
+    interaction_schema: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    let ui_config = serde_json::json!({
+        "verified_source_url": verified_source_url,
+        "developer_notes": developer_notes,
+        "interaction_schema": interaction_schema,
+        "trust_configured_at": chrono::Utc::now().timestamp(),
+    });
+    conn.execute(
+        "INSERT OR REPLACE INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at)
+         VALUES (?1, ?2, 'TRUSTED', '', ?3, ?4, 1, 0, unixepoch(), unixepoch())",
+        params![covenant_id, owner_address, ui_config.to_string(), format!("trust-{}", covenant_id)],
+    )?;
+    Ok(())
+}
+
+/// Retrieve the trust-verification config for a covenant.
+pub fn get_ui_trust_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT ui_config FROM generated_uis WHERE covenant_id = ?1 AND tier = 'TRUSTED' ORDER BY ui_generated_at DESC LIMIT 1"
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        let cfg_str: String = row.get(0)?;
+        Ok(serde_json::from_str(&cfg_str).unwrap_or(serde_json::json!({})))
+    })?;
+    Ok(rows.next().transpose()?)
+}
+
 pub fn get_generated_ui_by_covenant(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(

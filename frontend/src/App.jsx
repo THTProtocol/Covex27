@@ -25,18 +25,18 @@ export default function App() {
         <DagBackground />
         <WhatIsKaspa open={kaspaOpen} onClose={() => setKaspaOpen(false)} />
 
-        <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/80 backdrop-blur-md border-b border-white/10">
+        <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/85 backdrop-blur-lg border-b border-white/5 shadow-[0_1px_0_rgba(255,255,255,0.03)]">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <Link
               to="/"
-              className="text-lg font-semibold tracking-tight text-white hover:text-kaspa-green transition-colors"
+              className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] transition-colors flex items-center gap-2"
             >
-              COVEX
+              <span className="text-[#49EACB]">◆</span> COVEX
             </Link>
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-6">
               <button
                 onClick={() => setKaspaOpen(true)}
-                className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                className="text-sm font-medium text-gray-400 hover:text-white transition-all hover:shadow-[0_0_8px_rgba(73,234,203,0.15)]"
               >
                 What is Kaspa?
               </button>
@@ -70,7 +70,7 @@ export default function App() {
         </div>
 
         {/* Footer */}
-        <footer className="relative z-10 border-t border-white/5 bg-[#0A0A0D]/80 backdrop-blur-md py-8 px-4">
+        <footer className="relative z-10 border-t border-white/[0.03] bg-[#0A0A0D]/85 backdrop-blur-lg py-8 px-4">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
             <div className="flex items-center gap-6">
               <Link to="/terms" className="hover:text-white transition-colors">
@@ -95,11 +95,11 @@ export default function App() {
             </div>
             <div className="flex items-center gap-4">
               <span>Non-custodial. Keys stay in your wallet.</span>
-              <span className="text-white/20">|</span>
+              <span className="text-white/10">|</span>
               <span>DAG is the truth. Covex is the window.</span>
             </div>
           </div>
-          <div className="max-w-6xl mx-auto mt-4 text-center text-xs text-gray-500">
+          <div className="max-w-6xl mx-auto mt-4 text-center text-xs text-gray-500 leading-relaxed">
             <p>
               Covex indexes publicly available covenant data from the Kaspa BlockDAG. It does not
               create, modify, or control any on-chain covenant. All covenants remain immutable on-chain;

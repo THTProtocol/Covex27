@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare, ShieldBan } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
+import UiBuilder from '../components/UiBuilder';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -400,6 +401,17 @@ export default function CovenantInteractive() {
               <Terminal size={14} />
               Interact
             </button>
+            <button
+              onClick={() => setActiveTab('trust')}
+              className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                activeTab === 'trust'
+                  ? 'text-emerald-400 bg-emerald-500/[0.04] border-b-2 border-emerald-400'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              <ShieldCheck size={14} />
+              Trust
+            </button>
             {canCustomize && (
               <button
                 onClick={() => setActiveTab('builder')}
@@ -416,7 +428,7 @@ export default function CovenantInteractive() {
           </div>
 
           <div className="p-8 flex-1">
-            {activeTab === 'interact' ? (
+            {activeTab === 'interact' && (
               <div className="space-y-8">
                 <div>
                   <label className="block text-xs font-mono text-gray-500 mb-3 uppercase tracking-widest">
@@ -486,7 +498,17 @@ export default function CovenantInteractive() {
                   View on Kaspa Explorer
                 </a>
               </div>
-            ) : (
+            )}
+            {activeTab === 'trust' && (
+              <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
+                <UiBuilder
+                  covenant={covenant}
+                  walletAddress={address}
+                  onSaved={(cfg) => setToast({ type: 'success', msg: 'Trust configuration published!' })}
+                />
+              </div>
+            )}
+            {activeTab === 'builder' && canCustomize && (
               <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
                 <h3 className="text-sm font-semibold text-white uppercase tracking-widest flex items-center gap-2">
                   <LayoutTemplate size={16} className="text-kaspa-green" />

@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Paintbrush, Palette, LayoutTemplate, Type, Ruler, Save, CheckCircle2,
   Monitor, Eye, Layers, Zap, Image, ChevronDown, ChevronRight,
   Brush, Globe, Box, Frame, Sparkles, Droplets, Cpu, Terminal,
-  Shield, Clock, Hash
+  Shield, Clock, Hash, MoveHorizontal, Calendar, Undo2, Redo2,
+  RotateCcw, Download, Upload, History, FileCode, Edit3
 } from 'lucide-react';
+import DragDropPanel, { renderWidgetPreview } from './DragDropPanel';
+import CovenantPreview from './CovenantPreview';
 
 const NEON_COLORS = ['#49EACB', '#E8AF34', '#3B82F6', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#FF6B6B', '#00D2FF', '#FF00FF', '#C084FC'];
 const LAYOUTS = ['card', 'terminal', 'floating', 'minimal', 'editorial'];
@@ -36,9 +39,11 @@ function Section({ icon: Icon, title, expanded, onToggle, children }) {
   );
 }
 
+const GRID_COLS = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' };
+
 function OptionGrid({ options, selected, onSelect, cols = 3 }) {
   return (
-    <div className={`grid grid-cols-${cols} gap-2`}>
+    <div className={`grid ${GRID_COLS[cols] || 'grid-cols-3'} gap-2`}>
       {options.map((opt) => {
         const val = typeof opt === 'string' ? opt : opt.val;
         const label = typeof opt === 'string' ? opt : opt.label;
@@ -65,7 +70,7 @@ function OptionGrid({ options, selected, onSelect, cols = 3 }) {
   );
 }
 
-export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
+export default function PremiumBuilder({ covenant, walletAddress, onSave, onChange }) {
   const [config, setConfig] = useState({
     primaryColor: '#49EACB',
     gradientColor: '#3B82F6',
@@ -92,6 +97,34 @@ export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
     showTimestamp: false,
     glowIntensity: 'medium',
     expanded: '',
+    widgets: [],
+    // Advanced Visuals
+    borderRadius: 'md',
+    backdropBlur: 'sm',
+    borderOpacity: '30',
+    glassTint: '#49EACB',
+    textGlow: false,
+    gradientAnimate: false,
+    hoverEffect: 'glow',
+    dividerStyle: 'thin',
+    maxWidth: 'medium',
+    overlayOpacity: '5',
+    // Data & Display
+    showNetworkBadge: true,
+    showCategory: true,
+    showLockedSince: false,
+    showConfirmations: false,
+    showOutputAddresses: false,
+    displayMode: 'detailed',
+    buttonSecondary: '',
+    loadingAnimation: 'skeleton',
+    metaTitle: '',
+    metaDescription: '',
+    // MAX-tier only
+    customJS: '',
+    favicon: '',
+    schemaOrg: false,
+    gradientSpeed: 'normal',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -103,6 +136,95 @@ export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
     walletAddress.toLowerCase() === covenant.creator_addr.toLowerCase();
   const canCustomize = ['CREATOR', 'PRO', 'MAX'].includes(tier);
   const isMax = tier === 'MAX';
+
+  // ─── Undo/Redo History ────────────────────────────
+  const DEFAULT_CONFIG = { ...config };
+  const historyStack = useRef([{ ...DEFAULT_CONFIG }]);
+  const historyIndex = useRef(0);
+
+  const pushHistory = useCallback((cfg) => {
+    historyStack.current = historyStack.current.slice(0, historyIndex.current + 1);
+    historyStack.current.push({ ...cfg });
+    historyIndex.current = historyStack.current.length - 1;
+  }, []);
+
+  const undo = useCallback(() => {
+    if (historyIndex.current > 0) {
+      historyIndex.current--;
+      return historyStack.current[historyIndex.current];
+    }
+    return config;
+  }, [config]);
+
+  const redo = useCallback(() => {
+    if (historyIndex.current < historyStack.current.length - 1) {
+      historyIndex.current++;
+      return historyStack.current[historyIndex.current];
+    }
+    return config;
+  }, [config]);
+
+  const resetConfig = useCallback(() => {
+    setConfig({ ...DEFAULT_CONFIG });
+    pushHistory({ ...DEFAULT_CONFIG });
+  }, []);
+
+  // Auto-push config changes to history (debounced by config key)
+  const configUpdate = useCallback((updater) => {
+    setConfig(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      pushHistory(next);
+      return next;
+    });
+  }, [pushHistory]);
+
+  // Export as self-contained HTML
+  const handleExport = useCallback(() => {
+    const name = config.titleOverride || covenant?.name || 'Covenant';
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${name} — Covex Covenant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #05050A; color: #fff; font-family: ${config.font === 'mono' ? 'monospace' : config.font === 'serif' ? 'serif' : 'sans-serif'}; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .card { max-width: 480px; width: 100%; padding: ${config.padding === 'compact' ? '12px' : config.padding === 'spacious' ? '32px' : '20px'}; border-radius: ${config.borderRadius === 'none' ? '0' : config.borderRadius === 'sm' ? '0.375rem' : config.borderRadius === 'md' ? '0.75rem' : config.borderRadius === 'lg' ? '1rem' : '0.75rem'}; background: ${config.bgStyle === 'dark' ? '#0A0A0D' : config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' : '#111116'}; border: 1px solid ${config.primaryColor || '#49EACB'}${config.borderOpacity || '30'}; box-shadow: ${config.shadow === 'neon' ? '0 0 20px ' + (config.primaryColor || '#49EACB') + '30' : config.shadow === 'elevated' ? '0 8px 32px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.3)'}; }
+  .title { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+  .subtitle { color: #6b7280; font-size: 0.65rem; font-family: monospace; margin-bottom: 0.5rem; }
+  .desc { color: #9ca3af; font-size: 0.7rem; margin-bottom: 0.75rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .stat { padding: 0.5rem; border-radius: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+  .stat-label { color: #6b7280; font-size: 0.6rem; }
+  .stat-val { font-size: 0.7rem; font-weight: 700; font-family: monospace; color: ${config.primaryColor || '#49EACB'}; }
+  .btn { width: 100%; padding: 0.5rem; border-radius: 0.5rem; background: ${config.primaryColor || '#49EACB'}; color: #000; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; border: none; cursor: pointer; }
+  .badge { text-align: center; padding: 0.25rem 0; margin-bottom: 0.5rem; border-radius: 0.5rem; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: ${(config.primaryColor || '#49EACB')}20; color: ${config.primaryColor || '#49EACB'}; border: 1px solid ${(config.primaryColor || '#49EACB')}40; }
+</style>
+</head>
+<body>
+<div class="card">
+${config.featureBadge ? '<div class="badge">' + config.featureBadge + '</div>' : ''}
+${config.logoUrl ? '<div style="text-align:center;margin-bottom:0.75rem"><img src="' + config.logoUrl + '" alt="logo" style="height:2rem;object-fit:contain"></div>' : ''}
+<div class="title">${config.titleOverride || covenant?.name || 'Covenant'}</div>
+<div class="subtitle">${(covenant?.tx_id || '').slice(0, 16)}...</div>
+<div class="desc">${config.descOverride || covenant?.description || 'Covenant deployed on Kaspa BlockDAG.'}</div>
+<div class="grid">
+  <div class="stat"><div class="stat-label">Locked KAS</div><div class="stat-val">${(covenant?.amount_kaspa || 0).toLocaleString()} KAS</div></div>
+  <div class="stat"><div class="stat-label">Type</div><div class="stat-val" style="color:#d1d5db">${covenant?.covenant_type || 'P2SH'}</div></div>
+</div>
+<button class="btn" onclick="window.open('${window.location.href}','_blank')">View on Covex</button>
+</div>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)}_covenant.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [config, covenant]);
 
   // Load saved config from backend on mount
   useEffect(() => {
@@ -116,6 +238,11 @@ export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
       })
       .catch(() => {});
   }, [covenant?.tx_id]);
+
+  // Notify parent of config changes for live preview sync
+  useEffect(() => {
+    if (onChange) onChange(config);
+  }, [config, onChange]);
 
   const handleSave = useCallback(async () => {
     if (!covenant?.tx_id || !walletAddress) return;
@@ -172,7 +299,7 @@ export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
   const fontMap = { mono: 'font-mono', sans: 'font-sans', serif: 'font-serif' };
   const animClass = {
     none: '', pulse: 'animate-pulse', shimmer: 'animate-pulse',
-    float: '', glitch: ''
+    float: 'animate-bounce', glitch: 'animate-pulse'
   };
 
   return (
@@ -269,6 +396,93 @@ export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
         </div>
       </Section>
 
+      {/* Drag & Drop Widget Builder */}
+      <Section icon={MoveHorizontal} title="Drag & Drop Widgets" expanded={expandedSection === 'dragdrop'} onToggle={() => setExpandedSection(s => s === 'dragdrop' ? '' : 'dragdrop')}>
+        <DragDropPanel
+          tier={tier}
+          widgetIds={config.widgets || []}
+          onWidgetsChange={(ids) => setConfig(s => ({ ...s, widgets: ids }))}
+          primaryColor={config.primaryColor}
+        />
+      </Section>
+
+      {/* Advanced Visual Effects */}
+      <Section icon={Droplets} title="Advanced Visual Effects" expanded={expandedSection === 'advanced'} onToggle={() => setExpandedSection(s => s === 'advanced' ? '' : 'advanced')}>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Border Radius</p>
+        <OptionGrid options={['none', 'sm', 'md', 'lg', 'xl', '2xl', 'full']} selected={config.borderRadius} onSelect={(v) => setConfig(s => ({ ...s, borderRadius: v }))} cols={4} />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Glass Effect — Backdrop Blur</p>
+        <OptionGrid options={['none', 'sm', 'md', 'lg']} selected={config.backdropBlur} onSelect={(v) => setConfig(s => ({ ...s, backdropBlur: v }))} cols={4} />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Glass Tint Color</p>
+        <div className="flex items-center gap-2">
+          <input type="color" value={config.glassTint}
+            onChange={(e) => setConfig((s) => ({ ...s, glassTint: e.target.value }))}
+            className="h-6 w-6 rounded-full border-0 p-0 overflow-hidden cursor-pointer" />
+          <span className="text-[10px] text-gray-400">{config.glassTint}</span>
+        </div>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Border Glow Opacity</p>
+        <OptionGrid options={['10', '20', '30', '50', '70']} selected={config.borderOpacity} onSelect={(v) => setConfig(s => ({ ...s, borderOpacity: v }))} cols={5} />
+        <div className="mt-3 space-y-2">
+          {[
+            { key: 'textGlow', label: 'Text Glow Effect', icon: Type },
+            { key: 'gradientAnimate', label: 'Animated Gradient', icon: Sparkles },
+          ].map(({ key, label, icon: Icon }) => (
+            <label key={key} className="flex items-center justify-between p-2.5 rounded-lg border border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04]">
+              <span className="text-xs text-white flex items-center gap-2"><Icon size={12} className="text-[#49EACB]" />{label}</span>
+              <input type="checkbox" checked={config[key]} onChange={(e) => setConfig((s) => ({ ...s, [key]: e.target.checked }))} className="w-4 h-4 accent-[#49EACB]" />
+            </label>
+          ))}
+        </div>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Hover Effect</p>
+        <OptionGrid options={['none', 'glow', 'lift', 'pulse', 'shimmer']} selected={config.hoverEffect} onSelect={(v) => setConfig(s => ({ ...s, hoverEffect: v }))} cols={3} />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Divider Style</p>
+        <OptionGrid options={['none', 'thin', 'gradient', 'neon', 'double']} selected={config.dividerStyle} onSelect={(v) => setConfig(s => ({ ...s, dividerStyle: v }))} cols={3} />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Max Card Width</p>
+        <OptionGrid options={['narrow', 'medium', 'wide', 'full']} selected={config.maxWidth} onSelect={(v) => setConfig(s => ({ ...s, maxWidth: v }))} cols={4} />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Gradient Animation Speed (MAX)</p>
+        <OptionGrid options={[
+          { val: 'slow', lock: !isMax },
+          { val: 'normal' },
+          { val: 'fast', lock: !isMax },
+        ]} selected={config.gradientSpeed} onSelect={(v) => setConfig(s => ({ ...s, gradientSpeed: v }))} cols={3} />
+      </Section>
+
+      {/* Data & Display */}
+      <Section icon={Eye} title="Data & Display" expanded={expandedSection === 'data'} onToggle={() => setExpandedSection(s => s === 'data' ? '' : 'data')}>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Display Mode</p>
+        <OptionGrid options={['minimal', 'detailed', 'full', 'compact']} selected={config.displayMode} onSelect={(v) => setConfig(s => ({ ...s, displayMode: v }))} cols={2} />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Loading Animation</p>
+        <OptionGrid options={['skeleton', 'pulse', 'spinner', 'none']} selected={config.loadingAnimation} onSelect={(v) => setConfig(s => ({ ...s, loadingAnimation: v }))} cols={2} />
+        <div className="mt-3 space-y-2">
+          {[
+            { key: 'showNetworkBadge', label: 'Network Badge (TN-12)', icon: Globe },
+            { key: 'showCategory', label: 'Show Category Tag', icon: Hash },
+            { key: 'showLockedSince', label: 'Show Locked Since', icon: Calendar },
+            { key: 'showConfirmations', label: 'Show Confirmations', icon: Shield },
+            { key: 'showOutputAddresses', label: 'Show Output Addresses', icon: Database },
+          ].map(({ key, label, icon: Icon }) => (
+            <label key={key} className="flex items-center justify-between p-2.5 rounded-lg border border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04]">
+              <span className="text-xs text-white flex items-center gap-2"><Icon size={12} className="text-[#49EACB]" />{label}</span>
+              <input type="checkbox" checked={config[key]} onChange={(e) => setConfig((s) => ({ ...s, [key]: e.target.checked }))} className="w-4 h-4 accent-[#49EACB]" />
+            </label>
+          ))}
+        </div>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Secondary Button Label</p>
+        <input type="text" value={config.buttonSecondary}
+          onChange={(e) => setConfig((s) => ({ ...s, buttonSecondary: e.target.value }))}
+          placeholder="View Details"
+          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50" />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Meta Title (SEO)</p>
+        <input type="text" value={config.metaTitle}
+          onChange={(e) => setConfig((s) => ({ ...s, metaTitle: e.target.value }))}
+          placeholder={covenant?.name || 'Covenant Page'}
+          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50" />
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-3 mb-1">Meta Description (SEO)</p>
+        <textarea rows="2" value={config.metaDescription}
+          onChange={(e) => setConfig((s) => ({ ...s, metaDescription: e.target.value }))}
+          placeholder="View this covenant on Covex."
+          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50 resize-none" />
+      </Section>
+
       {/* Button Style */}
       <Section icon={Brush} title="Button & Badge Styling" expanded={expandedSection === 'button'} onToggle={() => setExpandedSection(s => s === 'button' ? '' : 'button')}>
         <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Button Style</p>
@@ -304,135 +518,70 @@ export default function PremiumBuilder({ covenant, walletAddress, onSave }) {
 
       {/* ─── LIVE PREVIEW ─────────────────────────────── */}
       {showPreview && (
-        <div
-          className={`rounded-xl overflow-hidden transition-all ${animClass[config.animation]}`}
-          style={{
-            background: config.bgStyle === 'gradient' && config.gradientDir !== 'none'
-              ? (config.gradientDir === 'to-r' ? `linear-gradient(to right, ${config.primaryColor}05, ${config.gradientColor}10)` :
-                 config.gradientDir === 'to-bl' ? `linear-gradient(to bottom left, ${config.primaryColor}05, ${config.gradientColor}10)` :
-                 `linear-gradient(to bottom right, ${config.primaryColor}05, ${config.gradientColor}10)`)
-              : previewBg,
-            border: borderW === '0px' ? 'none' : `${borderW} solid ${config.borderStyle === 'none' ? 'transparent' : config.primaryColor + '30'}`,
-            boxShadow: config.showGlow ? shadowMap[config.shadow] : shadowMap.soft,
-            padding: padVal,
-            fontFamily: config.font === 'mono' ? 'monospace' : config.font === 'serif' ? 'serif' : 'sans-serif',
-          }}
-        >
-          {/* Feature Badge */}
-          {config.featureBadge && (
-            <div className={`text-center py-1.5 rounded mb-3 text-[10px] font-bold uppercase tracking-widest ${
-              config.badgeStyle === 'banner' ? 'rounded-none -mx-[' + padVal + ']' :
-              config.badgeStyle === 'tag' ? 'inline-block px-3' : 'rounded-lg'
-            }`}
-            style={{ backgroundColor: `${config.primaryColor}20`, color: config.primaryColor, border: `1px solid ${config.primaryColor}40` }}>
-              {config.featureBadge}
-            </div>
-          )}
+        <CovenantPreview config={config} covenant={covenant} />
+      )}
 
-          {/* Logo */}
-          {config.logoUrl && (
-            <div className="flex justify-center mb-3">
-              <img src={config.logoUrl} alt="Logo" className="h-8 object-contain rounded" onError={(e) => (e.target.style.display='none')} />
-            </div>
-          )}
-
-          {/* Title */}
-          <h4 className="font-bold text-sm text-white mb-1">
-            {config.titleOverride || covenant?.name || covenant?.covenant_type || 'Covenant'}
-          </h4>
-          <p className="text-[10px] text-gray-500 mb-2" style={{ fontFamily: 'monospace' }}>
-            {(covenant?.tx_id || '').slice(0, 16)}...
-          </p>
-
-          {/* Description */}
-          <p className="text-xs text-gray-400 mb-3">
-            {config.descOverride || covenant?.description || 'No description provided.'}
-          </p>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
-              <p className="text-[9px] text-gray-500">Locked KAS</p>
-              <p className="text-xs font-bold" style={{ color: config.primaryColor, fontFamily: 'monospace' }}>
-                {(covenant?.amount_kaspa || 0).toLocaleString()} KAS
-              </p>
-            </div>
-            <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
-              <p className="text-[9px] text-gray-500">Type</p>
-              <p className="text-xs text-gray-300">{covenant?.covenant_type || 'P2SH'}</p>
-            </div>
-          </div>
-
-          {/* Extra stats */}
-          {(config.showScriptHash || config.showCreator || config.showBlockDaa || config.showTimestamp) && (
-            <div className={`mb-3 p-2 rounded-lg border border-white/5 space-y-1 ${config.font === 'mono' ? 'font-mono' : ''}`}>
-              {config.showScriptHash && (
-                <div className="flex justify-between text-[9px]">
-                  <span className="text-gray-500">Script Hash</span>
-                  <span style={{ color: config.primaryColor }}>{(covenant?.script_hash || '').slice(0, 14)}...</span>
-                </div>
-              )}
-              {config.showCreator && (
-                <div className="flex justify-between text-[9px]">
-                  <span className="text-gray-500">Creator</span>
-                  <span className="text-gray-400">{(covenant?.creator_addr || '').slice(0, 14)}...</span>
-                </div>
-              )}
-              {config.showBlockDaa && (
-                <div className="flex justify-between text-[9px]">
-                  <span className="text-gray-500">Block DAA</span>
-                  <span className="text-gray-400">{covenant?.block_daa_score || 0}</span>
-                </div>
-              )}
-              {config.showTimestamp && (
-                <div className="flex justify-between text-[9px]">
-                  <span className="text-gray-500">Created</span>
-                  <span className="text-gray-400">{covenant?.timestamp ? new Date(covenant.timestamp * 1000).toLocaleDateString() : 'N/A'}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Terminal layout */}
-          {config.layout === 'terminal' && (
-            <div className="p-3 rounded-lg bg-black/60 border border-[#49EACB]/20 font-mono text-xs mb-3">
-              <p style={{ color: config.primaryColor }}>$ covenant --query {covenant?.tx_id?.slice(0, 8)}...</p>
-              <p style={{ color: config.primaryColor }}>$ locked: {(covenant?.amount_kaspa || 0).toFixed(2)} KAS</p>
-              <p className="animate-pulse" style={{ color: config.primaryColor }}>█</p>
-            </div>
-          )}
-
-          {/* Floating layout elevation */}
-          {config.layout === 'floating' && (
-            <div className="mb-3" style={{ boxShadow: `0 8px 32px ${config.primaryColor}15` }}>
-              <div className="p-3 rounded-xl bg-black/30 border border-white/5 text-[10px] text-gray-400">
-                Floating panel — elevated UI for premium covenants.
-              </div>
-            </div>
-          )}
-
-          {/* QR Code */}
-          {config.showQR && (
-            <div className="mb-3 p-3 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center">
-              <div className="w-16 h-16 bg-white/10 rounded flex items-center justify-center text-[9px] text-gray-500">QR</div>
-            </div>
-          )}
-
-          {/* Button preview */}
+      {/* ─── POWER TOOLS ─────────────────────────────── */}
+      <Section icon={Zap} title="Power Tools & History" expanded={expandedSection === 'powertools'} onToggle={() => setExpandedSection(s => s === 'powertools' ? '' : 'powertools')}>
+        <div className="flex items-center gap-2 mb-3">
           <button
-            className={`w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${
-              config.buttonStyle === 'outline' ? 'bg-transparent border-2' :
-              config.buttonStyle === 'ghost' ? 'bg-transparent' :
-              config.buttonStyle === 'pill' ? 'rounded-full' : ''
-            }`}
-            style={config.buttonStyle === 'outline' || config.buttonStyle === 'ghost'
-              ? { border: config.buttonStyle === 'outline' ? `2px solid ${config.primaryColor}` : 'none', color: config.primaryColor }
-              : { backgroundColor: config.primaryColor, color: '#000' }}
+            onClick={() => setConfig(undo())}
+            disabled={historyIndex.current <= 0}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-white/10 bg-white/[0.02] text-xs text-white hover:bg-white/[0.04] disabled:opacity-30 transition-all"
+            title="Undo"
           >
-            Execute Covenant
+            <Undo2 size={12} /> Undo
+          </button>
+          <button
+            onClick={() => setConfig(redo())}
+            disabled={historyIndex.current >= historyStack.current.length - 1}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-white/10 bg-white/[0.02] text-xs text-white hover:bg-white/[0.04] disabled:opacity-30 transition-all"
+            title="Redo"
+          >
+            <Redo2 size={12} /> Redo
+          </button>
+          <button
+            onClick={() => resetConfig()}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/[0.04] text-xs text-red-400 hover:bg-red-500/[0.08] transition-all ml-auto"
+            title="Reset to default"
+          >
+            <RotateCcw size={12} /> Reset
           </button>
         </div>
-      )}
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[#E8AF34]/20 bg-[#E8AF34]/[0.04] text-xs text-[#E8AF34] hover:bg-[#E8AF34]/[0.08] transition-all flex-1"
+          >
+            <Download size={12} /> Export HTML
+          </button>
+          <label className="flex items-center gap-1 px-3 py-2 rounded-lg border border-blue-500/20 bg-blue-500/[0.04] text-xs text-blue-400 hover:bg-blue-500/[0.08] transition-all cursor-pointer flex-1">
+            <Upload size={12} /> Upload Logo
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (ev) => setConfig(s => ({ ...s, logoUrl: ev.target.result }));
+              reader.readAsDataURL(file);
+            }} />
+          </label>
+        </div>
+        {/* Version history summary */}
+        <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5 text-[10px] text-gray-500">
+          <p className="flex items-center gap-1 mb-1"><History size={10} className="text-[#49EACB]" /> Version History: {historyStack.current.length} snapshots • Auto-saved on each save</p>
+          <p className="text-[9px] text-gray-600">Use Ctrl+Z / Ctrl+Y or the undo/redo buttons • Reset reverts to factory defaults</p>
+        </div>
+        {/* MAX-tier: Raw JS editor */}
+        {isMax && (
+          <div className="mt-3">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Raw JavaScript Inject (MAX)</p>
+            <textarea rows="3" value={config.customJS}
+              onChange={(e) => setConfig((s) => ({ ...s, customJS: e.target.value }))}
+              placeholder="console.log('Custom JS runs on covenant page');"
+              className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-[#E8AF34] text-xs font-mono placeholder:text-gray-600 focus:outline-none focus:border-[#E8AF34]/50 resize-none" />
+          </div>
+        )}
+      </Section>
 
       {/* ─── SAVE BUTTON ─────────────────────────────── */}
       <button

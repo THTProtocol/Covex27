@@ -163,6 +163,32 @@ export default function CovenantInteractive() {
       .then((d) => {
         const found = (d.covenants || []).find((c) => c.tx_id === id) || null;
         setCovenant(found);
+        // Load custom UI config if present in the covenant data
+        if (found?.custom_ui_config) {
+          try {
+            const cfg = typeof found.custom_ui_config === 'string'
+              ? JSON.parse(found.custom_ui_config)
+              : found.custom_ui_config;
+            if (cfg && Object.keys(cfg).length > 0) {
+              setConfig(prev => ({ ...prev, ...cfg }));
+            }
+          } catch {}
+        } else if (found?.tx_id) {
+          // Fetch separately if not included in the list response
+          fetch(`/api/covenants/${found.tx_id}/custom-ui`)
+            .then(r => r.json())
+            .then(d => {
+              if (d.success && d.custom_ui_config) {
+                const cfg = typeof d.custom_ui_config === 'string'
+                  ? JSON.parse(d.custom_ui_config)
+                  : d.custom_ui_config;
+                if (cfg && Object.keys(cfg).length > 0) {
+                  setConfig(prev => ({ ...prev, ...cfg }));
+                }
+              }
+            })
+            .catch(() => {});
+        }
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -219,11 +245,14 @@ export default function CovenantInteractive() {
   const canBrand = effectiveTierVal >= 2;
   const canMaxLayout = effectiveTierVal >= 3;
 
-  // Preview style based on config
+  // Preview style based on config — shared by builder preview and public page
+  const borderRadiusMap = { none: '0', sm: '0.375rem', md: '0.75rem', lg: '1rem', xl: '1.5rem', '2xl': '2rem', full: '9999px' };
   const previewStyle = {
     primaryColor: config.primaryColor,
     background: config.bgColor || (config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' : config.bgStyle === 'dark' ? '#0A0A0D' : '#111116'),
-    borderColor: config.bgStyle === 'glass' ? 'rgba(255,255,255,0.08)' : config.bgStyle === 'dark' ? '#222' : '#1a1a2e',
+    borderColor: config.bgStyle === 'glass' ? `${config.primaryColor}${config.borderOpacity || '20'}` : config.bgStyle === 'dark' ? '#222' : '#1a1a2e',
+    borderRadius: borderRadiusMap[config.borderRadius] || '0.75rem',
+    fontFamily: config.font === 'mono' ? 'monospace' : config.font === 'serif' ? 'serif' : 'sans-serif',
   };
 
   return (
@@ -240,7 +269,24 @@ export default function CovenantInteractive() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass-panel p-8 sm:p-10 rounded-3xl flex flex-col"
+          className="p-8 sm:p-10 flex flex-col"
+          style={{
+            background: previewStyle.background,
+            border: `1px solid ${previewStyle.borderColor}`,
+            borderRadius: config.borderRadius === 'none' ? '0' :
+              config.borderRadius === 'sm' ? '0.375rem' :
+              config.borderRadius === 'md' ? '0.75rem' :
+              config.borderRadius === 'lg' ? '1rem' :
+              config.borderRadius === 'xl' ? '1.5rem' :
+              config.borderRadius === '2xl' ? '2rem' :
+              config.borderRadius === 'full' ? '9999px' : '1.5rem',
+            fontFamily: previewStyle.fontFamily,
+            boxShadow: config.showGlow ? `0 0 20px ${config.primaryColor}15` : undefined,
+            backdropFilter: config.backdropBlur && config.backdropBlur !== 'none' ?
+              `blur(${{sm:'4px',md:'8px',lg:'16px'}[config.backdropBlur] || '8px'})` : undefined,
+            WebkitBackdropFilter: config.backdropBlur && config.backdropBlur !== 'none' ?
+              `blur(${{sm:'4px',md:'8px',lg:'16px'}[config.backdropBlur] || '8px'})` : undefined,
+          }}
         >
           <div className="flex items-center gap-4 mb-6">
             <div className="p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
@@ -388,7 +434,14 @@ export default function CovenantInteractive() {
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass-panel rounded-3xl overflow-hidden flex flex-col"
+          className="overflow-hidden flex flex-col"
+          style={{
+            background: config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' :
+                       config.bgStyle === 'dark' ? '#0A0A0D' : '#111116',
+            border: `1px solid ${config.bgStyle === 'glass' ? config.primaryColor + (config.borderOpacity || '20') : '#1f1f1f'}`,
+            borderRadius: previewStyle.borderRadius,
+            fontFamily: previewStyle.fontFamily,
+          }}
         >
           <div className="flex items-center border-b border-white/5">
             <button
@@ -515,6 +568,7 @@ export default function CovenantInteractive() {
                   covenant={covenant}
                   walletAddress={address}
                   onSave={(cfg) => setToast({ type: 'success', msg: 'UI configuration published!' })}
+                  onChange={(cfg) => setConfig(cfg)}
                 />
               </div>
             )}

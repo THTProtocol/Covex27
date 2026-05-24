@@ -6,7 +6,7 @@ import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangl
 import { QRCodeCanvas } from 'qrcode.react';
 import UiBuilder from '../components/UiBuilder';
 import PremiumBuilder from '../components/PremiumBuilder';
-import ChessGameBoard from '../components/ChessGameBoard';
+import InteractiveGameRenderer from '../components/InteractiveGameRenderer';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -707,8 +707,8 @@ export default function CovenantInteractive() {
               </div>
             )}
             {activeTab === 'play' && (
-              <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
-                <ChessGameBoard covenantId={rawId} covenant={covenant} userAddress={address} />
+              <div className="overflow-y-auto max-h-[60vh] pr-1">
+                <InteractiveGameRenderer covenantId={rawId} covenant={covenant} userAddress={address} />
               </div>
             )}
           </div>

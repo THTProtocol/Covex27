@@ -109,6 +109,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
 
         CREATE TABLE IF NOT EXISTS skill_games (
             covenant_id     TEXT PRIMARY KEY,
+            game_type       TEXT NOT NULL DEFAULT 'chess',
             pot_amount_kas  REAL NOT NULL DEFAULT 0,
             player1         TEXT NOT NULL DEFAULT '',
             player2         TEXT NOT NULL DEFAULT '',
@@ -508,6 +509,7 @@ pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64) -> anyhow::Resu
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct DbSkillGame {
     pub covenant_id: String,
+    pub game_type: String,
     pub pot_amount_kas: f64,
     pub player1: String,
     pub player2: String,
@@ -522,13 +524,14 @@ pub struct DbSkillGame {
 pub fn create_skill_game(
     db: &Mutex<Connection>,
     covenant_id: &str,
+    game_type: &str,
     pot_amount_kas: f64,
     player1: &str,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
-        "INSERT INTO skill_games (covenant_id, pot_amount_kas, player1, status, created_at, updated_at) VALUES (?1, ?2, ?3, 'waiting', unixepoch(), unixepoch())",
-        params![covenant_id, pot_amount_kas, player1],
+        "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 'waiting', unixepoch(), unixepoch())",
+        params![covenant_id, game_type, pot_amount_kas, player1],
     )?;
     Ok(())
 }
@@ -579,20 +582,21 @@ pub fn get_skill_game(
 ) -> anyhow::Result<Option<DbSkillGame>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT covenant_id, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at FROM skill_games WHERE covenant_id = ?1",
+        "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at FROM skill_games WHERE covenant_id = ?1",
     )?;
     let mut rows = stmt.query_map(params![covenant_id], |row| {
         Ok(DbSkillGame {
             covenant_id: row.get(0)?,
-            pot_amount_kas: row.get(1)?,
-            player1: row.get(2)?,
-            player2: row.get(3)?,
-            moves: row.get(4)?,
-            current_turn: row.get(5)?,
-            winner: row.get(6)?,
-            status: row.get(7)?,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
+            game_type: row.get(1)?,
+            pot_amount_kas: row.get(2)?,
+            player1: row.get(3)?,
+            player2: row.get(4)?,
+            moves: row.get(5)?,
+            current_turn: row.get(6)?,
+            winner: row.get(7)?,
+            status: row.get(8)?,
+            created_at: row.get(9)?,
+            updated_at: row.get(10)?,
         })
     })?;
     Ok(rows.next().transpose()?)

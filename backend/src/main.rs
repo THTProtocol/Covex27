@@ -460,6 +460,7 @@ pub fn compute_script_hash(script_hex: &str) -> String {
 
 #[derive(serde::Deserialize)]
 struct CreateGameRequest {
+    game_type: String,
     creator_addr: String,
     pot_amount_kas: f64,
     player2: Option<String>,
@@ -483,7 +484,7 @@ async fn create_game_handler(
         return Json(json!({"success": false, "error": "Only covenant creator can create a game"}));
     }
 
-    match db::create_skill_game(&db, &covenant_id, payload.pot_amount_kas, &covenant.creator_addr) {
+    match db::create_skill_game(&db, &covenant_id, &payload.game_type, payload.pot_amount_kas, &covenant.creator_addr) {
         Ok(()) => {
             if let Some(p2) = &payload.player2 {
                 if !p2.is_empty() {
@@ -541,6 +542,7 @@ async fn game_state_handler(
         Ok(Some(game)) => Json(json!({
             "success": true,
             "covenant_id": game.covenant_id,
+            "game_type": game.game_type,
             "pot_amount_kas": game.pot_amount_kas,
             "player1": game.player1,
             "player2": game.player2,

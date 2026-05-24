@@ -248,56 +248,61 @@ const Explorer = () => {
                     </div>
                   )}
 
-                  {/* Compact stats */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-1">
+                  {/* Compact stats — always shown */}
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-2">
                     <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
                     <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
+                    <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
+                    <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || '—'}</span></span>
                   </div>
 
-                  {/* MAX: expanded full-detail view */}
-                  {isMax && (
-                    <div className="mt-3 pt-3 border-t border-[#49EACB]/30 space-y-2 text-xs animate-in">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Script Hash</span>
-                        <span className="text-[#49EACB]/80 font-mono">{truncate(c.script_hash, 6)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Creator</span>
-                        <span className="text-gray-300 font-mono">{truncate(c.creator_addr, 8)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Block DAA</span>
-                        <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || '—'}</span>
-                      </div>
-                      {c.covenant_type && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Type</span>
-                          <span className="text-gray-300">{c.covenant_type}</span>
-                        </div>
-                      )}
-                      {c.full_logic_summary && (
-                        <div className="pt-1">
-                          <span className="text-gray-500 block mb-1">Logic Summary</span>
-                          <span className="text-gray-300">{c.full_logic_summary}</span>
-                        </div>
-                      )}
+                  {/* Universal detail section — all tiers show full on-chain data */}
+                  <div className={`mt-2 pt-3 border-t ${isPremium ? 'border-[#49EACB]/30' : 'border-zinc-700/40'} space-y-2 text-xs`}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Script Hash</span>
+                      <span className={`font-mono ${isPremium ? 'text-[#49EACB]/80' : 'text-gray-400'}`}>{truncate(c.script_hash, 6)}</span>
                     </div>
-                  )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Creator</span>
+                      <span className="text-gray-300 font-mono flex items-center gap-1">
+                        {truncate(c.creator_addr, 8)}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.creator_addr); }}
+                          className="text-[9px] text-gray-600 hover:text-[#49EACB] ml-1"
+                          title="Copy creator address"
+                        >📋</button>
+                      </span>
+                    </div>
+                    {c.full_logic_summary && (
+                      <div className="pt-1">
+                        <span className="text-gray-500 block mb-1">Logic Summary</span>
+                        <span className="text-gray-400 leading-snug">{c.full_logic_summary}</span>
+                      </div>
+                    )}
+                    {c.receiving_addresses && (() => {
+                      try {
+                        const addrs = typeof c.receiving_addresses === 'string' ? JSON.parse(c.receiving_addresses) : c.receiving_addresses;
+                        if (Array.isArray(addrs) && addrs.length > 0) {
+                          return (
+                            <div className="pt-1">
+                              <span className="text-gray-500 block mb-1">Receiving ({addrs.length})</span>
+                              {addrs.slice(0, 3).map((a, j) => (
+                                <span key={j} className="text-gray-400 font-mono text-[10px] block truncate">{a}</span>
+                              ))}
+                              {addrs.length > 3 && <span className="text-gray-600 text-[10px]">+{addrs.length - 3} more</span>}
+                            </div>
+                          );
+                        }
+                      } catch (_) {}
+                      return null;
+                    })()}
+                  </div>
 
-                  {/* PRO: partial expanded info */}
-                  {tier === 'PRO' && (
-                    <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Script Hash</span>
-                        <span className="text-amber-300/70 font-mono">{truncate(c.script_hash, 6)}</span>
-                      </div>
-                      {c.covenant_type && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Type</span>
-                          <span className="text-gray-300">{c.covenant_type}</span>
-                        </div>
-                      )}
-                    </div>
+                  {/* FREE tier: upgrade hint */}
+                  {tier === 'FREE' && (
+                    <p className="mt-2 text-[10px] text-gray-600 italic text-center">
+                      All covenants show full on-chain data. Upgrade for custom interactive UI.
+                    </p>
                   )}
                 </div>
               );

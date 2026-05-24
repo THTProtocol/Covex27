@@ -178,6 +178,7 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     "verified_tier": c.verified_tier,
                     "custom_ui_enabled": c.custom_ui_enabled,
                     "full_logic_summary": c.full_logic_summary,
+                    "receiving_addresses": c.receiving_addresses,
                     "is_active": c.is_active,
                     "block_daa_score": c.block_daa_score,
                     "timestamp": c.timestamp,

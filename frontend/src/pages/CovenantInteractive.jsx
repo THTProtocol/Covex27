@@ -332,12 +332,10 @@ export default function CovenantInteractive() {
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-500 mb-3 uppercase tracking-widest">
-              {verified ? 'Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)'}
+              Logic Summary (Full On-Chain Data)
             </h3>
             <p className="text-gray-300 leading-relaxed">
-              {verified
-                ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
-                : 'Limited information available. Only tx_id, script_hash, and amount are disclosed. Upgrade to a paid tier for full transparency.'}
+              {covenant.description || covenant.desc || covenant.full_logic_summary || 'Covenant description extracted from the Kaspa BlockDAG.'}
             </p>
           </div>
 
@@ -355,6 +353,21 @@ export default function CovenantInteractive() {
               </div>
             ))}
           </div>
+
+          {/* Creator & Receiving Addresses */}
+          {covenant.creator_addr && (
+            <div className="mt-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+              <p className="text-xs text-gray-500 mb-1">Creator Address</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-mono text-kaspa-green truncate flex-1">{covenant.creator_addr}</p>
+                <button
+                  onClick={() => navigator.clipboard.writeText(covenant.creator_addr)}
+                  className="text-[10px] text-gray-600 hover:text-[#49EACB] shrink-0"
+                  title="Copy"
+                >📋</button>
+              </div>
+            </div>
+          )}
 
           {/* TXID */}
           <div className="mt-4 p-3 rounded-xl bg-black/30 border border-white/5">

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare, ShieldBan } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare, ShieldBan, Copy, FileJson, MapPin, Activity, ScrollText, Hash } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import UiBuilder from '../components/UiBuilder';
 import PremiumBuilder from '../components/PremiumBuilder';
@@ -456,45 +456,43 @@ export default function CovenantInteractive() {
             fontFamily: previewStyle.fontFamily,
           }}
         >
-          <div className="flex items-center border-b border-white/5">
-            <button
-              onClick={() => setActiveTab('interact')}
-              className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                activeTab === 'interact'
-                  ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <Terminal size={14} />
-              Interact
-            </button>
-            <button
-              onClick={() => setActiveTab('trust')}
-              className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                activeTab === 'trust'
-                  ? 'text-emerald-400 bg-emerald-500/[0.04] border-b-2 border-emerald-400'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <ShieldCheck size={14} />
-              Trust
-            </button>
-            {canCustomize && (
+          <div className="flex items-center border-b border-white/5 flex-wrap">
+            {[
+              { id: 'interact', icon: Terminal, label: 'Interact' },
+              { id: 'raw', icon: FileJson, label: 'Raw Data' },
+              { id: 'addresses', icon: MapPin, label: 'Addresses' },
+              { id: 'script', icon: ScrollText, label: 'Script' },
+              { id: 'trust', icon: ShieldCheck, label: 'Trust' },
+              ...(canCustomize ? [{ id: 'builder', icon: Paintbrush, label: 'Builder' }] : []),
+            ].map(tab => (
               <button
-                onClick={() => setActiveTab('builder')}
-                className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                  activeTab === 'builder'
-                    ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                    : 'text-gray-500 hover:text-gray-300'
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3 py-3 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 border-b-2 whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'text-kaspa-green bg-kaspa-green/[0.04] border-kaspa-green'
+                    : 'text-gray-500 border-transparent hover:text-gray-300'
                 }`}
               >
-                <Paintbrush size={14} />
-                UI Builder
+                <tab.icon size={13} />
+                {tab.label}
               </button>
-            )}
+            ))}
+            {/* Copy All Data */}
+            <button
+              onClick={() => {
+                const copy = JSON.stringify(covenant, null, 2);
+                navigator.clipboard.writeText(copy);
+                setToast({ type: 'success', msg: 'Full covenant data copied to clipboard' });
+              }}
+              className="ml-auto mr-2 px-2 py-3 text-[10px] text-gray-500 hover:text-[#49EACB] transition-colors flex items-center gap-1 border-b-2 border-transparent"
+              title="Copy all fields as JSON"
+            >
+              <Copy size={12} />
+            </button>
           </div>
 
-          <div className="p-8 flex-1">
+          <div className="p-6 flex-1 overflow-y-auto max-h-[55vh]">
             {activeTab === 'interact' && (
               <div className="space-y-8">
                 <div>
@@ -564,6 +562,179 @@ export default function CovenantInteractive() {
                   <ExternalLink size={12} />
                   View on Kaspa Explorer
                 </a>
+              </div>
+            )}
+            {activeTab === 'raw' && (
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                    <FileJson size={13} className="text-kaspa-green" /> Raw JSON
+                  </h4>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(JSON.stringify(covenant, null, 2)); setToast({ type: 'success', msg: 'JSON copied' }); }}
+                    className="text-[10px] text-gray-500 hover:text-[#49EACB] flex items-center gap-1"
+                  ><Copy size={10} /> Copy</button>
+                </div>
+                <pre className="p-3 rounded-lg bg-black/60 border border-white/5 font-mono text-[10px] text-gray-300 overflow-x-auto max-h-80 overflow-y-auto leading-relaxed whitespace-pre">
+                  {JSON.stringify(covenant, null, 2)}
+                </pre>
+                {/* Quick stats */}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  {[
+                    ['Block DAA', covenant.block_daa_score?.toLocaleString() || '—'],
+                    ['Timestamp', covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleString() : '—'],
+                    ['Active', covenant.is_active ? '✓ Yes' : '✗ No'],
+                    ['Custom UI', covenant.custom_ui_enabled ? '✓ Enabled' : '✗ Not enabled'],
+                    ['Verified At', covenant.verified_at ? new Date(covenant.verified_at * 1000).toLocaleString() : '—'],
+                    ['Payment TX', covenant.verified_payment_tx ? (covenant.verified_payment_tx.slice(0, 14) + '...') : '—'],
+                  ].map(([k, v]) => (
+                    <div key={k} className="p-2 rounded bg-white/[0.02] border border-white/5">
+                      <p className="text-[9px] text-gray-500">{k}</p>
+                      <p className="text-[10px] text-white font-mono truncate">{v}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {activeTab === 'addresses' && (
+              <div className="space-y-4 text-xs">
+                <h4 className="text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                  <MapPin size={13} className="text-kaspa-green" /> Addresses & Status
+                </h4>
+                {/* Creator */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-1 uppercase">Creator Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#49EACB] break-all flex-1">{covenant.creator_addr || 'N/A'}</code>
+                    <button onClick={() => { navigator.clipboard.writeText(covenant.creator_addr); setToast({ type: 'success', msg: 'Creator address copied' }); }} className="text-gray-500 hover:text-[#49EACB] shrink-0"><Copy size={11} /></button>
+                  </div>
+                </div>
+                {/* Covenant address */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-1 uppercase">Covenant Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-amber-400 break-all flex-1">{covenant.address || 'N/A'}</code>
+                    <button onClick={() => { navigator.clipboard.writeText(covenant.address); setToast({ type: 'success', msg: 'Address copied' }); }} className="text-gray-500 hover:text-[#49EACB] shrink-0"><Copy size={11} /></button>
+                  </div>
+                </div>
+                {/* Receiving addresses */}
+                {covenant.receiving_addresses && (() => {
+                  try {
+                    const addrs = typeof covenant.receiving_addresses === 'string'
+                      ? JSON.parse(covenant.receiving_addresses)
+                      : covenant.receiving_addresses;
+                    if (Array.isArray(addrs) && addrs.length > 0) {
+                      return (
+                        <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                          <p className="text-[10px] text-gray-500 mb-2 uppercase">Receiving Addresses ({addrs.length})</p>
+                          <div className="space-y-1.5">
+                            {addrs.map((a, i) => (
+                              <div key={i} className="flex items-center gap-1.5 bg-black/30 p-1.5 rounded">
+                                <span className="text-[9px] text-gray-600 w-4">{i + 1}</span>
+                                <code className="text-[10px] text-gray-300 break-all flex-1">{a}</code>
+                                <button onClick={() => { navigator.clipboard.writeText(a); setToast({ type: 'success', msg: `Address ${i+1} copied` }); }} className="text-gray-600 hover:text-[#49EACB]"><Copy size={10} /></button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  } catch(_) {}
+                  return null;
+                })()}
+                {/* Status */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-2 uppercase">UTXO Status</p>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${covenant.is_active ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-red-400'}`} />
+                    <span className={`text-[10px] font-semibold ${covenant.is_active ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {covenant.is_active ? 'ACTIVE — Unspent UTXO' : 'INACTIVE — Spent or expired'}
+                    </span>
+                  </div>
+                </div>
+                {/* TXID */}
+                <div className="p-3 rounded-lg bg-black/40 border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-1 uppercase">Transaction ID</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-gray-300 break-all flex-1 font-mono">{covenant.tx_id}</code>
+                    <button onClick={() => { navigator.clipboard.writeText(covenant.tx_id); setToast({ type: 'success', msg: 'TXID copied' }); }} className="text-gray-500 hover:text-[#49EACB] shrink-0"><Copy size={11} /></button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeTab === 'script' && (
+              <div className="space-y-4 text-xs">
+                <h4 className="text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                  <ScrollText size={13} className="text-kaspa-green" /> Script Analysis
+                </h4>
+                {/* Auto-detected type */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-1 uppercase">Auto-Detected Type</p>
+                  <p className="text-sm font-bold text-white">{covenant.covenant_type || 'Unknown'}</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Category: {covenant.category || 'General'}</p>
+                </div>
+                {/* Script Hash */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-1 uppercase">Script Hash (SHA256)</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] text-[#49EACB] break-all flex-1 font-mono">{covenant.script_hash || 'N/A'}</code>
+                    <button onClick={() => { navigator.clipboard.writeText(covenant.script_hash); setToast({ type: 'success', msg: 'Hash copied' }); }} className="text-gray-500 hover:text-[#49EACB] shrink-0"><Copy size={11} /></button>
+                  </div>
+                </div>
+                {/* Full Script Hex */}
+                <div className="p-3 rounded-lg bg-black/40 border border-white/5">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] text-gray-500 uppercase">Full Script Hex</p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(covenant.script_hex || ''); setToast({ type: 'success', msg: 'Script hex copied' }); }}
+                      className="text-[10px] text-gray-500 hover:text-[#49EACB] flex items-center gap-1"
+                    ><Copy size={10} /> Copy</button>
+                  </div>
+                  <pre className="text-[9px] font-mono text-gray-400 break-all whitespace-pre-wrap max-h-48 overflow-y-auto p-2 rounded bg-black/60">
+                    {covenant.script_hex || 'No script hex available'}
+                  </pre>
+                </div>
+                {/* Simple opcode breakdown */}
+                {covenant.script_hex && (() => {
+                  const hex = covenant.script_hex;
+                  const parts = [];
+                  for (let i = 0; i < hex.length; i += 2) {
+                    const byte = hex.substring(i, i + 2);
+                    const opCode = parseInt(byte, 16);
+                    let label = '';
+                    if (opCode === 0xaa) label = byte === 'aa' ? 'IF_COVENANT' : 'ELSE_COVENANT';
+                    else if (opCode === 0x20) label = 'PUSH32';
+                    else if (opCode === 0x7b) label = 'COVENANT_OP';
+                    else if (opCode >= 0x01 && opCode <= 0x4e) label = `PUSH${opCode}`;
+                    else if (opCode === 0x51) label = 'OP_1';
+                    else if (opCode === 0x52) label = 'OP_2';
+                    else if (opCode === 0x00) label = 'OP_0';
+                    else if (opCode === 0x88) label = 'EQUALVERIFY';
+                    else if (opCode === 0xac) label = 'CHECKSIG';
+                    else if (opCode === 0x87) label = 'EQUAL';
+                    else if (opCode === 0x76) label = 'DUP';
+                    else if (opCode === 0xa9) label = 'HASH160';
+                    else if (opCode === 0xae) label = 'CHECKMULTISIG';
+                    parts.push({ offset: i / 2, hex: byte, label });
+                  }
+                  return (
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <p className="text-[10px] text-gray-500 mb-2 uppercase">Opcode Breakdown</p>
+                      <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                        {parts.filter(p => p.label).slice(0, 40).map((p, i) => (
+                          <div key={i} className="flex items-center gap-2 text-[9px]">
+                            <span className="text-gray-600 w-8 text-right">{p.offset}</span>
+                            <code className="text-[#E8AF34] w-6">{p.hex}</code>
+                            <span className="text-gray-300">{p.label}</span>
+                          </div>
+                        ))}
+                        {parts.filter(p => p.label).length > 40 && (
+                          <p className="text-[9px] text-gray-600 italic">+{parts.filter(p => p.label).length - 40} more opcodes</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {activeTab === 'trust' && (

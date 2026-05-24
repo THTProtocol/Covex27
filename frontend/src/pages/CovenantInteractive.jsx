@@ -12,6 +12,7 @@ const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 const tierValue = (t) => ({ MAX: 3, PRO: 2, CREATOR: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
+const tierColor = (t) => ({ MAX: '#A855F7', PRO: '#E8AF34', CREATOR: '#3B82F6', FREE: '#6B7280', EXPLORER: '#6B7280' }[t] || '#6B7280');
 
 const DEFAULT_UI_CONFIG = {
   primaryColor: '#49EACB',
@@ -45,7 +46,7 @@ export default function CovenantInteractive() {
   // UI Builder state
   const [showBuilder, setShowBuilder] = useState(false);
   const [config, setConfig] = useState(DEFAULT_UI_CONFIG);
-  const [activeTab, setActiveTab] = useState('interact');
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Upgrade payment state
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -291,221 +292,48 @@ export default function CovenantInteractive() {
           <ArrowLeft size={14} /> Return to Explorer
         </Link>
 
-        {/* Hero header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 mb-10">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex-1">
+        {/* Hero header - compact */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 mb-8">
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex-1">
             <div className="flex items-center gap-4">
-              <div className="p-4 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green shadow-[0_0_15px_rgba(73,234,203,0.15)]">
-                <Cpu size={36} />
+              <div className="p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green shadow-[0_0_12px_rgba(73,234,203,0.1)]">
+                <Cpu size={30} />
               </div>
               <div>
-                <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   {covenant.name || TRUNC(covenant.tx_id)}
                 </h1>
-                <div className="flex flex-wrap items-center gap-3 mt-3">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest">
-                    {covenant.tier || covenant.verified_tier || 'FREE'} TIER
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: tierColor(tier) + '10',
+                      color: tierColor(tier),
+                      borderColor: tierColor(tier) + '30'
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <circle cx="5" cy="5" r="4" fill="currentColor" opacity="0.8"/>
+                      <circle cx="5" cy="5" r="1.5" fill="currentColor"/>
+                    </svg>
+                    {covenant.tier || covenant.verified_tier || 'FREE'}
                   </span>
-                  <span className="text-sm text-gray-500 font-mono">{covenant.category || 'General'}</span>
-                  <span className="text-xs text-gray-600 ml-auto">DAA #{covenant.block_daa_score?.toLocaleString() || 'Unknown'}</span>
+                  <span className="text-xs text-gray-500">{covenant.category || 'General'}</span>
+                  <span className="text-xs text-gray-600">DAA #{covenant.block_daa_score?.toLocaleString() || 'N/A'}</span>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Live UTXO Status right-aligned for desktop */}
-
-          {/* Verification badge */}
-          {verified ? (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
-              <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-400">
-                  VERIFIED COVENANT ({covenant.verified_tier} tier)
-                </p>
-                <p className="text-xs text-emerald-400/70">
-                  Full transparency. All fields, logic summary, and receiving addresses disclosed.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-red-500/[0.06] border border-red-500/25 flex items-center gap-3">
-              <AlertTriangle size={20} className="text-red-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-red-400">DANGER / UNVERIFIED COVENANT</p>
-                <p className="text-xs text-red-400/70">
-                  Limited disclosure: tx_id, script_hash, amount only. Use at your own risk. Full details require verified payment by covenant creator.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Live UTXO Status Badge — cyberpunk real-time indicator */}
-          <div className={`mb-6 px-5 py-4 rounded-xl flex items-center gap-3 border transition-all duration-500 ${
-            utxoLoading
-              ? 'bg-white/[0.02] border-white/10'
-              : utxoStatus?.is_unspent
-                ? 'bg-emerald-500/[0.06] border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                : 'bg-red-500/[0.06] border-red-500/20'
+          {/* UTXO dot + status inline */}
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-semibold ${
+            utxoLoading ? 'border-white/10 text-gray-500' :
+            utxoStatus?.is_unspent ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/[0.04]' :
+            'border-red-500/20 text-red-400 bg-red-500/[0.04]'
           }`}>
-            <div className={`relative w-5 h-5 shrink-0 ${utxoLoading ? '' : utxoStatus?.is_unspent ? 'animate-pulse' : ''}`}>
-              <div className={`w-full h-full rounded-full ${
-                utxoLoading ? 'bg-gray-500'
-                : utxoStatus?.is_unspent ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]'
-                : 'bg-red-400'
-              }`} />
-              {!utxoLoading && utxoStatus?.is_unspent && (
-                <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-30" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm font-bold ${
-                utxoLoading ? 'text-gray-400' : utxoStatus?.is_unspent ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {utxoLoading ? 'Checking UTXO...' : utxoStatus?.is_unspent ? 'ACTIVE: STILL LOCKED' : 'INACTIVE: SPENT'}
-              </p>
-              <p className={`text-[11px] mt-0.5 ${
-                utxoLoading ? 'text-gray-600' : utxoStatus?.is_unspent ? 'text-emerald-400/70' : 'text-red-400/70'
-              }`}>
-                {utxoLoading ? 'Querying Kaspa BlockDAG...' :
-                 utxoStatus?.message ||
-                 (utxoStatus?.is_unspent ? `${(utxoStatus.locked_amount_kas || 0).toFixed(2)} KAS locked on Kaspa BlockDAG` : 'This UTXO has been spent')
-                }
-                {utxoStatus?.last_checked && !utxoLoading && (
-                  <span className="ml-2 text-gray-600">
-                    • Checked: {new Date(utxoStatus.last_checked * 1000).toLocaleTimeString()}
-                  </span>
-                )}
-              </p>
-              {utxoStatus?.block_daa && (
-                <p className="text-[10px] text-gray-600 mt-0.5">Block DAA: {utxoStatus.block_daa.toLocaleString()}</p>
-              )}
-            </div>
-            <button
-              onClick={fetchUtxoStatus}
-              disabled={utxoLoading}
-              className="shrink-0 px-2 py-1 text-[10px] text-gray-500 hover:text-[#49EACB] rounded border border-white/5 hover:border-[#49EACB]/20 transition-all"
-              title="Refresh UTXO status"
-            >
-              <Activity size={12} className={utxoLoading ? 'animate-spin' : ''} />
-            </button>
+            <div className={`w-2 h-2 rounded-full ${utxoLoading ? 'bg-gray-500' : utxoStatus?.is_unspent ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+            {utxoLoading ? 'Checking...' : utxoStatus?.is_unspent ? 'Locked' : 'Spent'}
           </div>
-
-          <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
-            <h3 className="text-xs font-mono text-gray-500 mb-3 uppercase tracking-widest">
-              Logic Summary (Full On-Chain Data)
-            </h3>
-            <p className="text-gray-300 leading-relaxed">
-              {covenant.description || covenant.desc || covenant.full_logic_summary || 'Covenant description extracted from the Kaspa BlockDAG.'}
-            </p>
-          </div>
-
-          {/* Details grid */}
-          <div className="grid grid-cols-2 gap-3 mt-auto">
-            {[
-              ['Covenant Type', covenant.covenant_type || 'Unknown'],
-              ['Script Hash', (covenant.script_hash || '').slice(0, 20) + '...'],
-              ['Locked KAS', `${(covenant.amount_kaspa || 0).toLocaleString()} KAS`],
-              ['Category', covenant.category || 'General'],
-            ].map(([label, value]) => (
-              <div key={label} className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <p className="text-sm font-mono text-white truncate">{value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Creator & Receiving Addresses */}
-          {covenant.creator_addr && (
-            <div className="mt-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <p className="text-xs text-gray-500 mb-1">Creator Address</p>
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-mono text-kaspa-green truncate flex-1">{covenant.creator_addr}</p>
-                <button
-                  onClick={() => navigator.clipboard.writeText(covenant.creator_addr)}
-                  className="text-[10px] text-gray-600 hover:text-[#49EACB] shrink-0"
-                  title="Copy"
-                >📋</button>
-              </div>
-            </div>
-          )}
-
-          {/* TXID */}
-          <div className="mt-4 p-3 rounded-xl bg-black/30 border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">TXID</p>
-            <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
-          </div>
-
-          {/* Upgrade this Covenant button for FREE/EXPLORER tier */}
-          {!verified && (
-            <div className="mt-6 space-y-3">
-              <button
-                onClick={() => handleUpgrade(TIER_OPTIONS[0])}
-                className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all"
-              >
-                <ArrowUp size={18} />
-                Upgrade this Covenant
-              </button>
-
-              {/* STEP 3: Direct SaaS tier buttons */}
-              <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleUpgrade(TIER_OPTIONS[1])}
-                className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
-              >
-                <ArrowUp size={14} />
-                Upgrade to PRO (500 KAS)
-              </button>
-              <button
-                onClick={() => handleUpgrade(TIER_OPTIONS[2])}
-                className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
-              >
-                <ArrowUp size={14} />
-                Upgrade to MAX (1000 KAS)
-              </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4: Covenant Interaction Proof */}
-          <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/5">
-            <p className="text-xs text-gray-500 mb-2 uppercase tracking-widest">Bi-Directional Proof</p>
-            <button
-              onClick={handleInteract}
-              disabled={interacting}
-              className="w-full px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none"
-            >
-              <MessageSquare size={16} />
-              {interacting ? 'SIGNING...' : 'Interact — Sign Proof Message'}
-            </button>
-            {interactResult && (
-              <div className={`mt-3 p-3 rounded-lg text-xs font-mono break-all border ${
-                interactResult.success
-                  ? 'bg-emerald-500/[0.06] border-emerald-500/20 text-emerald-400'
-                  : 'bg-red-500/[0.06] border-red-500/20 text-red-400'
-              }`}>
-                <p className="font-semibold mb-1">{interactResult.success ? '✓ SIGNED' : '✗ REJECTED'}</p>
-                <p className="text-gray-500">Msg: {interactResult.message.slice(0, 60)}...</p>
-                {interactResult.success && <p>Sig: {interactResult.signature.slice(0, 50)}...</p>}
-                {!interactResult.success && <p>Error: {interactResult.error}</p>}
-              </div>
-            )}
-          </div>
-
-          {/* Customize UI button for paid tiers */}
-          {canCustomize && (
-            <button
-              onClick={() => setShowBuilder((s) => !s)}
-              className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/10 transition-all text-sm font-semibold"
-            >
-              <Palette size={16} />
-              {showBuilder ? 'Hide UI Builder' : 'Customize Interactive UI'}
-            </button>
-          )}
         </div>
-        {/* End hero header */}
-
-        {/* Full-width tabs section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -520,6 +348,7 @@ export default function CovenantInteractive() {
         >
           <div className="flex items-center border-b border-white/5 flex-wrap">
             {[
+              { id: 'overview', icon: Eye, label: 'Overview' },
               { id: 'interact', icon: Terminal, label: 'Interact' },
               { id: 'raw', icon: FileJson, label: 'Raw Data' },
               { id: 'addresses', icon: MapPin, label: 'Addresses' },
@@ -555,6 +384,67 @@ export default function CovenantInteractive() {
           </div>
 
           <div className="p-6 flex-1 overflow-y-auto max-h-[55vh]">
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {verified ? (
+                  <div className="px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
+                    <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-400">VERIFIED COVENANT ({covenant.verified_tier} tier)</p>
+                      <p className="text-xs text-emerald-400/70">Full transparency. All fields, logic summary, and receiving addresses disclosed.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-5 py-4 rounded-xl bg-red-500/[0.06] border border-red-500/25 flex items-center gap-3">
+                    <AlertTriangle size={20} className="text-red-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-400">Unverified Covenant</p>
+                      <p className="text-xs text-red-400/70">All on-chain data is visible below. Upgrade to a paid tier for verified badges and custom UI tools.</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                  <h3 className="text-xs font-mono text-gray-500 mb-3 uppercase tracking-wider">Logic Summary</h3>
+                  <p className="text-gray-300 leading-relaxed">{covenant.description || covenant.desc || covenant.full_logic_summary || 'Covenant on the Kaspa BlockDAG.'}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ['Type', covenant.covenant_type || 'Unknown'],
+                    ['Script Hash', (covenant.script_hash || '').slice(0, 20) + '...'],
+                    ['Locked', `${(covenant.amount_kaspa || 0).toLocaleString()} KAS`],
+                    ['Category', covenant.category || 'General'],
+                  ].map(([l, v]) => (
+                    <div key={l} className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                      <p className="text-[10px] text-gray-500 mb-0.5">{l}</p>
+                      <p className="text-xs font-mono text-white truncate">{v}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {covenant.creator_addr && (
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <p className="text-[10px] text-gray-500 mb-1.5 uppercase">Creator</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs text-[#49EACB] break-all flex-1">{covenant.creator_addr}</code>
+                      <button onClick={() => { navigator.clipboard.writeText(covenant.creator_addr); setToast({ type: 'success', msg: 'Copied' }); }} className="text-gray-500 hover:text-[#49EACB]"><Copy size={12} /></button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-xl bg-black/30 border border-white/5">
+                  <p className="text-[10px] text-gray-500 mb-1.5 uppercase">Transaction ID</p>
+                  <code className="text-xs text-gray-300 break-all font-mono">{covenant.tx_id}</code>
+                </div>
+
+                {!verified && (
+                  <button onClick={() => handleUpgrade(TIER_OPTIONS[0])} className="w-full px-5 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl shadow-[0_0_20px_rgba(73,234,203,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <ArrowUp size={16} /> Upgrade this Covenant
+                  </button>
+                )}
+              </div>
+            )}
             {activeTab === 'interact' && (
               <div className="space-y-8">
                 <div>

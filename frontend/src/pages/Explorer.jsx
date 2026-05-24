@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Terminal, Database, Code2, Zap, ChevronDown, ShieldCheck, Globe, ExternalLink, Info, Sparkles } from 'lucide-react';
+import KaspaInsights from '../components/KaspaInsights';
 
 const TIER_STYLES = {
   MAX: {
@@ -63,10 +64,19 @@ const Explorer = () => {
     <>
       {/* ═══ HERO SECTION ═══ */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-24 pb-10 px-6 text-center animate-in fade-in duration-700">
-        {/* Network Status Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#1f1f1f] text-gray-400 text-xs font-mono mb-8">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_8px_#49EACB] animate-pulse" />
-          TN-12 LIVE (TOCCATA)
+        {/* Logo */}
+        <div className="mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="61" fill="none" viewBox="0 0 48 46" className="drop-shadow-[0_0_20px_rgba(73,234,203,0.3)]">
+            <defs>
+              <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#49EACB"/>
+                <stop offset="100%" stop-color="#7e14ff"/>
+              </linearGradient>
+            </defs>
+            <circle cx="24" cy="23" r="22" fill="none" stroke="url(#heroGrad)" stroke-width="2" opacity="0.9"/>
+            <path d="M33 13C30 10 26 8 22 8C13 8 8 15 8 23s5 15 14 15c4 0 8-2 11-5" fill="none" stroke="url(#heroGrad)" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="24" cy="23" r="2.5" fill="#49EACB"/>
+          </svg>
         </div>
 
         {/* Main Headline */}
@@ -132,10 +142,14 @@ const Explorer = () => {
 
       {/* ═══ SCROLL TRANSITION ═══ */}
       <div className="relative z-10 flex flex-col items-center justify-center pb-8">
-        <p className="text-sm text-gray-500 mb-3 animate-pulse">
-          ↓ Scroll down to see all Covenants on the Kaspa BlockDAG
+        <p className="text-xs text-gray-500 mb-4 font-mono tracking-wider uppercase">
+          Explore Covenants on the Kaspa BlockDAG
         </p>
-        <ChevronDown size={24} className="text-[#49EACB]/60 animate-bounce" />
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-6 h-6 rounded-full border border-[#49EACB]/30 flex items-center justify-center animate-bounce">
+            <ChevronDown size={14} className="text-[#49EACB]" />
+          </div>
+        </div>
       </div>
 
       {/* ═══ COVENANT EXPLORER GRID ═══ */}
@@ -310,6 +324,9 @@ const Explorer = () => {
           </div>
         )}
       </div>
+
+      {/* ═══ KASPA INSIGHTS ═══ */}
+      <KaspaInsights />
     </>
   );
 };

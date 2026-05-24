@@ -29,9 +29,20 @@ export default function App() {
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <Link
               to="/"
-              className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] transition-colors flex items-center gap-2"
+              className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] transition-colors flex items-center gap-2.5"
             >
-              <span className="text-[#49EACB]">◆</span> COVEX
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="21" fill="none" viewBox="0 0 48 46" className="drop-shadow-[0_0_8px_rgba(73,234,203,0.4)]">
+                <defs>
+                  <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#49EACB"/>
+                    <stop offset="100%" stopColor="#7e14ff"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="24" cy="23" r="22" fill="none" stroke="url(#navGrad)" strokeWidth="2.5" opacity="0.9"/>
+                <path d="M33 13C30 10 26 8 22 8C13 8 8 15 8 23s5 15 14 15c4 0 8-2 11-5" fill="none" stroke="url(#navGrad)" strokeWidth="4" strokeLinecap="round"/>
+                <circle cx="24" cy="23" r="3" fill="#49EACB"/>
+              </svg>
+              <span className="bg-gradient-to-r from-[#49EACB] to-white bg-clip-text text-transparent">COVEX</span>
             </Link>
             <div className="flex items-center gap-6">
               <button

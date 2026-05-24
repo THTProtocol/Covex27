@@ -282,54 +282,38 @@ export default function CovenantInteractive() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 font-mono text-sm uppercase tracking-wider"
-      >
-        <ArrowLeft size={16} /> Return to Registry
-      </Link>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left: Covenant metadata */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="p-8 sm:p-10 flex flex-col"
-          style={{
-            background: previewStyle.background,
-            border: `1px solid ${previewStyle.borderColor}`,
-            borderRadius: config.borderRadius === 'none' ? '0' :
-              config.borderRadius === 'sm' ? '0.375rem' :
-              config.borderRadius === 'md' ? '0.75rem' :
-              config.borderRadius === 'lg' ? '1rem' :
-              config.borderRadius === 'xl' ? '1.5rem' :
-              config.borderRadius === '2xl' ? '2rem' :
-              config.borderRadius === 'full' ? '9999px' : '1.5rem',
-            fontFamily: previewStyle.fontFamily,
-            boxShadow: config.showGlow ? `0 0 20px ${config.primaryColor}15` : undefined,
-            backdropFilter: config.backdropBlur && config.backdropBlur !== 'none' ?
-              `blur(${{sm:'4px',md:'8px',lg:'16px'}[config.backdropBlur] || '8px'})` : undefined,
-            WebkitBackdropFilter: config.backdropBlur && config.backdropBlur !== 'none' ?
-              `blur(${{sm:'4px',md:'8px',lg:'16px'}[config.backdropBlur] || '8px'})` : undefined,
-          }}
+    <div className="min-h-screen">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-10 font-mono text-xs uppercase tracking-widest px-4 py-2 rounded-lg border border-white/5 hover:border-[#49EACB]/20 backdrop-blur-sm"
         >
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
-              <Cpu size={32} />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {covenant.name || TRUNC(covenant.tx_id)}
-              </h1>
-              <div className="flex flex-wrap items-center gap-3 mt-2">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest">
-                  {covenant.tier || covenant.verified_tier || 'FREE'} TIER
-                </span>
-                <span className="text-sm text-gray-500 font-mono">{covenant.category || 'General'}</span>
+          <ArrowLeft size={14} /> Return to Explorer
+        </Link>
+
+        {/* Hero header */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 mb-10">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex-1">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green shadow-[0_0_15px_rgba(73,234,203,0.15)]">
+                <Cpu size={36} />
+              </div>
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                  {covenant.name || TRUNC(covenant.tx_id)}
+                </h1>
+                <div className="flex flex-wrap items-center gap-3 mt-3">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest">
+                    {covenant.tier || covenant.verified_tier || 'FREE'} TIER
+                  </span>
+                  <span className="text-sm text-gray-500 font-mono">{covenant.category || 'General'}</span>
+                  <span className="text-xs text-gray-600 ml-auto">DAA #{covenant.block_daa_score?.toLocaleString() || '—'}</span>
+                </div>
               </div>
             </div>
-          </div>
+          </motion.div>
+
+          {/* Live UTXO Status right-aligned for desktop */}
 
           {/* Verification badge */}
           {verified ? (
@@ -518,13 +502,14 @@ export default function CovenantInteractive() {
               {showBuilder ? 'Hide UI Builder' : 'Customize Interactive UI'}
             </button>
           )}
-        </motion.div>
+        </div>
+        {/* End hero header */}
 
-        {/* Right: Tabs - Interact / Customize */}
+        {/* Full-width tabs section */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="overflow-hidden flex flex-col"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl overflow-hidden mb-8"
           style={{
             background: config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' :
                        config.bgStyle === 'dark' ? '#0A0A0D' : '#111116',

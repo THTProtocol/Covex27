@@ -377,7 +377,22 @@ async fn utxo_status_handler(
 
     let addr = match Address::try_from(covenant.address.as_str()) {
         Ok(a) => a,
-        Err(e) => return Json(json!({"success": false, "error": format!("Invalid address: {}", e)})),
+        Err(e) => {
+            // Invalid Kaspa address format (raw hex from crawler) — fallback to DB status
+            warn!("UTXO status: invalid address format for {}: {}", covenant_id, e);
+            let last_checked_ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            return Json(json!({
+                "success": true,
+                "is_unspent": covenant.is_active,
+                "status": if covenant.is_active { "LOCKED" } else { "UNKNOWN" },
+                "locked_amount_kas": covenant.amount_kaspa,
+                "message": "DB-tracked status. Raw hex address cannot be queried from kaspad.",
+                "last_checked": last_checked_ts
+            }));
+        }
     };
 
     let last_checked_ts = std::time::SystemTime::now()

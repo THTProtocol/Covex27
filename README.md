@@ -1,38 +1,41 @@
 <div align="center">
   <br>
+  <br>
+
   <pre>
-██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
-██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
-██║     ██║   ██║██║   ██║█████╗   ╚███╔╝
-██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗
-╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
- ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
+  ██████╗  ██████╗ ██╗   ██╗███████╗██╗  ██╗
+  ██╔════╝ ██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+  ██║      ██║   ██║██║   ██║█████╗   ╚███╔╝
+  ██║      ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗
+  ╚██████╗ ╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
+   ╚═════╝  ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
   </pre>
 
-  <h3>Kaspa SilverScript Covenant Indexer — Toccata TN12</h3>
+  <h3 style="margin-top: -10px;">Kaspa Covenant Indexer & SaaS Platform</h3>
 
   <br>
 
-  <p>
-    <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=flat-square" alt="License"></a>
-    <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Toccata%20TN12-49EACB?style=flat-square" alt="Network"></a>
-    <a href="https://hightable.pro/api/status"><img src="https://img.shields.io/badge/live-76%20covenants-49EACB?style=flat-square" alt="Status"></a>
-    <a href="#"><img src="https://img.shields.io/badge/kaspad-v0.15-49EACB?style=flat-square" alt="kaspad"></a>
-  </p>
+  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-76%20covenants-49EACB?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAADISURBVHgBfZI9CsJAEEbHyiJY+AdWYiMWgmAh3kA8gOANIoj2XsA7iEcQO0uw0FbYQkhlsRBGjUQkK4kf6hN4w7zZb3ZmWID/i7IsBUFgep5HvV6P5XKpK4ryIEmSJNfrtTkYDPB9HzAMw3F4sVhwl4fDgXmeR57nMZ/PEccx9H0/mu4mSRJNURSWZRkURcFxHCfPcxbDl5RS4TAMo+s6FhcXiqKQJEk0HA7RNE0QBAEhxK+5iKKoYhgG9vt97X0HXyB1PwAqkPAAAAAASUVORK5CYII=" alt="Live"></a>
+  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Toccata%20TN12-49EACB?style=for-the-badge" alt="Network"></a>
+  <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="License"></a>
+  <a href="#"><img src="https://img.shields.io/badge/kaspad-v0.15-49EACB?style=for-the-badge" alt="kaspad"></a>
 
   <br>
+  <br>
 
-  > **Live: [hightable.pro](https://hightable.pro)**
+  > **Live:** [hightable.pro](https://hightable.pro) &nbsp; • &nbsp; **Code:** 2,504 lines Rust &nbsp; • &nbsp; **Frontend:** React 19 + Vite 8
   >
-  > Non-custodial indexing and interactive UI layer for native Kaspa SilverScript covenants.
-  > One Rust binary. One SQLite database. Direct wRPC to your kaspad node.
+  > Non-custodial indexing layer for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen.
 
   <br>
+
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0A0A0D,100:49EACB&height=1&section=header" width="100%" alt=""/>
 
   ---
 
+  <br>
   **Built by HIGH TABLE PROTOCOL**
-
+  <br>
   <br>
 </div>
 
@@ -40,33 +43,33 @@
 
 ## Overview
 
-Covex crawls the Kaspa Toccata Testnet-12 BlockDAG for SilverScript covenants — native UTXO smart contracts identified by `aa20`–`aa23` opcodes embedded in transaction payloads. It discovers, classifies, and exposes covenants through a tier-weighted REST API with an interactive React/Tailwind frontend.
+Covex is a high-performance covenant indexer for the Kaspa **Toccata Testnet-12** BlockDAG. It crawls the historic chain, polls live UTXOs, and classifies SilverScript covenants (`aa20`–`aa23` opcodes) — then serves them through a tier-weighted REST API with a premium React/Tailwind explorer frontend.
 
-**Covex never holds keys, never signs on behalf of users, and never modifies on-chain covenant data.** The BlockDAG is the source of truth. Covex is the window.
+**Key guarantees:** non-custodial (keys never leave your wallet), on-chain verification only (no synthetic data), single Rust binary with zero external dependencies beyond SQLite and kaspad.
 
-Live at [hightable.pro](https://hightable.pro) backed by a `kaspad` Toccata TN12 full node on port 17217. Currently indexing 76 covenants.
+76 covenants indexed live at [hightable.pro](https://hightable.pro).
+
+<br>
 
 ---
 
 ## Architecture
 
-A single Rust binary (Axum 0.7, Tokio 1) runs four concurrent tasks sharing one `KaspaRpcClient` wRPC connection and one SQLite database.
-
 ```mermaid
 graph LR
-    Browser[Browser] --> Nginx[Nginx :443]
-    Nginx -->|"/api/ → :3005/"| Backend[API Router :3005]
+    Browser["Browser"] --> Nginx["Nginx :443"]
+    Nginx -->|"/api/→:3005/"| Backend["Axum API :3005"]
     Backend --> DB[("SQLite")]
 
-    Crawler[Crawler] --> Kaspa[("kaspad :17217")]
-    Indexer[Indexer] --> Kaspa
-    Verifier[Payment Verifier] --> Kaspa
+    Crawler["Historic Crawler"] --> Kaspa[("kaspad :17217")]
+    Indexer["Live Indexer"] --> Kaspa
+    Verifier["Payment Verifier"] --> Kaspa
 
     Crawler --> DB
     Indexer --> DB
     Verifier --> DB
 
-    Wallet[Wallet Extension] -.-> Kaspa
+    Wallet["Wallet"] -.-> Kaspa
 
     subgraph Process["covex27-backend"]
         Backend
@@ -82,46 +85,51 @@ graph LR
     style Nginx fill:#1A1A2E,stroke:#666,color:#E0E0E0
 ```
 
-### Subsystems
+<br>
 
-**Historic Crawler** (`crawler.rs`): Walks the selected-parent chain backward from the virtual tip, up to 2,000 blocks per tick. Calls `get_block(hash, true)` for each parent to include full transaction data. Scans `tx.payload` (not output scripts) for `aa20`/`aa21`/`aa22`/`aa23` opcodes. Tier is determined from `tx.outputs[1]` — the second output must match the treasury P2PKH script and exceed threshold amounts (100/500/1,000 KAS). Checkpointed via `crawler_state.last_scanned_daa` per batch so restarts don't rescan.
+### How the subsystems work together
 
-**Live Indexer** (`indexer.rs`): Polls `get_utxos_by_addresses()` every 10 seconds for configured seed addresses. Filters out standard wallet outputs (P2PKH, Schnorr P2PK, P2SH) via `is_standard_output()`, then checks for covenant opcodes via `looks_like_covenant()`. Automatically triggers basic UI generation on each new covenant insert.
+**Step 1 — Historic Crawler** (`crawler.rs`): Every tick, the crawler fetches the virtual tip DAA via `get_block_dag_info()`, then walks the selected-parent chain backward up to 2,000 blocks per batch. For each block, it downloads full transaction data via `get_block(hash, true)` and scans `tx.payload` for `aa20`–`aa23` covenant opcodes. Tier is determined from the **second output only**: `tx.outputs[1]` must match the treasury P2PKH script (`76a914<hash160>88ac`) and its sompi amount must exceed tier thresholds (100/500/1,000 KAS). Found covenants are inserted via `UNIQUE` constraint — duplicates silently skipped. Progress checkpointed to `crawler_state.last_scanned_daa` after every batch.
 
-**Payment Verifier** (`payment_verifier.rs`): Monitors treasury UTXOs every 15 seconds. Matches `from_address` to `creator_addr` in the covenants table. After 6 DAA confirmations, upgrades the covenant record (sets `verified_tier`, `verified_payment_tx`, `full_logic_summary`, `custom_ui_enabled = 1`) and regenerates the enhanced UI with full disclosure fields.
+**Step 2 — Live Indexer** (`indexer.rs`): Polls `get_utxos_by_addresses()` every 10 seconds for configured seed addresses. Filters out standard wallet outputs (P2PKH ≤50 hex, Schnorr P2PK 68 hex, P2SH 46 hex) via `is_standard_output()`, then checks for covenant opcodes via `looks_like_covenant()`. Each new covenant triggers a `tokio::spawn` for basic UI generation — the polling loop never blocks.
 
-**UI Generator** (`ui_generator.rs`): Produces self-contained HTML pages with embedded Kaspa wallet integration. Basic mode (FREE tier): red danger banner, limited disclosure. Enhanced mode (CREATOR/PRO/MAX): green verified banner, full logic summary, creator and receiving addresses.
+**Step 3 — Payment Verifier** (`payment_verifier.rs`): Monitors treasury UTXOs every 15 seconds. Matches `from_address` to `creator_addr` in the covenants table. Waits for **6 DAA confirmations**. Then: upgrades the covenant record (`verified_tier`, `verified_payment_tx`, `full_logic_summary`, `custom_ui_enabled = 1`), regenerates enhanced UI, and creates a visibility record with tier-appropriate priority (MAX=100, PRO=50, CREATOR=10).
 
-**Native Visibility Engine**: The `get_all_covenants()` query uses a SQL `CASE` expression to sort covenants server-side:
+**Step 4 — Native Visibility Engine**: The `get_all_covenants()` function sorts at the **SQL level**:
+
 ```sql
-ORDER BY CASE verified_tier
-  WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'CREATOR' THEN 10 ELSE 0
-END DESC, timestamp DESC
+ORDER BY
+  CASE verified_tier
+    WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'CREATOR' THEN 10 ELSE 0
+  END DESC, timestamp DESC
 ```
-The React frontend renders in the exact order returned — **never re-sorts**.
+
+The React frontend renders in the exact order returned. **No frontend re-sorting.**
+
+<br>
 
 ---
 
 ## Covenant Classification
 
-Both the crawler and indexer classify every detected covenant. The crawler scans `tx.payload` hex; the indexer scans output script public key hex. Their classification logic is isomorphic:
+Both crawler and indexer classify every detected covenant. The crawler inspects `tx.payload`; the indexer inspects output script public key hex. Their classification logic is isomorphic:
 
 ```mermaid
 graph LR
-    Hex["payload / script_hex"] --> P1{"starts 'aa20'<br>+ ends '87'?"}
-    P1 -->|yes| P2SH["p2sh-covenant"]
-    P1 -->|no| P2{"contains 'aa21'?"}
-    P2 -->|yes| Extended["extended-covenant"]
-    P2 -->|no| P3{"contains 'aa22'?"}
-    P3 -->|yes| MultiSig["multi-sig-covenant"]
-    P3 -->|no| P4{"contains '51'?"}
-    P4 -->|yes| Spendable["spendable-covenant"]
-    P4 -->|no| Generic["generic-covenant"]
+    Hex["raw hex"] --> P1{"starts 'aa20'<br>+ ends '87'?"}
+    P1 -->|Yes| P2SH["p2sh-covenant"]
+    P1 -->|No| P2{"contains 'aa21'?"}
+    P2 -->|Yes| Extended["extended-covenant"]
+    P2 -->|No| P3{"contains 'aa22'?"}
+    P3 -->|Yes| MultiSig["multi-sig-covenant"]
+    P3 -->|No| P4{"contains '51'?"}
+    P4 -->|Yes| Spendable["spendable-covenant"]
+    P4 -->|No| Generic["generic-covenant"]
 
-    Hex --> Cat{"category match?"}
-    Cat -->|"contains 'aa21'"| Escrow["Escrow & Custody"]
-    Cat -->|"contains 'aa22'"| Tournament["Tournaments"]
-    Cat -->|"aa20/aa21, no '51'"| Skill["Skill Contests"]
+    Hex --> Cat{"category?"}
+    Cat -->|"'aa21' present"| Escrow["Escrow & Custody"]
+    Cat -->|"'aa22' present"| Tournament["Tournaments"]
+    Cat -->|"'aa20'/'aa21' + no '51'"| Skill["Skill Contests"]
     Cat -->|default| General["General"]
 
     style Hex fill:#1A1A2E,stroke:#49EACB,color:#49EACB
@@ -136,89 +144,73 @@ graph LR
     style General fill:#1A1A2E,stroke:#49EACB,color:#E0E0E0
 ```
 
-| Classification | Detection Rule | Source |
-|:---|:---|:---|
-| `p2sh-covenant` | Payload starts `aa20` AND ends `87` | Crawler + Indexer |
-| `extended-covenant` | Payload contains `aa21` | Crawler + Indexer |
-| `multi-sig-covenant` | Payload contains `aa22` | Crawler + Indexer |
-| `spendable-covenant` | Payload contains `51` | Indexer only |
-| `generic-covenant` | No opcode match (fallback) | Crawler + Indexer |
-
-Categories (stored in the `category` column):
-
-| Category | Trigger | Status |
-|:---|:---|:---|
-| Escrow & Custody | Payload contains `aa21` | Active |
-| Tournaments | Payload contains `aa22` | Active |
-| Skill Contests | Payload contains `aa20`/`aa21` without `51` | Active |
-| General | No match (fallback) | Active |
-| Predictive Markets, Community Pools, Flash, Structured, Governance | — | Reserved |
+<br>
 
 ---
 
-## Pricing Tiers
+## Pricing & Trust
 
-Tier is determined **on-chain** by the amount in `tx.outputs[1]` sent to the treasury address. The payment verifier waits 6 DAA confirmations before upgrading the covenant record.
+Covex operates a four-tier on-chain verification model. Tier is determined by the amount of KAS sent to the treasury address in a covenant deployment transaction — specifically `tx.outputs[1]` (the second output).
 
-| | FREE | CREATOR | PRO | MAX |
+| | **FREE** | **CREATOR** | **PRO** | **MAX** |
 |:---|:---:|:---:|:---:|:---:|
-| **Price** | `0 KAS` | `100 KAS` | `500 KAS` | `1,000 KAS` |
-| **Card neon glow** | — | — | Border | Border + pulse |
-| **Expanded detail panel** | — | — | Partial | Full |
-| **Interactive UI** | — | Yes | Yes | Yes |
-| **Trust builder** | — | — | Yes | Yes |
-| **Verified source badge** | — | — | Yes | Yes |
-| **Developer notes** | — | — | Yes | Yes |
-| **Interaction buttons** | — | — | Yes | Yes |
-| **Custom branding** | — | — | — | Yes |
+| **One-time fee** | `0` | `100 KAS` | `500 KAS` | `1,000 KAS` |
+| **Card glow** | — | — | Border | Border + pulse |
+| **Expanded details** | — | — | Partial | Full |
+| **Interactive UI** | — | ✓ | ✓ | ✓ |
+| **Trust builder** | — | — | ✓ | ✓ |
+| **Developer notes** | — | — | ✓ | ✓ |
+| **Custom interaction buttons** | — | — | ✓ | ✓ |
+| **Verified source badge** | — | — | ✓ | ✓ |
+| **Custom branding** | — | — | — | ✓ |
+
+<br>
 
 Treasury: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
-
-**Trust-verification builder**: PRO/MAX creators can link verified GitHub source URLs, publish developer safety notes, and define interactive button schemas — proving their covenant is auditable. The backend strictly enforces `wallet_address == on-chain creator_addr` before accepting configuration. Trust badges render on each covenant card in the Explorer.
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology | Purpose |
+| Layer | Technology | Detail |
 |:---|:---|:---|
-| Node | `kaspad` v0.15 + `--netsuffix=12 --utxoindex` | Toccata Testnet-12 full node, wRPC Borsh on port 17217 |
-| Backend | Rust (edition 2021) · Axum 0.7 · Tokio 1 | Async HTTP server, 4 concurrent tasks |
-| wRPC | `kaspa-wrpc-client` 0.15 | Borsh-encoded WebSocket to kaspad |
-| Database | SQLite via `rusqlite` 0.31 (bundled) | 6 tables, 15 indexes, `Arc<Mutex<Connection>>` |
-| Hashing | SHA-256 (`sha2` 0.10) | Script hash computation (20-byte hex digest) |
-| Signing | Vendored `kaspa-consensus-core` | Patched sighash for covenant payload hashing |
-| Frontend | React 19 · Vite 8 · Tailwind CSS | Static SPA, no SSR |
-| Styling | Custom CSS neon system | Glassmorphism panels, `.neon-card-*` classes, stagger animations |
-| WASM | `@onekeyfe/kaspa-wasm` | TN12 dev mode — BIP39 key derivation, local tx signing |
-| Reverse proxy | Nginx + Let's Encrypt | TLS termination, `/api/` → `:3005/` proxy, SPA fallback |
-| Deploy | systemd + bash | `kaspad-toccata.service`, `covex-backend.service`, idempotent deploy scripts |
+| **Node** | `kaspad` v0.15 + `--netsuffix=12` | Toccata TN12 full node with `--utxoindex`, wRPC Borsh on `:17217` |
+| **Backend** | Rust (2021 edition) · Axum 0.7 · Tokio 1 | Single binary with 4 concurrent tasks |
+| **wRPC Client** | `kaspa-wrpc-client` 0.15 | Borsh-encoded WebSocket to kaspad |
+| **Consensus** | `kaspa-consensus-core` 0.15 (vendored) | Patched sighash for covenant payload hashing |
+| **Database** | SQLite via `rusqlite` 0.31 (bundled) | 6 tables, 15 indexes, `Arc<Mutex<Connection>>` |
+| **Hashing** | SHA-256 (`sha2` 0.10) | 20-byte hex digest for script hash computation |
+| **Signing** | `secp256k1` 0.29 · `workflow-serializer` 0.18 | Rust-native transaction signing |
+| **Frontend** | React 19 · Vite 8 · Tailwind CSS v4 | Static SPA, cyberpunk neon design system |
+| **WASM** | `@onekeyfe/kaspa-wasm` | BIP39 key derivation, local tx building and signing for dev mode |
+| **Reverse Proxy** | Nginx + Let's Encrypt | TLS termination, `/api/` → `:3005/` proxy, SPA fallback |
+| **Deploy** | systemd + bash | `kaspad-toccata.service`, `covex-backend.service`, idempotent scripts |
 
 ---
 
 ## API Reference
 
-All endpoints return JSON. Nginx strips the `/api/` prefix before forwarding.
+All endpoints return JSON. Nginx strips the `/api/` prefix before forwarding to the backend.
 
 | Method | Path | Description |
 |:---|:---|:---|
-| `GET` | `/` | Status: `{"status":"ok","app":"Covex v1.0.0","network":"testnet-12"}` |
-| `GET` | `/health` | Plain text `OK` for uptime monitors |
+| `GET` | `/` | `{"status":"ok","app":"Covex v1.0.0","network":"testnet-12"}` |
+| `GET` | `/health` | Plain text `OK` — uptime monitoring |
 | `GET` | `/covenants` | Tier-sorted array. Each record: `tx_id`, `address`, `amount_kaspa`, `script_hash`, `script_hex`, `covenant_type`, `category`, `creator_addr`, `verified_tier`, `full_logic_summary`, `block_daa_score`, `timestamp`, `ui_config`, `trust_config`, `has_verified_source` |
 | `GET` | `/status` | `{"total_covenants":N,"active_covenants":N,"verified_covenants":N,"node_connected":true}` |
-| `GET` | `/tiers` | Four tier definitions: EXPLORER, CREATOR, PRO, MAX with pricing, features, and color codes |
-| `POST` | `/covenants/:id/ui-config` | **Secured.** Saves trust config (source URL, notes, interaction schema). Validates `creator_addr` match and PRO/MAX tier |
-| `GET` | `/covenants/:id/trust-config` | Returns saved trust configuration for a covenant, or `null` |
-| `POST` | `/broadcast` | Broadcast signed tx hex via wRPC. Returns `tx_id`. Zero DB writes |
-| `POST` | `/sign-and-broadcast` | Rust-native tx builder + signer. Accepts `private_key_hex`, `deployer_addr`, `script_hex`, `tier`. Broadcasts via wRPC |
-| `GET` | `/utxos/:address` | Fetch UTXOs from kaspad |
-| `GET` | `/balance/:address` | Fetch balance from kaspad |
+| `GET` | `/tiers` | Four tier definitions with pricing, features, colors |
+| `POST` | `/covenants/:id/ui-config` | **Secured.** Saves trust config (source URL, notes, interaction schema). Validates wallet address matches on-chain `creator_addr`. PRO/MAX only |
+| `GET` | `/covenants/:id/trust-config` | Returns trust configuration or `null` |
+| `POST` | `/broadcast` | Broadcast signed tx hex → wRPC. Returns `tx_id`. Zero DB writes |
+| `POST` | `/sign-and-broadcast` | Rust-native tx builder + signer — accepts `private_key_hex`, `deployer_addr`, `script_hex`, `tier` |
+| `GET` | `/utxos/:address` | UTXOs from kaspad |
+| `GET` | `/balance/:address` | Balance from kaspad |
 
 ---
 
 ## Wallet Integration
 
-8 wallet providers detected via `window.*` globals using the THTProtocol/27 pattern:
+Eight wallet providers detected via `window.*` globals (THTProtocol/27 pattern). Desktop/mobile split with 5-second retry loop at 200ms intervals to handle extension injection race conditions.
 
 | Wallet | Detection | Platform |
 |:---|:---|:---|
@@ -231,37 +223,34 @@ All endpoints return JSON. Nginx strips the `/api/` prefix before forwarding.
 | Kaspium | `window.kaspium` | Mobile |
 | Tangem | `window.tangem` | Mobile |
 
-A 200ms-retry loop over 5 seconds handles the wallet extension injection race condition.
-
-**TN12 Dev Mode**: BIP39 mnemonic → `Mnemonic.fromPhrase()` → `.toSeed('')` → `XPrv` → `derivePath("m/44'/111111'/0'/0/0")` → `toAddress('testnet-12')`. All signing is local — no browser extension required.
+**TN12 Mnemonic Dev Mode**: Derives keys locally via `@onekeyfe/kaspa-wasm` — `Mnemonic.fromPhrase()` → `.toSeed('')` → `XPrv` → `derivePath("m/44'/111111'/0'/0/0")` → `toAddress('testnet-12')`. All message signing and transaction building is local. No browser extension required.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Toccata node (bootstrap ~6–8 min)
+# 1. Start Toccata node (~6–8 min bootstrap)
 kaspad --testnet --netsuffix=12 --utxoindex \
   --appdir=/mnt/covex-data/kaspa-data/tn12 \
   --rpclisten-borsh=0.0.0.0:17217
 
-# Environment
+# 2. Configure environment
 export KASPA_NETWORK=testnet-12
 export KASPA_WRPC_URL=ws://127.0.0.1:17217
 export BIND_ADDR=0.0.0.0:3005
 export DB_PATH=covex.db
 export COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
 
-# Backend
+# 3. Build & run backend
 cd backend && cargo build --release && ./target/release/covex27-backend
 
-# Frontend
+# 4. Build frontend
 cd frontend && npm install && npm run build
 # Serve dist/ via Nginx or any static server
 ```
 
-### Deploy scripts
-
+**One-command deploy:**
 ```bash
 bash deploy/deploy-hetzner.sh   # Fresh install
 bash deploy/deploy_all.sh       # Production update (idempotent)
@@ -271,38 +260,40 @@ bash deploy/deploy_all.sh       # Production update (idempotent)
 
 ## Database
 
-Six tables, auto-created on first start by `db::open_db()`.
+Auto-created on first startup by `db::open_db()`. All state lives in the 6-table SQLite schema below.
 
 ```
-covenants                     generated_uis               visibilities
-├─ tx_id (PK)                 ├─ id (PK, AUTO)            ├─ covenant_id (PK)
-├─ address                    ├─ covenant_id              ├─ tier
-├─ amount_kaspa               ├─ owner_address            ├─ featured
-├─ script_hash                ├─ tier                     ├─ priority
-├─ script_hex                 ├─ ui_html                  └─ custom_domain
-├─ covenant_type              ├─ ui_config
-├─ category                   ├─ slug (UNIQUE)            crawler_state
-├─ creator_addr               ├─ is_published             ├─ id (PK, CHECK=1)
-├─ description                ├─ featured                 └─ last_scanned_daa
-├─ verified_tier              └─ ui_generated_at
-├─ verified_payment_tx
-├─ verified_at                payments
-├─ custom_ui_enabled          ├─ id (PK, AUTO)
-├─ full_logic_summary         ├─ tx_id (UNIQUE)
-├─ receiving_addresses        ├─ from_address
-├─ is_active                  ├─ to_address
-├─ block_daa_score            ├─ amount_sompi
-└─ timestamp                  ├─ tier
-                              ├─ confirmations
-accounts                      ├─ status
-├─ address (PK)               ├─ covenant_id
-├─ tier                       └─ timestamp
-├─ payment_tx_id
-├─ paid_at
-├─ expires_at
-├─ is_active
-└─ created_at
+covenants                         generated_uis              visibilities
+ ├─ tx_id (PK)                    ├─ id (PK, AUTO)           ├─ covenant_id (PK)
+ ├─ address                       ├─ covenant_id             ├─ tier
+ ├─ amount_kaspa                  ├─ owner_address           ├─ featured
+ ├─ script_hash                   ├─ tier                    ├─ priority
+ ├─ script_hex                    ├─ ui_html                 └─ custom_domain
+ ├─ covenant_type                 ├─ ui_config
+ ├─ category                      ├─ slug (UNIQUE)           crawler_state
+ ├─ creator_addr                  ├─ is_published            ├─ id (PK, CHECK=1)
+ ├─ description                   ├─ featured                └─ last_scanned_daa
+ ├─ verified_tier                 └─ ui_generated_at
+ ├─ verified_payment_tx
+ ├─ verified_at                   payments
+ ├─ custom_ui_enabled             ├─ id (PK, AUTO)
+ ├─ full_logic_summary            ├─ tx_id (UNIQUE)
+ ├─ receiving_addresses           ├─ from_address
+ ├─ is_active                     ├─ to_address
+ ├─ block_daa_score               ├─ amount_sompi
+ └─ timestamp                     ├─ tier
+                                  ├─ confirmations
+accounts                          ├─ status
+ ├─ address (PK)                  ├─ covenant_id
+ ├─ tier                          └─ timestamp
+ ├─ payment_tx_id
+ ├─ paid_at
+ ├─ expires_at
+ ├─ is_active
+ └─ created_at
 ```
+
+Crawl state checkpointed to `crawler_state` (single row, `id=1`) — restart picks up where it left off.
 
 ---
 
@@ -311,53 +302,55 @@ accounts                      ├─ status
 ```
 Covex27/
 ├── backend/
-│   ├── Cargo.toml                       # Rust deps, vendored kaspa-consensus-core patch
+│   ├── Cargo.toml                        # Rust deps, vendored kaspa-consensus-core patch
 │   └── src/
-│       ├── main.rs                      # Entry point, Axum router, 11 endpoints
-│       ├── covenant_types.rs            # Enums, tiers, pricing, UI config structs
-│       ├── crawler.rs                   # Historic BlockDAG walker (selected-parent chain)
-│       ├── db.rs                        # SQLite schema, CRUD, tier-weighted sort, trust config
-│       ├── indexer.rs                   # Live UTXO poller + auto basic UI generation
-│       ├── payment_verifier.rs          # Treasury monitor, 6-confirmation upgrades, UI regeneration
-│       ├── ui_generator.rs              # Basic & enhanced HTML UI with wallet integration
-│       ├── signer.rs                    # Rust-native tx builder + signer (covenant payloads)
-│       ├── broadcast.rs                 # Tx relay — broadcast only, zero DB writes
-│       └── dev_wallets.rs              # Dev wallet identities for testing
+│       ├── main.rs                       # Entry point, Axum router, 11 endpoints
+│       ├── covenant_types.rs             # Enums, pricing, UI generation configs
+│       ├── crawler.rs                    # Historic BlockDAG walker — selected-parent chain
+│       ├── db.rs                         # Schema, CRUD, tier-weighted SQL sort, trust config
+│       ├── indexer.rs                    # Live UTXO poller + auto UI generation
+│       ├── payment_verifier.rs           # Treasury monitor, 6-conf upgrades, UI regeneration
+│       ├── ui_generator.rs               # Basic/enhanced HTML UI with wallet integration
+│       ├── signer.rs                     # Rust-native tx builder + signer for covenants
+│       ├── broadcast.rs                  # Tx relay — broadcast only, zero DB writes
+│       └── dev_wallets.rs               # Dev wallet identities for testing
 ├── frontend/
 │   └── src/
 │       ├── pages/
-│       │   ├── Explorer.jsx             # Covenant browser — native sort, tier badges, trust signals
-│       │   ├── CovenantInteractive.jsx  # Detail view — interact/trust/builder tabs, upgrade flow
-│       │   ├── Deploy.jsx               # SilverScript deployment — WASM tx builder, tier selector
-│       │   ├── Pricing.jsx              # Tier pricing with checkout flow
-│       │   ├── Dashboard.jsx            # Creator dashboard
-│       │   └── Terms.jsx                # Terms of service
+│       │   ├── Explorer.jsx              # Covenant browser — native sort, tier badges
+│       │   ├── CovenantInteractive.jsx   # Detail view — interact/trust/builder tabs
+│       │   ├── Deploy.jsx                # SilverScript deployment — WASM tx builder
+│       │   ├── Pricing.jsx               # Tier pricing with checkout flow
+│       │   ├── Dashboard.jsx             # Creator dashboard
+│       │   └── Terms.jsx                 # Terms of service
 │       └── components/
-│           ├── WalletContext.jsx         # Wallet state + TN12 mnemonic dev mode
-│           ├── WalletButton.jsx          # Multi-wallet detect + connect UI
-│           ├── DevWalletModal.jsx        # BIP39 mnemonic / hex key derivation
-│           ├── UiBuilder.jsx             # Trust-verification builder (source, notes, buttons)
-│           ├── PremiumBuilder.jsx        # Gated UI customization (glow, layout, color)
-│           ├── DagBackground.jsx         # Live BlockDAG iframe background
-│           └── WhatIsKaspa.jsx           # Educational Kaspa overview
+│           ├── WalletContext.jsx          # Wallet state + TN12 dev mode
+│           ├── WalletButton.jsx           # Multi-wallet detection + connection UI
+│           ├── DevWalletModal.jsx         # BIP39 mnemonic / hex key derivation
+│           ├── UiBuilder.jsx              # Trust-verification builder (source, notes, buttons)
+│           ├── PremiumBuilder.jsx         # Gated UI customization (glow, layout, color)
+│           ├── DagBackground.jsx          # Live BlockDAG iframe
+│           └── WhatIsKaspa.jsx            # Educational Kaspa overview
 ├── deploy/
-│   ├── deploy-hetzner.sh                # Fresh deployment
-│   ├── deploy_all.sh                    # Production update (idempotent)
-│   ├── covex-backend.service            # systemd unit template
-│   └── nginx-covex.conf                 # Nginx reverse proxy config
+│   ├── deploy-hetzner.sh                 # Fresh deployment
+│   ├── deploy_all.sh                     # Production update (idempotent)
+│   ├── covex-backend.service             # systemd unit template
+│   └── nginx-covex.conf                  # Nginx reverse proxy
 ├── scripts/
-│   └── generate_covex_health_report.sh  # Production health diagnostic
-├── .env                                  # Local environment
+│   └── generate_covex_health_report.sh   # Health diagnostic
+├── .env                                   # Local environment
 └── README.md
 ```
+
+<br>
 
 ---
 
 <p align="center">
-  <br>
   <a href="https://hightable.pro"><strong>hightable.pro</strong></a>
   <br>
   <br>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:49EACB,100:0A0A0D&height=1&section=footer" width="100%" alt=""/>
 </p>
 
 ---
@@ -373,5 +366,6 @@ MIT
   <strong>Covex</strong> — Built by <strong>HIGH TABLE PROTOCOL</strong> for the Kaspa ecosystem.
   <br>
   Toccata is coming. The window is open.
+  <br>
   <br>
 </div>

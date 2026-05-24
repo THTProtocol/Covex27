@@ -38,6 +38,7 @@ function ColorSwatch({ color, active, onClick }) {
 
 export default function CovenantInteractive() {
   const { id } = useParams();
+  const rawId = decodeURIComponent(id || '');
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
@@ -67,18 +68,15 @@ export default function CovenantInteractive() {
   const [utxoLoading, setUtxoLoading] = useState(true);
 
   const fetchUtxoStatus = useCallback(async () => {
-    if (!id) return;
+    if (!rawId) return;
     try {
       setUtxoLoading(true);
-      const r = await fetch(`/api/covenants/${encodeURIComponent(id)}/status`);
+      const r = await fetch(`/api/covenants/${encodeURIComponent(rawId)}/status`);
       const d = await r.json();
       if (d.success) setUtxoStatus(d);
-    } catch (_) {
-      setUtxoStatus(null);
-    } finally {
-      setUtxoLoading(false);
-    }
-  }, [id]);
+    } catch (_) { setUtxoStatus(null); }
+    finally { setUtxoLoading(false); }
+  }, [rawId]);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
     { id: 'CREATOR', price: 100, label: 'Creator', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
@@ -180,9 +178,8 @@ export default function CovenantInteractive() {
     fetch('/api/covenants')
       .then((r) => r.json())
       .then((d) => {
-        const found = (d.covenants || []).find((c) => c.tx_id === id) || null;
+        const found = (d.covenants || []).find((c) => c.tx_id === rawId) || null;
         setCovenant(found);
-        // Load custom UI config if present in the covenant data
         if (found?.custom_ui_config) {
           try {
             const cfg = typeof found.custom_ui_config === 'string'
@@ -193,7 +190,6 @@ export default function CovenantInteractive() {
             }
           } catch {}
         } else if (found?.tx_id) {
-          // Fetch separately if not included in the list response
           fetch(`/api/covenants/${found.tx_id}/custom-ui`)
             .then(r => r.json())
             .then(d => {
@@ -210,15 +206,14 @@ export default function CovenantInteractive() {
         }
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [rawId]);
 
-  // Live UTXO status fetch + auto-refresh every 30s
   useEffect(() => {
-    if (!id) return;
+    if (!rawId) return;
     fetchUtxoStatus();
     const interval = setInterval(fetchUtxoStatus, 30000);
     return () => clearInterval(interval);
-  }, [id, fetchUtxoStatus]);
+  }, [rawId, fetchUtxoStatus]);
 
   const deployUri = useMemo(
     () =>

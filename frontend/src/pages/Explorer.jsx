@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Terminal, Database, Code2, Zap, ChevronDown, ShieldCheck, Globe, ExternalLink, Info, Sparkles } from 'lucide-react';
-import KaspaInsights from '../components/KaspaInsights';
 
 const TIER_STYLES = {
   MAX: {
@@ -30,12 +30,12 @@ const TIER_STYLES = {
 };
 
 const formatKaspa = (kas) => {
-  if (kas == null) return '—';
+  if (kas == null) return 'N/A';
   return `${kas.toLocaleString(undefined, { maximumFractionDigits: 3 })} KAS`;
 };
 
 const truncate = (s, n = 12) =>
-  s && s.length > n * 2 ? `${s.slice(0, n)}…${s.slice(-n)}` : s || '—';
+  s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-n)}` : s || 'N/A';
 
 const Explorer = () => {
   const [covenants, setCovenants] = useState([]);
@@ -70,11 +70,16 @@ const Explorer = () => {
             <defs>
               <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stop-color="#49EACB"/>
-                <stop offset="100%" stop-color="#7e14ff"/>
+                <stop offset="100%" stop-color="#00D2FF"/>
               </linearGradient>
             </defs>
-            <circle cx="24" cy="23" r="22" fill="none" stroke="url(#heroGrad)" stroke-width="2" opacity="0.9"/>
-            <path d="M33 13C30 10 26 8 22 8C13 8 8 15 8 23s5 15 14 15c4 0 8-2 11-5" fill="none" stroke="url(#heroGrad)" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="24" cy="23" r="22" fill="none" stroke="url(#heroGrad)" stroke-width="1.5" opacity="0.3"/>
+            <path d="M34 12C31 8 26 6 20 6C10 6 8 16 8 23s2 17 12 17c6 0 11-2 14-6" fill="none" stroke="url(#heroGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="1" r="2.5" fill="#49EACB" opacity="0.8"/>
+            <circle cx="44" cy="13" r="2" fill="#00D2FF" opacity="0.6"/>
+            <circle cx="45" cy="32" r="2.5" fill="#49EACB" opacity="0.5"/>
+            <circle cx="3" cy="13" r="2" fill="#00D2FF" opacity="0.6"/>
+            <circle cx="4" cy="32" r="2" fill="#49EACB" opacity="0.5"/>
             <circle cx="24" cy="23" r="2.5" fill="#49EACB"/>
           </svg>
         </div>
@@ -178,11 +183,12 @@ const Explorer = () => {
               const isPremium = tier === 'MAX' || tier === 'PRO';
 
               return (
-                <div
+                <Link
+                  to={`/covenant/${c.tx_id}`}
                   key={c.tx_id || i}
-                  className={`border rounded-xl p-6 transition-all duration-300 ${style.card} ${
+                  className={`block border rounded-xl p-6 transition-all duration-300 ${style.card} ${
                     isPremium ? 'neon-card-hover hover:-translate-y-0.5' : 'hover:border-emerald-500/30 hover:bg-zinc-900/60'
-                  } animate-in fade-in slide-in-from-bottom-4`}
+                  } animate-in fade-in slide-in-from-bottom-4 cursor-pointer`}
                   style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
                 >
                   {/* Header */}
@@ -267,7 +273,7 @@ const Explorer = () => {
                     <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
                     <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
                     <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
-                    <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || '—'}</span></span>
+                    <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
                   </div>
 
                   {/* Universal detail section — all tiers show full on-chain data */}
@@ -318,15 +324,12 @@ const Explorer = () => {
                       All covenants show full on-chain data. Upgrade for custom interactive UI.
                     </p>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>
         )}
       </div>
-
-      {/* ═══ KASPA INSIGHTS ═══ */}
-      <KaspaInsights />
     </>
   );
 };

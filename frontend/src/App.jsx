@@ -3,9 +3,10 @@ import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
-import WhatIsKaspa from './components/WhatIsKaspa';
+import WhatIsKaspaModal from './components/WhatIsKaspaModal';
 import Explorer from './pages/Explorer';
 import CovenantInteractive from './pages/CovenantInteractive';
+import WhatIsKaspaPage from './pages/WhatIsKaspa';
 import Pricing from './pages/Pricing';
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
@@ -23,7 +24,7 @@ export default function App() {
     <WalletProvider>
       <BrowserRouter>
         <DagBackground />
-        <WhatIsKaspa open={kaspaOpen} onClose={() => setKaspaOpen(false)} />
+        <WhatIsKaspaModal open={kaspaOpen} onClose={() => setKaspaOpen(false)} />
 
         <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/85 backdrop-blur-lg border-b border-white/5 shadow-[0_1px_0_rgba(255,255,255,0.03)]">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -35,22 +36,24 @@ export default function App() {
                 <defs>
                   <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#49EACB"/>
-                    <stop offset="100%" stopColor="#7e14ff"/>
+                    <stop offset="100%" stopColor="#00D2FF"/>
                   </linearGradient>
                 </defs>
-                <circle cx="24" cy="23" r="22" fill="none" stroke="url(#navGrad)" strokeWidth="2.5" opacity="0.9"/>
-                <path d="M33 13C30 10 26 8 22 8C13 8 8 15 8 23s5 15 14 15c4 0 8-2 11-5" fill="none" stroke="url(#navGrad)" strokeWidth="4" strokeLinecap="round"/>
+                <circle cx="24" cy="23" r="22" fill="none" stroke="url(#navGrad)" strokeWidth="1.5" opacity="0.3"/>
+                <path d="M34 12C31 8 26 6 20 6C10 6 8 16 8 23s2 17 12 17c6 0 11-2 14-6" fill="none" stroke="url(#navGrad)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="24" cy="1" r="2.5" fill="#49EACB" opacity="0.8"/>
+                <circle cx="44" cy="13" r="2" fill="#00D2FF" opacity="0.6"/>
+                <circle cx="45" cy="32" r="2.5" fill="#49EACB" opacity="0.5"/>
+                <circle cx="3" cy="13" r="2" fill="#00D2FF" opacity="0.6"/>
+                <circle cx="4" cy="32" r="2" fill="#49EACB" opacity="0.5"/>
                 <circle cx="24" cy="23" r="3" fill="#49EACB"/>
               </svg>
               <span className="bg-gradient-to-r from-[#49EACB] to-white bg-clip-text text-transparent">COVEX</span>
             </Link>
             <div className="flex items-center gap-6">
-              <button
-                onClick={() => setKaspaOpen(true)}
-                className="text-sm font-medium text-gray-400 hover:text-white transition-all hover:shadow-[0_0_8px_rgba(73,234,203,0.15)]"
-              >
+              <NavLink to="/what-is-kaspa" className={NL}>
                 What is Kaspa?
-              </button>
+              </NavLink>
               <NavLink to="/" end className={NL}>
                 Explorer
               </NavLink>
@@ -73,6 +76,7 @@ export default function App() {
             <Route path="/" element={<Explorer />} />
             <Route path="/explorer" element={<Explorer />} />
             <Route path="/covenant/:id" element={<CovenantInteractive />} />
+            <Route path="/what-is-kaspa" element={<WhatIsKaspaPage />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/terms" element={<Terms />} />

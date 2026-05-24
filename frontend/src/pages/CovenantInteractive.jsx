@@ -307,7 +307,7 @@ export default function CovenantInteractive() {
                     {covenant.tier || covenant.verified_tier || 'FREE'} TIER
                   </span>
                   <span className="text-sm text-gray-500 font-mono">{covenant.category || 'General'}</span>
-                  <span className="text-xs text-gray-600 ml-auto">DAA #{covenant.block_daa_score?.toLocaleString() || '—'}</span>
+                  <span className="text-xs text-gray-600 ml-auto">DAA #{covenant.block_daa_score?.toLocaleString() || 'Unknown'}</span>
                 </div>
               </div>
             </div>
@@ -362,7 +362,7 @@ export default function CovenantInteractive() {
               <p className={`text-sm font-bold ${
                 utxoLoading ? 'text-gray-400' : utxoStatus?.is_unspent ? 'text-emerald-400' : 'text-red-400'
               }`}>
-                {utxoLoading ? 'Checking UTXO...' : utxoStatus?.is_unspent ? 'STILL LOCKED — UNSPENT UTXO' : 'SPENT — NO LONGER LOCKED'}
+                {utxoLoading ? 'Checking UTXO...' : utxoStatus?.is_unspent ? 'ACTIVE: STILL LOCKED' : 'INACTIVE: SPENT'}
               </p>
               <p className={`text-[11px] mt-0.5 ${
                 utxoLoading ? 'text-gray-600' : utxoStatus?.is_unspent ? 'text-emerald-400/70' : 'text-red-400/70'
@@ -643,12 +643,12 @@ export default function CovenantInteractive() {
                 {/* Quick stats */}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {[
-                    ['Block DAA', covenant.block_daa_score?.toLocaleString() || '—'],
-                    ['Timestamp', covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleString() : '—'],
-                    ['Active', covenant.is_active ? '✓ Yes' : '✗ No'],
-                    ['Custom UI', covenant.custom_ui_enabled ? '✓ Enabled' : '✗ Not enabled'],
-                    ['Verified At', covenant.verified_at ? new Date(covenant.verified_at * 1000).toLocaleString() : '—'],
-                    ['Payment TX', covenant.verified_payment_tx ? (covenant.verified_payment_tx.slice(0, 14) + '...') : '—'],
+                    ['Block DAA', covenant.block_daa_score?.toLocaleString() || 'Unknown'],
+                    ['Timestamp', covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleString() : 'Unknown'],
+                    ['Active', covenant.is_active ? 'Yes' : 'No'],
+                    ['Custom UI', covenant.custom_ui_enabled ? 'Enabled' : 'Not enabled'],
+                    ['Verified At', covenant.verified_at ? new Date(covenant.verified_at * 1000).toLocaleString() : 'Unknown'],
+                    ['Payment TX', covenant.verified_payment_tx ? (covenant.verified_payment_tx.slice(0, 14) + '...') : 'Unknown'],
                   ].map(([k, v]) => (
                     <div key={k} className="p-2 rounded bg-white/[0.02] border border-white/5">
                       <p className="text-[9px] text-gray-500">{k}</p>

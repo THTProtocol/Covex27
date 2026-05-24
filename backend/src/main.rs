@@ -122,6 +122,11 @@ async fn main() {
         .route("/covenants/:id/custom-ui", post(custom_ui_handler))
         .route("/covenants/:id/custom-ui", get(get_custom_ui_handler))
         .route("/covenants/:id/status", get(utxo_status_handler))
+        .route("/covenants/:id/create-game", post(create_game_handler))
+        .route("/covenants/:id/join-game", post(join_game_handler))
+        .route("/covenants/:id/make-move", post(make_move_handler))
+        .route("/covenants/:id/game-state", get(game_state_handler))
+        .route("/covenants/:id/resolve-winner", post(resolve_winner_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .merge(broadcast::broadcast_routes())
@@ -449,4 +454,126 @@ pub fn compute_script_hash(script_hex: &str) -> String {
     let bytes = hex::decode(script_hex).unwrap_or_default();
     let hash = Sha256::digest(&bytes);
     hex::encode(&hash[..20])
+}
+
+// ─── Skill Game Handlers ───────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct CreateGameRequest {
+    creator_addr: String,
+    pot_amount_kas: f64,
+    player2: Option<String>,
+}
+
+/// POST /covenants/:id/create-game — Create a skill-game chess match
+async fn create_game_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<CreateGameRequest>,
+) -> Json<serde_json::Value> {
+    let covenant = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => c,
+        Ok(None) => return Json(json!({"success": false, "error": "Covenant not found"})),
+        Err(e) => return Json(json!({"success": false, "error": format!("DB error: {}", e)})),
+    };
+
+    let wallet = payload.creator_addr.trim().to_lowercase();
+    let onchain = covenant.creator_addr.trim().to_lowercase();
+    if wallet != onchain {
+        return Json(json!({"success": false, "error": "Only covenant creator can create a game"}));
+    }
+
+    match db::create_skill_game(&db, &covenant_id, payload.pot_amount_kas, &covenant.creator_addr) {
+        Ok(()) => {
+            if let Some(p2) = &payload.player2 {
+                if !p2.is_empty() {
+                    let _ = db::join_skill_game(&db, &covenant_id, p2);
+                }
+            }
+            Json(json!({"success": true, "message": "Skill game created successfully"}))
+        }
+        Err(e) => Json(json!({"success": false, "error": format!("Failed to create game: {}", e)})),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct JoinGameRequest {
+    player2: String,
+}
+
+/// POST /covenants/:id/join-game — Second player joins a waiting game
+async fn join_game_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<JoinGameRequest>,
+) -> Json<serde_json::Value> {
+    match db::join_skill_game(&db, &covenant_id, &payload.player2) {
+        Ok(()) => Json(json!({"success": true, "message": "Joined game successfully"})),
+        Err(e) => Json(json!({"success": false, "error": format!("Failed to join: {}", e)})),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct MakeMoveRequest {
+    player: String,
+    moves: String,
+    current_turn: String,
+}
+
+/// POST /covenants/:id/make-move — Record a chess move
+async fn make_move_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<MakeMoveRequest>,
+) -> Json<serde_json::Value> {
+    match db::record_move(&db, &covenant_id, &payload.moves, &payload.current_turn) {
+        Ok(()) => Json(json!({"success": true, "message": "Move recorded"})),
+        Err(e) => Json(json!({"success": false, "error": format!("Failed to record move: {}", e)})),
+    }
+}
+
+/// GET /covenants/:id/game-state — Get current chess game state
+async fn game_state_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    match db::get_skill_game(&db, &covenant_id) {
+        Ok(Some(game)) => Json(json!({
+            "success": true,
+            "covenant_id": game.covenant_id,
+            "pot_amount_kas": game.pot_amount_kas,
+            "player1": game.player1,
+            "player2": game.player2,
+            "moves": game.moves,
+            "current_turn": game.current_turn,
+            "winner": game.winner,
+            "status": game.status,
+            "created_at": game.created_at,
+            "updated_at": game.updated_at,
+        })),
+        Ok(None) => Json(json!({"success": false, "error": "No game found for this covenant"})),
+        Err(e) => Json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ResolveWinnerRequest {
+    winner: String,
+    claimer: String,
+}
+
+/// POST /covenants/:id/resolve-winner — Declare winner (winner-takes-all)
+async fn resolve_winner_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<ResolveWinnerRequest>,
+) -> Json<serde_json::Value> {
+    match db::set_winner(&db, &covenant_id, &payload.winner) {
+        Ok(()) => Json(json!({
+            "success": true,
+            "message": format!("Game over. Winner: {}. Pot: use on-chain transaction to release funds.", payload.winner),
+            "winner": payload.winner,
+        })),
+        Err(e) => Json(json!({"success": false, "error": format!("Failed to resolve: {}", e)})),
+    }
 }

@@ -106,6 +106,20 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             last_scanned_daa INTEGER NOT NULL DEFAULT 0
         );
         INSERT OR IGNORE INTO crawler_state (id, last_scanned_daa) VALUES (1, 0);
+
+        CREATE TABLE IF NOT EXISTS skill_games (
+            covenant_id     TEXT PRIMARY KEY,
+            pot_amount_kas  REAL NOT NULL DEFAULT 0,
+            player1         TEXT NOT NULL DEFAULT '',
+            player2         TEXT NOT NULL DEFAULT '',
+            moves           TEXT NOT NULL DEFAULT '[]',
+            current_turn    TEXT NOT NULL DEFAULT 'white',
+            winner          TEXT,
+            status          TEXT NOT NULL DEFAULT 'waiting',
+            created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+            updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_games_status ON skill_games(status);
         ",
     )?;
     Ok(Mutex::new(conn))
@@ -487,4 +501,99 @@ pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64) -> anyhow::Resu
         rusqlite::params![daa as i64],
     )?;
     Ok(())
+}
+
+// ─── Skill Games ──────────────────────────────────────────
+
+#[derive(serde::Serialize, Debug, Clone)]
+pub struct DbSkillGame {
+    pub covenant_id: String,
+    pub pot_amount_kas: f64,
+    pub player1: String,
+    pub player2: String,
+    pub moves: String,
+    pub current_turn: String,
+    pub winner: Option<String>,
+    pub status: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+pub fn create_skill_game(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    pot_amount_kas: f64,
+    player1: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT INTO skill_games (covenant_id, pot_amount_kas, player1, status, created_at, updated_at) VALUES (?1, ?2, ?3, 'waiting', unixepoch(), unixepoch())",
+        params![covenant_id, pot_amount_kas, player1],
+    )?;
+    Ok(())
+}
+
+pub fn join_skill_game(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    player2: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE skill_games SET player2 = ?2, status = 'active', updated_at = unixepoch() WHERE covenant_id = ?1 AND status = 'waiting'",
+        params![covenant_id, player2],
+    )?;
+    Ok(())
+}
+
+pub fn record_move(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    new_moves_json: &str,
+    current_turn: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE skill_games SET moves = ?2, current_turn = ?3, updated_at = unixepoch() WHERE covenant_id = ?1",
+        params![covenant_id, new_moves_json, current_turn],
+    )?;
+    Ok(())
+}
+
+pub fn set_winner(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    winner: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE skill_games SET winner = ?2, status = 'completed', updated_at = unixepoch() WHERE covenant_id = ?1",
+        params![covenant_id, winner],
+    )?;
+    Ok(())
+}
+
+pub fn get_skill_game(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+) -> anyhow::Result<Option<DbSkillGame>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT covenant_id, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at FROM skill_games WHERE covenant_id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        Ok(DbSkillGame {
+            covenant_id: row.get(0)?,
+            pot_amount_kas: row.get(1)?,
+            player1: row.get(2)?,
+            player2: row.get(3)?,
+            moves: row.get(4)?,
+            current_turn: row.get(5)?,
+            winner: row.get(6)?,
+            status: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+        })
+    })?;
+    Ok(rows.next().transpose()?)
 }

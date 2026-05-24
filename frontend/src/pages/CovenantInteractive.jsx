@@ -60,6 +60,24 @@ export default function CovenantInteractive() {
   const [toast, setToast] = useState(null);
   const [interactResult, setInteractResult] = useState(null);
   const [interacting, setInteracting] = useState(false);
+
+  // Live UTXO Status
+  const [utxoStatus, setUtxoStatus] = useState(null);
+  const [utxoLoading, setUtxoLoading] = useState(true);
+
+  const fetchUtxoStatus = useCallback(async () => {
+    if (!id) return;
+    try {
+      setUtxoLoading(true);
+      const r = await fetch(`/api/covenants/${encodeURIComponent(id)}/status`);
+      const d = await r.json();
+      if (d.success) setUtxoStatus(d);
+    } catch (_) {
+      setUtxoStatus(null);
+    } finally {
+      setUtxoLoading(false);
+    }
+  }, [id]);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
     { id: 'CREATOR', price: 100, label: 'Creator', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
@@ -192,6 +210,14 @@ export default function CovenantInteractive() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Live UTXO status fetch + auto-refresh every 30s
+  useEffect(() => {
+    if (!id) return;
+    fetchUtxoStatus();
+    const interval = setInterval(fetchUtxoStatus, 30000);
+    return () => clearInterval(interval);
+  }, [id, fetchUtxoStatus]);
 
   const deployUri = useMemo(
     () =>
@@ -329,6 +355,57 @@ export default function CovenantInteractive() {
               </div>
             </div>
           )}
+
+          {/* Live UTXO Status Badge — cyberpunk real-time indicator */}
+          <div className={`mb-6 px-5 py-4 rounded-xl flex items-center gap-3 border transition-all duration-500 ${
+            utxoLoading
+              ? 'bg-white/[0.02] border-white/10'
+              : utxoStatus?.is_unspent
+                ? 'bg-emerald-500/[0.06] border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                : 'bg-red-500/[0.06] border-red-500/20'
+          }`}>
+            <div className={`relative w-5 h-5 shrink-0 ${utxoLoading ? '' : utxoStatus?.is_unspent ? 'animate-pulse' : ''}`}>
+              <div className={`w-full h-full rounded-full ${
+                utxoLoading ? 'bg-gray-500'
+                : utxoStatus?.is_unspent ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]'
+                : 'bg-red-400'
+              }`} />
+              {!utxoLoading && utxoStatus?.is_unspent && (
+                <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-30" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-bold ${
+                utxoLoading ? 'text-gray-400' : utxoStatus?.is_unspent ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {utxoLoading ? 'Checking UTXO...' : utxoStatus?.is_unspent ? 'STILL LOCKED — UNSPENT UTXO' : 'SPENT — NO LONGER LOCKED'}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${
+                utxoLoading ? 'text-gray-600' : utxoStatus?.is_unspent ? 'text-emerald-400/70' : 'text-red-400/70'
+              }`}>
+                {utxoLoading ? 'Querying Kaspa BlockDAG...' :
+                 utxoStatus?.message ||
+                 (utxoStatus?.is_unspent ? `${(utxoStatus.locked_amount_kas || 0).toFixed(2)} KAS locked on Kaspa BlockDAG` : 'This UTXO has been spent')
+                }
+                {utxoStatus?.last_checked && !utxoLoading && (
+                  <span className="ml-2 text-gray-600">
+                    • Checked: {new Date(utxoStatus.last_checked * 1000).toLocaleTimeString()}
+                  </span>
+                )}
+              </p>
+              {utxoStatus?.block_daa && (
+                <p className="text-[10px] text-gray-600 mt-0.5">Block DAA: {utxoStatus.block_daa.toLocaleString()}</p>
+              )}
+            </div>
+            <button
+              onClick={fetchUtxoStatus}
+              disabled={utxoLoading}
+              className="shrink-0 px-2 py-1 text-[10px] text-gray-500 hover:text-[#49EACB] rounded border border-white/5 hover:border-[#49EACB]/20 transition-all"
+              title="Refresh UTXO status"
+            >
+              <Activity size={12} className={utxoLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-500 mb-3 uppercase tracking-widest">

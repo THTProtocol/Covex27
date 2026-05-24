@@ -6,6 +6,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tracing_subscriber::{fmt, EnvFilter};
 use tracing::{info, warn, error};
+use kaspa_rpc_core::api::rpc::RpcApi;
+use kaspa_addresses::Address;
 
 mod covenant_types;
 mod crawler;
@@ -119,6 +121,7 @@ async fn main() {
         .route("/covenants/:id/trust-config", get(trust_config_handler))
         .route("/covenants/:id/custom-ui", post(custom_ui_handler))
         .route("/covenants/:id/custom-ui", get(get_custom_ui_handler))
+        .route("/covenants/:id/status", get(utxo_status_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .merge(broadcast::broadcast_routes())
@@ -356,6 +359,72 @@ async fn get_custom_ui_handler(
         Ok(Some(config)) => Json(json!({"success": true, "custom_ui_config": config})),
         Ok(None) => Json(json!({"success": true, "custom_ui_config": null, "message": "No custom UI config set"})),
         Err(e) => Json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
+/// GET /covenants/:id/status — Live UTXO status from kaspad.
+/// Returns whether the covenant UTXO is still unspent on the DAG.
+async fn utxo_status_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(client): Extension<Arc<kaspa_wrpc_client::KaspaRpcClient>>,
+) -> Json<serde_json::Value> {
+    let covenant = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => c,
+        Ok(None) => return Json(json!({"success": false, "error": "Covenant not found"})),
+        Err(e) => return Json(json!({"success": false, "error": format!("DB error: {}", e)})),
+    };
+
+    let addr = match Address::try_from(covenant.address.as_str()) {
+        Ok(a) => a,
+        Err(e) => return Json(json!({"success": false, "error": format!("Invalid address: {}", e)})),
+    };
+
+    let last_checked_ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    match client.get_utxos_by_addresses(vec![addr]).await {
+        Ok(entries) => {
+            let matching: Vec<_> = entries.iter()
+                .filter(|e| e.outpoint.transaction_id.to_string() == covenant.tx_id.split(':').next().unwrap_or(&covenant.tx_id))
+                .collect();
+
+            if matching.is_empty() {
+                Json(json!({
+                    "success": true,
+                    "is_unspent": false,
+                    "status": "SPENT",
+                    "locked_amount_kas": covenant.amount_kaspa,
+                    "message": "This covenant UTXO has been spent or was never confirmed.",
+                    "last_checked": last_checked_ts
+                }))
+            } else {
+                let current_amount = matching[0].utxo_entry.amount as f64 / 100_000_000.0;
+                Json(json!({
+                    "success": true,
+                    "is_unspent": true,
+                    "status": "LOCKED",
+                    "locked_amount_kas": current_amount,
+                    "original_amount_kas": covenant.amount_kaspa,
+                    "message": "Covenant UTXO is still locked on the Kaspa BlockDAG.",
+                    "last_checked": last_checked_ts,
+                    "block_daa": matching[0].utxo_entry.block_daa_score
+                }))
+            }
+        }
+        Err(e) => {
+            warn!("UTXO status check failed for {}: {}", covenant_id, e);
+            Json(json!({
+                "success": true,
+                "is_unspent": covenant.is_active,
+                "status": if covenant.is_active { "LOCKED" } else { "UNKNOWN" },
+                "locked_amount_kas": covenant.amount_kaspa,
+                "message": "Could not reach kaspad. Showing last known status from DB.",
+                "last_checked": last_checked_ts
+            }))
+        }
     }
 }
 

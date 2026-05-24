@@ -87,6 +87,20 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         CREATE INDEX IF NOT EXISTS idx_vis_tier ON visibilities(tier);
         CREATE INDEX IF NOT EXISTS idx_vis_featured ON visibilities(featured);
 
+        CREATE TABLE IF NOT EXISTS custom_ui_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            covenant_id TEXT NOT NULL UNIQUE,
+            owner_address TEXT NOT NULL,
+            tier TEXT NOT NULL,
+            config_json TEXT NOT NULL DEFAULT '{}',
+            config_version INTEGER NOT NULL DEFAULT 1,
+            is_published INTEGER NOT NULL DEFAULT 1,
+            updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_custom_ui_covenant ON custom_ui_configs(covenant_id);
+        CREATE INDEX IF NOT EXISTS idx_custom_ui_owner ON custom_ui_configs(owner_address);
+
         CREATE TABLE IF NOT EXISTS crawler_state (
             id            INTEGER PRIMARY KEY CHECK (id = 1),
             last_scanned_daa INTEGER NOT NULL DEFAULT 0
@@ -409,6 +423,45 @@ pub fn get_visibilities(db: &Mutex<Connection>) -> anyhow::Result<Vec<serde_json
     let mut result = Vec::new();
     for row in rows { result.push(row?); }
     Ok(result)
+}
+
+// ─── Custom UI Configs ──────────────────────────────────────
+
+pub fn save_custom_ui_config(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    owner_address: &str,
+    tier: &str,
+    config_json: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO custom_ui_configs (covenant_id, owner_address, tier, config_json, config_version, is_published, updated_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT config_version + 1 FROM custom_ui_configs WHERE covenant_id = ?1), 1), 1, unixepoch(), unixepoch())",
+        params![covenant_id, owner_address, tier, config_json],
+    )?;
+    Ok(())
+}
+
+pub fn get_custom_ui_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT config_json FROM custom_ui_configs WHERE covenant_id = ?1 AND is_published = 1 ORDER BY updated_at DESC LIMIT 1"
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        let cfg_str: String = row.get(0)?;
+        Ok(serde_json::from_str(&cfg_str).unwrap_or(serde_json::json!({})))
+    })?;
+    Ok(rows.next().transpose()?)
+}
+
+pub fn delete_custom_ui_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<bool> {
+    let conn = db.lock().unwrap();
+    let affected = conn.execute(
+        "DELETE FROM custom_ui_configs WHERE covenant_id = ?1",
+        params![covenant_id],
+    )?;
+    Ok(affected > 0)
 }
 
 // ─── Crawler State ─────────────────────────────────────────────

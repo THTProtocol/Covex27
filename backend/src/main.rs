@@ -117,6 +117,8 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/covenants/:id/ui-config", post(ui_config_handler))
         .route("/covenants/:id/trust-config", get(trust_config_handler))
+        .route("/covenants/:id/custom-ui", post(custom_ui_handler))
+        .route("/covenants/:id/custom-ui", get(get_custom_ui_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .merge(broadcast::broadcast_routes())
@@ -162,6 +164,7 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     .and_then(|v| v.as_str())
                     .map(|s| !s.is_empty())
                     .unwrap_or(false);
+                let custom_ui = db::get_custom_ui_config(&db, &c.tx_id).ok().flatten();
                 json!({
                     "tx_id": c.tx_id,
                     "address": c.address,
@@ -183,6 +186,7 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     "ui_config": db::ui_config_for_tier(&c.verified_tier),
                     "trust_config": trust_config,
                     "has_verified_source": has_verified_source,
+                    "custom_ui_config": custom_ui,
                 })
             }).collect();
             Json(json!({"total": total, "covenants": list}))
@@ -275,6 +279,81 @@ async fn trust_config_handler(
     match db::get_ui_trust_config(&db, &covenant_id) {
         Ok(Some(config)) => Json(json!({"success": true, "trust_config": config})),
         Ok(None) => Json(json!({"success": true, "trust_config": null, "message": "No trust config set"})),
+        Err(e) => Json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
+// ─── Custom UI Builder ─────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct CustomUiConfigRequest {
+    creator_addr: String,
+    config_json: Option<serde_json::Value>,
+}
+
+/// POST /covenants/:id/custom-ui — Save advanced UI builder config.
+async fn custom_ui_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<CustomUiConfigRequest>,
+) -> Json<serde_json::Value> {
+    // 1. Fetch the on-chain covenant
+    let covenant = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => c,
+        Ok(None) => return Json(json!({"success": false, "error": "Covenant not found"})),
+        Err(e) => return Json(json!({"success": false, "error": format!("DB error: {}", e)})),
+    };
+
+    // 2. Validate wallet_addr == on-chain creator_addr (case-insensitive)
+    let wallet_addr = payload.creator_addr.trim().to_lowercase();
+    let onchain_creator = covenant.creator_addr.trim().to_lowercase();
+    if wallet_addr != onchain_creator {
+        warn!(
+            "Custom UI rejected: wallet {} != on-chain creator {} for covenant {}",
+            wallet_addr, onchain_creator, covenant_id
+        );
+        return Json(json!({
+            "success": false,
+            "error": "WALLET MISMATCH: Only the covenant creator can configure custom UI.",
+            "onchain_creator": covenant.creator_addr,
+            "provided_wallet": payload.creator_addr,
+        }));
+    }
+
+    // 3. Only PRO/MAX/CREATOR tiers can save custom UI
+    let tier = covenant.verified_tier.to_uppercase();
+    if tier != "PRO" && tier != "MAX" && tier != "CREATOR" {
+        return Json(json!({
+            "success": false,
+            "error": format!("Custom UI builder requires CREATOR, PRO, or MAX tier. Current tier: {}", tier),
+        }));
+    }
+
+    // 4. Serialize config_json to string and persist
+    let cfg_str = payload.config_json
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "{}".to_string());
+
+    match db::save_custom_ui_config(&db, &covenant_id, &covenant.creator_addr, &tier, &cfg_str) {
+        Ok(()) => {
+            info!("Custom UI config saved for covenant {} by creator {}", covenant_id, wallet_addr);
+            Json(json!({"success": true, "message": "Custom UI configuration saved successfully."}))
+        }
+        Err(e) => {
+            error!("Failed to save custom UI config: {}", e);
+            Json(json!({"success": false, "error": format!("DB save failed: {}", e)}))
+        }
+    }
+}
+
+/// GET /covenants/:id/custom-ui — Public read endpoint.
+async fn get_custom_ui_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    match db::get_custom_ui_config(&db, &covenant_id) {
+        Ok(Some(config)) => Json(json!({"success": true, "custom_ui_config": config})),
+        Ok(None) => Json(json!({"success": true, "custom_ui_config": null, "message": "No custom UI config set"})),
         Err(e) => Json(json!({"success": false, "error": e.to_string()})),
     }
 }

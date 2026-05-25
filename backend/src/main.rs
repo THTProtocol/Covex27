@@ -1,4 +1,4 @@
-use axum::{routing::{get, post}, Router, Json, Extension, extract::Path};
+use axum::{routing::{get, post}, Router, Json, Extension, extract::{Path, Query}};
 use serde_json::json;
 use std::net::SocketAddr;
 use std::env;
@@ -117,6 +117,7 @@ async fn main() {
         .route("/", get(root_handler))
         .route("/health", get(|| async { "OK" }))
         .route("/covenants", get(covenants_handler))
+        .route("/covenants/:id", get(single_covenant_handler))
         .route("/covenants/:id/ui-config", post(ui_config_handler))
         .route("/covenants/:id/trust-config", get(trust_config_handler))
         .route("/covenants/:id/custom-ui", post(custom_ui_handler))
@@ -129,6 +130,7 @@ async fn main() {
         .route("/covenants/:id/resolve-winner", post(resolve_winner_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
+        .route("/verify-payment", post(verify_payment_handler))
         .merge(broadcast::broadcast_routes())
         .merge(signer::signer_routes())
         .layer(Extension(db.clone()))
@@ -161,11 +163,23 @@ async fn status_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connection>
     }))
 }
 
-async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>) -> Json<serde_json::Value> {
-    match db::get_all_covenants(&db) {
-        Ok(records) => {
-            let total = records.len();
-            let list: Vec<serde_json::Value> = records.into_iter().map(|c| {
+#[derive(serde::Deserialize)]
+struct CovenantsQuery {
+    creator: Option<String>,
+}
+
+async fn covenants_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Query(query): Query<CovenantsQuery>,
+) -> Json<serde_json::Value> {
+    let records = match query.creator {
+        Some(ref creator) if !creator.is_empty() => {
+            db::get_covenants_by_creator(&db, creator).unwrap_or_default()
+        }
+        _ => db::get_all_covenants(&db).unwrap_or_default()
+    };
+    let total = records.len();
+    let list: Vec<serde_json::Value> = records.into_iter().map(|c| {
                 let trust_config = db::get_ui_trust_config(&db, &c.tx_id).ok().flatten();
                 let has_verified_source = trust_config.as_ref()
                     .and_then(|tc| tc.get("verified_source_url"))
@@ -198,18 +212,63 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     "custom_ui_config": custom_ui,
                 })
             }).collect();
-            Json(json!({"total": total, "covenants": list}))
-        }
-        Err(e) => {
-            error!("Failed to query covenants: {}", e);
-            Json(json!({"total": 0, "covenants": [], "error": e.to_string()}))
-        }
-    }
+    Json(json!({"total": total, "covenants": list}))
 }
 
 async fn tiers_handler() -> Json<serde_json::Value> {
     let tiers = covenant_types::get_tiers();
     Json(json!({"tiers": tiers}))
+}
+
+// ─── Single Covenant Endpoint ─────────────────────────────
+
+async fn single_covenant_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => {
+            let trust_config = db::get_ui_trust_config(&db, &c.tx_id).ok().flatten();
+            let has_verified_source = trust_config.as_ref()
+                .and_then(|tc| tc.get("verified_source_url"))
+                .and_then(|v| v.as_str())
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
+            let custom_ui = db::get_custom_ui_config(&db, &c.tx_id).ok().flatten();
+            Json(json!({
+                "success": true,
+                "covenant": {
+                    "tx_id": c.tx_id,
+                    "address": c.address,
+                    "amount_kaspa": c.amount_kaspa,
+                    "script_hash": c.script_hash,
+                    "script_hex": c.script_hex,
+                    "covenant_type": c.covenant_type,
+                    "category": c.category,
+                    "creator_addr": c.creator_addr,
+                    "description": c.description,
+                    "verified_tier": c.verified_tier,
+                    "custom_ui_enabled": c.custom_ui_enabled,
+                    "full_logic_summary": c.full_logic_summary,
+                    "receiving_addresses": c.receiving_addresses,
+                    "is_active": c.is_active,
+                    "block_daa_score": c.block_daa_score,
+                    "timestamp": c.timestamp,
+                    "name": c.covenant_type,
+                    "tier": c.verified_tier,
+                    "ui_config": db::ui_config_for_tier(&c.verified_tier),
+                    "trust_config": trust_config,
+                    "has_verified_source": has_verified_source,
+                    "custom_ui_config": custom_ui,
+                }
+            }))
+        }
+        Ok(None) => Json(json!({"success": false, "error": "Covenant not found", "covenant": null})),
+        Err(e) => {
+            error!("Failed to query covenant: {}", e);
+            Json(json!({"success": false, "error": e.to_string(), "covenant": null}))
+        }
+    }
 }
 
 // ─── Trust-Verification UI Config ──────────────────────────
@@ -577,5 +636,24 @@ async fn resolve_winner_handler(
             "winner": payload.winner,
         })),
         Err(e) => Json(json!({"success": false, "error": format!("Failed to resolve: {}", e)})),
+    }
+}
+
+// ─── Verify Payment Handler ────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct VerifyPaymentRequest {
+    tx_id: String,
+    covenant_address: Option<String>,
+    tier: Option<String>,
+}
+
+async fn verify_payment_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(payload): Json<VerifyPaymentRequest>,
+) -> Json<serde_json::Value> {
+    match db::insert_payment(&db, &payload.tx_id, "", "", 0, payload.tier.as_deref().unwrap_or("CREATOR"), payload.covenant_address.as_deref()) {
+        Ok(()) => Json(json!({"success": true, "message": "Payment registered. Will be verified after 6 confirmations."})),
+        Err(e) => Json(json!({"success": false, "error": format!("Failed: {}", e)})),
     }
 }

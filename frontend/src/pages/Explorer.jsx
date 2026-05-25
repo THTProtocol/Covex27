@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Terminal, Database, Code2, Zap, ChevronDown, ShieldCheck, Globe, ExternalLink, Info, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Terminal, Database, Code2, Zap, ShieldCheck, Globe, ExternalLink, Info, Sparkles, Search, ArrowRight } from 'lucide-react';
 
 const TIER_STYLES = {
   MAX: {
@@ -42,6 +42,14 @@ const Explorer = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Search state
+  const [activeTab, setActiveTab] = useState('explore');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const navigate = useNavigate();
+
   useEffect(() => {
     fetch('/api/covenants')
       .then(res => res.json())
@@ -60,27 +68,98 @@ const Explorer = () => {
       });
   }, []);
 
+  // ─── Search Handler ──────────────────────────────────────
+  const handleSearch = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchResults(null);
+
+    // Detect if it's a TXID (contains colon like hash:0) or a wallet address
+    const isTxId = q.includes(':');
+    const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:') || q.length >= 40;
+
+    if (isTxId) {
+      // Exact TXID lookup
+      fetch(`/api/covenants/${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.covenant) {
+            setSearchResults({ type: 'covenant', data: [d.covenant] });
+          } else {
+            setSearchResults({ type: 'covenant', data: [] });
+            setSearchError(`No covenant found for TXID: ${q.slice(0, 16)}...`);
+          }
+          setSearchLoading(false);
+        })
+        .catch(err => {
+          setSearchError(`Search failed: ${err.message}`);
+          setSearchLoading(false);
+        });
+    } else if (isWalletAddr) {
+      // Wallet address lookup — fetch all then filter client-side
+      fetch('/api/covenants')
+        .then(r => r.json())
+        .then(d => {
+          const all = Array.isArray(d.covenants) ? d.covenants : [];
+          const qLower = q.toLowerCase();
+          // Match by creator_addr (contains)
+          const matches = all.filter(c =>
+            c.creator_addr && c.creator_addr.toLowerCase().includes(qLower)
+          );
+          if (matches.length > 0) {
+            setSearchResults({ type: 'wallet', query: q, data: matches });
+          } else {
+            setSearchResults({ type: 'wallet', query: q, data: [] });
+            setSearchError(`No covenants found for wallet: ${q.slice(0, 20)}...`);
+          }
+          setSearchLoading(false);
+        })
+        .catch(err => {
+          setSearchError(`Search failed: ${err.message}`);
+          setSearchLoading(false);
+        });
+    } else {
+      setSearchError('Enter a Kaspa wallet address (kaspatest:...) or covenant TXID (hash:index)');
+      setSearchLoading(false);
+    }
+  };
+
   return (
     <>
       {/* ═══ HERO SECTION ═══ */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-24 pb-10 px-6 text-center animate-in fade-in duration-700">
         {/* Logo */}
         <div className="mb-6">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="61" fill="none" viewBox="0 0 48 46" className="drop-shadow-[0_0_20px_rgba(73,234,203,0.3)]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" fill="none" viewBox="0 0 48 48" className="drop-shadow-[0_0_30px_rgba(73,234,203,0.4)]">
             <defs>
-              <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
+              <filter id="heroGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="2.5" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <linearGradient id="heroG" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stop-color="#49EACB"/>
+                <stop offset="50%" stop-color="#00D2FF"/>
                 <stop offset="100%" stop-color="#7e14ff"/>
               </linearGradient>
             </defs>
-            <path d="M22 7L18 11L10 17L8 25L10 33L18 38L22 40" stroke="url(#heroGrad)" stroke-width="1.5" fill="none" opacity="0.6"/>
-            <circle cx="22" cy="7" r="2.5" fill="#49EACB" opacity="0.9"/>
-            <circle cx="18" cy="11" r="2" fill="#00D2FF" opacity="0.8"/>
-            <circle cx="10" cy="17" r="2.5" fill="#49EACB" opacity="0.9"/>
-            <circle cx="8" cy="25" r="3" fill="#49EACB"/>
-            <circle cx="10" cy="33" r="2.5" fill="#49EACB" opacity="0.9"/>
-            <circle cx="18" cy="38" r="2" fill="#00D2FF" opacity="0.8"/>
-            <circle cx="22" cy="40" r="2.5" fill="#7e14ff" opacity="0.9"/>
+            <g filter="url(#heroGlow)">
+              <line x1="7" y1="10" x2="7" y2="38" stroke="url(#heroG)" stroke-width="1.5" opacity="0.7"/>
+              <line x1="7" y1="10" x2="18" y2="6" stroke="url(#heroG)" stroke-width="1" opacity="0.5"/>
+              <line x1="18" y1="6" x2="24" y2="12" stroke="url(#heroG)" stroke-width="0.8" opacity="0.4"/>
+              <line x1="7" y1="38" x2="18" y2="42" stroke="url(#heroG)" stroke-width="1" opacity="0.5"/>
+              <line x1="18" y1="42" x2="24" y2="36" stroke="url(#heroG)" stroke-width="0.8" opacity="0.4"/>
+              <circle cx="7" cy="10" r="3" fill="#49EACB"/>
+              <circle cx="18" cy="6" r="2" fill="#7e14ff" opacity="0.85"/>
+              <circle cx="24" cy="12" r="1.8" fill="#00D2FF" opacity="0.7"/>
+              <circle cx="7" cy="24" r="3.2" fill="#00D2FF"/>
+              <circle cx="7" cy="38" r="3" fill="#7e14ff"/>
+              <circle cx="18" cy="42" r="2" fill="#49EACB" opacity="0.85"/>
+              <circle cx="24" cy="36" r="1.8" fill="#00D2FF" opacity="0.7"/>
+            </g>
           </svg>
         </div>
 
@@ -147,24 +226,177 @@ const Explorer = () => {
 
       {/* ═══ SCROLL TRANSITION ═══ */}
       <div className="relative z-10 flex flex-col items-center justify-center pb-8">
-        <p className="text-xs text-gray-500 mb-4 font-mono tracking-wider uppercase">
+        <p className="text-xs text-gray-500 font-mono tracking-wider uppercase mb-5">
           Explore Covenants on the Kaspa BlockDAG
         </p>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-6 h-6 rounded-full border border-[#49EACB]/30 flex items-center justify-center animate-bounce">
-            <ChevronDown size={14} className="text-[#49EACB]" />
-          </div>
+        <div className="w-px h-8 bg-gradient-to-b from-[#49EACB]/40 to-transparent" />
+      </div>
+
+      {/* ═══ TAB SWITCHER ═══ */}
+      <div className="relative z-10 max-w-6xl mx-auto px-8">
+        <div className="flex items-center gap-0 border-b border-white/5">
+          {[
+            { id: 'explore', icon: Database, label: 'Explore Covenants' },
+            { id: 'search', icon: Search, label: 'Search & Discover' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); }}
+              className={`px-5 py-3 text-xs font-semibold transition-colors flex items-center gap-2 border-b-2 ${
+                activeTab === tab.id
+                  ? 'text-[#49EACB] bg-[#49EACB]/[0.04] border-[#49EACB]'
+                  : 'text-gray-500 border-transparent hover:text-gray-300'
+              }`}
+            >
+              <tab.icon size={13} />
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* ═══ COVENANT EXPLORER GRID ═══ */}
       <div className="relative z-10 p-8 max-w-6xl mx-auto">
-        <h2 className="text-2xl font-bold mb-2 text-white">Covenant Explorer</h2>
-        <p className="text-gray-400 mb-8">Live covenants on Kaspa Testnet-12 (Toccata)</p>
+        <h2 className="text-2xl font-bold mb-2 text-white">
+          {activeTab === 'search' ? 'Search & Discover' : 'Covenant Explorer'}
+        </h2>
+        <p className="text-gray-400 mb-8">
+          {activeTab === 'search'
+            ? 'Paste a wallet address or covenant TXID to find covenants'
+            : 'Live covenants on Kaspa Testnet-12 (Toccata)'}
+        </p>
 
-        {loading && <p className="text-lg text-gray-400">Loading from the BlockDAG…</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {loading && activeTab === 'explore' && <p className="text-lg text-gray-400">Loading from the BlockDAG…</p>}
+        {error && activeTab === 'explore' && <p className="text-red-500">{error}</p>}
 
+        {/* ═══ SEARCH TAB ═══ */}
+        {activeTab === 'search' && (
+          <div className="space-y-6">
+            {/* Search Input */}
+            <form onSubmit={handleSearch} className="relative group">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#49EACB]/20 to-[#00D2FF]/10 opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 blur-xl" />
+              <div className="relative flex items-center gap-3 p-4 rounded-2xl bg-[#0a0a0a]/90 border border-white/10 focus-within:border-[#49EACB]/40 focus-within:shadow-[0_0_30px_rgba(73,234,203,0.15)] transition-all duration-300">
+                <Search size={18} className="text-[#49EACB] shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                  placeholder="kaspatest:qr... or covenant txid (hash:0)"
+                  className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white placeholder:text-gray-600"
+                  autoFocus
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  disabled={searchLoading || !searchQuery.trim()}
+                  className="px-5 py-2 rounded-xl bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold text-xs transition-all shadow-[0_0_15px_rgba(73,234,203,0.3)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {searchLoading ? (
+                    <span className="inline-block w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  ) : (
+                    <><Search size={12} /> Search</>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Quick examples */}
+            <div className="flex flex-wrap gap-2 text-[10px] text-gray-600">
+              <span>Try:</span>
+              <button onClick={() => { setSearchQuery('kaspatest:'); }} className="px-2 py-0.5 rounded border border-white/5 bg-white/[0.02] hover:border-[#49EACB]/20 hover:text-[#49EACB] transition-colors font-mono">kaspatest:...</button>
+              <button onClick={() => { setSearchQuery(':'); }} className="px-2 py-0.5 rounded border border-white/5 bg-white/[0.02] hover:border-[#49EACB]/20 hover:text-[#49EACB] transition-colors font-mono">txid:0</button>
+            </div>
+
+            {/* Results */}
+            {searchLoading && (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-500 gap-3">
+                <div className="w-8 h-8 border-2 border-[#49EACB]/30 border-t-[#49EACB] rounded-full animate-spin" />
+                <p className="text-sm font-mono">QUERYING THE BLOCKDAG...</p>
+              </div>
+            )}
+
+            {searchError && !searchLoading && (
+              <div className="p-6 rounded-2xl bg-red-500/[0.04] border border-red-500/20 text-center">
+                <p className="text-sm text-red-400 font-mono mb-1">NO RESULTS</p>
+                <p className="text-xs text-gray-500">{searchError}</p>
+              </div>
+            )}
+
+            {searchResults && !searchLoading && searchResults.data.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-[#49EACB]">
+                      {searchResults.type === 'wallet'
+                        ? `Found ${searchResults.data.length} covenant${searchResults.data.length !== 1 ? 's' : ''} for wallet`
+                        : 'Found covenant'}
+                    </span>
+                    {searchResults.type === 'wallet' && (
+                      <span className="text-[10px] text-gray-500 font-mono truncate max-w-[300px]">
+                        {searchResults.query.slice(0, 30)}...
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {searchResults.data.map((c, i) => {
+                    const tier = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+                    const style = TIER_STYLES[tier] || TIER_STYLES.FREE;
+                    const isPremium = tier === 'MAX' || tier === 'PRO';
+                    return (
+                      <div
+                        key={c.tx_id || i}
+                        className={`block border rounded-xl p-5 transition-all duration-300 ${
+                          style.card
+                        } ${isPremium ? 'neon-card-hover hover:-translate-y-0.5' : 'hover:border-emerald-500/30 hover:bg-zinc-900/60'} animate-in fade-in slide-in-from-bottom-4`}
+                        style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'both' }}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className={`font-bold text-sm truncate ${isPremium ? 'text-[#49EACB]' : 'text-white'}`}>
+                              {c.name || c.covenant_type || 'Unnamed Covenant'}
+                            </h4>
+                            <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">
+                              {c.tx_id ? c.tx_id.slice(0, 20) + '...' : 'N/A'}
+                            </p>
+                          </div>
+                          <span className={`ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full shrink-0 ${style.badge}`}>
+                            {style.label}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-gray-400 mb-3 line-clamp-2">
+                          {c.description || c.full_logic_summary || 'No description.'}
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-500 mb-3">
+                          <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
+                          <span>Locked: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
+                          <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
+                          <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || 'N/A'}</span></span>
+                        </div>
+
+                        <Link
+                          to={`/covenant/${encodeURIComponent(c.tx_id)}`}
+                          className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-[#49EACB]/10 hover:bg-[#49EACB]/20 border border-[#49EACB]/20 text-[#49EACB] text-[10px] font-bold uppercase tracking-wider transition-all"
+                        >
+                          View Covenant <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ EXPLORE TAB (existing) ═══ */}
+        {activeTab === 'explore' && (
+          <>
         {!loading && covenants.length === 0 && (
           <div className="border border-zinc-700 bg-zinc-900/50 p-8 rounded-xl text-center">
             <p className="text-xl">No covenants detected yet.</p>
@@ -290,7 +522,7 @@ const Explorer = () => {
                           onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.creator_addr); }}
                           className="text-[9px] text-gray-600 hover:text-[#49EACB] ml-1"
                           title="Copy creator address"
-                        >📋</button>
+                        >Copy</button>
                       </span>
                     </div>
                     {c.full_logic_summary && (
@@ -329,6 +561,8 @@ const Explorer = () => {
             })}
           </div>
         )}
+        </>
+      )}
       </div>
     </>
   );

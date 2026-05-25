@@ -27,7 +27,7 @@ const COVENANT_TREASURY_ADDRESS = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99
 
 // Pricing tiers with on-chain fees in sompi
 const TIERS = {
-  FREE: { label: 'Free (Explorer)', fee: 0n, tier: 'FREE', icon: Zap, desc: 'Read-only, no interactive UI' },
+  FREE: { label: 'Free', fee: 0n, tier: 'FREE', icon: Zap, desc: 'Public listing on the covenant indexer' },
   CREATOR: { label: 'Creator (100 KAS)', fee: 10_000_000_000n, tier: 'CREATOR', icon: Code, desc: 'Interactive UI + full disclosure' },
   PRO: { label: 'PRO (500 KAS)', fee: 50_000_000_000n, tier: 'PRO', icon: TrendingUp, desc: 'Featured listing + priority indexing' },
   MAX: { label: 'MAX (1,000 KAS)', fee: 100_000_000_000n, tier: 'MAX', icon: Award, desc: 'Top placement + custom domain' },

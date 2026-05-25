@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
-import WhatIsKaspaModal from './components/WhatIsKaspaModal';
 import Explorer from './pages/Explorer';
 import CovenantInteractive from './pages/CovenantInteractive';
 import WhatIsKaspaPage from './pages/WhatIsKaspa';
@@ -18,13 +16,10 @@ const NL = ({ isActive }) =>
   }`;
 
 export default function App() {
-  const [kaspaOpen, setKaspaOpen] = useState(false);
-
   return (
     <WalletProvider>
       <BrowserRouter>
         <DagBackground />
-        <WhatIsKaspaModal open={kaspaOpen} onClose={() => setKaspaOpen(false)} />
 
         <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/85 backdrop-blur-lg border-b border-white/5 shadow-[0_1px_0_rgba(255,255,255,0.03)]">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -32,23 +27,34 @@ export default function App() {
               to="/"
               className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] transition-colors flex items-center gap-2.5"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="21" fill="none" viewBox="0 0 48 46" className="drop-shadow-[0_0_8px_rgba(73,234,203,0.4)]">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 48 48" className="drop-shadow-[0_0_12px_rgba(73,234,203,0.5)]">
                 <defs>
-                  <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#49EACB"/>
-                    <stop offset="100%" stopColor="#7e14ff"/>
+                  <filter id="navGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="1.5" result="b"/>
+                    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
+                  <linearGradient id="navG" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#49EACB"/>
+                    <stop offset="50%" stop-color="#00D2FF"/>
+                    <stop offset="100%" stop-color="#7e14ff"/>
                   </linearGradient>
                 </defs>
-                <path d="M22 7L18 11L10 17L8 25L10 33L18 38L22 40" stroke="url(#navGrad)" strokeWidth="1.5" fill="none" opacity="0.6"/>
-                <circle cx="22" cy="7" r="2.5" fill="#49EACB" opacity="0.9"/>
-                <circle cx="18" cy="11" r="2" fill="#00D2FF" opacity="0.8"/>
-                <circle cx="10" cy="17" r="2.5" fill="#49EACB" opacity="0.9"/>
-                <circle cx="8" cy="25" r="3" fill="#49EACB"/>
-                <circle cx="10" cy="33" r="2.5" fill="#49EACB" opacity="0.9"/>
-                <circle cx="18" cy="38" r="2" fill="#00D2FF" opacity="0.8"/>
-                <circle cx="22" cy="40" r="2.5" fill="#7e14ff" opacity="0.9"/>
+                <g filter="url(#navGlow)">
+                  <line x1="7" y1="10" x2="7" y2="38" stroke="url(#navG)" stroke-width="1.5" opacity="0.7"/>
+                  <line x1="7" y1="10" x2="18" y2="6" stroke="url(#navG)" stroke-width="1" opacity="0.5"/>
+                  <line x1="18" y1="6" x2="24" y2="12" stroke="url(#navG)" stroke-width="0.8" opacity="0.4"/>
+                  <line x1="7" y1="38" x2="18" y2="42" stroke="url(#navG)" stroke-width="1" opacity="0.5"/>
+                  <line x1="18" y1="42" x2="24" y2="36" stroke="url(#navG)" stroke-width="0.8" opacity="0.4"/>
+                  <circle cx="7" cy="10" r="3" fill="#49EACB"/>
+                  <circle cx="18" cy="6" r="2" fill="#7e14ff" opacity="0.85"/>
+                  <circle cx="24" cy="12" r="1.8" fill="#00D2FF" opacity="0.7"/>
+                  <circle cx="7" cy="24" r="3.2" fill="#00D2FF"/>
+                  <circle cx="7" cy="38" r="3" fill="#7e14ff"/>
+                  <circle cx="18" cy="42" r="2" fill="#49EACB" opacity="0.85"/>
+                  <circle cx="24" cy="36" r="1.8" fill="#00D2FF" opacity="0.7"/>
+                </g>
               </svg>
-              <span className="bg-gradient-to-r from-[#49EACB] to-white bg-clip-text text-transparent">COVEX</span>
+              <span className="bg-gradient-to-r from-[#49EACB] via-[#00D2FF] to-[#7e14ff] bg-clip-text text-transparent font-black tracking-tight text-lg">COVEX</span>
             </Link>
             <div className="flex items-center gap-6">
               <NavLink to="/what-is-kaspa" className={NL}>
@@ -114,7 +120,7 @@ export default function App() {
               <span>DAG is the truth. Covex is the window.</span>
             </div>
           </div>
-          <div className="max-w-6xl mx-auto mt-4 text-center text-xs text-gray-500 leading-relaxed">
+          <div className="max-w-6xl mx-auto mt-4 text-center text-[11px] text-gray-400 leading-relaxed">
             <p>
               Covex indexes publicly available covenant data from the Kaspa BlockDAG. It does not
               create, modify, or control any on-chain covenant. All covenants remain immutable on-chain;

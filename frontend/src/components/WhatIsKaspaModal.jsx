@@ -230,10 +230,10 @@ const WhatIsKaspa = ({ open, onClose }) => {
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
-                { title: 'Kaspa: The Fastest, Open-Source, Decentralized Layer-1', href: 'https://medium.com/@kaspa-currency/kaspa-the-fastest-open-source-decentralized-layer-1', tags: ['#Kaspa', '#BlockDAG', '#ProofOfWork'] },
-                { title: 'Understanding the GHOSTDAG Protocol', href: 'https://medium.com/@kaspa-currency/understanding-ghostdag', tags: ['#GHOSTDAG', '#Consensus', '#DAG'] },
-                { title: 'Smart Contracts on the Kaspa BlockDAG: SilverScript and Toccata', href: 'https://medium.com/@kaspa-currency/smart-contracts-on-the-kaspa-blockdag', tags: ['#SilverScript', '#Covenants', '#Toccata'] },
-                { title: 'The Rust Architecture Behind Kaspa', href: 'https://medium.com/@kaspa-currency/the-rust-architecture-behind-kaspa', tags: ['#RustLang', '#kHeavyHash', '#Performance'] },
+                { title: 'Kaspa Official Announcements', href: 'https://kaspa.org/developments/', tags: ['#Kaspa', '#BlockDAG', '#ProofOfWork'] },
+                { title: 'Understanding GHOSTDAG', href: 'https://eprint.iacr.org/2018/104.pdf', tags: ['#GHOSTDAG', '#Consensus', '#DAG'] },
+                { title: 'SilverScript Covenants on Kaspa', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md', tags: ['#SilverScript', '#Covenants', '#Toccata'] },
+                { title: 'Rust Architecture of Rusty Kaspa', href: 'https://github.com/kaspanet/rusty-kaspa', tags: ['#RustLang', '#kHeavyHash', '#Performance'] },
               ].map((post) => (
                 <a
                   key={post.title}

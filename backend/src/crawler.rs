@@ -23,8 +23,22 @@ const CREATOR_THRESHOLD: u64 = 10_000_000_000;
 
 fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
     let payload = treasury_addr.payload.as_slice();
-    if payload.len() >= 20 {
-        Some(format!("76a914{}88ac", hex::encode(&payload[payload.len()-20..])))
+    // For 32-byte payloads (Schnorr P2PK), the script is 20<key>ac
+    // For 20-byte payloads (P2PKH), the script is 76a914<hash160>88ac
+    match payload.len() {
+        32 => Some(format!("20{}ac", hex::encode(payload))),
+        20 => Some(format!("76a914{}88ac", hex::encode(payload))),
+        _ => None,
+    }
+}
+
+/// Extract a testnet address from a Schnorr P2PK output script (20<32-byte-pubkey>ac).
+/// Returns None if the script is not a recognizable Schnorr P2PK.
+fn address_from_p2pk_script(spk_hex: &str) -> Option<String> {
+    if spk_hex.len() == 68 && spk_hex.starts_with("20") && spk_hex.ends_with("ac") {
+        let payload = hex::decode(&spk_hex[2..66]).ok()?;
+        let addr = Address::new(kaspa_addresses::Prefix::Testnet, kaspa_addresses::Version::PubKey, &payload);
+        Some(addr.to_string())
     } else {
         None
     }
@@ -35,9 +49,12 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
     let o1 = &tx.outputs[1];
     let spk_hex = hex::encode(o1.script_public_key.script());
     let amount = o1.value;
+    // Match either P2PKH (50 hex: 76a914<hash160>88ac) or Schnorr P2PK (68 hex: 20<key>ac)
     let is_treasury = spk_hex == treasury_script
-        || (spk_hex.len()==50 && spk_hex.starts_with("76a914") && spk_hex.ends_with("88ac")
-            && spk_hex[6..46] == treasury_script[6..46]);
+        || (spk_hex.len() == 50 && treasury_script.len() >= 46 && spk_hex.starts_with("76a914") && spk_hex.ends_with("88ac")
+            && &spk_hex[6..46] == &treasury_script[6..46])
+        || (spk_hex.len() == 68 && treasury_script.len() >= 66 && spk_hex.starts_with("20") && spk_hex.ends_with("ac")
+            && &spk_hex[2..66] == &treasury_script[2..66]);
     if !is_treasury { return ("FREE".to_string(), 0); }
     let tier = if amount >= MAX_THRESHOLD { "MAX" }
                else if amount >= PRO_THRESHOLD { "PRO" }
@@ -108,21 +125,25 @@ pub async fn run_crawler(
                 let ctype = classify(&pl);
                 let cat = categorize(&pl);
                 let addr = format!("kaspatest:{}", &txh[..32]);
+                // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
+                let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
+                let creator = address_from_p2pk_script(&deployer_script_hex)
+                    .unwrap_or_else(|| addr.clone());
                 let shash = crate::compute_script_hash(&pl);
 
                 let summary = auto_summary(&ctype, &cat, amt);
                 let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
-                match db::insert_covenant(&db, &tid, &addr, amt, &shash, &pl, &ctype, &cat, &addr, "", daa, &tier, &summary, &recv_addrs) {
+                match db::insert_covenant(&db, &tid, &addr, amt, &shash, &pl, &ctype, &cat, &creator, "", daa, &tier, &summary, &recv_addrs) {
                     Ok(_) => {
                         batch += 1;
                         info!("Crawler: FOUND {} {} DAA={} amt={}K tier={} pl={}", ctype, &tid[..16], daa, amt as f64/1e8, tier, &pl[..40.min(pl.len())]);
-                        let (gdb, gid, gty, gcat, ghash, gaddr, gt) = (Arc::clone(&db), tid.clone(), ctype.clone(), cat.clone(), shash.clone(), addr.clone(), tier.to_string());
+                        let (gdb, gid, gty, gcat, ghash, gaddr, gcreator, gt) = (Arc::clone(&db), tid.clone(), ctype.clone(), cat.clone(), shash.clone(), addr.clone(), creator.clone(), tier.to_string());
                         tokio::spawn(async move {
                             let p = ui_generator::extract_parameters_from_script("aa20", &ghash);
                             let cfg = covenant_types::UiGenerationConfig {
                                 covenant_id: gid.clone(), covenant_name: format!("{} {}", gty, &gid[..8]),
                                 category: gcat, script_hash: ghash, parameters: p,
-                                is_enhanced: gt != "FREE", disclosure_level: if gt=="FREE" {"limited".into()} else {"full".into()}, creator_addr: gaddr,
+                                is_enhanced: gt != "FREE", disclosure_level: if gt=="FREE" {"limited".into()} else {"full".into()}, creator_addr: gcreator,
                             };
                             let html = ui_generator::generate_basic_ui(&cfg);
                             let slug = format!("covenant-{}", &gid[..16]);

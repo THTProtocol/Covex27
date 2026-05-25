@@ -404,7 +404,7 @@ export default function WhatIsKaspaPage() {
         {/* Legal micro-footer */}
         <div className="text-center border-t border-white/[0.05] pt-6 mt-6">
           <p className="text-[11px] text-gray-500">
-            Covex is an independent covenant indexer. Kaspa, BlockDAG, SilverScript, and the Kaspa logo are trademarks or registered trademarks of their respective owners.
+
           </p>
         </div>
       </div>

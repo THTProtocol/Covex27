@@ -6,7 +6,9 @@ import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangl
 import { QRCodeCanvas } from 'qrcode.react';
 import UiBuilder from '../components/UiBuilder';
 import PremiumBuilder from '../components/PremiumBuilder';
+import VisualDesigner from '../components/VisualDesigner';
 import InteractiveGameRenderer from '../components/InteractiveGameRenderer';
+import CovexTerminal from '../components/CovexTerminal';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -176,36 +178,27 @@ export default function CovenantInteractive() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/covenants')
+    fetch(`/api/covenants/${encodeURIComponent(rawId)}`)
       .then((r) => r.json())
       .then((d) => {
-        const found = (d.covenants || []).find((c) => c.tx_id === rawId) || null;
-        setCovenant(found);
-        if (found?.custom_ui_config) {
-          try {
-            const cfg = typeof found.custom_ui_config === 'string'
-              ? JSON.parse(found.custom_ui_config)
-              : found.custom_ui_config;
-            if (cfg && Object.keys(cfg).length > 0) {
-              setConfig(prev => ({ ...prev, ...cfg }));
-            }
-          } catch {}
-        } else if (found?.tx_id) {
-          fetch(`/api/covenants/${found.tx_id}/custom-ui`)
-            .then(r => r.json())
-            .then(d => {
-              if (d.success && d.custom_ui_config) {
-                const cfg = typeof d.custom_ui_config === 'string'
-                  ? JSON.parse(d.custom_ui_config)
-                  : d.custom_ui_config;
-                if (cfg && Object.keys(cfg).length > 0) {
-                  setConfig(prev => ({ ...prev, ...cfg }));
-                }
+        if (d.success && d.covenant) {
+          const found = d.covenant;
+          setCovenant(found);
+          if (found.custom_ui_config) {
+            try {
+              const cfg = typeof found.custom_ui_config === 'string'
+                ? JSON.parse(found.custom_ui_config)
+                : found.custom_ui_config;
+              if (cfg && Object.keys(cfg).length > 0) {
+                setConfig(prev => ({ ...prev, ...cfg }));
               }
-            })
-            .catch(() => {});
+            } catch {}
+          }
+        } else {
+          setCovenant(null);
         }
       })
+      .catch(() => setCovenant(null))
       .finally(() => setLoading(false));
   }, [rawId]);
 
@@ -351,7 +344,7 @@ export default function CovenantInteractive() {
               { id: 'addresses', icon: MapPin, label: 'Addresses' },
               { id: 'script', icon: ScrollText, label: 'Script' },
               { id: 'trust', icon: ShieldCheck, label: 'Trust' },
-              ...(canCustomize ? [{ id: 'builder', icon: Paintbrush, label: 'Builder' }] : []),
+              ...(canCustomize ? [{ id: 'builder', icon: Paintbrush, label: 'Builder' }, { id: 'terminal', icon: Terminal, label: 'Terminal' }] : []),
               { id: 'play', icon: Gamepad2, label: 'Play' },
             ].map(tab => (
               <button
@@ -381,7 +374,7 @@ export default function CovenantInteractive() {
             </button>
           </div>
 
-          <div className="p-6 flex-1 overflow-y-auto max-h-[55vh]">
+          <div className="p-6 flex-1 overflow-y-auto min-h-[40vh]">
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {verified ? (
@@ -688,7 +681,7 @@ export default function CovenantInteractive() {
               </div>
             )}
             {activeTab === 'trust' && (
-              <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
+              <div className="space-y-6 overflow-y-auto min-h-[30vh] pr-1">
                 <UiBuilder
                   covenant={covenant}
                   walletAddress={address}
@@ -697,8 +690,8 @@ export default function CovenantInteractive() {
               </div>
             )}
             {activeTab === 'builder' && canCustomize && (
-              <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
-                <PremiumBuilder
+              <div className="space-y-4 overflow-y-auto min-h-[30vh] pr-1">
+                <VisualDesigner
                   covenant={covenant}
                   walletAddress={address}
                   onSave={(cfg) => setToast({ type: 'success', msg: 'UI configuration published!' })}
@@ -706,8 +699,21 @@ export default function CovenantInteractive() {
                 />
               </div>
             )}
+            {activeTab === 'terminal' && canCustomize && (
+              <div className="overflow-y-auto min-h-[30vh] pr-1">
+                <CovexTerminal
+                  covenant={covenant}
+                  walletAddress={address}
+                  config={config}
+                  onConfigChange={(cfg) => setConfig(cfg)}
+                  onSave={(cfg) => setToast({ type: 'success', msg: 'Terminal configuration saved!' })}
+                  tier={tier}
+                  effectiveTierVal={effectiveTierVal}
+                />
+              </div>
+            )}
             {activeTab === 'play' && (
-              <div className="overflow-y-auto max-h-[60vh] pr-1">
+              <div className="overflow-y-auto min-h-[30vh] pr-1">
                 <InteractiveGameRenderer covenantId={rawId} covenant={covenant} userAddress={address} />
               </div>
             )}
@@ -715,76 +721,6 @@ export default function CovenantInteractive() {
         </motion.div>
       </div>
 
-      {/* Live Preview */}
-      {activeTab === 'builder' && canCustomize && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-8 glass-panel rounded-3xl p-8 sm:p-10"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Monitor size={18} className="text-kaspa-green" />
-              Live Preview
-            </h3>
-            <span className="text-xs text-gray-500">Updated in real time</span>
-          </div>
-          <div
-            className="rounded-2xl border p-6 max-w-xl mx-auto"
-            style={{
-              background: previewStyle.background,
-              borderColor: previewStyle.borderColor,
-            }}
-          >
-            {config.showFeaturedBanner && (
-              <div
-                className="text-center py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest mb-4"
-                style={{ backgroundColor: `${config.primaryColor}20`, color: config.primaryColor, border: `1px solid ${config.primaryColor}40` }}
-              >
-                FEATURED COVENANT
-              </div>
-            )}
-            {config.customLogoUrl && (
-              <div className="flex justify-center mb-4">
-                <img src={config.customLogoUrl} alt="Logo" className="h-8 object-contain rounded" onError={(e) => (e.target.style.display='none')} />
-              </div>
-            )}
-            <h4 className="text-white font-bold text-lg mb-1">{config.titleOverride || covenant.name || TRUNC(covenant.tx_id)}</h4>
-            <p className="text-sm text-gray-400 mb-4">{config.descOverride || covenant.description || covenant.desc || 'Covenant deployed on Kaspa BlockDAG.'}</p>
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                <p className="text-[10px] text-gray-500">Locked</p>
-                <p className="text-sm font-mono text-white">{(covenant.amount_kaspa || 0).toFixed(2)} KAS</p>
-              </div>
-              <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                <p className="text-[10px] text-gray-500">Type</p>
-                <p className="text-sm font-mono text-white truncate">{covenant.covenant_type || 'P2SH'}</p>
-              </div>
-            </div>
-            {config.showParamForm && (
-              <div className="mb-4">
-                <label className="text-xs text-gray-500 mb-1.5 block">Amount (KAS)</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  disabled
-                  className="w-full px-3 py-2 rounded-lg border bg-black/30 text-white text-sm placeholder:text-gray-600"
-                  style={{ borderColor: `${config.primaryColor}40` }}
-                />
-              </div>
-            )}
-            {config.showWalletButton && (
-              <button
-                disabled
-                className="w-full py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide"
-                style={{ backgroundColor: config.primaryColor, color: '#000' }}
-              >
-                Connect Wallet to Execute
-              </button>
-            )}
-          </div>
-        </motion.div>
-      )}
 
       {/* Disclaimer */}
       <div className="glass-panel p-6 mt-8 text-xs text-gray-600 leading-relaxed max-w-3xl mx-auto">

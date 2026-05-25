@@ -29,6 +29,7 @@ const CMDS = {
   verify: { usage: 'verify sig', desc: 'Verify a cryptographic signature (future)', minTier: 0 },
   history: { usage: 'history', desc: 'Show command history for this session', minTier: 0 },
   clear: { usage: 'clear', desc: 'Clear the terminal screen', minTier: 0 },
+  divine: { usage: 'divine', desc: 'Toggle transcendent Divine Mode (volumetric bloom, particle streams, unlimited effects)', minTier: 3 },
 };
 
 // ─── Banner ASCII art ───────────────────────────────────
@@ -80,11 +81,19 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [livePreview, setLivePreview] = useState(false);
   const [loadedConfig, setLoadedConfig] = useState(config || {});
+  const [divineMode, setDivineMode] = useState(false);
   const terminalRef = useRef(null);
   const inputRef = useRef(null);
 
   const isPro = effectiveTierVal >= 2;
   const isMax = effectiveTierVal >= 3;
+
+  // Sync loadedConfig when parent's config changes (VisualDesigner pushes to Terminal)
+  useEffect(() => {
+    if (config && Object.keys(config).length > 0) {
+      setLoadedConfig(config);
+    }
+  }, [config]);
 
   // ─── Auto-scroll ─────────────────────────────────────
   useEffect(() => {
@@ -290,18 +299,76 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
       case 'export': {
         const isEternal = args.includes('--eternal');
         const name = loadedConfig?.titleOverride || covenant?.name || 'Covenant';
-        respond('info', `Generating ${isEternal ? 'eternal' : 'standard'} HTML export...`);
+        const pc = loadedConfig?.primaryColor || '#49EACB';
+        const border = loadedConfig?.borderRadius || '0.75rem';
+        const pad = loadedConfig?.padding === 'compact' ? '12px' : loadedConfig?.padding === 'spacious' ? '32px' : '20px';
+        const bg = loadedConfig?.bgStyle === 'dark' ? '#0A0A0D' : loadedConfig?.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' : '#111116';
+        respond('info', `Forging ${isEternal ? 'Eternal Covenant' : 'export'} for ${name}...`);
         setTimeout(() => {
-          const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${name}</title><style>body{background:#020206;color:#${NEON.slice(1)};font-family:monospace;padding:2rem;margin:0}h1{font-size:1.5rem}pre{background:#0d0d14;padding:1rem;border-radius:0.5rem;border:1px solid ${NEON}30}</style></head><body><h1>⚡ ${name}</h1><pre>Tier: ${tier}\nLocked: ${covenant?.amount_kaspa || 0} KAS\nCategory: ${covenant?.category || 'General'}\nNetwork: Kaspa TN-12\n${isEternal ? 'FORGED IN ETERNAL NEON' : 'Exported via Covex Terminal'}</pre></body></html>`;
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${isEternal ? '⚡ ETERNAL ' : ''}${name} — Covex Covenant</title>
+<style>
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;
+    background:${isEternal ? `radial-gradient(ellipse at 50% 0%, ${pc}08, transparent 60%), ` : ''}#020206;
+    font-family:${loadedConfig?.font === 'mono' ? 'monospace' : loadedConfig?.font === 'serif' ? 'serif' : 'sans-serif'};
+    color:#e5e5e5;
+  }
+  ${isEternal ? 'body::before{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,' + pc + '08 2px,' + pc + '08 3px);z-index:999;}' : ''}
+  .card { max-width:540px;width:100%;padding:${pad};border-radius:${border};background:${bg};
+    border:1px solid ${pc}40;${loadedConfig?.showGlow ? `box-shadow:0 0 20px ${pc}30,0 4px 12px rgba(0,0,0,0.3);` : ''} }
+  .badge { text-align:center;padding:0.5rem 0;margin-bottom:1rem;border-radius:0.5rem;
+    font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;
+    background:${pc}20;color:${pc};border:1px solid ${pc}40; }
+  .title { font-weight:700;font-size:1.2rem;margin-bottom:0.25rem;color:#fff; }
+  .subtitle { color:#6b7280;font-size:0.65rem;font-family:monospace;margin-bottom:1rem; }
+  .desc { color:#9ca3af;font-size:0.75rem;margin-bottom:1rem;line-height:1.6; }
+  .grid { display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem; }
+  .stat { padding:0.6rem;border-radius:0.5rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05); }
+  .stat-label { color:#6b7280;font-size:0.6rem;text-transform:uppercase; }
+  .stat-val { font-size:0.75rem;font-weight:700;font-family:monospace;color:${pc}; }
+  .btn { width:100%;padding:0.6rem;border-radius:0.5rem;background:${pc};color:#000;font-weight:700;
+    font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;border:none;cursor:pointer;
+    box-shadow:0 0 15px ${pc}30;transition:all 0.2s; }
+  .btn:hover { box-shadow:0 0 30px ${pc}60; }
+  .footer { text-align:center;margin-top:1rem;font-size:0.6rem;color:#555;font-family:monospace; }
+  ${isEternal ? '.glow-text { text-shadow:0 0 10px ' + pc + '80,0 0 30px ' + pc + '40; }' : ''}
+  ${loadedConfig?.customCSS || ''}
+</style>
+</head>
+<body>
+<div class="card">
+  ${loadedConfig?.featureBadge ? '<div class="badge">' + loadedConfig.featureBadge + '</div>' : ''}
+  ${loadedConfig?.logoUrl ? '<div style="text-align:center;margin-bottom:1rem"><img src="' + loadedConfig.logoUrl + '" alt="logo" style="height:2.5rem;object-fit:contain"></div>' : ''}
+  <div class="title${isEternal ? ' glow-text' : ''}">${name}</div>
+  <div class="subtitle">${(covenant?.tx_id || '').slice(0, 16)}... — ${isEternal ? 'FORGED IN ETERNAL NEON' : 'Covex Covenant'}</div>
+  <div class="desc">${loadedConfig?.descOverride || covenant?.description || 'Covenant deployed on the Kaspa BlockDAG TN-12.'}</div>
+  <div class="grid">
+    <div class="stat"><div class="stat-label">Locked KAS</div><div class="stat-val">${(covenant?.amount_kaspa || 0).toLocaleString()} KAS</div></div>
+    <div class="stat"><div class="stat-label">Type</div><div class="stat-val" style="color:#d1d5db">${covenant?.covenant_type || 'P2SH'}</div></div>
+    <div class="stat"><div class="stat-label">Tier</div><div class="stat-val">${tier}</div></div>
+    <div class="stat"><div class="stat-label">Category</div><div class="stat-val" style="color:#d1d5db">${covenant?.category || 'General'}</div></div>
+  </div>
+  ${covenant?.script_hash ? '<div style="margin-bottom:0.75rem;padding:0.5rem;border-radius:0.5rem;background:rgba(0,0,0,0.4);font-family:monospace;font-size:0.6rem;word-break:break-all"><span style="color:#6b7280">Script:</span> <span style="color:' + pc + '">' + covenant.script_hash.slice(0, 32) + '...</span></div>' : ''}
+  ${covenant?.creator_addr ? '<div style="margin-bottom:0.75rem;padding:0.5rem;border-radius:0.5rem;background:rgba(0,0,0,0.4);font-family:monospace;font-size:0.6rem"><span style="color:#6b7280">Creator:</span> <span style="color:#d1d5db">' + covenant.creator_addr.slice(0, 20) + '...</span></div>' : ''}
+  <button class="btn" onclick="window.open('${window.location.origin}','_blank')">${isEternal ? '⚡ View Eternal Covenant on Covex' : 'View on Covex'}</button>
+  <div class="footer">${isEternal ? 'Forged in Eternal Neon · Covex Terminal · Kaspa BlockDAG TN-12' : 'Generated by Covex Terminal · Kaspa BlockDAG TN-12'}</div>
+</div>
+</body>
+</html>`;
           const blob = new Blob([html], { type: 'text/html' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)}_${isEternal ? 'eternal' : 'export'}.html`;
+          a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)}_${isEternal ? 'eternal_covenant' : 'covex_export'}.html`;
           a.click();
           URL.revokeObjectURL(url);
-          respond('success', `Exported: ${a.download} ${isEternal ? GOLD + '(Eternal)' : ''}`);
-        }, 300);
+          respond('success', `⚡ ${isEternal ? 'Eternal Covenant' : 'Export'} forged: ${a.download}`);
+        }, 400);
         break;
       }
 
@@ -318,6 +385,16 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
       case 'clear':
         setLines([{ type: 'info', text: BANNER }]);
         break;
+
+      case 'divine': {
+        if (!isMax) return respond('error', `Access denied. ${NEON}divine${SILVER} mode requires MAX tier. Ascend to MAX to wield transcendent power.`);
+        setDivineMode(prev => !prev);
+        respond('success', divineMode
+          ? `${SILVER}Divine Mode: ${NEON}OFF${SILVER}. Returning to mortal realms.`
+          : `${GOLD}DIVINE MODE: ${NEON}ACTIVATED${GOLD}. Volumetric bloom, particle streams, unlimited effects unleashed. You are now commanding digital reality itself.`
+        );
+        break;
+      }
 
       default:
         // Suggest nearest commands
@@ -368,6 +445,7 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
           <Diamond size={16} className="text-[#49EACB]" />
           <span className="text-sm font-semibold text-white tracking-wide">Covex Terminal</span>
           <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/20">{tier}</span>
+          {divineMode && <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#E8AF34]/10 text-[#E8AF34] border border-[#E8AF34]/20 animate-pulse">DIVINE</span>}
         </div>
         <div className="flex items-center gap-3 text-[10px] text-gray-500">
           <span className="flex items-center gap-1"><Cpu size={10} className="text-[#49EACB]" /> wRPC 17217</span>
@@ -386,7 +464,10 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 min-h-[65vh]">
         {/* ── TERMINAL CONSOLE ─────────────────────────── */}
         <div className="flex flex-col rounded-xl border border-[#49EACB]/10 overflow-hidden relative"
-          style={{ background: `linear-gradient(180deg, ${VOID} 0%, ${DIM} 100%)` }}>
+          style={{
+            background: `linear-gradient(180deg, ${VOID} 0%, ${DIM} 100%)`,
+            ...(divineMode ? { boxShadow: `0 0 40px ${NEON}20, 0 0 80px ${NEON}08, inset 0 0 60px ${NEON}05` } : {}),
+          }}>
           <ScanlineOverlay />
           {/* Header */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-[#49EACB]/10 bg-[#49EACB]/[0.02] z-10">

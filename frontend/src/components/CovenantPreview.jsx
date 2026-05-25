@@ -48,6 +48,8 @@ export default function CovenantPreview({ config, covenant, children, className 
         ...fontStyle,
       }}
     >
+      {/* Custom CSS injection (MAX tier) */}
+      {config.customCSS && <style dangerouslySetInnerHTML={{ __html: config.customCSS }} />}
       {/* Feature Badge */}
       {config.featureBadge && (
         <div

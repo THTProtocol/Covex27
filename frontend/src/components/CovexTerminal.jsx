@@ -3,7 +3,7 @@ import {
   Terminal, Layers, Sparkles, Zap, Shield, Globe,
   Download, Upload, Copy, Trash2, ScrollText, Code2,
   Eye, EyeOff, Server, Gauge, Cpu, FileCode, Braces,
-  Diamond, Gem, Crown
+  Diamond, Gem, Crown, ExternalLink, Save, PaintBucket
 } from 'lucide-react';
 import CovenantPreview from './CovenantPreview';
 
@@ -84,8 +84,49 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
   const terminalRef = useRef(null);
   const inputRef = useRef(null);
 
+  // ─── Custom UI paste state ────────────────────────────
+  const [pasteCode, setPasteCode] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [savedToast, setSavedToast] = useState(null);
+
   const isPro = effectiveTierVal >= 2;
   const isMax = effectiveTierVal >= 3;
+
+  // ─── Save custom HTML from Studio ──────────────────────
+  const handleSaveCustomUI = useCallback(async () => {
+    if (!pasteCode.trim()) return;
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/covenants/${encodeURIComponent(covenant?.tx_id)}/custom-ui`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creator_addr: walletAddress || covenant?.creator_addr || '',
+          config_json: {
+            ...loadedConfig,
+            custom_html: pasteCode,
+            saved_at: new Date().toISOString(),
+          },
+        }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setSavedToast('success');
+        if (onConfigChange) onConfigChange({ ...loadedConfig, custom_html: pasteCode });
+        setLoadedConfig(prev => ({ ...prev, custom_html: pasteCode }));
+        setLines(prev => [...prev, { type: 'success', text: 'Custom UI applied! Your covenant now has an interactive interface visible to the public.' }]);
+      } else {
+        setSavedToast('error');
+        setLines(prev => [...prev, { type: 'error', text: `Save failed: ${d.error || 'Unknown error'}` }]);
+      }
+    } catch (e) {
+      setSavedToast('error');
+      setLines(prev => [...prev, { type: 'error', text: `Network error: ${e.message}` }]);
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSavedToast(null), 3000);
+    }
+  }, [pasteCode, covenant, walletAddress, loadedConfig, onConfigChange]);
 
   // Sync loadedConfig when parent pushes new config
   useEffect(() => {
@@ -473,6 +514,65 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
           </span>
         </div>
       </div>
+
+      {/* ═════ COVENANT STUDIO SECTION ═════ */}
+      {effectiveTierVal >= 1 && (
+        <div className="rounded-xl border border-[#E8AF34]/20 overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(232,175,52,0.06), rgba(232,175,52,0.01))' }}>
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-[#E8AF34]/10">
+            <PaintBucket size={15} className="text-[#E8AF34]" />
+            <div className="flex-1">
+              <span className="text-xs font-semibold text-[#E8AF34]">Covenant Studio Integration</span>
+              <p className="text-[10px] text-gray-500 mt-0.5">Design your covenant UI in the Studio, then paste the code below to make it live.</p>
+            </div>
+            <a
+              href="http://localhost:3001"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#E8AF34] text-black text-[10px] font-bold hover:bg-[#f0c040] transition-all shadow-[0_0_12px_rgba(232,175,52,0.3)] active:scale-95"
+            >
+              <ExternalLink size={12} />
+              Open Covenant Studio
+            </a>
+          </div>
+          <div className="p-4 space-y-3">
+            <div>
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">
+                Paste code generated from Covenant Studio here:
+              </label>
+              <textarea
+                value={pasteCode}
+                onChange={(e) => setPasteCode(e.target.value)}
+                placeholder={`<!-- Paste your full HTML + JS + CSS code from Covenant Studio -->\n<!-- This will become the interactive face of your covenant -->`}
+                rows={8}
+                className="w-full rounded-lg border border-[#49EACB]/10 bg-black/60 text-[#49EACB] text-xs font-mono p-3 resize-y outline-none focus:border-[#49EACB]/30 placeholder:text-[#49EACB]/15"
+                style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace' }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveCustomUI}
+                disabled={saving || !pasteCode.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#49EACB] text-black text-xs font-bold hover:bg-[#3cd8b6] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_15px_rgba(73,234,203,0.25)] active:scale-95"
+              >
+                <Save size={13} />
+                {saving ? 'Saving...' : 'Apply Custom UI'}
+              </button>
+              <button
+                onClick={() => { setPasteCode(''); setSavedToast(null); }}
+                className="px-3 py-2 rounded-lg border border-white/10 text-gray-500 text-xs hover:text-gray-300 hover:border-white/20 transition-colors"
+              >
+                Clear
+              </button>
+              {savedToast === 'success' && (
+                <span className="text-[10px] text-emerald-400 font-semibold animate-in fade-in">Custom UI applied & live!</span>
+              )}
+              {savedToast === 'error' && (
+                <span className="text-[10px] text-red-400 font-semibold animate-in fade-in">Save failed — check console</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═════ MAIN GRID ═════ */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 min-h-[65vh]">

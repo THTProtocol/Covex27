@@ -341,6 +341,7 @@ export default function CovenantInteractive() {
               { id: 'addresses', icon: MapPin, label: 'Addresses' },
               { id: 'script', icon: ScrollText, label: 'Script' },
               { id: 'trust', icon: ShieldCheck, label: 'Trust' },
+              ...(config?.custom_html ? [{ id: 'custom-ui', icon: Eye, label: 'Live UI' }] : []),
               ...(canCustomize ? [{ id: 'terminal', icon: Terminal, label: 'Terminal' }] : []),
             ].map(tab => (
               <button
@@ -696,6 +697,28 @@ export default function CovenantInteractive() {
                   tier={tier}
                   effectiveTierVal={effectiveTierVal}
                 />
+              </div>
+            )}
+            {activeTab === 'custom-ui' && config?.custom_html && (
+              <div className="space-y-3 min-h-[50vh]">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-[#E8AF34] uppercase tracking-wider">
+                    Live Covenant Interface
+                  </h4>
+                  <span className="text-[9px] text-gray-600 font-mono">
+                    Built with Covenant Studio
+                  </span>
+                </div>
+                <div className="rounded-xl overflow-hidden border border-[#49EACB]/15 bg-black"
+                  style={{ minHeight: '500px' }}>
+                  <iframe
+                    srcDoc={config.custom_html}
+                    title="Covenant Custom UI"
+                    sandbox="allow-scripts allow-same-origin"
+                    className="w-full border-0"
+                    style={{ minHeight: '600px', height: '80vh' }}
+                  />
+                </div>
               </div>
             )}
           </div>

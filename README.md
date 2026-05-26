@@ -25,7 +25,7 @@
 
   > **Live:** [hightable.pro](https://hightable.pro) &nbsp; • &nbsp; **Code:** 2,504 lines Rust &nbsp; • &nbsp; **Frontend:** React 19 + Vite 8
   >
-  > Non-custodial indexing layer for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen.
+  > Non-custodial covenant explorer and deployment platform for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen. Interactive UIs, ZK-ready game outcomes, and multi-game covenant templates.
 
   <br>
 
@@ -207,21 +207,57 @@ Classification types (the `covenant_type` column, assigned by the `classify()` /
 
 ## Pricing & Trust
 
-Covex operates a four-tier on-chain verification model. Tier is determined by the amount of KAS sent to the treasury address in a covenant deployment transaction — specifically `tx.outputs[1]` (the second output).
+Covex operates a four-tier on-chain verification model. Tier is determined by the amount of KAS sent to the treasury address in a covenant deployment transaction — specifically `tx.outputs[1]` (the second output). Prices are one-time, not recurring.
 
 | | **FREE** | **CREATOR** | **PRO** | **MAX** |
 |:---|:---:|:---:|:---:|:---:|
 | **One-time fee** | `0` | `100 KAS` | `500 KAS` | `1,000 KAS` |
-| **Card glow** | — | — | Border | Border + pulse |
-| **Expanded details** | — | — | Partial | Full |
+| **Custom covenants** | — | 1 covenant | 1 covenant | 1 covenant |
+| **Card glow** | — | Standard | Border + glow | Border + pulse |
 | **Interactive UI** | — | ✓ | ✓ | ✓ |
+| **UI Templates** | — | 308+ game templates | 308+ game templates | 308+ game templates |
+| **Explorer placement** | Standard | Standard | Featured | Top priority |
 | **Trust builder** | — | — | ✓ | ✓ |
 | **Developer notes** | — | — | ✓ | ✓ |
-| **Custom interaction buttons** | — | — | ✓ | ✓ |
 | **Verified source badge** | — | — | ✓ | ✓ |
 | **Custom branding** | — | — | — | ✓ |
+| **Custom CSS** | — | — | — | ✓ |
+| **Multipurpose mode** | — | — | — | ✓ |
+| **Divine Mode** | — | — | — | ✓ |
 
-<br>
+### Covenant Architecture
+
+All paid covenants are built on a generic reusable covenant template. Users have full control over their covenant's configuration:
+
+- **Fee percentage**: Set the percentage that stays in the covenant on every claim (0% up to 5%)
+- **Reusable vs one-time**: Covenants can be single-use or reusable for multiple game sessions
+- **Partial claims**: Configure split percentages (e.g., winner takes 98%, 2% stays in covenant)
+- **Top-up capability**: Allow new players to add funds to the pot at any time
+- **Game templates**: Choose from 308+ interactive game templates (MAX tier: attach multiple templates to one covenant)
+- **Game-specific settings**: Time controls, move limits, player counts — fully configurable per template
+- **Play Again**: Multiple independent game sessions on the same covenant address
+- **Owner safeguards**: Owner can close the covenant only after a cooldown period with no active games
+
+### ZK Proofs & Game Outcome Verification
+
+Covex is fully ZK-ready for trustless game resolution:
+
+- **Claim Now workflow**: Winner clicks "Claim Now" → frontend generates a ZK proof proving legal game execution and correct winner determination → covenant verifies the ZK proof on-chain → automatic payout
+- **ZK stack**: RISC Zero zkVM + Groth16 verifier (works on TN12, integrates cleanly to mainnet)
+- **Short-term fallback**: Covex trusted oracle (signed outcome) for instant UX while ZK infrastructure matures
+- **Long-term**: Full ZK path is preferred and encouraged — the architecture supports both paths in parallel
+
+### Covex Terminal
+
+The central deployment tool for paid users. After upgrading, users access the Terminal to:
+
+- Paste custom UI code or configuration (from Covenant Studio or manual design)
+- Select and attach game templates from the 308+ template pantheon
+- Configure covenant parameters (fee percentage, claim rules, top-up settings)
+- Set up ZK proof generation and verification
+- Apply custom CSS and branding (MAX tier)
+- Export self-contained HTML covenant pages
+- Toggle Divine Mode for volumetric neon bloom and particle effects (MAX tier)
 
 Treasury: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
 

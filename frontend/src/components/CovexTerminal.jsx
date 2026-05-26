@@ -23,6 +23,9 @@ const CMDS = {
   template: { usage: 'apply template:<id> [--divine]', desc: 'Apply a template from the 308+ pantheon', minTier: 1 },
   templates: { usage: 'templates [category]', desc: 'List available templates (optional category filter)', minTier: 0 },
   import: { usage: 'import designer-export', desc: 'Paste and apply a VisualDesigner JSON export', minTier: 2 },
+  configure: { usage: 'configure fee|reusable|claim-pct|top-up', desc: 'Configure covenant parameters: fee%, reusability, claim splits, pot top-ups', minTier: 1 },
+  game: { usage: 'game attach <template_id>', desc: 'Attach a game template to this covenant (MAX: unlimited, others: 1)', minTier: 1 },
+  claim: { usage: 'claim zk|oracle|auto', desc: 'Set claim method: ZK proof, trusted oracle, or auto-detect', minTier: 1 },
   visualize: { usage: 'visualize live', desc: 'Toggle live WYSIWYG preview of current config', minTier: 1 },
   infuse: { usage: 'infuse css', desc: 'Inject custom CSS into the covenant page (MAX only)', minTier: 2 },
   export: { usage: 'export html [--eternal]', desc: 'Export current design as standalone HTML', minTier: 1 },
@@ -261,6 +264,103 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
         };
         pasteBuffer.current = '';
         document.addEventListener('keydown', pasteHandler, true);
+        break;
+      }
+
+      // ─── NEW: Covenant configuration commands ──────────
+
+      case 'configure': {
+        const sub = args[0];
+        if (!sub) {
+          respond('info', [
+            `${GOLD}═══ CONFIGURE COVENANT ═══`,
+            `${SILVER}Usage: ${NEON}configure fee <0-100>${SILVER}  — Set fee percentage kept in covenant on claim`,
+            `${SILVER}Usage: ${NEON}configure reusable${SILVER}     — Toggle single-use / reusable mode`,
+            `${SILVER}Usage: ${NEON}configure claim-pct <0-100>${SILVER} — Set winner's claim percentage (rest stays)`,
+            `${SILVER}Usage: ${NEON}configure top-up${SILVER}        — Toggle new player pot top-up`,
+            ``,
+            `${SILVER}Current: Fee=${loadedConfig.fee || 0}% | ${loadedConfig.reusable ? 'Reusable' : 'Single-use'} | Claim=${loadedConfig.claimPct || 100}% | Top-up: ${loadedConfig.allowTopUp ? 'ON' : 'OFF'}`,
+          ].join('\\n'));
+          break;
+        }
+        if (sub === 'fee') {
+          const val = parseInt(args[1]);
+          if (isNaN(val) || val < 0 || val > 100) return respond('error', 'Error: fee must be a number between 0 and 100');
+          if (val > 5) respond('info', `${GOLD}Note: Reasonable maximum is 5%. Values above this may be rejected by the covenant.`);
+          const newCfg = { ...loadedConfig, fee: val };
+          setLoadedConfig(newCfg);
+          if (onConfigChange) onConfigChange(newCfg);
+          respond('success', `Fee configured: ${NEON}${val}%${GOLD} kept in covenant on every claim.`);
+        } else if (sub === 'reusable') {
+          const newVal = !loadedConfig.reusable;
+          const newCfg = { ...loadedConfig, reusable: newVal };
+          setLoadedConfig(newCfg);
+          if (onConfigChange) onConfigChange(newCfg);
+          respond('success', newVal ? 'Covenant set to reusable mode. Multiple independent game sessions allowed.' : 'Covenant set to single-use mode.');
+        } else if (sub === 'claim-pct') {
+          const val = parseInt(args[1]);
+          if (isNaN(val) || val < 0 || val > 100) return respond('error', 'Error: claim percentage must be 0-100');
+          const newCfg = { ...loadedConfig, claimPct: val };
+          setLoadedConfig(newCfg);
+          if (onConfigChange) onConfigChange(newCfg);
+          respond('success', `Claim percentage: Winner takes ${NEON}${val}%${GOLD}, ${100 - val}% stays in covenant.`);
+        } else if (sub === 'top-up') {
+          const newVal = !loadedConfig.allowTopUp;
+          const newCfg = { ...loadedConfig, allowTopUp: newVal };
+          setLoadedConfig(newCfg);
+          if (onConfigChange) onConfigChange(newCfg);
+          respond('success', newVal ? 'Pot top-up enabled. New players can add funds at any time.' : 'Pot top-up disabled. Only initial deposit permitted.');
+        } else {
+          respond('error', `Unknown config option: ${sub}. Use: fee, reusable, claim-pct, or top-up.`);
+        }
+        break;
+      }
+
+      case 'game': {
+        const action = args[0];
+        if (action !== 'attach') return respond('error', 'Usage: game attach <template_id> — attach a game template to this covenant');
+        const templateId = args[1];
+        if (!templateId) return respond('error', 'Error: provide a template ID. Use templates to list all.');
+        const attachedGames = loadedConfig.attachedGames || [];
+        if (!isMax && attachedGames.length >= 1) {
+          return respond('error', `${NEON}MAX${SILVER} tier required for multiple game templates. You have ${attachedGames.length}/1 slots used. Upgrade to MAX for unlimited.`);
+        }
+        const tmpl = getTemplateById(templateId);
+        if (!tmpl) {
+          return respond('error', `Template not found: ${templateId}. Use ${NEON}templates${GOLD} to list all.`);
+        }
+        if (attachedGames.includes(templateId)) {
+          return respond('error', `Game ${NEON}${templateId}${SILVER} is already attached.`);
+        }
+        const newGames = [...attachedGames, templateId];
+        const newCfg = { ...loadedConfig, attachedGames: newGames };
+        setLoadedConfig(newCfg);
+        if (onConfigChange) onConfigChange(newCfg);
+        respond('success', `Game ${NEON}${tmpl.id}${GOLD} attached: ${tmpl.name}`);
+        respond('info', `  ${attachedGames.length + 1} game${attachedGames.length + 1 !== 1 ? 's' : ''} attached. ${isMax ? 'Unlimited slots remaining.' : 'Slots full.'}`);
+        break;
+      }
+
+      case 'claim': {
+        const method = args[0];
+        if (!method || !['zk', 'oracle', 'auto'].includes(method)) {
+          respond('info', [
+            `${GOLD}═══ CLAIM METHOD ═══`,
+            `${SILVER}Usage: ${NEON}claim zk${SILVER}      — Full ZK proof verification (RISC Zero zkVM)`,
+            `${SILVER}Usage: ${NEON}claim oracle${SILVER}  — Trusted oracle signed outcome (fallback)`,
+            `${SILVER}Usage: ${NEON}claim auto${SILVER}    — Auto-detect (ZK first, fallback to oracle)`,
+            ``,
+            `${SILVER}Current: ${loadedConfig.claimMethod || 'auto'}`,
+          ].join('\\n'));
+          break;
+        }
+        const newCfg = { ...loadedConfig, claimMethod: method };
+        setLoadedConfig(newCfg);
+        if (onConfigChange) onConfigChange(newCfg);
+        const desc = method === 'zk' ? 'ZK proof (RISC Zero zkVM + Groth16) — fully trustless' :
+                     method === 'oracle' ? 'Trusted oracle (signed outcome) — instant UX fallback' :
+                     'Auto-detect: ZK first, fallback to oracle';
+        respond('success', `Claim method set: ${NEON}${method}${GOLD} — ${desc}`);
         break;
       }
 

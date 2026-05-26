@@ -16,7 +16,7 @@ use tracing::{info, warn, error, debug};
 ///
 /// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
-const MAX_WALK_DISTANCE: u64 = 2000;
+const MAX_WALK_DISTANCE: u64 = 1_000_000;
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
 const CREATOR_THRESHOLD: u64 = 10_000_000_000;
@@ -110,7 +110,6 @@ pub async fn run_crawler(
                 Ok(b) => b, Err(e) => { debug!("Crawler: block fail at {}: {}", cur, e); break; }
             };
             let daa = block.header.daa_score;
-            if daa <= scan_daa { break; }
             lowest = daa.min(lowest);
 
             // Scan tx.payload for covenant opcodes
@@ -167,7 +166,9 @@ pub async fn run_crawler(
 
         total_found += batch as u64;
         info!("Crawler: walked={} found={} total={} lowest_daa={}", walked, batch, total_found, lowest);
-        scan_daa = lowest; // advance checkpoint to lowest DAA reached
+        // Advance past the floor — lowest is the minimum DAA seen in this batch.
+        // Without this decrement, the next cycle hits the same floor and makes zero net progress.
+        scan_daa = lowest.saturating_sub(1);
         let _ = db::update_last_scanned_daa(&db, scan_daa);
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }

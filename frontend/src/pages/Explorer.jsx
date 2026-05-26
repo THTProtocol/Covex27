@@ -407,161 +407,186 @@ const Explorer = () => {
         )}
 
         {covenants.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {covenants.map((c, i) => {
-              const tier = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-              const style = TIER_STYLES[tier] || TIER_STYLES.FREE;
-              const isMax = tier === 'MAX';
-              const isPremium = tier === 'MAX' || tier === 'PRO';
+          <>
+            {/* Separate paid from free covenants */}
+            {(() => {
+              const paidCovenants = covenants.filter(c => {
+                const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+                return t === 'MAX' || t === 'PRO' || t === 'CREATOR';
+              });
+              const freeCovenants = covenants.filter(c => {
+                const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+                return t === 'FREE';
+              });
 
               return (
-                <Link
-                  to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-                  key={c.tx_id || i}
-                  className={`block border rounded-xl p-6 transition-all duration-300 ${style.card} ${
-                    isPremium ? 'neon-card-hover hover:-translate-y-0.5' : 'hover:border-emerald-500/30 hover:bg-zinc-900/60'
-                  } animate-in fade-in slide-in-from-bottom-4 cursor-pointer`}
-                  style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className={`font-bold text-lg ${isPremium ? 'text-[#49EACB]' : 'text-white'}`}>
-                        {c.name || c.covenant_type || 'Unnamed Covenant'}
-                      </h3>
-                      <p className={`text-xs font-mono mt-1 ${isMax ? 'text-[#49EACB]/70' : 'text-gray-500'}`}>
-                        {truncate(c.tx_id, 10)}
-                      </p>
-                    </div>
-                    <span className={`ml-3 px-3 py-1 text-xs font-semibold rounded-full ${style.badge}`}>
-                      {style.label}
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  <p className={`text-sm mb-3 ${isMax ? 'text-gray-200' : 'text-gray-400'}`}>
-                    {c.description || 'No description provided.'}
-                  </p>
-
-                  {/* Trust Badges */}
-                  {c.trust_config && (
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {(() => {
-                        const tc = c.trust_config;
-                        const hasSource = tc.verified_source_url && tc.verified_source_url.trim().length > 0;
-                        const hasNotes = tc.developer_notes && tc.developer_notes.trim().length > 0;
-                        const hasInteract = (() => {
-                          try {
-                            const schema = typeof tc.interaction_schema === 'string'
-                              ? JSON.parse(tc.interaction_schema || '[]')
-                              : tc.interaction_schema;
-                            return Array.isArray(schema) && schema.length > 0;
-                          } catch (_) { return false; }
-                        })();
-                        return (
-                          <>
-                            {hasSource && (
-                              <a
-                                href={tc.verified_source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-emerald-500/[0.08] border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/[0.15] transition-colors shadow-[0_0_8px_rgba(16,185,129,0.15)]"
-                                title="Verified Open-Source — click to view on GitHub"
-                              >
-                                <ShieldCheck size={11} />
-                                ✓ Verified Open-Source
-                              </a>
-                            )}
-                            {hasNotes && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-blue-500/[0.08] border border-blue-500/25 text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.15)]">
-                                <Info size={11} />
-                                Dev Notes
-                              </span>
-                            )}
-                            {hasInteract && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-purple-500/[0.08] border border-purple-500/25 text-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.15)]">
-                                <Terminal size={11} />
-                                Interactive
-                              </span>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Custom UI Built badge */}
-                  {c.custom_ui_config && (
-                    <div className="mb-3">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_10px_rgba(73,234,203,0.3)] animate-pulse">
-                        <Sparkles size={11} />
-                        CUSTOM BUILT
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Compact stats — always shown */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-2">
-                    <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
-                    <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
-                    <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
-                    <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
-                  </div>
-
-                  {/* Universal detail section — all tiers show full on-chain data */}
-                  <div className={`mt-2 pt-3 border-t ${isPremium ? 'border-[#49EACB]/30' : 'border-zinc-700/40'} space-y-2 text-xs`}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500">Script Hash</span>
-                      <span className={`font-mono ${isPremium ? 'text-[#49EACB]/80' : 'text-gray-400'}`}>{truncate(c.script_hash, 6)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500">Creator</span>
-                      <span className="text-gray-300 font-mono flex items-center gap-1">
-                        {truncate(c.creator_addr, 8)}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(c.creator_addr); }}
-                          className="text-[9px] text-gray-600 hover:text-[#49EACB] ml-1"
-                          title="Copy creator address"
-                        >Copy</button>
-                      </span>
-                    </div>
-                    {c.full_logic_summary && (
-                      <div className="pt-1">
-                        <span className="text-gray-500 block mb-1">Logic Summary</span>
-                        <span className="text-gray-400 leading-snug">{c.full_logic_summary}</span>
+                <>
+                  {paidCovenants.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-px flex-1 bg-gradient-to-r from-[#49EACB]/30 to-transparent" />
+                        <span className="text-xs font-bold text-[#49EACB] uppercase tracking-widest flex items-center gap-2">
+                          <Trophy size={14} /> Featured Covenants
+                        </span>
+                        <div className="h-px flex-1 bg-gradient-to-l from-[#49EACB]/30 to-transparent" />
                       </div>
-                    )}
-                    {c.receiving_addresses && (() => {
-                      try {
-                        const addrs = typeof c.receiving_addresses === 'string' ? JSON.parse(c.receiving_addresses) : c.receiving_addresses;
-                        if (Array.isArray(addrs) && addrs.length > 0) {
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                        {paidCovenants.map((c, i) => {
+                          const tier = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+                          const style = TIER_STYLES[tier] || TIER_STYLES.FREE;
+                          const isMax = tier === 'MAX';
+                          const isPremium = tier === 'MAX' || tier === 'PRO';
+                          const isHighTVL = (c.amount_kaspa || 0) >= 100;
                           return (
-                            <div className="pt-1">
-                              <span className="text-gray-500 block mb-1">Receiving ({addrs.length})</span>
-                              {addrs.slice(0, 3).map((a, j) => (
-                                <span key={j} className="text-gray-400 font-mono text-[10px] block truncate">{a}</span>
-                              ))}
-                              {addrs.length > 3 && <span className="text-gray-600 text-[10px]">+{addrs.length - 3} more</span>}
-                            </div>
-                          );
-                        }
-                      } catch (_) {}
-                      return null;
-                    })()}
-                  </div>
+                            <Link
+                              to={`/covenant/${encodeURIComponent(c.tx_id)}`}
+                              key={c.tx_id || i}
+                              className={`block border rounded-xl p-6 transition-all duration-300 ${style.card} ${
+                                isPremium ? 'neon-card-hover hover:-translate-y-0.5' : 'hover:border-emerald-500/30 hover:bg-zinc-900/60'
+                              } animate-in fade-in slide-in-from-bottom-4 cursor-pointer relative`}
+                              style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
+                            >
+                              {/* HIGH TVL indicator */}
+                              {isHighTVL && (
+                                <div className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold rounded-full bg-[#49EACB]/15 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_8px_rgba(73,234,203,0.2)]">
+                                  <Diamond size={10} className="inline mr-0.5" /> HIGH TVL
+                                </div>
+                              )}
+                              {/* Header */}
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h3 className={`font-bold text-lg ${isPremium ? 'text-[#49EACB]' : 'text-white'}`}>
+                                    {c.name || c.covenant_type || 'Unnamed Covenant'}
+                                  </h3>
+                                  <p className={`text-xs font-mono mt-1 ${isMax ? 'text-[#49EACB]/70' : 'text-gray-500'}`}>
+                                    {truncate(c.tx_id, 10)}
+                                  </p>
+                                </div>
+                                <span className={`ml-3 px-3 py-1 text-xs font-semibold rounded-full ${style.badge}`}>
+                                  {style.label}
+                                </span>
+                              </div>
 
-                  {/* FREE tier: upgrade hint */}
-                  {tier === 'FREE' && (
-                    <p className="mt-2 text-[10px] text-gray-600 italic text-center">
-                      All covenants show full on-chain data. Upgrade for custom interactive UI.
-                    </p>
+                              {/* Description */}
+                              <p className={`text-sm mb-3 ${isMax ? 'text-gray-200' : 'text-gray-400'}`}>
+                                {c.description || 'No description provided.'}
+                              </p>
+
+                              {/* Trust Badges */}
+                              {c.trust_config && (
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                  {(() => {
+                                    const tc = c.trust_config;
+                                    const hasSource = tc.verified_source_url && tc.verified_source_url.trim().length > 0;
+                                    const hasNotes = tc.developer_notes && tc.developer_notes.trim().length > 0;
+                                    const hasInteract = (() => {
+                                      try {
+                                        const schema = typeof tc.interaction_schema === 'string'
+                                          ? JSON.parse(tc.interaction_schema || '[]')
+                                          : tc.interaction_schema;
+                                        return Array.isArray(schema) && schema.length > 0;
+                                      } catch (_) { return false; }
+                                    })();
+                                    return (
+                                      <>
+                                        {hasSource && (
+                                          <a href={tc.verified_source_url} target="_blank" rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-emerald-500/[0.08] border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/[0.15] transition-colors shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+                                            title="Verified Open-Source — click to view on GitHub">
+                                            <ShieldCheck size={11} />
+                                            Verified Open-Source
+                                          </a>
+                                        )}
+                                        {hasNotes && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-blue-500/[0.08] border border-blue-500/25 text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.15)]">
+                                            <Info size={11} />
+                                            Dev Notes
+                                          </span>
+                                        )}
+                                        {hasInteract && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-purple-500/[0.08] border border-purple-500/25 text-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.15)]">
+                                            <Terminal size={11} />
+                                            Interactive
+                                          </span>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+
+                              {/* Custom UI Built badge */}
+                              {c.custom_ui_config && (
+                                <div className="mb-3">
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_10px_rgba(73,234,203,0.3)] animate-pulse">
+                                    <Sparkles size={11} />
+                                    CUSTOM BUILT
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Compact stats */}
+                              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-2">
+                                <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
+                                <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
+                                <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
+                                <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
-                </Link>
+
+                  {freeCovenants.length > 0 && (
+                    <>
+                      {paidCovenants.length > 0 && (
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="h-px flex-1 bg-gradient-to-r from-gray-700/50 to-transparent" />
+                          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">All Covenants</span>
+                          <div className="h-px flex-1 bg-gradient-to-l from-gray-700/50 to-transparent" />
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {freeCovenants.map((c, i) => {
+                          const tier = 'FREE';
+                          const style = TIER_STYLES[tier];
+                          return (
+                            <Link
+                              to={`/covenant/${encodeURIComponent(c.tx_id)}`}
+                              key={c.tx_id || i}
+                              className="block border border-zinc-800/80 bg-zinc-900/50 rounded-xl p-6 transition-all duration-300 hover:border-emerald-500/30 hover:bg-zinc-900/60 animate-in fade-in slide-in-from-bottom-4 cursor-pointer"
+                              style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h3 className="font-bold text-lg text-white">{c.name || c.covenant_type || 'Unnamed Covenant'}</h3>
+                                  <p className="text-xs font-mono mt-1 text-gray-500">{truncate(c.tx_id, 10)}</p>
+                                </div>
+                                <span className="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-gray-500/15 text-gray-400 ring-1 ring-gray-500/30">
+                                  FREE
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-400 mb-3">{c.description || 'No description provided.'}</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-2">
+                                <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
+                                <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
+                                <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
+                                <span>DAA: <span className="text-gray-300">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
               );
-            })}
-          </div>
+            })()}
+          </>
         )}
-        </>
+        </> 
       )}
       </div>
     </>

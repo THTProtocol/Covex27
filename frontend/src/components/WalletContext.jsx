@@ -91,10 +91,17 @@ const ALL_WALLETS = [
   { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
 ];
 
-// ── TN12 Dev Mode — local key derivation via kaspa-wasm ──
-function loadKaspaWasm() {
-  // Dynamically import the WASM module to avoid blocking initial render
-  return import('@onekeyfe/kaspa-wasm').catch(() => null);
+let _wasmModuleCtx = null;
+async function loadKaspaWasm() {
+  if (_wasmModuleCtx) return _wasmModuleCtx;
+  try {
+    const wasm = await import('@onekeyfe/kaspa-wasm');
+    if (typeof wasm.default === 'function') {
+      await wasm.default();
+    }
+    _wasmModuleCtx = wasm;
+    return wasm;
+  } catch { return null; }
 }
 
 async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {

@@ -11,8 +11,12 @@ let _wasmModule = null; // cached WASM module
 
 async function ensureWasm() {
   if (_wasmModule) return _wasmModule;
-  _wasmModule = await import('@onekeyfe/kaspa-wasm');
-  // No explicit init() call — kaspa-wasm auto-initializes on first class instantiation
+  const wasm = await import('@onekeyfe/kaspa-wasm');
+  // Must explicitly init WASM binary before using any class
+  if (typeof wasm.default === 'function') {
+    await wasm.default();
+  }
+  _wasmModule = wasm;
   return _wasmModule;
 }
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Check, ArrowUp, QrCode, Zap, CheckCircle2, Copy, FileJson, MapPin, ScrollText } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Eye, Check, ArrowUp, QrCode, Zap, CheckCircle2, Copy, FileJson, MapPin, ScrollText } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import UiBuilder from '../components/UiBuilder';
 import CovexTerminal from '../components/CovexTerminal';

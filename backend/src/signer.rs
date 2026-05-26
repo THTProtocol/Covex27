@@ -34,10 +34,12 @@ use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::{RpcTransaction, RpcUtxosByAddressesEntry};
 use kaspa_wrpc_client::KaspaRpcClient;
 use serde::Deserialize;
-use std::sync::Arc;
+use rusqlite::Connection;
+use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 
 use crate::dev_wallets;
+use crate::db;
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -161,6 +163,7 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
 /// 9. Return tx_id
 pub async fn sign_and_broadcast_handler(
     Extension(client): Extension<Arc<KaspaRpcClient>>,
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
     Json(payload): Json<SignAndBroadcastRequest>,
 ) -> Json<serde_json::Value> {
     // ── Step 1: Resolve private key ──────────────────────────────
@@ -357,6 +360,38 @@ pub async fn sign_and_broadcast_handler(
         Ok(tx_id) => {
             let tx_id_str = tx_id.to_string();
             info!("Sign-and-broadcast success: tx_id={}, tier={:?}, fee={}", tx_id_str, tier, tier_fee);
+
+            // ── IMMEDIATE DB WRITE: save covenant so user sees it right away ──
+            let deployer_str = payload.deployer_addr.clone();
+            let script_hex_for_db = payload.script_hex.clone();
+            let tier_str = tier.unwrap_or("FREE");
+            let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 { tier_str } else { "SilverScript Covenant" });
+            let covenant_type = if tier_fee > 0 { covenant_name.to_string() } else { "SilverScript Covenant".to_string() };
+            let receiving_addrs = serde_json::to_string(&vec![deployer_str.clone()]).unwrap_or_default();
+            let desc = if tier_fee > 0 {
+                format!("{} tier covenant deployed", tier_str)
+            } else { "Covenant deployed via Covex Terminal".to_string() };
+
+            // Compute script hash from hex
+            let script_bytes = hex::decode(&script_hex_for_db).unwrap_or_default();
+            let script_hash = {
+                use sha2::{Sha256, Digest};
+                format!("{:x}", Sha256::digest(&script_bytes))
+            };
+
+            // DB insert — non-fatal on failure; covenant is already on-chain
+            let _ = db::insert_covenant(
+                &db, &tx_id_str, &deployer_str, COVENANT_AMOUNT,
+                &script_hash, &script_hex_for_db,
+                &covenant_type, "general",
+                &deployer_str, &desc,
+                0,  // block_daa_score (crawler updates this)
+                tier_str,
+                &desc,
+                &receiving_addrs,
+            );
+            info!("Covenant {} saved to DB immediately after broadcast", tx_id_str);
+
             let output_summaries: Vec<TxOutputSummary> = outputs
                 .iter()
                 .enumerate()

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet, Zap, TrendingUp, Award } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
@@ -34,6 +35,7 @@ function textToHex(str) {
 }
 
 export default function Deploy() {
+  const navigate = useNavigate();
   const { address, signMessage, isDevMode, devMode } = useWallet();
   const [code, setCode] = useState(SILVERSCRIPT_TEMPLATE);
   const [status, setStatus] = useState('idle');
@@ -54,6 +56,17 @@ export default function Deploy() {
   }, [address]);
 
   useEffect(() => { fetchBalance(); }, [fetchBalance]);
+
+  // ─── Auto-redirect after successful deployment ──────────
+  useEffect(() => {
+    if (status === 'success' && result?.txid && !result.txid.startsWith('pending')) {
+      const timer = setTimeout(() => {
+        // Redirect to covenant detail page with Terminal tab active
+        navigate(`/covenant/${encodeURIComponent(result.txid)}?tab=terminal`);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [status, result, navigate]);
 
   const handleDeploy = useCallback(async () => {
     if (!address || !code.trim()) return;

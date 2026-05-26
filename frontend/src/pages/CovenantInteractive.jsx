@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
 import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Eye, Check, ArrowUp, QrCode, Zap, CheckCircle2, Copy, FileJson, MapPin, ScrollText } from 'lucide-react';
@@ -38,6 +38,7 @@ function ColorSwatch({ color, active, onClick }) {
 
 export default function CovenantInteractive() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const rawId = decodeURIComponent(id || '');
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +48,11 @@ export default function CovenantInteractive() {
   // UI Builder state
   const [showBuilder, setShowBuilder] = useState(false);
   const [config, setConfig] = useState(DEFAULT_UI_CONFIG);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Honor ?tab= query param for deep-linking from deploy/payment redirects
+    const tabParam = searchParams.get('tab');
+    return tabParam || 'overview';
+  });
 
   // Upgrade payment state
   const [showUpgrade, setShowUpgrade] = useState(false);

@@ -11,7 +11,7 @@
  ╚═════╝  ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
   </pre>
 
-  <h3 style="margin-top: -10px;">Kaspa Covenant Indexer & SaaS Platform</h3>
+  <h3 style="margin-top: -10px;">Kaspa Covenant Explorer & Visibility Platform</h3>
 
   <br>
 
@@ -25,7 +25,7 @@
 
   > **Live:** [hightable.pro](https://hightable.pro) &nbsp; • &nbsp; **Code:** 2,504 lines Rust &nbsp; • &nbsp; **Frontend:** React 19 + Vite 8
   >
-  > Non-custodial covenant explorer and deployment platform for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen. Interactive UIs, ZK-ready game outcomes, and multi-game covenant templates.
+  > Non-custodial covenant explorer and visibility platform for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen. Deploy custom interactive UIs through the Covex Terminal.
 
   <br>
 
@@ -209,7 +209,7 @@ Classification types (the `covenant_type` column, assigned by the `classify()` /
 
 Covex operates a four-tier on-chain verification model. Tier is determined by the amount of KAS sent to the treasury address in a covenant deployment transaction — specifically `tx.outputs[1]` (the second output). Prices are one-time, not recurring.
 
-All paid tiers (Creator, PRO, MAX) give access to the same Covex Terminal for deploying custom interactive UIs. The ONLY difference between paid tiers is visibility ranking on the Explorer. Higher tier = better placement. No other features are tier-gated.
+**All paid tiers (Creator, PRO, MAX) give identical access to the same Covex Terminal for deploying custom interactive UIs. The ONLY difference between paid tiers is visibility ranking on the Explorer. Higher tier = better placement. No other features are tier-gated.**
 
 | | **FREE** | **CREATOR** | **PRO** | **MAX** |
 |:---|:---:|:---:|:---:|:---:|
@@ -229,21 +229,20 @@ All paid covenants are user-configurable through the Covex Terminal:
 - **Partial claims**: Configure winner claim percentage (rest stays in covenant for future games)
 - **Top-up capability**: Allow new players to add funds to the pot
 - **Owner safeguards**: Close covenant only after cooldown + no active games (anti-sabotage)
-- **Mainnet-ready**: Same covenant logic works on TN12 today, deploys to mainnet after hardfork
 
-### ZK Proofs & Game Outcome Verification
+### ZK Proofs & Claim Verification
 
 Covex is fully ZK-ready for trustless covenant execution:
 
-- **ZK stack**: RISC Zero zkVM + Groth16 verifier (works on TN12, integrates cleanly to mainnet)
-- **Claim workflow**: Winner clicks "Claim Now" → ZK proof generation → on-chain verification → automatic payout
+- **ZK stack**: RISC Zero zkVM + Groth16 verifier
+- **Claim workflow**: "Claim Now" triggers automatic ZK proof generation when possible
 - **Fallback**: Covex trusted oracle (signed outcome) for instant UX while ZK infrastructure matures
 
 ### Covex Terminal
 
 The central deployment tool for all paid users. After upgrading, access the Terminal tab on your covenant detail page to:
 
-- Paste custom UI code/configuration (from Covenant Studio or manual source)
+- Paste custom UI code/configuration from any external source
 - Configure covenant parameters (fee percentage, claim rules, top-up settings)
 - Set claim method (ZK proof, trusted oracle, or auto-detect)
 - Apply custom CSS and branding

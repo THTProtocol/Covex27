@@ -464,7 +464,7 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
         </div>
         <div className="flex items-center gap-3 text-[10px] text-gray-500">
           <span className="flex items-center gap-1"><Cpu size={10} className="text-[#49EACB]" /> wRPC 17217</span>
-          <span className="flex items-center gap-1"><Sparkles size={10} className="text-[#E8AF34]" /> 308+ templates</span>
+          <span className="flex items-center gap-1"><Sparkles size={10} className="text-[#E8AF34]" /> Custom UI deploy</span>
           <span className="flex items-center gap-1">
             <span className="relative inline-flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#49EACB] opacity-75" />

@@ -434,8 +434,8 @@ const Explorer = () => {
                     <>
                       <div className="flex items-center gap-3 mb-4">
                         <div className="h-px flex-1 bg-gradient-to-r from-[#49EACB]/30 to-transparent" />
-                        <span className="text-xs font-bold text-[#49EACB] uppercase tracking-widest flex items-center gap-2">
-                          <Trophy size={14} /> Featured Covenants
+                        <span className="text-xs font-bold text-[#49EACB] uppercase tracking-widest">
+                          Featured Covenants
                         </span>
                         <div className="h-px flex-1 bg-gradient-to-l from-[#49EACB]/30 to-transparent" />
                       </div>
@@ -458,7 +458,7 @@ const Explorer = () => {
                               {/* HIGH TVL indicator */}
                               {isHighTVL && (
                                 <div className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold rounded-full bg-[#49EACB]/15 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_8px_rgba(73,234,203,0.2)]">
-                                  <Diamond size={10} className="inline mr-0.5" /> HIGH TVL
+                                  HIGH TVL
                                 </div>
                               )}
                               {/* Header */}

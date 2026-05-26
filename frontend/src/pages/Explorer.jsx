@@ -410,10 +410,19 @@ const Explorer = () => {
           <>
             {/* Separate paid from free covenants */}
             {(() => {
-              const paidCovenants = covenants.filter(c => {
-                const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-                return t === 'MAX' || t === 'PRO' || t === 'CREATOR';
-              });
+              const tierRank = { MAX: 3, PRO: 2, CREATOR: 1, FREE: 0 };
+              const paidCovenants = covenants
+                .filter(c => {
+                  const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+                  return t === 'MAX' || t === 'PRO' || t === 'CREATOR';
+                })
+                .sort((a, b) => {
+                  // Sort by tier priority first, then TVL descending within same tier
+                  const aTier = tierRank[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || 0;
+                  const bTier = tierRank[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || 0;
+                  if (bTier !== aTier) return bTier - aTier;
+                  return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
+                });
               const freeCovenants = covenants.filter(c => {
                 const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
                 return t === 'FREE';

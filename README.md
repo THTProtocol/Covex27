@@ -209,55 +209,45 @@ Classification types (the `covenant_type` column, assigned by the `classify()` /
 
 Covex operates a four-tier on-chain verification model. Tier is determined by the amount of KAS sent to the treasury address in a covenant deployment transaction — specifically `tx.outputs[1]` (the second output). Prices are one-time, not recurring.
 
+All paid tiers (Creator, PRO, MAX) give access to the same Covex Terminal for deploying custom interactive UIs. The ONLY difference between paid tiers is visibility ranking on the Explorer. Higher tier = better placement. No other features are tier-gated.
+
 | | **FREE** | **CREATOR** | **PRO** | **MAX** |
 |:---|:---:|:---:|:---:|:---:|
 | **One-time fee** | `0` | `100 KAS` | `500 KAS` | `1,000 KAS` |
-| **Custom covenants** | — | 1 covenant | 1 covenant | 1 covenant |
-| **Card glow** | — | Standard | Border + glow | Border + pulse |
-| **Interactive UI** | — | ✓ | ✓ | ✓ |
-| **UI Templates** | — | 308+ game templates | 308+ game templates | 308+ game templates |
-| **Explorer placement** | Standard | Standard | Featured | Top priority |
-| **Trust builder** | — | — | ✓ | ✓ |
-| **Developer notes** | — | — | ✓ | ✓ |
-| **Verified source badge** | — | — | ✓ | ✓ |
-| **Custom branding** | — | — | — | ✓ |
-| **Custom CSS** | — | — | — | ✓ |
-| **Multipurpose mode** | — | — | — | ✓ |
-| **Divine Mode** | — | — | — | ✓ |
+| **Custom covenant** | — | 1 covenant | 1 covenant | 1 covenant |
+| **Terminal access** | — | ✓ | ✓ | ✓ |
+| **Custom UI deployment** | — | ✓ | ✓ | ✓ |
+| **Explorer placement** | Standard | Basic | Featured | Top priority |
+| **TVL ranking boost** | — | — | — | ✓ |
 
 ### Covenant Architecture
 
-All paid covenants are built on a generic reusable covenant template. Users have full control over their covenant's configuration:
+All paid covenants are user-configurable through the Covex Terminal:
 
-- **Fee percentage**: Set the percentage that stays in the covenant on every claim (0% up to 5%)
-- **Reusable vs one-time**: Covenants can be single-use or reusable for multiple game sessions
-- **Partial claims**: Configure split percentages (e.g., winner takes 98%, 2% stays in covenant)
-- **Top-up capability**: Allow new players to add funds to the pot at any time
-- **Game templates**: Choose from 308+ interactive game templates (MAX tier: attach multiple templates to one covenant)
-- **Game-specific settings**: Time controls, move limits, player counts — fully configurable per template
-- **Play Again**: Multiple independent game sessions on the same covenant address
-- **Owner safeguards**: Owner can close the covenant only after a cooldown period with no active games
+- **Fee percentage**: 0% up to 5% kept in the covenant on every claim
+- **Reusable by default**: Multiple independent game sessions on the same covenant as long as funds remain
+- **Partial claims**: Configure winner claim percentage (rest stays in covenant for future games)
+- **Top-up capability**: Allow new players to add funds to the pot
+- **Owner safeguards**: Close covenant only after cooldown + no active games (anti-sabotage)
+- **Mainnet-ready**: Same covenant logic works on TN12 today, deploys to mainnet after hardfork
 
 ### ZK Proofs & Game Outcome Verification
 
-Covex is fully ZK-ready for trustless game resolution:
+Covex is fully ZK-ready for trustless covenant execution:
 
-- **Claim Now workflow**: Winner clicks "Claim Now" → frontend generates a ZK proof proving legal game execution and correct winner determination → covenant verifies the ZK proof on-chain → automatic payout
 - **ZK stack**: RISC Zero zkVM + Groth16 verifier (works on TN12, integrates cleanly to mainnet)
-- **Short-term fallback**: Covex trusted oracle (signed outcome) for instant UX while ZK infrastructure matures
-- **Long-term**: Full ZK path is preferred and encouraged — the architecture supports both paths in parallel
+- **Claim workflow**: Winner clicks "Claim Now" → ZK proof generation → on-chain verification → automatic payout
+- **Fallback**: Covex trusted oracle (signed outcome) for instant UX while ZK infrastructure matures
 
 ### Covex Terminal
 
-The central deployment tool for paid users. After upgrading, users access the Terminal to:
+The central deployment tool for all paid users. After upgrading, access the Terminal tab on your covenant detail page to:
 
-- Paste custom UI code or configuration (from Covenant Studio or manual design)
-- Select and attach game templates from the 308+ template pantheon
+- Paste custom UI code/configuration (from Covenant Studio or manual source)
 - Configure covenant parameters (fee percentage, claim rules, top-up settings)
-- Set up ZK proof generation and verification
-- Apply custom CSS and branding (MAX tier)
+- Set claim method (ZK proof, trusted oracle, or auto-detect)
+- Apply custom CSS and branding
 - Export self-contained HTML covenant pages
-- Toggle Divine Mode for volumetric neon bloom and particle effects (MAX tier)
 
 Treasury: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
 

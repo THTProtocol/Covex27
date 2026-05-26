@@ -6,7 +6,6 @@ import {
   Diamond, Gem, Crown
 } from 'lucide-react';
 import CovenantPreview from './CovenantPreview';
-import { getAllTemplates, getTemplateById, getTemplatesByCategory, CATEGORIES } from '../data/covenantTemplates';
 
 // ─── God-tier styling constants ────────────────────────
 const NEON = '#49EACB';
@@ -17,22 +16,19 @@ const DIM = '#0d0d14';
 
 // ─── Command parser ────────────────────────────────────
 const CMDS = {
-  help: { usage: 'help', desc: 'Display this divine command list', minTier: 0 },
+  help: { usage: 'help', desc: 'Display this command list', minTier: 0 },
   status: { usage: 'status', desc: 'Display covenant and network status', minTier: 0 },
   load: { usage: 'load covenant:<tx_id>', desc: 'Load a covenant by transaction ID', minTier: 1 },
-  template: { usage: 'apply template:<id> [--divine]', desc: 'Apply a template from the 308+ pantheon', minTier: 1 },
-  templates: { usage: 'templates [category]', desc: 'List available templates (optional category filter)', minTier: 0 },
   import: { usage: 'import designer-export', desc: 'Paste and apply a VisualDesigner JSON export', minTier: 2 },
   configure: { usage: 'configure fee|reusable|claim-pct|top-up', desc: 'Configure covenant parameters: fee%, reusability, claim splits, pot top-ups', minTier: 1 },
-  game: { usage: 'game attach <template_id>', desc: 'Attach a game template to this covenant (MAX: unlimited, others: 1)', minTier: 1 },
   claim: { usage: 'claim zk|oracle|auto', desc: 'Set claim method: ZK proof, trusted oracle, or auto-detect', minTier: 1 },
   visualize: { usage: 'visualize live', desc: 'Toggle live WYSIWYG preview of current config', minTier: 1 },
-  infuse: { usage: 'infuse css', desc: 'Inject custom CSS into the covenant page (MAX only)', minTier: 2 },
+  infuse: { usage: 'infuse css', desc: 'Inject custom CSS into the covenant page', minTier: 2 },
   export: { usage: 'export html [--eternal]', desc: 'Export current design as standalone HTML', minTier: 1 },
-  verify: { usage: 'verify sig', desc: 'Verify a cryptographic signature (future)', minTier: 0 },
+  verify: { usage: 'verify sig', desc: 'Verify a cryptographic signature', minTier: 0 },
   history: { usage: 'history', desc: 'Show command history for this session', minTier: 0 },
   clear: { usage: 'clear', desc: 'Clear the terminal screen', minTier: 0 },
-  divine: { usage: 'divine', desc: 'Toggle transcendent Divine Mode (volumetric bloom, particle streams, unlimited effects)', minTier: 3 },
+  divine: { usage: 'divine', desc: 'Toggle transcendent Divine Mode', minTier: 3 },
 };
 
 // ─── Banner ASCII art ───────────────────────────────────
@@ -153,7 +149,6 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
           `${SILVER}Category:     ${covenant?.category || 'General'}`,
           `${SILVER}Network:      Kaspa Testnet-12 (Toccata)`,
           `${SILVER}Node:         Connected via wRPC on port 17217`,
-          `${SILVER}Templates:    308+ in pantheon`,
           `${SILVER}Session:      Active`,
         ].join('\n'));
         break;
@@ -174,62 +169,7 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
               respond('error', `Covenant not found: ${txId}`);
             }
           })
-          .catch(() => respond('error', `Failed to load covenant: Network error`));
-        break;
-      }
-
-      case 'apply':
-      case 'template': {
-        const argStr = args.join(' ');
-        const match = argStr.match(/template:(\S+)/);
-        if (!match) return respond('error', 'Error: Use: apply template:<id> [--divine]');
-        const templateId = match[1];
-        const isDivine = argStr.includes('--divine');
-        const tmpl = getTemplateById(templateId);
-        if (!tmpl) {
-          const results = getAllTemplates().filter(t => t.id.includes(templateId) || t.name.toLowerCase().includes(templateId));
-          if (results.length > 0) {
-            respond('info', `Did you mean:\n${results.slice(0, 5).map(t => `  ${NEON}${t.id}${SILVER} — ${t.name} [${t.category}]`).join('\n')}`);
-          } else {
-            respond('error', `Template not found: ${templateId}. Use ${NEON}templates${GOLD} to list all.`);
-          }
-          break;
-        }
-        respond('success', `Template ${NEON}${tmpl.id}${GOLD} applied: ${tmpl.name}`);
-        respond('info', `  Category: ${CATEGORIES[tmpl.category]?.label || tmpl.category} | Players: ${tmpl.players} | Component: ${tmpl.component}`);
-        if (isDivine) respond('info', `  ${GOLD}Divine mode activated. Glory to the BlockDAG.`);
-        if (onConfigChange) {
-          const newCfg = { ...loadedConfig, templateId: tmpl.id, templateCategory: tmpl.category, templateName: tmpl.name };
-          setLoadedConfig(newCfg);
-          onConfigChange(newCfg);
-          setLivePreview(true);
-          respond('info', '  Live preview enabled. WYSIWYG active.');
-        }
-        break;
-      }
-
-      case 'templates': {
-        const cat = args[0];
-        let list;
-        if (cat && CATEGORIES[cat]) {
-          list = getTemplatesByCategory(cat);
-          respond('info', `${GOLD}═══ ${CATEGORIES[cat].label} (${list.length} templates) ═══`);
-        } else if (cat) {
-          respond('error', `Unknown category: ${cat}. Available: ${Object.keys(CATEGORIES).join(', ')}`);
-          break;
-        } else {
-          list = getAllTemplates();
-          respond('info', `${GOLD}═══ DIVINE TEMPLATE PANTHEON (${list.length} total) ═══`);
-        }
-        if (list) {
-          const cats = {};
-          list.forEach(t => { cats[t.category] = (cats[t.category] || 0) + 1; });
-          Object.entries(cats).forEach(([c, n]) => {
-            const catInfo = CATEGORIES[c];
-            respond('info', `  ${catInfo?.icon || '📋'} ${catInfo?.label || c}: ${n} templates`);
-          });
-          respond('muted', `  Use ${NEON}apply template:<id>${SILVER} to activate. ${NEON}templates <category>${SILVER} to drill down.`);
-        }
+          .catch(() => respond('error', 'Failed to load covenant: Network error'));
         break;
       }
 
@@ -313,31 +253,6 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
         } else {
           respond('error', `Unknown config option: ${sub}. Use: fee, reusable, claim-pct, or top-up.`);
         }
-        break;
-      }
-
-      case 'game': {
-        const action = args[0];
-        if (action !== 'attach') return respond('error', 'Usage: game attach <template_id> — attach a game template to this covenant');
-        const templateId = args[1];
-        if (!templateId) return respond('error', 'Error: provide a template ID. Use templates to list all.');
-        const attachedGames = loadedConfig.attachedGames || [];
-        if (!isMax && attachedGames.length >= 1) {
-          return respond('error', `${NEON}MAX${SILVER} tier required for multiple game templates. You have ${attachedGames.length}/1 slots used. Upgrade to MAX for unlimited.`);
-        }
-        const tmpl = getTemplateById(templateId);
-        if (!tmpl) {
-          return respond('error', `Template not found: ${templateId}. Use ${NEON}templates${GOLD} to list all.`);
-        }
-        if (attachedGames.includes(templateId)) {
-          return respond('error', `Game ${NEON}${templateId}${SILVER} is already attached.`);
-        }
-        const newGames = [...attachedGames, templateId];
-        const newCfg = { ...loadedConfig, attachedGames: newGames };
-        setLoadedConfig(newCfg);
-        if (onConfigChange) onConfigChange(newCfg);
-        respond('success', `Game ${NEON}${tmpl.id}${GOLD} attached: ${tmpl.name}`);
-        respond('info', `  ${attachedGames.length + 1} game${attachedGames.length + 1 !== 1 ? 's' : ''} attached. ${isMax ? 'Unlimited slots remaining.' : 'Slots full.'}`);
         break;
       }
 

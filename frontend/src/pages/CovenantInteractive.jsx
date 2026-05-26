@@ -2,12 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare, ShieldBan, Copy, FileJson, MapPin, Activity, ScrollText, Hash, Gamepad2 } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare, ShieldBan, Copy, FileJson, MapPin, Activity, ScrollText, Hash } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import UiBuilder from '../components/UiBuilder';
 import PremiumBuilder from '../components/PremiumBuilder';
 import VisualDesigner from '../components/VisualDesigner';
-import InteractiveGameRenderer from '../components/InteractiveGameRenderer';
 import CovexTerminal from '../components/CovexTerminal';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -345,7 +344,6 @@ export default function CovenantInteractive() {
               { id: 'script', icon: ScrollText, label: 'Script' },
               { id: 'trust', icon: ShieldCheck, label: 'Trust' },
               ...(canCustomize ? [{ id: 'builder', icon: Paintbrush, label: 'Builder' }, { id: 'terminal', icon: Terminal, label: 'Terminal' }] : []),
-              { id: 'play', icon: Gamepad2, label: 'Play' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -710,11 +708,6 @@ export default function CovenantInteractive() {
                   tier={tier}
                   effectiveTierVal={effectiveTierVal}
                 />
-              </div>
-            )}
-            {activeTab === 'play' && (
-              <div className="overflow-y-auto min-h-[30vh] pr-1">
-                <InteractiveGameRenderer covenantId={rawId} covenant={covenant} userAddress={address} />
               </div>
             )}
           </div>

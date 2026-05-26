@@ -118,6 +118,7 @@ export default function CovenantInteractive() {
         }
 
         setUpgradePaid(true);
+        setActiveTab('terminal'); // Auto-open Terminal after payment
         if (result.txid) {
           setToast({ type: 'success', msg: `Payment sent! TXID: ${TRUNC(result.txid, 10)}` });
         }
@@ -136,7 +137,8 @@ export default function CovenantInteractive() {
     localStorage.setItem('covex_paid_tier', tier.label);
     setCovexPaidTier(tier.label);
     setShowUpgrade(false);
-    setToast({ type: 'success', msg: `${tier.label} tier unlocked! UI Builder is now available.` });
+    setActiveTab('terminal');
+    setToast({ type: 'success', msg: `${tier.label} tier unlocked! Terminal is now open.` });
   };
 
   // STEP 4: Covenant Interaction Proof — sign via connected wallet

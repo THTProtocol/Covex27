@@ -399,7 +399,7 @@ const Pricing = () => {
             <button
               onClick={() => {
                 if (selectedCovenant?.tx_id) {
-                  navigate(`/covenant/${encodeURIComponent(selectedCovenant.tx_id)}`);
+                  navigate(`/covenant/${encodeURIComponent(selectedCovenant.tx_id)}?tab=terminal`);
                 } else {
                   navigate('/');
                 }

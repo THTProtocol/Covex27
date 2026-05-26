@@ -222,26 +222,6 @@ const Explorer = () => {
             </div>
           </div>
         </div>
-
-        {/* Covenant Studio CTA */}
-        <div className="mt-8">
-          <a
-            href="http://localhost:3001"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border border-[#49EACB]/30 bg-[#49EACB]/[0.04] text-[#49EACB] hover:bg-[#49EACB]/10 hover:border-[#49EACB]/50 transition-all"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <line x1="3" y1="9" x2="21" y2="9"/>
-              <line x1="9" y1="21" x2="9" y2="9"/>
-            </svg>
-            Open Covenant Studio — Design & Customize Templates
-          </a>
-          <p className="text-[11px] text-gray-600 mt-2">
-            Create custom interactive UIs for your covenants. Edit templates, customize colors, then paste code into the Terminal.
-          </p>
-        </div>
       </section>
 
       {/* ═══ SCROLL TRANSITION ═══ */}

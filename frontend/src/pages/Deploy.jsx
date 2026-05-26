@@ -3,23 +3,30 @@ import { useWallet } from '../components/WalletContext';
 import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet, Zap, TrendingUp, Award } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
 
-const SILVERSCRIPT_TEMPLATE = `// SilverScript Covenant — Deploy to TN12 (Toccata)
+const SILVERSCRIPT_TEMPLATE = `// WinnerTakesAll — Simple Betting Covenant for TN12 (Toccata)
+// Two players lock funds; winner claims entire pot.
+//
 // pragma silverscript 2026.0;
 
-contract TransferWithTimeout {
+contract WinnerTakesAll {
     state {
-        payee: Address,
+        owner: Address,
+        player1: Address,
+        player2: Address,
         amount: u64,
-        timeout: DaaScore
+        deadline: DaaScore
     }
 
-    entrypoint function claim() {
-        require(opTx.outputs[0].address == state.payee);
+    entrypoint function claim(address winner) {
+        require(opTx.daaScore <= state.deadline);
+        require(winner == state.player1 || winner == state.player2);
+        require(opTx.outputs[0].address == winner);
         require(opTx.outputs[0].amount == state.amount);
     }
 
     entrypoint function refund() {
-        require(opTx.daaScore > state.timeout);
+        require(opTx.daaScore > state.deadline);
+        require(opTx.outputs[0].address == state.owner);
     }
 }`;
 
@@ -36,11 +43,11 @@ const TIERS = {
 // ── Browser-side deployment: kaspa-wasm builds + signs; backend relays only ──
 async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptCode, selectedTier) {
   const wasm = await import('@onekeyfe/kaspa-wasm');
-  // Must init WASM before using any class — prevents _wbindgen_add_to_stack_pointer
+  // Must init WASM before using any class
   if (typeof wasm.default === 'function') {
     await wasm.default();
   }
-  const { PrivateKey, createTransaction, signTransaction } = wasm;
+  const { PrivateKey, createTransaction, signTransaction, signMessage } = wasm;
 
   const tierFee = selectedTier.fee;
   const tierName = selectedTier.tier;
@@ -82,6 +89,7 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
       script: selected.script_hex,
     },
     blockDaaScore: 0n,
+    isCoinbase: false,
   };
 
   // 4. Build outputs — on-chain truth structure:
@@ -97,12 +105,15 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
     outputs.push({ address: deployerAddress, amount: change });
   }
 
-  // 5. Build + sign transaction via kaspa-wasm
-  const tx = createTransaction([utxoEntry], outputs, txFee, scriptCode, 0);
+  // 5. Encode payload as bytes (createTransaction expects Uint8Array | HexString)
+  const payloadBytes = new TextEncoder().encode(scriptCode);
+
+  // 6. Build + sign transaction via kaspa-wasm
+  const tx = createTransaction([utxoEntry], outputs, txFee, payloadBytes, 1);
   const pk = new PrivateKey(privateKeyHex);
   const signedTx = signTransaction(tx, [pk], false);
 
-  // 6. Serialize to hex
+  // 7. Serialize to hex
   const txBytes = signedTx.serializeTo();
   const txHex = Array.from(new Uint8Array(txBytes))
     .map(b => b.toString(16).padStart(2, '0'))
@@ -110,7 +121,7 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
 
   pk.free();
 
-  // 7. Broadcast via backend (relay only — no DB writes)
+  // 8. Broadcast via backend (relay only — no DB writes)
   const broadcastResp = await fetch('/api/broadcast', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -172,13 +183,13 @@ export default function Deploy() {
 
       // Sign the payload for proof-of-authorship
       const message = `DEPLOY_COVENANT:${code.trim()}`;
-      let signature = '';
+      let signature = 'dev-mode-skip';
       try { signature = await signMessage(message); } catch (_) { signature = 'dev-mode-skip'; }
 
       let txid = null;
       let tierFeeKas = 0;
 
-      // ── PATH 1: Browser WASM (dev wallet with mnemonic-derived private key) ──
+      // Dev mode: build + sign locally with WASM
       if (isDevMode && devMode?.privateKeyHex) {
         const txResult = await buildAndBroadcastCovenant(
           devMode.privateKeyHex,
@@ -189,7 +200,7 @@ export default function Deploy() {
         txid = txResult.txid;
         tierFeeKas = txResult.tierFeeKas;
       }
-      // ── PATH 2: Extension wallet fallback ──
+      // Extension wallet fallback
       else if (window.kasware && window.kasware.sendTransaction) {
         try {
           const resp = await window.kasware.sendTransaction({
@@ -202,12 +213,22 @@ export default function Deploy() {
           console.warn('KasWare sendTransaction failed:', kasErr.message);
         }
       }
+      // No wallet capable of deployment
+      else {
+        throw new Error(
+          'No deployment-capable wallet detected. Use "Connect TN12 Dev Wallet" button below (yellow) to derive a test wallet from a mnemonic, or install the KasWare browser extension.'
+        );
+      }
+
+      if (!txid) {
+        throw new Error('No transaction ID returned. The deployment may have been rejected by the node.');
+      }
 
       setResult({
         success: true,
         script: code.trim(),
         signature: (signature || 'ok').slice(0, 50) + '...',
-        txid: txid || 'pending (signed payload ready)',
+        txid,
         deployer: address,
         tier: tierName,
         tierFeeKas,
@@ -215,6 +236,7 @@ export default function Deploy() {
       });
       setStatus('success');
     } catch (err) {
+      console.error('DEPLOY FAILED:', err);
       setResult({
         success: false,
         error: err.message || 'Deployment failed',
@@ -247,7 +269,7 @@ export default function Deploy() {
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">Deploy Covenant</h1>
             <p className="text-sm text-gray-400 mt-1">
-              Compile SilverScript, sign with your wallet, and deploy natively to TN12 (Toccata)
+              Write SilverScript, sign with your TN12 wallet, deploy to Kaspa BlockDAG
             </p>
           </div>
           <span className="ml-auto px-3 py-1 rounded-full bg-[#49EACB]/10 border border-[#49EACB]/20 text-[#49EACB] text-xs font-mono">
@@ -269,7 +291,7 @@ export default function Deploy() {
               Click "CONNECT WALLET" in the top navigation bar to get started.
             </p>
 
-            {/* TN12 Dev Wallet — isolated from extension flow */}
+            {/* TN12 Dev Wallet */}
             <div className="mt-5 pt-5 border-t border-[#1f1f1f]">
               <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-3">Testing / Dev Only</p>
               <button
@@ -463,7 +485,7 @@ export default function Deploy() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-red-400/80">{result.error}</p>
+                  <p className="text-xs text-red-400/80 whitespace-pre-wrap">{result.error}</p>
                 )}
 
                 {result.success && result.txid && !result.txid.startsWith('pending') && (

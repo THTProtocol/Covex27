@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet, Zap, TrendingUp, Award, Server } from 'lucide-react';
+import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet, Zap, TrendingUp, Award } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
 
 const SILVERSCRIPT_TEMPLATE = `// SilverScript Covenant — Deploy to TN12 (Toccata)
@@ -36,6 +36,10 @@ const TIERS = {
 // ── Browser-side deployment: kaspa-wasm builds + signs; backend relays only ──
 async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptCode, selectedTier) {
   const wasm = await import('@onekeyfe/kaspa-wasm');
+  // Must init WASM before using any class — prevents _wbindgen_add_to_stack_pointer
+  if (typeof wasm.default === 'function') {
+    await wasm.default();
+  }
   const { PrivateKey, createTransaction, signTransaction } = wasm;
 
   const tierFee = selectedTier.fee;
@@ -142,7 +146,6 @@ export default function Deploy() {
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [balance, setBalance] = useState(null);
   const [selectedTier, setSelectedTier] = useState('FREE');
-  const [useDevSigner, setUseDevSigner] = useState(false);
 
   // Fetch balance when connected
   const fetchBalance = useCallback(async () => {
@@ -175,33 +178,8 @@ export default function Deploy() {
       let txid = null;
       let tierFeeKas = 0;
 
-      // ── PATH 1: Backend Dev Signer (escape hatch — no browser WASM, no extension) ──
-      if (useDevSigner && isDevMode) {
-        const scriptHex = Array.from(new TextEncoder().encode(code.trim()))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
-
-        const resp = await fetch('/api/sign-and-broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            use_dev_mode: true,
-            deployer_addr: address,
-            script_hex: scriptHex,
-            tier: tierName,
-            covenant_name: code.trim().split('\n')[0].replace(/\/\/ /, '').trim() || 'SilverScript Covenant',
-          }),
-        });
-
-        const data = await resp.json();
-        if (!data.success) {
-          throw new Error(data.error || 'Backend sign-and-broadcast rejected');
-        }
-        txid = data.tx_id;
-        tierFeeKas = tierData.fee > 0n ? Number(tierData.fee) / 1e8 : 0;
-      }
-      // ── PATH 2: Browser WASM (existing: dev wallet with mnemonic-derived private key) ──
-      else if (isDevMode && devMode?.privateKeyHex) {
+      // ── PATH 1: Browser WASM (dev wallet with mnemonic-derived private key) ──
+      if (isDevMode && devMode?.privateKeyHex) {
         const txResult = await buildAndBroadcastCovenant(
           devMode.privateKeyHex,
           address,
@@ -211,7 +189,7 @@ export default function Deploy() {
         txid = txResult.txid;
         tierFeeKas = txResult.tierFeeKas;
       }
-      // ── PATH 3: Extension wallet fallback ──
+      // ── PATH 2: Extension wallet fallback ──
       else if (window.kasware && window.kasware.sendTransaction) {
         try {
           const resp = await window.kasware.sendTransaction({
@@ -244,7 +222,7 @@ export default function Deploy() {
       });
       setStatus('error');
     }
-  }, [address, code, signMessage, isDevMode, devMode, selectedTier, useDevSigner]);
+  }, [address, code, signMessage, isDevMode, devMode, selectedTier]);
 
   const isConnected = !!address;
   const canDeploy = isConnected && code.trim().length > 0 && status !== 'deploying';
@@ -417,27 +395,6 @@ export default function Deploy() {
                   {TIERS[selectedTier].fee > 0n ? `${(Number(TIERS[selectedTier].fee) / 1e8).toFixed(0)} KAS will be deducted from your wallet and sent to the treasury address.` : ''}
                 </p>
               )}
-            </div>
-
-            {/* Dev Signer Toggle (escape hatch for browser extension issues) */}
-            <div className="flex items-center justify-between p-4 rounded-xl border border-purple-600/30 bg-purple-500/[0.04]">
-              <div className="flex items-center gap-3">
-                <Server size={16} className="text-purple-400" />
-                <div>
-                  <p className="text-xs font-semibold text-purple-400">Backend Dev Signer</p>
-                  <p className="text-[10px] text-gray-500">Bypass browser wallet — Rust backend signs & broadcasts</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setUseDevSigner(v => !v)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  useDevSigner ? 'bg-purple-500' : 'bg-zinc-700'
-                }`}
-              >
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  useDevSigner ? 'translate-x-5' : 'translate-x-0.5'
-                }`} />
-              </button>
             </div>
 
             {/* Deploy Button */}

@@ -19,7 +19,7 @@ const CMDS = {
   help: { usage: 'help', desc: 'Display this command list', minTier: 0 },
   status: { usage: 'status', desc: 'Display covenant and network status', minTier: 0 },
   load: { usage: 'load covenant:<tx_id>', desc: 'Load a covenant by transaction ID', minTier: 1 },
-  import: { usage: 'import designer-export', desc: 'Paste and apply a VisualDesigner JSON export', minTier: 2 },
+  import: { usage: 'import ui-json', desc: 'Paste custom UI code/configuration in JSON format', minTier: 1 },
   configure: { usage: 'configure fee|reusable|claim-pct|top-up', desc: 'Configure covenant parameters: fee%, reusability, claim splits, pot top-ups', minTier: 1 },
   claim: { usage: 'claim zk|oracle|auto', desc: 'Set claim method: ZK proof, trusted oracle, or auto-detect', minTier: 1 },
   visualize: { usage: 'visualize live', desc: 'Toggle live WYSIWYG preview of current config', minTier: 1 },
@@ -87,7 +87,7 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
   const isPro = effectiveTierVal >= 2;
   const isMax = effectiveTierVal >= 3;
 
-  // Sync loadedConfig when parent's config changes (VisualDesigner pushes to Terminal)
+  // Sync loadedConfig when parent pushes new config
   useEffect(() => {
     if (config && Object.keys(config).length > 0) {
       setLoadedConfig(config);
@@ -174,8 +174,7 @@ export default function CovexTerminal({ covenant, walletAddress, config, onConfi
       }
 
       case 'import': {
-        if (!isPro) return respond('error', `Access denied. ${NEON}import${SILVER} requires PRO tier or above.`);
-        respond('info', `${GOLD}Paste your VisualDesigner JSON export below. Type ${NEON}--done${GOLD} on a new line to apply.`);
+        respond('info', `${GOLD}Paste your custom UI JSON configuration below. Type ${NEON}--done${GOLD} on a new line to apply.`);
         setLines(prev => [...prev, { type: 'input', text: `${GOLD}covex${NEON} > (paste mode — type ${NEON}--done${GOLD} to finish)` }]);
         // Multi-line paste mode
         const pasteHandler = (e) => {

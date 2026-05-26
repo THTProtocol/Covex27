@@ -2,11 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, MessageSquare, ShieldBan, Copy, FileJson, MapPin, Activity, ScrollText, Hash } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Check, ArrowUp, QrCode, Zap, CheckCircle2, Copy, FileJson, MapPin, ScrollText } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import UiBuilder from '../components/UiBuilder';
-import PremiumBuilder from '../components/PremiumBuilder';
-import VisualDesigner from '../components/VisualDesigner';
 import CovexTerminal from '../components/CovexTerminal';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -343,7 +341,7 @@ export default function CovenantInteractive() {
               { id: 'addresses', icon: MapPin, label: 'Addresses' },
               { id: 'script', icon: ScrollText, label: 'Script' },
               { id: 'trust', icon: ShieldCheck, label: 'Trust' },
-              ...(canCustomize ? [{ id: 'builder', icon: Paintbrush, label: 'Builder' }, { id: 'terminal', icon: Terminal, label: 'Terminal' }] : []),
+              ...(canCustomize ? [{ id: 'terminal', icon: Terminal, label: 'Terminal' }] : []),
             ].map(tab => (
               <button
                 key={tab.id}
@@ -684,16 +682,6 @@ export default function CovenantInteractive() {
                   covenant={covenant}
                   walletAddress={address}
                   onSaved={(cfg) => setToast({ type: 'success', msg: 'Trust configuration published!' })}
-                />
-              </div>
-            )}
-            {activeTab === 'builder' && canCustomize && (
-              <div className="space-y-4 overflow-y-auto min-h-[30vh] pr-1">
-                <VisualDesigner
-                  covenant={covenant}
-                  walletAddress={address}
-                  onSave={(cfg) => setToast({ type: 'success', msg: 'UI configuration published!' })}
-                  onChange={(cfg) => setConfig(cfg)}
                 />
               </div>
             )}

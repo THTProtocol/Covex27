@@ -101,7 +101,7 @@ graph LR
 ORDER BY
   CASE verified_tier
     WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'CREATOR' THEN 10 ELSE 0
-  END DESC, timestamp DESC
+  END DESC, amount_kaspa DESC, timestamp DESC
 ```
 
 The React frontend renders in the exact order returned. **No frontend re-sorting.**
@@ -410,9 +410,10 @@ Covex27/
 │           ├── WalletButton.jsx           # Multi-wallet detection + connection UI
 │           ├── DevWalletModal.jsx         # BIP39 mnemonic / hex key derivation
 │           ├── UiBuilder.jsx              # Trust-verification builder (source, notes, buttons)
-│           ├── PremiumBuilder.jsx         # Gated UI customization (glow, layout, color)
-│           ├── DagBackground.jsx          # Live BlockDAG iframe
-│           └── WhatIsKaspa.jsx            # Educational Kaspa overview
+│           ├── CovexTerminal.jsx           # Terminal deployment tool for custom UIs
+│           ├── CovenantPreview.jsx          # Covenant page preview renderer
+│           ├── DagBackground.jsx            # Live BlockDAG iframe
+│           └── WhatIsKaspa.jsx              # Educational Kaspa overview
 ├── deploy/
 │   ├── deploy-hetzner.sh                 # Fresh deployment
 │   ├── deploy_all.sh                     # Production update (idempotent)

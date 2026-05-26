@@ -1,5 +1,4 @@
 import { QrCode } from 'lucide-react';
-import { renderWidgetPreview } from './DragDropPanel';
 
 /**
  * Shared CovenantPreview — renders covenant data with custom_ui_config styling.
@@ -142,8 +141,8 @@ export default function CovenantPreview({ config, covenant, children, className 
         </div>
       )}
 
-      {/* Drag-and-drop widgets */}
-      {(config.widgets && config.widgets.length > 0) && (
+      {/* Widgets section — disabled (VisualDesigner removed) */}
+      {false && (config.widgets && config.widgets.length > 0) && (
         <div className="space-y-2 mb-3">
           {config.widgets.map((wid) => (
             <div key={wid}>

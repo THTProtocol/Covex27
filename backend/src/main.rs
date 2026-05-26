@@ -112,7 +112,7 @@ async fn main() {
     });
 
     // --- Routes ---
-    let app = tower_http::cors::CorsLayer::permissive();
+    let cors = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/health", get(|| async { "OK" }))
@@ -133,6 +133,7 @@ async fn main() {
         .route("/verify-payment", post(verify_payment_handler))
         .merge(broadcast::broadcast_routes())
         .merge(signer::signer_routes())
+        .layer(cors)
         .layer(Extension(db.clone()))
         .layer(Extension(client.clone()));
 

@@ -105,11 +105,14 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
     outputs.push({ address: deployerAddress, amount: change });
   }
 
-  // 5. Encode payload as bytes (createTransaction expects Uint8Array | HexString)
-  const payloadBytes = new TextEncoder().encode(scriptCode);
+  // 5. Convert scriptCode to hex string for payload
+  const payloadHex = Array.from(new TextEncoder().encode(scriptCode))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 
   // 6. Build + sign transaction via kaspa-wasm
-  const tx = createTransaction([utxoEntry], outputs, txFee, payloadBytes, 1);
+  console.log('[DEPLOY] Building tx with payload hex length:', payloadHex.length);
+  const tx = createTransaction([utxoEntry], outputs, txFee, payloadHex, 1);
   const pk = new PrivateKey(privateKeyHex);
   const signedTx = signTransaction(tx, [pk], false);
 
@@ -118,6 +121,7 @@ async function buildAndBroadcastCovenant(privateKeyHex, deployerAddress, scriptC
   const txHex = Array.from(new Uint8Array(txBytes))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
+  console.log('[DEPLOY] txHex length:', txHex.length, 'first 60 chars:', txHex.slice(0, 60));
 
   pk.free();
 

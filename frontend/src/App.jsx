@@ -72,6 +72,14 @@ export default function App() {
               <NavLink to="/deploy" className={NL}>
                 Deploy
               </NavLink>
+              <a
+                href="http://localhost:3001"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-[#49EACB]/80 hover:text-[#49EACB] transition-colors border border-[#49EACB]/25 hover:border-[#49EACB]/50 rounded-md px-3 py-1.5"
+              >
+                Covenant Studio
+              </a>
               <WalletButton />
             </div>
           </div>

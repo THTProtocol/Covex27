@@ -18,7 +18,7 @@
   <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-76%20covenants-49EACB?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAADISURBVHgBfZI9CsJAEEbHyiJY+AdWYiMWgmAh3kA8gOANIoj2XsA7iEcQO0uw0FbYQkhlsRBGjUQkK4kf6hN4w7zZb3ZmWID/i7IsBUFgep5HvV6P5XKpK4ryIEmSJNfrtTkYDPB9HzAMw3F4sVhwl4fDgXmeR57nMZ/PEccx9H0/mu4mSRJNURSWZRkURcFxHCfPcxbDl5RS4TAMo+s6FhcXiqKQJEk0HA7RNE0QBAEhxK+5iKKoYhgG9vt97X0HXyB1PwAqkPAAAAAASUVORK5CYII=" alt="Live"></a>
   <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Toccata%20TN12-49EACB?style=for-the-badge" alt="Network"></a>
   <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="License"></a>
-  <a href="#"><img src="https://img.shields.io/badge/kaspad-v0.15-49EACB?style=for-the-badge" alt="kaspad"></a>
+  <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/studio-template%20editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
 
   <br>
   <br>
@@ -26,6 +26,8 @@
   > **Live:** [hightable.pro](https://hightable.pro) &nbsp; • &nbsp; **Code:** 2,504 lines Rust &nbsp; • &nbsp; **Frontend:** React 19 + Vite 8
   >
   > Non-custodial covenant explorer and visibility platform for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen. Deploy custom interactive UIs through the Covex Terminal.
+  >
+  > **Covenant Studio:** [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) — Separate companion app for designing and customizing game templates. Edit in the Studio, paste code into the Covex Terminal.
 
   <br>
 
@@ -44,6 +46,19 @@
 ## Overview
 
 Covex is a high-performance covenant indexer for the Kaspa **Toccata Testnet-12** BlockDAG. It crawls the historic chain, polls live UTXOs, and classifies SilverScript covenants (`aa20`–`aa23` opcodes) — then serves them through a tier-weighted REST API with a premium React/Tailwind explorer frontend.
+
+### Clean Architecture: Two Separate Projects
+
+Covex follows a strict separation of concerns across two independent repositories:
+
+| Project | Repo | Purpose |
+|---|---|---|
+| **Covex** | [Covex27](https://github.com/THTProtocol/Covex27) | Covenant explorer + visibility platform + Terminal deployment tool. Does NOT contain any game templates, galleries, or built-in UIs. Users paste custom UI code into the Covex Terminal to attach it to their covenant. |
+| **Covenant Studio** | [Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) | Visual template editor. Users design and customize game templates (chess, checkers, connect4, poker), then click "Generate Code" and copy the full UI code. This code is then pasted into the Covex Terminal. |
+
+**Workflow**: Design in Covenant Studio → Copy generated code → Paste into Covex Terminal → Deploy to your covenant.
+
+All paid tiers (Creator, PRO, MAX) have the exact same Terminal and custom UI capabilities. The only difference between paid tiers is visibility on the Explorer. Higher tier = better placement + TVL-weighted boost for MAX.
 
 **Key guarantees:** non-custodial (keys never leave your wallet), on-chain verification only (no synthetic data), single Rust binary with zero external dependencies beyond SQLite and kaspad.
 

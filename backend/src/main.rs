@@ -111,8 +111,6 @@ async fn main() {
     });
 
     // --- Routes ---
-    let api_extension = Extension(client.clone());
-
     let app = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root_handler))
@@ -122,9 +120,8 @@ async fn main() {
         .route("/tiers", get(tiers_handler))
         .route("/terminal-config/:covenant_id", get(get_terminal_config_handler).post(save_terminal_config_handler))
         .layer(Extension(db.clone()))
-        .merge(signer::signer_routes())
-        .merge(broadcast::broadcast_routes())
-        .layer(api_extension)
+        .merge(signer::signer_routes().layer(Extension(client.clone())).layer(Extension(db.clone())))
+        .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
         .layer(app);
 
     info!("Serving on {}", addr);

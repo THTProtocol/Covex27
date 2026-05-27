@@ -199,7 +199,7 @@ export default function PremiumBuilder() {
 
         {/* Game Type + ZK at the very top (exactly as requested) */}
         <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl p-6 mb-4">
-          <p className="uppercase text-xs tracking-widest text-gray-400 mb-3 font-mono">1. GAME TYPE + ZK CIRCUIT (auto-configures resolution)</p>
+          <p className="uppercase text-xs tracking-widest text-gray-200 mb-3 font-mono">1. GAME TYPE + ZK CIRCUIT (auto-configures resolution)</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {GAME_TYPES.map(gt => (
               <button key={gt.id} onClick={() => handleGameTypeChange(gt.id)}
@@ -215,7 +215,7 @@ export default function PremiumBuilder() {
         {/* ZK / Oracle / Config row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl p-6">
-            <p className="uppercase text-xs tracking-widest text-gray-400 mb-3 font-mono">2. ZK PROOF OR ORACLE RESOLUTION</p>
+            <p className="uppercase text-xs tracking-widest text-gray-200 mb-3 font-mono">2. ZK PROOF OR ORACLE RESOLUTION</p>
             <div className="space-y-3">
               {[
                 { m: 'zk', label: 'ZK Proof (recommended, no oracle needed)', desc: 'Cryptographic verification of game outcome' },
@@ -224,7 +224,7 @@ export default function PremiumBuilder() {
               ].map(opt => (
                 <button key={opt.m} onClick={() => setResolutionMode(opt.m)}
                   className={`w-full text-left p-4 rounded-xl border flex gap-3 ${resolutionMode === opt.m ? 'border-[#49EACB] bg-[#49EACB]/5' : 'border-white/5'}`}>
-                  <div className="pt-0.5"><ShieldCheck size={18} className={resolutionMode === opt.m ? 'text-[#49EACB]' : 'text-gray-400'} /></div>
+                  <div className="pt-0.5"><ShieldCheck size={18} className={resolutionMode === opt.m ? 'text-[#49EACB]' : 'text-gray-200'} /></div>
                   <div>
                     <div className="font-medium text-white">{opt.label}</div>
                     <div className="text-xs text-gray-300">{opt.desc}</div>
@@ -245,7 +245,7 @@ export default function PremiumBuilder() {
 
           <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl p-6 space-y-4">
             <div>
-              <p className="uppercase text-xs tracking-widest text-gray-400 mb-2 font-mono">3. CUSTOM UI (from Covenant Studio)</p>
+              <p className="uppercase text-xs tracking-widest text-gray-200 mb-2 font-mono">3. CUSTOM UI (from Covenant Studio)</p>
               <textarea value={customUICode} onChange={e => setCustomUICode(e.target.value)} rows={4}
                 className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs font-mono" placeholder="Paste the complete HTML/JS/CSS bundle you generated in Covenant Studio here. It becomes the interactive face of your covenant." />
             </div>
@@ -299,7 +299,7 @@ export default function PremiumBuilder() {
       </div>
 
       {/* DIRECT STUDIO BUTTON, big and obvious */}
-      <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer"
+      <a href="http://localhost:3001" target="_blank" rel="noopener noreferrer"
         className="block mb-8 rounded-2xl border-2 border-[#49EACB]/40 bg-[#49EACB]/[0.03] p-6 hover:bg-[#49EACB]/[0.07] transition group">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl bg-[#49EACB]/20"><Code size={26} className="text-[#49EACB]" /></div>
@@ -338,7 +338,7 @@ export default function PremiumBuilder() {
           ))}
         </div>
 
-        <div className="mt-6 text-xs text-center text-gray-400 border-t border-white/10 pt-4">
+        <div className="mt-6 text-xs text-center text-gray-200 border-t border-white/10 pt-4">
           This is the complete paid experience you unlocked. Higher tiers only improve your ranking on the Explorer, the full Terminal, ZK, Oracle tools, Studio integration, and this guide are identical for Creator / PRO / MAX.
         </div>
       </div>

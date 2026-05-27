@@ -748,7 +748,7 @@ ${gameMeta.outcomeBranches}
 
   // ── Open Covenant Studio ──
   const handleOpenStudio = useCallback(() => {
-    window.open('http://localhost:5173', '_blank');
+    window.open('http://localhost:3001', '_blank');
   }, []);
 
   // ── Copy SilverScript ──
@@ -1040,7 +1040,7 @@ ${gameMeta.outcomeBranches}
             </div>
             <span>Open Covenant Studio</span>
             <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
-              localhost:5173
+              localhost:3001
             </span>
           </button>
 

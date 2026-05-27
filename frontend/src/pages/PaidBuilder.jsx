@@ -77,7 +77,7 @@ export default function PaidBuilder() {
         </div>
         <div>
           <h1 className="text-3xl font-black text-white">Your Covenants</h1>
-          <p className="text-gray-400 text-sm">{paidTier} Paid • Terminal access enabled</p>
+          <p className="text-gray-200 text-sm">{paidTier} Paid • Terminal access enabled</p>
         </div>
       </div>
 
@@ -107,7 +107,7 @@ export default function PaidBuilder() {
         <div className="bg-[#111] border border-white/10 rounded-2xl p-10 text-center">
           <Layers size={48} className="mx-auto text-gray-200 mb-4" />
           <h3 className="text-xl font-semibold text-white mb-2">No covenants yet</h3>
-          <p className="text-gray-400">You haven't deployed any covenants with this wallet on the current network.</p>
+          <p className="text-gray-200">You haven't deployed any covenants with this wallet on the current network.</p>
           <p className="text-xs text-gray-300 mt-4">Use the Deploy link in the top navigation when you want to create one.</p>
         </div>
       )}

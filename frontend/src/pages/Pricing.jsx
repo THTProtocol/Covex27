@@ -207,7 +207,7 @@ const Pricing = () => {
           </div>
           <div className="flex justify-between py-3">
             <span className="text-gray-300">Treasury address</span>
-            <span className="font-mono text-[10px] text-gray-400 break-all text-right max-w-[280px]">{TREASURY}</span>
+            <span className="font-mono text-[10px] text-gray-200 break-all text-right max-w-[280px]">{TREASURY}</span>
           </div>
         </div>
 
@@ -242,14 +242,14 @@ const Pricing = () => {
           {/* Manual bypass for edge cases */}
           <button
             onClick={handleConfirmPaid}
-            className="w-full py-3 text-sm text-gray-400 hover:text-white transition border border-white/10 rounded-xl hover:border-white/20"
+            className="w-full py-3 text-sm text-gray-200 hover:text-white transition border border-white/10 rounded-xl hover:border-white/20"
           >
             I sent the payment manually - unlock my tier
           </button>
 
           <button
             onClick={cancelPayment}
-            className="w-full py-3 text-sm text-gray-400 hover:text-white transition"
+            className="w-full py-3 text-sm text-gray-200 hover:text-white transition"
           >
             Cancel, choose different tier
           </button>

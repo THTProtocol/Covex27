@@ -341,6 +341,32 @@ const Pricing = () => {
               to paste and deploy your custom interactive UI code.
             </p>
           </div>
+
+          {/* ── Deploy New Covenant Button ── */}
+          <div className="mt-4 pt-4 border-t border-white/[0.06]">
+            <p className="text-[10px] text-gray-300 text-center mb-3">
+              Don't have a covenant yet? Deploy one first, then return here to upgrade.
+            </p>
+            <button
+              onClick={() => {
+                // If a paid tier was already selected, go to /deploy first
+                // After deploy, the auto-redirect lands on Terminal tab
+                navigate('/deploy');
+              }}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl
+                bg-kaspa-green/10 border-2 border-dashed border-kaspa-green/30
+                text-kaspa-green text-sm font-bold
+                hover:bg-kaspa-green/15 hover:border-kaspa-green/50
+                hover:shadow-[0_0_20px_rgba(73,234,203,0.15)]
+                active:scale-[0.98] transition-all duration-200"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Deploy New Covenant
+            </button>
+          </div>
         </div>
       </div>
     );

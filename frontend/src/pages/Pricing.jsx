@@ -434,16 +434,21 @@ const Pricing = () => {
 
   // ─── VIEW: 4. SUCCESS ───────────────────────────────
   if (step === 'success') {
+    const hasExistingCovenant = !!(selectedCovenant?.tx_id);
     return (
       <div className="relative z-10 max-w-md mx-auto px-6 py-16 animate-in zoom-in-95 duration-500">
         <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-xl p-10 text-center">
           <div className="w-16 h-16 mx-auto bg-[#49EACB]/10 rounded-full flex items-center justify-center mb-5">
             <span className="text-2xl">✓</span>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Upgrade Initiated</h2>
+          <h2 className="text-xl font-bold text-white mb-2">
+            {hasExistingCovenant ? 'Upgrade Confirmed' : 'Payment Complete — Deploy Your Covenant'}
+          </h2>
           <p className="text-gray-200 text-sm mb-8">
-            Payment for <span className="text-white font-medium">{selectedCovenant?.name || 'covenant'}</span> to
-            <span className="text-[#49EACB] font-semibold"> {selectedTier?.name}</span> tier.
+            {hasExistingCovenant
+              ? <>Payment for <span className="text-white font-medium">{selectedCovenant?.name || 'covenant'}</span> to <span className="text-[#49EACB] font-semibold"> {selectedTier?.name}</span> tier.</>
+              : <><span className="text-[#49EACB] font-semibold"> {selectedTier?.name}</span> tier activated. Deploy your first covenant to access the Terminal.</>
+            }
           </p>
           <p className="text-[11px] text-gray-200 mb-6">
             Confirmed automatically after 6 DAA confirmations.
@@ -451,23 +456,26 @@ const Pricing = () => {
 
           <div className="p-4 rounded-lg bg-[#49EACB]/[0.03] border border-[#49EACB]/10 mb-6">
             <p className="text-xs text-gray-300">
-              <span className="text-[#49EACB] font-semibold">Next:</span> Open your covenant detail page and use the <span className="text-[#49EACB] font-semibold">Terminal</span> tab
-              to deploy your custom interactive UI.
+              {hasExistingCovenant
+                ? <><span className="text-kaspa-green font-semibold">Next:</span> You will be redirected to the <span className="text-kaspa-green font-semibold">Terminal</span> tab where you can configure your ZK circuit, paste code from Covenant Studio, and deploy your interactive UI.</>
+                : <><span className="text-kaspa-green font-semibold">Next:</span> Deploy a new covenant with your paid tier. After deployment, you will be automatically redirected to the <span className="text-kaspa-green font-semibold">Terminal</span> to build and customize your interactive UI.</>
+              }
             </p>
           </div>
 
           <div className="space-y-3">
             <button
               onClick={() => {
-                if (selectedCovenant?.tx_id) {
+                if (hasExistingCovenant) {
                   navigate(`/covenant/${encodeURIComponent(selectedCovenant.tx_id)}?tab=terminal`);
                 } else {
-                  navigate('/');
+                  // No covenant selected — deploy one. Deploy page auto-redirects to Terminal tab after success.
+                  navigate('/deploy');
                 }
               }}
-              className="w-full py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-lg transition-colors"
+              className="w-full py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-lg transition-colors hover:shadow-[0_0_25px_rgba(73,234,203,0.4)]"
             >
-              Open Terminal
+              {hasExistingCovenant ? 'Open Terminal' : 'Deploy Covenant to Terminal'}
             </button>
             <button
               onClick={reset}

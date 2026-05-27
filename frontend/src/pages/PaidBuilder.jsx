@@ -134,8 +134,9 @@ export default function PaidBuilder() {
               </span>
             </div>
             <p className="text-sm text-gray-300 leading-relaxed max-w-2xl">
-              Your paid tier is active. You now have full access to the Covex Terminal, ZK circuit configuration,
-              oracle integration, Covenant Studio, and SilverScript generation. Choose your path below.
+              Payment received for the <strong>{paidTier}</strong> tier. You are now inside the paid area.
+              Choose: customize one of your existing covenants (jumps straight to its Terminal), or create a brand new one
+              on the dedicated premium page with the full terminal, ZK/oracles, guide, and SilverScript writer.
             </p>
           </div>
         </div>
@@ -227,24 +228,22 @@ export default function PaidBuilder() {
             <h2 className="text-lg font-bold text-white">Create New Covenant + Full Builder Experience</h2>
           </div>
           <p className="text-sm text-gray-300 mb-4">
-            The complete premium experience. Everything in one place: Terminal with Game Type
-            selection, ZK circuit configuration, custom UI paste area, Oracle setup, SilverScript
-            generator, and a direct link to Covenant Studio.
-          </p>
-          <p className="text-xs text-gray-300 mb-5 leading-relaxed">
-            <span className="text-[#49EACB] font-semibold">Recommended for new covenants.</span> You will
-            be guided through deploying your SilverScript, then automatically redirected to the Terminal
-            where all paid-tier tools are available.
+            This takes you to a complete new premium page (the paywall you just unlocked by paying).
+            You will see the <strong>full Covex Terminal</strong> (Game Type + ZK Circuit selection at the top,
+            Oracle/ZK configuration, Custom UI paste area), a direct button to Covenant Studio, the
+            <strong> complete guide</strong> explaining how to build the best interactive covenant, how to
+            connect ZK proofs and oracles, what to include (reusability, fees, payout logic), best practices,
+            and things not to forget — then you write your SilverScript right there and deploy.
           </p>
 
           <div className="flex-1" />
 
           <button
-            onClick={() => navigate('/deploy/paid')}
+            onClick={() => navigate('/premium')}
             className="w-full flex items-center justify-center gap-2.5 px-5 py-4 rounded-xl bg-[#49EACB] text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.5)] active:scale-[0.98] transition-all"
           >
             <Terminal size={18} />
-            Start Full Builder Experience
+            Go to Premium Paid Page (Full Terminal + Guide + Write SilverScript)
           </button>
         </div>
       </div>

@@ -92,14 +92,14 @@ const Pricing = () => {
     // Save the paid tier immediately so gate is open
     localStorage.setItem('covex_paid_tier', tier.id);
 
-    // Open wallet deep-link
+    // Open wallet deep-link with the EXACT amount the user selected (this is the charge)
     window.open(`kaspatest:${cleanTreasury}?amount=${tier.price}`, '_blank');
 
-    // Redirect to paid builder hub with two clear options
+    // After the user sends the payment, they land on the clean paid-area choice page
     setTimeout(() => {
       setProcessing(null);
       navigate('/paid-builder');
-    }, 600);
+    }, 650);
   };
 
   return (
@@ -196,6 +196,7 @@ const Pricing = () => {
         <p className="text-[11px] text-gray-200">
           Treasury: <code className="text-gray-300">{TREASURY}</code>
         </p>
+        <p className="text-[10px] text-emerald-400 mt-2">After you send the exact KAS amount from your wallet, you will land on the paid-area page with the two options (existing covenant or full premium builder with terminal + guide + script writer).</p>
       </div>
     </div>
   );

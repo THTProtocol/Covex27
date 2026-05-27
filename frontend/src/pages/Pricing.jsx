@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X as XIcon, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, X as XIcon, Loader2, RefreshCw, Key } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 
 const TRUNC = (s, n = 8) => s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
@@ -79,7 +79,7 @@ const TIERS = [
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const { address } = useWallet();
+  const { address, DevConnectPanel } = useWallet();
   const [step, setStep] = useState('pricing');
   const [selectedTier, setSelectedTier] = useState(null);
   const [selectedCovenant, setSelectedCovenant] = useState(null);
@@ -121,13 +121,26 @@ const Pricing = () => {
     fetchMyCovenants();
   };
 
+  // Re-fetch covenants when wallet connects (dev panel or browser extension)
+  // This runs inside the 'select' step only
+  useEffect(() => {
+    if (step === 'select' && address) {
+      fetchMyCovenants();
+    }
+  }, [address, step]);
+
   const handleCheckout = () => {
     setIsProcessing(true);
-    if (!address) {
-      const treasury = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-      const cleanTreasury = treasury.replace('kaspatest:', '');
-      window.open(`kaspatest:${cleanTreasury}?amount=${selectedTier.price}`, '_blank');
+
+    // Store the paid tier in localStorage so Terminal gate opens
+    if (selectedTier && selectedTier.id !== 'FREE') {
+      localStorage.setItem('covex_paid_tier', selectedTier.id);
     }
+
+    const treasury = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+    const cleanTreasury = treasury.replace('kaspatest:', '');
+    window.open(`kaspatest:${cleanTreasury}?amount=${selectedTier.price}`, '_blank');
+
     setTimeout(() => {
       setIsProcessing(false);
       setStep('success');
@@ -210,11 +223,11 @@ const Pricing = () => {
                   onClick={() => tier.ctaAction === 'pay' ? handleSelectTier(tier) : navigate('/')}
                   className="w-full mt-6 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-300 border-none"
                   style={{
-                    backgroundColor: isFree ? 'rgba(255,255,255,0.06)' : tier.accent,
+                    backgroundColor: isFree ? 'rgba(255,255,255,0.06)' : '#49EACB',
                     color: isFree ? '#fff' : '#000',
                   }}
                   onMouseEnter={e => {
-                    if (isPaid) e.currentTarget.style.boxShadow = `0 0 30px ${tier.accent}40`;
+                    if (isPaid) e.currentTarget.style.boxShadow = '0 0 30px rgba(73,234,203,0.4)';
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.boxShadow = '';
@@ -257,9 +270,12 @@ const Pricing = () => {
           </div>
 
           {!address && (
-            <div className="p-5 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-center mb-4">
-              <p className="text-sm text-amber-400 font-semibold mb-1">Wallet Not Connected</p>
-              <p className="text-xs text-gray-300">Connect your Kaspa wallet to see your deployed covenants.</p>
+            <div className="space-y-4 mb-4">
+              <div className="p-4 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-center">
+                <p className="text-sm text-amber-400 font-semibold mb-1">Wallet Not Connected</p>
+                <p className="text-xs text-gray-300">Connect your wallet to see your deployed covenants.</p>
+              </div>
+              <DevConnectPanel compact />
             </div>
           )}
 

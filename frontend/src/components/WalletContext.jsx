@@ -160,71 +160,94 @@ async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
   return { privateKeyHex: cleanHex, address: addressStr };
 }
 
-// ── TN12 Mnemonic Panel sub-component ──
-function MnemonicDevPanel({ onConnect }) {
+// ── Inline TN12 Connect Panel — mnemonic + hex key tabs ──
+function InlineDevConnectPanel({ onConnect, compact = false }) {
+  const [mode, setMode] = useState('mnemonic'); // 'mnemonic' | 'hex'
   const [phrase, setPhrase] = useState('');
+  const [hexKey, setHexKey] = useState('');
   const [deriving, setDeriving] = useState(false);
   const [error, setError] = useState(null);
-  const [derivedAddress, setDerivedAddress] = useState(null);
 
   const handleDerive = useCallback(async () => {
-    const trimmed = phrase.trim();
-    if (!trimmed) {
-      setError('Enter a 12 or 24 word mnemonic phrase');
-      return;
-    }
-
     setDeriving(true);
     setError(null);
-
     try {
-      const result = await deriveFromMnemonic(trimmed);
-      setDerivedAddress(result.address);
-      onConnect({ phrase: trimmed, privateKeyHex: result.privateKeyHex, address: result.address });
+      let result;
+      if (mode === 'hex') {
+        const cleanHex = hexKey.trim().replace(/^0x/i, '');
+        if (!cleanHex) throw new Error('Enter a 64-character hex private key');
+        result = await deriveFromPrivateKey(cleanHex);
+        onConnect({ type: 'hex', privateKeyHex: result.privateKeyHex, address: result.address });
+      } else {
+        const trimmed = phrase.trim();
+        if (!trimmed) throw new Error('Enter a 12 or 24 word mnemonic phrase');
+        result = await deriveFromMnemonic(trimmed);
+        onConnect({ type: 'mnemonic', phrase: trimmed, privateKeyHex: result.privateKeyHex, address: result.address });
+      }
     } catch (err) {
-      setError(err.message || 'Derivation failed. Check your mnemonic phrase.');
+      setError(err.message || 'Derivation failed');
     } finally {
       setDeriving(false);
     }
-  }, [phrase, onConnect]);
+  }, [mode, phrase, hexKey, onConnect]);
 
   return (
-    <div className="mt-3 p-3 rounded-lg border border-[#49EACB]/30 bg-black/30" data-covex="mnemonic-dev-panel">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-        <span className="text-xs font-mono text-yellow-400 uppercase tracking-wider">TN12 Dev Mode</span>
+    <div className={`rounded-xl border border-yellow-600/30 bg-yellow-600/[0.04] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse" />
+        <span className="text-xs font-mono text-yellow-400 uppercase tracking-wider">TN12 Dev Connect</span>
       </div>
-      <p className="text-xs text-gray-200 mb-2">
-        Enter a 12 or 24-word BIP39 mnemonic to derive keys locally using kaspa-wasm.
-        Completely bypasses browser extensions — signs transactions with derived private key.
+      <p className="text-xs text-gray-300 mb-3 leading-relaxed">
+        Connect via mnemonic or hex private key. Keys are derived locally and never leave your browser.
       </p>
-      <textarea
-        value={phrase}
-        onChange={(e) => { setPhrase(e.target.value); setError(null); }}
-        rows={3}
-        placeholder="witch collapse practice feed shame open despair creek road again ice least"
-        className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB] transition-all"
-        spellCheck={false}
-        autoCapitalize="none"
-        autoCorrect="off"
-      />
-      {error && (
-        <p className="text-xs text-red-400 mt-1">{error}</p>
+
+      {/* Tab toggle */}
+      <div className="flex rounded-lg bg-black/40 border border-white/[0.06] mb-3 overflow-hidden">
+        <button
+          onClick={() => { setMode('mnemonic'); setError(null); }}
+          className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+            mode === 'mnemonic' ? 'bg-yellow-600/20 text-yellow-400' : 'text-gray-300 hover:text-white'
+          }`}
+        >Mnemonic</button>
+        <button
+          onClick={() => { setMode('hex'); setError(null); }}
+          className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+            mode === 'hex' ? 'bg-yellow-600/20 text-yellow-400' : 'text-gray-300 hover:text-white'
+          }`}
+        >Hex Key</button>
+      </div>
+
+      {mode === 'mnemonic' ? (
+        <textarea
+          value={phrase}
+          onChange={(e) => { setPhrase(e.target.value); setError(null); }}
+          rows={3}
+          placeholder="witch collapse practice feed shame open despair creek road again ice least"
+          className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
+          spellCheck={false} autoCapitalize="none" autoCorrect="off"
+        />
+      ) : (
+        <input
+          type="password"
+          value={hexKey}
+          onChange={(e) => { setHexKey(e.target.value); setError(null); }}
+          placeholder="64 hex characters (32 bytes)"
+          className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
+          spellCheck={false}
+        />
       )}
-      {derivedAddress && (
-        <p className="text-xs text-green-400 mt-2 font-mono break-all">
-          Derived: {derivedAddress}
-        </p>
-      )}
+
+      {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+
       <button
         onClick={handleDerive}
-        disabled={deriving || !phrase.trim()}
-        className="mt-2 w-full px-4 py-2 bg-yellow-600/80 hover:bg-yellow-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        disabled={deriving}
+        className="mt-3 w-full px-4 py-2.5 bg-yellow-600/80 hover:bg-yellow-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {deriving ? (
           <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
         ) : null}
-        {deriving ? 'Deriving Keys...' : 'Connect (Dev Mode)'}
+        {deriving ? 'Deriving Keys...' : 'Connect Dev Wallet'}
       </button>
     </div>
   );
@@ -356,14 +379,21 @@ function WalletBridge({ children }) {
     }
   }, [kf]);
 
-  // ── Dev mode connect from mnemonic ──
+  // ── Dev mode connect (persists to localStorage) ──
   const connectDevMode = useCallback((devState) => {
     setDevMode(devState);
     setActiveWalletId('__dev_mode__');
     setActiveAddress(devState.address);
     setActiveNetwork('testnet-12');
-    setActiveBalance(null); // Balance queries not available in dev mode
+    setActiveBalance(null);
     setError(null);
+    // Persist to localStorage for refresh survival
+    if (typeof localStorage !== 'undefined') {
+      const devSave = { ...devState };
+      delete devSave.type; // Don't persist type discriminator
+      localStorage.setItem('covex_dev_wallet', JSON.stringify(devSave));
+      localStorage.setItem('covex_connected_wallet', '__dev_mode__');
+    }
   }, []);
 
   // ── Balance refresh helper ──
@@ -389,6 +419,10 @@ function WalletBridge({ children }) {
   const disconnectWallet = useCallback(async () => {
     if (devMode) {
       setDevMode(null);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('covex_dev_wallet');
+        localStorage.removeItem('covex_connected_wallet');
+      }
     }
     const provider = getActiveProvider();
     // Try to disconnect the provider if supported
@@ -423,10 +457,23 @@ function WalletBridge({ children }) {
     };
   }, [activeAddress, activeWalletId, devMode]);
 
-  // ── Auto-connect on mount if wallet was previously connected ──
+  // ── Auto-connect on mount: restore dev wallet or detect browser wallet ──
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Check if any wallet is already authorized (kasware auto-detection)
+
+    // Priority 1: Restore saved dev wallet from localStorage
+    const savedDev = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_dev_wallet') : null;
+    if (savedDev) {
+      try {
+        const parsed = JSON.parse(savedDev);
+        if (parsed.privateKeyHex && parsed.address) {
+          connectDevMode(parsed);
+          return;
+        }
+      } catch (_) { /* corrupt data, fall through */ }
+    }
+
+    // Priority 2: Restore browser extension wallet
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_connected_wallet') : null;
     if (saved && ALL_WALLETS.find(w => w.id === saved && w.detect())) {
       connectWallet(saved).catch(() => {});
@@ -582,7 +629,8 @@ function WalletBridge({ children }) {
     isDevMode: !!devMode,
     devMode,
     connectDevMode,
-    mnemonicPanel: MnemonicDevPanel,
+    mnemonicPanel: InlineDevConnectPanel,
+    DevConnectPanel: InlineDevConnectPanel,
     injections,
     pollingActive,
 
@@ -640,4 +688,4 @@ export function WalletProvider({ children }) {
   );
 }
 
-export { ALL_WALLETS, detectWallet, getProvider, MnemonicDevPanel };
+export { ALL_WALLETS, detectWallet, getProvider, InlineDevConnectPanel };

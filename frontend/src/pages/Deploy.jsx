@@ -177,14 +177,23 @@ export default function Deploy() {
       </button>
 
       <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl shadow-2xl overflow-hidden">
+        {/* ── Paid Tier Banner ── */}
+        <div className="px-8 py-4 bg-kaspa-green/[0.04] border-b border-kaspa-green/10">
+          <p className="text-xs text-gray-300 leading-relaxed">
+            This page deploys free covenants with no Terminal or custom UI access.{' '}
+            <span className="text-kaspa-green font-semibold">Want a custom interactive UI and Terminal access?</span>
+            {' '}<button onClick={() => navigate('/pricing')} className="text-kaspa-green underline font-semibold hover:text-kaspa-green/80 transition-colors">Upgrade to a paid tier.</button>
+            {' '}After paying for a paid tier, you will be redirected to the Terminal where you can fully build and customize your covenant.
+          </p>
+        </div>
         <div className="p-8 border-b border-[#1f1f1f] flex items-center gap-5 bg-[#0a0a0a]">
           <div className="w-14 h-14 rounded-xl bg-[#49EACB]/10 flex items-center justify-center border border-[#49EACB]/30 shrink-0">
             <Terminal size={28} className="text-[#49EACB]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-wide">Deploy Covenant</h1>
-            <p className="text-sm text-gray-200 mt-1">
-              Write SilverScript, sign with your TN12 wallet, deploy to Kaspa BlockDAG
+            <h1 className="text-2xl font-bold text-white tracking-wide">Deploy Free Covenant</h1>
+            <p className="text-sm text-gray-300 mt-1">
+              Write SilverScript, sign with your TN12 wallet, deploy to Kaspa BlockDAG. Free tier only.
             </p>
           </div>
           <span className="ml-auto px-3 py-1 rounded-full bg-[#49EACB]/10 border border-[#49EACB]/20 text-[#49EACB] text-xs font-mono">

@@ -85,8 +85,9 @@ async fn main() {
     let idx_db = Arc::clone(&db);
     let idx_client = Arc::clone(&client);
     let idx_seeds = seed_addrs.clone();
+    let idx_treasury = treasury.clone();
     tokio::spawn(async move {
-        indexer::run_indexer(idx_client, idx_db, idx_seeds).await;
+        indexer::run_indexer(idx_client, idx_db, idx_seeds, idx_treasury).await;
     });
 
     // --- Background: Payment Verifier ---
@@ -100,8 +101,9 @@ async fn main() {
     // --- Background: Historic Crawler ---
     let crawl_db = Arc::clone(&db);
     let crawl_client = Arc::clone(&client);
+    let crawl_treasury = treasury.clone();
     tokio::spawn(async move {
-        crawler::run_crawler(crawl_client, crawl_db, crawl_start_daa).await;
+        crawler::run_crawler(crawl_client, crawl_db, crawl_treasury, crawl_start_daa).await;
     });
 
     // --- Routes ---

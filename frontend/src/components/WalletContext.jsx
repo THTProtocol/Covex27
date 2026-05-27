@@ -160,8 +160,8 @@ async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
   return { privateKeyHex: cleanHex, address: addressStr };
 }
 
-// ── Inline TN12 Connect Panel — mnemonic + hex key tabs ──
-function InlineDevConnectPanel({ onConnect, compact = false }) {
+// ── Base TN12 Connect Panel — mnemonic + hex key tabs (internal, takes onConnect prop) ──
+function DevConnectPanelBase({ onConnect, compact = false }) {
   const [mode, setMode] = useState('mnemonic'); // 'mnemonic' | 'hex'
   const [phrase, setPhrase] = useState('');
   const [hexKey, setHexKey] = useState('');
@@ -629,8 +629,8 @@ function WalletBridge({ children }) {
     isDevMode: !!devMode,
     devMode,
     connectDevMode,
-    mnemonicPanel: InlineDevConnectPanel,
-    DevConnectPanel: InlineDevConnectPanel,
+    mnemonicPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} />,
+    DevConnectPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} />,
     injections,
     pollingActive,
 
@@ -688,4 +688,4 @@ export function WalletProvider({ children }) {
   );
 }
 
-export { ALL_WALLETS, detectWallet, getProvider, InlineDevConnectPanel };
+export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase };

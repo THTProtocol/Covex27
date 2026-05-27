@@ -14,8 +14,8 @@ const INPUT =
 const TEXTAREA =
   'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none';
 
-// ── Game Types ──────────────────────────────────────────────
-const GAME_TYPES = [
+// ── Game Types (exported for Paid Builder) ──────────────────────────────────────────────
+export const GAME_TYPES = [
   { id: 'chess_v1', name: 'Chess v1', emoji: '♟️', description: 'Standard 8×8. Win/Loss/Draw. Audited.', circuit: 'chess_v1', accent: '#49EACB' },
   { id: 'chess_v2', name: 'Chess v2', emoji: '♟️', description: 'Extended with draw detection.', circuit: 'chess_v2', accent: '#49EACB' },
   { id: 'poker', name: 'Poker', emoji: '♠️', description: 'Texas Hold\'em betting rounds.', circuit: 'generic_game', accent: '#A855F7' },
@@ -29,6 +29,162 @@ const GAME_TYPES = [
   { id: 'sudoku', name: 'Sudoku', emoji: '🔢', description: '9×9 puzzle. Solve to win.', circuit: 'generic_game', accent: '#EC4899' },
   { id: 'custom', name: 'Custom', emoji: '⚙️', description: 'Provide your own circuit.', circuit: 'custom', accent: '#E8AF34' },
 ];
+
+// ── Standalone SilverScript Generator (exported for PaidBuilder / premium flow) ──
+export function generateSilverScriptForConfig(cfg) {
+  const {
+    gameType = 'chess_v1',
+    feePercent = 2,
+    resolutionMode = 'oracle',
+    customOracleKey = '',
+    zkCircuit = 'chess_v1',
+    zkVerifierKey = '',
+    reusable = true,
+    allowTopups = false,
+  } = cfg || {};
+
+  const feeBasis = Math.round(feePercent * 100);
+  const feePlatform = Math.round(feePercent * 10);
+  const feeCreator = 10000 - feePlatform;
+
+  const gameMeta = (() => {
+    switch (gameType) {
+      case 'chess_v1':
+        return {
+          covenantName: 'ChessReusableCovenant',
+          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
+          outcomeBranches: `      Outcome::PlayerAWins => {
+        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+      }
+      Outcome::PlayerBWin => {
+        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw payout failed");
+      }`,
+        };
+      case 'chess_v2':
+        return {
+          covenantName: 'ChessExtendedCovenant',
+          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw | Stalemate',
+          outcomeBranches: `      Outcome::PlayerAWins => {
+        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+      }
+      Outcome::PlayerBWin => {
+        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
+      }
+      Outcome::Draw | Outcome::Stalemate => {
+        let half = pot / 2;
+        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw/stalemate payout failed");
+      }`,
+        };
+      case 'poker':
+        return {
+          covenantName: 'PokerHoldemCovenant',
+          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Fold',
+          outcomeBranches: `      Outcome::PlayerAWins => {
+        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+      }
+      Outcome::PlayerBWin => {
+        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
+      }
+      Outcome::Fold => {
+        require(VerifyPayout(treasury, player_a, pot), "Fold payout failed");
+      }`,
+        };
+      case 'blackjack':
+        return {
+          covenantName: 'BlackjackCovenant',
+          outcomeEnum: 'Outcome::PlayerWin | DealerWin | Push',
+          outcomeBranches: `      Outcome::PlayerWin => {
+        require(VerifyPayout(treasury, player_a, pot), "Player payout failed");
+      }
+      Outcome::DealerWin => {
+        require(VerifyPayout(treasury, platform, pot), "House wins pot");
+      }
+      Outcome::Push => {
+        let half = pot / 2;
+        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Push refund failed");
+      }`,
+        };
+      case 'dice':
+        return {
+          covenantName: 'DiceRollCovenant',
+          outcomeEnum: 'Outcome::Win | Loss',
+          outcomeBranches: `      Outcome::Win => {
+        require(VerifyPayout(treasury, player_a, pot), "Win payout failed");
+      }
+      Outcome::Loss => {
+        require(VerifyPayout(treasury, platform, pot), "Loss payout failed");
+      }`,
+        };
+      default:
+        return {
+          covenantName: 'CustomGameCovenant',
+          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
+          outcomeBranches: `      Outcome::PlayerAWins => {
+        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+      }
+      Outcome::PlayerBWin => {
+        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw payout failed");
+      }`,
+        };
+    }
+  })();
+
+  let resolveBlock = '';
+  switch (resolutionMode) {
+    case 'zk':
+      resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}`;
+      break;
+    case 'custom_oracle':
+      resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Key: ${(customOracleKey || '').slice(0, 16)}...`;
+      break;
+    default:
+      resolveBlock = `\n  ;; ── Resolution: Covex Oracle (standard)`;
+      break;
+  }
+
+  const topupsBlock = allowTopups ? '\n  ;; Allow top-ups after creation\n  OpAddToPot' : '';
+  const reusableBlock = reusable ? '\n  ;; Reusable covenant\n  OpReuseCovenant' : '';
+
+  return `;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; SilverScript: ${gameMeta.covenantName}
+;; Game: ${GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
+;; Fee: ${feePercent}% | Resolution: ${resolutionMode}
+;; Generated by Covex Premium Builder
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Covenant ${gameMeta.covenantName} {
+  fee_basis_points: ${feeBasis}
+  platform_share:   ${feePlatform}
+  creator_share:    ${feeCreator}
+  min_lock:         1000000
+
+  input player_a: PubKey
+  input player_b: PubKey
+  input treasury:  PubKey
+  input platform:  PubKey
+
+  state locked_amount: u64 = 0${topupsBlock}${reusableBlock}
+${resolveBlock}
+
+  fn unlock(outcome: ${gameMeta.outcomeEnum}) {
+    let total = locked_amount;
+    let fee = (total * fee_basis_points) / 10000;
+    let pot = total - fee;
+
+    require(VerifyPayout(treasury, platform, fee), "Platform fee failed");
+
+${gameMeta.outcomeBranches}
+  }
+}`;
+}
 
 function Toggle({ label, desc, enabled, onChange, disabled = false }) {
   return (
@@ -592,7 +748,7 @@ ${gameMeta.outcomeBranches}
 
   // ── Open Covenant Studio ──
   const handleOpenStudio = useCallback(() => {
-    window.open('http://localhost:3001', '_blank');
+    window.open('http://localhost:5173', '_blank');
   }, []);
 
   // ── Copy SilverScript ──
@@ -884,7 +1040,7 @@ ${gameMeta.outcomeBranches}
             </div>
             <span>Open Covenant Studio</span>
             <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
-              localhost:3001
+              localhost:5173
             </span>
           </button>
 

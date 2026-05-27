@@ -1,0 +1,317 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '../components/WalletContext';
+import {
+  ArrowLeft, Terminal, Cpu, Zap, ShieldCheck, ExternalLink, BookOpen,
+  Code, Key, Wrench, Rocket, ChevronRight, Layers, Sparkles,
+  RefreshCw, Loader2, Link2, Palette, Repeat, Percent, Gauge,
+  Play, FileCode, ArrowRight
+} from 'lucide-react';
+
+const TRUNC = (s, n = 8) => s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
+
+const GUIDE_SECTIONS = [
+  {
+    icon: Cpu, title: 'ZK Circuits',
+    content: 'Select a Game Type in the Terminal to auto-configure the matching ZK circuit. Pre-audited circuits available for Chess (Win/Loss/Draw), Poker (hand ranking proofs), Blackjack (card value verification), Dice (randomness proof), Sudoku (solution verification), and Backgammon (multi-stake outcomes). Each circuit verifies the game outcome without revealing player inputs or private state. For custom games, paste your own verifier key.',
+    why: 'ZK proofs let players verify outcomes on-chain trustlessly -- no oracle needed.'
+  },
+  {
+    icon: Link2, title: 'Oracle Integration',
+    content: 'Set custom oracle keys in Terminal for external data feeds. Three resolution modes: Standard Oracle (default trusted party), Custom Oracle Key (your own feed), or ZK Proof Verification (no oracle needed). Oracles submit outcome attestations on-chain. For sports results, weather data, or API-driven outcomes, configure the oracle endpoint and key in Terminal.',
+    why: 'Oracles bridge off-chain data onto Kaspa so your covenant can react to real-world events.'
+  },
+  {
+    icon: Palette, title: 'Custom UI & Covenant Studio',
+    content: 'Design your covenant page in Covenant Studio (localhost:5173). Choose from pre-built templates (game lobbies, betting interfaces, escrow dashboards), customize branding, colors, and widget layouts, then paste the generated HTML/JS/CSS into Terminal. The UI renders instantly on your covenant page. No frontend coding required -- templates handle all the Web3 interactions.',
+    why: 'A polished interactive UI increases user engagement and covenant usage.'
+  },
+  {
+    icon: Repeat, title: 'Reusability & Top-Ups',
+    content: 'Toggle "Reusable" in Terminal to accept multiple interactions on the same covenant. Non-reusable covenants are single-use escrow-style -- one interaction and done. Enable "Allow Top-Ups" to let users add more KAS to an active covenant. This is critical for games that run multiple rounds or accept multiple participants.',
+    why: 'Reusable covenants with top-ups create sustainable, long-running game economies.'
+  },
+  {
+    icon: Percent, title: 'Fees & Payout Logic',
+    content: 'Set platform fee percentage (0-10%) in Terminal. Fees are deducted from each resolved covenant payout automatically. Define payout split logic (winner-takes-all, proportional, or custom) in your SilverScript. For multi-party outcomes, ensure your script handles edge cases like draws, timeouts, and forfeits.',
+    why: 'Transparent fee structure builds trust. Clear payout logic prevents disputes.'
+  },
+  {
+    icon: Gauge, title: 'Testing & Best Practices',
+    content: 'Always test with small amounts on TN12 before going to mainnet. Use the Kaspa Testnet faucet for test KAS. Verify your ZK circuit against multiple edge-case inputs. Test your custom UI across devices (desktop + mobile). Confirm oracle endpoints are stable and respond within timeout windows. Deploy incrementally: first the SilverScript, then terminal config, then UI.',
+    why: 'Thorough testing on testnet prevents irreversible mistakes on mainnet.'
+  },
+  {
+    icon: FileCode, title: 'SilverScript Generator',
+    content: 'After configuring your covenant in Terminal, click "Generate SilverScript" to produce a complete covenant script. The generator auto-includes your game type, circuit references, fee structure, and resolution logic. Review the generated script, then use the Deploy page to broadcast it on-chain. SilverScript is the Kaspa covenant DSL.',
+    why: 'The generator eliminates manual script errors and ensures circuit + config alignment.'
+  },
+  {
+    icon: ShieldCheck, title: 'Checklist Before Going Live',
+    content: '1. Verify ZK circuit matches your game type. 2. Test oracle endpoint connectivity. 3. Confirm fee percentage is correct. 4. Review payout logic in SilverScript. 5. Test UI on mobile. 6. Deploy a test transaction on TN12. 7. Verify the Terminal config saves correctly. 8. Share your covenant page URL with testers before announcing publicly.',
+    why: 'Missing any of these steps leads to broken covenants and lost funds.'
+  }
+];
+
+export default function PaidBuilder() {
+  const navigate = useNavigate();
+  const { address, DevConnectPanel } = useWallet();
+  const paidTier = localStorage.getItem('covex_paid_tier') || 'CREATOR';
+
+  const [myCovenants, setMyCovenants] = useState([]);
+  const [fetchingCovenants, setFetchingCovenants] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Redirect FREE users back to Pricing
+  useEffect(() => {
+    const tier = localStorage.getItem('covex_paid_tier');
+    if (!tier || tier === 'FREE') {
+      navigate('/pricing', { replace: true });
+    }
+  }, [navigate]);
+
+  const fetchMyCovenants = useCallback(() => {
+    if (!address) return;
+    setFetchingCovenants(true);
+    setFetchError(null);
+    fetch(`/api/covenants?creator=${encodeURIComponent(address)}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(d => {
+        const list = Array.isArray(d.covenants) ? d.covenants : [];
+        setMyCovenants(list);
+        setFetchingCovenants(false);
+      })
+      .catch(err => {
+        setFetchError(err.message);
+        setFetchingCovenants(false);
+      });
+  }, [address]);
+
+  useEffect(() => {
+    if (address) fetchMyCovenants();
+  }, [address, fetchMyCovenants]);
+
+  const tierAccent = {
+    CREATOR: '#3B82F6',
+    PRO: '#E8AF34',
+    MAX: '#A855F7'
+  }[paidTier] || '#49EACB';
+
+  return (
+    <div className="relative z-10 max-w-5xl mx-auto px-6 py-12 animate-in fade-in duration-300">
+      <button
+        onClick={() => navigate('/pricing')}
+        className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
+      >
+        <ArrowLeft size={16} />
+        Back to Pricing
+      </button>
+
+      {/* === Paid Area Header === */}
+      <div
+        className="bg-gradient-to-r rounded-2xl p-8 mb-10 border relative overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, ${tierAccent}10 0%, ${tierAccent}05 50%, transparent 100%)`,
+          borderColor: tierAccent + '30'
+        }}
+      >
+        <div className="absolute top-0 left-0 right-0 h-px"
+          style={{ background: `linear-gradient(90deg, transparent, ${tierAccent}, transparent)` }} />
+        <div className="flex items-start gap-5">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: tierAccent + '20', border: `1px solid ${tierAccent}40` }}>
+            <Sparkles size={28} style={{ color: tierAccent }} />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-bold text-white">{paidTier} Builder</h1>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold"
+                style={{ backgroundColor: tierAccent + '15', border: `1px solid ${tierAccent}30`, color: tierAccent }}>
+                {paidTier}
+              </span>
+            </div>
+            <p className="text-sm text-gray-300 leading-relaxed max-w-2xl">
+              Your paid tier is active. You now have full access to the Covex Terminal, ZK circuit configuration,
+              oracle integration, Covenant Studio, and SilverScript generation. Choose your path below.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* === Two Clear Options === */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        {/* Option A: Customize Existing Covenant */}
+        <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-6 flex flex-col">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-[#49EACB]/15">
+              <Layers size={20} className="text-[#49EACB]" />
+            </div>
+            <h2 className="text-lg font-bold text-white">Customize Existing Covenant</h2>
+          </div>
+          <p className="text-sm text-gray-300 mb-5 flex-1">
+            Select one of your deployed covenants and jump directly to its Terminal tab.
+            Add custom UI, configure ZK/oracle settings, and generate SilverScript.
+          </p>
+
+          {!address && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-center">
+                <p className="text-sm text-amber-400 font-semibold mb-1">Connect Your Wallet</p>
+                <p className="text-xs text-gray-300">Connect to see your deployed covenants.</p>
+              </div>
+              <DevConnectPanel compact />
+            </div>
+          )}
+
+          {address && fetchingCovenants && (
+            <div className="flex flex-col items-center py-8 text-gray-300 gap-2">
+              <Loader2 size={24} className="animate-spin text-[#49EACB]" />
+              <p className="text-sm">Loading your covenants...</p>
+            </div>
+          )}
+
+          {address && !fetchingCovenants && fetchError && (
+            <div className="p-4 rounded-lg bg-red-500/[0.04] border border-red-500/20 text-center">
+              <p className="text-sm text-red-400 mb-2">Failed to load: {fetchError}</p>
+              <button onClick={fetchMyCovenants} className="inline-flex items-center gap-1.5 text-xs text-[#49EACB] hover:underline">
+                <RefreshCw size={12} /> Retry
+              </button>
+            </div>
+          )}
+
+          {address && !fetchingCovenants && !fetchError && myCovenants.length === 0 && (
+            <div className="p-5 rounded-lg bg-white/[0.02] border border-white/5 text-center">
+              <p className="text-sm text-gray-300 mb-3">No covenants found for this wallet.</p>
+              <p className="text-xs text-gray-300">Deploy one below using Option B.</p>
+            </div>
+          )}
+
+          {address && !fetchingCovenants && !fetchError && myCovenants.length > 0 && (
+            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+              {myCovenants.map(cov => (
+                <button
+                  key={cov.tx_id}
+                  onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}?tab=terminal`)}
+                  className="w-full flex items-center justify-between p-3.5 rounded-lg border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB]/40 hover:bg-[#141414] transition-all text-left group"
+                >
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium truncate group-hover:text-[#49EACB] transition-colors">
+                      {cov.name || cov.covenant_type || 'Unnamed Covenant'}
+                    </p>
+                    <p className="text-[10px] text-gray-300 font-mono">{TRUNC(cov.tx_id)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <span className="text-[10px] text-[#49EACB] font-semibold group-hover:underline">Open Terminal</span>
+                    <ChevronRight size={14} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Option B: Create New Covenant + Full Builder */}
+        <div
+          className="rounded-2xl p-6 flex flex-col relative overflow-hidden border-2 border-dashed"
+          style={{ borderColor: '#49EACB40', backgroundColor: '#0a0a0a' }}
+        >
+          <div className="absolute top-0 left-0 right-0 h-1"
+            style={{ background: `linear-gradient(90deg, transparent, #49EACB, transparent)` }} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-[#49EACB]/20">
+              <Rocket size={20} className="text-[#49EACB]" />
+            </div>
+            <h2 className="text-lg font-bold text-white">Create New Covenant + Full Builder Experience</h2>
+          </div>
+          <p className="text-sm text-gray-300 mb-4">
+            The complete premium experience. Everything in one place: Terminal with Game Type
+            selection, ZK circuit configuration, custom UI paste area, Oracle setup, SilverScript
+            generator, and a direct link to Covenant Studio.
+          </p>
+          <p className="text-xs text-gray-300 mb-5 leading-relaxed">
+            <span className="text-[#49EACB] font-semibold">Recommended for new covenants.</span> You will
+            be guided through deploying your SilverScript, then automatically redirected to the Terminal
+            where all paid-tier tools are available.
+          </p>
+
+          <div className="flex-1" />
+
+          <button
+            onClick={() => navigate('/deploy/paid')}
+            className="w-full flex items-center justify-center gap-2.5 px-5 py-4 rounded-xl bg-[#49EACB] text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.5)] active:scale-[0.98] transition-all"
+          >
+            <Terminal size={18} />
+            Start Full Builder Experience
+          </button>
+        </div>
+      </div>
+
+      {/* === Comprehensive Guide Section === */}
+      <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-lg bg-[#49EACB]/15">
+            <BookOpen size={20} className="text-[#49EACB]" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">How to Build the Best Interactive Covenant</h2>
+            <p className="text-xs text-gray-300 mt-0.5">
+              Everything you need to know about ZK proofs, oracles, fees, UI design, and deployment best practices.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {GUIDE_SECTIONS.map((section, i) => (
+            <div key={i} className="p-4 rounded-xl bg-[#0d0d0d] border border-white/[0.04] hover:border-[#49EACB]/15 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="p-1.5 rounded-lg shrink-0 mt-0.5" style={{ backgroundColor: '#49EACB15' }}>
+                  <section.icon size={16} className="text-[#49EACB]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-white mb-2">{section.title}</h3>
+                  <p className="text-xs text-gray-300 leading-relaxed mb-2">{section.content}</p>
+                  <p className="text-[11px] leading-relaxed" style={{ color: '#49EACB90' }}>
+                    <span className="font-semibold">Why this matters:</span> {section.why}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* === Quick Links Bar === */}
+      <div className="flex flex-wrap gap-4">
+        <a
+          href="http://localhost:5173"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[#49EACB]/20 bg-[#49EACB]/[0.04] hover:bg-[#49EACB]/[0.08] hover:border-[#49EACB]/40 transition-all"
+        >
+          <Code size={16} className="text-[#49EACB]" />
+          <span className="text-sm font-medium text-white">Open Covenant Studio</span>
+          <ExternalLink size={12} className="text-[#49EACB]/60" />
+        </a>
+
+        <button
+          onClick={() => navigate('/deploy/paid')}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-white/15 hover:bg-[#161616] transition-all"
+        >
+          <Terminal size={16} className="text-[#49EACB]" />
+          <span className="text-sm font-medium text-white">Deploy New Covenant</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-white/15 hover:bg-[#161616] transition-all"
+        >
+          <Layers size={16} className="text-[#49EACB]" />
+          <span className="text-sm font-medium text-white">View Dashboard</span>
+        </button>
+      </div>
+    </div>
+  );
+}

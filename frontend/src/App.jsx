@@ -9,6 +9,8 @@ import Pricing from './pages/Pricing';
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
 import Deploy from './pages/Deploy';
+import PaidDeploy from './pages/PaidDeploy';
+import PaidBuilder from './pages/PaidBuilder';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
@@ -87,6 +89,8 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/deploy" element={<Deploy />} />
+            <Route path="/deploy/paid" element={<PaidDeploy />} />
+            <Route path="/paid-builder" element={<PaidBuilder />} />
           </Routes>
         </div>
 

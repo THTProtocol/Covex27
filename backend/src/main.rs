@@ -149,9 +149,16 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
     match db::get_all_covenants(&db) {
         Ok(records) => {
             let total = records.len();
+            // Batch-load all custom UIs from generated_uis
+            let uis_map = db::get_all_generated_uis_map(&db).unwrap_or_default();
             let list: Vec<serde_json::Value> = records.into_iter().map(|c| {
+                let tx_id = c.tx_id.clone();
+                let custom_ui_html = uis_map.get(&tx_id).map(|(html, _)| html.clone()).unwrap_or_default();
+                let custom_ui_config = uis_map.get(&tx_id).and_then(|(_, cfg)| serde_json::from_str::<serde_json::Value>(cfg).ok());
+                // Fallback to auto-generated tier-based ui_config if none saved
+                let ui_config_display = custom_ui_config.unwrap_or_else(|| db::ui_config_for_tier(&c.verified_tier));
                 json!({
-                    "tx_id": c.tx_id,
+                    "tx_id": tx_id,
                     "address": c.address,
                     "amount_kaspa": c.amount_kaspa,
                     "script_hash": c.script_hash,
@@ -168,6 +175,8 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
                     "timestamp": c.timestamp,
                     "name": c.covenant_type,
                     "tier": c.verified_tier,
+                    "custom_ui_html": custom_ui_html,
+                    "custom_ui_config": ui_config_display,
                 })
             }).collect();
             Json(json!({"total": total, "covenants": list}))

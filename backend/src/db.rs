@@ -388,6 +388,29 @@ pub fn get_generated_ui_by_covenant(db: &Mutex<Connection>, covenant_id: &str) -
     Ok(rows.next().transpose()?)
 }
 
+/// Batch lookup: returns a HashMap mapping covenant_id → (ui_html, ui_config) for all published UIs.
+/// Used to enrich the covenants list endpoint with custom UI data.
+pub fn get_all_generated_uis_map(db: &Mutex<Connection>) -> anyhow::Result<std::collections::HashMap<String, (String, String)>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT covenant_id, ui_html, ui_config FROM generated_uis WHERE is_published = 1 ORDER BY ui_generated_at DESC"
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })?;
+    let mut map = std::collections::HashMap::new();
+    for row in rows {
+        let (cid, html, cfg) = row?;
+        // Only keep first (most recent) per covenant_id
+        map.entry(cid).or_insert((html, cfg));
+    }
+    Ok(map)
+}
+
 pub fn get_generated_uis(db: &Mutex<Connection>, owner_address: Option<&str>) -> anyhow::Result<Vec<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let sql = if let Some(addr) = owner_address {

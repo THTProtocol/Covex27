@@ -524,8 +524,8 @@ const Explorer = () => {
                                 </div>
                               )}
 
-                              {/* Custom UI Built badge */}
-                              {c.custom_ui_config && (
+                              {/* Custom UI Built badge — only when actual custom HTML from Studio exists */}
+                              {c.custom_ui_html && c.custom_ui_html.length > 10 && (
                                 <div className="mb-3">
                                   <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_10px_rgba(73,234,203,0.3)] animate-pulse">
                                     <Sparkles size={11} />

@@ -166,16 +166,19 @@ export default function PaidBuilder() {
           After paying, the focus is on the user's existing covenants + Terminal access.
           Creating a brand new one is available via the main Deploy nav or from within the Terminal itself. */}
 
-      {/* === Your Created Covenants — Primary post-payment view === */}
+      {/* === Your Created Covenants — the main thing after you pay === */}
       <div className="bg-[#0a0a0a]/95 border border-[#1f1f1f] rounded-2xl p-6 mb-8">
         <div className="flex items-center gap-3 mb-5">
           <Layers size={20} className="text-[#49EACB]" />
-          <h3 className="font-bold text-lg text-white">Your Created Covenants</h3>
+          <div>
+            <h3 className="font-bold text-xl text-white">Your Created Covenants</h3>
+            <p className="text-xs text-gray-300">Click <strong>Go to Terminal</strong> to access ZK, oracles, custom UI, SilverScript generator and all paid tools.</p>
+          </div>
         </div>
 
         {!address && (
           <div className="p-5 text-center border border-white/5 rounded-xl">
-            <p className="text-sm text-gray-300 mb-3">Connect your wallet to see the covenants you own.</p>
+            <p className="text-sm text-gray-300 mb-3">Connect your wallet (or use the Dev Wallet button with the test mnemonic) to see the covenants you own.</p>
             <DevConnectPanel compact />
           </div>
         )}
@@ -187,9 +190,9 @@ export default function PaidBuilder() {
         )}
 
         {address && !fetchingCovenants && !fetchError && myCovenants.length === 0 && (
-          <div className="text-center py-6 text-gray-400 text-sm">
-            No covenants yet for this address.<br />
-            Use the main <span className="font-medium text-[#49EACB]">Deploy</span> link in the top navigation if you want to create a new one later.
+          <div className="text-center py-8 text-gray-300">
+            No covenants found for this wallet yet.<br />
+            <span className="text-xs text-gray-400">You can create new ones using the "Deploy" link in the top navigation.</span>
           </div>
         )}
 
@@ -201,48 +204,24 @@ export default function PaidBuilder() {
                   <div className="font-semibold text-white">{cov.name || cov.covenant_type || 'Unnamed Covenant'}</div>
                   <div className="text-xs text-gray-400 font-mono mt-0.5">{TRUNC(cov.tx_id)}</div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}`)} className="px-4 py-2 text-sm rounded-lg border border-white/10 hover:bg-white/5">Edit</button>
-                  <button onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}?tab=terminal`)} className="px-4 py-2 text-sm rounded-lg bg-[#49EACB] text-black font-semibold">Go to Terminal</button>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}`)}
+                    className="px-5 py-2.5 text-sm rounded-xl border border-white/10 hover:bg-white/5 transition"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}?tab=terminal`)}
+                    className="px-6 py-2.5 text-sm rounded-xl bg-[#49EACB] text-black font-bold hover:brightness-105 transition flex items-center gap-2"
+                  >
+                    <Terminal size={16} /> Go to Terminal
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* === Comprehensive Guide Section === */}
-      <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-8 mb-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-lg bg-[#49EACB]/15">
-            <BookOpen size={20} className="text-[#49EACB]" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">How to Build the Best Interactive Covenant</h2>
-            <p className="text-xs text-gray-300 mt-0.5">
-              Everything you need to know about ZK proofs, oracles, fees, UI design, and deployment best practices.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {GUIDE_SECTIONS.map((section, i) => (
-            <div key={i} className="p-4 rounded-xl bg-[#0d0d0d] border border-white/[0.04] hover:border-[#49EACB]/15 transition-colors">
-              <div className="flex items-start gap-3">
-                <div className="p-1.5 rounded-lg shrink-0 mt-0.5" style={{ backgroundColor: '#49EACB15' }}>
-                  <section.icon size={16} className="text-[#49EACB]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-white mb-2">{section.title}</h3>
-                  <p className="text-xs text-gray-300 leading-relaxed mb-2">{section.content}</p>
-                  <p className="text-[11px] leading-relaxed" style={{ color: '#49EACB90' }}>
-                    <span className="font-semibold">Why this matters:</span> {section.why}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* === Quick Links (secondary) === */}

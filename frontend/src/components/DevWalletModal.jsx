@@ -327,7 +327,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
         <div className="px-5 pb-5">
           <p className="text-[10px] text-gray-200 text-center leading-relaxed">
             Keys are derived locally via kaspa-wasm. Never leaves your browser.
-            For covenant testing only — no real funds. TN12 Testnet (Toccata).
+            For covenant testing only, no real funds. TN12 Testnet (Toccata).
           </p>
         </div>
       </div>

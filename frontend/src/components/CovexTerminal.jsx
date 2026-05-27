@@ -416,7 +416,7 @@ export default function CovexTerminal({ covenant }) {
         );
       }
       Outcome::Fold => {
-        ;; Fold — winner gets pot, folded player forfeits
+        ;; Fold, winner gets pot, folded player forfeits
         require(
           VerifyPayout(treasury, player_a, pot),
           "Fold payout failed"
@@ -610,14 +610,14 @@ export default function CovexTerminal({ covenant }) {
             outcomeBranches: `      Outcome::Solve => {
         require(
           VerifyPayout(treasury, player_a, pot),
-          "Solution verified — payout to player"
+          "Solution verified, payout to player"
         );
       }
       Outcome::Timeout => {
-        ;; Timer expired — funds return to platform
+        ;; Timer expired, funds return to platform
         require(
           VerifyPayout(treasury, platform, pot),
-          "Timeout — funds returned to platform"
+          "Timeout, funds returned to platform"
         );
       }`,
           };
@@ -667,7 +667,7 @@ export default function CovexTerminal({ covenant }) {
       : '';
 
     const reusableBlock = reusable
-      ? '\n  ;; Reusable — fee stays in pot for next round\n  OpReuseCovenant'
+      ? '\n  ;; Reusable, fee stays in pot for next round\n  OpReuseCovenant'
       : '';
 
     const script = `;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -732,7 +732,7 @@ ${gameMeta.outcomeBranches}
           if (cfg.zk_verifier_key) setZkVerifierKey(cfg.zk_verifier_key);
           if (data.ui_html) setCustomUICode(data.ui_html);
         } else {
-          // No saved config — seed from covenant data
+          // No saved config, seed from covenant data
           if (covenant?.covenant_type) setName(covenant.covenant_type);
           if (covenant?.description) setDescription(covenant.description);
         }
@@ -919,7 +919,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div className="flex-1 space-y-1 min-w-0">
                 <p className="text-kaspa-green text-sm font-bold">
-                  {activeGame.name} — Active Game Type
+                  {activeGame.name}, Active Game Type
                 </p>
                 <p className="text-[11px] text-gray-200 leading-relaxed">
                   {activeGame.description}
@@ -1143,7 +1143,7 @@ ${gameMeta.outcomeBranches}
           <ResolutionCard
             icon={Shield}
             title="Covex Oracle (Default)"
-            desc="Uses the built-in Covex Oracle with a pre-filled, audited verification key. Trustless resolution — the oracle signs outcomes cryptographically."
+            desc="Uses the built-in Covex Oracle with a pre-filled, audited verification key. Trustless resolution, the oracle signs outcomes cryptographically."
             selected={resolutionMode === 'oracle'}
             onClick={() => setResolutionMode('oracle')}
             accent="kaspa-green"
@@ -1184,7 +1184,7 @@ ${gameMeta.outcomeBranches}
 
           {resolutionMode === 'zk' && (
             <div className="ml-14 space-y-3">
-              {/* Circuit info — now controlled by Game Type section */}
+              {/* Circuit info, now controlled by Game Type section */}
               <div className="space-y-1.5">
                 <p className={LABEL}>ZK Circuit</p>
                 <div className="p-4 rounded-xl bg-purple-500/[0.04] border border-purple-500/20">
@@ -1207,7 +1207,7 @@ ${gameMeta.outcomeBranches}
                 </div>
                 <p className="text-[11px] text-gray-200 leading-relaxed">
                   {zkCircuit === 'chess_v1' &&
-                    'Standard 8×8 chess verifier. Reports Win/Loss/Draw with BLAKE3 commitments. Fully audited — production ready.'}
+                    'Standard 8×8 chess verifier. Reports Win/Loss/Draw with BLAKE3 commitments. Fully audited, production ready.'}
                   {zkCircuit === 'chess_v2' &&
                     'Extended chess circuit with explicit draw detection (stalemate, threefold, 50-move rule). Larger proof size.'}
                   {zkCircuit === 'generic_game' &&

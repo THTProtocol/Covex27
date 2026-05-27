@@ -33,7 +33,7 @@ export default function Deploy() {
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  // PAID USERS ARE COMPLETELY BLOCKED from free deploy — they paid for premium for a reason
+  // PAID USERS ARE COMPLETELY BLOCKED from free deploy, they paid for premium for a reason
   const paidTier = typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null;
   const isPaid = paidTier && paidTier !== 'FREE';
 
@@ -60,7 +60,7 @@ export default function Deploy() {
             Open Full Premium Builder
           </button>
         </div>
-        <p className="mt-8 text-xs text-gray-500">Free deploy is intentionally blocked. You paid for the real tools.</p>
+        <p className="mt-8 text-xs text-gray-300">Free deploy is intentionally blocked. You paid for the real tools.</p>
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import { QrCode } from 'lucide-react';
 
 /**
- * Shared CovenantPreview — renders covenant data with custom_ui_config styling.
+ * Shared CovenantPreview, renders covenant data with custom_ui_config styling.
  * Used by both the PremiumBuilder live preview pane and the public covenant page.
  * Ensures builder preview === exactly what visitors see.
  */
@@ -136,12 +136,12 @@ export default function CovenantPreview({ config, covenant, children, className 
       {config.layout === 'floating' && (
         <div className="mb-3" style={{ boxShadow: `0 8px 32px ${pc}15` }}>
           <div className="p-3 rounded-xl bg-black/30 border border-white/5 text-[10px] text-gray-200">
-            Floating panel — elevated UI for premium covenants.
+            Floating panel, elevated UI for premium covenants.
           </div>
         </div>
       )}
 
-      {/* Widgets section — disabled (VisualDesigner removed) */}
+      {/* Widgets section, disabled (VisualDesigner removed) */}
       {false && (config.widgets && config.widgets.length > 0) && (
         <div className="space-y-2 mb-3">
           {config.widgets.map((wid) => (

@@ -105,10 +105,10 @@ export default function PaidBuilder() {
       {/* Empty state */}
       {address && !fetchingCovenants && !fetchError && myCovenants.length === 0 && (
         <div className="bg-[#111] border border-white/10 rounded-2xl p-10 text-center">
-          <Layers size={48} className="mx-auto text-gray-600 mb-4" />
+          <Layers size={48} className="mx-auto text-gray-200 mb-4" />
           <h3 className="text-xl font-semibold text-white mb-2">No covenants yet</h3>
           <p className="text-gray-400">You haven't deployed any covenants with this wallet on the current network.</p>
-          <p className="text-xs text-gray-500 mt-4">Use the Deploy link in the top navigation when you want to create one.</p>
+          <p className="text-xs text-gray-300 mt-4">Use the Deploy link in the top navigation when you want to create one.</p>
         </div>
       )}
 
@@ -121,7 +121,7 @@ export default function PaidBuilder() {
                 <div className="font-semibold text-lg text-white truncate">
                   {cov.name || cov.covenant_type || 'Unnamed Covenant'}
                 </div>
-                <div className="text-xs text-gray-500 font-mono mt-1">{TRUNC(cov.tx_id)}</div>
+                <div className="text-xs text-gray-300 font-mono mt-1">{TRUNC(cov.tx_id)}</div>
               </div>
 
               <div className="flex gap-3 shrink-0">
@@ -183,12 +183,12 @@ export default function PaidBuilder() {
             className="w-full py-4 rounded-xl bg-[#49EACB] text-black font-bold text-base flex items-center justify-center gap-2.5 hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.985] transition-all"
           >
             <Terminal size={20} />
-            Open Full Terminal — Create New Covenant
+            Open Full Terminal, Create New Covenant
           </button>
         </div>
       )}
 
-      <div className="mt-10 text-center text-xs text-gray-500">
+      <div className="mt-10 text-center text-xs text-gray-300">
         Paid tier active. All Terminal tools (ZK, Oracles, UI, SilverScript) are unlocked for your covenants.
       </div>
     </div>

@@ -406,7 +406,7 @@ export default function CovenantInteractive() {
                 </a>
               </div>
             ) : activeTab === 'terminal' ? (
-              /* ── Terminal Tab — only for paid users with full tools ── */
+              /* ── Terminal Tab, only for paid users with full tools ── */
               covexPaidTier ? (
                 <div className="-m-8">
                   <CovexTerminal covenant={covenant} />
@@ -726,7 +726,7 @@ export default function CovenantInteractive() {
         </motion.div>
       )}
 
-      {/* Custom UI Rendering — show saved custom UI from Terminal/Studio on the public page */}
+      {/* Custom UI Rendering, show saved custom UI from Terminal/Studio on the public page */}
       {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && (
         <div className="mt-8 glass-panel rounded-3xl p-8 sm:p-10 max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-6">

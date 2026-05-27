@@ -105,7 +105,7 @@ const Pricing = () => {
       return;
     }
 
-    // No wallet connected — show connect prompt first, then go to confirmation
+    // No wallet connected, show connect prompt first, then go to confirmation
     setPayingTier({ id: tier.id, name: tier.name, price: tier.price, accent: tier.accent });
     // Show confirmation screen with wallet connect
     setAwaitingConfirmation({
@@ -126,7 +126,7 @@ const Pricing = () => {
       const result = await sendPayment(TREASURY, payingTier.price, { memo: `covex-upgrade:${payingTier.id}` });
 
       if (result.success) {
-        // Payment sent — unlock tier and redirect
+        // Payment sent, unlock tier and redirect
         localStorage.setItem('covex_paid_tier', payingTier.id);
         sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: payingTier.name, id: payingTier.id }));
         setAwaitingConfirmation(null);
@@ -134,7 +134,7 @@ const Pricing = () => {
         setPaymentStatus(null);
         navigate('/paid-builder');
       } else if (result.method === 'uri') {
-        // Deep link opened — user needs to complete in wallet
+        // Deep link opened, user needs to complete in wallet
         setPaymentStatus({ type: 'info', message: 'Wallet opened. Complete the payment in your wallet, then click below.' });
       } else {
         setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (result.error || 'Unknown error') });
@@ -145,7 +145,7 @@ const Pricing = () => {
   }, [awaitingConfirmation, payingTier, sendPayment, navigate]);
 
   const handleConfirmPaid = () => {
-    // Bypass: user claims they paid manually — unlock tier anyway
+    // Bypass: user claims they paid manually, unlock tier anyway
     if (!awaitingConfirmation) return;
     const { id, name } = awaitingConfirmation;
     localStorage.setItem('covex_paid_tier', id);
@@ -244,17 +244,17 @@ const Pricing = () => {
             onClick={handleConfirmPaid}
             className="w-full py-3 text-sm text-gray-400 hover:text-white transition border border-white/10 rounded-xl hover:border-white/20"
           >
-            I sent the payment manually — unlock my tier
+            I sent the payment manually - unlock my tier
           </button>
 
           <button
             onClick={cancelPayment}
             className="w-full py-3 text-sm text-gray-400 hover:text-white transition"
           >
-            Cancel — choose different tier
+            Cancel, choose different tier
           </button>
 
-          <p className="text-[11px] text-gray-500 pt-2 leading-relaxed">
+          <p className="text-[11px] text-gray-300 pt-2 leading-relaxed">
             {needWallet
               ? 'Connect your wallet first, then click Send to pay securely through your Kaspa wallet.'
               : 'Click Send to open your connected wallet and approve the payment. After sending, you will land on your covenants page with Terminal access.'

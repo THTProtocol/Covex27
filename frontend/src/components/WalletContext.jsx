@@ -160,7 +160,7 @@ async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
   return { privateKeyHex: cleanHex, address: addressStr };
 }
 
-// ── Base TN12 Connect Panel — mnemonic + hex key tabs (internal, takes onConnect prop) ──
+// ── Base TN12 Connect Panel, mnemonic + hex key tabs (internal, takes onConnect prop) ──
 function DevConnectPanelBase({ onConnect, compact = false }) {
   const [mode, setMode] = useState('mnemonic'); // 'mnemonic' | 'hex'
   const [phrase, setPhrase] = useState('');
@@ -323,7 +323,7 @@ function WalletBridge({ children }) {
       const provider = wallet.provider();
       if (!provider) throw new Error('Provider not available');
 
-      // Get accounts — try multiple provider APIs
+      // Get accounts, try multiple provider APIs
       let accounts;
       if (typeof provider.requestAccounts === 'function') {
         accounts = await provider.requestAccounts();
@@ -552,7 +552,7 @@ function WalletBridge({ children }) {
 
   // ── Send payment (uses connected wallet's provider, or dev mode, or detect-guess) ──
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
-    // Path 0: Dev mode — sign locally with derived key
+    // Path 0: Dev mode, sign locally with derived key
     if (devMode && activeAddress) {
       return await devSendTransaction(recipient, amountKas);
     }

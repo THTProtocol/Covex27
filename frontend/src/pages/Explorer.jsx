@@ -100,7 +100,7 @@ const Explorer = () => {
           setSearchLoading(false);
         });
     } else if (isWalletAddr) {
-      // Wallet address lookup — fetch all then filter client-side
+      // Wallet address lookup, fetch all then filter client-side
       fetch('/api/covenants')
         .then(r => r.json())
         .then(d => {
@@ -383,7 +383,7 @@ const Explorer = () => {
                           to={`/covenant/${encodeURIComponent(c.tx_id)}`}
                           className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-[#49EACB]/10 hover:bg-[#49EACB]/20 border border-[#49EACB]/20 text-[#49EACB] text-[10px] font-bold uppercase tracking-wider transition-all"
                         >
-                          View Covenant <ArrowRight size={12} />
+                          View Covenant
                         </Link>
                       </div>
                     );
@@ -501,7 +501,7 @@ const Explorer = () => {
                                         {hasSource && (
                                           <a href={tc.verified_source_url} target="_blank" rel="noopener noreferrer"
                                             className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-emerald-500/[0.08] border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/[0.15] transition-colors shadow-[0_0_8px_rgba(16,185,129,0.15)]"
-                                            title="Verified Open-Source — click to view on GitHub">
+                                            title="Verified Open-Source, click to view on GitHub">
                                             <ShieldCheck size={11} />
                                             Verified Open-Source
                                           </a>
@@ -524,7 +524,7 @@ const Explorer = () => {
                                 </div>
                               )}
 
-                              {/* Custom UI Built badge — only when actual custom HTML from Studio exists */}
+                              {/* Custom UI Built badge, only when actual custom HTML from Studio exists */}
                               {c.custom_ui_html && c.custom_ui_html.length > 10 && (
                                 <div className="mb-3">
                                   <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_10px_rgba(73,234,203,0.3)] animate-pulse">

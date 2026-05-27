@@ -209,7 +209,7 @@ export default function PaidDeploy() {
             </div>
             <p className="text-sm text-gray-300 max-w-3xl leading-relaxed">
               Everything in one place. Configure Game Type + ZK Circuit, paste Custom UI from Covenant Studio, set Oracle/ZK resolution,
-              generate SilverScript, deploy, and access full guides. This is the paid-tier only flow — no free deploy pages.
+              generate SilverScript, deploy, and access full guides. This is the paid-tier only flow, no free deploy pages.
             </p>
             <div className="flex items-center gap-4 mt-4">
               <div className="text-[10px] uppercase tracking-widest text-[#49EACB]/70 font-mono">ONE-TIME PAYMENT • FULL ACCESS • NO SUBSCRIPTION</div>
@@ -224,7 +224,7 @@ export default function PaidDeploy() {
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-lg bg-[#49EACB]/10"><Terminal size={18} className="text-[#49EACB]" /></div>
           <div>
-            <h2 className="text-lg font-bold text-white">Covex Terminal — Full Configuration</h2>
+            <h2 className="text-lg font-bold text-white">Covex Terminal, Full Configuration</h2>
             <p className="text-xs text-gray-300">Select game type (auto-configures ZK). Configure resolution, paste UI, generate script.</p>
           </div>
         </div>
@@ -249,7 +249,7 @@ export default function PaidDeploy() {
 
         {/* ZK / Oracle Configuration */}
         <div className="bg-[#0a0a0a]/95 border border-[#1f1f1f] rounded-2xl p-6 mb-4">
-          <p className="text-xs uppercase tracking-wider text-gray-300 mb-3 font-mono">OUTCOME RESOLUTION — ZK CIRCUIT / ORACLE</p>
+          <p className="text-xs uppercase tracking-wider text-gray-300 mb-3 font-mono">OUTCOME RESOLUTION, ZK CIRCUIT / ORACLE</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
             {[
               { mode: 'zk', label: 'ZK Proof Verification', desc: 'No oracle. Cryptographic proof of outcome.', icon: ShieldCheck },
@@ -329,7 +329,7 @@ export default function PaidDeploy() {
             <div className="font-bold text-white group-hover:text-[#49EACB] transition">Open Covenant Studio</div>
             <div className="text-xs text-gray-300">Design interactive UIs • Templates for games/betting • Export HTML/JS/CSS • Paste above</div>
           </div>
-          <ArrowRight className="text-[#49EACB] group-hover:translate-x-0.5 transition" />
+          
         </a>
         <button onClick={() => document.getElementById('guide-section')?.scrollIntoView({ behavior: 'smooth' })} className="flex-1 min-w-[240px] flex items-center gap-4 px-6 py-4 rounded-2xl border border-white/10 bg-[#111] hover:bg-[#1a1a1a] transition">
           <BookOpen size={20} className="text-[#49EACB]" />
@@ -447,11 +447,11 @@ export default function PaidDeploy() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: Cpu, title: 'ZK Circuits', content: 'Select a Game Type above — it auto-picks the matching audited ZK circuit (Chess win/loss/draw, Poker hand ranking, Blackjack, Dice, Sudoku solution, Backgammon etc). The circuit proves the outcome without revealing private inputs. For custom games use the "Custom" type and provide your verifier key.' },
+            { icon: Cpu, title: 'ZK Circuits', content: 'Select a Game Type above, it auto-picks the matching audited ZK circuit (Chess win/loss/draw, Poker hand ranking, Blackjack, Dice, Sudoku solution, Backgammon etc). The circuit proves the outcome without revealing private inputs. For custom games use the "Custom" type and provide your verifier key.' },
             { icon: Link2, title: 'Oracle Integration', content: 'Choose resolution mode above: ZK (no oracle), Custom Oracle Key (your feed), or Standard Oracle. For real-world data (sports, weather, APIs) set the oracle key or endpoint. Oracles attest outcomes on-chain so the covenant can payout trustlessly.' },
             { icon: Palette, title: 'Custom UI & Covenant Studio', content: 'Use the Covenant Studio link (top of this page). Pick a template (game lobby, betting interface, escrow dashboard), brand it with your colors, generate the standalone HTML/JS/CSS bundle, paste it into the "Custom UI" box above. It renders instantly on your covenant page after deploy. No hosting required.' },
             { icon: Repeat, title: 'Reusability & Top-Ups', content: 'Toggle Reusable ON for multi-round or multi-player covenants. Enable Allow Top-Ups so users can add more KAS to an active pot. Critical for ongoing games, leagues, or progressive jackpots. Non-reusable = single-use escrow.' },
-            { icon: Percent, title: 'Fees & Payout Logic', content: 'Set platform fee (0-10%) above — auto-deducted on every resolution. In your SilverScript define the exact payout splits (winner-takes-all, proportional, draws split, timeouts, forfeits). The generator above bakes your fee + reusability settings into the script.' },
+            { icon: Percent, title: 'Fees & Payout Logic', content: 'Set platform fee (0-10%) above, auto-deducted on every resolution. In your SilverScript define the exact payout splits (winner-takes-all, proportional, draws split, timeouts, forfeits). The generator above bakes your fee + reusability settings into the script.' },
             { icon: Gauge, title: 'Best Practices & Checklist', content: '1. Always test on TN12 with tiny amounts first. 2. Verify ZK circuit against edge cases. 3. Confirm oracle responds fast. 4. Test pasted UI on mobile + desktop. 5. Deploy script first, then immediately open the covenant ?tab=terminal to save ZK/oracle/UI config. 6. Share test link before public announcement. 7. Document your payout rules clearly.' },
             { icon: ShieldCheck, title: 'After Deployment', content: 'You will be redirected to your new covenant\'s Terminal tab (?tab=terminal). From there you can fine-tune config, re-generate scripts, and attach the final UI. All paid-tier covenants get the full Terminal + Explorer visibility based on tier (Creator < PRO < MAX).' },
           ].map((sec, idx) => (

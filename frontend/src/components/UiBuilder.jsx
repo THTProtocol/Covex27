@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ShieldCheck, Code2, FileText, MousePointerClick, CheckCircle2, AlertTriangle, Save, ExternalLink, Terminal, Info } from 'lucide-react';
 
 /**
- * UiBuilder.jsx — Trust & Verification Builder for Covex paid-tier covenants
+ * UiBuilder.jsx, Trust & Verification Builder for Covex paid-tier covenants
  *
  * Allows PRO/MAX covenant creators to:
  *  - Link verified open-source code
@@ -212,11 +212,11 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
             rows={6}
             value={form.developer_notes}
             onChange={e => setForm(f => ({ ...f, developer_notes: e.target.value }))}
-            placeholder={`Example: This covenant locks KAS in a time-locked escrow. The payee is hardcoded at deployment and cannot be changed. Funds can only be claimed after the timeout expires. The creator has zero ability to rug — the logic is immutable on the BlockDAG.`}
+            placeholder={`Example: This covenant locks KAS in a time-locked escrow. The payee is hardcoded at deployment and cannot be changed. Funds can only be claimed after the timeout expires. The creator has zero ability to rug, the logic is immutable on the BlockDAG.`}
             className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB]/50 transition-colors resize-none font-mono leading-relaxed"
           />
           <p className="text-[10px] text-gray-200">
-            {form.developer_notes.length} characters — shown on your covenant detail page
+            {form.developer_notes.length} characters, shown on your covenant detail page
           </p>
         </div>
       )}

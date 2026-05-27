@@ -52,7 +52,7 @@ export default function HostCovenant() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitted(true);
-    // If valid, the button is an <a> tag that opens the wallet — no further action needed
+    // If valid, the button is an <a> tag that opens the wallet, no further action needed
   };
 
   return (

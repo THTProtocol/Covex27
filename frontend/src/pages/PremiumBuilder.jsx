@@ -165,7 +165,7 @@ export default function PremiumBuilder() {
         <ArrowLeft size={16} /> Back to My Covenants (post-payment view)
       </button>
 
-      {/* TRUE PAID-AREA PAYWALL HEADER — you just paid for this */}
+      {/* TRUE PAID-AREA PAYWALL HEADER, you just paid for this */}
       <div
         className="rounded-3xl p-8 mb-8 border relative overflow-hidden"
         style={{
@@ -190,11 +190,11 @@ export default function PremiumBuilder() {
         </div>
       </div>
 
-      {/* FULL COVEX TERMINAL — right here on the paid page */}
+      {/* FULL COVEX TERMINAL, right here on the paid page */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           <Terminal size={20} className="text-[#49EACB]" />
-          <h2 className="text-xl font-bold text-white">Full Covex Terminal — Configure Your Covenant</h2>
+          <h2 className="text-xl font-bold text-white">Full Covex Terminal, Configure Your Covenant</h2>
         </div>
 
         {/* Game Type + ZK at the very top (exactly as requested) */}
@@ -218,7 +218,7 @@ export default function PremiumBuilder() {
             <p className="uppercase text-xs tracking-widest text-gray-400 mb-3 font-mono">2. ZK PROOF OR ORACLE RESOLUTION</p>
             <div className="space-y-3">
               {[
-                { m: 'zk', label: 'ZK Proof (recommended — no oracle needed)', desc: 'Cryptographic verification of game outcome' },
+                { m: 'zk', label: 'ZK Proof (recommended, no oracle needed)', desc: 'Cryptographic verification of game outcome' },
                 { m: 'custom_oracle', label: 'Custom Oracle Key', desc: 'Your own trusted data feed / API' },
                 { m: 'oracle', label: 'Standard Covex Oracle', desc: 'Default trusted resolution service' }
               ].map(opt => (
@@ -298,7 +298,7 @@ export default function PremiumBuilder() {
         </div>
       </div>
 
-      {/* DIRECT STUDIO BUTTON — big and obvious */}
+      {/* DIRECT STUDIO BUTTON, big and obvious */}
       <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer"
         className="block mb-8 rounded-2xl border-2 border-[#49EACB]/40 bg-[#49EACB]/[0.03] p-6 hover:bg-[#49EACB]/[0.07] transition group">
         <div className="flex items-center gap-4">
@@ -311,20 +311,20 @@ export default function PremiumBuilder() {
         </div>
       </a>
 
-      {/* THE COMPLETE GUIDE — "how to create, what not to forget, oracles, ZK, reusability, fees, design..." */}
+      {/* THE COMPLETE GUIDE, "how to create, what not to forget, oracles, ZK, reusability, fees, design..." */}
       <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-6">
           <BookOpen size={22} className="text-[#49EACB]" />
-          <h3 className="text-2xl font-bold text-white">Complete Paid Builder Guide — Read This Before You Deploy</h3>
+          <h3 className="text-2xl font-bold text-white">Complete Paid Builder Guide, Read This Before You Deploy</h3>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: Cpu, title: 'ZK Circuits (most important)', text: 'Always start by picking a Game Type above. It automatically wires the correct audited ZK circuit. The circuit proves the outcome (win/loss/draw/hand strength/etc) without revealing private player data. Never skip this — ZK is what makes the covenant trustless and verifiable on-chain.' },
-            { icon: Link2, title: 'Oracles — when you need real-world data', text: 'If your covenant depends on external facts (sports result, weather, stock price, API), choose Custom Oracle or Standard Oracle above and supply the key/endpoint. Oracles attest the real outcome so the script can pay out correctly. For pure on-chain games (chess, dice, poker), use ZK instead and you need zero oracle.' },
+            { icon: Cpu, title: 'ZK Circuits (most important)', text: 'Always start by picking a Game Type above. It automatically wires the correct audited ZK circuit. The circuit proves the outcome (win/loss/draw/hand strength/etc) without revealing private player data. Never skip this, ZK is what makes the covenant trustless and verifiable on-chain.' },
+            { icon: Link2, title: 'Oracles, when you need real-world data', text: 'If your covenant depends on external facts (sports result, weather, stock price, API), choose Custom Oracle or Standard Oracle above and supply the key/endpoint. Oracles attest the real outcome so the script can pay out correctly. For pure on-chain games (chess, dice, poker), use ZK instead and you need zero oracle.' },
             { icon: Palette, title: 'Custom UI & Covenant Studio (what players see)', text: 'The visual experience is 80% of engagement. Use Covenant Studio (button above) to pick a template, brand it, generate the self-contained HTML/JS/CSS, then paste it into the Custom UI box. After you deploy the script, go to the covenant\'s Terminal tab and you can further refine or re-upload the UI.' },
             { icon: Repeat, title: 'Reusability & Top-ups (economy design)', text: 'Turn Reusable ON if you want the same covenant to accept many interactions over time. Turn Allow Top-ups ON so players can add more KAS to the pot later. These two toggles create sustainable games instead of one-shot escrows.' },
-            { icon: Percent, title: 'Fees & Payout Logic (what not to forget)', text: 'Set your platform fee (0-10%) above — it is automatically taken on every resolution. In the SilverScript you are writing right now, make the payout branches explicit for every possible outcome (including draws, timeouts, forfeits, and edge cases). Clear payout rules = happy users and no disputes.' },
+            { icon: Percent, title: 'Fees & Payout Logic (what not to forget)', text: 'Set your platform fee (0-10%) above, it is automatically taken on every resolution. In the SilverScript you are writing right now, make the payout branches explicit for every possible outcome (including draws, timeouts, forfeits, and edge cases). Clear payout rules = happy users and no disputes.' },
             { icon: Zap, title: 'Things you must not forget', text: '• Test on TN12 with tiny amounts first\n• Verify your ZK circuit against several edge cases\n• Make sure any oracle you use responds quickly and reliably\n• Test the pasted UI on both desktop and mobile\n• After the first deploy, immediately open the covenant ?tab=terminal and save the full config (ZK key, oracle, UI)\n• Document your rules publicly so players know exactly what happens' },
             { icon: Gauge, title: 'After you deploy from this page', text: 'You will be taken straight to your new covenant\'s Terminal tab. There you have the real persistent Covex Terminal for that specific covenant, can tweak anything, re-generate scripts, and manage the UI. All your paid-tier covenants appear in the Explorer with the visibility ranking your tier bought.' },
           ].map((g, i) => (
@@ -339,7 +339,7 @@ export default function PremiumBuilder() {
         </div>
 
         <div className="mt-6 text-xs text-center text-gray-400 border-t border-white/10 pt-4">
-          This is the complete paid experience you unlocked. Higher tiers only improve your ranking on the Explorer — the full Terminal, ZK, Oracle tools, Studio integration, and this guide are identical for Creator / PRO / MAX.
+          This is the complete paid experience you unlocked. Higher tiers only improve your ranking on the Explorer, the full Terminal, ZK, Oracle tools, Studio integration, and this guide are identical for Creator / PRO / MAX.
         </div>
       </div>
 

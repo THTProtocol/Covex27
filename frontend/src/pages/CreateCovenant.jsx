@@ -91,7 +91,7 @@ contract TransferWithTimeout {
                 </p>
               </div>
 
-              {/* TN12 Dev Wallet — isolated from extension flow */}
+              {/* TN12 Dev Wallet, isolated from extension flow */}
               <div className="pt-2">
                 <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-2">Testing / Dev Only</p>
                 <button
@@ -102,7 +102,7 @@ contract TransferWithTimeout {
                   Connect TN12 Dev Wallet
                 </button>
                 <p className="text-[9px] text-gray-200 mt-2 text-center leading-relaxed">
-                  Derives keys locally via kaspa-wasm. For covenant testing — no browser extensions required.
+                  Derives keys locally via kaspa-wasm. For covenant testing, no browser extensions required.
                 </p>
               </div>
             </div>

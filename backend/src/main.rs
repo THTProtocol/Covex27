@@ -226,6 +226,7 @@ struct TerminalConfigInput {
     custom_oracle_key: Option<String>,
     zk_circuit: Option<String>,
     zk_verifier_key: Option<String>,
+    game_type: Option<String>,
 }
 
 async fn get_terminal_config_handler(
@@ -264,6 +265,7 @@ async fn save_terminal_config_handler(
         "custom_oracle_key": input.custom_oracle_key,
         "zk_circuit": input.zk_circuit,
         "zk_verifier_key": input.zk_verifier_key,
+        "game_type": input.game_type,
         "updated_at": chrono::Utc::now().timestamp(),
     });
     let ui_html = input.custom_ui_code.unwrap_or_default();

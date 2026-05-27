@@ -1,0 +1,307 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import ChessMini from './chess/ChessMini';
+import PokerMini from './poker/PokerMini';
+import BlackjackMini from './blackjack/BlackjackMini';
+import DiceMini from './dice/DiceMini';
+
+// Detect game type from covenant data
+const detectGameType = (covenant) => {
+  const name = (covenant.name || covenant.covenant_type || '').toLowerCase();
+  const desc = (covenant.description || '').toLowerCase();
+  const category = (covenant.category || '').toLowerCase();
+  const combined = `${name} ${desc} ${category}`;
+
+  // Try config game_type first
+  try {
+    const cfg = typeof covenant.custom_ui_config === 'string'
+      ? JSON.parse(covenant.custom_ui_config)
+      : covenant.custom_ui_config;
+    if (cfg?.game_type) {
+      const gt = cfg.game_type.toLowerCase();
+      if (gt.includes('chess')) return 'chess';
+      if (gt.includes('poker')) return 'poker';
+      if (gt.includes('blackjack')) return 'blackjack';
+      if (gt.includes('dice')) return 'dice';
+      if (gt.includes('checkers')) return 'checkers';
+      if (gt.includes('battleship')) return 'battleship';
+      if (gt.includes('go')) return 'go';
+      if (gt.includes('connect4')) return 'connect4';
+      if (gt.includes('backgammon')) return 'backgammon';
+      if (gt.includes('sudoku')) return 'sudoku';
+    }
+  } catch (_) {}
+
+  // Fallback name-based detection
+  if (combined.includes('chess') || combined.includes('chess_v1') || combined.includes('chess_v2')) return 'chess';
+  if (combined.includes('poker') || combined.includes('holdem') || combined.includes('texas')) return 'poker';
+  if (combined.includes('blackjack') || combined.includes('black jack') || combined.includes('21')) return 'blackjack';
+  if (combined.includes('dice') || combined.includes('craps')) return 'dice';
+  if (combined.includes('checkers') || combined.includes('draughts')) return 'checkers';
+  if (combined.includes('battleship') || combined.includes('naval')) return 'battleship';
+  if (combined.includes('connect 4') || combined.includes('connect4')) return 'connect4';
+  if (combined.includes('backgammon')) return 'backgammon';
+  if (combined.includes('sudoku')) return 'sudoku';
+  if (combined.includes('go ') || combined.includes('weiqi') || combined.includes('baduk')) return 'go';
+
+  return null;
+};
+
+// Has actual custom UI HTML (from Covenant Studio / custom paste)
+const hasCustomUI = (covenant) => {
+  return covenant.custom_ui_html && covenant.custom_ui_html.length > 50;
+};
+
+// ── Native React game previews (fast, no iframe) ──────────────────────────
+
+const NativePreview = ({ gameType, covenant, compact }) => {
+  switch (gameType) {
+    case 'chess':
+      return <ChessMini compact={compact} />;
+    case 'poker':
+      return <PokerMini compact={compact} />;
+    case 'blackjack':
+      return <BlackjackMini compact={compact} />;
+    case 'dice':
+      return <DiceMini compact={compact} />;
+    default:
+      // Generic game board for other known types
+      return <GamePlaceholder gameType={gameType} compact={compact} />;
+  }
+};
+
+const GamePlaceholder = ({ gameType, compact }) => {
+  const emojis = {
+    checkers: '⚫',
+    battleship: '🚢',
+    connect4: '🔴',
+    go: '⚪',
+    backgammon: '🎲',
+    sudoku: '🧩',
+  };
+  const emoji = emojis[gameType] || '🎮';
+  return (
+    <div className="flex items-center justify-center bg-black/30 rounded-lg"
+      style={{ height: compact ? '140px' : '220px' }}>
+      <div className="text-center">
+        <div className="text-4xl mb-2">{emoji}</div>
+        <p className="text-xs text-gray-200 font-mono uppercase tracking-wider">
+          {gameType} game
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ── Iframe-based custom UI preview (lazy loaded) ─────────────────────────
+
+const IframePreview = ({ covenant, visible, large = false }) => {
+  const iframeRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const height = large ? '480px' : '140px';
+  const scale = large ? '0.55' : '0.35';
+
+  useEffect(() => {
+    if (!visible || !covenant.custom_ui_html || loaded) return;
+    const tm = setTimeout(() => {
+      if (iframeRef.current) {
+        try {
+          const blob = new Blob(
+            [`<html><head><style>body{margin:0;overflow:hidden;transform:scale(${scale});transform-origin:0 0;width:calc(100% / ${scale});height:calc(100% / ${scale});}</style></head><body>${covenant.custom_ui_html}</body></html>`],
+            { type: 'text/html' }
+          );
+          iframeRef.current.src = URL.createObjectURL(blob);
+          setLoaded(true);
+        } catch (_) {}
+      }
+    }, 100);
+    return () => clearTimeout(tm);
+  }, [visible, covenant.custom_ui_html, loaded, scale]);
+
+  if (!visible) {
+    return (
+      <div className="bg-black/20 rounded-lg flex items-center justify-center text-gray-200 text-xs font-mono"
+        style={{ height }}>
+        <div className="text-center">
+          <svg className="w-5 h-5 mx-auto mb-1 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="M12 8v8M8 12h8" />
+          </svg>
+          Scroll to preview
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-lg bg-black/30" style={{ height }}>
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <div className="w-5 h-5 border-2 border-kaspa-green/30 border-t-kaspa-green rounded-full animate-spin" />
+        </div>
+      )}
+      <iframe
+        ref={iframeRef}
+        sandbox="allow-scripts"
+        title="Covenant UI Preview"
+        className="w-full h-full border-0 pointer-events-none"
+        style={{ opacity: loaded ? 1 : 0 }}
+      />
+    </div>
+  );
+};
+
+// ── Main GamePreview Component ───────────────────────────────────────────
+
+const GamePreview = ({ covenant, compact = false }) => {
+  const containerRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  // IntersectionObserver for lazy loading
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const gameType = detectGameType(covenant);
+  const customUI = hasCustomUI(covenant);
+
+  // If no game type detected and no custom UI - no preview
+  if (!gameType && !customUI) return null;
+
+  // Choose preview strategy: native React for known games, iframe for custom UI
+  const useNative = gameType && ['chess', 'poker', 'blackjack', 'dice'].includes(gameType);
+
+  const previewHeight = compact ? 140 : 200;
+
+  return (
+    <div ref={containerRef} className="relative group/preview">
+      {/* Preview area */}
+      <div
+        className="relative overflow-hidden rounded-lg border border-white/[0.06] bg-black/30 mb-3 cursor-pointer transition-all duration-300 hover:border-kaspa-green/30 hover:shadow-[0_0_15px_rgba(73,234,203,0.15)]"
+        style={{ height: `${previewHeight}px` }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setExpanded(true);
+        }}
+        title="Click to preview game"
+      >
+        {/* Subtle scanline overlay */}
+        <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-b from-transparent 50% to-black/20" />
+
+        {/* Decorative corner accents */}
+        <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-kaspa-green/20 rounded-tl pointer-events-none z-10" />
+        <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-kaspa-green/20 rounded-tr pointer-events-none z-10" />
+        <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-kaspa-green/20 rounded-bl pointer-events-none z-10" />
+        <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-kaspa-green/20 rounded-br pointer-events-none z-10" />
+
+        {/* Preview content */}
+        {useNative ? (
+          <NativePreview gameType={gameType} covenant={covenant} compact={compact} />
+        ) : (
+          <IframePreview covenant={covenant} visible={visible} />
+        )}
+
+        {/* Play overlay on hover */}
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-200 pointer-events-none">
+          <div className="flex items-center gap-2 bg-[#49EACB] text-black px-4 py-2 rounded-xl font-bold text-xs shadow-[0_0_20px_rgba(73,234,203,0.4)]">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            {useNative ? 'Play Game' : 'Preview UI'}
+          </div>
+        </div>
+
+        {/* Game badge */}
+        {gameType && (
+          <div className="absolute top-2 right-2 z-20 px-2 py-0.5 text-[9px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/25 text-[#49EACB] uppercase tracking-wider pointer-events-none">
+            {gameType}
+          </div>
+        )}
+      </div>
+
+      {/* Expanded Modal */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setExpanded(false)}
+        >
+          <div
+            className="relative w-full max-w-3xl max-h-[90vh] mx-4 bg-[#0A0A0D]/95 border border-kaspa-green/30 rounded-2xl overflow-hidden shadow-[0_0_60px_rgba(73,234,203,0.15)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-kaspa-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="M8 6h8M8 10h8M8 14h8M8 18h8" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    {covenant.name || covenant.covenant_type || 'Covenant'} Preview
+                  </h3>
+                  <p className="text-[10px] text-gray-200 font-mono">
+                    {gameType ? `${gameType} game` : 'Custom interactive UI'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setExpanded(false)}
+                className="p-2 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Preview content - larger */}
+            <div className="p-4" style={{ height: '480px' }}>
+              {useNative ? (
+                <NativePreview gameType={gameType} covenant={covenant} compact={false} />
+              ) : (
+                <IframePreview covenant={covenant} visible={true} large />
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-white/5">
+              <p className="text-[10px] text-gray-200">
+                Full interactive experience available on the covenant page
+              </p>
+              <a
+                href={`/covenant/${encodeURIComponent(covenant.tx_id)}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setExpanded(false);
+                  window.location.href = `/covenant/${encodeURIComponent(covenant.tx_id)}`;
+                }}
+                className="px-4 py-2 rounded-xl bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold text-xs transition-all shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.5)]"
+              >
+                Open Full Game
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default GamePreview;
+export { detectGameType, hasCustomUI };

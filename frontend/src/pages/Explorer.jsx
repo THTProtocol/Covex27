@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Terminal, Database, Code2, Zap, ShieldCheck, Globe, ExternalLink, Info, Sparkles, Search, ArrowRight } from 'lucide-react';
+import { Terminal, Database, Code2, Zap, ShieldCheck, Globe, ExternalLink, Info, Sparkles, Search, ArrowRight, Play } from 'lucide-react';
+import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 
 const TIER_STYLES = {
   MAX: {
@@ -524,15 +525,33 @@ const Explorer = () => {
                                 </div>
                               )}
 
-                              {/* Custom UI Built badge, only when actual custom HTML from Studio exists */}
-                              {c.custom_ui_html && c.custom_ui_html.length > 10 && (
-                                <div className="mb-3">
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/30 text-[#49EACB] shadow-[0_0_10px_rgba(73,234,203,0.3)] animate-pulse">
-                                    <Sparkles size={11} />
-                                    CUSTOM BUILT
-                                  </span>
-                                </div>
-                              )}
+                              {/* ── GAME PREVIEW ── */}
+                              <GamePreview covenant={c} compact />
+
+                              {/* Interactive UI badge */}
+                              {(() => {
+                                const gameType = detectGameType(c);
+                                const customUI = hasCustomUI(c);
+                                if (gameType || customUI) {
+                                  return (
+                                    <div className="mb-3 flex flex-wrap gap-1.5">
+                                      {gameType && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/25 text-[#49EACB] shadow-[0_0_8px_rgba(73,234,203,0.2)] uppercase tracking-wider">
+                                          <Play size={10} />
+                                          {gameType === 'blackjack' ? '21' : gameType} game
+                                        </span>
+                                      )}
+                                      {customUI && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-300 shadow-[0_0_6px_rgba(168,85,247,0.15)]">
+                                          <Sparkles size={10} />
+                                          Custom UI
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
 
                               {/* Compact stats */}
                               <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 mb-2">

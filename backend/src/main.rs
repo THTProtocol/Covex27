@@ -14,6 +14,9 @@ mod db;
 mod indexer;
 mod payment_verifier;
 mod ui_generator;
+mod signer;
+mod broadcast;
+mod dev_wallets;
 
 #[tokio::main]
 async fn main() {
@@ -108,6 +111,9 @@ async fn main() {
     });
 
     // --- Routes ---
+    let api_routes = signer::signer_routes(client.clone(), db.clone())
+        .merge(broadcast::broadcast_routes(client.clone()));
+
     let app = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root_handler))
@@ -117,6 +123,7 @@ async fn main() {
         .route("/tiers", get(tiers_handler))
         .route("/terminal-config/:covenant_id", get(get_terminal_config_handler).post(save_terminal_config_handler))
         .layer(Extension(db.clone()))
+        .merge(api_routes)
         .layer(app);
 
     info!("Serving on {}", addr);

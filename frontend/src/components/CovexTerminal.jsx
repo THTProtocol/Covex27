@@ -2,17 +2,33 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Terminal, Settings, Code2, Gavel, Save, ExternalLink,
   ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
-  Zap, AlertTriangle, CheckCircle2, ChevronDown, Info,
+  Zap, AlertTriangle, CheckCircle2, Info,
   Upload, Eye, EyeOff, Play, Clipboard, Check,
 } from 'lucide-react';
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
-const LABEL = 'text-xs text-gray-500 uppercase tracking-wider font-mono';
+const LABEL = 'text-xs text-gray-300 uppercase tracking-wider font-mono';
 const INPUT =
-  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all';
+  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all';
 const TEXTAREA =
-  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none';
+  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none';
+
+// ── Game Types ──────────────────────────────────────────────
+const GAME_TYPES = [
+  { id: 'chess_v1', name: 'Chess v1', emoji: '♟️', description: 'Standard 8×8. Win/Loss/Draw. Audited.', circuit: 'chess_v1', accent: '#49EACB' },
+  { id: 'chess_v2', name: 'Chess v2', emoji: '♟️', description: 'Extended with draw detection.', circuit: 'chess_v2', accent: '#49EACB' },
+  { id: 'poker', name: 'Poker', emoji: '♠️', description: 'Texas Hold\'em betting rounds.', circuit: 'generic_game', accent: '#A855F7' },
+  { id: 'blackjack', name: 'Blackjack', emoji: '🃏', description: 'Beat the dealer. Hit or stand.', circuit: 'generic_game', accent: '#22C55E' },
+  { id: 'dice', name: 'Dice', emoji: '🎲', description: 'Provably-fair dice roller.', circuit: 'generic_game', accent: '#F59E0B' },
+  { id: 'connect4', name: 'Connect 4', emoji: '🔴', description: 'Drop discs, connect four.', circuit: 'generic_game', accent: '#3B82F6' },
+  { id: 'checkers', name: 'Checkers', emoji: '⚫', description: 'Classic 8×8 with forced jumps.', circuit: 'generic_game', accent: '#E8AF34' },
+  { id: 'go', name: 'Go', emoji: '⚪', description: '19×19 strategy. Capture territory.', circuit: 'generic_game', accent: '#49EACB' },
+  { id: 'backgammon', name: 'Backgammon', emoji: '🎲', description: 'Race pieces, bear off to win.', circuit: 'generic_game', accent: '#F59E0B' },
+  { id: 'battleship', name: 'Battleship', emoji: '🚢', description: 'Naval combat on 10×10 grid.', circuit: 'generic_game', accent: '#06B6D4' },
+  { id: 'sudoku', name: 'Sudoku', emoji: '🔢', description: '9×9 puzzle. Solve to win.', circuit: 'generic_game', accent: '#EC4899' },
+  { id: 'custom', name: 'Custom', emoji: '⚙️', description: 'Provide your own circuit.', circuit: 'custom', accent: '#E8AF34' },
+];
 
 function Toggle({ label, desc, enabled, onChange, disabled = false }) {
   return (
@@ -28,13 +44,13 @@ function Toggle({ label, desc, enabled, onChange, disabled = false }) {
       }`}
     >
       <div className="text-left">
-        <p className={`text-sm font-medium ${disabled ? 'text-gray-600' : 'text-white'}`}>{label}</p>
-        {desc && <p className="text-[11px] text-gray-600 mt-0.5">{desc}</p>}
+        <p className={`text-sm font-medium ${disabled ? 'text-gray-200' : 'text-white'}`}>{label}</p>
+        {desc && <p className="text-[11px] text-gray-200 mt-0.5">{desc}</p>}
       </div>
       {enabled ? (
         <ToggleRight size={22} className="text-kaspa-green shrink-0" />
       ) : (
-        <ToggleLeft size={22} className="text-gray-700 shrink-0" />
+        <ToggleLeft size={22} className="text-white/80 shrink-0" />
       )}
     </button>
   );
@@ -69,7 +85,7 @@ function SliderField({ label, value, min, max, step, onChange, suffix = '%' }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="flex justify-between text-[10px] text-gray-700">
+      <div className="flex justify-between text-[10px] text-white/80">
         <span>{min}{suffix}</span>
         <span>{max}{suffix}</span>
       </div>
@@ -101,17 +117,17 @@ function ResolutionCard({ icon: Icon, title, desc, selected, onClick, accent = '
       >
         <Icon
           size={18}
-          className={selected ? `text-${accent === 'kaspa-green' ? 'kaspa-green' : accent === 'kaspa-gold' ? 'kaspa-gold' : 'purple-400'}` : 'text-gray-600'}
+          className={selected ? `text-${accent === 'kaspa-green' ? 'kaspa-green' : accent === 'kaspa-gold' ? 'kaspa-gold' : 'purple-400'}` : 'text-gray-200'}
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-gray-400'}`}>{title}</p>
-        <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">{desc}</p>
+        <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-gray-200'}`}>{title}</p>
+        <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">{desc}</p>
       </div>
       <Radio
         size={16}
         className={`shrink-0 mt-1 ${
-          selected ? 'text-kaspa-green' : 'text-gray-700'
+          selected ? 'text-kaspa-green' : 'text-white/80'
         }`}
         fill={selected ? 'currentColor' : 'none'}
       />
@@ -140,13 +156,26 @@ export default function CovexTerminal({ covenant }) {
   const [zkCircuit, setZkCircuit] = useState('chess_v1');
   const [zkVerifierKey, setZkVerifierKey] = useState('');
 
-  const handleCircuitChange = useCallback((circuit) => {
-    setZkCircuit(circuit);
-    // Pre-fill verifier key for Chess v1 if empty
-    if (circuit === 'chess_v1' && !zkVerifierKey) {
-      setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
+  // ── Section 0: Game Type ──
+  const [gameType, setGameType] = useState('chess_v1');
+
+  const handleGameTypeChange = useCallback((typeId) => {
+    setGameType(typeId);
+    const gt = GAME_TYPES.find(g => g.id === typeId);
+    if (gt) {
+      // Auto-configure ZK resolution mode when a game type with ZK circuit is selected
+      setResolutionMode('zk');
+      setZkCircuit(gt.circuit);
+      // Pre-fill verifier key for known circuits
+      if (gt.circuit === 'chess_v1') {
+        setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
+      } else if (gt.circuit === 'chess_v2') {
+        setZkVerifierKey('0xCHESSv2_DRAW_DETECTION_V1');
+      } else {
+        setZkVerifierKey('');
+      }
     }
-  }, [zkVerifierKey]);
+  }, []);
 
   // ── Section D: Status ──
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
@@ -161,64 +190,14 @@ export default function CovexTerminal({ covenant }) {
     const feePlatform = Math.round(feePercent * 10);
     const feeCreator = 10000 - feePlatform;
 
-    let resolveBlock;
-    switch (resolutionMode) {
-      case 'custom':
-        resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Oracle pubkey: ${customOracleKey || '(not set)'}\n  OpCheckSig ${customOracleKey || 'OP_0'}`;
-        break;
-      case 'zk':
-        resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
-        break;
-      default:
-        resolveBlock = `\n  ;; ── Resolution: Covex Oracle (default)\n  OpCheckSig covex_oracle_pubkey`;  // oracle
-        break;
-    }
-
-    const topupsBlock = allowTopups
-      ? '\n  ;; Allow top-ups after creation\n  OpAddToPot'
-      : '';
-
-    const reusableBlock = reusable
-      ? '\n  ;; Reusable — fee stays in pot for next round\n  OpReuseCovenant'
-      : '';
-
-    const script = `;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; SilverScript: ChessReusableCovenant
-;; Generated by Covex Terminal
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Covenant ChessReusableCovenant {
-  ;; ── Constants ──
-  fee_basis_points: ${feeBasis}   ;; ${feePercent}% platform fee
-  platform_share:   ${feePlatform}
-  creator_share:    ${feeCreator}
-  min_lock:         1000000       ;; 1 KAS minimum
-
-  ;; ── Participant addresses ──
-  input player_a: PubKey
-  input player_b: PubKey
-  input treasury:  PubKey
-  input platform:  PubKey
-
-  ;; ── State ──
-  state locked_amount: u64 = 0${topupsBlock}${reusableBlock}
-${resolveBlock}
-
-  ;; ── Core Logic ──
-  fn unlock(outcome: Outcome) {
-    let total = locked_amount;
-    let fee = (total * fee_basis_points) / 10000;
-    let pot = total - fee;
-
-    ;; Platform takes fee
-    require(
-      VerifyPayout(treasury, platform, fee),
-      "Platform fee not routed correctly"
-    );
-
-    ;; Winner takes the pot
-    match outcome {
-      Outcome::PlayerAWins => {
+    // ── Game-specific covenant definitions ──
+    const gameMeta = (() => {
+      switch (gameType) {
+        case 'chess_v1':
+          return {
+            covenantName: 'ChessReusableCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
+            outcomeBranches: `      Outcome::PlayerAWins => {
         require(
           VerifyPayout(treasury, player_a, pot),
           "Payout to Player A failed"
@@ -237,13 +216,345 @@ ${resolveBlock}
           VerifyPayout(treasury, player_b, half),
           "Draw payout failed"
         );
+      }`,
+          };
+        case 'chess_v2':
+          return {
+            covenantName: 'ChessExtendedCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw | Stalemate',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
       }
+      Outcome::PlayerBWin => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Draw | Outcome::Stalemate => {
+        let half = pot / 2;
+        require(
+          VerifyPayout(treasury, player_a, half) &&
+          VerifyPayout(treasury, player_b, half),
+          "Draw/stalemate payout failed"
+        );
+      }`,
+          };
+        case 'poker':
+          return {
+            covenantName: 'PokerHoldemCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Fold',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWin => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Fold => {
+        ;; Fold — winner gets pot, folded player forfeits
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Fold payout failed"
+        );
+      }`,
+          };
+        case 'blackjack':
+          return {
+            covenantName: 'BlackjackCovenant',
+            outcomeEnum: 'Outcome::PlayerWins | DealerWins | Push | Bust',
+            outcomeBranches: `      Outcome::PlayerWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Player win payout failed"
+        );
+      }
+      Outcome::DealerWins => {
+        require(
+          VerifyPayout(treasury, platform, pot),
+          "Dealer win payout failed"
+        );
+      }
+      Outcome::Push => {
+        ;; Return stake on push
+        require(
+          VerifyPayout(treasury, player_a, locked_amount),
+          "Push refund failed"
+        );
+      }
+      Outcome::Bust => {
+        require(
+          VerifyPayout(treasury, platform, pot),
+          "Bust payout failed"
+        );
+      }`,
+          };
+        case 'dice':
+          return {
+            covenantName: 'DiceRollCovenant',
+            outcomeEnum: 'Outcome::Win | Loss',
+            outcomeBranches: `      Outcome::Win => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Win payout failed"
+        );
+      }
+      Outcome::Loss => {
+        ;; House takes the pot
+        require(
+          VerifyPayout(treasury, platform, pot),
+          "Loss payout failed"
+        );
+      }`,
+          };
+        case 'connect4':
+          return {
+            covenantName: 'ConnectFourCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWins => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(
+          VerifyPayout(treasury, player_a, half) &&
+          VerifyPayout(treasury, player_b, half),
+          "Draw payout failed"
+        );
+      }`,
+          };
+        case 'checkers':
+          return {
+            covenantName: 'CheckersCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWins => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(
+          VerifyPayout(treasury, player_a, half) &&
+          VerifyPayout(treasury, player_b, half),
+          "Draw payout failed"
+        );
+      }`,
+          };
+        case 'go':
+          return {
+            covenantName: 'GoCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw | Resign',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWins => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(
+          VerifyPayout(treasury, player_a, half) &&
+          VerifyPayout(treasury, player_b, half),
+          "Draw payout failed"
+        );
+      }
+      Outcome::Resign => {
+        ;; Winner claims full pot on resignation
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Resignation payout failed"
+        );
+      }`,
+          };
+        case 'backgammon':
+          return {
+            covenantName: 'BackgammonCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Gammon | Backgammon',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWins => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Gammon => {
+        ;; Double stakes for gammon
+        let doubled = pot * 2;
+        require(
+          VerifyPayout(treasury, player_a, doubled),
+          "Gammon payout failed"
+        );
+      }
+      Outcome::Backgammon => {
+        ;; Triple stakes for backgammon
+        let tripled = pot * 3;
+        require(
+          VerifyPayout(treasury, player_a, tripled),
+          "Backgammon payout failed"
+        );
+      }`,
+          };
+        case 'battleship':
+          return {
+            covenantName: 'BattleshipCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWins => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }`,
+          };
+        case 'sudoku':
+          return {
+            covenantName: 'SudokuCovenant',
+            outcomeEnum: 'Outcome::Solve | Timeout',
+            outcomeBranches: `      Outcome::Solve => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Solution verified — payout to player"
+        );
+      }
+      Outcome::Timeout => {
+        ;; Timer expired — funds return to platform
+        require(
+          VerifyPayout(treasury, platform, pot),
+          "Timeout — funds returned to platform"
+        );
+      }`,
+          };
+        default: // custom
+          return {
+            covenantName: 'CustomGameCovenant',
+            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw',
+            outcomeBranches: `      Outcome::PlayerAWins => {
+        require(
+          VerifyPayout(treasury, player_a, pot),
+          "Payout to Player A failed"
+        );
+      }
+      Outcome::PlayerBWins => {
+        require(
+          VerifyPayout(treasury, player_b, pot),
+          "Payout to Player B failed"
+        );
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(
+          VerifyPayout(treasury, player_a, half) &&
+          VerifyPayout(treasury, player_b, half),
+          "Draw payout failed"
+        );
+      }`,
+          };
+      }
+    })();
+
+    let resolveBlock;
+    switch (resolutionMode) {
+      case 'custom':
+        resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Oracle pubkey: ${customOracleKey || '(not set)'}\n  OpCheckSig ${customOracleKey || 'OP_0'}`;
+        break;
+      case 'zk':
+        resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
+        break;
+      default:
+        resolveBlock = `\n  ;; ── Resolution: Covex Oracle (default)\n  OpCheckSig covex_oracle_pubkey`;
+        break;
     }
+
+    const topupsBlock = allowTopups
+      ? '\n  ;; Allow top-ups after creation\n  OpAddToPot'
+      : '';
+
+    const reusableBlock = reusable
+      ? '\n  ;; Reusable — fee stays in pot for next round\n  OpReuseCovenant'
+      : '';
+
+    const script = `;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; SilverScript: ${gameMeta.covenantName}
+;; Game Type: ${GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
+;; Generated by Covex Terminal
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Covenant ${gameMeta.covenantName} {
+  ;; ── Constants ──
+  fee_basis_points: ${feeBasis}   ;; ${feePercent}% platform fee
+  platform_share:   ${feePlatform}
+  creator_share:    ${feeCreator}
+  min_lock:         1000000       ;; 1 KAS minimum
+
+  ;; ── Participant addresses ──
+  input player_a: PubKey
+  input player_b: PubKey
+  input treasury:  PubKey
+  input platform:  PubKey
+
+  ;; ── State ──
+  state locked_amount: u64 = 0${topupsBlock}${reusableBlock}
+${resolveBlock}
+
+  ;; ── Core Logic ──
+  fn unlock(outcome: ${gameMeta.outcomeEnum}) {
+    let total = locked_amount;
+    let fee = (total * fee_basis_points) / 10000;
+    let pot = total - fee;
+
+    ;; Platform takes fee
+    require(
+      VerifyPayout(treasury, platform, fee),
+      "Platform fee not routed correctly"
+    );
+
+${gameMeta.outcomeBranches}
   }
 }`;
 
     setGeneratedScript(script);
-  }, [feePercent, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey, reusable, allowTopups]);
+  }, [gameType, feePercent, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey, reusable, allowTopups]);
 
   // ── Load saved config from API on mount ──
   useEffect(() => {
@@ -253,6 +564,7 @@ ${resolveBlock}
       .then((data) => {
         if (data.success && data.config) {
           const cfg = data.config;
+          if (cfg.game_type) setGameType(cfg.game_type);
           if (cfg.name) setName(cfg.name);
           if (cfg.description) setDescription(cfg.description);
           if (cfg.fee_percent !== undefined) setFeePercent(cfg.fee_percent);
@@ -300,6 +612,7 @@ ${resolveBlock}
     setSaveStatus('saving');
 
     const payload = {
+      game_type: gameType,
       name,
       description,
       fee_percent: feePercent,
@@ -330,7 +643,7 @@ ${resolveBlock}
       setSaveStatus('error');
     }
   }, [
-    covenantId, name, description, feePercent, reusable, allowTopups,
+    covenantId, gameType, name, description, feePercent, reusable, allowTopups,
     customUICode, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey,
   ]);
 
@@ -343,7 +656,7 @@ ${resolveBlock}
     return (
       <div className="p-20 text-center">
         <div className="w-8 h-8 border-2 border-kaspa-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-500 font-mono text-sm uppercase tracking-widest animate-pulse">
+        <p className="text-gray-300 font-mono text-sm uppercase tracking-widest animate-pulse">
           Loading terminal...
         </p>
       </div>
@@ -359,13 +672,121 @@ ${resolveBlock}
         </div>
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight">Covex Terminal</h2>
-          <p className="text-xs text-gray-500 font-mono">ADVANCED COVENANT CONFIGURATION</p>
+          <p className="text-xs text-gray-300 font-mono">ADVANCED COVENANT CONFIGURATION</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-kaspa-green animate-pulse shadow-[0_0_6px_#49EACB]" />
-          <span className="text-[10px] text-gray-600 font-mono uppercase tracking-wider">Live</span>
+          <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Live</span>
         </div>
       </div>
+
+      {/* ─── Section 0: Game Type & ZK Circuit (Most Prominent) ─── */}
+      <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
+        <div className={SECTION_HEADER}>
+          <div className="p-1.5 rounded-lg bg-kaspa-green/20">
+            <Zap size={16} />
+          </div>
+          <span className="flex-1">Game Type & ZK Circuit</span>
+          <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
+            SELECT GAME
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-300 leading-relaxed">
+          Choose a game type to configure your covenant. This determines the ZK proof circuit
+          used for outcome verification and generates the correct SilverScript template.
+        </p>
+
+        {/* Game Card Grid */}
+        <div className="grid grid-cols-4 gap-3">
+          {GAME_TYPES.map((gt) => {
+            const selected = gameType === gt.id;
+            return (
+              <button
+                key={gt.id}
+                onClick={() => handleGameTypeChange(gt.id)}
+                className={`group relative flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all duration-200 ${
+                  selected
+                    ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-2 ring-kaspa-green/30 shadow-[0_0_25px_rgba(73,234,203,0.25)] scale-[1.02]'
+                    : 'border-white/[0.06] bg-black/20 hover:border-white/[0.12] hover:bg-white/[0.04] hover:scale-[1.02]'
+                }`}
+              >
+                {/* Selected glow indicator */}
+                {selected && (
+                  <div className="absolute inset-0 rounded-xl bg-kaspa-green/5 pointer-events-none" />
+                )}
+
+                {/* Emoji */}
+                <div
+                  className={`text-3xl transition-transform duration-200 ${
+                    selected ? 'scale-110' : 'group-hover:scale-110'
+                  }`}
+                  style={selected ? {} : {}}
+                >
+                  {gt.emoji}
+                </div>
+
+                {/* Name */}
+                <div className="space-y-0.5">
+                  <p
+                    className={`text-xs font-bold tracking-tight transition-colors ${
+                      selected ? 'text-kaspa-green' : 'text-white group-hover:text-white'
+                    }`}
+                  >
+                    {gt.name}
+                  </p>
+                </div>
+
+                {/* ZK Circuit Badge */}
+                <span
+                  className={`inline-block text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                    selected
+                      ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
+                      : 'border-white/[0.08] bg-white/[0.02] text-gray-200 group-hover:border-white/[0.15] group-hover:text-gray-300'
+                  }`}
+                >
+                  {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Game Info Panel */}
+        {(() => {
+          const activeGame = GAME_TYPES.find(g => g.id === gameType);
+          if (!activeGame) return null;
+          return (
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-kaspa-green/[0.04] border border-kaspa-green/25">
+              <div className="p-2 rounded-lg bg-kaspa-green/15 text-2xl shrink-0">
+                {activeGame.emoji}
+              </div>
+              <div className="flex-1 space-y-1 min-w-0">
+                <p className="text-kaspa-green text-sm font-bold">
+                  {activeGame.name} — Active Game Type
+                </p>
+                <p className="text-[11px] text-gray-200 leading-relaxed">
+                  {activeGame.description}
+                </p>
+                <div className="flex items-center gap-3 mt-1.5 pt-2 border-t border-kaspa-green/15">
+                  <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Circuit</span>
+                  <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded">
+                    {activeGame.circuit}
+                  </code>
+                  <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Verifier</span>
+                  <code className="text-[11px] font-mono text-gray-200 bg-white/[0.03] px-2 py-0.5 rounded truncate max-w-[180px]">
+                    {activeGame.circuit === 'chess_v1' ? '0xCHESSv1…AUDITED' :
+                     activeGame.circuit === 'chess_v2' ? '0xCHESSv2…DRAW_V1' :
+                     activeGame.circuit === 'custom' ? '(manual entry required)' :
+                     'GENERIC_GAME_OUTCOME'}
+                  </code>
+                </div>
+              </div>
+              <CheckCircle2 size={18} className="text-kaspa-green shrink-0 mt-0.5" />
+            </div>
+          );
+        })()}
+      </section>
 
       {/* ─── Section A: Covenant Configuration ─── */}
       <section className={SECTION_BASE}>
@@ -430,7 +851,7 @@ ${resolveBlock}
             <Info size={16} className="text-kaspa-green shrink-0 mt-0.5" />
             <div>
               <p className="text-xs text-kaspa-green font-semibold">2% Fee Model</p>
-              <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
+              <p className="text-[11px] text-gray-300 leading-relaxed mt-1">
                 The 2% platform fee remains in the covenant pot and is redistributed per the
                 SilverScript logic. This keeps the covenant self-sustaining.
               </p>
@@ -471,7 +892,7 @@ ${resolveBlock}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className={LABEL}>Custom UI Code (HTML / JS / CSS)</p>
-              <span className="text-[10px] text-gray-600 font-mono">
+              <span className="text-[10px] text-gray-200 font-mono">
                 Paste from Covenant Studio
               </span>
             </div>
@@ -486,7 +907,7 @@ ${resolveBlock}
               />
               {customUICode && (
                 <div className="absolute top-2 right-2 flex items-center gap-1">
-                  <span className="text-[10px] text-gray-600 font-mono">
+                  <span className="text-[10px] text-gray-200 font-mono">
                     {customUICode.split('\n').length} lines
                   </span>
                 </div>
@@ -501,10 +922,10 @@ ${resolveBlock}
               disabled={!customUICode}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
                 !customUICode
-                  ? 'opacity-30 cursor-not-allowed border-white/[0.04] bg-black/20 text-gray-600'
+                  ? 'opacity-30 cursor-not-allowed border-white/[0.04] bg-black/20 text-gray-200'
                   : showPreview
                   ? 'border-kaspa-green/30 bg-kaspa-green/[0.04] text-kaspa-green'
-                  : 'border-white/10 bg-black/20 text-gray-400 hover:text-white hover:border-white/20'
+                  : 'border-white/10 bg-black/20 text-gray-200 hover:text-white hover:border-white/20'
               }`}
             >
               {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -534,7 +955,7 @@ ${resolveBlock}
                   <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                   <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
                 </div>
-                <span className="text-[10px] text-gray-600 font-mono ml-2">Preview</span>
+                <span className="text-[10px] text-gray-200 font-mono ml-2">Preview</span>
               </div>
               <div className="p-4">
                 <iframe
@@ -556,7 +977,7 @@ ${resolveBlock}
           Outcome Resolution
         </div>
 
-        <p className="text-xs text-gray-500 leading-relaxed">
+        <p className="text-xs text-gray-300 leading-relaxed">
           Choose how the covenant outcome is determined and enforced. This feeds into the
           SilverScript template generation.
         </p>
@@ -607,25 +1028,28 @@ ${resolveBlock}
 
           {resolutionMode === 'zk' && (
             <div className="ml-14 space-y-3">
+              {/* Circuit info — now controlled by Game Type section */}
               <div className="space-y-1.5">
                 <p className={LABEL}>ZK Circuit</p>
-                <div className="relative">
-                  <select
-                    value={zkCircuit}
-                    onChange={(e) => handleCircuitChange(e.target.value)}
-                    className={`${INPUT} appearance-none cursor-pointer`}
-                  >
-                    <option value="chess_v1">Chess v1 (Standard 8×8)</option>
-                    <option value="chess_v2">Chess v2 (With draw detection)</option>
-                    <option value="generic_game">Generic Game Outcome</option>
-                    <option value="custom">Custom Circuit</option>
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                  />
+                <div className="p-4 rounded-xl bg-purple-500/[0.04] border border-purple-500/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-purple-500/15">
+                      <Zap size={14} className="text-purple-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-purple-300">
+                        {zkCircuit === 'chess_v1' ? 'Chess v1 (Standard 8×8)' :
+                         zkCircuit === 'chess_v2' ? 'Chess v2 (With draw detection)' :
+                         zkCircuit === 'generic_game' ? 'Generic Game Outcome' :
+                         zkCircuit === 'custom' ? 'Custom Circuit' : zkCircuit}
+                      </p>
+                      <p className="text-[11px] text-gray-300 mt-0.5">
+                        Circuit controlled by Game Type selection above
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-gray-600 leading-relaxed">
+                <p className="text-[11px] text-gray-200 leading-relaxed">
                   {zkCircuit === 'chess_v1' &&
                     'Standard 8×8 chess verifier. Reports Win/Loss/Draw with BLAKE3 commitments. Fully audited — production ready.'}
                   {zkCircuit === 'chess_v2' &&
@@ -661,7 +1085,7 @@ ${resolveBlock}
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/[0.05] border border-amber-500/25">
                   <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
                   <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                    Custom circuits require a verifier key. Paste your audited key above or switch to a built-in circuit.
+                    Custom circuits require a verifier key. Paste your audited key above or select a different game type.
                   </p>
                 </div>
               )}
@@ -685,8 +1109,12 @@ ${resolveBlock}
           Generated SilverScript
         </div>
 
-        <p className="text-xs text-gray-500 leading-relaxed">
-          Generate a complete <code className="text-kaspa-green/80 bg-kaspa-green/[0.06] px-1.5 py-0.5 rounded text-[11px] font-mono">ChessReusableCovenant</code> SilverScript
+        <p className="text-xs text-gray-300 leading-relaxed">
+          Generate a complete{' '}
+          <code className="text-kaspa-green/80 bg-kaspa-green/[0.06] px-1.5 py-0.5 rounded text-[11px] font-mono">
+            {GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
+          </code>{' '}
+          SilverScript
           based on your current configuration. Copy it to use in your covenant deployment.
         </p>
 
@@ -711,7 +1139,7 @@ ${resolveBlock}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   copied
                     ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                    : 'bg-white/[0.04] border border-white/10 text-gray-400 hover:text-white hover:border-white/20'
+                    : 'bg-white/[0.04] border border-white/10 text-gray-200 hover:text-white hover:border-white/20'
                 }`}
               >
                 {copied ? <Check size={13} /> : <Clipboard size={13} />}
@@ -725,7 +1153,9 @@ ${resolveBlock}
                   <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                   <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
                 </div>
-                <span className="text-[10px] text-gray-600 font-mono ml-2">ChessReusableCovenant.silver</span>
+                <span className="text-[10px] text-gray-200 font-mono ml-2">
+                  {generatedScript.match(/Covenant (\w+)/)?.[1] || 'Covenant'}.silver
+                </span>
               </div>
               <pre className="p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre">
                 <code>{generatedScript}</code>
@@ -758,7 +1188,7 @@ ${resolveBlock}
             </div>
           )}
           {saveStatus === 'idle' && (
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
+            <div className="flex items-center gap-2 text-gray-200 text-sm">
               <div className="h-1.5 w-1.5 rounded-full bg-gray-700" />
               <span className="font-mono text-xs uppercase tracking-wider">Ready</span>
             </div>

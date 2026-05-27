@@ -91,7 +91,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
       <div className="p-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] text-center animate-in fade-in">
         <ShieldCheck size={24} className="text-amber-400 mx-auto mb-2" />
         <p className="text-sm text-amber-400 font-semibold mb-1">Trust Builder Locked</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-300">
           {!isCreator
             ? 'Only the on-chain covenant creator can configure trust settings.'
             : `Upgrade to PRO or MAX tier to unlock the Trust & Verification Builder. Current: ${tier}`}
@@ -109,7 +109,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
         </div>
         <div>
           <h3 className="text-sm font-bold text-white uppercase tracking-widest">Trust & Verification Builder</h3>
-          <p className="text-xs text-gray-500">Configure trust signals for your {tier} covenant</p>
+          <p className="text-xs text-gray-300">Configure trust signals for your {tier} covenant</p>
         </div>
         <span className="ml-auto px-3 py-1 text-[10px] font-bold rounded-full bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/20">
           {tier}
@@ -131,7 +131,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
           </div>
         )}
         {!hasSourceUrl && !hasNotes && (
-          <span className="text-xs text-gray-600">Configure badges will appear here as you add trust signals.</span>
+          <span className="text-xs text-gray-200">Configure badges will appear here as you add trust signals.</span>
         )}
       </div>
 
@@ -151,7 +151,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-all border-b-2 ${
                 activeSection === s.id
                   ? 'text-[#49EACB] border-[#49EACB] bg-[#49EACB]/[0.03]'
-                  : 'text-gray-500 border-transparent hover:text-gray-300'
+                  : 'text-gray-300 border-transparent hover:text-gray-300'
               }`}
             >
               <Icon size={13} />
@@ -165,24 +165,24 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
       {activeSection === 'source' && (
         <div className="space-y-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-2">
-            <Code2 size={14} className="text-gray-400 mt-0.5" />
+            <Code2 size={14} className="text-gray-200 mt-0.5" />
             <div>
               <p className="text-xs text-gray-300 font-semibold mb-1">Verified Source URL</p>
-              <p className="text-[11px] text-gray-600 mb-3">
+              <p className="text-[11px] text-gray-200 mb-3">
                 Link your open-source SilverScript code on GitHub. This proves your covenant logic is auditable and not a scam.
               </p>
             </div>
           </div>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <ExternalLink size={14} className="text-gray-600" />
+              <ExternalLink size={14} className="text-gray-200" />
             </div>
             <input
               type="url"
               value={form.verified_source_url}
               onChange={e => setForm(f => ({ ...f, verified_source_url: e.target.value }))}
               placeholder="https://github.com/your-org/your-covenant"
-              className="w-full pl-9 pr-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50 transition-colors font-mono"
+              className="w-full pl-9 pr-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB]/50 transition-colors font-mono"
             />
           </div>
           {hasSourceUrl && (
@@ -199,10 +199,10 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
       {activeSection === 'notes' && (
         <div className="space-y-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-2">
-            <FileText size={14} className="text-gray-400 mt-0.5" />
+            <FileText size={14} className="text-gray-200 mt-0.5" />
             <div>
               <p className="text-xs text-gray-300 font-semibold mb-1">Developer Safety Notes</p>
-              <p className="text-[11px] text-gray-600 mb-3">
+              <p className="text-[11px] text-gray-200 mb-3">
                 Explain how your covenant works, what parameters mean, and why it&apos;s safe to use.
                 Good notes increase user confidence and reduce scam suspicion.
               </p>
@@ -213,9 +213,9 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
             value={form.developer_notes}
             onChange={e => setForm(f => ({ ...f, developer_notes: e.target.value }))}
             placeholder={`Example: This covenant locks KAS in a time-locked escrow. The payee is hardcoded at deployment and cannot be changed. Funds can only be claimed after the timeout expires. The creator has zero ability to rug — the logic is immutable on the BlockDAG.`}
-            className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50 transition-colors resize-none font-mono leading-relaxed"
+            className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB]/50 transition-colors resize-none font-mono leading-relaxed"
           />
-          <p className="text-[10px] text-gray-600">
+          <p className="text-[10px] text-gray-200">
             {form.developer_notes.length} characters — shown on your covenant detail page
           </p>
         </div>
@@ -225,10 +225,10 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
       {activeSection === 'interaction' && (
         <div className="space-y-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-2">
-            <MousePointerClick size={14} className="text-gray-400 mt-0.5" />
+            <MousePointerClick size={14} className="text-gray-200 mt-0.5" />
             <div>
               <p className="text-xs text-gray-300 font-semibold mb-1">Interaction Schema (JSON)</p>
-              <p className="text-[11px] text-gray-600 mb-3">
+              <p className="text-[11px] text-gray-200 mb-3">
                 Define custom buttons for your covenant dashboard. Each button maps to a kaspa-wasm spend
                 action on a specific UTXO. Example: &quot;Bet on Outcome A&quot; or &quot;Sign Payout&quot;.
               </p>
@@ -253,9 +253,9 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
   }
 ]`}
             spellCheck="false"
-            className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-[#49EACB] text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50 transition-colors resize-none font-mono leading-relaxed"
+            className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-[#49EACB] text-xs placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB]/50 transition-colors resize-none font-mono leading-relaxed"
           />
-          <p className="text-[10px] text-gray-600">
+          <p className="text-[10px] text-gray-200">
             Valid JSON array of button objects. Each gets rendered as an interactive button on your covenant page.
           </p>
 
@@ -266,7 +266,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
               if (Array.isArray(btns) && btns.length > 0) {
                 return (
                   <div className="space-y-2">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">Button Preview</p>
+                    <p className="text-[10px] text-gray-300 uppercase tracking-wider">Button Preview</p>
                     <div className="flex flex-wrap gap-2">
                       {btns.map((b, i) => (
                         <div key={i} className="px-4 py-2 rounded-xl bg-[#49EACB]/10 border border-[#49EACB]/30 text-[#49EACB] text-xs font-semibold shadow-[0_0_8px_rgba(73,234,203,0.15)] flex items-center gap-1.5">
@@ -288,10 +288,10 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
       {activeSection === 'category' && (
         <div className="space-y-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-2">
-            <Terminal size={14} className="text-gray-400 mt-0.5" />
+            <Terminal size={14} className="text-gray-200 mt-0.5" />
             <div>
               <p className="text-xs text-gray-300 font-semibold mb-1">Custom Category Override</p>
-              <p className="text-[11px] text-gray-600 mb-3">
+              <p className="text-[11px] text-gray-200 mb-3">
                 Override the auto-detected category with your own label. Useful if your covenant doesn't
                 fit neatly into a predefined bucket, or you want a more descriptive name.
                 The original auto-detected category will still display on the card unless you override it.
@@ -304,11 +304,11 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
               value={form.custom_category}
               onChange={e => setForm(f => ({ ...f, custom_category: e.target.value }))}
               placeholder={covenant?.category || 'e.g. Insurance Fund, DAO Treasury, Lottery'}
-              className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB]/50 transition-colors font-mono"
+              className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB]/50 transition-colors font-mono"
             />
           </div>
-          <p className="text-[10px] text-gray-600">
-            Leave blank to keep auto-detected category: <span className="text-gray-400">{covenant?.category || 'General'}</span>
+          <p className="text-[10px] text-gray-200">
+            Leave blank to keep auto-detected category: <span className="text-gray-200">{covenant?.category || 'General'}</span>
           </p>
           {form.custom_category && form.custom_category.trim().length > 0 && (
             <div className="p-3 rounded-lg bg-purple-500/[0.04] border border-purple-500/20">
@@ -352,7 +352,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
         )}
       </button>
 
-      <p className="text-[10px] text-gray-600 text-center">
+      <p className="text-[10px] text-gray-200 text-center">
         Immutable on-chain logic • Customizable frontend display only
       </p>
     </div>

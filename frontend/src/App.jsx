@@ -12,7 +12,7 @@ import Deploy from './pages/Deploy';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
-    isActive ? 'text-kaspa-green' : 'text-gray-400 hover:text-white'
+    isActive ? 'text-kaspa-green' : 'text-gray-200 hover:text-white'
   }`;
 
 export default function App() {
@@ -92,7 +92,7 @@ export default function App() {
 
         {/* Footer */}
         <footer className="relative z-10 border-t border-white/[0.03] bg-[#0A0A0D]/85 backdrop-blur-lg py-8 px-4">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-200">
             <div className="flex items-center gap-6">
               <Link to="/terms" className="hover:text-white transition-colors">
                 Terms and Conditions
@@ -120,7 +120,7 @@ export default function App() {
               <span>DAG is the truth. Covex is the window.</span>
             </div>
           </div>
-          <div className="max-w-6xl mx-auto mt-4 text-center text-[11px] text-gray-400 leading-relaxed">
+          <div className="max-w-6xl mx-auto mt-4 text-center text-[11px] text-gray-200 leading-relaxed">
             <p>
               Covex indexes publicly available covenant data from the Kaspa BlockDAG. It does not
               create, modify, or control any on-chain covenant. All covenants remain immutable on-chain;

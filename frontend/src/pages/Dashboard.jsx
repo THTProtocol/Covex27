@@ -26,9 +26,9 @@ export default function Dashboard() {
   if (!address) {
     return (
       <div className="w-full max-w-2xl mx-auto px-4 py-20 text-center">
-        <LayoutDashboard size={48} className="mx-auto text-gray-600 mb-6" />
+        <LayoutDashboard size={48} className="mx-auto text-gray-200 mb-6" />
         <h1 className="text-2xl font-semibold text-white mb-4">Dashboard</h1>
-        <p className="text-gray-400 mb-8">
+        <p className="text-gray-200 mb-8">
           Connect your wallet to view your generated UIs, track payments, and manage your covenants.
         </p>
         <Link
@@ -52,13 +52,13 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-white tracking-tight">Dashboard</h1>
-              <p className="text-sm text-gray-500 font-mono">{address}</p>
+              <p className="text-sm text-gray-300 font-mono">{address}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             {balance !== null && (
               <div className="px-4 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/30">
-                <span className="text-xs text-gray-500">Balance: </span>
+                <span className="text-xs text-gray-300">Balance: </span>
                 <span className="text-sm font-mono text-white">{(balance / 1e8).toFixed(4)} KAS</span>
               </div>
             )}
@@ -69,7 +69,7 @@ export default function Dashboard() {
                 ? 'bg-kaspa-gold/10 text-kaspa-gold border-kaspa-gold/30'
                 : accountTier === 'CREATOR'
                 ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                : 'bg-gray-500/10 text-gray-200 border-gray-500/20'
             }`}>
               {accountTier} TIER
             </span>
@@ -86,7 +86,7 @@ export default function Dashboard() {
         ].map(([label, value, status]) => (
           <div key={label} className="glass-panel p-6 text-center">
             <p className="text-2xl font-bold text-white font-mono tabular-nums">{value}</p>
-            <p className="text-xs text-gray-500 mt-1">{label}</p>
+            <p className="text-xs text-gray-300 mt-1">{label}</p>
           </div>
         ))}
       </div>
@@ -106,14 +106,14 @@ export default function Dashboard() {
 
         {loading ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-gray-500 text-sm animate-pulse">Loading your UIs...</p>
+            <p className="text-gray-300 text-sm animate-pulse">Loading your UIs...</p>
           </div>
         ) : generatedUis.length === 0 ? (
           <div className="px-6 py-16 text-center space-y-4">
-            <LayoutDashboard size={40} className="mx-auto text-gray-700" />
+            <LayoutDashboard size={40} className="mx-auto text-white/80" />
             <div>
-              <p className="text-gray-500 text-sm">No generated UIs yet</p>
-              <p className="text-gray-600 text-xs mt-1">
+              <p className="text-gray-300 text-sm">No generated UIs yet</p>
+              <p className="text-gray-200 text-xs mt-1">
                 Upgrade to Creator tier or above to generate interactive UIs for your covenants.
               </p>
             </div>
@@ -131,7 +131,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm font-semibold text-white">{ui.covenant_id?.slice(0, 16)}...</p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-xs text-gray-500 font-mono">/{ui.slug}</span>
+                    <span className="text-xs text-gray-300 font-mono">/{ui.slug}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       ui.featured
                         ? 'bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20'
@@ -148,7 +148,7 @@ export default function Dashboard() {
                   href={`/ui/${ui.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-kaspa-green transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-200 hover:text-kaspa-green transition-colors"
                 >
                   <ExternalLink size={12} />
                   Preview UI
@@ -163,7 +163,7 @@ export default function Dashboard() {
       {accountTier === 'FREE' && (
         <div className="glass-panel p-8 text-center space-y-4 bg-kaspa-gold/[0.02] border-kaspa-gold/20">
           <h3 className="text-lg font-semibold text-white">Unlock Interactive UI Generation</h3>
-          <p className="text-sm text-gray-400 max-w-md mx-auto">
+          <p className="text-sm text-gray-200 max-w-md mx-auto">
             Upgrade to Creator tier for a one-time payment of 100 KAS and generate fully interactive
             UIs for your covenants with wallet integration.
           </p>
@@ -177,7 +177,7 @@ export default function Dashboard() {
       )}
 
       {/* Disclaimers */}
-      <div className="glass-panel p-5 text-xs text-gray-600 leading-relaxed">
+      <div className="glass-panel p-5 text-xs text-gray-200 leading-relaxed">
         <p>
           Generated UIs are hosted as static HTML pages. Your covenant remains immutable on the Kaspa
           BlockDAG. Covex does not control or modify on-chain data. All interactions occur

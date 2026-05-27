@@ -168,7 +168,7 @@ export default function CovenantInteractive() {
   if (!covenant) {
     return (
       <div className="p-20 text-center">
-        <p className="text-gray-500 text-lg">Covenant not found.</p>
+        <p className="text-gray-300 text-lg">Covenant not found.</p>
         <Link to="/" className="text-kaspa-green hover:underline mt-4 inline-block">
           Return to Explorer
         </Link>
@@ -189,7 +189,7 @@ export default function CovenantInteractive() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
       <Link
         to="/"
-        className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 font-mono text-sm uppercase tracking-wider"
+        className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors mb-8 font-mono text-sm uppercase tracking-wider"
       >
         <ArrowLeft size={16} /> Return to Registry
       </Link>
@@ -213,7 +213,7 @@ export default function CovenantInteractive() {
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest">
                   {covenant.tier || covenant.verified_tier || 'FREE'} TIER
                 </span>
-                <span className="text-sm text-gray-500 font-mono">{covenant.category || 'General'}</span>
+                <span className="text-sm text-gray-300 font-mono">{covenant.category || 'General'}</span>
               </div>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function CovenantInteractive() {
           )}
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
-            <h3 className="text-xs font-mono text-gray-500 mb-3 uppercase tracking-widest">
+            <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
               {verified ? 'Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)'}
             </h3>
             <p className="text-gray-300 leading-relaxed">
@@ -263,7 +263,7 @@ export default function CovenantInteractive() {
               ['Category', covenant.category || 'General'],
             ].map(([label, value]) => (
               <div key={label} className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-gray-500 mb-1">{label}</p>
+                <p className="text-xs text-gray-300 mb-1">{label}</p>
                 <p className="text-sm font-mono text-white truncate">{value}</p>
               </div>
             ))}
@@ -271,7 +271,7 @@ export default function CovenantInteractive() {
 
           {/* TXID */}
           <div className="mt-4 p-3 rounded-xl bg-black/30 border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">TXID</p>
+            <p className="text-xs text-gray-300 mb-1">TXID</p>
             <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
           </div>
 
@@ -310,7 +310,7 @@ export default function CovenantInteractive() {
               className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                 activeTab === 'interact'
                   ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                  : 'text-gray-500 hover:text-gray-300'
+                  : 'text-gray-300 hover:text-gray-300'
               }`}
             >
               <Terminal size={14} />
@@ -322,7 +322,7 @@ export default function CovenantInteractive() {
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'terminal'
                     ? 'text-kaspa-green bg-kaspa-green/[0.06] border-b-2 border-kaspa-green'
-                    : 'text-gray-500 hover:text-gray-300'
+                    : 'text-gray-300 hover:text-gray-300'
                 }`}
               >
                 <Code2 size={14} />
@@ -335,7 +335,7 @@ export default function CovenantInteractive() {
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'builder'
                     ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                    : 'text-gray-500 hover:text-gray-300'
+                    : 'text-gray-300 hover:text-gray-300'
                 }`}
               >
                 <Paintbrush size={14} />
@@ -348,7 +348,7 @@ export default function CovenantInteractive() {
             {activeTab === 'interact' ? (
               <div className="space-y-8">
                 <div>
-                  <label className="block text-xs font-mono text-gray-500 mb-3 uppercase tracking-widest">
+                  <label className="block text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
                     Amount to Lock (KAS)
                   </label>
                   <input
@@ -367,7 +367,7 @@ export default function CovenantInteractive() {
                     <p className="text-xs text-emerald-400 font-mono mb-1">CONNECTED WALLET</p>
                     <p className="text-sm font-mono text-white truncate">{address}</p>
                     {balance !== null && (
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-200 mt-1">
                         Balance: {(balance / 1e8).toFixed(4)} KAS
                       </p>
                     )}
@@ -385,13 +385,13 @@ export default function CovenantInteractive() {
 
                 {deployUri && (
                   <div className="p-3 rounded-xl bg-black/30 border border-white/5">
-                    <p className="text-xs text-gray-600 font-mono break-all">
+                    <p className="text-xs text-gray-200 font-mono break-all">
                       URI: {deployUri.slice(0, 60)}...
                     </p>
                   </div>
                 )}
 
-                <p className="text-center text-xs text-gray-600 font-mono">
+                <p className="text-center text-xs text-gray-200 font-mono">
                   DIRECT wRPC CONNECTION / NO MIDDLEMEN / NON-CUSTODIAL
                 </p>
 
@@ -399,7 +399,7 @@ export default function CovenantInteractive() {
                   href={`https://explorer.kaspa.org/tx/${covenant.tx_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-kaspa-green transition-colors font-mono"
+                  className="flex items-center justify-center gap-2 text-xs text-gray-300 hover:text-kaspa-green transition-colors font-mono"
                 >
                   <ExternalLink size={12} />
                   View on Kaspa Explorer
@@ -421,7 +421,7 @@ export default function CovenantInteractive() {
                 <div className="space-y-6">
                   {/* Title Override */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <p className="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                       <Type size={12} /> Title Override
                     </p>
                     <input
@@ -429,14 +429,14 @@ export default function CovenantInteractive() {
                       value={config.titleOverride || ''}
                       onChange={(e) => setConfig((s) => ({ ...s, titleOverride: e.target.value }))}
                       placeholder={covenant.name || 'Covenant Title'}
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 transition-colors"
                     />
-                    <p className="text-[10px] text-gray-600">Leave blank to use covenant name</p>
+                    <p className="text-[10px] text-gray-200">Leave blank to use covenant name</p>
                   </div>
 
                   {/* Description Override */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <p className="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                       <Ruler size={12} /> Description Override
                     </p>
                     <textarea
@@ -444,13 +444,13 @@ export default function CovenantInteractive() {
                       value={config.descOverride || ''}
                       onChange={(e) => setConfig((s) => ({ ...s, descOverride: e.target.value }))}
                       placeholder={covenant.description || 'Covenant description...'}
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 transition-colors resize-none"
+                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 transition-colors resize-none"
                     />
                   </div>
 
                   {/* Color */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Primary Color</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Primary Color</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {['#49EACB', '#E8AF34', '#3B82F6', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'].map((c) => (
                         <ColorSwatch
@@ -471,7 +471,7 @@ export default function CovenantInteractive() {
 
                   {/* Background Color */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Background Color</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Background Color</p>
                     <div className="grid grid-cols-4 gap-2">
                       {['#0A0A0D', '#0D1117', '#111116', '#1a1a2e'].map((bg) => (
                         <button
@@ -489,7 +489,7 @@ export default function CovenantInteractive() {
 
                   {/* Background Style */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Background Style</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Background Style</p>
                     <div className="grid grid-cols-3 gap-2">
                       {[
                         { val: 'glass', label: 'Glass', desc: 'Frosted' },
@@ -506,7 +506,7 @@ export default function CovenantInteractive() {
                           }`}
                         >
                           <p className="text-sm font-medium text-white">{opt.label}</p>
-                          <p className="text-[10px] text-gray-500">{opt.desc}</p>
+                          <p className="text-[10px] text-gray-300">{opt.desc}</p>
                         </button>
                       ))}
                     </div>
@@ -514,7 +514,7 @@ export default function CovenantInteractive() {
 
                   {/* Layout Toggle: Compact / Expanded */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Card Layout</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Card Layout</p>
                     <div className="grid grid-cols-2 gap-2">
                       {['Compact', 'Expanded'].map((lyt) => (
                         <button
@@ -534,7 +534,7 @@ export default function CovenantInteractive() {
 
                   {/* Layout Style */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Layout Style</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Layout Style</p>
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         { val: 'card', label: 'Card', lock: false },
@@ -561,7 +561,7 @@ export default function CovenantInteractive() {
 
                   {/* Button Styling */}
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Button Style</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Button Style</p>
                     <div className="grid grid-cols-2 gap-2">
                       {['Solid', 'Outline', 'Ghost', 'Pill'].map((bs) => (
                         <button
@@ -581,7 +581,7 @@ export default function CovenantInteractive() {
 
                   {/* Toggles */}
                   <div className="space-y-3">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Components</p>
+                    <p className="text-xs text-gray-300 uppercase tracking-wider">Components</p>
                     {[
                       { key: 'showWalletButton', label: 'Show Wallet Button', icon: Lock, tierReq: 1 },
                       { key: 'showParamForm', label: 'Show Parameter Form', icon: Code, tierReq: 1 },
@@ -602,8 +602,8 @@ export default function CovenantInteractive() {
                           } ${locked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/[0.04]'}`}
                         >
                           <div className="flex items-center gap-3">
-                            <opt.icon size={16} className={locked ? 'text-gray-600' : 'text-kaspa-green'} />
-                            <span className={`text-sm ${locked ? 'text-gray-600' : 'text-white'}`}>{opt.label}</span>
+                            <opt.icon size={16} className={locked ? 'text-gray-200' : 'text-kaspa-green'} />
+                            <span className={`text-sm ${locked ? 'text-gray-200' : 'text-white'}`}>{opt.label}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             {locked && <span className="text-[10px] text-kaspa-gold border border-kaspa-gold/30 px-1.5 py-0.5 rounded">PRO+</span>}
@@ -617,13 +617,13 @@ export default function CovenantInteractive() {
                   {/* Custom Logo (MAX) */}
                   {canMaxLayout && (
                     <div className="space-y-2">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Custom Logo URL</p>
+                      <p className="text-xs text-gray-300 uppercase tracking-wider">Custom Logo URL</p>
                       <input
                         type="text"
                         value={config.customLogoUrl}
                         onChange={(e) => setConfig((s) => ({ ...s, customLogoUrl: e.target.value }))}
                         placeholder="https://example.com/logo.png"
-                        className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-kaspa-green/50 transition-colors"
+                        className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 transition-colors"
                       />
                     </div>
                   )}
@@ -658,7 +658,7 @@ export default function CovenantInteractive() {
               <Monitor size={18} className="text-kaspa-green" />
               Live Preview
             </h3>
-            <span className="text-xs text-gray-500">Updated in real time</span>
+            <span className="text-xs text-gray-300">Updated in real time</span>
           </div>
           <div
             className="rounded-2xl border p-6 max-w-xl mx-auto"
@@ -681,25 +681,25 @@ export default function CovenantInteractive() {
               </div>
             )}
             <h4 className="text-white font-bold text-lg mb-1">{config.titleOverride || covenant.name || TRUNC(covenant.tx_id)}</h4>
-            <p className="text-sm text-gray-400 mb-4">{config.descOverride || covenant.description || covenant.desc || 'Covenant deployed on Kaspa BlockDAG.'}</p>
+            <p className="text-sm text-gray-200 mb-4">{config.descOverride || covenant.description || covenant.desc || 'Covenant deployed on Kaspa BlockDAG.'}</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                <p className="text-[10px] text-gray-500">Locked</p>
+                <p className="text-[10px] text-gray-300">Locked</p>
                 <p className="text-sm font-mono text-white">{(covenant.amount_kaspa || 0).toFixed(2)} KAS</p>
               </div>
               <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                <p className="text-[10px] text-gray-500">Type</p>
+                <p className="text-[10px] text-gray-300">Type</p>
                 <p className="text-sm font-mono text-white truncate">{covenant.covenant_type || 'P2SH'}</p>
               </div>
             </div>
             {config.showParamForm && (
               <div className="mb-4">
-                <label className="text-xs text-gray-500 mb-1.5 block">Amount (KAS)</label>
+                <label className="text-xs text-gray-300 mb-1.5 block">Amount (KAS)</label>
                 <input
                   type="number"
                   placeholder="0.00"
                   disabled
-                  className="w-full px-3 py-2 rounded-lg border bg-black/30 text-white text-sm placeholder:text-gray-600"
+                  className="w-full px-3 py-2 rounded-lg border bg-black/30 text-white text-sm placeholder:text-gray-200"
                   style={{ borderColor: `${config.primaryColor}40` }}
                 />
               </div>
@@ -726,7 +726,7 @@ export default function CovenantInteractive() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">Custom Interactive UI</h3>
-              <p className="text-xs text-gray-500 font-mono">GENERATED BY COVENANT STUDIO</p>
+              <p className="text-xs text-gray-300 font-mono">GENERATED BY COVENANT STUDIO</p>
             </div>
           </div>
           <div className="rounded-2xl border border-kaspa-green/20 bg-black/50 overflow-hidden">
@@ -736,7 +736,7 @@ export default function CovenantInteractive() {
                 <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
               </div>
-              <span className="text-[10px] text-gray-600 font-mono ml-2">Custom Covenant UI</span>
+              <span className="text-[10px] text-gray-200 font-mono ml-2">Custom Covenant UI</span>
             </div>
             <div className="p-4">
               <iframe
@@ -751,8 +751,8 @@ export default function CovenantInteractive() {
       )}
 
       {/* Disclaimer */}
-      <div className="glass-panel p-6 mt-8 text-xs text-gray-600 leading-relaxed max-w-3xl mx-auto">
-        <p className="text-gray-500 font-semibold mb-2">Transparency Notice</p>
+      <div className="glass-panel p-6 mt-8 text-xs text-gray-200 leading-relaxed max-w-3xl mx-auto">
+        <p className="text-gray-300 font-semibold mb-2">Transparency Notice</p>
         <p>
           This covenant is immutable on the Kaspa BlockDAG. Covex does not create, modify, or control
           it. We only index publicly available data. All interactions occur
@@ -782,7 +782,7 @@ export default function CovenantInteractive() {
               <h3 className="text-lg font-semibold text-white tracking-tight">
                 Upgrade Covenant: {covenant.name || TRUNC(covenant.tx_id)}
               </h3>
-              <button onClick={() => setShowUpgrade(false)} className="text-gray-500 hover:text-white transition-colors text-2xl leading-none">
+              <button onClick={() => setShowUpgrade(false)} className="text-gray-300 hover:text-white transition-colors text-2xl leading-none">
                 &times;
               </button>
             </div>
@@ -795,7 +795,7 @@ export default function CovenantInteractive() {
                 <p className="text-sm text-gray-300 text-center">
                   Pay exactly <span className="font-bold text-kaspa-green">{upgradeTier.price} KAS</span>
                 </p>
-                <p className="text-xs text-gray-500 break-all font-mono">{getUpgradeUri(upgradeTier)}</p>
+                <p className="text-xs text-gray-300 break-all font-mono">{getUpgradeUri(upgradeTier)}</p>
                 <button onClick={() => setUpgradeQr(false)} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm hover:bg-white/10 transition-colors">
                   Back to Payment Options
                 </button>
@@ -807,7 +807,7 @@ export default function CovenantInteractive() {
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-white">Payment Sent</p>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className="text-sm text-gray-200 mt-1">
                     Your payment of {upgradeTier.price} KAS is being processed. After 6 confirmations (approximately 1-2 minutes), your covenant will be upgraded to {upgradeTier.label} tier and unlock the interactive UI builder.
                   </p>
                 </div>
@@ -817,7 +817,7 @@ export default function CovenantInteractive() {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-200">
                   Select a tier to upgrade this covenant. After payment, you will unlock the interactive UI builder, full disclosure, and a verified badge.
                 </p>
                 <div className="space-y-2">
@@ -836,7 +836,7 @@ export default function CovenantInteractive() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white">{t.label}</p>
-                        <p className="text-xs text-gray-500">{t.desc}</p>
+                        <p className="text-xs text-gray-300">{t.desc}</p>
                       </div>
                       <span className="text-sm font-bold text-kaspa-green tabular-nums">{t.price} KAS</span>
                     </button>
@@ -859,7 +859,7 @@ export default function CovenantInteractive() {
                 </div>
                 <div className="relative flex items-center py-2">
                   <div className="flex-grow border-t border-white/10"></div>
-                  <span className="flex-shrink-0 mx-3 text-[10px] text-gray-600 uppercase">Testnet Faucet</span>
+                  <span className="flex-shrink-0 mx-3 text-[10px] text-gray-200 uppercase">Testnet Faucet</span>
                   <div className="flex-grow border-t border-white/10"></div>
                 </div>
                 <button
@@ -869,7 +869,7 @@ export default function CovenantInteractive() {
                   <Zap size={16} />
                   Simulate tKAS Payment (Faucet)
                 </button>
-                <p className="text-[11px] text-gray-600 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
+                <p className="text-[11px] text-gray-200 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
               </div>
             )}
           </div>

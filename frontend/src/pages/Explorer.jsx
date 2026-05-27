@@ -23,7 +23,7 @@ const TIER_STYLES = {
   },
   FREE: {
     card: 'border-zinc-800/80 bg-zinc-900/50',
-    badge: 'bg-gray-500/15 text-gray-400 ring-1 ring-gray-500/30',
+    badge: 'bg-gray-500/15 text-gray-200 ring-1 ring-gray-500/30',
     glow: '',
     label: 'FREE',
   },
@@ -170,7 +170,7 @@ const Explorer = () => {
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base md:text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed mb-16">
+        <p className="text-base md:text-lg text-gray-200 max-w-2xl mx-auto leading-relaxed mb-16">
           Covex is the native indexing and deployment layer for SilverScript covenants. Compile, deploy, and interact with programmable UTXOs at 10 blocks per second.
         </p>
 
@@ -181,7 +181,7 @@ const Explorer = () => {
               <Terminal size={18} />
             </div>
             <div className="text-left">
-              <p className="text-xs text-gray-500 font-mono">LANGUAGE</p>
+              <p className="text-xs text-gray-300 font-mono">LANGUAGE</p>
               <p className="text-sm font-semibold text-white">SilverScript</p>
             </div>
           </div>
@@ -193,7 +193,7 @@ const Explorer = () => {
               <Zap size={18} />
             </div>
             <div className="text-left">
-              <p className="text-xs text-gray-500 font-mono">SPEED</p>
+              <p className="text-xs text-gray-300 font-mono">SPEED</p>
               <p className="text-sm font-semibold text-white">10 BPS</p>
             </div>
           </div>
@@ -205,7 +205,7 @@ const Explorer = () => {
               <Database size={18} />
             </div>
             <div className="text-left">
-              <p className="text-xs text-gray-500 font-mono">INDEXER</p>
+              <p className="text-xs text-gray-300 font-mono">INDEXER</p>
               <p className="text-sm font-semibold text-white">Covex Engine</p>
             </div>
           </div>
@@ -217,7 +217,7 @@ const Explorer = () => {
               <Code2 size={18} />
             </div>
             <div className="text-left">
-              <p className="text-xs text-gray-500 font-mono">RUNTIME</p>
+              <p className="text-xs text-gray-300 font-mono">RUNTIME</p>
               <p className="text-sm font-semibold text-white">Toccata</p>
             </div>
           </div>
@@ -226,7 +226,7 @@ const Explorer = () => {
 
       {/* ═══ SCROLL TRANSITION ═══ */}
       <div className="relative z-10 flex flex-col items-center justify-center pb-8">
-        <p className="text-xs text-gray-500 font-mono tracking-wider uppercase mb-5">
+        <p className="text-xs text-gray-300 font-mono tracking-wider uppercase mb-5">
           Explore Covenants on the Kaspa BlockDAG
         </p>
         <div className="w-px h-8 bg-gradient-to-b from-[#49EACB]/40 to-transparent" />
@@ -245,7 +245,7 @@ const Explorer = () => {
               className={`px-5 py-3 text-xs font-semibold transition-colors flex items-center gap-2 border-b-2 ${
                 activeTab === tab.id
                   ? 'text-[#49EACB] bg-[#49EACB]/[0.04] border-[#49EACB]'
-                  : 'text-gray-500 border-transparent hover:text-gray-300'
+                  : 'text-gray-300 border-transparent hover:text-gray-300'
               }`}
             >
               <tab.icon size={13} />
@@ -260,13 +260,13 @@ const Explorer = () => {
         <h2 className="text-2xl font-bold mb-2 text-white">
           {activeTab === 'search' ? 'Search & Discover' : 'Covenant Explorer'}
         </h2>
-        <p className="text-gray-400 mb-8">
+        <p className="text-gray-200 mb-8">
           {activeTab === 'search'
             ? 'Paste a wallet address or covenant TXID to find covenants'
             : 'Live covenants on Kaspa Testnet-12 (Toccata)'}
         </p>
 
-        {loading && activeTab === 'explore' && <p className="text-lg text-gray-400">Loading from the BlockDAG…</p>}
+        {loading && activeTab === 'explore' && <p className="text-lg text-gray-200">Loading from the BlockDAG…</p>}
         {error && activeTab === 'explore' && <p className="text-red-500">{error}</p>}
 
         {/* ═══ SEARCH TAB ═══ */}
@@ -283,7 +283,7 @@ const Explorer = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="kaspatest:qr... or covenant txid (hash:0)"
-                  className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white placeholder:text-gray-600"
+                  className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white placeholder:text-gray-200"
                   autoFocus
                   spellCheck={false}
                   autoComplete="off"
@@ -303,7 +303,7 @@ const Explorer = () => {
             </form>
 
             {/* Quick examples */}
-            <div className="flex flex-wrap gap-2 text-[10px] text-gray-600">
+            <div className="flex flex-wrap gap-2 text-[10px] text-gray-200">
               <span>Try:</span>
               <button onClick={() => { setSearchQuery('kaspatest:'); }} className="px-2 py-0.5 rounded border border-white/5 bg-white/[0.02] hover:border-[#49EACB]/20 hover:text-[#49EACB] transition-colors font-mono">kaspatest:...</button>
               <button onClick={() => { setSearchQuery(':'); }} className="px-2 py-0.5 rounded border border-white/5 bg-white/[0.02] hover:border-[#49EACB]/20 hover:text-[#49EACB] transition-colors font-mono">txid:0</button>
@@ -311,7 +311,7 @@ const Explorer = () => {
 
             {/* Results */}
             {searchLoading && (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-500 gap-3">
+              <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
                 <div className="w-8 h-8 border-2 border-[#49EACB]/30 border-t-[#49EACB] rounded-full animate-spin" />
                 <p className="text-sm font-mono">QUERYING THE BLOCKDAG...</p>
               </div>
@@ -320,7 +320,7 @@ const Explorer = () => {
             {searchError && !searchLoading && (
               <div className="p-6 rounded-2xl bg-red-500/[0.04] border border-red-500/20 text-center">
                 <p className="text-sm text-red-400 font-mono mb-1">NO RESULTS</p>
-                <p className="text-xs text-gray-500">{searchError}</p>
+                <p className="text-xs text-gray-300">{searchError}</p>
               </div>
             )}
 
@@ -334,7 +334,7 @@ const Explorer = () => {
                         : 'Found covenant'}
                     </span>
                     {searchResults.type === 'wallet' && (
-                      <span className="text-[10px] text-gray-500 font-mono truncate max-w-[300px]">
+                      <span className="text-[10px] text-gray-300 font-mono truncate max-w-[300px]">
                         {searchResults.query.slice(0, 30)}...
                       </span>
                     )}
@@ -359,7 +359,7 @@ const Explorer = () => {
                             <h4 className={`font-bold text-sm truncate ${isPremium ? 'text-[#49EACB]' : 'text-white'}`}>
                               {c.name || c.covenant_type || 'Unnamed Covenant'}
                             </h4>
-                            <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">
+                            <p className="text-[10px] text-gray-300 font-mono mt-0.5 truncate">
                               {c.tx_id ? c.tx_id.slice(0, 20) + '...' : 'N/A'}
                             </p>
                           </div>
@@ -368,11 +368,11 @@ const Explorer = () => {
                           </span>
                         </div>
 
-                        <p className="text-[11px] text-gray-400 mb-3 line-clamp-2">
+                        <p className="text-[11px] text-gray-200 mb-3 line-clamp-2">
                           {c.description || c.full_logic_summary || 'No description.'}
                         </p>
 
-                        <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-500 mb-3">
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-300 mb-3">
                           <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
                           <span>Locked: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
                           <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
@@ -400,7 +400,7 @@ const Explorer = () => {
         {!loading && covenants.length === 0 && (
           <div className="border border-zinc-700 bg-zinc-900/50 p-8 rounded-xl text-center">
             <p className="text-xl">No covenants detected yet.</p>
-            <p className="text-gray-500 mt-2">
+            <p className="text-gray-300 mt-2">
               The Kaspa node is still syncing. Covenants will appear automatically.
             </p>
           </div>
@@ -467,7 +467,7 @@ const Explorer = () => {
                                   <h3 className={`font-bold text-lg ${isPremium ? 'text-[#49EACB]' : 'text-white'}`}>
                                     {c.name || c.covenant_type || 'Unnamed Covenant'}
                                   </h3>
-                                  <p className={`text-xs font-mono mt-1 ${isMax ? 'text-[#49EACB]/70' : 'text-gray-500'}`}>
+                                  <p className={`text-xs font-mono mt-1 ${isMax ? 'text-[#49EACB]/70' : 'text-gray-300'}`}>
                                     {truncate(c.tx_id, 10)}
                                   </p>
                                 </div>
@@ -477,7 +477,7 @@ const Explorer = () => {
                               </div>
 
                               {/* Description */}
-                              <p className={`text-sm mb-3 ${isMax ? 'text-gray-200' : 'text-gray-400'}`}>
+                              <p className={`text-sm mb-3 ${isMax ? 'text-gray-200' : 'text-gray-200'}`}>
                                 {c.description || 'No description provided.'}
                               </p>
 
@@ -535,7 +535,7 @@ const Explorer = () => {
                               )}
 
                               {/* Compact stats */}
-                              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-2">
+                              <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 mb-2">
                                 <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
                                 <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
                                 <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
@@ -553,7 +553,7 @@ const Explorer = () => {
                       {paidCovenants.length > 0 && (
                         <div className="flex items-center gap-3 mb-4">
                           <div className="h-px flex-1 bg-gradient-to-r from-gray-700/50 to-transparent" />
-                          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">All Covenants</span>
+                          <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">All Covenants</span>
                           <div className="h-px flex-1 bg-gradient-to-l from-gray-700/50 to-transparent" />
                         </div>
                       )}
@@ -571,14 +571,14 @@ const Explorer = () => {
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1">
                                   <h3 className="font-bold text-lg text-white">{c.name || c.covenant_type || 'Unnamed Covenant'}</h3>
-                                  <p className="text-xs font-mono mt-1 text-gray-500">{truncate(c.tx_id, 10)}</p>
+                                  <p className="text-xs font-mono mt-1 text-gray-300">{truncate(c.tx_id, 10)}</p>
                                 </div>
-                                <span className="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-gray-500/15 text-gray-400 ring-1 ring-gray-500/30">
+                                <span className="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-gray-500/15 text-gray-200 ring-1 ring-gray-500/30">
                                   FREE
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-400 mb-3">{c.description || 'No description provided.'}</p>
-                              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-2">
+                              <p className="text-sm text-gray-200 mb-3">{c.description || 'No description provided.'}</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 mb-2">
                                 <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
                                 <span>Amount: <span className="text-gray-300">{formatKaspa(c.amount_kaspa)}</span></span>
                                 <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>

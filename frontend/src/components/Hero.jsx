@@ -6,7 +6,7 @@ const Hero = () => {
     <div className="relative z-10 flex flex-col items-center justify-center pt-24 pb-16 px-6 text-center animate-in fade-in duration-700">
       
       {/* Network Status Badge */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#1f1f1f] text-gray-400 text-xs font-mono mb-8">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111111] border border-[#1f1f1f] text-gray-200 text-xs font-mono mb-8">
         <div className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_8px_#49EACB] animate-pulse" />
         TN-12 LIVE (TOCCATA)
       </div>
@@ -18,7 +18,7 @@ const Hero = () => {
       </h1>
 
       {/* Subtitle */}
-      <p className="text-base md:text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed mb-16">
+      <p className="text-base md:text-lg text-gray-200 max-w-2xl mx-auto leading-relaxed mb-16">
         Covex is the native indexing and deployment layer for SilverScript covenants. Compile, deploy, and interact with programmable UTXOs at 10 blocks per second.
       </p>
 
@@ -30,7 +30,7 @@ const Hero = () => {
             <Terminal size={18} />
           </div>
           <div className="text-left">
-            <p className="text-xs text-gray-500 font-mono">LANGUAGE</p>
+            <p className="text-xs text-gray-300 font-mono">LANGUAGE</p>
             <p className="text-sm font-semibold text-white">SilverScript</p>
           </div>
         </div>
@@ -42,7 +42,7 @@ const Hero = () => {
             <Zap size={18} />
           </div>
           <div className="text-left">
-            <p className="text-xs text-gray-500 font-mono">LATENCY</p>
+            <p className="text-xs text-gray-300 font-mono">LATENCY</p>
             <p className="text-sm font-semibold text-white">100ms</p>
           </div>
         </div>
@@ -54,7 +54,7 @@ const Hero = () => {
             <Database size={18} />
           </div>
           <div className="text-left">
-            <p className="text-xs text-gray-500 font-mono">INDEXER</p>
+            <p className="text-xs text-gray-300 font-mono">INDEXER</p>
             <p className="text-sm font-semibold text-white">Covex Engine</p>
           </div>
         </div>
@@ -66,7 +66,7 @@ const Hero = () => {
             <Code2 size={18} />
           </div>
           <div className="text-left">
-            <p className="text-xs text-gray-500 font-mono">RUNTIME</p>
+            <p className="text-xs text-gray-300 font-mono">RUNTIME</p>
             <p className="text-sm font-semibold text-white">Toccata</p>
           </div>
         </div>

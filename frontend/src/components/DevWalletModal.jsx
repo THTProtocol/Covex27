@@ -165,7 +165,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-gray-300 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -214,7 +214,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
                     tab === 'mnemonic'
                       ? 'bg-yellow-600/20 text-yellow-400 border-b-2 border-yellow-500'
-                      : 'text-gray-500 hover:text-gray-300'
+                      : 'text-gray-300 hover:text-gray-300'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <Terminal size={12} className="inline mr-1" />
@@ -226,7 +226,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
                     tab === 'hex'
                       ? 'bg-yellow-600/20 text-yellow-400 border-b-2 border-yellow-500'
-                      : 'text-gray-500 hover:text-gray-300'
+                      : 'text-gray-300 hover:text-gray-300'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <Key size={12} className="inline mr-1" />
@@ -258,7 +258,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   rows={3}
                   placeholder="witch collapse practice feed shame open despair creek road again ice least"
                   disabled={!isWasmReady}
-                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-200 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   spellCheck={false}
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -273,7 +273,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   rows={2}
                   placeholder="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                   disabled={!isWasmReady}
-                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-200 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   spellCheck={false}
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -325,7 +325,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
 
         {/* Footer */}
         <div className="px-5 pb-5">
-          <p className="text-[10px] text-gray-600 text-center leading-relaxed">
+          <p className="text-[10px] text-gray-200 text-center leading-relaxed">
             Keys are derived locally via kaspa-wasm. Never leaves your browser.
             For covenant testing only — no real funds. TN12 Testnet (Toccata).
           </p>

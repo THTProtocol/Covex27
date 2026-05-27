@@ -39,7 +39,7 @@ contract TransferWithTimeout {
       {/* Universal Back Button */}
       <button 
         onClick={() => window.history.back()} 
-        className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
+        className="flex items-center gap-2 text-gray-200 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
       >
         <ArrowLeft size={16} />
         Explorer
@@ -55,7 +55,7 @@ contract TransferWithTimeout {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">Create Covenant</h1>
-            <p className="text-sm text-gray-400 mt-1">Write SilverScript, compile to Kaspa bytecode, and deploy to the BlockDAG</p>
+            <p className="text-sm text-gray-200 mt-1">Write SilverScript, compile to Kaspa bytecode, and deploy to the BlockDAG</p>
           </div>
         </div>
 
@@ -86,14 +86,14 @@ contract TransferWithTimeout {
             <div className="space-y-3">
               <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
                 <p className="text-xs text-amber-400 font-mono mb-1">WALLET NOT CONNECTED</p>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-200">
                   Connect a wallet to sign and deploy your SilverScript covenant to TN12.
                 </p>
               </div>
 
               {/* TN12 Dev Wallet — isolated from extension flow */}
               <div className="pt-2">
-                <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Testing / Dev Only</p>
+                <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-2">Testing / Dev Only</p>
                 <button
                   onClick={() => setDevWalletOpen(true)}
                   className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
@@ -101,7 +101,7 @@ contract TransferWithTimeout {
                   <Key size={16} />
                   Connect TN12 Dev Wallet
                 </button>
-                <p className="text-[9px] text-gray-600 mt-2 text-center leading-relaxed">
+                <p className="text-[9px] text-gray-200 mt-2 text-center leading-relaxed">
                   Derives keys locally via kaspa-wasm. For covenant testing — no browser extensions required.
                 </p>
               </div>
@@ -110,7 +110,7 @@ contract TransferWithTimeout {
           
           <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-[#2a2a2a]">
-              <div className="flex items-center gap-2 text-gray-400 text-xs font-mono tracking-wider">
+              <div className="flex items-center gap-2 text-gray-200 text-xs font-mono tracking-wider">
                 <Terminal size={14} className="text-[#49EACB]" />
                 <span>contract.ss</span>
               </div>
@@ -162,10 +162,10 @@ contract TransferWithTimeout {
             <AlertTriangle size={20} className="text-yellow-600 shrink-0 mt-0.5" />
             <div className="space-y-2">
               <h4 className="text-sm font-semibold text-gray-300 tracking-wide uppercase">Deployment Notice</h4>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-300 leading-relaxed">
                 Covenants deployed to the Kaspa BlockDAG are <strong className="text-gray-300">permanently immutable</strong>. They cannot be changed, deleted, or reversed. You bear full legal and financial responsibility.
               </p>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-300 leading-relaxed">
                 Covex is a <strong className="text-gray-300">non-custodial platform</strong>. We never access your private keys. All signing happens in your own wallet application.
               </p>
             </div>

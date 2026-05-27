@@ -170,7 +170,7 @@ export default function Deploy() {
     <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 animate-in fade-in duration-300">
       <button
         onClick={() => window.history.back()}
-        className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
+        className="flex items-center gap-2 text-gray-200 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
       >
         <ArrowLeft size={16} />
         Back
@@ -183,7 +183,7 @@ export default function Deploy() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">Deploy Covenant</h1>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-200 mt-1">
               Write SilverScript, sign with your TN12 wallet, deploy to Kaspa BlockDAG
             </p>
           </div>
@@ -198,14 +198,14 @@ export default function Deploy() {
               <ShieldCheck size={28} className="text-amber-400" />
             </div>
             <h3 className="text-lg font-semibold text-white">Connect Wallet to Deploy Covenants</h3>
-            <p className="text-sm text-gray-400 max-w-md mx-auto">
+            <p className="text-sm text-gray-200 max-w-md mx-auto">
               You need a connected Kaspa wallet to sign and broadcast SilverScript covenant deployments to the TN12 BlockDAG.
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-300">
               Click "CONNECT WALLET" in the top navigation bar to get started.
             </p>
             <div className="mt-5 pt-5 border-t border-[#1f1f1f]">
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-3">Testing / Dev Only</p>
+              <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-3">Testing / Dev Only</p>
               <button
                 onClick={() => setDevWalletOpen(true)}
                 className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
@@ -213,7 +213,7 @@ export default function Deploy() {
                 <Key size={16} />
                 Connect TN12 Dev Wallet
               </button>
-              <p className="text-[9px] text-gray-600 mt-2 text-center leading-relaxed">
+              <p className="text-[9px] text-gray-200 mt-2 text-center leading-relaxed">
                 Derives keys locally via kaspa-wasm. For covenant testing — no browser extensions required.
               </p>
             </div>
@@ -240,11 +240,11 @@ export default function Deploy() {
               </div>
               <div className="flex items-center gap-3">
                 {balance !== null ? (
-                  <span className="text-[11px] font-mono text-gray-400">
+                  <span className="text-[11px] font-mono text-gray-200">
                     {(balance / 1e8).toFixed(4)} KAS
                   </span>
                 ) : (
-                  <button onClick={fetchBalance} className="text-[10px] text-gray-500 hover:text-[#49EACB] transition-colors">
+                  <button onClick={fetchBalance} className="text-[10px] text-gray-300 hover:text-[#49EACB] transition-colors">
                     <Wallet size={12} className="inline mr-1" />Refresh
                   </button>
                 )}
@@ -254,13 +254,13 @@ export default function Deploy() {
 
             <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">
               <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-[#2a2a2a]">
-                <div className="flex items-center gap-2 text-gray-400 text-xs font-mono tracking-wider">
+                <div className="flex items-center gap-2 text-gray-200 text-xs font-mono tracking-wider">
                   <Terminal size={14} className="text-[#49EACB]" />
                   <span>covenant.ss</span>
                 </div>
                 <button
                   onClick={() => setCode(SILVERSCRIPT_TEMPLATE)}
-                  className="text-[10px] text-gray-500 hover:text-[#49EACB] transition-colors"
+                  className="text-[10px] text-gray-300 hover:text-[#49EACB] transition-colors"
                 >
                   RESET
                 </button>
@@ -275,7 +275,7 @@ export default function Deploy() {
             </div>
 
             <div className="space-y-3">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Platform Tier Fee</p>
+              <p className="text-[10px] text-gray-300 uppercase tracking-wider">Platform Tier Fee</p>
               <div className="grid grid-cols-4 gap-2">
                 {Object.entries(TIERS).map(([key, tier]) => {
                   const Icon = tier.icon;
@@ -302,12 +302,12 @@ export default function Deploy() {
                           : key === 'PRO' ? 'text-amber-400'
                           : key === 'CREATOR' ? 'text-blue-400'
                           : 'text-[#49EACB]'
-                          : 'text-gray-500'
+                          : 'text-gray-300'
                       } />
-                      <span className={`text-[11px] font-semibold leading-tight ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                      <span className={`text-[11px] font-semibold leading-tight ${isSelected ? 'text-white' : 'text-gray-200'}`}>
                         {key === 'FREE' ? 'Free' : key === 'CREATOR' ? 'Creator' : key}
                       </span>
-                      <span className={`text-[9px] leading-tight ${isSelected ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <span className={`text-[9px] leading-tight ${isSelected ? 'text-gray-300' : 'text-gray-200'}`}>
                         {tier.fee > 0n ? `${Number(tier.fee) / 1e8} KAS` : 'No fee'}
                       </span>
                     </button>
@@ -360,29 +360,29 @@ export default function Deploy() {
                 {result.success ? (
                   <div className="space-y-2 text-xs font-mono">
                     <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-gray-500">TXID</span>
+                      <span className="text-gray-300">TXID</span>
                       <span className="text-[#49EACB]">{result.txid.length > 30 ? result.txid.slice(0, 30) + '...' : result.txid}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-gray-500">Tier</span>
+                      <span className="text-gray-300">Tier</span>
                       <span className={`${
                         result.tier === 'MAX' ? 'text-purple-400'
                         : result.tier === 'PRO' ? 'text-amber-400'
                         : result.tier === 'CREATOR' ? 'text-blue-400'
-                        : 'text-gray-400'
+                        : 'text-gray-200'
                       }`}>{result.tier}{result.tierFeeKas > 0 ? ` (${result.tierFeeKas} KAS fee)` : ''}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-gray-500">Deployer</span>
+                      <span className="text-gray-300">Deployer</span>
                       <span className="text-gray-300">{result.deployer.slice(0, 22)}...</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-white/5">
-                      <span className="text-gray-500">Signature</span>
+                      <span className="text-gray-300">Signature</span>
                       <span className="text-emerald-400">{result.signature}</span>
                     </div>
                     <div className="flex justify-between py-1">
-                      <span className="text-gray-500">Timestamp</span>
-                      <span className="text-gray-500">{result.timestamp}</span>
+                      <span className="text-gray-300">Timestamp</span>
+                      <span className="text-gray-300">{result.timestamp}</span>
                     </div>
                   </div>
                 ) : (
@@ -416,13 +416,13 @@ export default function Deploy() {
 
             {code.trim() && status === 'idle' && (
               <div className="p-4 rounded-xl bg-black/30 border border-white/5">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <p className="text-[10px] text-gray-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Code size={12} /> Script Analysis
                 </p>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div><span className="text-gray-600">Lines:</span> <span className="text-gray-300">{code.split('\n').length}</span></div>
-                  <div><span className="text-gray-600">Chars:</span> <span className="text-gray-300">{code.length}</span></div>
-                  <div><span className="text-gray-600">Tier:</span> <span className={selectedTier === 'FREE' ? 'text-gray-500' : 'text-amber-400'}>{TIERS[selectedTier].label.split(' ')[0]}</span></div>
+                  <div><span className="text-gray-200">Lines:</span> <span className="text-gray-300">{code.split('\n').length}</span></div>
+                  <div><span className="text-gray-200">Chars:</span> <span className="text-gray-300">{code.length}</span></div>
+                  <div><span className="text-gray-200">Tier:</span> <span className={selectedTier === 'FREE' ? 'text-gray-300' : 'text-amber-400'}>{TIERS[selectedTier].label.split(' ')[0]}</span></div>
                 </div>
               </div>
             )}

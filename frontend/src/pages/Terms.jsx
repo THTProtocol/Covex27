@@ -5,7 +5,7 @@ export default function Terms() {
     <div className="w-full max-w-3xl mx-auto px-4 py-10 space-y-8">
       <Link
         to="/"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-200 hover:text-kaspa-green transition-colors"
       >
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M19 12H5m6-6-6 6 6 6" />
@@ -17,7 +17,7 @@ export default function Terms() {
         <h1 className="text-2xl font-semibold text-white tracking-tight">
           Terms and Conditions
         </h1>
-        <p className="text-sm text-gray-500 mt-2">Last updated: May 2026</p>
+        <p className="text-sm text-gray-300 mt-2">Last updated: May 2026</p>
       </div>
 
       <div className="glass-panel p-8 space-y-8 text-sm text-gray-300 leading-relaxed">
@@ -44,7 +44,7 @@ export default function Terms() {
             Covex indexes publicly available BlockDAG data from the Kaspa network. All covenants
             displayed are immutable on-chain records. The Platform:
           </p>
-          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
+          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200">
             <li>Does not create, modify, or control any on-chain covenant.</li>
             <li>Indexes covenant UTXOs via direct wRPC connection to a Kaspa node.</li>
             <li>Generates optional interactive UI interfaces for paid users triggered by verified on-chain payments.</li>
@@ -58,7 +58,7 @@ export default function Terms() {
           <p>
             All payments on Covex occur on-chain in KAS. Upon payment confirmation:
           </p>
-          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
+          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200">
             <li>User accounts are automatically upgraded to the corresponding tier.</li>
             <li>Interactive UI generation is triggered for the associated covenant.</li>
             <li>Visibility boost settings are applied based on tier level.</li>
@@ -74,7 +74,7 @@ export default function Terms() {
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-white">4. User Responsibility</h2>
           <p>By using Covex, you acknowledge that:</p>
-          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-400">
+          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200">
             <li>You are solely responsible for any transactions initiated through wallet deep-links.</li>
             <li>You must independently verify the authenticity of covenant addresses and scripts.</li>
             <li>Covenants deployed to the Kaspa BlockDAG are permanently immutable and cannot be changed.</li>
@@ -135,7 +135,7 @@ export default function Terms() {
         </section>
       </div>
 
-      <div className="glass-panel p-6 text-xs text-gray-600 text-center">
+      <div className="glass-panel p-6 text-xs text-gray-200 text-center">
         <p>
           DAG is the truth. Covex is the window. All covenants remain immutable on-chain; Covex only
           indexes them publicly and generates custom interactive UIs for paid users.

@@ -40,7 +40,7 @@ export default function LegalModal({ onAccept }) {
 
         <h2 className="text-xl font-semibold text-white text-center">Important Legal Disclaimer</h2>
 
-        <div className="space-y-3 text-xs text-gray-400 leading-relaxed max-h-60 overflow-y-auto font-mono whitespace-pre-wrap pr-2">
+        <div className="space-y-3 text-xs text-gray-200 leading-relaxed max-h-60 overflow-y-auto font-mono whitespace-pre-wrap pr-2">
           <p className="text-gray-300 font-semibold">
             Covex is a non-custodial BlockDAG explorer and SaaS platform. By proceeding, you acknowledge and agree to the following:
           </p>
@@ -75,7 +75,7 @@ export default function LegalModal({ onAccept }) {
             onChange={(e) => setChecked(e.target.checked)}
             className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-kaspa-green focus:ring-kaspa-green/30"
           />
-          <span className="text-xs text-gray-400 leading-relaxed">
+          <span className="text-xs text-gray-200 leading-relaxed">
             I have read and agree to the Covex Terms and Conditions, including the non-custodial nature of the platform, immutable covenant deployments, on-chain payment terms, SaaS subscription terms, SilverScript compiler disclaimer, no liability for locked funds, and acceptable use policy.
           </span>
         </label>
@@ -83,12 +83,12 @@ export default function LegalModal({ onAccept }) {
         <button
           onClick={handleAccept}
           disabled={!checked}
-          className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 ${checked ? 'bg-white text-black hover:bg-gray-200 active:scale-[0.97]' : 'bg-white/[0.05] text-gray-600 cursor-not-allowed border border-white/5'}`}
+          className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 ${checked ? 'bg-white text-black hover:bg-gray-200 active:scale-[0.97]' : 'bg-white/[0.05] text-gray-200 cursor-not-allowed border border-white/5'}`}
         >
           I Accept and Understand the Risks
         </button>
 
-        <p className="text-xs text-gray-600 text-center">
+        <p className="text-xs text-gray-200 text-center">
           You must accept these terms before using the Covenant Creator.
         </p>
       </div>

@@ -194,7 +194,7 @@ function MnemonicDevPanel({ onConnect }) {
         <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
         <span className="text-xs font-mono text-yellow-400 uppercase tracking-wider">TN12 Dev Mode</span>
       </div>
-      <p className="text-xs text-gray-400 mb-2">
+      <p className="text-xs text-gray-200 mb-2">
         Enter a 12 or 24-word BIP39 mnemonic to derive keys locally using kaspa-wasm.
         Completely bypasses browser extensions — signs transactions with derived private key.
       </p>
@@ -203,7 +203,7 @@ function MnemonicDevPanel({ onConnect }) {
         onChange={(e) => { setPhrase(e.target.value); setError(null); }}
         rows={3}
         placeholder="witch collapse practice feed shame open despair creek road again ice least"
-        className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-[#49EACB] transition-all"
+        className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-200 focus:outline-none focus:border-[#49EACB] transition-all"
         spellCheck={false}
         autoCapitalize="none"
         autoCorrect="off"

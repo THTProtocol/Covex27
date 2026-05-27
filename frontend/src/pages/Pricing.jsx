@@ -146,7 +146,7 @@ const Pricing = () => {
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Deploy Interactive Covenants
           </h1>
-          <p className="text-sm md:text-base text-gray-400 leading-relaxed">
+          <p className="text-sm md:text-base text-gray-200 leading-relaxed">
             One-time payment. Your covenant gets permanent interactive UI deployment through the Covex Terminal
             and visibility on the Explorer. No subscriptions. No recurring fees.
           </p>
@@ -166,7 +166,7 @@ const Pricing = () => {
               >
                 <div className="mb-5">
                   <h3 className="text-base font-semibold text-white">{tier.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{tier.desc}</p>
+                  <p className="text-xs text-gray-300 mt-1 leading-relaxed">{tier.desc}</p>
                 </div>
 
                 <div className="mb-5">
@@ -175,7 +175,7 @@ const Pricing = () => {
                   ) : (
                     <span className="text-2xl font-bold text-[#49EACB]">{tier.price.toLocaleString()} KAS</span>
                   )}
-                  <p className="text-[11px] text-gray-600 mt-1">one-time</p>
+                  <p className="text-[11px] text-gray-200 mt-1">one-time</p>
                 </div>
 
                 <div className="space-y-2.5 flex-1">
@@ -186,7 +186,7 @@ const Pricing = () => {
                     </div>
                   ))}
                   {tier.missing && tier.missing.map((feature, i) => (
-                    <div key={i} className="flex gap-2 text-xs text-gray-600">
+                    <div key={i} className="flex gap-2 text-xs text-gray-200">
                       <XIcon size={14} className="shrink-0 mt-0.5" />
                       <span>{feature}</span>
                     </div>
@@ -209,13 +209,13 @@ const Pricing = () => {
         </div>
 
         <div className="text-center mt-10 space-y-2">
-          <p className="text-xs text-gray-600 max-w-xl mx-auto">
+          <p className="text-xs text-gray-200 max-w-xl mx-auto">
             All paid tiers include access to the same Covex Terminal for deploying custom interactive UIs.
             The only difference between Creator, PRO, and MAX is your covenant's visibility ranking on the Explorer.
             Higher tier = better placement.
           </p>
-          <p className="text-[11px] text-gray-600">
-            Treasury: <code className="text-gray-500">kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m</code>
+          <p className="text-[11px] text-gray-200">
+            Treasury: <code className="text-gray-300">kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m</code>
           </p>
         </div>
       </div>
@@ -226,13 +226,13 @@ const Pricing = () => {
   if (step === 'select') {
     return (
       <div className="relative z-10 max-w-xl mx-auto px-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <button onClick={reset} className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] mb-8 text-sm transition-colors">
+        <button onClick={reset} className="flex items-center gap-2 text-gray-200 hover:text-[#49EACB] mb-8 text-sm transition-colors">
           <ArrowLeft size={16} /> Back to Pricing
         </button>
         <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-xl p-8">
           <div className="text-center mb-6">
             <h2 className="text-xl font-bold text-white mb-2">Select a Covenant</h2>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-200 text-sm">
               Choose which deployed covenant to upgrade to <span className="text-[#49EACB] font-semibold">{selectedTier?.name}</span>.
             </p>
           </div>
@@ -240,12 +240,12 @@ const Pricing = () => {
           {!address && (
             <div className="p-5 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-center mb-4">
               <p className="text-sm text-amber-400 font-semibold mb-1">Wallet Not Connected</p>
-              <p className="text-xs text-gray-500">Connect your Kaspa wallet to see your deployed covenants.</p>
+              <p className="text-xs text-gray-300">Connect your Kaspa wallet to see your deployed covenants.</p>
             </div>
           )}
 
           {fetchingCovenants && (
-            <div className="flex flex-col items-center py-10 text-gray-500 gap-2">
+            <div className="flex flex-col items-center py-10 text-gray-300 gap-2">
               <Loader2 size={24} className="animate-spin text-[#49EACB]" />
               <p className="text-sm">Loading your covenants…</p>
             </div>
@@ -269,12 +269,12 @@ const Pricing = () => {
                   className="w-full flex items-center justify-between p-4 rounded-lg border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB]/50 transition-colors text-left"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-500 shrink-0">
+                    <div className="w-8 h-8 rounded bg-[#1a1a1a] flex items-center justify-center text-gray-300 shrink-0">
                       <span className="text-xs font-bold">C</span>
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-white text-sm font-medium truncate">{cov.name || cov.covenant_type || 'Unnamed Covenant'}</h4>
-                      <p className="text-[10px] text-gray-500 font-mono truncate">{TRUNC(cov.tx_id)}</p>
+                      <p className="text-[10px] text-gray-300 font-mono truncate">{TRUNC(cov.tx_id)}</p>
                       {cov.verified_tier && cov.verified_tier !== 'FREE' && (
                         <span className="mt-0.5 inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-[#49EACB]/10 border border-[#49EACB]/20 text-[#49EACB]">
                           Current: {cov.verified_tier}
@@ -290,7 +290,7 @@ const Pricing = () => {
 
           {!fetchingCovenants && !fetchError && address && myCovenants.length === 0 && (
             <div className="p-5 rounded-lg bg-white/[0.02] border border-white/5 text-center">
-              <p className="text-sm text-gray-400 mb-3">No deployed covenants found for this wallet.</p>
+              <p className="text-sm text-gray-200 mb-3">No deployed covenants found for this wallet.</p>
               <button
                 onClick={() => navigate('/deploy')}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#49EACB] text-black font-bold text-xs"
@@ -301,7 +301,7 @@ const Pricing = () => {
           )}
 
           <div className="mt-5 p-4 rounded-lg bg-[#49EACB]/[0.03] border border-[#49EACB]/10 text-center">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-200">
               After confirmation, open your covenant detail page and navigate to the <span className="text-[#49EACB] font-semibold">Terminal</span> tab
               to paste and deploy your custom interactive UI code.
             </p>
@@ -316,22 +316,22 @@ const Pricing = () => {
     const treasury = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
     return (
       <div className="relative z-10 max-w-md mx-auto px-6 py-16 animate-in fade-in slide-in-from-right-8 duration-300">
-        <button onClick={() => setStep('select')} className="flex items-center gap-2 text-gray-400 hover:text-[#49EACB] mb-8 text-sm transition-colors">
+        <button onClick={() => setStep('select')} className="flex items-center gap-2 text-gray-200 hover:text-[#49EACB] mb-8 text-sm transition-colors">
           <ArrowLeft size={16} /> Back to Selection
         </button>
         <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-xl p-8 text-center">
           <h2 className="text-xl font-bold text-white mb-6">Complete Upgrade</h2>
 
           <div className="bg-[#111111] border border-[#1f1f1f] rounded-lg p-4 mb-6 text-left">
-            <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Target Covenant</p>
+            <p className="text-[11px] text-gray-300 uppercase tracking-wider mb-2">Target Covenant</p>
             <p className="text-white text-sm font-medium truncate">{selectedCovenant?.name || selectedCovenant?.covenant_type || 'Unnamed Covenant'}</p>
-            <p className="text-[10px] text-gray-600 font-mono mt-0.5">{TRUNC(selectedCovenant?.tx_id)}</p>
+            <p className="text-[10px] text-gray-200 font-mono mt-0.5">{TRUNC(selectedCovenant?.tx_id)}</p>
             <div className="border-t border-[#1f1f1f] my-3"></div>
             <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-400">{selectedTier?.name} Tier</p>
+              <p className="text-sm text-gray-200">{selectedTier?.name} Tier</p>
               <p className="text-base font-bold text-[#49EACB]">{selectedTier?.price.toLocaleString()} KAS</p>
             </div>
-            <p className="text-[10px] text-gray-600 mt-2 text-center">
+            <p className="text-[10px] text-gray-200 mt-2 text-center">
               Send exactly {selectedTier?.price.toLocaleString()} KAS to Covex Treasury
             </p>
           </div>
@@ -363,7 +363,7 @@ const Pricing = () => {
             </button>
           </div>
 
-          <p className="text-[10px] text-gray-600 mt-4">
+          <p className="text-[10px] text-gray-200 mt-4">
             Payment auto-detected after 6 DAA confirmations.
           </p>
         </div>
@@ -380,11 +380,11 @@ const Pricing = () => {
             <span className="text-2xl">✓</span>
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Upgrade Initiated</h2>
-          <p className="text-gray-400 text-sm mb-8">
+          <p className="text-gray-200 text-sm mb-8">
             Payment for <span className="text-white font-medium">{selectedCovenant?.name || 'covenant'}</span> to
             <span className="text-[#49EACB] font-semibold"> {selectedTier?.name}</span> tier.
           </p>
-          <p className="text-[11px] text-gray-600 mb-6">
+          <p className="text-[11px] text-gray-200 mb-6">
             Confirmed automatically after 6 DAA confirmations.
           </p>
 
@@ -410,7 +410,7 @@ const Pricing = () => {
             </button>
             <button
               onClick={reset}
-              className="w-full py-3 bg-[#111111] border border-[#1f1f1f] hover:border-white/20 text-gray-400 text-sm rounded-lg transition-colors"
+              className="w-full py-3 bg-[#111111] border border-[#1f1f1f] hover:border-white/20 text-gray-200 text-sm rounded-lg transition-colors"
             >
               Upgrade Another Covenant
             </button>

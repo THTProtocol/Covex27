@@ -26,7 +26,7 @@ export default function WalletButton() {
         <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB] group-hover:bg-red-400" />
         <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
         {balance !== null && (
-          <span className="text-gray-500 text-xs">
+          <span className="text-gray-300 text-xs">
             ({(balance / 1e8).toFixed(2)} KAS)
           </span>
         )}
@@ -52,13 +52,13 @@ export default function WalletButton() {
           >
             <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0">
               <h2 className="text-xl font-semibold text-white">Connect Wallet</h2>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+              <button onClick={() => setOpen(false)} className="text-gray-200 hover:text-white transition-colors">
                 <X size={24} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              <p className="text-sm text-gray-500 mb-4">Select a Kaspa wallet to connect to Covex (TN12 Testnet)</p>
+              <p className="text-sm text-gray-300 mb-4">Select a Kaspa wallet to connect to Covex (TN12 Testnet)</p>
 
               {/* Error display */}
               {error && (
@@ -120,12 +120,12 @@ export default function WalletButton() {
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
+                        <div className="text-xs text-gray-300 mt-0.5">
                           {detected && !connecting ? 'Click to connect' : wallet.sub || 'Install'}
                         </div>
                       </div>
                       {!detected ? (
-                        <ExternalLink size={14} className="text-gray-600 group-hover:text-[#49EACB] transition-colors shrink-0" />
+                        <ExternalLink size={14} className="text-gray-200 group-hover:text-[#49EACB] transition-colors shrink-0" />
                       ) : (
                         <div className="w-2 h-2 rounded-full bg-[#49EACB] shadow-[0_0_4px_#49EACB] shrink-0" />
                       )}
@@ -136,7 +136,7 @@ export default function WalletButton() {
             </div>
 
             <div className="p-6 border-t border-[#1f1f1f] shrink-0">
-              <p className="text-xs text-gray-600 text-center">
+              <p className="text-xs text-gray-200 text-center">
                 TN12 Testnet · Non-custodial · Keys stay in your wallet
               </p>
             </div>

@@ -62,6 +62,19 @@ export default function PaidBuilder() {
   const [fetchingCovenants, setFetchingCovenants] = useState(false);
   const [fetchError, setFetchError] = useState(null);
 
+  // Show the "Payment just confirmed" success notification once
+  const [justPaid, setJustPaid] = useState(null);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('payment_just_confirmed');
+    if (raw) {
+      try {
+        setJustPaid(JSON.parse(raw));
+        sessionStorage.removeItem('payment_just_confirmed');
+      } catch (_) {}
+    }
+  }, []);
+
   // Redirect FREE users back to Pricing
   useEffect(() => {
     const tier = localStorage.getItem('covex_paid_tier');
@@ -110,9 +123,20 @@ export default function PaidBuilder() {
         Back to Pricing
       </button>
 
+      {/* Payment success notification (the "approval notification" the user sees right after confirming payment) */}
+      {justPaid && (
+        <div className="mb-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 flex items-center gap-4">
+          <div className="text-emerald-400"><CheckCircle2 size={28} /></div>
+          <div>
+            <div className="font-bold text-emerald-400 text-lg">Payment Confirmed!</div>
+            <div className="text-sm text-gray-300">You now have <strong>{justPaid.tier}</strong> paid access. Below are all your covenants. Pick one to edit or go straight to its Terminal (full tools unlocked).</div>
+          </div>
+        </div>
+      )}
+
       {/* === Paid Area Header === */}
       <div
-        className="bg-gradient-to-r rounded-2xl p-8 mb-10 border relative overflow-hidden"
+        className="bg-gradient-to-r rounded-2xl p-8 mb-8 border relative overflow-hidden"
         style={{
           background: `linear-gradient(135deg, ${tierAccent}10 0%, ${tierAccent}05 50%, transparent 100%)`,
           borderColor: tierAccent + '30'
@@ -127,125 +151,69 @@ export default function PaidBuilder() {
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-white">{paidTier} Builder</h1>
+              <h1 className="text-2xl font-bold text-white">Your Covenants — {paidTier} Paid Area</h1>
               <span className="px-3 py-1 rounded-full text-xs font-mono font-bold"
                 style={{ backgroundColor: tierAccent + '15', border: `1px solid ${tierAccent}30`, color: tierAccent }}>
                 {paidTier}
               </span>
             </div>
-            <p className="text-sm text-gray-300 leading-relaxed max-w-2xl">
-              Payment received for the <strong>{paidTier}</strong> tier. You are now inside the paid area.
-              Choose: customize one of your existing covenants (jumps straight to its Terminal), or create a brand new one
-              on the dedicated premium page with the full terminal, ZK/oracles, guide, and SilverScript writer.
-            </p>
+            <p className="text-sm text-gray-300">All covenants you have created with this wallet. Choose one to continue editing or go directly to the full Terminal (ZK, Oracles, UI, SilverScript generator — everything paid users get).</p>
           </div>
         </div>
       </div>
 
-      {/* === Two Clear Options === */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-        {/* Option A: Customize Existing Covenant */}
-        <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl p-6 flex flex-col">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-[#49EACB]/15">
-              <Layers size={20} className="text-[#49EACB]" />
-            </div>
-            <h2 className="text-lg font-bold text-white">Customize Existing Covenant</h2>
-          </div>
-          <p className="text-sm text-gray-300 mb-5 flex-1">
-            Select one of your deployed covenants and jump directly to its Terminal tab.
-            Add custom UI, configure ZK/oracle settings, and generate SilverScript.
-          </p>
-
-          {!address && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-center">
-                <p className="text-sm text-amber-400 font-semibold mb-1">Connect Your Wallet</p>
-                <p className="text-xs text-gray-300">Connect to see your deployed covenants.</p>
-              </div>
-              <DevConnectPanel compact />
-            </div>
-          )}
-
-          {address && fetchingCovenants && (
-            <div className="flex flex-col items-center py-8 text-gray-300 gap-2">
-              <Loader2 size={24} className="animate-spin text-[#49EACB]" />
-              <p className="text-sm">Loading your covenants...</p>
-            </div>
-          )}
-
-          {address && !fetchingCovenants && fetchError && (
-            <div className="p-4 rounded-lg bg-red-500/[0.04] border border-red-500/20 text-center">
-              <p className="text-sm text-red-400 mb-2">Failed to load: {fetchError}</p>
-              <button onClick={fetchMyCovenants} className="inline-flex items-center gap-1.5 text-xs text-[#49EACB] hover:underline">
-                <RefreshCw size={12} /> Retry
-              </button>
-            </div>
-          )}
-
-          {address && !fetchingCovenants && !fetchError && myCovenants.length === 0 && (
-            <div className="p-5 rounded-lg bg-white/[0.02] border border-white/5 text-center">
-              <p className="text-sm text-gray-300 mb-3">No covenants found for this wallet.</p>
-              <p className="text-xs text-gray-300">Deploy one below using Option B.</p>
-            </div>
-          )}
-
-          {address && !fetchingCovenants && !fetchError && myCovenants.length > 0 && (
-            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-              {myCovenants.map(cov => (
-                <button
-                  key={cov.tx_id}
-                  onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}?tab=terminal`)}
-                  className="w-full flex items-center justify-between p-3.5 rounded-lg border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB]/40 hover:bg-[#141414] transition-all text-left group"
-                >
-                  <div className="min-w-0">
-                    <p className="text-white text-sm font-medium truncate group-hover:text-[#49EACB] transition-colors">
-                      {cov.name || cov.covenant_type || 'Unnamed Covenant'}
-                    </p>
-                    <p className="text-[10px] text-gray-300 font-mono">{TRUNC(cov.tx_id)}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    <span className="text-[10px] text-[#49EACB] font-semibold group-hover:underline">Open Terminal</span>
-                    <ChevronRight size={14} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Option B: Create New Covenant + Full Builder */}
-        <div
-          className="rounded-2xl p-6 flex flex-col relative overflow-hidden border-2 border-dashed"
-          style={{ borderColor: '#49EACB40', backgroundColor: '#0a0a0a' }}
+      {/* Big Create New action (the "or create a new one" path) */}
+      <div className="mb-8">
+        <button
+          onClick={() => navigate('/premium')}
+          className="w-full flex items-center justify-center gap-3 px-8 py-5 rounded-2xl bg-[#49EACB] hover:bg-white text-black font-black text-lg transition-all active:scale-[0.985]"
         >
-          <div className="absolute top-0 left-0 right-0 h-1"
-            style={{ background: `linear-gradient(90deg, transparent, #49EACB, transparent)` }} />
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-[#49EACB]/20">
-              <Rocket size={20} className="text-[#49EACB]" />
-            </div>
-            <h2 className="text-lg font-bold text-white">Create New Covenant + Full Builder Experience</h2>
-          </div>
-          <p className="text-sm text-gray-300 mb-4">
-            This takes you to a complete new premium page (the paywall you just unlocked by paying).
-            You will see the <strong>full Covex Terminal</strong> (Game Type + ZK Circuit selection at the top,
-            Oracle/ZK configuration, Custom UI paste area), a direct button to Covenant Studio, the
-            <strong> complete guide</strong> explaining how to build the best interactive covenant, how to
-            connect ZK proofs and oracles, what to include (reusability, fees, payout logic), best practices,
-            and things not to forget — then you write your SilverScript right there and deploy.
-          </p>
+          <Rocket size={22} />
+          Create New Covenant — Full Premium Builder (Terminal + ZK + Oracles + Complete Guide + SilverScript Writer)
+        </button>
+        <p className="text-center text-xs text-gray-400 mt-2">Opens the dedicated paid page with every tool you need to write and deploy a high-quality interactive covenant.</p>
+      </div>
 
-          <div className="flex-1" />
-
-          <button
-            onClick={() => navigate('/premium')}
-            className="w-full flex items-center justify-center gap-2.5 px-5 py-4 rounded-xl bg-[#49EACB] text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.5)] active:scale-[0.98] transition-all"
-          >
-            <Terminal size={18} />
-            Go to Premium Paid Page (Full Terminal + Guide + Write SilverScript)
-          </button>
+      {/* === Your Created Covenants — Primary post-payment view === */}
+      <div className="bg-[#0a0a0a]/95 border border-[#1f1f1f] rounded-2xl p-6 mb-8">
+        <div className="flex items-center gap-3 mb-5">
+          <Layers size={20} className="text-[#49EACB]" />
+          <h3 className="font-bold text-lg text-white">Your Created Covenants</h3>
         </div>
+
+        {!address && (
+          <div className="p-5 text-center border border-white/5 rounded-xl">
+            <p className="text-sm text-gray-300 mb-3">Connect your wallet to see the covenants you own.</p>
+            <DevConnectPanel compact />
+          </div>
+        )}
+
+        {address && fetchingCovenants && <div className="py-8 text-center text-gray-400">Loading your covenants…</div>}
+
+        {address && !fetchingCovenants && fetchError && (
+          <div className="text-red-400 text-sm p-4 bg-red-500/5 rounded">Error loading: {fetchError} <button onClick={fetchMyCovenants} className="underline ml-2">Retry</button></div>
+        )}
+
+        {address && !fetchingCovenants && !fetchError && myCovenants.length === 0 && (
+          <div className="text-center py-6 text-gray-400 text-sm">No covenants yet for this address. Create your first one with the button above.</div>
+        )}
+
+        {address && !fetchingCovenants && myCovenants.length > 0 && (
+          <div className="space-y-3">
+            {myCovenants.map((cov) => (
+              <div key={cov.tx_id} className="bg-black/40 border border-white/5 rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-white">{cov.name || cov.covenant_type || 'Unnamed Covenant'}</div>
+                  <div className="text-xs text-gray-400 font-mono mt-0.5">{TRUNC(cov.tx_id)}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}`)} className="px-4 py-2 text-sm rounded-lg border border-white/10 hover:bg-white/5">Edit</button>
+                  <button onClick={() => navigate(`/covenant/${encodeURIComponent(cov.tx_id)}?tab=terminal`)} className="px-4 py-2 text-sm rounded-lg bg-[#49EACB] text-black font-semibold">Go to Terminal</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* === Comprehensive Guide Section === */}

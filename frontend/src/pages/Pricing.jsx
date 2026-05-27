@@ -80,6 +80,7 @@ const cleanTreasury = TREASURY.replace('kaspatest:', '');
 const Pricing = () => {
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(null); // {id, name, price, accent}
 
   const handlePay = (tier) => {
     if (tier.id === 'FREE') {
@@ -87,20 +88,93 @@ const Pricing = () => {
       return;
     }
 
-    setProcessing(tier.id);
-
-    // Save the paid tier immediately so gate is open
-    localStorage.setItem('covex_paid_tier', tier.id);
-
-    // Open wallet deep-link with the EXACT amount the user selected (this is the charge)
+    // Open the exact payment request in the user's wallet (TN12 deep link or extension on mainnet)
     window.open(`kaspatest:${cleanTreasury}?amount=${tier.price}`, '_blank');
 
-    // After the user sends the payment, they land on the clean paid-area choice page
-    setTimeout(() => {
-      setProcessing(null);
-      navigate('/paid-builder');
-    }, 650);
+    // Enter "approval" stage — this is the smoother payment experience
+    setAwaitingConfirmation({
+      id: tier.id,
+      name: tier.name,
+      price: tier.price,
+      accent: tier.accent,
+    });
   };
+
+  const confirmPaymentSent = () => {
+    if (!awaitingConfirmation) return;
+
+    const { id, name } = awaitingConfirmation;
+
+    // Mark the paid tier — this unlocks the entire paid area
+    localStorage.setItem('covex_paid_tier', id);
+
+    // Show success notification feel (we'll redirect with a flag the next page can read)
+    sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: name, id }));
+
+    // Clean states
+    setAwaitingConfirmation(null);
+    setProcessing(null);
+
+    // Redirect to the page that shows ALL the user's created covenants + clear actions
+    navigate('/paid-builder');
+  };
+
+  const cancelPayment = () => {
+    setAwaitingConfirmation(null);
+    setProcessing(null);
+  };
+
+  // Smooth payment approval screen (this is the "approval notification" step)
+  if (awaitingConfirmation) {
+    const p = awaitingConfirmation;
+    return (
+      <div className="relative z-10 max-w-3xl mx-auto px-6 py-20 text-center">
+        <div className="mb-8">
+          <div className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-6" style={{ backgroundColor: p.accent + '15', border: `2px solid ${p.accent}30` }}>
+            <ShieldCheck size={44} style={{ color: p.accent }} />
+          </div>
+          <h1 className="text-4xl font-black text-white mb-3">Payment Approval Required</h1>
+          <p className="text-xl text-gray-300">We opened your wallet with the exact amount.</p>
+        </div>
+
+        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 mb-8 text-left max-w-xl mx-auto">
+          <div className="flex justify-between py-3 border-b border-white/10">
+            <span className="text-gray-300">Tier</span>
+            <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
+          </div>
+          <div className="flex justify-between py-3 border-b border-white/10">
+            <span className="text-gray-300">Amount to send</span>
+            <span className="font-mono font-bold text-white">{p.price} KAS</span>
+          </div>
+          <div className="flex justify-between py-3">
+            <span className="text-gray-300">Treasury</span>
+            <span className="font-mono text-xs text-gray-400 break-all">{TREASURY}</span>
+          </div>
+        </div>
+
+        <div className="space-y-4 max-w-md mx-auto">
+          <button
+            onClick={confirmPaymentSent}
+            className="w-full py-4 rounded-2xl bg-[#49EACB] text-black font-black text-lg shadow-[0_0_30px_rgba(73,234,203,0.3)] hover:shadow-[0_0_50px_rgba(73,234,203,0.5)] transition-all active:scale-[0.985]"
+          >
+            I have approved &amp; sent the payment in my wallet
+          </button>
+
+          <button
+            onClick={cancelPayment}
+            className="w-full py-3 text-sm text-gray-400 hover:text-white transition"
+          >
+            Cancel — I want to choose a different tier
+          </button>
+
+          <p className="text-xs text-gray-500 pt-2">
+            On mainnet this will be a simple wallet extension approval. On TN12 you approve the deep link.
+            After confirmation you will see all your covenants and can go straight to the Terminal.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative z-10 max-w-5xl mx-auto px-6 py-16 animate-in fade-in duration-300">

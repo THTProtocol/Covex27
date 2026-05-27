@@ -406,10 +406,19 @@ export default function CovenantInteractive() {
                 </a>
               </div>
             ) : activeTab === 'terminal' ? (
-              /* ── Terminal Tab ── */
-              <div className="-m-8">
-                <CovexTerminal covenant={covenant} />
-              </div>
+              /* ── Terminal Tab — only for paid users with full tools ── */
+              covexPaidTier ? (
+                <div className="-m-8">
+                  <CovexTerminal covenant={covenant} />
+                </div>
+              ) : (
+                <div className="p-8 text-center border border-white/10 rounded-2xl bg-black/30">
+                  <Lock size={32} className="mx-auto mb-4 text-amber-400" />
+                  <h3 className="text-xl font-bold text-white mb-2">Terminal is a Paid Feature</h3>
+                  <p className="text-gray-300 mb-6 max-w-md mx-auto">The full Covex Terminal with ZK circuits, oracles, custom UI deployment, and SilverScript generator is only available to paid tier users.</p>
+                  <Link to="/pricing" className="inline-block px-6 py-3 rounded-xl bg-[#49EACB] text-black font-bold">Get Paid Access</Link>
+                </div>
+              )
             ) : (
               /* ── UI Builder Tab ── */
               <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">

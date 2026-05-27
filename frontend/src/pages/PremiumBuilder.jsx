@@ -162,7 +162,7 @@ export default function PremiumBuilder() {
         onClick={() => navigate('/paid-builder')}
         className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] mb-6 text-sm"
       >
-        <ArrowLeft size={16} /> Back to Paid Choice
+        <ArrowLeft size={16} /> Back to My Covenants (post-payment view)
       </button>
 
       {/* TRUE PAID-AREA PAYWALL HEADER — you just paid for this */}

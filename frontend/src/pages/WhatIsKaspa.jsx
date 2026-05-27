@@ -22,8 +22,8 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-lg font-bold text-white mb-3">What is Kaspa?</h2>
           <p className="text-sm text-gray-200 leading-relaxed mb-4">
             Kaspa is a proof-of-work cryptocurrency built on a BlockDAG architecture,
-            not a single chain. Multiple blocks are produced per second — 10 BPS on
-            mainnet since the Rust rewrite — all confirmed in parallel. It is the
+            not a single chain. Multiple blocks are produced per second, 10 BPS on
+            mainnet since the Rust rewrite, all confirmed in parallel. It is the
             fastest PoW network on earth.
           </p>
           <a
@@ -32,7 +32,7 @@ export default function WhatIsKaspaPage() {
             rel="noopener noreferrer"
             className="text-sm text-kaspa-green hover:underline"
           >
-            Official Website &rarr;
+            Official Website
           </a>
         </section>
 
@@ -50,7 +50,7 @@ export default function WhatIsKaspaPage() {
             rel="noopener noreferrer"
             className="text-sm text-kaspa-green hover:underline"
           >
-            Kaspa Documentation &rarr;
+            Kaspa Documentation
           </a>
         </section>
 
@@ -68,7 +68,7 @@ export default function WhatIsKaspaPage() {
             rel="noopener noreferrer"
             className="text-sm text-kaspa-green hover:underline"
           >
-            Latest Developments &rarr;
+            Latest Developments
           </a>
         </section>
 
@@ -86,7 +86,7 @@ export default function WhatIsKaspaPage() {
             rel="noopener noreferrer"
             className="text-sm text-kaspa-green hover:underline"
           >
-            Covenant Specification &rarr;
+            Covenant Specification
           </a>
         </section>
 
@@ -116,12 +116,12 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-lg font-bold text-white mb-3">Core Architecture</h2>
           <div className="space-y-4">
             {[
-              { title: '10 BPS — 10 Blocks Per Second', body: 'Running at 10 BPS on mainnet since the Rust rewrite, the fastest Proof-of-Work Layer-1 on earth.' },
-              { title: 'BlockDAG Engine — Parallel blocks', body: 'Multiple blocks are created concurrently and ordered mathematically via GHOSTDAG.' },
-              { title: 'Nakamoto Consensus — Trustless', body: 'Kaspa retains Bitcoin\'s exact security assumptions. No pre-mine, 100% fair launch.' },
-              { title: 'kHeavyHash PoW — Efficient', body: 'ASIC-resistant, optical-miner friendly hash function preventing mining centralization.' },
-              { title: 'Native Covenants — Programmable', body: 'Stateless smart contracts on a stateless network via SilverScript programmable UTXO conditions.' },
-              { title: 'DAGKNIGHT Protocol — Adaptive', body: 'Next-gen consensus targeting 100+ BPS by auto-adapting to network latency in real-time.' },
+              { title: '10 Blocks Per Second', body: 'Running at 10 BPS on mainnet since the Rust rewrite, the fastest Proof-of-Work Layer-1 on earth.' },
+              { title: 'BlockDAG Engine', body: 'Multiple blocks are created concurrently and ordered mathematically via GHOSTDAG.' },
+              { title: 'Nakamoto Consensus', body: 'Kaspa retains Bitcoin\'s exact security assumptions. No pre-mine, 100% fair launch.' },
+              { title: 'kHeavyHash PoW', body: 'ASIC-resistant, optical-miner friendly hash function preventing mining centralization.' },
+              { title: 'Native Covenants', body: 'Stateless smart contracts on a stateless network via SilverScript programmable UTXO conditions.' },
+              { title: 'DAGKNIGHT Protocol', body: 'Next-gen consensus targeting 100+ BPS by auto-adapting to network latency in real-time.' },
             ].map(item => (
               <div key={item.title} className="p-4 rounded-lg border border-white/[0.06] bg-white/[0.02]">
                 <h3 className="text-sm font-bold text-white mb-1">{item.title}</h3>
@@ -136,9 +136,9 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-lg font-bold text-white mb-3">Research Library</h2>
           <div className="space-y-2">
             {[
-              { title: 'PHANTOM & GHOSTDAG', subtitle: 'Sompolinsky, Wyborski & Zohar (2018) — Scalable Nakamoto Consensus', href: 'https://eprint.iacr.org/2018/104.pdf' },
-              { title: 'DAGKNIGHT Protocol', subtitle: 'Sompolinsky, Sutton & Wyborski (2022) — Parameterless Generalization', href: 'https://eprint.iacr.org/2022/1494.pdf' },
-              { title: 'Kaspa BlockDAG Analysis', subtitle: 'Peresini et al. (2023) — Formal performance and security analysis', href: 'https://eprint.iacr.org/2023/1479' },
+              { title: 'PHANTOM & GHOSTDAG', subtitle: 'Sompolinsky, Wyborski & Zohar (2018). Scalable Nakamoto Consensus', href: 'https://eprint.iacr.org/2018/104.pdf' },
+              { title: 'DAGKNIGHT Protocol', subtitle: 'Sompolinsky, Sutton & Wyborski (2022). Parameterless Generalization', href: 'https://eprint.iacr.org/2022/1494.pdf' },
+              { title: 'Kaspa BlockDAG Analysis', subtitle: 'Peresini et al. (2023). Formal performance and security analysis', href: 'https://eprint.iacr.org/2023/1479' },
               { title: 'Toccata Covenant Specification', subtitle: 'SilverScript Smart Contract Architecture for the Kaspa BlockDAG', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md' },
               { title: 'Rusty Kaspa Repository', subtitle: 'High-performance Rust node reference implementation', href: 'https://github.com/kaspanet/rusty-kaspa' },
               { title: 'Kaspa Developer Documentation', subtitle: 'Protocol spec, REST API, WebSocket streams, and SilverScript reference', href: 'https://github.com/kaspanet/docs' },
@@ -162,14 +162,14 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-lg font-bold text-white mb-4">Official Resources</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { title: 'Kaspa Official Website', desc: 'Home of the Kaspa project — news, ecosystem, and network stats', href: 'https://kaspa.org', color: '#49EACB' },
+              { title: 'Kaspa Official Website', desc: 'Home of the Kaspa project: news, ecosystem, and network stats', href: 'https://kaspa.org', color: '#49EACB' },
               { title: 'Kaspa Publications', desc: 'Whitepapers, research papers, and academic publications', href: 'https://kaspa.org/publications/', color: '#A855F7' },
               { title: 'Kaspa Developments', desc: 'Network roadmap, protocol upgrades, and latest announcements', href: 'https://kaspa.org/developments/', color: '#3B82F6' },
               { title: 'Kaspa Explorer (Mainnet)', desc: 'Live mainnet block explorer with transaction tracking and DAG visualization', href: 'https://explorer.kaspa.org', color: '#F59E0B' },
               { title: 'Rusty Kaspa on GitHub', desc: 'High-performance Rust node reference implementation and consensus engine', href: 'https://github.com/kaspanet/rusty-kaspa', color: '#22C55E' },
               { title: 'Kaspa Docs on GitHub', desc: 'Protocol specification, REST API docs, WebSocket streams, and SilverScript reference', href: 'https://github.com/kaspanet/docs', color: '#EC4899' },
               { title: 'Covenant Design Doc', desc: 'Detailed SilverScript covenant architecture and smart contract design rationale', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md', color: '#EF4444' },
-              { title: 'Community Web Wallet', desc: 'Official Kaspa browser wallet — send, receive, and manage KAS', href: 'https://wallet.kaspa.org', color: '#8B5CF6' },
+              { title: 'Community Web Wallet', desc: 'Official Kaspa browser wallet: send, receive, and manage KAS', href: 'https://wallet.kaspa.org', color: '#8B5CF6' },
             ].map(r => (
               <a
                 key={r.title}

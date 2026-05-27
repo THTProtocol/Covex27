@@ -25,12 +25,13 @@ const TIERS = [
     ],
     cta: 'Explore Covenants',
     ctaAction: 'explore',
+    accent: '#6B7280',
   },
   {
     id: 'CREATOR',
     name: 'Creator',
     price: 100,
-    desc: '1 custom interactive covenant. Terminal access. Same tools as all paid tiers. Only visibility differs.',
+    desc: '1 custom interactive covenant with full Terminal and UI tools.',
     features: [
       'Terminal access for UI deployment',
       'Full UI customization via Terminal',
@@ -40,36 +41,39 @@ const TIERS = [
     missing: [],
     cta: 'Upgrade to Creator',
     ctaAction: 'pay',
+    accent: '#3B82F6',
   },
   {
     id: 'PRO',
     name: 'PRO',
     price: 500,
-    desc: '1 custom interactive covenant. Same Terminal and UI tools as Creator and MAX. Better Explorer visibility.',
+    desc: 'Greater Explorer visibility and featured placement for your covenant.',
     features: [
-      'Same Terminal as all paid tiers',
-      'Same custom UI deployment',
+      'Full Terminal and UI deployment',
+      'All Creator features included',
       'Featured placement on Explorer',
       'Above Creator in rankings',
     ],
     missing: [],
     cta: 'Upgrade to PRO',
     ctaAction: 'pay',
+    accent: '#E8AF34',
   },
   {
     id: 'MAX',
     name: 'MAX',
     price: 1000,
-    desc: '1 custom interactive covenant. Same Terminal and UI tools. Best Explorer visibility. Top placement.',
+    desc: 'Best Explorer visibility with top placement and TVL-weighted ranking.',
     features: [
-      'Same Terminal as all paid tiers',
-      'Same custom UI deployment',
+      'Full Terminal and UI deployment',
+      'All PRO features included',
       'Top Explorer placement',
       'TVL-weighted ranking boost',
     ],
     missing: [],
     cta: 'Upgrade to MAX',
     ctaAction: 'pay',
+    accent: '#A855F7',
   },
 ];
 
@@ -155,38 +159,47 @@ const Pricing = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {TIERS.map((tier) => {
             const isPaid = tier.id !== 'FREE';
-            const isMax = tier.id === 'MAX';
-            const isPro = tier.id === 'PRO';
+            const isFree = tier.id === 'FREE';
             return (
               <div
                 key={tier.id}
-                className={`bg-[#0a0a0a]/95 backdrop-blur-xl border rounded-xl p-6 flex flex-col ${
-                  isMax ? 'border-purple-500/25' : isPro ? 'border-amber-500/15' : 'border-[#1f1f1f]'
-                }`}
+                className="relative bg-[#0a0a0a]/95 backdrop-blur-xl border rounded-2xl p-7 flex flex-col transition-all duration-300 hover:scale-[1.02]"
+                style={{
+                  borderColor: isPaid ? tier.accent + '40' : 'rgba(255,255,255,0.08)',
+                  boxShadow: isPaid ? `0 0 30px ${tier.accent}08` : 'none',
+                }}
               >
+                {/* Top accent line */}
+                {isPaid && (
+                  <div className="absolute top-0 left-4 right-4 h-px rounded-full opacity-60"
+                    style={{ background: `linear-gradient(90deg, transparent, ${tier.accent}, transparent)` }} />
+                )}
+
                 <div className="mb-5">
-                  <h3 className="text-base font-semibold text-white">{tier.name}</h3>
-                  <p className="text-xs text-gray-300 mt-1 leading-relaxed">{tier.desc}</p>
+                  <h3 className="text-lg font-bold text-white">{tier.name}</h3>
+                  <p className="text-xs text-gray-300 mt-1.5 leading-relaxed">{tier.desc}</p>
                 </div>
 
                 <div className="mb-5">
                   {tier.price === 0 ? (
-                    <span className="text-2xl font-bold text-white">Free</span>
+                    <span className="text-3xl font-black text-white">Free</span>
                   ) : (
-                    <span className="text-2xl font-bold text-[#49EACB]">{tier.price.toLocaleString()} KAS</span>
+                    <span className="text-3xl font-black" style={{ color: tier.accent }}>
+                      {tier.price.toLocaleString()} KAS
+                    </span>
                   )}
-                  <p className="text-[11px] text-gray-200 mt-1">one-time</p>
+                  <p className="text-[11px] text-gray-300 mt-1">one-time payment</p>
                 </div>
 
                 <div className="space-y-2.5 flex-1">
                   {tier.features.map((feature, i) => (
-                    <div key={i} className="flex gap-2 text-xs text-gray-300">
-                      <Check size={14} className="text-[#49EACB] shrink-0 mt-0.5" />
+                    <div key={i} className="flex gap-2.5 text-xs text-gray-300">
+                      <Check size={14} className="shrink-0 mt-0.5" style={{ color: tier.accent }} />
                       <span>{feature}</span>
                     </div>
                   ))}
                   {tier.missing && tier.missing.map((feature, i) => (
-                    <div key={i} className="flex gap-2 text-xs text-gray-200">
+                    <div key={i} className="flex gap-2.5 text-xs text-gray-300 opacity-60">
                       <XIcon size={14} className="shrink-0 mt-0.5" />
                       <span>{feature}</span>
                     </div>
@@ -195,10 +208,16 @@ const Pricing = () => {
 
                 <button
                   onClick={() => tier.ctaAction === 'pay' ? handleSelectTier(tier) : navigate('/')}
-                  className="w-full mt-6 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border-none"
+                  className="w-full mt-6 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-300 border-none"
                   style={{
-                    backgroundColor: isPaid ? '#49EACB' : '#1f1f1f',
-                    color: isPaid ? '#000' : '#fff',
+                    backgroundColor: isFree ? 'rgba(255,255,255,0.06)' : tier.accent,
+                    color: isFree ? '#fff' : '#000',
+                  }}
+                  onMouseEnter={e => {
+                    if (isPaid) e.currentTarget.style.boxShadow = `0 0 30px ${tier.accent}40`;
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.boxShadow = '';
                   }}
                 >
                   {tier.cta}

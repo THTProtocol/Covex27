@@ -69,11 +69,10 @@ const WhatIsKaspa = ({ open, onClose }) => {
           <h2 className="text-xl font-bold text-white mb-5">Research Library</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
-              { title: 'PHANTOM & GHOSTDAG', subtitle: 'Sompolinsky, Wyborski & Zohar — A Scalable Generalization of Nakamoto Consensus (2018)', href: 'https://eprint.iacr.org/2018/104.pdf' },
-              { title: 'DAGKNIGHT Protocol', subtitle: 'Sompolinsky, Sutton & Wyborski — Parameterless Generalization of Nakamoto Consensus (2022)', href: 'https://eprint.iacr.org/2022/1494.pdf' },
-              { title: 'Toccata Covenants', subtitle: 'SilverScript Smart Contract Architecture for the Kaspa BlockDAG', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md' },
+              { title: 'PHANTOM & GHOSTDAG', subtitle: 'Sompolinsky, Wyborski & Zohar. A Scalable Generalization of Nakamoto Consensus (2018)', href: 'https://eprint.iacr.org/2018/104.pdf' },
+              { title: 'DAGKNIGHT Protocol', subtitle: 'Sompolinsky, Sutton & Wyborski. Parameterless Generalization of Nakamoto Consensus (2022)', href: 'https://eprint.iacr.org/2022/1494.pdf' },
+              { title: 'Kaspa BlockDAG Analysis', subtitle: 'Peresini et al. Comprehensive performance and security analysis (2023)', href: 'https://eprint.iacr.org/2023/1479' },
               { title: 'Rusty Kaspa', subtitle: 'High-Performance Rust Node Implementation', href: 'https://github.com/kaspanet/rusty-kaspa' },
-              { title: 'Kaspa BlockDAG Analysis', subtitle: 'Peresini et al. — Comprehensive performance and security analysis (2023)', href: 'https://eprint.iacr.org/2023/1479' },
             ].map(p => (
               <a
                 key={p.title}

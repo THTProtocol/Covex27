@@ -87,11 +87,40 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         CREATE INDEX IF NOT EXISTS idx_vis_tier ON visibilities(tier);
         CREATE INDEX IF NOT EXISTS idx_vis_featured ON visibilities(featured);
 
+        CREATE TABLE IF NOT EXISTS custom_ui_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            covenant_id TEXT NOT NULL UNIQUE,
+            owner_address TEXT NOT NULL,
+            tier TEXT NOT NULL,
+            config_json TEXT NOT NULL DEFAULT '{}',
+            config_version INTEGER NOT NULL DEFAULT 1,
+            is_published INTEGER NOT NULL DEFAULT 1,
+            updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_custom_ui_covenant ON custom_ui_configs(covenant_id);
+        CREATE INDEX IF NOT EXISTS idx_custom_ui_owner ON custom_ui_configs(owner_address);
+
         CREATE TABLE IF NOT EXISTS crawler_state (
             id            INTEGER PRIMARY KEY CHECK (id = 1),
             last_scanned_daa INTEGER NOT NULL DEFAULT 0
         );
         INSERT OR IGNORE INTO crawler_state (id, last_scanned_daa) VALUES (1, 0);
+
+        CREATE TABLE IF NOT EXISTS skill_games (
+            covenant_id     TEXT PRIMARY KEY,
+            game_type       TEXT NOT NULL DEFAULT 'chess',
+            pot_amount_kas  REAL NOT NULL DEFAULT 0,
+            player1         TEXT NOT NULL DEFAULT '',
+            player2         TEXT NOT NULL DEFAULT '',
+            moves           TEXT NOT NULL DEFAULT '[]',
+            current_turn    TEXT NOT NULL DEFAULT 'white',
+            winner          TEXT,
+            status          TEXT NOT NULL DEFAULT 'waiting',
+            created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+            updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_games_status ON skill_games(status);
         ",
     )?;
     Ok(Mutex::new(conn))
@@ -104,13 +133,16 @@ pub fn insert_covenant(
     covenant_type: &str, category: &str,
     creator_addr: &str, description: &str,
     block_daa_score: u64,
+    verified_tier: &str,
+    full_logic_summary: &str,
+    receiving_addresses: &str,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     let amount = amount_sompi as f64 / 100_000_000.0;
     conn.execute(
-        "INSERT OR REPLACE INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'FREE', 1, ?10, unixepoch())",
-        params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, block_daa_score],
+        "INSERT OR REPLACE INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13)",
+        params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, block_daa_score, full_logic_summary, receiving_addresses],
     )?;
     Ok(())
 }
@@ -167,12 +199,26 @@ const COVENANT_SELECT: &str =
 
 pub fn get_all_covenants(db: &Mutex<Connection>) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
-    let sql = format!("{} WHERE is_active = 1 ORDER BY timestamp DESC", COVENANT_SELECT);
+    // Tier-weighted sort: MAX=100, PRO=50, CREATOR=10, FREE=0 — then by TVL (amount_kaspa) descending
+    let sql = format!(
+        "{} WHERE is_active = 1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'CREATOR' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC",
+        COVENANT_SELECT
+    );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], |row| row_to_covenant(row))?;
     let mut result = Vec::new();
     for row in rows { result.push(row?); }
     Ok(result)
+}
+
+/// Resolve ui_config for a tier: glow + expanded for PRO/MAX, basic for others
+pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
+    match tier {
+        "MAX" => serde_json::json!({"glow": true, "expanded": true, "priority": 100, "label": "MAX"}),
+        "PRO" => serde_json::json!({"glow": true, "expanded": false, "priority": 50, "label": "PRO"}),
+        "CREATOR" => serde_json::json!({"glow": false, "expanded": false, "priority": 10, "label": "CREATOR"}),
+        _ => serde_json::json!({"glow": false, "expanded": false, "priority": 0, "label": "FREE"}),
+    }
 }
 
 pub fn get_covenant_by_txid(db: &Mutex<Connection>, tx_id: &str) -> anyhow::Result<Option<DbCovenant>> {
@@ -273,6 +319,53 @@ pub fn save_generated_ui(db: &Mutex<Connection>, covenant_id: &str, owner_addres
     Ok(())
 }
 
+/// Save trust-verification UI config (verified_source_url, developer_notes, interaction_schema, custom_category).
+/// Caller MUST validate that wallet_addr == on-chain creator_addr before calling.
+pub fn save_ui_trust_config(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    owner_address: &str,
+    verified_source_url: &str,
+    developer_notes: &str,
+    interaction_schema: &str,
+    custom_category: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    let ui_config = serde_json::json!({
+        "verified_source_url": verified_source_url,
+        "developer_notes": developer_notes,
+        "interaction_schema": interaction_schema,
+        "custom_category": custom_category,
+        "trust_configured_at": chrono::Utc::now().timestamp(),
+    });
+    conn.execute(
+        "INSERT OR REPLACE INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at)
+         VALUES (?1, ?2, 'TRUSTED', '', ?3, ?4, 1, 0, unixepoch(), unixepoch())",
+        params![covenant_id, owner_address, ui_config.to_string(), format!("trust-{}", covenant_id)],
+    )?;
+    // If custom_category is set, update the covenants table too
+    if !custom_category.is_empty() {
+        conn.execute(
+            "UPDATE covenants SET category = ?1 WHERE tx_id = ?2",
+            params![custom_category, covenant_id],
+        )?;
+    }
+    Ok(())
+}
+
+/// Retrieve the trust-verification config for a covenant.
+pub fn get_ui_trust_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT ui_config FROM generated_uis WHERE covenant_id = ?1 AND tier = 'TRUSTED' ORDER BY ui_generated_at DESC LIMIT 1"
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        let cfg_str: String = row.get(0)?;
+        Ok(serde_json::from_str(&cfg_str).unwrap_or(serde_json::json!({})))
+    })?;
+    Ok(rows.next().transpose()?)
+}
+
 pub fn get_generated_ui_by_covenant(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
@@ -349,6 +442,45 @@ pub fn get_visibilities(db: &Mutex<Connection>) -> anyhow::Result<Vec<serde_json
     Ok(result)
 }
 
+// ─── Custom UI Configs ──────────────────────────────────────
+
+pub fn save_custom_ui_config(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    owner_address: &str,
+    tier: &str,
+    config_json: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO custom_ui_configs (covenant_id, owner_address, tier, config_json, config_version, is_published, updated_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, COALESCE((SELECT config_version + 1 FROM custom_ui_configs WHERE covenant_id = ?1), 1), 1, unixepoch(), unixepoch())",
+        params![covenant_id, owner_address, tier, config_json],
+    )?;
+    Ok(())
+}
+
+pub fn get_custom_ui_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT config_json FROM custom_ui_configs WHERE covenant_id = ?1 AND is_published = 1 ORDER BY updated_at DESC LIMIT 1"
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        let cfg_str: String = row.get(0)?;
+        Ok(serde_json::from_str(&cfg_str).unwrap_or(serde_json::json!({})))
+    })?;
+    Ok(rows.next().transpose()?)
+}
+
+pub fn delete_custom_ui_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<bool> {
+    let conn = db.lock().unwrap();
+    let affected = conn.execute(
+        "DELETE FROM custom_ui_configs WHERE covenant_id = ?1",
+        params![covenant_id],
+    )?;
+    Ok(affected > 0)
+}
+
 // ─── Crawler State ─────────────────────────────────────────────
 
 pub fn get_last_scanned_daa(db: &Mutex<Connection>) -> anyhow::Result<u64> {
@@ -370,4 +502,102 @@ pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64) -> anyhow::Resu
         rusqlite::params![daa as i64],
     )?;
     Ok(())
+}
+
+// ─── Skill Games ──────────────────────────────────────────
+
+#[derive(serde::Serialize, Debug, Clone)]
+pub struct DbSkillGame {
+    pub covenant_id: String,
+    pub game_type: String,
+    pub pot_amount_kas: f64,
+    pub player1: String,
+    pub player2: String,
+    pub moves: String,
+    pub current_turn: String,
+    pub winner: Option<String>,
+    pub status: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+pub fn create_skill_game(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    game_type: &str,
+    pot_amount_kas: f64,
+    player1: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 'waiting', unixepoch(), unixepoch())",
+        params![covenant_id, game_type, pot_amount_kas, player1],
+    )?;
+    Ok(())
+}
+
+pub fn join_skill_game(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    player2: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE skill_games SET player2 = ?2, status = 'active', updated_at = unixepoch() WHERE covenant_id = ?1 AND status = 'waiting'",
+        params![covenant_id, player2],
+    )?;
+    Ok(())
+}
+
+pub fn record_move(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    new_moves_json: &str,
+    current_turn: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE skill_games SET moves = ?2, current_turn = ?3, updated_at = unixepoch() WHERE covenant_id = ?1",
+        params![covenant_id, new_moves_json, current_turn],
+    )?;
+    Ok(())
+}
+
+pub fn set_winner(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    winner: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE skill_games SET winner = ?2, status = 'completed', updated_at = unixepoch() WHERE covenant_id = ?1",
+        params![covenant_id, winner],
+    )?;
+    Ok(())
+}
+
+pub fn get_skill_game(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+) -> anyhow::Result<Option<DbSkillGame>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at FROM skill_games WHERE covenant_id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        Ok(DbSkillGame {
+            covenant_id: row.get(0)?,
+            game_type: row.get(1)?,
+            pot_amount_kas: row.get(2)?,
+            player1: row.get(3)?,
+            player2: row.get(4)?,
+            moves: row.get(5)?,
+            current_turn: row.get(6)?,
+            winner: row.get(7)?,
+            status: row.get(8)?,
+            created_at: row.get(9)?,
+            updated_at: row.get(10)?,
+        })
+    })?;
+    Ok(rows.next().transpose()?)
 }

@@ -1,225 +1,186 @@
 use crate::db;
+use crate::ui_generator;
+use crate::covenant_types;
+use kaspa_addresses::Address;
 use kaspa_rpc_core::api::rpc::RpcApi;
+use kaspa_rpc_core::RpcTransaction;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tracing::{info, warn, error, debug};
 
-/// Historic BlockDAG Crawler
+/// Historic BlockDAG Crawler — walks the selected-parent chain backward from tip.
 ///
-/// Polls the virtual tip periodically and walks the selected-parent chain
-/// backwards to discover covenant UTXOs that predate the live indexer.
+/// Covenant opcodes (aa20/aa21/aa22/aa23) are in tx.payload, NOT output scripts.
+/// Tier determined by Output[1] → treasury P2PKH address.
 ///
-/// Checkpointed via crawler_state table — survives restarts.
+/// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
-const MAX_WALK_DISTANCE: u64 = 500; // blocks per tick
+const MAX_WALK_DISTANCE: u64 = 1_000_000;
+const MAX_THRESHOLD: u64 = 100_000_000_000;
+const PRO_THRESHOLD: u64 = 50_000_000_000;
+const CREATOR_THRESHOLD: u64 = 10_000_000_000;
+
+fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
+    let payload = treasury_addr.payload.as_slice();
+    // For 32-byte payloads (Schnorr P2PK), the script is 20<key>ac
+    // For 20-byte payloads (P2PKH), the script is 76a914<hash160>88ac
+    match payload.len() {
+        32 => Some(format!("20{}ac", hex::encode(payload))),
+        20 => Some(format!("76a914{}88ac", hex::encode(payload))),
+        _ => None,
+    }
+}
+
+/// Extract a testnet address from a Schnorr P2PK output script (20<32-byte-pubkey>ac).
+/// Returns None if the script is not a recognizable Schnorr P2PK.
+fn address_from_p2pk_script(spk_hex: &str) -> Option<String> {
+    if spk_hex.len() == 68 && spk_hex.starts_with("20") && spk_hex.ends_with("ac") {
+        let payload = hex::decode(&spk_hex[2..66]).ok()?;
+        let addr = Address::new(kaspa_addresses::Prefix::Testnet, kaspa_addresses::Version::PubKey, &payload);
+        Some(addr.to_string())
+    } else {
+        None
+    }
+}
+
+fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (String, u64) {
+    if tx.outputs.len() < 2 { return ("FREE".to_string(), 0); }
+    let o1 = &tx.outputs[1];
+    let spk_hex = hex::encode(o1.script_public_key.script());
+    let amount = o1.value;
+    // Match either P2PKH (50 hex: 76a914<hash160>88ac) or Schnorr P2PK (68 hex: 20<key>ac)
+    let is_treasury = spk_hex == treasury_script
+        || (spk_hex.len() == 50 && treasury_script.len() >= 46 && spk_hex.starts_with("76a914") && spk_hex.ends_with("88ac")
+            && &spk_hex[6..46] == &treasury_script[6..46])
+        || (spk_hex.len() == 68 && treasury_script.len() >= 66 && spk_hex.starts_with("20") && spk_hex.ends_with("ac")
+            && &spk_hex[2..66] == &treasury_script[2..66]);
+    if !is_treasury { return ("FREE".to_string(), 0); }
+    let tier = if amount >= MAX_THRESHOLD { "MAX" }
+               else if amount >= PRO_THRESHOLD { "PRO" }
+               else if amount >= CREATOR_THRESHOLD { "CREATOR" }
+               else { return ("FREE".to_string(), 0); };
+    (tier.to_string(), amount)
+}
+
+/// Auto-generate a logic summary from covenant type, category and amount
+fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64) -> String {
+    let kas = amount_sompi as f64 / 100_000_000.0;
+    format!("{} covenant (category: {}) locking {:.2} KAS on Kaspa BlockDAG TN-12. Extracted automatically from on-chain UTXO data.", covenant_type, category, kas)
+}
 
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
     db: Arc<Mutex<rusqlite::Connection>>,
+    treasury_address: String,
     start_daa: u64,
 ) {
-    info!("Historic Crawler started (start_daa={})", start_daa);
-
-    let mut scan_daa = match db::get_last_scanned_daa(&db) {
-        Ok(daa) if daa > 0 => {
-            info!("Crawler: resuming from checkpoint DAA {}", daa);
-            daa
-        }
-        _ => {
-            info!("Crawler: starting from CRAWL_START_DAA={}", start_daa);
-            start_daa
-        }
+    let treasury_addr = match Address::try_from(treasury_address.as_str()) {
+        Ok(a) => a, Err(e) => { error!("Crawler: invalid treasury: {}", e); return; }
     };
+    let treasury_script = match treasury_script_hex(&treasury_addr) {
+        Some(s) => s, None => { error!("Crawler: treasury script fail"); return; }
+    };
+    info!("Crawler started: treasury={}, start_daa={}", treasury_address, start_daa);
 
+    let mut scan_daa = db::get_last_scanned_daa(&db).unwrap_or(start_daa);
     let mut total_found: u64 = 0;
 
     loop {
-        if !client.is_connected() {
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            continue;
-        }
-
-        let dag_info = match tokio::time::timeout(
-            std::time::Duration::from_secs(15),
-            client.get_block_dag_info(),
-        )
-        .await
-        {
-            Ok(Ok(info)) => info,
-            Ok(Err(e)) => {
-                warn!("Crawler: get_block_dag_info failed: {}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-                continue;
-            }
-            Err(_elapsed) => {
-                warn!("Crawler: get_block_dag_info timed out after 15s");
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                continue;
-            }
+        if !client.is_connected() { tokio::time::sleep(std::time::Duration::from_secs(5)).await; continue; }
+        let dag = match tokio::time::timeout(std::time::Duration::from_secs(15), client.get_block_dag_info()).await {
+            Ok(Ok(d)) => d, Ok(Err(e)) => { warn!("Crawler: dag_info: {}", e); tokio::time::sleep(std::time::Duration::from_secs(10)).await; continue; }
+            Err(_) => { warn!("Crawler: dag_info timeout"); tokio::time::sleep(std::time::Duration::from_secs(5)).await; continue; }
         };
-
-        let virtual_daa = dag_info.virtual_daa_score;
-
-        // Nothing to scan
-        if scan_daa >= virtual_daa {
-            // Persist checkpoint
-            let _ = db::update_last_scanned_daa(&db, scan_daa);
-            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-            continue;
-        }
-
-        // Walk selected parent chain backwards from a known tip
-        let tip_hash = match dag_info.virtual_parent_hashes.first() {
-            Some(h) => h.clone(),
-            None => {
-                warn!("Crawler: no virtual parent hashes — node still syncing?");
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                continue;
-            }
+        let virtual_daa = dag.virtual_daa_score;
+        if scan_daa >= virtual_daa { let _ = db::update_last_scanned_daa(&db, scan_daa); tokio::time::sleep(std::time::Duration::from_secs(60)).await; continue; }
+        let tip_hash = match dag.virtual_parent_hashes.first() {
+            Some(h) => h.clone(), None => { warn!("Crawler: no tip"); tokio::time::sleep(std::time::Duration::from_secs(30)).await; continue; }
         };
+        info!("Crawler: tip DAA {} | scanned={}", virtual_daa, scan_daa);
 
-        info!(
-            "Crawler: walking from tip DAA {} (scanned={})",
-            virtual_daa, scan_daa
-        );
-
-        // Follow selected parent chain backward
-        let mut current_hash = tip_hash;
+        let mut cur = tip_hash;
         let mut walked = 0u64;
-        let mut batch_found = 0usize;
+        let mut batch = 0usize;
+        let mut lowest = virtual_daa;
 
-        for _step in 0..MAX_WALK_DISTANCE {
-            // Check connection
-            if !client.is_connected() {
-                break;
-            }
-
-            // Fetch block
-            let block = match client.get_block(current_hash.clone(), false).await {
-                Ok(b) => b,
-                Err(e) => {
-                    debug!("Crawler: get_block failed at {}: {}", current_hash, e);
-                    break;
-                }
+        for _ in 0..MAX_WALK_DISTANCE {
+            if !client.is_connected() { break; }
+            let block = match client.get_block(cur.clone(), true).await {
+                Ok(b) => b, Err(e) => { debug!("Crawler: block fail at {}: {}", cur, e); break; }
             };
+            let daa = block.header.daa_score;
+            lowest = daa.min(lowest);
 
-            let block_daa = block.header.daa_score;
-
-            // Stop when we've covered all unscanned blocks
-            if block_daa <= scan_daa {
-                scan_daa = scan_daa.max(block_daa);
-                break;
-            }
-
-            // Extract covenant outputs from this block
+            // Scan tx.payload for covenant opcodes
             for tx in &block.transactions {
-                for (out_idx, output) in tx.outputs.iter().enumerate() {
-                    let spk_bytes = output.script_public_key.script();
-                    let spk_hex = hex::encode(spk_bytes);
+                let pl = hex::encode(&tx.payload);
+                if !pl.contains("aa20") && !pl.contains("aa21") && !pl.contains("aa22") && !pl.contains("aa23") { continue; }
+                let (tier, _) = determine_tier_from_outputs(tx, &treasury_script);
+                let amt = tx.outputs[0].value;
+                let txh = tx.verbose_data.as_ref().map(|v| v.transaction_id.to_string())
+                    .unwrap_or_else(|| format!("{}-tx", block.header.hash));
+                let tid = format!("{}:{}", txh, 0);
+                let ctype = classify(&pl);
+                let cat = categorize(&pl);
+                let addr = format!("kaspatest:{}", &txh[..32]);
+                // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
+                let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
+                let creator = address_from_p2pk_script(&deployer_script_hex)
+                    .unwrap_or_else(|| addr.clone());
+                let shash = crate::compute_script_hash(&pl);
 
-                    if !looks_like_covenant(&spk_hex) {
-                        continue;
+                let summary = auto_summary(&ctype, &cat, amt);
+                let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
+                match db::insert_covenant(&db, &tid, &addr, amt, &shash, &pl, &ctype, &cat, &creator, "", daa, &tier, &summary, &recv_addrs) {
+                    Ok(_) => {
+                        batch += 1;
+                        info!("Crawler: FOUND {} {} DAA={} amt={}K tier={} pl={}", ctype, &tid[..16], daa, amt as f64/1e8, tier, &pl[..40.min(pl.len())]);
+                        let (gdb, gid, gty, gcat, ghash, gaddr, gcreator, gt) = (Arc::clone(&db), tid.clone(), ctype.clone(), cat.clone(), shash.clone(), addr.clone(), creator.clone(), tier.to_string());
+                        tokio::spawn(async move {
+                            let p = ui_generator::extract_parameters_from_script("aa20", &ghash);
+                            let cfg = covenant_types::UiGenerationConfig {
+                                covenant_id: gid.clone(), covenant_name: format!("{} {}", gty, &gid[..8]),
+                                category: gcat, script_hash: ghash, parameters: p,
+                                is_enhanced: gt != "FREE", disclosure_level: if gt=="FREE" {"limited".into()} else {"full".into()}, creator_addr: gcreator,
+                            };
+                            let html = ui_generator::generate_basic_ui(&cfg);
+                            let slug = format!("covenant-{}", &gid[..16]);
+                            let feat = gt=="MAX"||gt=="PRO"; let pri: i32 = match gt.as_str() {"MAX"=>100,"PRO"=>50,"CREATOR"=>10,_=>0};
+                            let _ = db::save_generated_ui(&gdb, &gid, &gid, &gt, &html, "{}", &slug, feat);
+                            let _ = db::set_visibility(&gdb, &gid, &gt, feat, pri, None);
+                        });
                     }
-
-                    let tx_hash = tx
-                        .verbose_data
-                        .as_ref()
-                        .map(|vd| vd.transaction_id.to_string())
-                        .unwrap_or_else(|| format!("{}-tx", block.header.hash.to_string()));
-                    let tx_id = format!("{}:{}", tx_hash, out_idx);
-                    let amount_sompi = output.value;
-                    let covenant_type = classify_covenant(&spk_hex);
-                    let category = categorize(&spk_hex);
-                    let address = format!("kaspatest:{}", &tx_hash[..32]);
-                    let script_hash = crate::compute_script_hash(&spk_hex);
-
-                    match db::insert_covenant(
-                        &db, &tx_id, &address, amount_sompi,
-                        &script_hash, &spk_hex, &covenant_type,
-                        &category, &address, "", block_daa,
-                    ) {
-                        Ok(_) => {
-                            batch_found += 1;
-                            debug!(
-                                "Crawler: found {} {} @ DAA {} ({} KAS)",
-                                covenant_type, &tx_id[..16],
-                                block_daa,
-                                amount_sompi as f64 / 100_000_000.0
-                            );
-                        }
-                        Err(e) if e.to_string().contains("UNIQUE") => {}
-                        Err(e) => {
-                            error!("Crawler: insert failed {}: {}", &tx_id[..16], e);
-                        }
-                    }
+                    Err(e) if e.to_string().contains("UNIQUE") => {}
+                    Err(e) => { error!("Crawler: insert fail {}: {}", &tid[..16], e); }
                 }
             }
 
             walked += 1;
-            scan_daa = scan_daa.max(block_daa);
-
-            // Follow selected parent (first parent in level 0)
+            // Follow selected parent
             match block.header.parents_by_level.first().and_then(|v| v.first()) {
-                Some(parent_hash) => {
-                    current_hash = *parent_hash;
-                }
-                None => {
-                    debug!("Crawler: reached genesis at DAA {}", block_daa);
-                    break;
-                }
+                Some(ph) => cur = *ph,
+                None => { debug!("Crawler: genesis at DAA {}", daa); break; }
             }
         }
 
-        total_found += batch_found as u64;
-
-        info!(
-            "Crawler: walked {} blocks, found {} new (total: {}), now at DAA {}",
-            walked, batch_found, total_found, scan_daa
-        );
-
+        total_found += batch as u64;
+        info!("Crawler: walked={} found={} total={} lowest_daa={}", walked, batch, total_found, lowest);
+        // Advance past the floor — lowest is the minimum DAA seen in this batch.
+        // Without this decrement, the next cycle hits the same floor and makes zero net progress.
+        scan_daa = lowest.saturating_sub(1);
         let _ = db::update_last_scanned_daa(&db, scan_daa);
-
-        // Pace the crawler
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }
 
-fn looks_like_covenant(spk_hex: &str) -> bool {
-    if spk_hex.len() < 4 {
-        return false;
-    }
-    spk_hex.contains("aa20")
-        || spk_hex.contains("aa21")
-        || spk_hex.contains("aa22")
-        || spk_hex.contains("aa23")
+fn classify(hex: &str) -> String {
+    if hex.starts_with("aa20") && hex.ends_with("87") { "p2sh-covenant".into() }
+    else if hex.contains("aa21") { "extended-covenant".into() }
+    else if hex.contains("aa22") { "multi-sig-covenant".into() }
+    else if hex.contains("aa23") { "community-pool-covenant".into() }
+    else { "generic-covenant".into() }
 }
-
-fn classify_covenant(spk_hex: &str) -> String {
-    if spk_hex.starts_with("aa20") && spk_hex.ends_with("87") {
-        "p2sh-covenant".to_string()
-    } else if spk_hex.contains("aa21") {
-        "extended-covenant".to_string()
-    } else if spk_hex.contains("aa22") {
-        "multi-sig-covenant".to_string()
-    } else if spk_hex.contains("51") {
-        "spendable-covenant".to_string()
-    } else {
-        "generic-covenant".to_string()
-    }
-}
-
-fn categorize(spk_hex: &str) -> String {
-    if spk_hex.is_empty() {
-        return "General".to_string();
-    }
-    if spk_hex.contains("51") {
-        "Skill Contests".to_string()
-    } else if spk_hex.contains("aa21") {
-        "Escrow & Custody".to_string()
-    } else if spk_hex.contains("aa22") {
-        "Tournaments".to_string()
-    } else {
-        "General".to_string()
-    }
+fn categorize(hex: &str) -> String {
+    crate::covenant_types::CovenantCategory::from_script_ops(hex).label().to_string()
 }

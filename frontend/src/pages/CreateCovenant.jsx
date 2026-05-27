@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { FileCode, Code, AlertTriangle, ArrowLeft, Terminal, CheckCircle } from 'lucide-react';
+import { FileCode, Code, AlertTriangle, ArrowLeft, Terminal, CheckCircle, Key } from 'lucide-react';
+import DevWalletModal from '../components/DevWalletModal';
+import { useWallet } from '../components/WalletContext';
 
 const CreateCovenant = () => {
+  const { address, isDevMode } = useWallet();
+  const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [code, setCode] = useState(`// SilverScript covenant example:
 // pragma silverscript 2026.0;
 
@@ -57,6 +61,52 @@ contract TransferWithTimeout {
 
         {/* Editor Area */}
         <div className="p-8 space-y-6">
+
+          {/* Wallet Status */}
+          {address ? (
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${
+              isDevMode
+                ? 'bg-yellow-600/[0.04] border-yellow-600/30'
+                : 'bg-emerald-500/[0.04] border-emerald-500/20'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  isDevMode ? 'bg-yellow-400' : 'bg-emerald-400'
+                }`} />
+                <div>
+                  <p className={`text-xs font-mono ${isDevMode ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                    {isDevMode ? 'DEV MODE (LOCAL KEY)' : 'CONNECTED'}
+                  </p>
+                  <p className="text-sm font-mono text-white truncate max-w-[300px]">{address}</p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>TOCCATA TN12</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+                <p className="text-xs text-amber-400 font-mono mb-1">WALLET NOT CONNECTED</p>
+                <p className="text-sm text-gray-400">
+                  Connect a wallet to sign and deploy your SilverScript covenant to TN12.
+                </p>
+              </div>
+
+              {/* TN12 Dev Wallet — isolated from extension flow */}
+              <div className="pt-2">
+                <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Testing / Dev Only</p>
+                <button
+                  onClick={() => setDevWalletOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
+                >
+                  <Key size={16} />
+                  Connect TN12 Dev Wallet
+                </button>
+                <p className="text-[9px] text-gray-600 mt-2 text-center leading-relaxed">
+                  Derives keys locally via kaspa-wasm. For covenant testing — no browser extensions required.
+                </p>
+              </div>
+            </div>
+          )}
           
           <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-[#2a2a2a]">
@@ -123,6 +173,9 @@ contract TransferWithTimeout {
         </div>
 
       </div>
+
+      {/* TN12 Dev Wallet Modal */}
+      <DevWalletModal isOpen={devWalletOpen} onClose={() => setDevWalletOpen(false)} />
     </div>
   );
 };

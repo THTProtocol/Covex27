@@ -1,258 +1,148 @@
-import React, { useState } from 'react';
-import { X, ChevronLeft, Download, AlertTriangle, Wallet, Key, Hash } from 'lucide-react';
+import { useState } from 'react';
+import { useWallet } from './WalletContext';
+import { X, Wallet, ExternalLink, AlertTriangle } from 'lucide-react';
 
-// Inline SVG wallet logos
-const KasWareLogo = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
-    <rect width="48" height="48" rx="12" fill="#111"/>
-    <path d="M24 8L38 16v16L24 40 10 32V16L24 8z" fill="#49EACB" opacity="0.9"/>
-    <path d="M24 14L33 19.5v11L24 35.5 15 30.5v-11L24 14z" fill="#111"/>
-    <circle cx="24" cy="25" r="4" fill="#49EACB"/>
-  </svg>
-);
-const KaspiumLogo = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
-    <rect width="48" height="48" rx="12" fill="#1a1a2e"/>
-    <path d="M14 24l10-14 10 14-10 14-10-14z" fill="url(#kg2)" stroke="#3B82F6" strokeWidth="1.5"/>
-    <defs><linearGradient id="kg2" x1="14" y1="10" x2="34" y2="38"><stop stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/></linearGradient></defs>
-    <circle cx="24" cy="24" r="5" fill="#1a1a2e" stroke="#60A5FA" strokeWidth="1.5"/>
-  </svg>
-);
-const KastleLogo = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
-    <rect width="48" height="48" rx="12" fill="#0f0f1a"/>
-    <path d="M10 36V14l14-8 14 8v22H10z" fill="none" stroke="#A78BFA" strokeWidth="2"/>
-    <path d="M16 28h6v8h-6zM26 20h6v16h-6z" fill="#A78BFA" opacity="0.8"/>
-    <path d="M16 36h16" stroke="#A78BFA" strokeWidth="2"/>
-  </svg>
-);
-const KaspaWebLogo = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
-    <rect width="48" height="48" rx="12" fill="#0a1628"/>
-    <circle cx="24" cy="24" r="14" fill="none" stroke="#49EACB" strokeWidth="2"/>
-    <path d="M24 10A14 14 0 0110 24" fill="none" stroke="#E8AF34" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M13 17l7 7-7 7" fill="none" stroke="#49EACB" strokeWidth="1.5" strokeLinecap="round"/>
-    <circle cx="24" cy="24" r="3" fill="#49EACB"/>
-  </svg>
-);
-const KasanovaLogo = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
-    <rect width="48" height="48" rx="12" fill="#1a0a1a"/>
-    <path d="M12 16l12-6 12 6v16l-12 6-12-6V16z" fill="none" stroke="#EC4899" strokeWidth="2"/>
-    <circle cx="24" cy="24" r="6" fill="#EC4899" opacity="0.7"/>
-    <path d="M20 24h8M24 20v8" stroke="#1a0a1a" strokeWidth="2"/>
-  </svg>
-);
-const KDXLogo = () => (
-  <svg viewBox="0 0 48 48" fill="none" className="w-full h-full">
-    <rect width="48" height="48" rx="12" fill="#0d1117"/>
-    <rect x="10" y="14" width="28" height="20" rx="2" fill="none" stroke="#58A6FF" strokeWidth="2"/>
-    <rect x="14" y="18" width="20" height="12" rx="1" fill="#58A6FF" opacity="0.2"/>
-    <path d="M20 26h8" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round"/>
-    <rect x="16" y="36" width="16" height="3" rx="1.5" fill="#30363D"/>
-  </svg>
-);
+export default function WalletButton() {
+  const { address, balance, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect } = useWallet();
+  const [open, setOpen] = useState(false);
 
-const wallets = [
-  { id: 'kasware', name: 'KasWare Wallet', desc: 'Browser Extension', Logo: KasWareLogo, tag: 'Recommended', url: 'https://www.kasware.xyz/' },
-  { id: 'kaspium', name: 'Kaspium', desc: 'Official Mobile Wallet', Logo: KaspiumLogo, url: 'https://kaspium.io/' },
-  { id: 'kastle', name: 'Kastle Wallet', desc: 'Mobile Web3 Wallet', Logo: KastleLogo, url: 'https://kastle.xyz/' },
-  { id: 'kasanova', name: 'Kasanova', desc: 'Mobile Wallet', Logo: KasanovaLogo, url: '#' },
-  { id: 'web', name: 'Kaspa Web', desc: 'Browser Wallet', Logo: KaspaWebLogo, url: 'https://wallet.kaspanet.io/' },
-  { id: 'kdx', name: 'KDX', desc: 'Desktop Node & Wallet', Logo: KDXLogo, url: 'https://kdx.app/' },
-];
-
-const WalletButton = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState('list'); // 'list', 'mnemonic', 'hex'
-  const [inputValue, setInputValue] = useState('');
-  const [isConnecting, setIsConnecting] = useState(false);
-
-  // Simulates connection or triggers extension download
   const handleWalletClick = async (wallet) => {
-    if (wallet.id === 'kasware') {
-      if (typeof window.kasware !== 'undefined') {
-        try {
-          setIsConnecting(true);
-          await window.kasware.requestAccounts();
-          // Connected successfully - pass to your global state here
-          setIsOpen(false);
-        } catch (error) {
-          console.error("KasWare connection failed", error);
-        } finally {
-          setIsConnecting(false);
-        }
-      } else {
-        window.open(wallet.url, '_blank');
-      }
+    const detected = wallet.detect ? wallet.detect() : false;
+    if (detected) {
+      await connect(wallet.id);
+      setOpen(false);
     } else {
       window.open(wallet.url, '_blank');
     }
   };
 
-  const handleManualImport = () => {
-    if (!inputValue) return;
-    setIsConnecting(true);
-    // Hook this into kaspa-wasm to derive keys for covenants
-    console.log(`Importing ${view}:`, inputValue);
-    setTimeout(() => {
-      setIsConnecting(false);
-      setIsOpen(false);
-      setInputValue('');
-      setView('list');
-    }, 1000);
-  };
+  if (address) {
+    return (
+      <button
+        onClick={() => disconnect()}
+        className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#49EACB]/30 hover:border-red-500/50 text-[#49EACB] hover:text-red-400 rounded-xl font-medium transition-all text-sm group"
+        title="Click to disconnect"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB] group-hover:bg-red-400" />
+        <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
+        {balance !== null && (
+          <span className="text-gray-500 text-xs">
+            ({(balance / 1e8).toFixed(2)} KAS)
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(true)}
+      <button
+        onClick={() => { clearError(); setOpen(true); }}
         className="flex items-center gap-2 px-5 py-2.5 bg-[#111111] border border-[#1f1f1f] hover:border-[#49EACB] text-white rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm"
       >
         <Wallet size={16} className="text-[#49EACB]" />
         CONNECT WALLET
       </button>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm">
-          <div className="absolute top-0 right-0 h-screen w-full sm:w-[400px] bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col transition-all">
-            
-            {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0 bg-[#0a0a0a]">
-              {view !== 'list' ? (
-                <button onClick={() => setView('list')} className="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
-                  <ChevronLeft size={20} />
-                  <span className="text-sm font-medium">Back</span>
-                </button>
-              ) : (
-                <h2 className="text-xl font-semibold text-white">Connect</h2>
-              )}
-              <button onClick={() => { setIsOpen(false); setView('list'); }} className="text-gray-400 hover:text-white transition-colors">
+      {open && (
+        <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div
+            className="absolute top-0 right-0 h-screen w-full sm:w-[420px] bg-[#0a0a0a] border-l border-[#1f1f1f] shadow-2xl flex flex-col animate-in slide-in-from-right-5 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] shrink-0">
+              <h2 className="text-xl font-semibold text-white">Connect Wallet</h2>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white transition-colors">
                 <X size={24} />
               </button>
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              {view === 'list' && (
-                <div className="space-y-6">
-                  {/* Web3 & Mobile Wallets */}
-                  <div className="space-y-3">
-                    {wallets.map((wallet) => {
-                      const WalletLogo = wallet.Logo;
-                      const isExtensionMissing = wallet.id === 'kasware' && typeof window === 'object' && !window.kasware;
-                      
-                      return (
-                        <button 
-                          key={wallet.id}
-                          onClick={() => handleWalletClick(wallet)}
-                          disabled={isConnecting}
-                          className="w-full flex items-center gap-4 p-4 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group disabled:opacity-50"
-                        >
-                          <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-                            <WalletLogo />
-                          </div>
-                          <div className="text-left flex-1">
-                            <div className="text-white font-medium flex items-center gap-2">
-                              {wallet.name}
-                              {wallet.tag && (
-                                <span className="text-[10px] uppercase tracking-wider bg-[#49EACB]/10 text-[#49EACB] px-2 py-0.5 rounded-sm shrink-0">
-                                  {wallet.tag}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-500">{wallet.desc}</div>
-                          </div>
-                          {isExtensionMissing && wallet.id === 'kasware' && (
-                            <Download size={18} className="text-gray-500 group-hover:text-[#49EACB]" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <p className="text-sm text-gray-500 mb-4">Select a Kaspa wallet to connect to Covex (TN12 Testnet)</p>
 
-                  {/* Manual Import Separator */}
-                  <div className="relative flex items-center py-2">
-                    <div className="flex-grow border-t border-[#1f1f1f]"></div>
-                    <span className="flex-shrink-0 mx-4 text-xs text-gray-600 uppercase tracking-wider">Developer / Manual</span>
-                    <div className="flex-grow border-t border-[#1f1f1f]"></div>
-                  </div>
-
-                  {/* Manual Options */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={() => setView('mnemonic')}
-                      className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] transition-all group"
-                    >
-                      <Key size={20} className="text-gray-400 group-hover:text-[#49EACB]" />
-                      <span className="text-sm text-gray-300 font-medium">Mnemonic</span>
-                    </button>
-                    <button 
-                      onClick={() => setView('hex')}
-                      className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] transition-all group"
-                    >
-                      <Hash size={20} className="text-gray-400 group-hover:text-[#49EACB]" />
-                      <span className="text-sm text-gray-300 font-medium">HEX Key</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Manual Import Forms */}
-              {(view === 'mnemonic' || view === 'hex') && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-                  <div className="p-3 border border-yellow-900/50 bg-yellow-900/10 rounded-xl flex gap-3 items-start">
-                    <AlertTriangle size={18} className="text-yellow-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-yellow-600 leading-relaxed">
-                      <strong>Security Warning:</strong> Never enter a Mainnet seed phrase or private key into a browser application. Use this only for Testnet-10 development.
-                    </p>
-                  </div>
-
+              {/* Error display */}
+              {error && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2.5">
+                  <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      {view === 'mnemonic' ? '12 or 24-word Seed Phrase' : 'Private Key (HEX)'}
-                    </label>
-                    {view === 'mnemonic' ? (
-                      <textarea 
-                        rows="4"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        placeholder="apple banana cherry..."
-                        className="w-full bg-[#111111] border border-[#1f1f1f] rounded-xl p-3 text-white text-sm focus:outline-none focus:border-[#49EACB] transition-colors resize-none"
-                      />
-                    ) : (
-                      <input 
-                        type="password"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        placeholder="0x..."
-                        className="w-full bg-[#111111] border border-[#1f1f1f] rounded-xl p-3 text-white text-sm focus:outline-none focus:border-[#49EACB] transition-colors"
-                      />
-                    )}
+                    <p className="text-sm text-red-300">{error}</p>
+                    <button onClick={clearError} className="text-xs text-red-400 hover:text-red-300 mt-1 underline">
+                      Dismiss
+                    </button>
                   </div>
-
-                  <button 
-                    onClick={handleManualImport}
-                    disabled={!inputValue || isConnecting}
-                    className="w-full py-3 bg-[#49EACB] hover:bg-[#3bc2a6] text-black font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isConnecting ? 'Importing...' : 'Import & Connect'}
-                  </button>
                 </div>
               )}
+
+              {connecting && (
+                <div className="mb-4 p-3 rounded-lg bg-[#49EACB]/[0.06] border border-[#49EACB]/20 text-center">
+                  <p className="text-sm text-[#49EACB] animate-pulse">Connecting to wallet...</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {wallets.map((wallet) => {
+                  const detected = wallet.detect ? wallet.detect() : false;
+                  return (
+                    <button
+                      key={wallet.id}
+                      onClick={() => handleWalletClick(wallet)}
+                      disabled={connecting}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-[#49EACB] hover:bg-[#1a1a1a] transition-all group disabled:opacity-50 text-left"
+                    >
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-[#0a0a0a] border border-[#1f1f1f]">
+                        {wallet.logo ? (
+                          <img
+                            src={wallet.logo}
+                            alt={wallet.name}
+                            className="w-9 h-9 object-contain rounded-md"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const fallback = e.target.nextElementSibling;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <span className={`w-9 h-9 rounded-md items-center justify-center text-xs font-bold text-white/60 bg-white/5 ${wallet.logo ? 'hidden' : 'flex'}`}>
+                          {wallet.name?.charAt(0) || '?'}
+                        </span>
+                      </div>
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="text-white font-medium text-sm flex items-center gap-2">
+                          {wallet.name}
+                          {detected && (
+                            <span className="text-[10px] uppercase tracking-wider bg-[#49EACB]/10 text-[#49EACB] px-1.5 py-0.5 rounded-sm shrink-0">
+                              Detected
+                            </span>
+                          )}
+                          {wallet.recommended && !detected && (
+                            <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">
+                              Recommended
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {detected && !connecting ? 'Click to connect' : wallet.sub || 'Install'}
+                        </div>
+                      </div>
+                      {!detected ? (
+                        <ExternalLink size={14} className="text-gray-600 group-hover:text-[#49EACB] transition-colors shrink-0" />
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-[#49EACB] shadow-[0_0_4px_#49EACB] shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            
-            {/* Footer */}
-            <div className="p-6 border-t border-[#1f1f1f] shrink-0 bg-[#0a0a0a]">
-                <p className="text-xs text-gray-600 text-center">
-                  Covex Testnet-10 Environment
-                </p>
+
+            <div className="p-6 border-t border-[#1f1f1f] shrink-0">
+              <p className="text-xs text-gray-600 text-center">
+                TN12 Testnet · Non-custodial · Keys stay in your wallet
+              </p>
             </div>
           </div>
         </div>
       )}
     </>
   );
-};
-
-export default WalletButton;
+}

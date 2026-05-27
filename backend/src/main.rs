@@ -1,4 +1,4 @@
-use axum::{routing::get, Router, Json, Extension};
+use axum::{routing::get, Router, Json, Extension, extract::Path};
 use serde_json::json;
 use std::net::SocketAddr;
 use std::env;
@@ -112,6 +112,7 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
+        .route("/terminal-config/:covenant_id", get(get_terminal_config_handler).post(save_terminal_config_handler))
         .layer(Extension(db.clone()))
         .layer(app);
 
@@ -179,6 +180,87 @@ async fn covenants_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connecti
 async fn tiers_handler() -> Json<serde_json::Value> {
     let tiers = covenant_types::get_tiers();
     Json(json!({"tiers": tiers}))
+}
+
+// ─── Terminal Config Handlers ────────────────────────────────────
+
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct TerminalConfigInput {
+    name: Option<String>,
+    description: Option<String>,
+    fee_percent: Option<f64>,
+    reusable: Option<bool>,
+    allow_topups: Option<bool>,
+    custom_ui_code: Option<String>,
+    resolution_mode: Option<String>,
+    custom_oracle_key: Option<String>,
+    zk_circuit: Option<String>,
+    zk_verifier_key: Option<String>,
+}
+
+async fn get_terminal_config_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    match db::get_generated_ui_by_covenant(&db, &covenant_id) {
+        Ok(Some(ui)) => {
+            // Parse ui_config which stores our terminal configuration
+            let config_str = ui.get("ui_config").and_then(|v| v.as_str()).unwrap_or("{}");
+            let config: serde_json::Value = serde_json::from_str(config_str).unwrap_or(json!({}));
+            Json(json!({
+                "success": true,
+                "config": config,
+                "ui_html": ui.get("ui_html").and_then(|v| v.as_str()).unwrap_or(""),
+            }))
+        }
+        Ok(None) => Json(json!({"success": true, "config": {}, "ui_html": ""})),
+        Err(e) => Json(json!({"success": false, "error": e.to_string()})),
+    }
+}
+
+async fn save_terminal_config_handler(
+    Path(covenant_id): Path<String>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(input): Json<TerminalConfigInput>,
+) -> Json<serde_json::Value> {
+    // Build the config JSON from input
+    let config = json!({
+        "name": input.name,
+        "description": input.description,
+        "fee_percent": input.fee_percent.unwrap_or(2.0),
+        "reusable": input.reusable.unwrap_or(true),
+        "allow_topups": input.allow_topups.unwrap_or(false),
+        "resolution_mode": input.resolution_mode.unwrap_or_else(|| "oracle".to_string()),
+        "custom_oracle_key": input.custom_oracle_key,
+        "zk_circuit": input.zk_circuit,
+        "zk_verifier_key": input.zk_verifier_key,
+        "updated_at": chrono::Utc::now().timestamp(),
+    });
+    let ui_html = input.custom_ui_code.unwrap_or_default();
+    let slug = format!("covenant-{}", &covenant_id[..12.min(covenant_id.len())]);
+
+    // Use "system" as owner since terminal saves are per-covenant, not per-user
+    match db::save_generated_ui(
+        &db,
+        &covenant_id,
+        "system",
+        "TERMINAL",
+        &ui_html,
+        &config.to_string(),
+        &slug,
+        false,
+    ) {
+        Ok(_) => {
+            info!("Terminal config saved for covenant {}", covenant_id);
+            Json(json!({"success": true, "message": "Configuration saved successfully"}))
+        }
+        Err(e) => {
+            error!("Failed to save terminal config: {}", e);
+            Json(json!({"success": false, "error": e.to_string()}))
+        }
+    }
 }
 
 /// Compute a blake2b-based script hash from hex (matching TN10 conventions)

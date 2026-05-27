@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2 } from 'lucide-react';
+import CovexTerminal from '../components/CovexTerminal';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -35,6 +36,7 @@ function ColorSwatch({ color, active, onClick }) {
 
 export default function CovenantInteractive() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
@@ -43,18 +45,29 @@ export default function CovenantInteractive() {
   // UI Builder state
   const [showBuilder, setShowBuilder] = useState(false);
   const [config, setConfig] = useState(DEFAULT_UI_CONFIG);
-  const [activeTab, setActiveTab] = useState('interact');
-
-  // Upgrade payment state
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [upgradeTier, setUpgradeTier] = useState(null);
-  const [upgradeQr, setUpgradeQr] = useState(false);
-  const [upgradePaid, setUpgradePaid] = useState(false);
 
   // Anti-bypass: paid tier from localStorage
   const [covexPaidTier, setCovexPaidTier] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null
   );
+
+  // Compute effective tier & paid status early so tab default works
+  const effectiveTierLabel = covexPaidTier || 'FREE';
+  const effectiveTierVal = Math.max(
+    tierValue(covenant?.verified_tier || covenant?.tier || 'FREE'),
+    tierValue(effectiveTierLabel)
+  );
+  const canCustomize = effectiveTierVal >= 1;  // CREATOR+
+  const canBrand = effectiveTierVal >= 2;       // PRO+
+  const canMaxLayout = effectiveTierVal >= 3;   // MAX
+
+  // Set activeTab based on URL param (paid → terminal, free → interact)
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    // ?tab=terminal only works for paid users
+    if (tabParam === 'terminal' && (covexPaidTier || '')) return 'terminal';
+    return 'interact';
+  });
   const [toast, setToast] = useState(null);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
@@ -62,6 +75,12 @@ export default function CovenantInteractive() {
     { id: 'PRO', price: 500, label: 'PRO', color: '#E8AF34', desc: 'Featured placement, advanced UI tools, covenant images.' },
     { id: 'MAX', price: 1000, label: 'MAX', color: '#A855F7', desc: 'Top placement, full UI suite, custom branding.' },
   ];
+
+  // Upgrade payment state
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeTier, setUpgradeTier] = useState(null);
+  const [upgradeQr, setUpgradeQr] = useState(false);
+  const [upgradePaid, setUpgradePaid] = useState(false);
 
   const handleUpgrade = async (tier) => {
     setUpgradeTier(tier);
@@ -158,10 +177,6 @@ export default function CovenantInteractive() {
   }
 
   const verified = isVerified(covenant);
-  const effectiveTierVal = Math.max(covenantTierVal, covexPaidTier ? tierValue(covexPaidTier) : 0);
-  const canCustomize = effectiveTierVal >= 1;
-  const canBrand = effectiveTierVal >= 2;
-  const canMaxLayout = effectiveTierVal >= 3;
 
   // Preview style based on config
   const previewStyle = {
@@ -303,6 +318,19 @@ export default function CovenantInteractive() {
             </button>
             {canCustomize && (
               <button
+                onClick={() => setActiveTab('terminal')}
+                className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                  activeTab === 'terminal'
+                    ? 'text-kaspa-green bg-kaspa-green/[0.06] border-b-2 border-kaspa-green'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Code2 size={14} />
+                Terminal
+              </button>
+            )}
+            {canCustomize && (
+              <button
                 onClick={() => setActiveTab('builder')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'builder'
@@ -377,7 +405,13 @@ export default function CovenantInteractive() {
                   View on Kaspa Explorer
                 </a>
               </div>
+            ) : activeTab === 'terminal' ? (
+              /* ── Terminal Tab ── */
+              <div className="-m-8">
+                <CovexTerminal covenant={covenant} />
+              </div>
             ) : (
+              /* ── UI Builder Tab ── */
               <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
                 <h3 className="text-sm font-semibold text-white uppercase tracking-widest flex items-center gap-2">
                   <LayoutTemplate size={16} className="text-kaspa-green" />

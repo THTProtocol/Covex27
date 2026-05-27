@@ -111,8 +111,8 @@ async fn main() {
     });
 
     // --- Routes ---
-    let api_routes = signer::signer_routes(client.clone(), db.clone())
-        .merge(broadcast::broadcast_routes(client.clone()));
+    let api_routes = signer::signer_routes()
+        .merge(broadcast::broadcast_routes());
 
     let app = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()

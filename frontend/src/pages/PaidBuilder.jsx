@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Layers, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { Terminal, Layers, Loader2, RefreshCw, Sparkles, Plus, Zap, Cpu, Palette, Code } from 'lucide-react';
 
 const TRUNC = (s, n = 8) => s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
 
@@ -140,6 +140,51 @@ export default function PaidBuilder() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Create New Covenant - Full Terminal Access */}
+      {address && !fetchingCovenants && (
+        <div className="mt-10 bg-[#0f0f0f] border border-[#49EACB]/20 rounded-2xl p-6">
+          <div className="flex items-start gap-4 mb-4">
+            <div className="p-2.5 rounded-xl bg-[#49EACB]/15 shrink-0">
+              <Plus size={22} className="text-[#49EACB]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white mb-1">Create a New Covenant</h3>
+              <p className="text-sm text-gray-300">
+                Open the full paid Terminal to deploy a brand-new covenant with complete customization.
+                Configure game types, ZK circuits, oracle keys, custom UI, fees, and generate SilverScript.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div className="flex items-center gap-2 text-xs text-gray-300 p-2 rounded-lg bg-black/30">
+              <Cpu size={14} className="text-[#49EACB] shrink-0" />
+              <span>12 game types with pre-audited ZK circuits</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-300 p-2 rounded-lg bg-black/30">
+              <Zap size={14} className="text-[#49EACB] shrink-0" />
+              <span>Oracle + ZK proof resolution modes</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-300 p-2 rounded-lg bg-black/30">
+              <Palette size={14} className="text-[#49EACB] shrink-0" />
+              <span>Covenant Studio integration for custom UI</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-300 p-2 rounded-lg bg-black/30">
+              <Code size={14} className="text-[#49EACB] shrink-0" />
+              <span>Auto-generated SilverScript + deploy</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/premium')}
+            className="w-full py-4 rounded-xl bg-[#49EACB] text-black font-bold text-base flex items-center justify-center gap-2.5 hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.985] transition-all"
+          >
+            <Terminal size={20} />
+            Open Full Terminal — Create New Covenant
+          </button>
         </div>
       )}
 

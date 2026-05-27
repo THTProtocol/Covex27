@@ -129,7 +129,7 @@ export default function PaidBuilder() {
           <div className="text-emerald-400"><CheckCircle2 size={28} /></div>
           <div>
             <div className="font-bold text-emerald-400 text-lg">Payment Confirmed!</div>
-            <div className="text-sm text-gray-300">You now have <strong>{justPaid.tier}</strong> paid access. Below are all your covenants. Pick one to edit or go straight to its Terminal (full tools unlocked).</div>
+            <div className="text-sm text-gray-300">You now have <strong>{justPaid.tier}</strong> paid access. Below are all covenants deployed with your wallet. Use the <strong>Go to Terminal</strong> button for full tools.</div>
           </div>
         </div>
       )}
@@ -157,22 +157,14 @@ export default function PaidBuilder() {
                 {paidTier}
               </span>
             </div>
-            <p className="text-sm text-gray-300">All covenants you have created with this wallet. Choose one to continue editing or go directly to the full Terminal (ZK, Oracles, UI, SilverScript generator — everything paid users get).</p>
+            <p className="text-sm text-gray-300">Payment complete. Here are all the covenants you have deployed with this wallet. Click <strong>Go to Terminal</strong> on any covenant to get the full paid experience (ZK, Oracles, Custom UI, SilverScript, etc.).</p>
           </div>
         </div>
       </div>
 
-      {/* Big Create New action (the "or create a new one" path) */}
-      <div className="mb-8">
-        <button
-          onClick={() => navigate('/premium')}
-          className="w-full flex items-center justify-center gap-3 px-8 py-5 rounded-2xl bg-[#49EACB] hover:bg-white text-black font-black text-lg transition-all active:scale-[0.985]"
-        >
-          <Rocket size={22} />
-          Create New Covenant — Full Premium Builder (Terminal + ZK + Oracles + Complete Guide + SilverScript Writer)
-        </button>
-        <p className="text-center text-xs text-gray-400 mt-2">Opens the dedicated paid page with every tool you need to write and deploy a high-quality interactive covenant.</p>
-      </div>
+      {/* No prominent "Deploy New" / "Create New Covenant" button here.
+          After paying, the focus is on the user's existing covenants + Terminal access.
+          Creating a brand new one is available via the main Deploy nav or from within the Terminal itself. */}
 
       {/* === Your Created Covenants — Primary post-payment view === */}
       <div className="bg-[#0a0a0a]/95 border border-[#1f1f1f] rounded-2xl p-6 mb-8">
@@ -195,7 +187,10 @@ export default function PaidBuilder() {
         )}
 
         {address && !fetchingCovenants && !fetchError && myCovenants.length === 0 && (
-          <div className="text-center py-6 text-gray-400 text-sm">No covenants yet for this address. Create your first one with the button above.</div>
+          <div className="text-center py-6 text-gray-400 text-sm">
+            No covenants yet for this address.<br />
+            Use the main <span className="font-medium text-[#49EACB]">Deploy</span> link in the top navigation if you want to create a new one later.
+          </div>
         )}
 
         {address && !fetchingCovenants && myCovenants.length > 0 && (
@@ -250,7 +245,7 @@ export default function PaidBuilder() {
         </div>
       </div>
 
-      {/* === Quick Links Bar === */}
+      {/* === Quick Links (secondary) === */}
       <div className="flex flex-wrap gap-4">
         <a
           href="http://localhost:5173"
@@ -264,19 +259,18 @@ export default function PaidBuilder() {
         </a>
 
         <button
-          onClick={() => navigate('/deploy/paid')}
-          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-white/15 hover:bg-[#161616] transition-all"
-        >
-          <Terminal size={16} className="text-[#49EACB]" />
-          <span className="text-sm font-medium text-white">Deploy New Covenant</span>
-        </button>
-
-        <button
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-white/15 hover:bg-[#161616] transition-all"
         >
           <Layers size={16} className="text-[#49EACB]" />
           <span className="text-sm font-medium text-white">View Dashboard</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/pricing')}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[#1f1f1f] bg-[#111111] hover:border-white/15 hover:bg-[#161616] transition-all text-xs"
+        >
+          <span className="text-gray-300">Upgrade / Manage Tiers</span>
         </button>
       </div>
     </div>

@@ -115,7 +115,7 @@ const Pricing = () => {
     setAwaitingConfirmation(null);
     setProcessing(null);
 
-    // Redirect to the page that shows ALL the user's created covenants + clear actions
+    // Redirect to the post-payment page focused on the user's existing covenants + Terminal access
     navigate('/paid-builder');
   };
 
@@ -134,7 +134,7 @@ const Pricing = () => {
             <ShieldCheck size={44} style={{ color: p.accent }} />
           </div>
           <h1 className="text-4xl font-black text-white mb-3">Payment Approval Required</h1>
-          <p className="text-xl text-gray-300">We opened your wallet with the exact amount.</p>
+          <p className="text-xl text-gray-300">We opened your wallet with the exact amount. After you send it, confirm below to access your covenants + Terminal.</p>
         </div>
 
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 mb-8 text-left max-w-xl mx-auto">
@@ -169,7 +169,7 @@ const Pricing = () => {
 
           <p className="text-xs text-gray-500 pt-2">
             On mainnet this will be a simple wallet extension approval. On TN12 you approve the deep link.
-            After confirmation you will see all your covenants and can go straight to the Terminal.
+            After you confirm, you will be taken to a page listing all covenants you have deployed with this wallet, with direct "Go to Terminal" access (no "Deploy new" push).
           </p>
         </div>
       </div>

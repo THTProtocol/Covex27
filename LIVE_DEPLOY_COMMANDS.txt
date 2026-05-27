@@ -1,0 +1,36 @@
+================================================================================
+  EXACT COMMANDS TO RUN ON THE HIGHTABLE SERVER (after you ssh in)
+  This will pull the latest code changes that fix the payment flow.
+================================================================================
+
+1. SSH into the server (from YOUR local machine):
+
+   ssh root@Hightable
+
+   (when it asks for password, type: eiknxblt  and press Enter)
+
+2. Once you are logged in as root and see the prompt, copy-paste these lines one by one:
+
+   cd /root/Covex27
+   git fetch origin
+   git reset --hard origin/master
+   echo "Updated to commit:"
+   git log --oneline -1
+
+   cd frontend
+   npm install
+   npm run build
+
+   systemctl reload nginx || echo "nginx reload attempted"
+
+   echo ""
+   echo "=== DEPLOY FINISHED ==="
+   echo "Go to https://hightable.pro/pricing and test the paid tiers again."
+   echo "You should now see the clean 'pay first' flow + covenants list with only Terminal buttons (no big Deploy button)."
+
+================================================================================
+If you want a one-command version (paste this single block after you ssh in):
+
+cd /root/Covex27 && git fetch origin && git reset --hard origin/master && cd frontend && npm install && npm run build && systemctl reload nginx || true && echo "=== LIVE DEPLOY COMPLETE - test https://hightable.pro/pricing now ==="
+
+================================================================================

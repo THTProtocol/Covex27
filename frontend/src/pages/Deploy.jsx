@@ -33,13 +33,37 @@ export default function Deploy() {
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  // FREE ONLY — redirect paid users to the dedicated paid deploy page
-  useEffect(() => {
-    const paidTier = localStorage.getItem('covex_paid_tier');
-    if (paidTier && paidTier !== 'FREE') {
-      navigate('/deploy/paid', { replace: true });
-    }
-  }, [navigate]);
+  // PAID USERS ARE COMPLETELY BLOCKED from free deploy — they paid for premium for a reason
+  const paidTier = typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null;
+  const isPaid = paidTier && paidTier !== 'FREE';
+
+  if (isPaid) {
+    return (
+      <div className="relative z-10 max-w-2xl mx-auto px-6 py-20 text-center">
+        <div className="text-6xl mb-6">🔒</div>
+        <h1 className="text-3xl font-black text-white mb-4">You Paid for Premium</h1>
+        <p className="text-lg text-gray-300 mb-8">
+          The free deployment page is disabled for paid tier users.<br />
+          You have full access to the Terminal on your existing covenants and the premium builder.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={() => navigate('/paid-builder')}
+            className="px-8 py-4 rounded-2xl bg-[#49EACB] text-black font-bold text-lg"
+          >
+            Go to Your Covenants + Terminal
+          </button>
+          <button
+            onClick={() => navigate('/premium')}
+            className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/5 font-bold text-lg"
+          >
+            Open Full Premium Builder
+          </button>
+        </div>
+        <p className="mt-8 text-xs text-gray-500">Free deploy is intentionally blocked. You paid for the real tools.</p>
+      </div>
+    );
+  }
 
   const fetchBalance = useCallback(async () => {
     if (!address) return;

@@ -168,8 +168,9 @@ const Pricing = () => {
           </button>
 
           <p className="text-xs text-gray-500 pt-2">
-            On mainnet this will be a simple wallet extension approval. On TN12 you approve the deep link.
-            After you confirm, you will be taken to a page listing all covenants you have deployed with this wallet, with direct "Go to Terminal" access (no "Deploy new" push).
+            On mainnet this will be a simple wallet extension approval. On TN12 you approve the deep link.<br />
+            After confirmation the <strong>free deploy page will be permanently disabled</strong> for you. 
+            You will land on your covenants list with direct access to the full paid Terminal.
           </p>
         </div>
       </div>

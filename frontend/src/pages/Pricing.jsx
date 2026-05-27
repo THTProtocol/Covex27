@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X as XIcon } from 'lucide-react';
+import { Check, X as XIcon, ShieldCheck, Loader2, ArrowLeft } from 'lucide-react';
+import { useWallet } from '../components/WalletContext';
 
 const TIERS = [
   {
@@ -75,102 +76,189 @@ const TIERS = [
 ];
 
 const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-const cleanTreasury = TREASURY.replace('kaspatest:', '');
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const [processing, setProcessing] = useState(null);
+  const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
+  const [processing, setProcessing] = useState(null);           // tier id being processed
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(null); // {id, name, price, accent}
+  const [paymentStatus, setPaymentStatus] = useState(null);     // 'sending' | 'success' | 'error' + message
+  const [payingTier, setPayingTier] = useState(null);           // {id, name, price, accent}
 
-  const handlePay = (tier) => {
+  const handlePay = useCallback((tier) => {
     if (tier.id === 'FREE') {
       navigate('/');
       return;
     }
 
-    // Open the exact payment request in the user's wallet (TN12 deep link or extension on mainnet)
-    window.open(`kaspatest:${cleanTreasury}?amount=${tier.price}`, '_blank');
+    setPaymentStatus(null);
 
-    // Enter "approval" stage — this is the smoother payment experience
+    // If wallet is connected, go straight to confirmation screen
+    if (address) {
+      setPayingTier({ id: tier.id, name: tier.name, price: tier.price, accent: tier.accent });
+      setAwaitingConfirmation({
+        id: tier.id,
+        name: tier.name,
+        price: tier.price,
+        accent: tier.accent,
+      });
+      return;
+    }
+
+    // No wallet connected — show connect prompt first, then go to confirmation
+    setPayingTier({ id: tier.id, name: tier.name, price: tier.price, accent: tier.accent });
+    // Show confirmation screen with wallet connect
     setAwaitingConfirmation({
       id: tier.id,
       name: tier.name,
       price: tier.price,
       accent: tier.accent,
+      needWallet: true,
     });
-  };
+  }, [address, navigate]);
 
-  const confirmPaymentSent = () => {
+  const doActualPayment = useCallback(async () => {
+    if (!awaitingConfirmation || !payingTier) return;
+
+    setPaymentStatus({ type: 'sending', message: 'Sending payment...' });
+
+    try {
+      const result = await sendPayment(TREASURY, payingTier.price, { memo: `covex-upgrade:${payingTier.id}` });
+
+      if (result.success) {
+        // Payment sent — unlock tier and redirect
+        localStorage.setItem('covex_paid_tier', payingTier.id);
+        sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: payingTier.name, id: payingTier.id }));
+        setAwaitingConfirmation(null);
+        setPayingTier(null);
+        setPaymentStatus(null);
+        navigate('/paid-builder');
+      } else if (result.method === 'uri') {
+        // Deep link opened — user needs to complete in wallet
+        setPaymentStatus({ type: 'info', message: 'Wallet opened. Complete the payment in your wallet, then click below.' });
+      } else {
+        setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (result.error || 'Unknown error') });
+      }
+    } catch (err) {
+      setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (err.message || 'Network error') });
+    }
+  }, [awaitingConfirmation, payingTier, sendPayment, navigate]);
+
+  const handleConfirmPaid = () => {
+    // Bypass: user claims they paid manually — unlock tier anyway
     if (!awaitingConfirmation) return;
-
     const { id, name } = awaitingConfirmation;
-
-    // Mark the paid tier — this unlocks the entire paid area
     localStorage.setItem('covex_paid_tier', id);
-
-    // Show success notification feel (we'll redirect with a flag the next page can read)
     sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: name, id }));
-
-    // Clean states
     setAwaitingConfirmation(null);
-    setProcessing(null);
-
-    // Redirect to the post-payment page focused on the user's existing covenants + Terminal access
+    setPayingTier(null);
+    setPaymentStatus(null);
     navigate('/paid-builder');
   };
 
   const cancelPayment = () => {
     setAwaitingConfirmation(null);
+    setPayingTier(null);
+    setPaymentStatus(null);
     setProcessing(null);
   };
 
-  // Smooth payment approval screen (this is the "approval notification" step)
+  // ─── Payment Confirmation Screen ───
   if (awaitingConfirmation) {
     const p = awaitingConfirmation;
+    const needWallet = p.needWallet && !address;
+
     return (
-      <div className="relative z-10 max-w-3xl mx-auto px-6 py-20 text-center">
+      <div className="relative z-10 max-w-3xl mx-auto px-6 py-16 text-center">
+        <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
+          <ArrowLeft size={16} /> Cancel
+        </button>
+
         <div className="mb-8">
           <div className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-6" style={{ backgroundColor: p.accent + '15', border: `2px solid ${p.accent}30` }}>
             <ShieldCheck size={44} style={{ color: p.accent }} />
           </div>
-          <h1 className="text-4xl font-black text-white mb-3">Payment Approval Required</h1>
-          <p className="text-xl text-gray-300">We opened your wallet with the exact amount. After you send it, confirm below to access your covenants + Terminal.</p>
+          <h1 className="text-3xl font-black text-white mb-3">Payment Required</h1>
+          <p className="text-lg text-gray-300 max-w-xl mx-auto">
+            Send exactly {p.price.toLocaleString()} KAS to the Covex Treasury to unlock {p.name} tier access.
+          </p>
         </div>
 
-        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 mb-8 text-left max-w-xl mx-auto">
+        {/* Need wallet first */}
+        {needWallet && (
+          <div className="mb-8 max-w-md mx-auto">
+            <div className="p-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/20 text-center mb-4">
+              <p className="text-sm text-amber-400 font-semibold mb-1">Connect Your Wallet First</p>
+              <p className="text-xs text-gray-300">Your wallet must be connected to send the payment.</p>
+            </div>
+            <DevConnectPanel compact />
+          </div>
+        )}
+
+        {/* Payment details card */}
+        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 mb-8 text-left max-w-xl mx-auto">
           <div className="flex justify-between py-3 border-b border-white/10">
             <span className="text-gray-300">Tier</span>
             <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
           </div>
           <div className="flex justify-between py-3 border-b border-white/10">
             <span className="text-gray-300">Amount to send</span>
-            <span className="font-mono font-bold text-white">{p.price} KAS</span>
+            <span className="font-mono font-bold text-white">{p.price.toLocaleString()} KAS</span>
           </div>
           <div className="flex justify-between py-3">
-            <span className="text-gray-300">Treasury</span>
-            <span className="font-mono text-xs text-gray-400 break-all">{TREASURY}</span>
+            <span className="text-gray-300">Treasury address</span>
+            <span className="font-mono text-[10px] text-gray-400 break-all text-right max-w-[280px]">{TREASURY}</span>
           </div>
         </div>
 
+        {/* Payment button */}
         <div className="space-y-4 max-w-md mx-auto">
           <button
-            onClick={confirmPaymentSent}
-            className="w-full py-4 rounded-2xl bg-[#49EACB] text-black font-black text-lg shadow-[0_0_30px_rgba(73,234,203,0.3)] hover:shadow-[0_0_50px_rgba(73,234,203,0.5)] transition-all active:scale-[0.985]"
+            onClick={doActualPayment}
+            disabled={paymentStatus?.type === 'sending'}
+            className="w-full py-4 rounded-2xl bg-[#49EACB] text-black font-black text-lg shadow-[0_0_30px_rgba(73,234,203,0.3)] hover:shadow-[0_0_50px_rgba(73,234,203,0.5)] transition-all active:scale-[0.985] disabled:opacity-60"
           >
-            I have approved &amp; sent the payment in my wallet
+            {paymentStatus?.type === 'sending' ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 size={20} className="animate-spin" />
+                Sending {p.price} KAS...
+              </span>
+            ) : (
+              `Send ${p.price.toLocaleString()} KAS Now`
+            )}
+          </button>
+
+          {/* Status messages */}
+          {paymentStatus && paymentStatus.type !== 'sending' && (
+            <div className={`p-3 rounded-xl text-sm ${
+              paymentStatus.type === 'info' ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' :
+              paymentStatus.type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-400' :
+              'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            }`}>
+              {paymentStatus.message}
+            </div>
+          )}
+
+          {/* Manual bypass for edge cases */}
+          <button
+            onClick={handleConfirmPaid}
+            className="w-full py-3 text-sm text-gray-400 hover:text-white transition border border-white/10 rounded-xl hover:border-white/20"
+          >
+            I sent the payment manually — unlock my tier
           </button>
 
           <button
             onClick={cancelPayment}
             className="w-full py-3 text-sm text-gray-400 hover:text-white transition"
           >
-            Cancel — I want to choose a different tier
+            Cancel — choose different tier
           </button>
 
-          <p className="text-xs text-gray-500 pt-2">
-            On mainnet this will be a simple wallet extension approval. On TN12 you approve the deep link.<br />
-            After confirmation the <strong>free deploy page will be permanently disabled</strong> for you. 
-            You will land on your covenants list with direct access to the full paid Terminal.
+          <p className="text-[11px] text-gray-500 pt-2 leading-relaxed">
+            {needWallet
+              ? 'Connect your wallet first, then click Send to pay securely through your Kaspa wallet.'
+              : 'Click Send to open your connected wallet and approve the payment. After sending, you will land on your covenants page with Terminal access.'
+            }
           </p>
         </div>
       </div>
@@ -193,7 +281,6 @@ const Pricing = () => {
         {TIERS.map((tier) => {
           const isPaid = tier.id !== 'FREE';
           const isFree = tier.id === 'FREE';
-          const isBusy = processing === tier.id;
           return (
             <div
               key={tier.id}
@@ -203,7 +290,6 @@ const Pricing = () => {
                 boxShadow: isPaid ? `0 0 30px ${tier.accent}08` : 'none',
               }}
             >
-              {/* Top accent line */}
               {isPaid && (
                 <div className="absolute top-0 left-4 right-4 h-px rounded-full opacity-60"
                   style={{ background: `linear-gradient(90deg, transparent, ${tier.accent}, transparent)` }} />
@@ -242,20 +328,20 @@ const Pricing = () => {
 
               <button
                 onClick={() => handlePay(tier)}
-                disabled={isBusy}
+                disabled={processing === tier.id}
                 className="w-full mt-6 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-300 border-none disabled:opacity-60"
                 style={{
                   backgroundColor: isFree ? 'rgba(255,255,255,0.06)' : '#49EACB',
                   color: isFree ? '#fff' : '#000',
                 }}
                 onMouseEnter={e => {
-                  if (isPaid && !isBusy) e.currentTarget.style.boxShadow = '0 0 30px rgba(73,234,203,0.4)';
+                  if (isPaid) e.currentTarget.style.boxShadow = '0 0 30px rgba(73,234,203,0.4)';
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.boxShadow = '';
                 }}
               >
-                {isBusy ? 'Redirecting...' : tier.cta}
+                {processing === tier.id ? 'Redirecting...' : tier.cta}
               </button>
             </div>
           );
@@ -269,9 +355,8 @@ const Pricing = () => {
           Higher tier = better placement.
         </p>
         <p className="text-[11px] text-gray-200">
-          Treasury: <code className="text-gray-300">{TREASURY}</code>
+          Treasury: <code className="text-gray-300 text-[10px] break-all">{TREASURY}</code>
         </p>
-        <p className="text-[10px] text-emerald-400 mt-2">After you send the exact KAS amount from your wallet, you will land on the paid-area page with the two options (existing covenant or full premium builder with terminal + guide + script writer).</p>
       </div>
     </div>
   );

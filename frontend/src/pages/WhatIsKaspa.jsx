@@ -159,26 +159,40 @@ export default function WhatIsKaspaPage() {
 
         {/* Resources */}
         <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">Official Resources</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <h2 className="text-lg font-bold text-white mb-4">Official Resources</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { title: 'Kaspa Official Website', href: 'https://kaspa.org' },
-              { title: 'Kaspa Publications', href: 'https://kaspa.org/publications/' },
-              { title: 'Kaspa Developments', href: 'https://kaspa.org/developments/' },
-              { title: 'Kaspa Explorer (Mainnet)', href: 'https://explorer.kaspa.org' },
-              { title: 'Rusty Kaspa on GitHub', href: 'https://github.com/kaspanet/rusty-kaspa' },
-              { title: 'Kaspa Docs on GitHub', href: 'https://github.com/kaspanet/docs' },
-              { title: 'Covenant Design Doc', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md' },
-              { title: 'Community Wallet', href: 'https://wallet.kaspa.org' },
+              { title: 'Kaspa Official Website', desc: 'Home of the Kaspa project — news, ecosystem, and network stats', href: 'https://kaspa.org', color: '#49EACB' },
+              { title: 'Kaspa Publications', desc: 'Whitepapers, research papers, and academic publications', href: 'https://kaspa.org/publications/', color: '#A855F7' },
+              { title: 'Kaspa Developments', desc: 'Network roadmap, protocol upgrades, and latest announcements', href: 'https://kaspa.org/developments/', color: '#3B82F6' },
+              { title: 'Kaspa Explorer (Mainnet)', desc: 'Live mainnet block explorer with transaction tracking and DAG visualization', href: 'https://explorer.kaspa.org', color: '#F59E0B' },
+              { title: 'Rusty Kaspa on GitHub', desc: 'High-performance Rust node reference implementation and consensus engine', href: 'https://github.com/kaspanet/rusty-kaspa', color: '#22C55E' },
+              { title: 'Kaspa Docs on GitHub', desc: 'Protocol specification, REST API docs, WebSocket streams, and SilverScript reference', href: 'https://github.com/kaspanet/docs', color: '#EC4899' },
+              { title: 'Covenant Design Doc', desc: 'Detailed SilverScript covenant architecture and smart contract design rationale', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md', color: '#EF4444' },
+              { title: 'Community Web Wallet', desc: 'Official Kaspa browser wallet — send, receive, and manage KAS', href: 'https://wallet.kaspa.org', color: '#8B5CF6' },
             ].map(r => (
               <a
                 key={r.title}
                 href={r.href}
                 target="_blank"
                 rel="noreferrer"
-                className="block p-3 rounded-lg border border-white/[0.05] bg-white/[0.01] hover:border-white/10 text-sm text-gray-200 hover:text-white transition-colors"
+                className="group relative block p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04] hover:scale-[1.02] transition-all duration-200"
+                style={{}}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = r.color + '40';
+                  e.currentTarget.style.boxShadow = `0 0 24px ${r.color}10`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '';
+                  e.currentTarget.style.boxShadow = '';
+                }}
               >
-                {r.title} &rarr;
+                <h4 className="text-sm font-bold text-white mb-1.5 group-hover:text-kaspa-green transition-colors">
+                  {r.title}
+                </h4>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  {r.desc}
+                </p>
               </a>
             ))}
           </div>

@@ -22,24 +22,25 @@
 // `payload_hash` now always hashes the payload regardless of subnetwork.
 // See: vendor/kaspa-consensus-core/src/hashing/sighash.rs
 
-use axum::{Extension, Json, Router, routing::post};
+use axum::{routing::post, Extension, Json, Router};
 use kaspa_addresses::Address;
 use kaspa_consensus_core::sign::sign_with_multiple_v2;
 use kaspa_consensus_core::subnets::SubnetworkId;
 use kaspa_consensus_core::tx::{
-    ScriptPublicKey, ScriptVec, SignableTransaction, Transaction, TransactionInput, TransactionOutpoint,
-    TransactionOutput, UtxoEntry,
+    ScriptPublicKey, ScriptVec, SignableTransaction, Transaction, TransactionInput,
+    TransactionOutpoint, TransactionOutput, UtxoEntry,
 };
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::{RpcTransaction, RpcUtxosByAddressesEntry};
 use kaspa_wrpc_client::KaspaRpcClient;
-use serde::Deserialize;
 use rusqlite::Connection;
+use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 
-use crate::dev_wallets;
+use crate::compiler;
 use crate::db;
+use crate::dev_wallets;
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -78,6 +79,10 @@ pub struct SignAndBroadcastRequest {
     /// If true, load private key from dev_wallets.rs (wallet 1)
     #[serde(default)]
     pub use_dev_mode: bool,
+    /// Optional Covex DSL source text — if present, compiled via silverc
+    /// and used as tx.payload instead of script_hex.
+    #[serde(default)]
+    pub dsl_source: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -110,8 +115,8 @@ fn tier_fee_sompi(tier: Option<&str>) -> u64 {
 // ── Helper: parse address → ScriptPublicKey ────────────────────────
 
 fn script_pub_key_from_address(addr_str: &str) -> Result<ScriptPublicKey, String> {
-    let addr =
-        Address::try_from(addr_str).map_err(|e| format!("Invalid address '{}': {}", addr_str, e))?;
+    let addr = Address::try_from(addr_str)
+        .map_err(|e| format!("Invalid address '{}': {}", addr_str, e))?;
     let payload = addr.payload.as_slice();
     let script_vec: Vec<u8> = match payload.len() {
         32 => {
@@ -131,7 +136,12 @@ fn script_pub_key_from_address(addr_str: &str) -> Result<ScriptPublicKey, String
             s.push(0xac);
             s
         }
-        n => return Err(format!("Unexpected payload length {}, expected 20 or 32", n)),
+        n => {
+            return Err(format!(
+                "Unexpected payload length {}, expected 20 or 32",
+                n
+            ))
+        }
     };
     Ok(ScriptPublicKey::new(0, ScriptVec::from_slice(&script_vec)))
 }
@@ -182,7 +192,9 @@ pub async fn sign_and_broadcast_handler(
         Some(b) => b,
         None => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false, tx_id: None, outputs: None,
+                success: false,
+                tx_id: None,
+                outputs: None,
                 error: Some("Invalid private key: must be 64 hex chars (32 bytes)".into()),
             }));
         }
@@ -193,18 +205,25 @@ pub async fn sign_and_broadcast_handler(
         Ok(a) => a,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false, tx_id: None, outputs: None,
+                success: false,
+                tx_id: None,
+                outputs: None,
                 error: Some(format!("Invalid deployer address: {}", e)),
             }));
         }
     };
 
-    let utxos = match client.get_utxos_by_addresses(vec![deployer_addr.clone()]).await {
+    let utxos = match client
+        .get_utxos_by_addresses(vec![deployer_addr.clone()])
+        .await
+    {
         Ok(entries) => entries,
         Err(e) => {
             warn!("UTXO fetch failed: {}", e);
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false, tx_id: None, outputs: None,
+                success: false,
+                tx_id: None,
+                outputs: None,
                 error: Some(format!("Failed to fetch UTXOs: {}", e)),
             }));
         }
@@ -212,7 +231,9 @@ pub async fn sign_and_broadcast_handler(
 
     if utxos.is_empty() {
         return Json(serde_json::json!(SignAndBroadcastResponse {
-            success: false, tx_id: None, outputs: None,
+            success: false,
+            tx_id: None,
+            outputs: None,
             error: Some("No UTXOs found for deployer address".into()),
         }));
     }
@@ -228,7 +249,9 @@ pub async fn sign_and_broadcast_handler(
         Ok(s) => s,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false, tx_id: None, outputs: None,
+                success: false,
+                tx_id: None,
+                outputs: None,
                 error: Some(format!("Treasury address error: {}", e)),
             }));
         }
@@ -236,8 +259,37 @@ pub async fn sign_and_broadcast_handler(
 
     let total_cost = COVENANT_AMOUNT + tier_fee + TX_FEE;
 
-    // Decode covenant script for the transaction payload
-    let covenant_payload = if payload.script_hex.trim().is_empty() {
+    // Decode covenant script for the transaction payload.
+    // If dsl_source is provided, compile it through silverc to get
+    // real Kaspa Script bytecode. Otherwise, use the raw script_hex
+    // as before (backward-compatible).
+    let covenant_payload: Vec<u8> = if let Some(ref dsl) = payload.dsl_source {
+        if dsl.trim().is_empty() {
+            vec![]
+        } else {
+            match compiler::compile_dsl(dsl) {
+                Ok(compiled) => {
+                    let mut payload_bytes = vec![0xaa, 0x20];
+                    payload_bytes.extend_from_slice(&compiled.bytecode);
+                    info!(
+                        "[COMPILER] DSL compiled: {} → {} bytes bytecode ({} bytes payload)",
+                        compiled.contract_name,
+                        compiled.bytecode.len(),
+                        payload_bytes.len()
+                    );
+                    payload_bytes
+                }
+                Err(e) => {
+                    warn!("[COMPILER] DSL compilation failed: {} — falling back to raw script_hex", e);
+                    if payload.script_hex.trim().is_empty() {
+                        vec![]
+                    } else {
+                        hex::decode(payload.script_hex.trim()).unwrap_or_default()
+                    }
+                }
+            }
+        }
+    } else if payload.script_hex.trim().is_empty() {
         vec![]
     } else {
         hex::decode(payload.script_hex.trim()).unwrap_or_default()
@@ -259,7 +311,9 @@ pub async fn sign_and_broadcast_handler(
 
     if total_input < total_cost {
         return Json(serde_json::json!(SignAndBroadcastResponse {
-            success: false, tx_id: None, outputs: None,
+            success: false,
+            tx_id: None,
+            outputs: None,
             error: Some(format!(
                 "Insufficient balance: have {} sompi ({} KAS), need {} sompi ({} KAS)",
                 total_input,
@@ -276,14 +330,21 @@ pub async fn sign_and_broadcast_handler(
     //   Output 0 → Deployer (1 KAS)
     //   Output 1 → Treasury (tier fee, only if paid)
     //   Output 2 → Deployer (change)
-    let mut outputs = vec![
-        TransactionOutput { value: COVENANT_AMOUNT, script_public_key: deployer_script.clone() },
-    ];
+    let mut outputs = vec![TransactionOutput {
+        value: COVENANT_AMOUNT,
+        script_public_key: deployer_script.clone(),
+    }];
     if tier_fee > 0 {
-        outputs.push(TransactionOutput { value: tier_fee, script_public_key: treasury_script });
+        outputs.push(TransactionOutput {
+            value: tier_fee,
+            script_public_key: treasury_script,
+        });
     }
     if change > 0 {
-        outputs.push(TransactionOutput { value: change, script_public_key: deployer_script.clone() });
+        outputs.push(TransactionOutput {
+            value: change,
+            script_public_key: deployer_script.clone(),
+        });
     }
 
     // ── Step 4: Build unsigned transaction ─────────────────────
@@ -301,13 +362,13 @@ pub async fn sign_and_broadcast_handler(
         .collect();
 
     let unsigned_tx = Transaction::new_non_finalized(
-        0,                                     // version
+        0, // version
         inputs,
         outputs.clone(),
-        0,                                     // lock_time
-        SubnetworkId::from_bytes([0u8; 20]),   // native subnetwork
-        0,                                     // gas
-        covenant_payload,                      // SilverScript in payload
+        0,                                   // lock_time
+        SubnetworkId::from_bytes([0u8; 20]), // native subnetwork
+        0,                                   // gas
+        covenant_payload,                    // SilverScript in payload
     );
 
     // ── Step 5-6: Sign THEN finalize ──────────────────────────
@@ -345,7 +406,9 @@ pub async fn sign_and_broadcast_handler(
         Ok(tx) => tx,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
-                success: false, tx_id: None, outputs: None,
+                success: false,
+                tx_id: None,
+                outputs: None,
                 error: Some(format!("Signing failed: {}", e)),
             }));
         }
@@ -359,38 +422,61 @@ pub async fn sign_and_broadcast_handler(
     match client.submit_transaction(rpc_tx, false).await {
         Ok(tx_id) => {
             let tx_id_str = tx_id.to_string();
-            info!("Sign-and-broadcast success: tx_id={}, tier={:?}, fee={}", tx_id_str, tier, tier_fee);
+            info!(
+                "Sign-and-broadcast success: tx_id={}, tier={:?}, fee={}",
+                tx_id_str, tier, tier_fee
+            );
 
             // ── IMMEDIATE DB WRITE: save covenant so user sees it right away ──
             let deployer_str = payload.deployer_addr.clone();
             let script_hex_for_db = payload.script_hex.clone();
             let tier_str = tier.unwrap_or("FREE");
-            let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 { tier_str } else { "SilverScript Covenant" });
-            let covenant_type = if tier_fee > 0 { covenant_name.to_string() } else { "SilverScript Covenant".to_string() };
-            let receiving_addrs = serde_json::to_string(&vec![deployer_str.clone()]).unwrap_or_default();
+            let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 {
+                tier_str
+            } else {
+                "SilverScript Covenant"
+            });
+            let covenant_type = if tier_fee > 0 {
+                covenant_name.to_string()
+            } else {
+                "SilverScript Covenant".to_string()
+            };
+            let receiving_addrs =
+                serde_json::to_string(&vec![deployer_str.clone()]).unwrap_or_default();
             let desc = if tier_fee > 0 {
                 format!("{} tier covenant deployed", tier_str)
-            } else { "Covenant deployed via Covex Terminal".to_string() };
+            } else {
+                "Covenant deployed via Covex Terminal".to_string()
+            };
 
             // Compute script hash from hex
             let script_bytes = hex::decode(&script_hex_for_db).unwrap_or_default();
             let script_hash = {
-                use sha2::{Sha256, Digest};
+                use sha2::{Digest, Sha256};
                 format!("{:x}", Sha256::digest(&script_bytes))
             };
 
             // DB insert — non-fatal on failure; covenant is already on-chain
             let _ = db::insert_covenant(
-                &db, &tx_id_str, &deployer_str, COVENANT_AMOUNT,
-                &script_hash, &script_hex_for_db,
-                &covenant_type, "general",
-                &deployer_str, &desc,
-                0,  // block_daa_score (crawler updates this)
+                &db,
+                &tx_id_str,
+                &deployer_str,
+                COVENANT_AMOUNT,
+                &script_hash,
+                &script_hex_for_db,
+                &covenant_type,
+                "general",
+                &deployer_str,
+                &desc,
+                0, // block_daa_score (crawler updates this)
                 tier_str,
                 &desc,
                 &receiving_addrs,
             );
-            info!("Covenant {} saved to DB immediately after broadcast", tx_id_str);
+            info!(
+                "Covenant {} saved to DB immediately after broadcast",
+                tx_id_str
+            );
 
             let output_summaries: Vec<TxOutputSummary> = outputs
                 .iter()

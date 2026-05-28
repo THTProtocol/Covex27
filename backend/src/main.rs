@@ -1,22 +1,27 @@
-use axum::{routing::get, Router, Json, Extension, extract::{Path, Query}};
+use axum::{
+    extract::{Path, Query},
+    routing::get,
+    Extension, Json, Router,
+};
 use serde_json::json;
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::env;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
+use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
-use tracing::{info, warn, error};
 
+mod broadcast;
+mod compiler;
 mod covenant_types;
 mod crawler;
 mod db;
+mod dev_wallets;
 mod indexer;
 mod payment_verifier;
-mod ui_generator;
 mod signer;
-mod broadcast;
-mod dev_wallets;
+mod ui_generator;
 
 #[tokio::main]
 async fn main() {
@@ -31,10 +36,12 @@ async fn main() {
     // --- Config ---
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     let addr: SocketAddr = bind_addr.parse().expect("Invalid BIND_ADDR");
-    let wrpc_url = env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string());
+    let wrpc_url =
+        env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string());
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "../covex.db".to_string());
-    let treasury = env::var("COVENANT_TREASURY_ADDRESS")
-        .unwrap_or_else(|_| "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string());
+    let treasury = env::var("COVENANT_TREASURY_ADDRESS").unwrap_or_else(|_| {
+        "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string()
+    });
     let seed_addrs: Vec<String> = env::var("COVENANT_SEED_ADDRESSES")
         .unwrap_or_default()
         .split(',')
@@ -46,7 +53,12 @@ async fn main() {
         .parse()
         .unwrap_or(1);
 
-    info!("Covex backend -- network: {}  wRPC: {}  bind: {}", env::var("KASPA_NETWORK").unwrap_or_else(|_| "testnet-10".to_string()), wrpc_url, addr);
+    info!(
+        "Covex backend -- network: {}  wRPC: {}  bind: {}",
+        env::var("KASPA_NETWORK").unwrap_or_else(|_| "testnet-10".to_string()),
+        wrpc_url,
+        addr
+    );
     info!("Treasury: {}", treasury);
 
     // --- Open DB ---
@@ -118,9 +130,16 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
-        .route("/terminal-config/:covenant_id", get(get_terminal_config_handler).post(save_terminal_config_handler))
+        .route(
+            "/terminal-config/:covenant_id",
+            get(get_terminal_config_handler).post(save_terminal_config_handler),
+        )
         .layer(Extension(db.clone()))
-        .merge(signer::signer_routes().layer(Extension(client.clone())).layer(Extension(db.clone())))
+        .merge(
+            signer::signer_routes()
+                .layer(Extension(client.clone()))
+                .layer(Extension(db.clone())),
+        )
         .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
         .layer(app);
 
@@ -136,7 +155,9 @@ async fn root_handler() -> Json<serde_json::Value> {
     Json(json!({"status": "ok", "app": "Covex v1.0.0", "network": "testnet-10"}))
 }
 
-async fn status_handler(Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>) -> Json<serde_json::Value> {
+async fn status_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
     let total = db::count_covenants(&db).unwrap_or(0);
     let active = db::count_active_covenants(&db).unwrap_or(0);
     let verified = db::count_verified_covenants(&db).unwrap_or(0);
@@ -159,7 +180,10 @@ async fn covenants_handler(
         match db::get_covenants_by_creator(&db, creator_addr) {
             Ok(recs) => recs,
             Err(e) => {
-                error!("Failed to query covenants by creator '{}': {}", creator_addr, e);
+                error!(
+                    "Failed to query covenants by creator '{}': {}",
+                    creator_addr, e
+                );
                 return Json(json!({"total": 0, "covenants": [], "error": e.to_string()}));
             }
         }
@@ -175,33 +199,42 @@ async fn covenants_handler(
 
     let total = records.len();
     let uis_map = db::get_all_generated_uis_map(&db).unwrap_or_default();
-    let list: Vec<serde_json::Value> = records.into_iter().map(|c| {
-        let tx_id = c.tx_id.clone();
-        let custom_ui_html = uis_map.get(&tx_id).map(|(html, _)| html.clone()).unwrap_or_default();
-        let custom_ui_config = uis_map.get(&tx_id).and_then(|(_, cfg)| serde_json::from_str::<serde_json::Value>(cfg).ok());
-        let ui_config_display = custom_ui_config.unwrap_or_else(|| db::ui_config_for_tier(&c.verified_tier));
-        json!({
-            "tx_id": tx_id,
-            "address": c.address,
-            "amount_kaspa": c.amount_kaspa,
-            "script_hash": c.script_hash,
-            "script_hex": c.script_hex,
-            "covenant_type": c.covenant_type,
-            "category": c.category,
-            "creator_addr": c.creator_addr,
-            "description": c.description,
-            "verified_tier": c.verified_tier,
-            "custom_ui_enabled": c.custom_ui_enabled,
-            "full_logic_summary": c.full_logic_summary,
-            "is_active": c.is_active,
-            "block_daa_score": c.block_daa_score,
-            "timestamp": c.timestamp,
-            "name": c.covenant_type,
-            "tier": c.verified_tier,
-            "custom_ui_html": custom_ui_html,
-            "custom_ui_config": ui_config_display,
+    let list: Vec<serde_json::Value> = records
+        .into_iter()
+        .map(|c| {
+            let tx_id = c.tx_id.clone();
+            let custom_ui_html = uis_map
+                .get(&tx_id)
+                .map(|(html, _)| html.clone())
+                .unwrap_or_default();
+            let custom_ui_config = uis_map
+                .get(&tx_id)
+                .and_then(|(_, cfg)| serde_json::from_str::<serde_json::Value>(cfg).ok());
+            let ui_config_display =
+                custom_ui_config.unwrap_or_else(|| db::ui_config_for_tier(&c.verified_tier));
+            json!({
+                "tx_id": tx_id,
+                "address": c.address,
+                "amount_kaspa": c.amount_kaspa,
+                "script_hash": c.script_hash,
+                "script_hex": c.script_hex,
+                "covenant_type": c.covenant_type,
+                "category": c.category,
+                "creator_addr": c.creator_addr,
+                "description": c.description,
+                "verified_tier": c.verified_tier,
+                "custom_ui_enabled": c.custom_ui_enabled,
+                "full_logic_summary": c.full_logic_summary,
+                "is_active": c.is_active,
+                "block_daa_score": c.block_daa_score,
+                "timestamp": c.timestamp,
+                "name": c.covenant_type,
+                "tier": c.verified_tier,
+                "custom_ui_html": custom_ui_html,
+                "custom_ui_config": ui_config_display,
+            })
         })
-    }).collect();
+        .collect();
     Json(json!({"total": total, "covenants": list}))
 }
 
@@ -295,7 +328,7 @@ async fn save_terminal_config_handler(
 
 /// Compute a blake2b-based script hash from hex (matching TN10 conventions)
 pub fn compute_script_hash(script_hex: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let bytes = hex::decode(script_hex).unwrap_or_default();
     let hash = Sha256::digest(&bytes);
     hex::encode(&hash[..20])

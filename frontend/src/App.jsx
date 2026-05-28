@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
@@ -17,6 +18,32 @@ const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
     isActive ? 'text-kaspa-green' : 'text-gray-200 hover:text-white'
   }`;
+
+// Smart Deploy nav link: paid users → /paid-builder, free → /deploy
+function SmartDeployLink() {
+  const [isPaid, setIsPaid] = useState(false);
+  useEffect(() => {
+    const tier = localStorage.getItem('covex_paid_tier');
+    setIsPaid(tier && tier !== 'FREE');
+    const onStorage = () => {
+      const t = localStorage.getItem('covex_paid_tier');
+      setIsPaid(t && t !== 'FREE');
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('covex-tier-change', onStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('covex-tier-change', onStorage);
+    };
+  }, []);
+
+  const to = isPaid ? '/paid-builder' : '/deploy';
+  return (
+    <NavLink to={to} className={NL}>
+      Deploy
+    </NavLink>
+  );
+}
 
 export default function App() {
   return (
@@ -72,9 +99,7 @@ export default function App() {
               <NavLink to="/dashboard" className={NL}>
                 Dashboard
               </NavLink>
-              <NavLink to="/deploy" className={NL}>
-                Deploy
-              </NavLink>
+              <SmartDeployLink />
               <WalletButton />
             </div>
           </div>

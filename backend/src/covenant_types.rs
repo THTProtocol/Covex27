@@ -109,9 +109,9 @@ impl CovenantCategory {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DisclosureLevel {
     #[serde(rename = "limited")]
-    Limited,   // FREE/EXPLORER: basic fields only + danger banner
+    Limited, // FREE/EXPLORER: basic fields only + danger banner
     #[serde(rename = "full")]
-    Full,      // CREATOR+: full transparency, all fields, verified badge
+    Full, // CREATOR+: full transparency, all fields, verified badge
 }
 
 impl DisclosureLevel {
@@ -170,17 +170,24 @@ pub struct TierInfo {
 pub fn get_tiers() -> Vec<TierInfo> {
     vec![
         TierInfo {
-            name: "EXPLORER".into(), label: "Explorer".into(), price_kas: 0, price_sompi: 0,
+            name: "EXPLORER".into(),
+            label: "Explorer".into(),
+            price_kas: 0,
+            price_sompi: 0,
             features: vec![
                 "Browse all indexed covenants".into(),
                 "Basic interactive UI (all covenants)".into(),
                 "Public read-only contract view".into(),
                 "Limited disclosure: tx_id, script_hash, amount".into(),
             ],
-            color: "gray".into(), featured: false,
+            color: "gray".into(),
+            featured: false,
         },
         TierInfo {
-            name: "CREATOR".into(), label: "Creator".into(), price_kas: 100, price_sompi: 10_000_000_00,
+            name: "CREATOR".into(),
+            label: "Creator".into(),
+            price_kas: 100,
+            price_sompi: 10_000_000_00,
             features: vec![
                 "Everything in Explorer".into(),
                 "Full disclosure: all fields, logic summary".into(),
@@ -189,10 +196,14 @@ pub fn get_tiers() -> Vec<TierInfo> {
                 "Standard registry listing".into(),
                 "Verified badge on covenant detail page".into(),
             ],
-            color: "blue".into(), featured: false,
+            color: "blue".into(),
+            featured: false,
         },
         TierInfo {
-            name: "PRO".into(), label: "PRO".into(), price_kas: 500, price_sompi: 50_000_000_00,
+            name: "PRO".into(),
+            label: "PRO".into(),
+            price_kas: 500,
+            price_sompi: 50_000_000_00,
             features: vec![
                 "Everything in Creator".into(),
                 "Featured listing placement".into(),
@@ -201,10 +212,14 @@ pub fn get_tiers() -> Vec<TierInfo> {
                 "Custom UI advanced tools".into(),
                 "Custom covenant images".into(),
             ],
-            color: "gold".into(), featured: true,
+            color: "gold".into(),
+            featured: true,
         },
         TierInfo {
-            name: "MAX".into(), label: "MAX".into(), price_kas: 1000, price_sompi: 100_000_000_00,
+            name: "MAX".into(),
+            label: "MAX".into(),
+            price_kas: 1000,
+            price_sompi: 100_000_000_00,
             features: vec![
                 "Everything in PRO".into(),
                 "Maximum visibility - top placement".into(),
@@ -214,7 +229,8 @@ pub fn get_tiers() -> Vec<TierInfo> {
                 "Full UI design suite".into(),
                 "Custom color palette UI".into(),
             ],
-            color: "purple".into(), featured: false,
+            color: "purple".into(),
+            featured: false,
         },
     ]
 }

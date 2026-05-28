@@ -216,12 +216,29 @@ fn parse_outcomes(source: &str, game_type: &str) -> Result<Vec<OutcomeBranch>> {
 /// Infer payout targets for known game types when parsing fails.
 fn infer_payouts(game_type: &str, outcome_name: &str) -> Vec<PayoutTarget> {
     match (game_type, outcome_name) {
-        ("dice", "Win") => vec![PayoutTarget {
+        (_, "Win") | (_, "PlayerAWins") | (_, "PlayerAWin") | (_, "PlayerWin") => {
+            vec![PayoutTarget {
+                recipient: "player_a".into(),
+                share: PayoutShare::All,
+            }]
+        }
+        (_, "Loss") | (_, "PlayerBWin") | (_, "DealerWin") | (_, "Bust") => {
+            vec![PayoutTarget {
+                recipient: "platform".into(),
+                share: PayoutShare::All,
+            }]
+        }
+        (_, "Draw") | (_, "Push") | (_, "Stalemate") => {
+            vec![PayoutTarget {
+                recipient: "player_a".into(),
+                share: PayoutShare::Fraction {
+                    numerator: 1,
+                    denominator: 2,
+                },
+            }]
+        }
+        (_, "Fold") => vec![PayoutTarget {
             recipient: "player_a".into(),
-            share: PayoutShare::All,
-        }],
-        ("dice", "Loss") => vec![PayoutTarget {
-            recipient: "platform".into(),
             share: PayoutShare::All,
         }],
         _ => vec![PayoutTarget {
@@ -237,6 +254,10 @@ fn infer_payouts(game_type: &str, outcome_name: &str) -> Vec<PayoutTarget> {
 pub fn emit_silverscript(unit: &CompileUnit) -> String {
     match unit.game_type.as_str() {
         "dice" => emit_dice(unit),
+        "chess" | "chess_v1" => emit_chess(unit),
+        "chess_v2" => emit_chess_v2(unit),
+        "poker" => emit_poker(unit),
+        "blackjack" => emit_blackjack(unit),
         _ => emit_generic(unit),
     }
 }
@@ -247,17 +268,46 @@ pub fn emit_silverscript(unit: &CompileUnit) -> String {
 /// pubkey embedding at deploy time by baking addresses into the bytecode or
 /// providing them as witness data.
 fn emit_dice(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 1) // outcomes: 0=Win, 1=Loss
+}
+
+/// Emit SilverScript for Chess v1 (3 outcomes: Win, Loss, Draw).
+fn emit_chess(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 2) // outcomes: 0=PlayerAWins, 1=PlayerBWin, 2=Draw
+}
+
+/// Emit SilverScript for Chess v2 (4 outcomes: Win, Loss, Draw, Stalemate).
+fn emit_chess_v2(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 3) // outcomes: 0=PlayerAWins, 1=PlayerBWin, 2=Draw, 3=Stalemate
+}
+
+/// Emit SilverScript for Poker (3 outcomes: PlayerAWins, PlayerBWin, Fold).
+fn emit_poker(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 2) // outcomes: 0=PlayerAWins, 1=PlayerBWin, 2=Fold
+}
+
+/// Emit SilverScript for Blackjack (4 outcomes: PlayerWin, DealerWin, Push, Bust).
+fn emit_blackjack(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 3) // outcomes: 0=PlayerWin, 1=DealerWin, 2=Push, 3=Bust
+}
+
+/// Shared emitter for all game types: contract with int constructor args
+/// and an `unlock(int outcome)` entrypoint that validates the outcome range.
+/// `max_outcome` is the maximum valid outcome index (0..=max_outcome).
+fn emit_generic_game(unit: &CompileUnit, max_outcome: i64) -> String {
     let mut out = String::new();
     out.push_str("pragma silverscript ^0.1.0;\n\n");
 
-    // Contract with int-only constructor params (silverc limitation for --constructor-args)
     out.push_str(&format!(
         "contract {}(\n    int feeBasisPoints,\n    int minLock\n) {{\n",
         unit.covenant_name
     ));
 
     out.push_str("    entrypoint function unlock(int outcome) {\n");
-    out.push_str("        require(outcome == 0 || outcome == 1);\n");
+    out.push_str(&format!(
+        "        require(outcome >= 0 && outcome <= {});\n",
+        max_outcome
+    ));
     out.push_str(&format!(
         "        require(feeBasisPoints == {});\n",
         unit.fee_basis_points
@@ -303,10 +353,12 @@ fn silverc_path() -> &'static str {
 /// Build a constructor args JSON for silverc from a CompileUnit.
 fn build_constructor_args(unit: &CompileUnit) -> serde_json::Value {
     match unit.game_type.as_str() {
-        "dice" => serde_json::json!([
-            {"kind": "int", "data": unit.fee_basis_points},
-            {"kind": "int", "data": unit.min_lock}
-        ]),
+        "dice" | "chess" | "chess_v1" | "chess_v2" | "poker" | "blackjack" => {
+            serde_json::json!([
+                {"kind": "int", "data": unit.fee_basis_points},
+                {"kind": "int", "data": unit.min_lock}
+            ])
+        }
         _ => serde_json::json!([]),
     }
 }
@@ -482,7 +534,7 @@ Covenant DiceRollCovenant {
         assert!(!sil.contains("state ")); // DSL state block
         assert!(!sil.contains("Outcome::")); // DSL outcome syntax
                                              // Must contain integer game logic
-        assert!(sil.contains("require(outcome == 0 || outcome == 1)"));
+        assert!(sil.contains("require(outcome >= 0 && outcome <= 1)"));
     }
 
     /// Integration test: compile Dice DSL through silverc.
@@ -501,6 +553,223 @@ Covenant DiceRollCovenant {
             "Compiled bytecode should be compact (<200 bytes)"
         );
         println!("Dice bytecode: {} bytes", output.bytecode.len());
+        println!("Script hex: {}", output.script_hex);
+        println!(
+            "Payload hex (first 60): {}...",
+            &output.payload_hex[..60.min(output.payload_hex.len())]
+        );
+    }
+
+    // ── Chess DSL ───────────────────────────────────────────────────────
+
+    const CHESS_DSL: &str = r#";; ChessReusableCovenant
+;; Game: Chess
+;; Fee: 2% | Resolution: oracle
+;; Generated by Covex Premium Builder
+
+Covenant ChessReusableCovenant {
+  fee_basis_points: 200
+  platform_share:   20
+  creator_share:    9980
+  min_lock:         1000000
+
+  input player_a: PubKey
+  input player_b: PubKey
+  input treasury:  PubKey
+  input platform:  PubKey
+
+  state locked_amount: u64 = 0
+  ;; Reusable covenant
+  OpReuseCovenant
+
+  ;; ── Resolution: Covex Oracle (standard)
+
+  fn unlock(outcome: Outcome::PlayerAWins | PlayerBWin | Draw) {
+    let total = locked_amount;
+    let fee = (total * fee_basis_points) / 10000;
+    let pot = total - fee;
+
+    require(VerifyPayout(treasury, platform, fee), "Platform fee failed");
+
+      Outcome::PlayerAWins => {
+        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+      }
+      Outcome::PlayerBWin => {
+        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
+      }
+      Outcome::Draw => {
+        let half = pot / 2;
+        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw payout failed");
+      }
+  }
+}"#;
+
+    #[test]
+    fn test_parse_chess_dsl() {
+        let unit = parse_dsl(CHESS_DSL).expect("Failed to parse Chess DSL");
+        assert_eq!(unit.covenant_name, "ChessReusableCovenant");
+        assert_eq!(unit.game_type, "chess");
+        assert_eq!(unit.fee_basis_points, 200);
+        assert_eq!(unit.outcomes.len(), 3);
+        assert_eq!(unit.outcomes[0].name, "PlayerAWins");
+        assert_eq!(unit.outcomes[1].name, "PlayerBWin");
+        assert_eq!(unit.outcomes[2].name, "Draw");
+    }
+
+    #[test]
+    fn test_emit_chess_silverscript() {
+        let unit = parse_dsl(CHESS_DSL).expect("Failed to parse Chess DSL");
+        let sil = emit_silverscript(&unit);
+        assert!(sil.starts_with("pragma silverscript ^0.1.0;"));
+        assert!(sil.contains("contract ChessReusableCovenant"));
+        assert!(sil.contains("require(outcome >= 0 && outcome <= 2)"));
+        assert!(!sil.contains("Covenant {"));
+        assert!(!sil.contains("state "));
+    }
+
+    // ── Poker DSL ───────────────────────────────────────────────────────
+
+    const POKER_DSL: &str = r#";; PokerHoldemCovenant
+;; Game: Poker
+;; Fee: 3% | Resolution: oracle
+;; Generated by Covex Premium Builder
+
+Covenant PokerHoldemCovenant {
+  fee_basis_points: 300
+  platform_share:   30
+  creator_share:    9970
+  min_lock:         5000000
+
+  input player_a: PubKey
+  input player_b: PubKey
+  input treasury:  PubKey
+  input platform:  PubKey
+
+  state locked_amount: u64 = 0
+  OpReuseCovenant
+
+  ;; ── Resolution: Covex Oracle (standard)
+
+  fn unlock(outcome: Outcome::PlayerAWins | PlayerBWin | Fold) {
+    let total = locked_amount;
+    let fee = (total * fee_basis_points) / 10000;
+    let pot = total - fee;
+
+    require(VerifyPayout(treasury, platform, fee), "Platform fee failed");
+
+      Outcome::PlayerAWins => {
+        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+      }
+      Outcome::PlayerBWin => {
+        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
+      }
+      Outcome::Fold => {
+        require(VerifyPayout(treasury, player_a, pot), "Fold payout failed");
+      }
+  }
+}"#;
+
+    #[test]
+    fn test_parse_poker_dsl() {
+        let unit = parse_dsl(POKER_DSL).expect("Failed to parse Poker DSL");
+        assert_eq!(unit.covenant_name, "PokerHoldemCovenant");
+        assert_eq!(unit.game_type, "poker");
+        assert_eq!(unit.fee_basis_points, 300);
+        assert_eq!(unit.outcomes.len(), 3);
+    }
+
+    #[test]
+    fn test_emit_poker_silverscript() {
+        let unit = parse_dsl(POKER_DSL).expect("Failed to parse Poker DSL");
+        let sil = emit_silverscript(&unit);
+        assert!(sil.contains("contract PokerHoldemCovenant"));
+        assert!(sil.contains("require(outcome >= 0 && outcome <= 2)"));
+        assert!(!sil.contains("Covenant {"));
+        assert!(!sil.contains("state "));
+    }
+
+    // ── Blackjack DSL ───────────────────────────────────────────────────
+
+    const BLACKJACK_DSL: &str = r#";; BlackjackCovenant
+;; Game: Blackjack
+;; Fee: 2% | Resolution: oracle
+;; Generated by Covex Premium Builder
+
+Covenant BlackjackCovenant {
+  fee_basis_points: 200
+  platform_share:   20
+  creator_share:    9980
+  min_lock:         1000000
+
+  input player_a: PubKey
+  input player_b: PubKey
+  input treasury:  PubKey
+  input platform:  PubKey
+
+  state locked_amount: u64 = 0
+  OpReuseCovenant
+
+  ;; ── Resolution: Covex Oracle (standard)
+
+  fn unlock(outcome: Outcome::PlayerWin | DealerWin | Push | Bust) {
+    let total = locked_amount;
+    let fee = (total * fee_basis_points) / 10000;
+    let pot = total - fee;
+
+    require(VerifyPayout(treasury, platform, fee), "Platform fee failed");
+
+      Outcome::PlayerWin => {
+        require(VerifyPayout(treasury, player_a, pot), "Player payout failed");
+      }
+      Outcome::DealerWin => {
+        require(VerifyPayout(treasury, platform, pot), "House wins pot");
+      }
+      Outcome::Push => {
+        let half = pot / 2;
+        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Push refund failed");
+      }
+      Outcome::Bust => {
+        require(VerifyPayout(treasury, platform, pot), "Bust payout failed");
+      }
+  }
+}"#;
+
+    #[test]
+    fn test_parse_blackjack_dsl() {
+        let unit = parse_dsl(BLACKJACK_DSL).expect("Failed to parse Blackjack DSL");
+        assert_eq!(unit.covenant_name, "BlackjackCovenant");
+        assert_eq!(unit.game_type, "blackjack");
+        assert_eq!(unit.fee_basis_points, 200);
+        assert_eq!(unit.outcomes.len(), 4);
+        assert_eq!(unit.outcomes[0].name, "PlayerWin");
+        assert_eq!(unit.outcomes[1].name, "DealerWin");
+        assert_eq!(unit.outcomes[2].name, "Push");
+        assert_eq!(unit.outcomes[3].name, "Bust");
+    }
+
+    #[test]
+    fn test_emit_blackjack_silverscript() {
+        let unit = parse_dsl(BLACKJACK_DSL).expect("Failed to parse Blackjack DSL");
+        let sil = emit_silverscript(&unit);
+        assert!(sil.contains("contract BlackjackCovenant"));
+        assert!(sil.contains("require(outcome >= 0 && outcome <= 3)"));
+        assert!(!sil.contains("Covenant {"));
+        assert!(!sil.contains("state "));
+    }
+
+    /// Integration test: compile Blackjack DSL through silverc.
+    /// Requires silverc to be installed.
+    #[test]
+    fn test_compile_blackjack_through_silverc() {
+        let unit = parse_dsl(BLACKJACK_DSL).expect("Failed to parse Blackjack DSL");
+        let output = compile(&unit).expect("silverc compilation failed");
+        assert!(!output.bytecode.is_empty(), "Bytecode must not be empty");
+        assert!(output.payload_hex.starts_with("aa20"));
+        assert!(
+            output.bytecode.len() < 200,
+            "Compiled bytecode should be compact (<200 bytes)"
+        );
+        println!("Blackjack bytecode: {} bytes", output.bytecode.len());
         println!("Script hex: {}", output.script_hex);
         println!(
             "Payload hex (first 60): {}...",

@@ -48,8 +48,16 @@ pub fn all_dev_addresses() -> Vec<&'static str> {
 /// All three wallet identities as tuples (label, address, private_key)
 pub fn all_wallet_identities() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
-        ("Dev Wallet 1", DEV_WALLET_1_ADDRESS, DEV_WALLET_1_PRIVATE_KEY),
-        ("Dev Wallet 2", DEV_WALLET_2_ADDRESS, DEV_WALLET_2_PRIVATE_KEY),
+        (
+            "Dev Wallet 1",
+            DEV_WALLET_1_ADDRESS,
+            DEV_WALLET_1_PRIVATE_KEY,
+        ),
+        (
+            "Dev Wallet 2",
+            DEV_WALLET_2_ADDRESS,
+            DEV_WALLET_2_PRIVATE_KEY,
+        ),
         ("Treasury", TREASURY_ADDRESS, TREASURY_PRIVATE_KEY),
     ]
 }

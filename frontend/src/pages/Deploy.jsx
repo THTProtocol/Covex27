@@ -38,29 +38,38 @@ export default function Deploy() {
   const isPaid = paidTier && paidTier !== 'FREE';
 
   if (isPaid) {
+    const tierName = paidTier || 'Paid';
+    const tierAccent = { CREATOR: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#49EACB';
     return (
       <div className="relative z-10 max-w-2xl mx-auto px-6 py-20 text-center">
-        <div className="text-6xl mb-6">🔒</div>
-        <h1 className="text-3xl font-black text-white mb-4">You Paid for Premium</h1>
-        <p className="text-lg text-gray-300 mb-8">
-          The free deployment page is disabled for paid tier users.<br />
-          You have full access to the Terminal on your existing covenants and the premium builder.
+        <div className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-6"
+          style={{ background: tierAccent + '15', border: `2px solid ${tierAccent}40` }}>
+          <Terminal size={40} style={{ color: tierAccent }} />
+        </div>
+        <h1 className="text-3xl font-black text-white mb-3">You Have Premium Access</h1>
+        <p className="text-lg text-gray-200 mb-3">
+          This page is for <strong className="text-white">FREE</strong> covenants only. As a <strong className="text-white">{tierName} tier</strong> user, you have a dedicated paid experience.
+        </p>
+        <p className="text-sm text-gray-300 mb-8 max-w-lg mx-auto">
+          Your covenants live on the Paid Builder hub where you can access the full Terminal with ZK circuits, Oracle config, Covenant Studio, and SilverScript generation. Free deploy is intentionally disabled for paid users.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={() => navigate('/paid-builder')}
-            className="px-8 py-4 rounded-2xl bg-[#49EACB] text-black font-bold text-lg"
+            className="px-8 py-4 rounded-2xl bg-[#49EACB] text-black font-bold text-lg hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.985] transition-all"
           >
             Go to Your Covenants + Terminal
           </button>
           <button
             onClick={() => navigate('/premium')}
-            className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/5 font-bold text-lg"
+            className="px-8 py-4 rounded-2xl border border-white/20 hover:bg-white/5 font-bold text-lg transition-all"
           >
             Open Full Premium Builder
           </button>
         </div>
-        <p className="mt-8 text-xs text-gray-300">Free deploy is intentionally blocked. You paid for the real tools.</p>
+        <p className="mt-8 text-xs text-gray-200">
+          Paid users access their Terminal through the Paid Builder hub, not the free deploy page.
+        </p>
       </div>
     );
   }

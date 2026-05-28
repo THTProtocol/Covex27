@@ -53,6 +53,7 @@ export default function PaidDeploy() {
   const [allowTopups, setAllowTopups] = useState(true);
   const [generatedFromConfig, setGeneratedFromConfig] = useState('');
   const [copiedGen, setCopiedGen] = useState(false);
+  const [useCompiled, setUseCompiled] = useState(true); // compiled (recommended) vs legacy raw source
 
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
@@ -120,6 +121,7 @@ export default function PaidDeploy() {
     }
   }, [status, result, navigate]);
 
+  // Deploy using the paid tier
   const handleDeploy = useCallback(async () => {
     if (!address || !code.trim()) return;
     setStatus('deploying');
@@ -137,17 +139,24 @@ export default function PaidDeploy() {
           || code.trim().split('\n')[0].split(' ')[1]
           || 'SilverScript Covenant';
 
+        const bodyPayload = {
+          private_key_hex: devMode.privateKeyHex,
+          deployer_addr: address,
+          script_hex: scriptHex,
+          tier: paidTier,
+          covenant_name: scriptName,
+          use_dev_mode: false,
+        };
+
+        // When compiled mode is on, send dsl_source so backend uses silverc
+        if (useCompiled && code.trim().startsWith(';;')) {
+          bodyPayload.dsl_source = code.trim();
+        }
+
         const resp = await fetch('/api/sign-and-broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            private_key_hex: devMode.privateKeyHex,
-            deployer_addr: address,
-            script_hex: scriptHex,
-            tier: paidTier,
-            covenant_name: scriptName,
-            use_dev_mode: false,
-          }),
+          body: JSON.stringify(bodyPayload),
         });
 
         const data = await resp.json();
@@ -175,7 +184,7 @@ export default function PaidDeploy() {
       setResult({ success: false, error: err.message || 'Deployment failed', timestamp: new Date().toISOString() });
       setStatus('error');
     }
-  }, [address, code, signMessage, isDevMode, devMode, paidTier]);
+  }, [address, code, signMessage, isDevMode, devMode, paidTier, useCompiled]);
 
   const isConnected = !!address;
   const canDeploy = isConnected && code.trim().length > 0 && status !== 'deploying';
@@ -392,6 +401,19 @@ export default function PaidDeploy() {
 
             {/* Deploy button */}
             <div className="px-6 pb-6">
+              <div className="flex gap-3 mb-4">
+                <button onClick={() => setUseCompiled(!useCompiled)}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition ${
+                    useCompiled
+                      ? 'border-[#49EACB]/50 bg-[#49EACB]/10 text-[#49EACB]'
+                      : 'border-white/10 text-gray-400 hover:text-white'
+                  }`}
+                  title={useCompiled ? 'Compiled via silverc: ~30 bytes on-chain' : 'Legacy: full DSL text as payload (~900+ bytes)'}
+                >
+                  <Cpu size={16} />
+                  {useCompiled ? 'Compiled (silverc)' : 'Legacy raw source'}
+                </button>
+              </div>
               <button onClick={handleDeploy} disabled={!canDeploy}
                 className="w-full px-6 py-4 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-none text-lg"
               >

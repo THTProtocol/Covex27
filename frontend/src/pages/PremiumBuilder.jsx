@@ -46,6 +46,7 @@ export default function PremiumBuilder() {
   const [feePercent, setFeePercent] = useState(2);
   const [reusable, setReusable] = useState(true);
   const [allowTopups, setAllowTopups] = useState(true);
+  const [useCompiled, setUseCompiled] = useState(true); // compiled (recommended) vs legacy raw source
 
   // SilverScript writer (user writes the covenant script here)
   const [code, setCode] = useState(SILVERSCRIPT_TEMPLATE);
@@ -119,17 +120,24 @@ export default function PremiumBuilder() {
       if (isDevMode && devMode?.privateKeyHex) {
         const scriptName = (code.trim().split('\n')[0] || 'Premium Covenant').replace(/^\W+/, '').trim();
 
+        const bodyPayload = {
+          private_key_hex: devMode.privateKeyHex,
+          deployer_addr: address,
+          script_hex: scriptHex,       // always included (fallback)
+          tier: paidTier,
+          covenant_name: scriptName,
+          use_dev_mode: false,
+        };
+
+        // When compiled mode is on, send dsl_source so backend uses silverc
+        if (useCompiled && code.trim().startsWith(';;')) {
+          bodyPayload.dsl_source = code.trim();
+        }
+
         const resp = await fetch('/api/sign-and-broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            private_key_hex: devMode.privateKeyHex,
-            deployer_addr: address,
-            script_hex: scriptHex,
-            tier: paidTier,
-            covenant_name: scriptName,
-            use_dev_mode: false,
-          }),
+          body: JSON.stringify(bodyPayload),
         });
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Backend rejected the deploy');
@@ -151,7 +159,7 @@ export default function PremiumBuilder() {
       setResult({ success: false, error: err.message || 'Deployment failed' });
       setStatus('error');
     }
-  }, [address, code, signMessage, isDevMode, devMode, paidTier, navigate]);
+  }, [address, code, signMessage, isDevMode, devMode, paidTier, navigate, useCompiled]);
 
   const isConnected = !!address;
   const canDeploy = isConnected && code.trim().length > 10 && status !== 'deploying';
@@ -281,6 +289,17 @@ export default function PremiumBuilder() {
             <button onClick={copyScript} className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-sm hover:bg-white/5">
               {copied ? <Check size={16} /> : <Copy size={16} />} {copied ? 'Copied' : 'Copy Script'}
             </button>
+            <button onClick={() => setUseCompiled(!useCompiled)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition ${
+                useCompiled
+                  ? 'border-[#49EACB]/50 bg-[#49EACB]/10 text-[#49EACB]'
+                  : 'border-white/10 text-gray-400 hover:text-white'
+              }`}
+              title={useCompiled ? 'Compiled via silverc: ~30 bytes on-chain' : 'Legacy: full DSL text as payload (~900+ bytes)'}
+            >
+              <Cpu size={16} />
+              {useCompiled ? 'Compiled (silverc)' : 'Legacy raw source'}
+            </button>
             <button onClick={handleDeployPremium} disabled={!canDeploy} className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-[#49EACB] text-black font-bold rounded-xl disabled:opacity-50">
               {status === 'deploying' ? 'Broadcasting your paid covenant...' : <><Send size={18} /> DEPLOY THIS COVENANT AS {paidTier} (PAID)</>}
             </button>
@@ -311,35 +330,34 @@ export default function PremiumBuilder() {
         </div>
       </a>
 
-      {/* THE COMPLETE GUIDE, "how to create, what not to forget, oracles, ZK, reusability, fees, design..." */}
+      {/* BEST PRACTICES - clean, concise, must-know rules */}
       <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-6">
           <BookOpen size={22} className="text-[#49EACB]" />
-          <h3 className="text-2xl font-bold text-white">Complete Paid Builder Guide, Read This Before You Deploy</h3>
+          <h3 className="text-2xl font-bold text-white">Best Practices</h3>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: Cpu, title: 'ZK Circuits (most important)', text: 'Always start by picking a Game Type above. It automatically wires the correct audited ZK circuit. The circuit proves the outcome (win/loss/draw/hand strength/etc) without revealing private player data. Never skip this, ZK is what makes the covenant trustless and verifiable on-chain.' },
-            { icon: Link2, title: 'Oracles, when you need real-world data', text: 'If your covenant depends on external facts (sports result, weather, stock price, API), choose Custom Oracle or Standard Oracle above and supply the key/endpoint. Oracles attest the real outcome so the script can pay out correctly. For pure on-chain games (chess, dice, poker), use ZK instead and you need zero oracle.' },
-            { icon: Palette, title: 'Custom UI & Covenant Studio (what players see)', text: 'The visual experience is 80% of engagement. Use Covenant Studio (button above) to pick a template, brand it, generate the self-contained HTML/JS/CSS, then paste it into the Custom UI box. After you deploy the script, go to the covenant\'s Terminal tab and you can further refine or re-upload the UI.' },
-            { icon: Repeat, title: 'Reusability & Top-ups (economy design)', text: 'Turn Reusable ON if you want the same covenant to accept many interactions over time. Turn Allow Top-ups ON so players can add more KAS to the pot later. These two toggles create sustainable games instead of one-shot escrows.' },
-            { icon: Percent, title: 'Fees & Payout Logic (what not to forget)', text: 'Set your platform fee (0-10%) above, it is automatically taken on every resolution. In the SilverScript you are writing right now, make the payout branches explicit for every possible outcome (including draws, timeouts, forfeits, and edge cases). Clear payout rules = happy users and no disputes.' },
-            { icon: Zap, title: 'Things you must not forget', text: '• Test on TN12 with tiny amounts first\n• Verify your ZK circuit against several edge cases\n• Make sure any oracle you use responds quickly and reliably\n• Test the pasted UI on both desktop and mobile\n• After the first deploy, immediately open the covenant ?tab=terminal and save the full config (ZK key, oracle, UI)\n• Document your rules publicly so players know exactly what happens' },
-            { icon: Gauge, title: 'After you deploy from this page', text: 'You will be taken straight to your new covenant\'s Terminal tab. There you have the real persistent Covex Terminal for that specific covenant, can tweak anything, re-generate scripts, and manage the UI. All your paid-tier covenants appear in the Explorer with the visibility ranking your tier bought.' },
+            { icon: Cpu, title: 'ZK Circuits', text: 'Always start by picking a Game Type above. It auto-wires the correct audited ZK circuit to prove outcomes without revealing private player data. Never skip this: ZK makes the covenant trustless.' },
+            { icon: Link2, title: 'Oracles', text: 'If your covenant needs external data (sports, weather, stock), choose Custom Oracle or Standard Oracle mode and supply a key. For pure on-chain games like chess or poker, use ZK mode; no oracle needed.' },
+            { icon: Repeat, title: 'Reusability & Top-ups', text: 'Enable Reusable to accept multiple interactions over time. Enable Top-ups to let players add KAS to the pot. Together they create sustainable games instead of one-shot escrows.' },
+            { icon: Percent, title: 'Fees & Payout Logic', text: 'Set the platform fee slider above (0-10%). Write explicit payout branches in your SilverScript for every outcome: wins, losses, draws, timeouts, and forfeits. Clear rules prevent disputes.' },
+            { icon: AlertTriangle, title: 'Common Mistakes', text: 'Deploying without testing on TN12 first. Forgetting to set a verifier key for custom circuits. Skipping mobile UI testing. Not saving your Terminal config after deploy. Leaving payout logic ambiguous.' },
+            { icon: Gauge, title: 'After Deploy', text: 'You will be auto-redirected to your covenant\'s Terminal tab. Save the full config there (ZK key, oracle, UI). Test with tiny amounts. All paid-tier covenants get Explorer visibility ranking matching your tier.' },
           ].map((g, i) => (
             <div key={i} className="p-5 rounded-2xl bg-black/40 border border-white/5">
               <div className="flex gap-3 mb-2">
                 <g.icon size={18} className="text-[#49EACB] mt-0.5" />
                 <div className="font-semibold text-white">{g.title}</div>
               </div>
-              <div className="text-gray-300 leading-relaxed text-xs whitespace-pre-line">{g.text}</div>
+              <div className="text-gray-300 leading-relaxed text-xs">{g.text}</div>
             </div>
           ))}
         </div>
 
         <div className="mt-6 text-xs text-center text-gray-200 border-t border-white/10 pt-4">
-          This is the complete paid experience you unlocked. Higher tiers only improve your ranking on the Explorer, the full Terminal, ZK, Oracle tools, Studio integration, and this guide are identical for Creator / PRO / MAX.
+          This is the complete paid experience you unlocked. Higher tiers improve Explorer ranking only; the full Terminal, ZK, Oracle tools, Studio integration, and this guide are identical for Creator / PRO / MAX.
         </div>
       </div>
 

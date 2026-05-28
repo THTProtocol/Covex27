@@ -1,5 +1,5 @@
 //! Covex27 — One-shot covenant deployer binary
-//! 
+//!
 //! Uses the backend's existing Kaspa deps to build, sign, and broadcast
 //! a MAX-tier covenant deployment from Dev Wallet 1.
 //!
@@ -14,16 +14,19 @@ async fn main() -> anyhow::Result<()> {
         "CREATOR" => 10_000_000_000,
         "PRO" => 50_000_000_000,
         "MAX" => 100_000_000_000,
-        _ => { eprintln!("Usage: deploy <CREATOR|PRO|MAX>"); std::process::exit(1); }
+        _ => {
+            eprintln!("Usage: deploy <CREATOR|PRO|MAX>");
+            std::process::exit(1);
+        }
     };
 
     println!("=== Covex27 CLI Deployer ({tier}) ===\n");
 
     // We'll execute Node.js with a CommonJS script that uses vm.createContext
     // to load kaspa.js in a CJS sandbox. This bypasses the ESM/CJS conflict.
-    
+
     let script = format!(
-r#"const {{ createContext, runInContext }} = require('vm');
+        r#"const {{ createContext, runInContext }} = require('vm');
 const {{ readFileSync }} = require('fs');
 const Module = require('module');
 const path = require('path');
@@ -138,14 +141,14 @@ const WASM_DIR = '/mnt/HC_Volume_105579109/Covex27/frontend/node_modules/@onekey
     );
 
     std::fs::write("/tmp/deploy.cjs", script)?;
-    
+
     println!("Executing deploy script...\n");
     let output = std::process::Command::new("node")
         .arg("/tmp/deploy.cjs")
         .output()?;
-    
+
     io::stdout().write_all(&output.stdout)?;
     io::stderr().write_all(&output.stderr)?;
-    
+
     Ok(())
 }

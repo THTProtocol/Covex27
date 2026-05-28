@@ -65,7 +65,9 @@ pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) ->
         tier = verified_tier
     );
     let tier_color = match verified_tier {
-        "MAX" => "#A855F7", "PRO" => "#E8AF34", _ => "#3B82F6",
+        "MAX" => "#A855F7",
+        "PRO" => "#E8AF34",
+        _ => "#3B82F6",
     };
 
     format!(
@@ -108,7 +110,11 @@ pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) ->
         verified_banner = verified_banner,
         covenant_id = config.covenant_id,
         script_hash = config.script_hash,
-        creator = if config.creator_addr.is_empty() { "N/A" } else { &config.creator_addr },
+        creator = if config.creator_addr.is_empty() {
+            "N/A"
+        } else {
+            &config.creator_addr
+        },
         form_html = form_html,
         tier_color = tier_color,
         css = UI_CSS,
@@ -129,8 +135,24 @@ fn build_form_html(params: &[UiParameter]) -> String {
 
 pub fn extract_parameters_from_script(_script_hex: &str, _script_hash: &str) -> Vec<UiParameter> {
     vec![
-        UiParameter { name: "amount".into(), label: "Amount to Lock".into(), param_type: "amount".into(), required: true, placeholder: "Enter KAS amount...".into(), options: None, default_value: None },
-        UiParameter { name: "recipient".into(), label: "Recipient Address".into(), param_type: "address".into(), required: false, placeholder: "kaspatest:...".into(), options: None, default_value: None },
+        UiParameter {
+            name: "amount".into(),
+            label: "Amount to Lock".into(),
+            param_type: "amount".into(),
+            required: true,
+            placeholder: "Enter KAS amount...".into(),
+            options: None,
+            default_value: None,
+        },
+        UiParameter {
+            name: "recipient".into(),
+            label: "Recipient Address".into(),
+            param_type: "address".into(),
+            required: false,
+            placeholder: "kaspatest:...".into(),
+            options: None,
+            default_value: None,
+        },
     ]
 }
 

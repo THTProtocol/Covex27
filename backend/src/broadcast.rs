@@ -1,4 +1,8 @@
-use axum::{extract::Path, Extension, Json, Router, routing::{get, post}};
+use axum::{
+    extract::Path,
+    routing::{get, post},
+    Extension, Json, Router,
+};
 use kaspa_addresses::Address;
 use kaspa_consensus_core::tx::Transaction;
 use kaspa_rpc_core::api::rpc::RpcApi;
@@ -118,7 +122,12 @@ pub async fn utxos_handler(
                     let index = entry.outpoint.index;
                     let amount = entry.utxo_entry.amount;
                     let script_hex = hex::encode(entry.utxo_entry.script_public_key.script());
-                    UtxoEntry { tx_id, index, amount, script_hex }
+                    UtxoEntry {
+                        tx_id,
+                        index,
+                        amount,
+                        script_hex,
+                    }
                 })
                 .collect();
             Json(serde_json::json!({ "utxos": utxos }))
@@ -141,23 +150,21 @@ pub async fn balance_handler(
     let addr = match Address::try_from(addr_str.as_str()) {
         Ok(a) => a,
         Err(e) => {
-            return Json(serde_json::json!({"balance": 0, "error": format!("Invalid address: {}", e)}));
+            return Json(
+                serde_json::json!({"balance": 0, "error": format!("Invalid address: {}", e)}),
+            );
         }
     };
 
     match client.get_balance_by_address(addr).await {
-        Ok(balance) => {
-            Json(serde_json::json!({
-                "balance": balance,
-                "address": addr_str
-            }))
-        }
-        Err(e) => {
-            Json(serde_json::json!({
-                "balance": 0,
-                "error": format!("wRPC error: {}", e)
-            }))
-        }
+        Ok(balance) => Json(serde_json::json!({
+            "balance": balance,
+            "address": addr_str
+        })),
+        Err(e) => Json(serde_json::json!({
+            "balance": 0,
+            "error": format!("wRPC error: {}", e)
+        })),
     }
 }
 

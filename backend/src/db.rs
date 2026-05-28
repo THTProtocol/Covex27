@@ -128,10 +128,15 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
 
 pub fn insert_covenant(
     db: &Mutex<Connection>,
-    tx_id: &str, address: &str, amount_sompi: u64,
-    script_hash: &str, script_hex: &str,
-    covenant_type: &str, category: &str,
-    creator_addr: &str, description: &str,
+    tx_id: &str,
+    address: &str,
+    amount_sompi: u64,
+    script_hash: &str,
+    script_hex: &str,
+    covenant_type: &str,
+    category: &str,
+    creator_addr: &str,
+    description: &str,
     block_daa_score: u64,
     verified_tier: &str,
     full_logic_summary: &str,
@@ -207,21 +212,32 @@ pub fn get_all_covenants(db: &Mutex<Connection>) -> anyhow::Result<Vec<DbCovenan
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], |row| row_to_covenant(row))?;
     let mut result = Vec::new();
-    for row in rows { result.push(row?); }
+    for row in rows {
+        result.push(row?);
+    }
     Ok(result)
 }
 
 /// Resolve ui_config for a tier: glow + expanded for PRO/MAX, basic for others
 pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
     match tier {
-        "MAX" => serde_json::json!({"glow": true, "expanded": true, "priority": 100, "label": "MAX"}),
-        "PRO" => serde_json::json!({"glow": true, "expanded": false, "priority": 50, "label": "PRO"}),
-        "CREATOR" => serde_json::json!({"glow": false, "expanded": false, "priority": 10, "label": "CREATOR"}),
+        "MAX" => {
+            serde_json::json!({"glow": true, "expanded": true, "priority": 100, "label": "MAX"})
+        }
+        "PRO" => {
+            serde_json::json!({"glow": true, "expanded": false, "priority": 50, "label": "PRO"})
+        }
+        "CREATOR" => {
+            serde_json::json!({"glow": false, "expanded": false, "priority": 10, "label": "CREATOR"})
+        }
         _ => serde_json::json!({"glow": false, "expanded": false, "priority": 0, "label": "FREE"}),
     }
 }
 
-pub fn get_covenant_by_txid(db: &Mutex<Connection>, tx_id: &str) -> anyhow::Result<Option<DbCovenant>> {
+pub fn get_covenant_by_txid(
+    db: &Mutex<Connection>,
+    tx_id: &str,
+) -> anyhow::Result<Option<DbCovenant>> {
     let conn = db.lock().unwrap();
     let sql = format!("{} WHERE tx_id = ?1", COVENANT_SELECT);
     let mut stmt = conn.prepare(&sql)?;
@@ -229,29 +245,49 @@ pub fn get_covenant_by_txid(db: &Mutex<Connection>, tx_id: &str) -> anyhow::Resu
     Ok(rows.next().transpose()?)
 }
 
-pub fn get_covenants_by_creator(db: &Mutex<Connection>, creator_addr: &str) -> anyhow::Result<Vec<DbCovenant>> {
+pub fn get_covenants_by_creator(
+    db: &Mutex<Connection>,
+    creator_addr: &str,
+) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
-    let sql = format!("{} WHERE creator_addr = ?1 AND is_active = 1 ORDER BY timestamp DESC", COVENANT_SELECT);
+    let sql = format!(
+        "{} WHERE creator_addr = ?1 AND is_active = 1 ORDER BY timestamp DESC",
+        COVENANT_SELECT
+    );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params![creator_addr], |row| row_to_covenant(row))?;
     let mut result = Vec::new();
-    for row in rows { result.push(row?); }
+    for row in rows {
+        result.push(row?);
+    }
     Ok(result)
 }
 
 pub fn count_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
     let conn = db.lock().unwrap();
-    Ok(conn.query_row("SELECT COUNT(*) FROM covenants WHERE is_active = 1", [], |r| r.get(0))?)
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM covenants WHERE is_active = 1",
+        [],
+        |r| r.get(0),
+    )?)
 }
 
 pub fn count_active_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
     let conn = db.lock().unwrap();
-    Ok(conn.query_row("SELECT COUNT(*) FROM covenants WHERE is_active = 1 AND amount_kaspa > 0", [], |r| r.get(0))?)
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM covenants WHERE is_active = 1 AND amount_kaspa > 0",
+        [],
+        |r| r.get(0),
+    )?)
 }
 
 pub fn count_verified_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
     let conn = db.lock().unwrap();
-    Ok(conn.query_row("SELECT COUNT(*) FROM covenants WHERE is_active = 1 AND verified_tier != 'FREE'", [], |r| r.get(0))?)
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM covenants WHERE is_active = 1 AND verified_tier != 'FREE'",
+        [],
+        |r| r.get(0),
+    )?)
 }
 
 // Upgrade a covenant record when payment is confirmed
@@ -272,7 +308,15 @@ pub fn upgrade_covenant_record(
 }
 
 // Payment functions
-pub fn insert_payment(db: &Mutex<Connection>, tx_id: &str, from_addr: &str, to_addr: &str, amount_sompi: u64, tier: &str, covenant_id: Option<&str>) -> anyhow::Result<()> {
+pub fn insert_payment(
+    db: &Mutex<Connection>,
+    tx_id: &str,
+    from_addr: &str,
+    to_addr: &str,
+    amount_sompi: u64,
+    tier: &str,
+    covenant_id: Option<&str>,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     let amount = amount_sompi as f64 / 100_000_000.0;
     conn.execute(
@@ -283,13 +327,25 @@ pub fn insert_payment(db: &Mutex<Connection>, tx_id: &str, from_addr: &str, to_a
     Ok(())
 }
 
-pub fn confirm_payment(db: &Mutex<Connection>, tx_id: &str, confirmations: i64) -> anyhow::Result<()> {
+pub fn confirm_payment(
+    db: &Mutex<Connection>,
+    tx_id: &str,
+    confirmations: i64,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
-    conn.execute("UPDATE payments SET status = 'confirmed', confirmations = ?2 WHERE tx_id = ?1", params![tx_id, confirmations])?;
+    conn.execute(
+        "UPDATE payments SET status = 'confirmed', confirmations = ?2 WHERE tx_id = ?1",
+        params![tx_id, confirmations],
+    )?;
     Ok(())
 }
 
-pub fn upgrade_account(db: &Mutex<Connection>, address: &str, tier: &str, payment_tx_id: &str) -> anyhow::Result<()> {
+pub fn upgrade_account(
+    db: &Mutex<Connection>,
+    address: &str,
+    tier: &str,
+    payment_tx_id: &str,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO accounts (address, tier, payment_tx_id, paid_at, is_active, created_at)
@@ -301,15 +357,26 @@ pub fn upgrade_account(db: &Mutex<Connection>, address: &str, tier: &str, paymen
 
 pub fn get_account_tier(db: &Mutex<Connection>, address: &str) -> anyhow::Result<String> {
     let conn = db.lock().unwrap();
-    Ok(conn.query_row(
-        "SELECT tier FROM accounts WHERE address = ?1 AND is_active = 1",
-        params![address],
-        |r| r.get(0),
-    ).unwrap_or_else(|_| "FREE".to_string()))
+    Ok(conn
+        .query_row(
+            "SELECT tier FROM accounts WHERE address = ?1 AND is_active = 1",
+            params![address],
+            |r| r.get(0),
+        )
+        .unwrap_or_else(|_| "FREE".to_string()))
 }
 
 // Generated UI functions
-pub fn save_generated_ui(db: &Mutex<Connection>, covenant_id: &str, owner_address: &str, tier: &str, ui_html: &str, ui_config: &str, slug: &str, featured: bool) -> anyhow::Result<()> {
+pub fn save_generated_ui(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    owner_address: &str,
+    tier: &str,
+    ui_html: &str,
+    ui_config: &str,
+    slug: &str,
+    featured: bool,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at)
@@ -354,7 +421,10 @@ pub fn save_ui_trust_config(
 }
 
 /// Retrieve the trust-verification config for a covenant.
-pub fn get_ui_trust_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+pub fn get_ui_trust_config(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT ui_config FROM generated_uis WHERE covenant_id = ?1 AND tier = 'TRUSTED' ORDER BY ui_generated_at DESC LIMIT 1"
@@ -366,7 +436,10 @@ pub fn get_ui_trust_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow:
     Ok(rows.next().transpose()?)
 }
 
-pub fn get_generated_ui_by_covenant(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+pub fn get_generated_ui_by_covenant(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at FROM generated_uis WHERE covenant_id = ?1 ORDER BY ui_generated_at DESC LIMIT 1"
@@ -390,7 +463,9 @@ pub fn get_generated_ui_by_covenant(db: &Mutex<Connection>, covenant_id: &str) -
 
 /// Batch lookup: returns a HashMap mapping covenant_id → (ui_html, ui_config) for all published UIs.
 /// Used to enrich the covenants list endpoint with custom UI data.
-pub fn get_all_generated_uis_map(db: &Mutex<Connection>) -> anyhow::Result<std::collections::HashMap<String, (String, String)>> {
+pub fn get_all_generated_uis_map(
+    db: &Mutex<Connection>,
+) -> anyhow::Result<std::collections::HashMap<String, (String, String)>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT covenant_id, ui_html, ui_config FROM generated_uis WHERE is_published = 1 ORDER BY ui_generated_at DESC"
@@ -411,7 +486,10 @@ pub fn get_all_generated_uis_map(db: &Mutex<Connection>) -> anyhow::Result<std::
     Ok(map)
 }
 
-pub fn get_generated_uis(db: &Mutex<Connection>, owner_address: Option<&str>) -> anyhow::Result<Vec<serde_json::Value>> {
+pub fn get_generated_uis(
+    db: &Mutex<Connection>,
+    owner_address: Option<&str>,
+) -> anyhow::Result<Vec<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let sql = if let Some(addr) = owner_address {
         format!("SELECT covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at FROM generated_uis WHERE owner_address = '{}' ORDER BY featured DESC, ui_generated_at DESC", addr)
@@ -434,12 +512,21 @@ pub fn get_generated_uis(db: &Mutex<Connection>, owner_address: Option<&str>) ->
         }))
     })?;
     let mut result = Vec::new();
-    for row in rows { result.push(row?); }
+    for row in rows {
+        result.push(row?);
+    }
     Ok(result)
 }
 
 // Visibility functions
-pub fn set_visibility(db: &Mutex<Connection>, covenant_id: &str, tier: &str, featured: bool, priority: i32, custom_domain: Option<&str>) -> anyhow::Result<()> {
+pub fn set_visibility(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    tier: &str,
+    featured: bool,
+    priority: i32,
+    custom_domain: Option<&str>,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO visibilities (covenant_id, tier, featured, priority, custom_domain) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -461,7 +548,9 @@ pub fn get_visibilities(db: &Mutex<Connection>) -> anyhow::Result<Vec<serde_json
         }))
     })?;
     let mut result = Vec::new();
-    for row in rows { result.push(row?); }
+    for row in rows {
+        result.push(row?);
+    }
     Ok(result)
 }
 
@@ -483,7 +572,10 @@ pub fn save_custom_ui_config(
     Ok(())
 }
 
-pub fn get_custom_ui_config(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<Option<serde_json::Value>> {
+pub fn get_custom_ui_config(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT config_json FROM custom_ui_configs WHERE covenant_id = ?1 AND is_published = 1 ORDER BY updated_at DESC LIMIT 1"
@@ -586,11 +678,7 @@ pub fn record_move(
     Ok(())
 }
 
-pub fn set_winner(
-    db: &Mutex<Connection>,
-    covenant_id: &str,
-    winner: &str,
-) -> anyhow::Result<()> {
+pub fn set_winner(db: &Mutex<Connection>, covenant_id: &str, winner: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE skill_games SET winner = ?2, status = 'completed', updated_at = unixepoch() WHERE covenant_id = ?1",

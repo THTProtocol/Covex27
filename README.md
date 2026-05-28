@@ -453,23 +453,6 @@ Covex27/
 
 ---
 
-## License
-
-MIT
-
----
-
-<div align="center">
-  <br>
-  <strong>Covex</strong> — Built by <strong>HIGH TABLE PROTOCOL</strong> for the Kaspa ecosystem.
-  <br>
-  Toccata is coming. The window is open.
-  <br>
-  <br>
-</div>
-
----
-
 ## Covex Terminal & Current Architecture (2026)
 
 The Covex Terminal (`frontend/src/components/CovexTerminal.jsx`) is the primary professional interface for paid-tier creators. It replaced earlier builder concepts and is deliberately neutral — it is an engineering configuration surface, not a game launcher.
@@ -513,3 +496,19 @@ All configuration (game_type, resolution_mode, zk_circuit, custom_ui_code, fee, 
 
 This architecture gives creators a complete, on-chain-enforceable experience: professional configuration in Covex Terminal → rich visuals from Covenant Studio → ZK or oracle resolution → automatic Explorer visibility based on tier.
 
+## License
+
+MIT
+
+---
+
+<div align="center">
+  <br>
+  <strong>Covex</strong> — Built by <strong>HIGH TABLE PROTOCOL</strong> for the Kaspa ecosystem.
+  <br>
+  Toccata is coming. The window is open.
+  <br>
+  <br>
+</div>
+
+---

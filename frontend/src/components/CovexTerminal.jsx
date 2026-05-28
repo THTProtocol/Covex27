@@ -830,7 +830,13 @@ ${gameMeta.outcomeBranches}
           <h2 className="text-xl font-bold text-white tracking-tight">Covex Terminal</h2>
           <p className="text-xs text-gray-300 font-mono">ADVANCED COVENANT CONFIGURATION</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => window.location.href = '/paid-builder'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-300 hover:text-white text-xs font-mono transition-colors">
+            <ArrowLeft size={12} />
+            Back to My Covenants
+          </button>
           <span className="h-2 w-2 rounded-full bg-kaspa-green animate-pulse shadow-[0_0_6px_#49EACB]" />
           <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Live</span>
         </div>

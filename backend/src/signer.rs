@@ -280,7 +280,10 @@ pub async fn sign_and_broadcast_handler(
                     payload_bytes
                 }
                 Err(e) => {
-                    warn!("[COMPILER] DSL compilation failed: {} — falling back to raw script_hex", e);
+                    warn!(
+                        "[COMPILER] DSL compilation failed: {} — falling back to raw script_hex",
+                        e
+                    );
                     if payload.script_hex.trim().is_empty() {
                         vec![]
                     } else {
@@ -368,7 +371,7 @@ pub async fn sign_and_broadcast_handler(
         0,                                   // lock_time
         SubnetworkId::from_bytes([0u8; 20]), // native subnetwork
         0,                                   // gas
-        covenant_payload,                    // SilverScript in payload
+        covenant_payload.clone(),            // covenant script payload
     );
 
     // ── Step 5-6: Sign THEN finalize ──────────────────────────
@@ -429,7 +432,11 @@ pub async fn sign_and_broadcast_handler(
 
             // ── IMMEDIATE DB WRITE: save covenant so user sees it right away ──
             let deployer_str = payload.deployer_addr.clone();
-            let script_hex_for_db = payload.script_hex.clone();
+            // Capture the actual hex payload for DB storage (compiled or raw)
+            let script_hex_for_db: String = covenant_payload
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect();
             let tier_str = tier.unwrap_or("FREE");
             let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 {
                 tier_str

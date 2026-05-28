@@ -205,9 +205,12 @@ export default function PremiumBuilder() {
           <h2 className="text-xl font-bold text-white">Full Covex Terminal, Configure Your Covenant</h2>
         </div>
 
-        {/* Game Type + ZK at the very top (exactly as requested) */}
+        {/* ZK Proof Type + Resolution Method */}
         <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl p-6 mb-4">
-          <p className="uppercase text-xs tracking-widest text-gray-200 mb-3 font-mono">1. GAME TYPE + ZK CIRCUIT (auto-configures resolution)</p>
+          <p className="uppercase text-xs tracking-widest text-gray-200 mb-1 font-mono">1. ZK PROOF TYPE + RESOLUTION METHOD</p>
+          <p className="text-[11px] text-gray-300 mb-3 leading-relaxed">
+            This selects the correct ZK circuit and outcome resolution method. <strong className="text-white">Visual game interfaces (boards, tables, animations) should be designed in Covenant Studio and pasted below.</strong>
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {GAME_TYPES.map(gt => (
               <button key={gt.id} onClick={() => handleGameTypeChange(gt.id)}
@@ -318,7 +321,7 @@ export default function PremiumBuilder() {
       </div>
 
       {/* DIRECT STUDIO BUTTON, big and obvious */}
-      <a href="http://localhost:3001" target="_blank" rel="noopener noreferrer"
+      <a href="https://studio.hightable.pro" target="_blank" rel="noopener noreferrer"
         className="block mb-8 rounded-2xl border-2 border-[#49EACB]/40 bg-[#49EACB]/[0.03] p-6 hover:bg-[#49EACB]/[0.07] transition group">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl bg-[#49EACB]/20"><Code size={26} className="text-[#49EACB]" /></div>

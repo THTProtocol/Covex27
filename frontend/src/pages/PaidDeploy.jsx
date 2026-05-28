@@ -293,7 +293,7 @@ export default function PaidDeploy() {
           <div className="lg:col-span-3 bg-[#0a0a0a]/95 border border-[#1f1f1f] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2"><Palette size={16} className="text-[#49EACB]" /><span className="text-xs uppercase tracking-wider font-mono text-gray-300">CUSTOM UI (paste from Covenant Studio)</span></div>
-              <a href="http://localhost:3001" target="_blank" className="text-xs text-[#49EACB] hover:underline flex items-center gap-1">Open Studio <ExternalLink size={11} /></a>
+              <a href="https://studio.hightable.pro" target="_blank" className="text-xs text-[#49EACB] hover:underline flex items-center gap-1">Open Studio <ExternalLink size={11} /></a>
             </div>
             <textarea
               value={customUICode}
@@ -328,7 +328,7 @@ export default function PaidDeploy() {
       {/* === DIRECT COVENANT STUDIO + GUIDE TEASER === */}
       <div className="flex flex-wrap gap-3 mb-8">
         <a
-          href="http://localhost:3001"
+          href="https://studio.hightable.pro"
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 min-w-[280px] flex items-center gap-4 px-6 py-4 rounded-2xl border-2 border-[#49EACB]/40 bg-[#49EACB]/[0.03] hover:bg-[#49EACB]/[0.08] transition group"

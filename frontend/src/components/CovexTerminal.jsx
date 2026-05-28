@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Terminal, Settings, Code2, Gavel, Save, ExternalLink,
   ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
-  Zap, AlertTriangle, CheckCircle2, Info,
+  Zap, AlertTriangle, CheckCircle2, Info, Key, Palette,
   Upload, Eye, EyeOff, Play, Clipboard, Check,
 } from 'lucide-react';
 
@@ -748,7 +748,7 @@ ${gameMeta.outcomeBranches}
 
   // ── Open Covenant Studio ──
   const handleOpenStudio = useCallback(() => {
-    window.open('http://localhost:3001', '_blank');
+    window.open('https://studio.hightable.pro', '_blank');
   }, []);
 
   // ── Copy SilverScript ──
@@ -836,112 +836,231 @@ ${gameMeta.outcomeBranches}
         </div>
       </div>
 
-      {/* ─── Section 0: Game Type & ZK Circuit (Most Prominent) ─── */}
+      {/* ─── Section 0: ZK Proof Type + Resolution Method ─── */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
         <div className={SECTION_HEADER}>
           <div className="p-1.5 rounded-lg bg-kaspa-green/20">
-            <Zap size={16} />
+            <Cpu size={16} />
           </div>
-          <span className="flex-1">Game Type & ZK Circuit</span>
+          <span className="flex-1">ZK Proof Type + Resolution Method</span>
           <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
-            SELECT GAME
+            CIRCUIT SELECTOR
           </span>
         </div>
 
         <p className="text-xs text-gray-300 leading-relaxed">
-          Choose a game type to configure your covenant. This determines the ZK proof circuit
-          used for outcome verification and generates the correct SilverScript template.
+          This section selects the correct ZK circuit and outcome resolution method. <strong className="text-white">Visual game interfaces (boards, tables, animations, etc.) should be designed in Covenant Studio and pasted below.</strong>
         </p>
 
-        {/* Game Card Grid */}
-        <div className="grid grid-cols-4 gap-3">
-          {GAME_TYPES.map((gt) => {
-            const selected = gameType === gt.id;
-            return (
-              <button
-                key={gt.id}
-                onClick={() => handleGameTypeChange(gt.id)}
-                className={`group relative flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all duration-200 ${
-                  selected
-                    ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-2 ring-kaspa-green/30 shadow-[0_0_25px_rgba(73,234,203,0.25)] scale-[1.02]'
-                    : 'border-white/[0.06] bg-black/20 hover:border-white/[0.12] hover:bg-white/[0.04] hover:scale-[1.02]'
-                }`}
-              >
-                {/* Selected glow indicator */}
-                {selected && (
-                  <div className="absolute inset-0 rounded-xl bg-kaspa-green/5 pointer-events-none" />
-                )}
+        {/* ── Part A: ZK Circuit Selector ── */}
+        <div className="space-y-3">
+          <p className={LABEL}>ZK Circuit</p>
+          <p className="text-[11px] text-gray-200 leading-relaxed">
+            Each circuit proves a specific type of game outcome without revealing private player data. The circuit determines what the covenant verifies on-chain.
+          </p>
 
-                {/* Emoji */}
-                <div
-                  className={`text-3xl transition-transform duration-200 ${
-                    selected ? 'scale-110' : 'group-hover:scale-110'
-                  }`}
-                  style={selected ? {} : {}}
-                >
-                  {gt.emoji}
-                </div>
-
-                {/* Name */}
-                <div className="space-y-0.5">
-                  <p
-                    className={`text-xs font-bold tracking-tight transition-colors ${
-                      selected ? 'text-kaspa-green' : 'text-white group-hover:text-white'
-                    }`}
-                  >
-                    {gt.name}
-                  </p>
-                </div>
-
-                {/* ZK Circuit Badge */}
-                <span
-                  className={`inline-block text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+          {/* Circuit Grid — compact, professional, no emoji emphasis */}
+          <div className="grid grid-cols-4 gap-2">
+            {GAME_TYPES.map((gt) => {
+              const selected = gameType === gt.id;
+              const circuitDescriptions = {
+                chess_v1: 'Proves chess outcomes (win/loss/draw) on 8x8 board. Audited.',
+                chess_v2: 'Extended chess with explicit draw detection (stalemate, threefold).',
+                poker: 'Proves Texas Hold\'em hand rankings and winner determination.',
+                blackjack: 'Proves dealer vs player outcomes (win/lose/push/bust).',
+                dice: 'Proves dice roll results with BLAKE3 commitment.',
+                connect4: 'Proves Connect Four board state and winner detection.',
+                checkers: 'Proves checkers outcomes with forced-jump validation.',
+                go: 'Proves territory ownership on 19x19 Go board.',
+                backgammon: 'Proves backgammon race completion and bear-off logic.',
+                battleship: 'Proves naval combat outcomes on 10x10 grid.',
+                sudoku: 'Proves puzzle solution correctness on 9x9 grid.',
+                custom: 'Provide your own circuit definition and verifier key.',
+              };
+              return (
+                <button
+                  key={gt.id}
+                  onClick={() => handleGameTypeChange(gt.id)}
+                  className={`text-left p-3 rounded-lg border transition-all duration-200 ${
                     selected
-                      ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
-                      : 'border-white/[0.08] bg-white/[0.02] text-gray-200 group-hover:border-white/[0.15] group-hover:text-gray-300'
+                      ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_20px_rgba(73,234,203,0.15)]'
+                      : 'border-white/[0.05] bg-black/30 hover:border-white/[0.10] hover:bg-white/[0.03]'
                   }`}
                 >
-                  {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
-                </span>
-              </button>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">{gt.emoji}</span>
+                    <span className={`text-xs font-bold ${selected ? 'text-kaspa-green' : 'text-white'}`}>
+                      {gt.name}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-200 leading-snug">
+                    {circuitDescriptions[gt.id] || gt.description}
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                      selected
+                        ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
+                        : 'border-white/[0.06] bg-white/[0.03] text-gray-200'
+                    }`}>
+                      {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
+                    </code>
+                    {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Auto-suggested Verifier Key */}
+          {(() => {
+            const activeGame = GAME_TYPES.find(g => g.id === gameType);
+            if (!activeGame) return null;
+            return (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/20">
+                <Shield size={14} className="text-kaspa-green shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-xs text-white font-semibold">Circuit: {activeGame.name}</p>
+                  <p className="text-[11px] text-gray-300">{activeGame.description}</p>
+                  <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15">
+                    <span className="text-[10px] text-gray-200 font-mono">Auto-suggested Verifier Key</span>
+                    <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded truncate max-w-[280px]">
+                      {zkVerifierKey || activeGame.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD_AUDITED' :
+                       activeGame.circuit === 'chess_v2' ? '0xCHESSv2_DRAW_DETECTION_V1' :
+                       activeGame.circuit === 'custom' ? '(manual entry required)' :
+                       'GENERIC_GAME_OUTCOME'}
+                    </code>
+                  </div>
+                </div>
+              </div>
             );
-          })}
+          })()}
         </div>
 
-        {/* Selected Game Info Panel */}
-        {(() => {
-          const activeGame = GAME_TYPES.find(g => g.id === gameType);
-          if (!activeGame) return null;
-          return (
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-kaspa-green/[0.04] border border-kaspa-green/25">
-              <div className="p-2 rounded-lg bg-kaspa-green/15 text-2xl shrink-0">
-                {activeGame.emoji}
-              </div>
-              <div className="flex-1 space-y-1 min-w-0">
-                <p className="text-kaspa-green text-sm font-bold">
-                  {activeGame.name}, Active Game Type
-                </p>
-                <p className="text-[11px] text-gray-200 leading-relaxed">
-                  {activeGame.description}
-                </p>
-                <div className="flex items-center gap-3 mt-1.5 pt-2 border-t border-kaspa-green/15">
-                  <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Circuit</span>
-                  <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded">
-                    {activeGame.circuit}
-                  </code>
-                  <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Verifier</span>
-                  <code className="text-[11px] font-mono text-gray-200 bg-white/[0.03] px-2 py-0.5 rounded truncate max-w-[180px]">
-                    {activeGame.circuit === 'chess_v1' ? '0xCHESSv1…AUDITED' :
-                     activeGame.circuit === 'chess_v2' ? '0xCHESSv2…DRAW_V1' :
-                     activeGame.circuit === 'custom' ? '(manual entry required)' :
-                     'GENERIC_GAME_OUTCOME'}
-                  </code>
+        {/* ── Part B: Oracle / Resolution Options ── */}
+        <div className="pt-2 border-t border-white/[0.04] space-y-3">
+          <p className={LABEL}>Oracle Resolution Options</p>
+          <p className="text-[11px] text-gray-200 leading-relaxed">
+            Choose how the covenant outcome is resolved on-chain. This determines who or what signs off on the game result.
+          </p>
+
+          <div className="space-y-2">
+            {[
+              {
+                id: 'zk', icon: Cpu, title: 'ZK Proof (Zero-Knowledge)',
+                desc: 'Pure cryptographic verification. No trusted oracle needed. Outcomes are proven mathematically via ZK circuits, keeping player data private.',
+                tier: 'Recommended for on-chain games',
+              },
+              {
+                id: 'oracle', icon: Shield, title: 'Covex Oracle (Trusted)',
+                desc: 'Uses the built-in Covex Oracle service. The oracle cryptographically signs outcomes as an authority. Faster and simpler than ZK, requires trusting the Covex infrastructure.',
+                tier: 'Good for hybrid / off-chain data',
+              },
+              {
+                id: 'custom', icon: Key, title: 'Custom Oracle (Your Key)',
+                desc: 'Provide your own oracle public key. The covenant verifies against this key. Ideal for third-party oracle services or custom resolution logic.',
+                tier: 'Advanced users',
+              },
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setResolutionMode(opt.id)}
+                className={`w-full text-left p-4 rounded-xl border transition-all ${
+                  resolutionMode === opt.id
+                    ? 'border-kaspa-green/50 bg-kaspa-green/[0.06] ring-1 ring-kaspa-green/20'
+                    : 'border-white/[0.05] bg-black/20 hover:border-white/[0.10]'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg shrink-0 ${
+                    resolutionMode === opt.id ? 'bg-kaspa-green/15' : 'bg-white/[0.03]'
+                  }`}>
+                    <opt.icon size={16} className={resolutionMode === opt.id ? 'text-kaspa-green' : 'text-gray-200'} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-sm font-bold ${resolutionMode === opt.id ? 'text-kaspa-green' : 'text-white'}`}>
+                        {opt.title}
+                      </span>
+                      <span className="text-[10px] text-gray-200 font-mono">{opt.tier}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-300 leading-relaxed">{opt.desc}</p>
+                  </div>
+                  {resolutionMode === opt.id && (
+                    <CheckCircle2 size={18} className="text-kaspa-green shrink-0" />
+                  )}
                 </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Conditional inputs based on resolution mode */}
+          {resolutionMode === 'zk' && (
+            <div className="ml-4 pl-4 border-l-2 border-purple-500/30 space-y-3">
+              <p className="text-[11px] text-purple-300/80">
+                ZK mode: circuit is auto-configured from your game type selection above. The verifier key is pre-filled for known circuits.
+              </p>
+              <div>
+                <p className={LABEL}>Verifier Key (editable)</p>
+                <input
+                  type="text"
+                  value={zkVerifierKey}
+                  onChange={(e) => setZkVerifierKey(e.target.value)}
+                  placeholder="0x... (verifier key)"
+                  className={`${INPUT} font-mono text-xs ${!zkVerifierKey && zkCircuit === 'custom' ? 'border-amber-500/40' : ''}`}
+                />
+                {!zkVerifierKey && zkCircuit === 'custom' && (
+                  <p className="text-[10px] text-amber-400/80 mt-1">Custom circuits require a verifier key. Paste your audited key or select a known circuit above.</p>
+                )}
               </div>
-              <CheckCircle2 size={18} className="text-kaspa-green shrink-0 mt-0.5" />
             </div>
-          );
-        })()}
+          )}
+
+          {resolutionMode === 'custom' && (
+            <div className="ml-4 pl-4 border-l-2 border-amber-500/30 space-y-2">
+              <p className="text-[11px] text-amber-300/80">
+                Enter your oracle's public key. All outcome verifications will be checked against this key.
+              </p>
+              <div>
+                <p className={LABEL}>Oracle Public Key</p>
+                <input
+                  type="text"
+                  value={customOracleKey}
+                  onChange={(e) => setCustomOracleKey(e.target.value)}
+                  placeholder="kaspatest:q..."
+                  className={`${INPUT} font-mono text-xs`}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Part C: Best Practices ── */}
+        <div className="pt-2 border-t border-white/[0.04]">
+          <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Info size={14} className="text-kaspa-green" />
+              <p className="text-xs text-white font-bold uppercase tracking-wider">Best Practices: ZK, Oracles & Covenants</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 leading-relaxed">
+              <div className="space-y-0.5">
+                <p className="text-white font-semibold">ZK vs Oracle</p>
+                <p>ZK proofs are trustless but computationally heavier. Oracles are faster but require trust in the key holder. For pure on-chain games (chess, poker), prefer ZK. For external data (sports, weather), use an Oracle.</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-white font-semibold">Reusability</p>
+                <p>Enable Reusable to accept multiple rounds over time. Combined with Allow Top-ups, players can add KAS to the pot, making it a sustainable game rather than a one-shot escrow.</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-white font-semibold">Fees</p>
+                <p>Platform fee (0-5%) is deducted from each payout. Set it thoughtfully. High fees discourage play; zero fees leave no platform revenue. 2% is the default for most game types.</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-white font-semibold">Common Pitfalls</p>
+                <p>Forgetting to set a verifier key for custom circuits. Leaving payout logic ambiguous. Deploying without testing on TN12 first. Skipping mobile UI testing. Not saving Terminal config after deploy.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ─── Section A: Covenant Configuration ─── */}
@@ -1024,24 +1143,34 @@ ${gameMeta.outcomeBranches}
         </div>
 
         <div className="space-y-4">
-          {/* Open Studio Button */}
+          {/* Open Studio Button — prominent */}
           <button
             onClick={handleOpenStudio}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-xl
-              bg-gradient-to-r from-kaspa-green/10 to-kaspa-green/[0.02]
+            className="w-full flex items-center justify-between gap-4 py-5 px-6 rounded-xl
+              bg-gradient-to-r from-[#49EACB]/10 via-[#49EACB]/[0.06] to-[#49EACB]/[0.02]
               border-2 border-dashed border-kaspa-green/30
               text-kaspa-green font-semibold text-sm
-              hover:border-kaspa-green/60 hover:bg-kaspa-green/[0.08]
-              hover:shadow-[0_0_25px_rgba(73,234,203,0.15)]
+              hover:border-kaspa-green/50 hover:bg-[#49EACB]/[0.10]
+              hover:shadow-[0_0_30px_rgba(73,234,203,0.2)]
               active:scale-[0.98] transition-all group"
           >
-            <div className="p-1.5 rounded-lg bg-kaspa-green/20 group-hover:bg-kaspa-green/30 transition-colors">
-              <ExternalLink size={18} className="text-kaspa-green" />
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 rounded-xl bg-kaspa-green/20 group-hover:bg-kaspa-green/30 transition-colors">
+                <Palette size={22} className="text-kaspa-green" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-bold text-white">Design Visual UI in Covenant Studio</div>
+                <div className="text-[11px] text-gray-300 mt-0.5">
+                  Create game boards, card tables, animations, and rich interfaces. Export and paste below.
+                </div>
+              </div>
             </div>
-            <span>Open Covenant Studio</span>
-            <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
-              localhost:3001
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20 group-hover:text-kaspa-green/80">
+                studio.hightable.pro
+              </span>
+              <ExternalLink size={16} className="text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
+            </div>
           </button>
 
           {/* Paste Area */}

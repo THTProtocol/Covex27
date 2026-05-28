@@ -467,3 +467,49 @@ MIT
   <br>
   <br>
 </div>
+
+---
+
+## Covex Terminal & Current Architecture (2026)
+
+The Covex Terminal (`frontend/src/components/CovexTerminal.jsx`) is the primary professional interface for paid-tier creators. It replaced earlier builder concepts and is deliberately neutral — it is an engineering configuration surface, not a game launcher.
+
+### Core Capabilities
+- **ZK Circuit Selection**: 12 circuit types (Chess v1/v2, Poker, Blackjack, Dice, Connect 4, Checkers, Go, Backgammon, Battleship, Sudoku, Custom). Each auto-selects the appropriate `zk_circuit` and `zk_verifier_key`.
+- **Resolution Modes** (three options wired end-to-end):
+  - `zk`: Uses `OpZkVerify` in generated SilverScript with circuit-specific verifier keys (e.g. `0xCHESSv1_8x8_STANDARD_AUDITED`).
+  - `oracle`: Covex Oracle with `OpCheckSig`.
+  - `custom_oracle`: User-supplied oracle public key.
+- **Full SilverScript Generator**: Produces complete, production-ready covenants including `fee_basis_points`, `platform_share`, `creator_share`, outcome enums, payout branches, and resolution opcodes.
+- **Custom UI Attachment**: Accepts full HTML/JS/CSS bundles (designed in Covenant Studio) and persists them via `POST /api/terminal-config/:covenant_id`.
+- **Chess v1 ZK Arena** (built-in functional demo for the chess_v1 circuit):
+  - Uses `react-chessboard` + `chess.js` for real legal play.
+  - Supports stake amount selection with live 2% covenant creator fee calculation.
+  - Full match flow, resignation, and automatic game-over detection (checkmate, stalemate, 50-move rule, threefold repetition, insufficient material).
+  - "Submit ZK Proof" commits the complete PGN + final FEN and shows explicit payout breakdown (winner receives 98% of pot).
+
+All configuration (game_type, resolution_mode, zk_circuit, custom_ui_code, fee, reusable, allow_topups) is saved server-side and merged by the Explorer API so custom UIs appear on live covenant cards.
+
+### Backend Persistence Layer
+- `GET/POST /api/terminal-config/:covenant_id` handlers in `main.rs`.
+- Data stored in `generated_uis` table (`ui_html` + `ui_config` JSON containing the full Terminal state).
+- `/api/covenants` response automatically merges `custom_ui_html` and `custom_ui_config` for every covenant that has Terminal-saved data.
+- This powers live previews (ChessMini, etc.) without any on-chain data for the UI layer.
+
+### Paid-Tier Flow (Strict Enforcement)
+1. `/pricing` — Real on-chain payment to treasury (Creator 100 KAS, PRO 500 KAS, MAX 1 000 KAS).
+2. After confirmed payment → user is sent to `/paid-builder` ("Your Covenants" list).
+3. Primary action on every covenant card is **"Go to Terminal"**.
+4. Free `/deploy` is hard-blocked for anyone with a paid tier in localStorage + backend verification.
+5. All paid users get identical Terminal power — higher tiers only affect Explorer ranking weight.
+
+### Hosting & Production Reality
+- Single Hetzner box (178.105.76.81).
+- Main application: `root /root/htp/public` served at `https://hightable.pro`.
+- Covenant Studio: `alias /root/htp/studio/` served reliably at `https://hightable.pro/studio/` (path-based, no dependency on the `studio.hightable.pro` DNS record).
+- Nginx SPA routing + proper asset handling for both apps.
+- Backend (Rust Axum) runs on :3005, proxied under `/api/`.
+- WebSocket support for live updates.
+
+This architecture gives creators a complete, on-chain-enforceable experience: professional configuration in Covex Terminal → rich visuals from Covenant Studio → ZK or oracle resolution → automatic Explorer visibility based on tier.
+

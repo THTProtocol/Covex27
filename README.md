@@ -3,19 +3,19 @@
   <br>
 
   <pre>
-██████╗  ██████╗ ██╗   ██╗███████╗██╗  ██╗
-██╔════╝ ██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
-██║      ██║   ██║██║   ██║█████╗   ╚███╔╝
-██║      ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗
-╚██████╗ ╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
- ╚═════╝  ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
+ ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
+██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+██║     ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
+╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
+ ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
   </pre>
 
   <h3 style="margin-top: -10px;">Kaspa Covenant Explorer & Visibility Platform</h3>
 
   <br>
 
-  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-76%20covenants-49EACB?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAADISURBVHgBfZI9CsJAEEbHyiJY+AdWYiMWgmAh3kA8gOANIoj2XsA7iEcQO0uw0FbYQkhlsRBGjUQkK4kf6hN4w7zZb3ZmWID/i7IsBUFgep5HvV6P5XKpK4ryIEmSJNfrtTkYDPB9HzAMw3F4sVhwl4fDgXmeR57nMZ/PEccx9H0/mu4mSRJNURSWZRkURcFxHCfPcxbDl5RS4TAMo+s6FhcXiqKQJEk0HA7RNE0QBAEhxK+5iKKoYhgG9vt97X0HXyB1PwAqkPAAAAAASUVORK5CYII=" alt="Live"></a>
+  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-400%2B%20covenants-49EACB?style=for-the-badge" alt="Live"></a>
   <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Toccata%20TN12-49EACB?style=for-the-badge" alt="Network"></a>
   <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="License"></a>
   <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/studio-template%20editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
@@ -23,7 +23,7 @@
   <br>
   <br>
 
-  > **Live:** [hightable.pro](https://hightable.pro) &nbsp; • &nbsp; **Code:** 2,504 lines Rust &nbsp; • &nbsp; **Frontend:** React 19 + Vite 8
+  > **Live:** [hightable.pro](https://hightable.pro) — hundreds of covenants indexed
   >
   > Non-custodial covenant explorer and visibility platform for native Kaspa SilverScript covenants. One binary. One DB. Zero middlemen. Deploy custom interactive UIs through the Covex Terminal.
   >
@@ -54,7 +54,7 @@ Covex follows a strict separation of concerns across two independent repositorie
 | Project | Repo | Purpose |
 |---|---|---|
 | **Covex** | [Covex27](https://github.com/THTProtocol/Covex27) | Covenant explorer + visibility platform + Terminal deployment tool. Does NOT contain any game templates, galleries, or built-in UIs. Users paste custom UI code into the Covex Terminal to attach it to their covenant. |
-| **Covenant Studio** | [Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) | Visual template editor. Users design and customize game templates (chess, checkers, connect4, poker), then click "Generate Code" and copy the full UI code. This code is then pasted into the Covex Terminal. |
+| **Covenant Studio** | [Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) | Visual template editor. Users design and customize skill game templates (chess, checkers, connect4, poker and others) with ZK outcome verification, then click "Generate Code" and copy the full UI code. This code is then pasted into the Covex Terminal. |
 
 **Workflow**: Design in Covenant Studio → Copy generated code → Paste into Covex Terminal → Deploy to your covenant.
 
@@ -62,7 +62,7 @@ All paid tiers (Creator, PRO, MAX) have the exact same Terminal and custom UI ca
 
 **Key guarantees:** non-custodial (keys never leave your wallet), on-chain verification only (no synthetic data), single Rust binary with zero external dependencies beyond SQLite and kaspad.
 
-76 covenants indexed live at [hightable.pro](https://hightable.pro).
+The live covenant count is always visible on [hightable.pro](https://hightable.pro).
 
 <br>
 
@@ -458,7 +458,7 @@ Covex27/
 The Covex Terminal (`frontend/src/components/CovexTerminal.jsx`) is the primary professional interface for paid-tier creators. It replaced earlier builder concepts and is deliberately neutral — it is an engineering configuration surface, not a game launcher.
 
 ### Core Capabilities
-- **ZK Circuit Selection**: 12 circuit types (Chess v1/v2, Poker, Blackjack, Dice, Connect 4, Checkers, Go, Backgammon, Battleship, Sudoku, Custom). Each auto-selects the appropriate `zk_circuit` and `zk_verifier_key`.
+- **ZK Circuit Selection**: Multiple skill game circuits (Chess v1/v2 with full FIDE rules, Poker hand ranking, Blackjack, Dice, Connect 4, Checkers, Go, Backgammon, Battleship, Sudoku, plus Custom). Each auto-selects the appropriate `zk_circuit` and `zk_verifier_key`.
 - **Resolution Modes** (three options wired end-to-end):
   - `zk`: Uses `OpZkVerify` in generated SilverScript with circuit-specific verifier keys (e.g. `0xCHESSv1_8x8_STANDARD_AUDITED`).
   - `oracle`: Covex Oracle with `OpCheckSig`.

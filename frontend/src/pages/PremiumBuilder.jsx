@@ -321,7 +321,7 @@ export default function PremiumBuilder() {
       </div>
 
       {/* DIRECT STUDIO BUTTON, big and obvious */}
-      <a href="https://studio.hightable.pro" target="_blank" rel="noopener noreferrer"
+      <a href="https://hightable.pro/studio/" target="_blank" rel="noopener noreferrer"
         className="block mb-8 rounded-2xl border-2 border-[#49EACB]/40 bg-[#49EACB]/[0.03] p-6 hover:bg-[#49EACB]/[0.07] transition group">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl bg-[#49EACB]/20"><Code size={26} className="text-[#49EACB]" /></div>

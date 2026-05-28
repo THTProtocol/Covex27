@@ -748,7 +748,7 @@ ${gameMeta.outcomeBranches}
 
   // ── Open Covenant Studio ──
   const handleOpenStudio = useCallback(() => {
-    window.open('https://studio.hightable.pro', '_blank');
+    window.open('https://hightable.pro/studio/', '_blank');
   }, []);
 
   // ── Copy SilverScript ──
@@ -1167,7 +1167,7 @@ ${gameMeta.outcomeBranches}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20 group-hover:text-kaspa-green/80">
-                studio.hightable.pro
+                hightable.pro/studio
               </span>
               <ExternalLink size={16} className="text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
             </div>

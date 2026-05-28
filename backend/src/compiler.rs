@@ -284,6 +284,22 @@ fn emit_generic(unit: &CompileUnit) -> String {
 
 // ── Compilation ────────────────────────────────────────────────────────────
 
+/// Resolve the silverc binary path. Tries:
+/// 1. HOME/.cargo/bin/silverc (Rust toolchain default)
+/// 2. /root/.cargo/bin/silverc (common on servers)
+/// 3. "silverc" on PATH
+fn silverc_path() -> &'static str {
+    for candidate in &[
+        "/root/.cargo/bin/silverc",
+        "/home/kasparov/.cargo/bin/silverc",
+    ] {
+        if std::path::Path::new(candidate).exists() {
+            return candidate;
+        }
+    }
+    "silverc" // fallback to PATH
+}
+
 /// Build a constructor args JSON for silverc from a CompileUnit.
 fn build_constructor_args(unit: &CompileUnit) -> serde_json::Value {
     match unit.game_type.as_str() {
@@ -314,7 +330,7 @@ pub fn compile(unit: &CompileUnit) -> Result<CompiledOutput> {
     let out_path = tmp_dir.join(format!("covex_{}.json", unit.covenant_name.to_lowercase()));
 
     // Run silverc
-    let mut cmd = Command::new("silverc");
+    let mut cmd = Command::new(silverc_path());
     cmd.arg(&src_path).arg("-o").arg(&out_path);
 
     // Only pass --constructor-args if there are params

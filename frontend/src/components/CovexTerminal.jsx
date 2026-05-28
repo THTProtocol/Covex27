@@ -18,18 +18,18 @@ const TEXTAREA =
 
 // ── Game Types (exported for Paid Builder) ──────────────────────────────────────────────
 export const GAME_TYPES = [
-  { id: 'chess_v1', name: 'Chess v1', emoji: '♟️', description: 'Standard 8×8. Real FIDE rules. Stake KAS, match, play, ZK proves winner. 2% fee to creator.', circuit: 'chess_v1', accent: '#49EACB' },
-  { id: 'chess_v2', name: 'Chess v2', emoji: '♟️', description: 'Full FIDE + explicit draw claims (stalemate/3fold/50-move). Stake & ZK.', circuit: 'chess_v2', accent: '#49EACB' },
-  { id: 'poker', name: 'Poker', emoji: '♠️', description: 'Texas Hold\'em betting rounds.', circuit: 'generic_game', accent: '#A855F7' },
-  { id: 'blackjack', name: 'Blackjack', emoji: '🃏', description: 'Beat the dealer. Hit or stand.', circuit: 'generic_game', accent: '#22C55E' },
-  { id: 'dice', name: 'Dice', emoji: '🎲', description: 'Provably-fair dice roller.', circuit: 'generic_game', accent: '#F59E0B' },
-  { id: 'connect4', name: 'Connect 4', emoji: '🔴', description: 'Drop discs, connect four.', circuit: 'generic_game', accent: '#3B82F6' },
-  { id: 'checkers', name: 'Checkers', emoji: '⚫', description: 'Classic 8×8 with forced jumps.', circuit: 'generic_game', accent: '#E8AF34' },
-  { id: 'go', name: 'Go', emoji: '⚪', description: '19×19 strategy. Capture territory.', circuit: 'generic_game', accent: '#49EACB' },
-  { id: 'backgammon', name: 'Backgammon', emoji: '🎲', description: 'Race pieces, bear off to win.', circuit: 'generic_game', accent: '#F59E0B' },
-  { id: 'battleship', name: 'Battleship', emoji: '🚢', description: 'Naval combat on 10×10 grid.', circuit: 'generic_game', accent: '#06B6D4' },
-  { id: 'sudoku', name: 'Sudoku', emoji: '🔢', description: '9×9 puzzle. Solve to win.', circuit: 'generic_game', accent: '#EC4899' },
-  { id: 'custom', name: 'Custom', emoji: '⚙️', description: 'Provide your own circuit.', circuit: 'custom', accent: '#E8AF34' },
+  { id: 'chess_v1', name: 'Chess v1', emoji: '♟', description: '8×8 board. Full FIDE ruleset proven (castling, en passant, checkmate, 50-move, repetition).', circuit: 'chess_v1', accent: '#49EACB' },
+  { id: 'chess_v2', name: 'Chess v2', emoji: '♟', description: 'Extended chess with explicit draw detection surfaced for covenant branches.', circuit: 'chess_v2', accent: '#49EACB' },
+  { id: 'poker', name: 'Poker', emoji: '♠', description: 'Texas Hold\'em hand ranking and winner determination circuit.', circuit: 'generic_game', accent: '#A855F7' },
+  { id: 'blackjack', name: 'Blackjack', emoji: '🃟', description: 'Dealer vs player outcome verifier (win / loss / push / bust).', circuit: 'generic_game', accent: '#22C55E' },
+  { id: 'dice', name: 'Dice', emoji: '⚄', description: 'Provably fair dice roll result with BLAKE3 commitment.', circuit: 'generic_game', accent: '#F59E0B' },
+  { id: 'connect4', name: 'Connect 4', emoji: '◉', description: 'Connect-four board state and win-condition verifier.', circuit: 'generic_game', accent: '#3B82F6' },
+  { id: 'checkers', name: 'Checkers', emoji: '⬤', description: 'Forced-jump checkers outcome circuit on 8×8.', circuit: 'generic_game', accent: '#E8AF34' },
+  { id: 'go', name: 'Go', emoji: '○', description: '19×19 territory capture and scoring verifier.', circuit: 'generic_game', accent: '#49EACB' },
+  { id: 'backgammon', name: 'Backgammon', emoji: '⚄', description: 'Race + bear-off outcome circuit with doubling logic.', circuit: 'generic_game', accent: '#F59E0B' },
+  { id: 'battleship', name: 'Battleship', emoji: '⛶', description: '10×10 grid search and hit verification circuit.', circuit: 'generic_game', accent: '#06B6D4' },
+  { id: 'sudoku', name: 'Sudoku', emoji: '⌗', description: '9×9 puzzle solution correctness proof.', circuit: 'generic_game', accent: '#EC4899' },
+  { id: 'custom', name: 'Custom', emoji: '⚙', description: 'Supply your own audited ZK circuit and verifier key.', circuit: 'custom', accent: '#E8AF34' },
 ];
 
 // ── Standalone SilverScript Generator (exported for PaidBuilder / premium flow) ──
@@ -1021,18 +1021,18 @@ ${gameMeta.outcomeBranches}
             {GAME_TYPES.map((gt) => {
               const selected = gameType === gt.id;
               const circuitDescriptions = {
-                chess_v1: 'Proves FULL FIDE rules (castling/en-passant/checkmate/50-move/rep) + stake/match outcome.',
-                chess_v2: 'Same + explicit draw claims surfaced for covenant branches (stalemate, 3-fold, 50-move).',
-                poker: 'Proves Texas Hold\'em hand rankings and winner determination.',
-                blackjack: 'Proves dealer vs player outcomes (win/lose/push/bust).',
-                dice: 'Proves dice roll results with BLAKE3 commitment.',
-                connect4: 'Proves Connect Four board state and winner detection.',
-                checkers: 'Proves checkers outcomes with forced-jump validation.',
-                go: 'Proves territory ownership on 19x19 Go board.',
-                backgammon: 'Proves backgammon race completion and bear-off logic.',
-                battleship: 'Proves naval combat outcomes on 10x10 grid.',
-                sudoku: 'Proves puzzle solution correctness on 9x9 grid.',
-                custom: 'Provide your own circuit definition and verifier key.',
+                chess_v1: 'Proves every FIDE rule transition (castling rights, en passant, 50-move, threefold, checkmate, stalemate).',
+                chess_v2: 'Extended circuit that surfaces explicit draw types for covenant payout branches.',
+                poker: 'Proves hand rankings and pot winner without revealing private cards.',
+                blackjack: 'Proves final dealer vs player outcome for payout decision.',
+                dice: 'Proves a committed random roll result using BLAKE3.',
+                connect4: 'Proves board state and exact win condition reached.',
+                checkers: 'Proves forced-jump rules and final board outcome.',
+                go: 'Proves territory scoring and capture validity on 19×19.',
+                backgammon: 'Proves race completion, bear-off, and optional doubling.',
+                battleship: 'Proves hit/miss grid state and sinking conditions.',
+                sudoku: 'Proves that a submitted 9×9 grid satisfies all constraints.',
+                custom: 'Bring your own audited circuit and verifier key.',
               };
               return (
                 <button
@@ -1077,7 +1077,7 @@ ${gameMeta.outcomeBranches}
                 <Shield size={14} className="text-kaspa-green shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0 space-y-1">
                   <p className="text-xs text-white font-semibold">Circuit: {activeGame.name}</p>
-                  <p className="text-[11px] text-gray-300">{activeGame.description}</p>
+                  <p className="text-[11px] text-gray-300">This circuit proves the outcome of the selected application according to its published rules. The proof (or oracle signature) is the only input required by the covenant unlock function.</p>
                   <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15">
                     <span className="text-[10px] text-gray-200 font-mono">Auto-suggested Verifier Key</span>
                     <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded truncate max-w-[280px]">
@@ -1228,8 +1228,8 @@ ${gameMeta.outcomeBranches}
               <div className="p-1.5 rounded-lg bg-[#49EACB]/20">
                 <Play size={16} className="text-[#49EACB]" />
               </div>
-              <span>ZK-ENFORCED CHESS DUEL ARENA</span>
-              <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] font-mono border border-[#49EACB]/30">FIDE + ZK v1</span>
+              <span>Chess v1 — Live Outcome Demo</span>
+              <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] font-mono border border-[#49EACB]/30">FIDE + ZK</span>
             </div>
             <div className="text-right">
               <div className="text-[11px] text-[#49EACB] font-mono">{chessStake} KAS STAKE • 2% COVENANT FEE</div>
@@ -1238,7 +1238,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-            Real 8×8 chess with <span className="text-white font-medium">every FIDE rule enforced by the chess_v1 ZK circuit</span>: legal moves only, castling (king + rook never moved, path clear, not in check), en passant, promotion, check, checkmate, stalemate, 50-move rule, threefold repetition. The full game log + final position is proven in ZK before payout is released.
+            This is a functional demo surface for the chess_v1 ZK circuit. All moves are validated with the complete FIDE ruleset. When the game ends you can submit a simulated ZK proof of the full PGN + final FEN. The covenant only sees the verified outcome.
           </p>
 
           {/* Stake + Pot Summary */}
@@ -1310,7 +1310,7 @@ ${gameMeta.outcomeBranches}
                     onClick={postStakeForMatch}
                     className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                   >
-                    POST {chessStake} KAS STAKE — OPEN FOR MATCH
+                    POST {chessStake} KAS — OPEN FOR MATCH (DEMO)
                   </button>
                 )}
                 {chessMatchState === 'posted' && (

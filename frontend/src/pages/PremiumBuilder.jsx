@@ -208,11 +208,11 @@ export default function PremiumBuilder() {
           <h2 className="text-xl font-bold text-white">Full Covex Terminal, Configure Your Covenant</h2>
         </div>
 
-        {/* ZK Proof Type + Resolution Method */}
+        {/* Circuit Schema (aspirational) */}
         <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl p-6 mb-4">
-          <p className="uppercase text-xs tracking-widest text-gray-200 mb-1 font-mono">1. ZK PROOF TYPE + RESOLUTION METHOD</p>
+          <p className="uppercase text-xs tracking-widest text-gray-200 mb-1 font-mono">1. CIRCUIT SCHEMA (design targets)</p>
           <p className="text-[11px] text-gray-300 mb-3 leading-relaxed">
-            This selects the correct ZK circuit and outcome resolution method. <strong className="text-white">Visual game interfaces (boards, tables, animations) should be designed in Covenant Studio and pasted below.</strong>
+            Select the intended covenant circuit structure. <strong className="text-white">Current on-chain covenants enforce only fees and outcome ranges. ZK proving is a design target.</strong> Visual interfaces should be designed in Covenant Studio and pasted below.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {ZK_CIRCUIT_TYPES.map(gt => (
@@ -232,7 +232,7 @@ export default function PremiumBuilder() {
             <p className="uppercase text-xs tracking-widest text-gray-200 mb-3 font-mono">2. ZK PROOF OR ORACLE RESOLUTION</p>
             <div className="space-y-3">
               {[
-                { m: 'zk', label: 'ZK Proof (recommended, no oracle needed)', desc: 'Cryptographic verification of game outcome' },
+                { m: 'zk', label: 'ZK Proof (aspirational, not yet on-chain)', desc: 'Cryptographic verification of outcome (design target)' },
                 { m: 'custom_oracle', label: 'Custom Oracle Key', desc: 'Your own trusted data feed / API' },
                 { m: 'oracle', label: 'Standard Covex Oracle', desc: 'Default trusted resolution service' }
               ].map(opt => (
@@ -345,7 +345,7 @@ export default function PremiumBuilder() {
 
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: Cpu, title: 'ZK Circuits', text: 'Always start by picking a Game Type above. It auto-wires the correct audited ZK circuit to prove outcomes without revealing private player data. Never skip this: ZK makes the covenant trustless.' },
+            { icon: Cpu, title: 'ZK Circuits (aspirational)', text: 'Select a circuit schema above. ZK proving is a design target. Current on-chain covenants enforce only fees and outcome ranges via silverc. Chess uses client-side chess.js validation only.' },
             { icon: Link2, title: 'Oracles', text: 'If your covenant needs external data (sports, weather, stock), choose Custom Oracle or Standard Oracle mode and supply a key. For on-chain verifiable statements like chess or membership proofs, use ZK mode; no oracle needed.' },
             { icon: Repeat, title: 'Reusability & Top-ups', text: 'Enable Reusable to accept multiple interactions over time. Enable Top-ups to let players add KAS to the pot. Together they create sustainable games instead of one-shot escrows.' },
             { icon: Percent, title: 'Fees & Payout Logic', text: 'Set the platform fee slider above (0-10%). Write explicit payout branches in your SilverScript for every outcome: wins, losses, draws, timeouts, and forfeits. Clear rules prevent disputes.' },

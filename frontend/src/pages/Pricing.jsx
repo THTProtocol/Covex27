@@ -170,18 +170,6 @@ const Pricing = () => {
     }
   }, [awaitingConfirmation, payingTier, sendPayment, navigate]);
 
-  const handleConfirmPaid = () => {
-    // Bypass: user claims they paid manually, unlock tier anyway
-    if (!awaitingConfirmation) return;
-    const { id, name } = awaitingConfirmation;
-    localStorage.setItem('covex_paid_tier', id);
-    sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: name, id }));
-    setAwaitingConfirmation(null);
-    setPayingTier(null);
-    setPaymentStatus(null);
-    navigate('/paid-builder');
-  };
-
   const cancelPayment = () => {
     setAwaitingConfirmation(null);
     setPayingTier(null);
@@ -264,14 +252,6 @@ const Pricing = () => {
               {paymentStatus.message}
             </div>
           )}
-
-          {/* Manual bypass for edge cases (deep links, mobile wallets, etc.) */}
-          <button
-            onClick={handleConfirmPaid}
-            className="w-full py-3 text-sm text-gray-200 hover:text-white transition border border-white/10 rounded-xl hover:border-white/20"
-          >
-            I approved the payment in my wallet — unlock Terminal now
-          </button>
 
           <button
             onClick={cancelPayment}

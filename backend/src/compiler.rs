@@ -258,6 +258,10 @@ pub fn emit_silverscript(unit: &CompileUnit) -> String {
         "chess_v2" => emit_chess_v2(unit),
         "poker" => emit_poker(unit),
         "blackjack" => emit_blackjack(unit),
+        "merkle_membership" => emit_merkle(unit),
+        "range_proof" => emit_range_proof(unit),
+        "age_verification" => emit_age_verify(unit),
+        "verifiable" => emit_verifiable(unit),
         _ => emit_generic(unit),
     }
 }
@@ -289,6 +293,26 @@ fn emit_poker(unit: &CompileUnit) -> String {
 /// Emit SilverScript for Blackjack (4 outcomes: PlayerWin, DealerWin, Push, Bust).
 fn emit_blackjack(unit: &CompileUnit) -> String {
     emit_generic_game(unit, 3) // outcomes: 0=PlayerWin, 1=DealerWin, 2=Push, 3=Bust
+}
+
+/// Emit SilverScript for Merkle Membership Proof (2 outcomes: Proven/Rejected).
+fn emit_merkle(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 1) // outcomes: 0=Proven, 1=Rejected
+}
+
+/// Emit SilverScript for Range Proof (Bulletproofs) (2 outcomes: Proven/Rejected).
+fn emit_range_proof(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 1) // outcomes: 0=Proven, 1=Rejected
+}
+
+/// Emit SilverScript for Age Verification (2 outcomes: Verified/Rejected).
+fn emit_age_verify(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 1) // outcomes: 0=Verified, 1=Rejected
+}
+
+/// Emit SilverScript for Verifiable Compute (RISC Zero) (2 outcomes: Accepted/Rejected).
+fn emit_verifiable(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 1) // outcomes: 0=Accepted, 1=Rejected
 }
 
 /// Shared emitter for all game types: contract with int constructor args

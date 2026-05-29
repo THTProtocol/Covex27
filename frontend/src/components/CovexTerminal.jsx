@@ -721,31 +721,19 @@ ${gameMeta.outcomeBranches}
   const submitChessZkProof = useCallback(() => {
     if (!chessResult) return;
 
-    // Simulate real ZK proof generation for the complete game log (all moves + final position)
-    const proofInput = {
-      gameType: 'chess_v1',
-      finalFen: chessGame.fen(),
-      pgn: chessGame.pgn(),
-      outcome: chessResult.outcome,
-      method: chessResult.method,
-      stake: chessStake,
-      feeBps: Math.round(feePercent * 100),
-    };
+    // CLIENT-SIDE SIMULATION ONLY — NO REAL ZK PROOFING EXISTS
+    // chess.js validated all moves locally. This generates a placeholder hash
+    // to simulate the proof-submission UI flow. The real ZK circuit (chess_v1)
+    // is a design target; no actual prover/verifier is implemented yet.
     const simulatedHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-
     setChessProofHash(simulatedHash);
     setChessZkVerified(true);
-
-    // The ZK circuit (0xCHESSv1_8x8_STANDARD_AUDITED) has now verified:
-    // - Every single move was legal per FIDE rules (including castling rights, en passant, promotions)
-    // - Check / checkmate detection
-    // - Draw conditions (50-move, threefold, stalemate, insufficient material)
-    // - No illegal states were reached
-    // This proof + the final outcome can now be submitted to unlock() on the covenant
-  }, [chessResult, chessGame, chessStake, feePercent]);
+    // NOTE: chess.js already validated FIDE rules client-side.
+    // The "proof" above is a placeholder. No cryptographic proof is generated.
+  }, [chessResult]);
 
   const claimPayout = useCallback(() => {
-    // Just resets for demo purposes — real flow would call covenant unlock with ZK proof
+    // Demo reset — real payout would require an on-chain covenant unlock TX
     resetChessArena();
   }, [resetChessArena]);
 
@@ -882,16 +870,29 @@ ${gameMeta.outcomeBranches}
         </div>
       </div>
 
-      {/* ─── Section 0: ZK Proof Type + Resolution Method ─── */}
+      {/* ─── Section 0: Covenant Circuit Schema ─── */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
         <div className={SECTION_HEADER}>
           <div className="p-1.5 rounded-lg bg-kaspa-green/20">
             <Cpu size={16} />
           </div>
-          <span className="flex-1">ZK Proof Type + Resolution Method</span>
+          <span className="flex-1">Covenant Circuit Schema (Design Targets)</span>
           <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
-            CIRCUIT SELECTOR
+            ASPIRATIONAL
           </span>
+        </div>
+
+        {/* TECHNICAL DISCLAIMER — non-dismissible */}
+        <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-amber-300/90 leading-relaxed">
+              <strong className="text-amber-200">Technical reality:</strong> ZK circuit specifications, verifier keys, oracle services, and gas estimates shown here are <strong className="text-amber-200">design targets</strong>.
+              Current on-chain covenants compiled via silverc enforce only fee parameters and outcome ranges.
+              <strong className="text-amber-200"> No ZK proving, proof verification, or oracle attestation occurs on-chain.</strong> The Chess Arena uses client-side chess.js validation only.
+              This section is provided to define the intended covenant structure for future ZK integration.
+            </div>
+          </div>
         </div>
 
         <p className="text-xs text-gray-300 leading-relaxed">
@@ -978,15 +979,19 @@ ${gameMeta.outcomeBranches}
             );
           })()}
 
-          {/* ── ZK Logic Details (collapsible) ── */}
+          {/* ── Circuit Design Specs (collapsible, aspirational) ── */}
           <details className="group">
             <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/15 hover:border-kaspa-green/30 transition-colors">
               <Code2 size={14} className="text-kaspa-green shrink-0" />
-              <span className="text-xs text-white font-semibold flex-1">ZK Logic Details</span>
+              <span className="text-xs text-white font-semibold flex-1">Circuit Design Specs (aspirational)</span>
               <span className="text-[10px] text-kaspa-green/60 font-mono group-open:hidden">Expand</span>
               <span className="text-[10px] text-kaspa-green/60 font-mono hidden group-open:inline">Collapse</span>
             </summary>
             <div className="mt-3 ml-2 pl-4 border-l-2 border-kaspa-green/20 space-y-4">
+              <div className="text-[10px] text-amber-300/80 leading-relaxed">
+                <AlertTriangle size={10} className="inline mr-1 text-amber-400" />
+                These are design specifications for future ZK circuits. No real proving/verification is implemented yet. Gas estimates are targets based on comparable circuits in production ZK systems.
+              </div>
               {(() => {
                 const details = (() => {
                   switch (gameType) {
@@ -1252,17 +1257,17 @@ ${gameMeta.outcomeBranches}
               <div className="p-1.5 rounded-lg bg-[#49EACB]/20">
                 <Play size={16} className="text-[#49EACB]" />
               </div>
-              <span>Chess v1 — Live Outcome Demo</span>
-              <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] font-mono border border-[#49EACB]/30">FIDE + ZK</span>
+              <span>Chess v1 — Client-Side Demo</span>
+              <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] font-mono border border-[#49EACB]/30">FIDE (chess.js)</span>
             </div>
             <div className="text-right">
               <div className="text-[11px] text-[#49EACB] font-mono">{chessStake} KAS STAKE • 2% COVENANT FEE</div>
-              <div className="text-[10px] text-gray-400 -mt-0.5">Winner takes all (minus fee) • ZK proves who won</div>
+              <div className="text-[10px] text-gray-400 -mt-0.5">Winner takes all (minus fee) • ZK circuit is aspirational</div>
             </div>
           </div>
 
           <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-            This is a functional demo surface for the chess_v1 ZK circuit. All moves are validated with the complete FIDE ruleset. When the game ends you can submit a simulated ZK proof of the full PGN + final FEN. The covenant only sees the verified outcome.
+            Client-side chess demo. chess.js validates all FIDE rules locally. No real ZK proof is generated. The covenant on-chain only enforces fee params and outcome ranges via silverc. ZK verification is a design target.
           </p>
 
           {/* Stake + Pot Summary */}
@@ -1361,7 +1366,7 @@ ${gameMeta.outcomeBranches}
                     onClick={submitChessZkProof}
                     className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-sm active:scale-[0.985] transition-all"
                   >
-                    SUBMIT ZK PROOF OF GAME (VERIFIES ALL RULES)
+                    SIMULATE GAME RESULT (client-side only, no real ZK)
                   </button>
                 )}
                 {chessMatchState === 'finished' && chessZkVerified && (
@@ -1369,21 +1374,21 @@ ${gameMeta.outcomeBranches}
                     onClick={claimPayout}
                     className="w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-sm active:scale-[0.985]"
                   >
-                    CLAIM PAYOUT ({(chessStake * 1.96).toFixed(1)} KAS) — ZK VERIFIED
+                    RESET BOARD ({(chessStake * 1.96).toFixed(1)} KAS simulated)
                   </button>
                 )}
               </div>
             </div>
 
-            {/* ZK Proof + Payout Breakdown (visible after submit) */}
+            {/* Game result simulation (visible after submit) */}
             {chessZkVerified && chessResult && (
               <div className="mt-3 p-4 rounded-xl bg-purple-500/[0.06] border border-purple-500/30 text-sm">
-                <div className="flex items-center gap-2 text-purple-400 mb-2">
-                  <Shield size={15} /> ZK PROOF VERIFIED — 0xCHESSv1_8x8_STANDARD_AUDITED
+                <div className="flex items-center gap-2 text-amber-400 mb-2">
+                  <AlertTriangle size={15} /> GAME RESULT SIMULATED — client-side only (no ZK verification)
                 </div>
-                <div className="font-mono text-xs text-purple-300/80 break-all mb-3">Proof: {chessProofHash}</div>
+                <div className="font-mono text-xs text-gray-400 break-all mb-3">Simulated hash (placeholder, not a real proof): {chessProofHash}</div>
 
-                <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">ON-CHAIN PAYOUT (executed by covenant unlock)</div>
+                <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">ASSUMED ON-CHAIN PAYOUT (not enforced by current covenant)</div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="p-2 rounded bg-black/40 border border-white/10">
                     <div className="text-gray-400">Platform (2%)</div>
@@ -1398,13 +1403,13 @@ ${gameMeta.outcomeBranches}
                     <div className="font-bold text-[#49EACB] tabular-nums">{(chessStake * 2 * 0.02 * 0.5).toFixed(2)} KAS</div>
                   </div>
                 </div>
-                <div className="text-[10px] text-gray-400 mt-2">The ZK proof of the complete legal game (all moves + terminal position) is the only input required to unlock the pot. No trust in players or oracle.</div>
+                <div className="text-[10px] text-gray-400 mt-2">This is a UI simulation. The current on-chain covenant does not enforce payout distribution or ZK verification. See the technical disclaimer at the top of Section 0.</div>
               </div>
             )}
           </div>
 
           <div className="text-[10px] text-gray-400 px-1">
-            All  chess rules are written into the ZK circuit: pawn double-step + en passant, castling rights tracking, king safety, checkmate detection, draw by repetition/50-move/insufficient material. The SilverScript below contains the on-chain enforcement hooks.
+            chess.js validates all FIDE rules client-side. The SilverScript below shows the intended covenant structure. The actual compiled on-chain covenant enforces only fees and outcome ranges. ZK proof verification is a design target not yet implemented.
           </div>
         </section>
       )}

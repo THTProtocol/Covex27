@@ -2,9 +2,19 @@
 
 This directory contains example integrations and deployment patterns for building on Covex.
 
-## Merkle Membership + Oracle Flow
+## Merkle Membership + Oracle Flow (Production)
 
 The most complete end-to-end example uses the MerkleMembership circuit:
+
+## Range Proof — Phase 9 Foundation (New)
+
+`examples/range-proof/` contains the second circuit added during Phase 9:
+
+- A proper hiding range proof (MiMC commitment + 64-bit bounds)
+- Honest documentation of exactly what exists vs what is still needed (zkey, oracle wiring)
+- Placeholder submission script that surfaces the current "foundation only" oracle response
+
+This is the concrete technical expansion promised for Phase 9. Full live usage is the immediate follow-up task after launch.
 
 1. Deploy a MerkleMembership covenant through Covex Terminal
 2. Generate a Groth16 proof using `zk/prove_verify.js`

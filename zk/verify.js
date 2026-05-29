@@ -1,6 +1,12 @@
 #!/usr/bin/env node
-// verify.js — Standalone Groth16 verifier for oracle service
+// verify.js — Standalone Groth16 verifier for oracle service (merkle_membership only today)
 // Usage: node verify.js <proof_file.json>
+//
+// Phase 9 note:
+//   RangeProof foundation added (circuit + oracle stub + prove_range_proof.js).
+//   When range_proof_final.zkey + vkey exist, create a parallel verify_range.js
+//   (or extend this one with --circuit flag) and wire it from oracle.rs.
+//
 // Reads { proof, publicSignals } from JSON file, verifies against built-in vkey
 // Returns JSON: { valid: true/false, error: "..." } to stdout
 

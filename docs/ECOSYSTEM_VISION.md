@@ -1,35 +1,49 @@
-# Covex Ecosystem Vision
+# Covex Ecosystem Vision (Phase 8)
 
-Covex is designed to become the professional infrastructure layer for trust-minimized covenant execution on Kaspa. This document outlines what external adoption and ecosystem growth look like.
-
-## Short-term (Testnet → Mainnet Launch)
-
-- **Oracle as a service**: Any Kaspa dApp can call `/api/oracle/verify-and-sign` to get signed attestations for off-chain events or ZK proofs.
-- **Covenant visibility**: Paid tiers give covenant creators Explorer placement. This creates a marketplace of covenant discovery.
-- **Covenant Studio**: Visual UI template editor enables non-technical creators to design rich covenant interfaces.
-
-## Medium-term (Mainnet Maturation)
-
-- **More ZK circuits**: Range proofs, age verification, verifiable compute — expanding the toolkit of trustless covenant types.
-- **Better on-chain logic**: As silverc matures (OpCheckSig, richer payout primitives), covenants move from oracle-attested toward on-chain ZK enforcement.
-- **External integrations**: Wallets, explorers, and dApps integrate Covex covenant data and oracle attestations.
-
-## Long-term Vision
-
-- **ZK-native covenants**: Full on-chain Groth16/Plonk verification inside Kaspa covenants.
-- **Cross-covenant composability**: Multiple interacting covenants with shared state and oracle feeds.
-- **Ecosystem standard**: Covex becomes the default way to discover, deploy, and interact with Kaspa covenants.
+**Date:** End of Phase 8 (2026-05-30)
 
 ## What Success Looks Like
 
-- External teams building real products on top of Covex's oracle and indexing infrastructure
-- Multiple circuit types with active usage and real economic activity
-- Community contributions to circuits, documentation, and tooling
-- Covex cited as reference implementation for Kaspa covenant infrastructure
+Covex succeeds when it becomes the default professional infrastructure layer for serious ZK + oracle covenants on Kaspa.
 
-## What We Won't Do
+### For Builders
+- External teams can confidently build real applications on top of Covex without needing constant hand-holding from the core team.
+- Clear, honest documentation makes it easy to understand what is possible today vs. what will come later.
 
-- Closed-source proprietary features
-- Vendor lock-in or exclusive access
-- Simulated/fake features marketed as real
-- Centralized custody of user funds
+### For the Kaspa Ecosystem
+- Real economic volume flows through well-designed, honestly-labeled covenants.
+- Multiple independent oracle providers emerge (reducing single points of trust over time).
+- Covex accelerates the usefulness of Kaspa covenants instead of becoming a bottleneck.
+
+### For End Users
+- People can use beautiful applications (built in Covenant Studio) that are backed by rigorous engineering configuration (done in Covex Terminal).
+- They have realistic expectations because everything is labeled honestly.
+
+## Current State (End of Phase 8)
+
+- Strong foundation for external developers (see `BUILDING_ON_COVEX.md`)
+- Production-grade tooling for deployment and operations
+- One fully working real ZK circuit with oracle path
+- Clear philosophy and contribution path
+
+## Long-Term Goals
+
+- A healthy ecosystem of teams building on Covex
+- Multiple production circuits with full oracle support
+- Gradual reduction in oracle trust surface as on-chain capabilities improve
+- Covex becomes boring, reliable infrastructure (the best compliment in this space)
+
+## How to Help
+
+The best ways to contribute to the ecosystem right now:
+
+1. Build something real on top of the current oracle + Merkle Membership flow and share it.
+2. Contribute a new production-ready circuit.
+3. Improve documentation and examples.
+4. Help with the operational tooling.
+
+We are still early. Honest builders who ship real things will have disproportionate influence on the direction.
+
+---
+
+This is a living document and will be updated as the ecosystem grows.

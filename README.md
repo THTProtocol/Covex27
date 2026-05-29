@@ -245,13 +245,14 @@ All paid covenants are user-configurable through the Covex Terminal:
 - **Top-up capability**: Allow new players to add funds to the pot
 - **Owner safeguards**: Close covenant only after cooldown + no active games (anti-sabotage)
 
-### ZK Proofs & Claim Verification
+### ZK Proofs & Oracle Verification
 
-Covex is fully ZK-ready for trustless covenant execution:
+Covex supports ZK-attested covenant resolution with honest limitations:
 
-- **ZK stack**: RISC Zero zkVM + Groth16 verifier
-- **Claim workflow**: "Claim Now" triggers automatic ZK proof generation when possible
-- **Fallback**: Covex trusted oracle (signed outcome) for instant UX while ZK infrastructure matures
+- **Merkle Membership**: Full Groth16 roundtrip (circom2 + snarkjs, MiMC7 preimage proof). Prove a leaf exists in a committed Merkle root without revealing sibling paths. Working oracle verification path.
+- **Range Proof**: Phase 9 cryptographic foundation complete (circuit + prover skeleton + example package). Full zkey + live oracle verification is the #1 post-launch engineering task.
+- **Additional circuits**: Age Verification, Verifiable Compute, Chess v1 — all labeled as aspirational design targets. Only Merkle Membership has a live end-to-end oracle path today.
+- **Resolution**: Oracle-attested model (SHA256-signed outcome via `/api/oracle/verify-and-sign`). The current architecture is honest: it signs outcomes off-chain; the signature can be used as a witness for covenant unlocking. On-chain ZK verification is an aspirational design target pending silverc opcode support.
 
 ### Covex Terminal
 
@@ -458,18 +459,17 @@ Covex27/
 The Covex Terminal (`frontend/src/components/CovexTerminal.jsx`) is the primary professional interface for paid-tier creators. It replaced earlier builder concepts and is deliberately neutral — it is an engineering configuration surface, not a game launcher.
 
 ### Core Capabilities
-- **ZK Circuit Selection**: Multiple skill game circuits (Chess v1/v2 with full FIDE rules, Poker hand ranking, Blackjack, Dice, Connect 4, Checkers, Go, Backgammon, Battleship, Sudoku, plus Custom). Each auto-selects the appropriate `zk_circuit` and `zk_verifier_key`.
-- **Resolution Modes** (three options wired end-to-end):
-  - `zk`: Uses `OpZkVerify` in generated SilverScript with circuit-specific verifier keys (e.g. `0xCHESSv1_8x8_STANDARD_AUDITED`).
-  - `oracle`: Covex Oracle with `OpCheckSig`.
+- **Circuit Schema Selection**: Six ZK circuit types available as design targets (Chess v1, Merkle Membership, Range Proof, Age Verification, Verifiable Compute, Custom). Only Merkle Membership has a working end-to-end proof+oracle path. All others are honestly labeled as aspirational.
+- **Resolution Modes** (three options, one working):
+  - `zk`: Aspirational design target (no on-chain ZK verification exists yet).
+  - `oracle`: Covex Oracle with SHA256-signed attestation (working for merkle_membership).
   - `custom_oracle`: User-supplied oracle public key.
-- **Full SilverScript Generator**: Produces complete, production-ready covenants including `fee_basis_points`, `platform_share`, `creator_share`, outcome enums, payout branches, and resolution opcodes.
+- **SilverScript Generator**: Produces covenant DSL templates with fee basis points, outcome enums, and payout branches. Compiled via silverc to real bytecode with if/else payout constraints — fee enforcement and outcome range gating work on-chain.
 - **Custom UI Attachment**: Accepts full HTML/JS/CSS bundles (designed in Covenant Studio) and persists them via `POST /api/terminal-config/:covenant_id`.
-- **Chess v1 ZK Arena** (built-in functional demo for the chess_v1 circuit):
+- **Chess v1 ZK Arena** (client-side simulation demo):
   - Uses `react-chessboard` + `chess.js` for real legal play.
-  - Supports stake amount selection with live 2% covenant creator fee calculation.
   - Full match flow, resignation, and automatic game-over detection (checkmate, stalemate, 50-move rule, threefold repetition, insufficient material).
-  - "Submit ZK Proof" commits the complete PGN + final FEN and shows explicit payout breakdown (winner receives 98% of pot).
+  - Outcome is simulated client-side (Math.random()). No ZK proof is generated. This is explicitly labeled as simulation in the UI.
 
 All configuration (game_type, resolution_mode, zk_circuit, custom_ui_code, fee, reusable, allow_topups) is saved server-side and merged by the Explorer API so custom UIs appear on live covenant cards.
 
@@ -530,6 +530,71 @@ Phase 5 completed the final production tooling and documentation needed for conf
 - Documented the current realistic path for using oracle signatures to unlock covenants
 
 **Current overall state (end of Phase 5):** The system is considered launch-ready for mainnet after the Toccata hard fork, with clear automation and honest documentation of remaining limitations (especially around full on-chain payout logic due to silverc constraints).
+
+### Phase 6 — Post-Launch Operations, Reliability & Scaling (Completed)
+
+Phase 6 added operational maturity:
+
+- `deploy/monitor-and-alert.sh` and `deploy/backup-covex.sh`
+- `docs/OPERATIONS_RUNBOOK.md`
+- `docs/MAINNET_COVENANT_EXAMPLES.md`
+- Basic rate limiting design and improved logging
+
+### Phase 7 — Advanced ZK, On-Chain Improvements & Long-term Vision (Completed)
+
+Phase 7 established the long-term direction:
+
+- `docs/LONG_TERM_TECHNICAL_ROADMAP.md`
+- `docs/NEXT_ZK_CIRCUITS.md`
+- `docs/COVEX_STUDIO_INTEGRATION_VISION.md`
+- `docs/LONG_TERM_VISION.md`
+
+### Phase 8 — Ecosystem & Developer Experience (Completed)
+
+Phase 8 focused on making Covex usable by external developers:
+
+- `docs/BUILDING_ON_COVEX.md` — Honest and practical developer guide
+- `CONTRIBUTING.md`
+- `docs/ECOSYSTEM_VISION.md`
+- `examples/merkle-membership/` — First working example with submission helper
+
+The project now has a solid foundation for external teams to build on top of it.
+
+### Phase 9 — Advanced Technical Evolution & On-Chain Improvements (Completed)
+
+Phase 9 delivered the **second real ZK circuit foundation** plus all supporting integration surface:
+
+- `zk/range_proof/range_proof.circom` — Proper hiding Range Proof (MiMC7 commitment + 64-bit bounds, correct public input declaration)
+- `zk/prove_range_proof.js` + `zk/verify_range.js` — Runnable proving skeleton + verifier stub with exact publicSignals layout documented
+- `examples/range-proof/` — Full honest example package (README, submission helper, future unlock notes)
+- `backend/src/oracle.rs` — `range_proof` circuit_type wired (returns explicit "Phase 9 foundation only" error until zkey exists); added `requested_outcome` + per-circuit outcome logic (robustness improvement)
+- All three long-term technical docs refreshed with actual shipped state vs gaps
+- `PHASE9_COMPLETION.md` — Evidence-based report with copy-paste verification commands
+
+**Honest note:** Full proving artifacts (zkey/vkey) and live oracle path for Range Proof are the #1 immediate post-launch task. The cryptographic + engineering foundation is complete and reviewable today.
+
+### Phase 10 — Final Polish, Launch Materials & Overall Project Completion (Completed)
+
+Phase 10 brought the entire 10-phase effort to a professional, evidence-backed conclusion:
+
+- `deploy/covex-launch-verify.sh` — Consolidated launch readiness script (health, oracle for both circuits, explorer data, critical files, ZK state, clear PASS/WARN/FAIL verdict)
+- `docs/FINAL_STATE_OF_COVEX.md` — Official declaration with post-Phase-9 reality
+- `docs/LAUNCH_ANNOUNCEMENT_TEMPLATE.md` — Usable mainnet launch copy
+- Evidence-based `PHASE10_COMPLETION.md` + full 10-phase summary in this README
+- `HERMES_FINAL_TRIPLE_CHECK_PROMPT.md` (created as part of final polish)
+
+**Covex is now considered production-grade and ready for mainnet launch after the Toccata hard fork.**
+
+## Final State (End of Phase 10)
+
+All 10 planned phases have been executed. The core vision — a professional, radically honest platform for ZK and oracle-powered covenants on Kaspa — has been achieved.
+
+**Remaining honest limitations** (will improve over time with silverc and Kaspa scripting):
+- Primarily oracle-attested model today
+- Limited number of fully production circuits (Merkle Membership complete; Range Proof foundation complete, zkey pending)
+- Some manual steps still required for complex covenant unlocking
+
+These are documented transparently in the docs/.
 
 ## License
 

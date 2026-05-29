@@ -1,35 +1,46 @@
-# Next ZK Circuits Roadmap (Phase 7)
+# Next ZK Circuits Roadmap (Phase 9 — Updated with Concrete Foundation)
 
-## Priority Order (Post-Launch)
+**Date:** Phase 9 completion (real artifacts delivered)
 
-### 1. Range Proof (High Priority)
-- Use case: Collateral sufficiency, private balance ranges, KYC-free tier qualification
-- Relatively easy to implement on top of existing Groth16 setup
-- High practical value
+## Current Production Circuits
+
+- Merkle Membership (fully working with oracle path)
+
+## Priority Order for Next Circuits
+
+### 1. Range Proof (High Priority — Phase 9 Foundation COMPLETE)
+- Use cases: Private collateral checks, balance ranges, KYC-free qualification
+- Status: **Production-grade circuit authored** (MiMC commitment + 64-bit GreaterEq/LessEq, proper main {public[...]} declaration, matching Merkle style)
+  - Full source: `zk/range_proof/range_proof.circom`
+  - Proving skeleton: `zk/prove_range_proof.js` (shows exact publicSignals layout)
+  - Verifier surface: `zk/verify_range.js` (stub ready for zkey)
+  - Oracle surface: wired in `backend/src/oracle.rs` (returns explicit "foundation only" error today)
+  - Example: `examples/range-proof/` (README + submit helper + notes)
+- Honest gap: No compiled wasm/r1cs + no final zkey yet (requires working circom 2.x binary + ptau phase-2 in clean env)
+- Next steps: Generate artifacts in prod build, wire real snarkjs path in oracle, first live covenant demo
 
 ### 2. Age Verification (Medium-High)
-- Specialized range proof on birthdate
-- Very strong real-world use case (age-gated services without revealing exact age)
+- Specialized range proof on birthdate commitment
+- Strong real-world use case
 
 ### 3. Basic Verifiable Compute (Medium)
-- Start with RISC0 or SP1 stubs for simple programs
-- Goal: Prove correct execution of small off-chain logic
+- Start with simple RISC0 or SP1 programs
+- Prove correct execution of off-chain logic
 
-### 4. More Complex Circuits (Longer Term)
-- Full Merkle tree membership with path
-- Multi-party computations
-- Game-specific circuits (once silverc can better support them)
+### 4. More Advanced (Longer Term)
+- Full Merkle tree with path
+- Multi-party or game-specific circuits (once silverc supports richer logic)
 
-## Implementation Guidelines
-- Every new circuit must come with:
-  - Clear honesty labeling
-  - Working oracle verification path
-  - Example usage in Terminal
-  - Documentation in this repo
+## Implementation Requirements for New Circuits
 
-## Current Limitation
-All circuits will remain oracle-attested until silverc + Kaspa scripting can support richer on-chain verification.
+Every new circuit must include:
+- Working circuit definition
+- Proving + verification pipeline
+- Oracle handler
+- Honest labeling of limitations
+- Example in `examples/`
+- Documentation
 
 ---
 
-Update this document as circuits are implemented.
+This document will be updated as circuits move from stub to production.

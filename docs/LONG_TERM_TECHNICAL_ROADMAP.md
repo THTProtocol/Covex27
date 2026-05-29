@@ -1,41 +1,36 @@
-# Long-Term Technical Roadmap (Phase 7)
+# Long-Term Technical Roadmap (Phase 9)
 
-## Current State (End of Phase 5/6)
-- Oracle-attested ZK model (proofs verified off-chain, outcomes signed)
-- One production-grade circuit (Merkle Membership)
-- Strong operational tooling and mainnet migration path
-- Honest labeling throughout
+**Date:** Phase 9 completion (second circuit foundation shipped)
 
-## Phase 7+ Vision (2026–2028+)
+## Current State (End of Phase 9 — Concrete Deliverables)
+- Primarily oracle-attested model
+- **Two** circuits with real foundations:
+  - Merkle Membership (fully working end-to-end with oracle)
+  - Range Proof (hiding + bounds — circuit + proving skeleton + oracle surface + example; zkey pending)
+- Strong operational tooling and mainnet migration
+- Clear ecosystem and developer foundation + honest technical roadmap
 
-### Short Term (Next 6–12 months after launch)
-- Add 2–3 more practical ZK circuits (Range Proof, Age Verification, basic Verifiable Compute stubs)
-- Improve oracle service (better performance, multiple keys, rate limiting at scale)
-- Richer Terminal + Studio integration
-- First real mainnet usage and feedback loop
+## 2026–2027 (Short Term)
+- Complete Range Proof (zkey + live oracle path + first real covenant)
+- Add Age Verification and one more (Verifiable Compute starter)
+- Improve oracle performance and multi-key support
+- Deeper Covex Terminal ↔ Covenant Studio integration
+- First real mainnet economic volume
 
-### Medium Term (12–24 months)
-- Leverage silverc improvements for better on-chain payout primitives
-- Move toward hybrid model: some circuits can have stronger on-chain guarantees
-- Support for Schnorr-based oracle signatures (OpCheckSig path)
-- Public verifier + proving service for common circuits
+## 2027–2028 (Medium Term)
+- Leverage silverc improvements for richer on-chain payout logic
+- Move toward hybrid model (oracle verifies ZK, covenant verifies oracle signature on-chain via OpCheckSig)
+- Support for multiple independent oracle providers
+- Better proving UX and infrastructure
 
-### Long Term (2–4 years)
-- As Kaspa scripting and silverc mature, reduce reliance on off-chain oracle for certain use cases
-- Multiple independent oracle providers (decentralized attestation network)
-- Full end-to-end examples of complex real-world covenants (escrow, prediction markets, skill games with real enforcement)
-- Strong integration with broader Kaspa DeFi and application ecosystem
+## 2028+ (Long Term)
+- As Kaspa scripting and silverc mature, reduce oracle trust surface for high-value use cases
+- Some circuits may achieve meaningful on-chain ZK verification
+- Covex becomes the standard professional layer for complex covenants on Kaspa
 
 ## Key Dependencies
-- Maturation of silverc compiler
-- Kaspa consensus / scripting improvements (especially signature verification and payout primitives)
-- Growth of the ZK proving ecosystem compatible with Kaspa
+- Progress in silverc compiler
+- Kaspa consensus / scripting upgrades
+- Growth of compatible ZK tooling
 
-## Success Metrics (Long Term)
-- Real economic volume flowing through Covex covenants on mainnet
-- Multiple independent teams building on top of the oracle + ZK infrastructure
-- Clear reduction in "oracle trust" surface area over time as on-chain capabilities improve
-
----
-
-This is a living document. It will be updated based on real usage and ecosystem progress.
+This roadmap will be updated based on real ecosystem progress.

@@ -448,6 +448,13 @@ export default function CovexTerminal({ covenant }) {
     publicSignals: ["1","20473339414381364284988912838485478706292217748325897174032535818078518775705"]
   }, null, 2);
 
+  // Phase 4: Network indicator
+  const isMainnet = false; // Set true for mainnet deployment
+  const networkLabel = isMainnet ? 'MAINNET' : 'TESTNET-12';
+  const networkColor = isMainnet
+    ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
+    : 'text-amber-400 border-amber-500/40 bg-amber-500/10';
+
   const generateSilverScript = useCallback(() => {
     const feeBasis = Math.round(feePercent * 100);
     const feePlatform = Math.round(feePercent * 10);

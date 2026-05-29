@@ -520,6 +520,17 @@ This architecture gives creators a complete, on-chain-enforceable experience: pr
 
 See `deploy/switch-to-mainnet.sh` for the exact one-command migration path.
 
+### Phase 5 — Production Polish & Launch Readiness (Completed)
+
+Phase 5 completed the final production tooling and documentation needed for confident launch:
+
+- Created `deploy/validate-production.sh` and `deploy/covex-status.sh`
+- Added `docs/LAUNCH_CHECKLIST.md` and `docs/UNLOCK_WITH_ORACLE_SIGNATURE.md`
+- Improved oracle key management for mainnet (`COVEX_ORACLE_KEY`)
+- Documented the current realistic path for using oracle signatures to unlock covenants
+
+**Current overall state (end of Phase 5):** The system is considered launch-ready for mainnet after the Toccata hard fork, with clear automation and honest documentation of remaining limitations (especially around full on-chain payout logic due to silverc constraints).
+
 ## License
 
 MIT

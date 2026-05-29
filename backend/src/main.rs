@@ -171,7 +171,13 @@ async fn main() {
 async fn root_handler() -> Json<serde_json::Value> {
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
-    Json(json!({"status": "ok", "app": "Covex v1.0.0", "network": network}))
+    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    Json(json!({
+        "status": "ok",
+        "app": "Covex v1.0.0",
+        "network": network,
+        "oracle_key_mode": oracle_mode
+    }))
 }
 
 async fn status_handler(
@@ -182,9 +188,11 @@ async fn status_handler(
     let verified = db::count_verified_covenants(&db).unwrap_or(0);
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
     Json(json!({
         "status": "ok",
         "network": network,
+        "oracle_key_mode": oracle_mode,
         "node_connected": true,
         "total_covenants": total,
         "active_covenants": active,

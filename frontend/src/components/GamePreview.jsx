@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import ChessMini from './chess/ChessMini';
 // Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
-// Covex main pages (Explorer) must remain neutral — no gambling/poker visuals.
-// Those specific rich previews only belong in Covenant Studio.
+// Covex main pages (Explorer) must remain neutral — no gambling visuals.
+// Only chess has a native React preview. All other ZK circuits show a generic badge.
 
 // Detect game type from covenant data
 const detectGameType = (covenant) => {
@@ -25,7 +25,7 @@ const detectGameType = (covenant) => {
   } catch (_) {}
 
   // Fallback name-based detection — chess only
-  if (combined.includes('chess') || combined.includes('chess_v1') || combined.includes('chess_v2')) return 'chess';
+  if (combined.includes('chess') || combined.includes('chess_v1')) return 'chess';
 
   return null;
 };
@@ -150,8 +150,8 @@ const GamePreview = ({ covenant, compact = false }) => {
   // If no game type detected and no custom UI - no preview
   if (!gameType && !customUI) return null;
 
-  // Choose preview strategy: native React for known games, iframe for custom UI
-  const useNative = gameType && ['chess', 'poker', 'blackjack', 'dice'].includes(gameType);
+  // Choose preview strategy: native React for chess, iframe for custom UI
+  const useNative = gameType === 'chess';
 
   const previewHeight = compact ? 140 : 200;
 

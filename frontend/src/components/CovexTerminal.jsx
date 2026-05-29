@@ -420,7 +420,7 @@ export default function CovexTerminal({ covenant }) {
   const [generatedScript, setGeneratedScript] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // ── Chess ZK Arena State (only for chess_v1 / chess_v2) ──
+  // ── Chess ZK Arena State (only for chess_v1) ──
   const [chessStake, setChessStake] = useState(50);
   const [chessMatchState, setChessMatchState] = useState('idle'); // idle | posted | matched | playing | finished
   const [chessGame, setChessGame] = useState(() => new Chess());
@@ -1244,8 +1244,8 @@ ${gameMeta.outcomeBranches}
         </div>
       </section>
 
-      {/* ─── FULL CHESS ZK ARENA (only for chess_v1 / chess_v2) ─── */}
-      {(gameType === 'chess_v1' || gameType === 'chess_v2') && (
+      {/* ─── FULL CHESS ZK ARENA (only for chess_v1) ─── */}
+      {(gameType === 'chess_v1') && (
         <section className={`${SECTION_BASE} border-[#49EACB]/30 bg-[#0a1412] ring-1 ring-[#49EACB]/20`}>
           <div className="flex items-center justify-between">
             <div className={SECTION_HEADER}>
@@ -1670,12 +1670,14 @@ ${gameMeta.outcomeBranches}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-purple-300">
                         {zkCircuit === 'chess_v1' ? 'Chess v1 (Standard 8×8)' :
-                         zkCircuit === 'chess_v2' ? 'Chess v2 (With draw detection)' :
-                         zkCircuit === 'generic_game' ? 'Generic Game Outcome' :
+                         zkCircuit === 'merkle_generic' ? 'Merkle Membership Proof' :
+                         zkCircuit === 'bulletproofs_v1' ? 'Range Proof (Bulletproofs)' :
+                         zkCircuit === 'age_verify_v1' ? 'Age Verification (ZK-KYC)' :
+                         zkCircuit === 'risc0_generic' ? 'Verifiable Computation (RISC Zero)' :
                          zkCircuit === 'custom' ? 'Custom Circuit' : zkCircuit}
                       </p>
                       <p className="text-[11px] text-gray-300 mt-0.5">
-                        Circuit controlled by Game Type selection above
+                        Circuit controlled by ZK Proof Type selection above
                       </p>
                     </div>
                   </div>
@@ -1683,10 +1685,14 @@ ${gameMeta.outcomeBranches}
                 <p className="text-[11px] text-gray-200 leading-relaxed">
                   {zkCircuit === 'chess_v1' &&
                     'Standard 8×8 chess verifier. Reports Win/Loss/Draw with BLAKE3 commitments. Fully audited, production ready.'}
-                  {zkCircuit === 'chess_v2' &&
-                    'Extended chess circuit with explicit draw detection (stalemate, threefold, 50-move rule). Larger proof size.'}
-                  {zkCircuit === 'generic_game' &&
-                    'Prove a game outcome without revealing the game itself. Accepts any structured game log + custom verdict logic.'}
+                  {zkCircuit === 'merkle_generic' &&
+                    'Proves a key/value pair exists in a committed Merkle tree. Used for whitelists, airdrop eligibility, DAO voting.'}
+                  {zkCircuit === 'bulletproofs_v1' &&
+                    'Proves a committed value falls within [min, max] without revealing the value. Logarithmic proof size.'}
+                  {zkCircuit === 'age_verify_v1' &&
+                    'Proves age ≥ threshold without revealing exact birthdate. Zero-knowledge KYC alternative.'}
+                  {zkCircuit === 'risc0_generic' &&
+                    'Proves correct execution of arbitrary computation via RISC Zero execution trace verification.'}
                   {zkCircuit === 'custom' &&
                     'Provide your own circuit definition and verifier key. Only use audited circuits from trusted sources.'}
                 </p>
@@ -1701,8 +1707,14 @@ ${gameMeta.outcomeBranches}
                   placeholder={
                     zkCircuit === 'chess_v1'
                       ? '0xCHESSv1_8x8_STANDARD_AUDITED'
-                      : zkCircuit === 'chess_v2'
-                      ? '0xCHESSv2_DRAW_DETECTION_V1'
+                      : zkCircuit === 'merkle_generic'
+                      ? '0xMERKLE_GENERIC_AUDITED_V1'
+                      : zkCircuit === 'bulletproofs_v1'
+                      ? '0xBULLETPROOFS_V1_AUDITED'
+                      : zkCircuit === 'age_verify_v1'
+                      ? '0xAGE_VERIFY_V1_AUDITED'
+                      : zkCircuit === 'risc0_generic'
+                      ? '0xRISC0_GENERIC_V1'
                       : '0x... (paste your verifier key)'
                   }
                   className={`${INPUT} font-mono text-xs ${

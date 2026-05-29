@@ -346,7 +346,7 @@ export default function PremiumBuilder() {
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           {[
             { icon: Cpu, title: 'ZK Circuits', text: 'Always start by picking a Game Type above. It auto-wires the correct audited ZK circuit to prove outcomes without revealing private player data. Never skip this: ZK makes the covenant trustless.' },
-            { icon: Link2, title: 'Oracles', text: 'If your covenant needs external data (sports, weather, stock), choose Custom Oracle or Standard Oracle mode and supply a key. For pure on-chain games like chess or poker, use ZK mode; no oracle needed.' },
+            { icon: Link2, title: 'Oracles', text: 'If your covenant needs external data (sports, weather, stock), choose Custom Oracle or Standard Oracle mode and supply a key. For on-chain verifiable statements like chess or membership proofs, use ZK mode; no oracle needed.' },
             { icon: Repeat, title: 'Reusability & Top-ups', text: 'Enable Reusable to accept multiple interactions over time. Enable Top-ups to let players add KAS to the pot. Together they create sustainable games instead of one-shot escrows.' },
             { icon: Percent, title: 'Fees & Payout Logic', text: 'Set the platform fee slider above (0-10%). Write explicit payout branches in your SilverScript for every outcome: wins, losses, draws, timeouts, and forfeits. Clear rules prevent disputes.' },
             { icon: AlertTriangle, title: 'Common Mistakes', text: 'Deploying without testing on TN12 first. Forgetting to set a verifier key for custom circuits. Skipping mobile UI testing. Not saving your Terminal config after deploy. Leaving payout logic ambiguous.' },

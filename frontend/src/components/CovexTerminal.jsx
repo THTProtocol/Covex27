@@ -796,11 +796,11 @@ ${gameMeta.outcomeBranches}
     if (!covenantId) return;
     setSaveStatus('saving');
 
-    // Get wallet signature for ownership verification
+    // Get key possession proof for ownership verification
     let sig = '';
     let nonce = '';
     const addr = connectedAddress || '';
-    if (addr && signMessage) {
+    if (addr) {
       try {
         // Step 1: fetch challenge nonce from backend
         const chalResp = await fetch(`/api/terminal-config-challenge/${covenantId}`);
@@ -808,12 +808,28 @@ ${gameMeta.outcomeBranches}
         nonce = chalData.nonce || '';
         const messageToSign = chalData.message || '';
 
-        // Step 2: sign the challenge message with the connected wallet
         if (nonce && messageToSign) {
-          sig = await signMessage(messageToSign);
+          // Step 2: compute key possession proof
+          // Dev wallets: SHA256(private_key || message) — backend knows the key
+          // Extension wallets: signMessage returns browser-provider signature
+          // Try dev mode first (we have the key locally)
+          const devWallet = JSON.parse(localStorage.getItem('covex_dev_wallet') || 'null');
+          if (devWallet && devWallet.privateKeyHex && devWallet.address === addr) {
+            // Dev wallet: compute SHA256(privateKeyHex || message)
+            const pkHex = devWallet.privateKeyHex.replace('0x', '');
+            const pkBytes = new Uint8Array(pkHex.match(/.{2}/g).map(b => parseInt(b, 16)));
+            const msgBytes = new TextEncoder().encode(messageToSign);
+            const combined = new Uint8Array(pkBytes.length + msgBytes.length);
+            combined.set(pkBytes);
+            combined.set(msgBytes, pkBytes.length);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+            sig = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+          } else if (signMessage) {
+            // Extension wallet: use provider.signMessage()
+            sig = await signMessage(messageToSign);
+          }
         }
       } catch (_) {
-        // If signing fails, fall back to address-only (string comparison path)
         sig = '';
         nonce = '';
       }

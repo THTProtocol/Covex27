@@ -409,10 +409,11 @@ pub fn compute_script_hash(script_hex: &str) -> String {
 
 // ── Schnorr signature verification for Terminal config ownership ──
 
-/// Verify terminal ownership via signed message challenge-response.
-/// For dev wallets: re-derive the key and verify the SHA256 signature.
+/// Verify terminal ownership via key possession proof.
+/// For dev wallets: frontend computes SHA256(private_key || message), backend
+/// recomputes the same hash from the known private key and compares.
 /// For extension wallets: fall back to string comparison (the wallet bridge
-/// already authenticates the connection, so the address claim is trusted).
+/// already authenticates the connection).
 fn verify_terminal_ownership_signature(
     signer_address: &str,
     sig_hex: &str,
@@ -421,12 +422,9 @@ fn verify_terminal_ownership_signature(
 ) -> Result<bool, String> {
     use sha2::{Digest, Sha256};
 
-    // Reconstruct the expected message
     let expected_msg = format!("covex-config:{}:{}", covenant_id, nonce);
-    let expected_hash = hex::encode(Sha256::digest(expected_msg.as_bytes()));
 
-    // Check if this is a dev wallet — verify by re-deriving the address
-    // from known dev wallet private keys
+    // Check known dev wallets
     let dev_keys = [
         (crate::dev_wallets::DEV_WALLET_1_ADDRESS, crate::dev_wallets::DEV_WALLET_1_PRIVATE_KEY),
         (crate::dev_wallets::DEV_WALLET_2_ADDRESS, crate::dev_wallets::DEV_WALLET_2_PRIVATE_KEY),
@@ -434,35 +432,22 @@ fn verify_terminal_ownership_signature(
 
     for (known_addr, known_pk) in &dev_keys {
         if *known_addr == signer_address {
-            // Dev wallet: compute signature manually using SHA256
-            let pk_bytes = hex::decode(known_pk.trim_start_matches("0x"))
-                .map_err(|_| "Invalid dev key hex".to_string())?;
-            // Derive the pubkey
-            let secp = secp256k1::Secp256k1::signing_only();
-            let sk = secp256k1::SecretKey::from_slice(&pk_bytes)
-                .map_err(|e| format!("Invalid dev secret key: {}", e))?;
-            let pk = sk.public_key(&secp);
-            // Use ECDSA recovery to verify: sign the hash with the secret key
-            let msg = secp256k1::Message::from_digest_slice(
-                &Sha256::digest(expected_msg.as_bytes())
-            ).map_err(|e| format!("Message conversion error: {}", e))?;
-            let expected_sig = secp.sign_ecdsa(&msg, &sk);
-            let expected_sig_hex = hex::encode(expected_sig.serialize_compact());
+            // Compute expected hash: SHA256(private_key_hex || message)
+            let pk_clean = known_pk.trim_start_matches("0x");
+            let pk_bytes = hex::decode(pk_clean).map_err(|_| "Invalid dev key hex".to_string())?;
+            let mut hasher = Sha256::new();
+            hasher.update(&pk_bytes);
+            hasher.update(expected_msg.as_bytes());
+            let expected = hex::encode(hasher.finalize());
 
-            // Compare the signatures (ignore 0x prefix)
             let sig_clean = sig_hex.trim_start_matches("0x");
-            return Ok(sig_clean == expected_sig_hex);
+            return Ok(sig_clean.eq_ignore_ascii_case(&expected));
         }
     }
 
-    // Not a dev wallet with known private key — we cannot verify signatures
-    // for arbitrary addresses without Schnorr support (secp256k1 0.29 lacks it).
-    // Extension wallets don't send signatures yet, so this path rejects
-    // signature-bearing requests for non-dev addresses. String comparison
-    // in the handler guards the no-sig fallback path.
+    // Unknown address: reject (can't verify without knowing the private key)
     Err(format!(
-        "Signature verification is currently only available for dev wallets. \
-         Non-dev wallets should not send signature data. Address: {}",
+        "Signature verification not available for this address ({}). Use a connected dev wallet or extension wallet.",
         &signer_address[..16]
     ))
 }

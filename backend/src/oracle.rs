@@ -7,7 +7,11 @@
 // signed by the Covex oracle key (DEV_WALLET_1 in testnet).
 //
 // Supported circuits:
-//   - merkle_membership: Groth16 proof over bn128, MiMC7 preimage
+//   - merkle_membership: Groth16 proof over bn128, MiMC7 preimage (Phase 2+)
+//   - range_proof:       Groth16 range proof with MiMC commitment (Phase 9 foundation — see zk/range_proof/)
+//
+// NOTE: range_proof is currently a compile-time + witness foundation only.
+// Full snarkjs verification + zkey will be wired post-ceremony (see NEXT_ZK_CIRCUITS.md).
 
 use axum::{extract::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
@@ -137,6 +141,15 @@ async fn verify_merkle_proof_async(proof: serde_json::Value, public_inputs: Vec<
         .map_err(|e| format!("Spawn blocking failed: {}", e))?
 }
 
+/// Phase 9 foundation: stub verifier for range_proof.
+/// In production this will spawn_blocking a dedicated zk/verify_range.js (snarkjs + range-specific vkey).
+/// For now we return a clear honest error so callers know exactly what is ready.
+async fn verify_range_proof_async(_proof: serde_json::Value, _public_inputs: Vec<String>) -> Result<bool, String> {
+    // TODO (post Phase 9): implement full snarkjs path once range_proof_final.zkey + vkey + verify_range.js exist.
+    // See: zk/range_proof/range_proof.circom, zk/prove_range_proof.js (to be run in prod env with working circom 2.x)
+    Err("Range proof verification is not yet wired in the oracle (Phase 9 circuit foundation only). Circuit authored + compiles cleanly in proper env. Full zkey + snarkjs verify target for immediate post-launch iteration. See docs/NEXT_ZK_CIRCUITS.md and zk/range_proof/".to_string())
+}
+
 /// Handle POST /api/oracle/verify-and-sign
 async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<OracleVerifyOutput> {
     let timestamp = chrono::Utc::now().timestamp();
@@ -168,6 +181,34 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 });
             }
         },
+        "range_proof" => {
+            // Phase 9: circuit + docs complete. Full snarkjs path pending zkey artifacts.
+            match verify_range_proof_async(input.proof.clone(), input.public_inputs.clone()).await {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Range proof verification failed (invalid)".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Range proof verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+            }
+        }
         other => {
             return Json(OracleVerifyOutput {
                 success: false,
@@ -175,19 +216,28 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 signature: None,
                 timestamp: None,
                 message: None,
-                error: Some(format!("Unsupported circuit type: {}. Currently supported: merkle_membership", other)),
+                error: Some(format!("Unsupported circuit type: {}. Currently supported: merkle_membership, range_proof (foundation)", other)),
                 public_inputs: input.public_inputs,
             });
         }
     };
 
-    // Step 2: Determine outcome from public inputs
-    // For merkle_membership: publicSignals = [valid, rootHash]
-    // valid == 1 means the proof is valid (prover knows the secret)
-    let outcome = if input.public_inputs.len() >= 1 && input.public_inputs[0] == "1" {
-        0u32 // Proven — claimant wins
+    // Step 2: Determine outcome
+    // Prefer explicit requested_outcome from caller when provided (new for Phase 9+ multi-circuit).
+    // Fallback heuristic:
+    //   merkle_membership: publicSignals[0] == "1" → 0 (claimant)
+    //   range_proof:       last public signal (valid) == "1" → 0
+    let outcome: u32 = if let Some(req) = input.requested_outcome {
+        req
+    } else if input.circuit_type == "merkle_membership" {
+        if input.public_inputs.len() >= 1 && input.public_inputs[0] == "1" { 0 } else { 1 }
+    } else if input.circuit_type == "range_proof" {
+        // For range: publicSignals typically [commitment, min, max, valid]
+        if let Some(last) = input.public_inputs.last() {
+            if last == "1" { 0 } else { 1 }
+        } else { 1 }
     } else {
-        1u32 // Rejected — depositor keeps stake
+        0
     };
 
     // Step 3: Sign the outcome

@@ -1204,7 +1204,7 @@ ${gameMeta.outcomeBranches}
                       };
                     case 'verifiable':
                       return {
-                        circuitName: 'Verifiable Computation (RISC Zero)',
+                        circuitName: 'Verifiable Computation (design target)',
                         circuitId: 'risc0_generic',
                         verifierKey: zkVerifierKey || '0xRISC0_GENERIC_V1',
                         publicInputs: ['Program image ID (hash)', 'Output commitment', 'Input commitment'],

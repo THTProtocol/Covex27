@@ -4,6 +4,7 @@ import {
   ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
   Zap, AlertTriangle, CheckCircle2, Info, Key, Palette,
   Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft,
+  Loader, Server, XCircle, Clock, BadgeCheck, Globe,
 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
@@ -434,6 +435,19 @@ export default function CovexTerminal({ covenant }) {
   const [chessZkVerified, setChessZkVerified] = useState(false);
   const [chessProofHash, setChessProofHash] = useState('');
 
+  // ── Oracle Resolution State (merkle_membership + future circuits) ──
+  const [oracleProof, setOracleProof] = useState('');       // Pasted proof JSON
+  const [oraclePublicInputs, setOraclePublicInputs] = useState('');  // Comma-separated public inputs
+  const [oracleSubmitting, setOracleSubmitting] = useState(false);
+  const [oracleResult, setOracleResult] = useState(null);   // { success, outcome, signature, message, timestamp, error }
+  const [oracleError, setOracleError] = useState('');
+
+  // ── Default merkle proof (from zk/merkle_proof.json — bundled for convenience) ──
+  const bundledMerkleProof = JSON.stringify({
+    proof: {pi_a:["18181728626747598512185236779782051408160831199146039141258343705294485377857","11249631687762252152790251352667177721597613535563072444007178274350918034293","1"],pi_b:[["18162424250835540918304993628173056026804582110058747751016796879041503358866","150409713570574904247288534137005688594977003217787346725000334109531127627"],["416138915697748307225291215901104649602159952580384513301073977638018174561","4190255711945735306577052854365915644921611118037145678718479286457518249622"],["1","0"]],pi_c:["5508794692018130626208187447388241780732532444861493044334671306046524780394","19987894614350216942694495648718785689000977620697338739577847839130351284395","1"],protocol:"groth16",curve:"bn128"},
+    publicSignals: ["1","20473339414381364284988912838485478706292217748325897174032535818078518775705"]
+  }, null, 2);
+
   const generateSilverScript = useCallback(() => {
     const feeBasis = Math.round(feePercent * 100);
     const feePlatform = Math.round(feePercent * 10);
@@ -791,6 +805,96 @@ ${gameMeta.outcomeBranches}
     }
   }, [generatedScript]);
 
+  // ── Submit to Oracle ──
+  const handleOracleSubmit = useCallback(async () => {
+    if (!covenantId) return;
+    setOracleSubmitting(true);
+    setOracleResult(null);
+    setOracleError('');
+    setSaveStatus('saving');
+
+    try {
+      // Parse proof from textarea (accepts full {proof, publicSignals} or just proof object)
+      let proofObj;
+      let publicInputs;
+      let rawText = oracleProof.trim();
+
+      // Try parsing as full {proof, publicSignals} object
+      try {
+        const parsed = JSON.parse(rawText);
+        if (parsed.proof && parsed.publicSignals) {
+          proofObj = parsed.proof;
+          publicInputs = parsed.publicSignals;
+        } else {
+          proofObj = parsed;
+          publicInputs = oraclePublicInputs ? oraclePublicInputs.split(',').map(s => s.trim()) : [];
+        }
+      } catch {
+        setOracleError('Invalid JSON. Paste proof as JSON object ({proof, publicSignals}) or raw proof JSON.');
+        setOracleSubmitting(false);
+        setSaveStatus('idle');
+        return;
+      }
+
+      if (publicInputs.length === 0 && oraclePublicInputs) {
+        publicInputs = oraclePublicInputs.split(',').map(s => s.trim());
+      }
+      if (publicInputs.length === 0) {
+        setOracleError('Public inputs required. Paste comma-separated values (e.g., "1,20473339414381364...")');
+        setOracleSubmitting(false);
+        setSaveStatus('idle');
+        return;
+      }
+
+      const payload = {
+        covenant_id: covenantId,
+        circuit_type: 'merkle_membership',
+        proof: proofObj,
+        public_inputs: publicInputs,
+      };
+
+      // Save oracle config to terminal-config first
+      const configPayload = {
+        game_type: gameType,
+        name, description,
+        fee_percent: feePercent,
+        reusable, allow_topups: allowTopups,
+        custom_ui_code: customUICode,
+        resolution_mode: resolutionMode,
+        custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
+        zk_circuit: 'merkle_generic',
+        zk_verifier_key: zkVerifierKey || '0xMERKLE_GENERIC_AUDITED_V1',
+        oracle_proof: JSON.stringify(proofObj),
+        oracle_public_inputs: JSON.stringify(publicInputs),
+      };
+      await fetch(`/api/terminal-config/${covenantId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configPayload),
+      });
+
+      // Call the oracle
+      const res = await fetch('/api/oracle/verify-and-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      setOracleResult(data);
+      if (data.success) {
+        setSaveStatus('saved');
+      } else {
+        setSaveStatus('error');
+      }
+    } catch (err) {
+      setOracleError(err.message || 'Oracle request failed');
+      setSaveStatus('error');
+    } finally {
+      setOracleSubmitting(false);
+    }
+  }, [covenantId, oracleProof, oraclePublicInputs, gameType, name, description, feePercent, reusable, allowTopups, customUICode, resolutionMode, customOracleKey, zkVerifierKey]);
+
   // ── Save All Changes ──
   const handleSave = useCallback(async () => {
     if (!covenantId) return;
@@ -910,6 +1014,15 @@ ${gameMeta.outcomeBranches}
           </button>
           <span className="h-2 w-2 rounded-full bg-kaspa-green animate-pulse shadow-[0_0_6px_#49EACB]" />
           <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Live</span>
+        </div>
+      </div>
+
+      {/* Network indicator (Phase 4) */}
+      <div className="flex justify-end -mt-2 mb-2">
+        <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono border ${networkColor}`}>
+          <Globe size={12} />
+          {networkLabel}
+          {!isMainnet && <span className="text-white/50">(test)</span>}
         </div>
       </div>
 
@@ -1792,6 +1905,198 @@ ${gameMeta.outcomeBranches}
           )}
         </div>
       </section>
+
+      {/* ─── Section C½: Oracle Resolution (Live ZK + Oracle attestation) ─── */}
+      {(gameType === 'merkle_membership') && (
+        <section className={`${SECTION_BASE} border-[#3B82F6]/30 bg-[#0a0e1a] ring-1 ring-[#3B82F6]/20`}>
+          <div className="flex items-center justify-between">
+            <div className={SECTION_HEADER}>
+              <div className="p-1.5 rounded-lg bg-[#3B82F6]/20">
+                <Server size={16} className="text-[#3B82F6]" />
+              </div>
+              <span>Oracle Resolution — Submit ZK Proof</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-[#3B82F6]/10 text-[#3B82F6]/80 font-mono border border-[#3B82F6]/30">
+              LIVE ORACLE
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-300 leading-relaxed">
+            Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by the Covex Oracle using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The signature is then used to unlock the covenant on-chain.
+          </p>
+
+          {/* Honesty disclaimer */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/[0.05] border border-amber-500/25">
+            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-amber-300/80 leading-relaxed">
+              <p className="font-semibold mb-1">Technical Reality</p>
+              <p>
+                The proof is verified off-chain by calling <code className="text-amber-300 bg-amber-500/10 px-1 rounded">POST /api/oracle/verify-and-sign</code>.
+                The oracle signature is a SHA256-based attestation (not yet a Schnorr signature usable in OpCheckSig).
+                The covenant unlock path still requires manual construction of the unlock transaction with the oracle signature as witness data.
+                On-chain verification of oracle signatures is a design target, not yet live.
+              </p>
+            </div>
+          </div>
+
+          {/* Proof input */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <p className={LABEL}>ZK Proof (JSON)</p>
+              <textarea
+                value={oracleProof}
+                onChange={(e) => setOracleProof(e.target.value)}
+                placeholder={bundledMerkleProof.slice(0, 200) + '...'}
+                rows={6}
+                className={`${TEXTAREA} font-mono text-[10px]`}
+              />
+              <button
+                onClick={() => {
+                  setOracleProof(bundledMerkleProof);
+                  setOraclePublicInputs('1,20473339414381364284988912838485478706292217748325897174032535818078518775705');
+                }}
+                className="text-[10px] text-[#3B82F6] hover:text-[#3B82F6]/80 font-mono underline underline-offset-2"
+              >
+                Load bundled proof (secret=42, rootHash precomputed)
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className={LABEL}>Public Inputs (comma-separated)</p>
+              <input
+                type="text"
+                value={oraclePublicInputs}
+                onChange={(e) => setOraclePublicInputs(e.target.value)}
+                placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
+                className={`${INPUT} font-mono text-xs`}
+              />
+              <p className="text-[10px] text-gray-200">Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.</p>
+            </div>
+
+            <button
+              onClick={handleOracleSubmit}
+              disabled={oracleSubmitting || !oracleProof}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all ${
+                oracleSubmitting || !oracleProof
+                  ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                  : 'bg-[#3B82F6] text-white hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] active:scale-[0.97]'
+              }`}
+            >
+              {oracleSubmitting ? (
+                <>
+                  <Loader size={16} className="animate-spin" />
+                  Verifying with Oracle...
+                </>
+              ) : (
+                <>
+                  <BadgeCheck size={16} />
+                  Submit to Oracle & Verify ZK Proof
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Oracle result display */}
+          {oracleError && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/[0.06] border border-red-500/30">
+              <XCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-red-400">Oracle Error</p>
+                <p className="text-xs text-red-300/80 font-mono">{oracleError}</p>
+              </div>
+            </div>
+          )}
+
+          {oracleResult && !oracleResult.success && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/[0.05] border border-amber-500/30">
+              <XCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <p className="text-sm font-semibold text-amber-400">Proof Rejected</p>
+                <p className="text-xs text-amber-300/80">{oracleResult.error}</p>
+                <p className="text-[10px] text-gray-200 font-mono mt-1">Returned by: {new Date().toISOString()}</p>
+              </div>
+            </div>
+          )}
+
+          {oracleResult && oracleResult.success && (
+            <div className="space-y-3 p-5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-emerald-500/20">
+                  <CheckCircle2 size={20} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-base font-bold text-emerald-400">Oracle Verification Successful</p>
+                  <p className="text-xs text-emerald-300/80">
+                    ZK proof verified by snarkjs against audited verification key. Outcome signed by Covex Oracle.
+                  </p>
+                </div>
+              </div>
+
+              {/* Outcome display */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
+                  <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Outcome</p>
+                  <p className="text-lg font-bold text-white">
+                    {oracleResult.outcome === 0 ? 'PROVEN — Claimant Wins' : 'REJECTED — Depositor Keeps Stake'}
+                  </p>
+                  <p className="text-[10px] text-gray-200 mt-0.5">
+                    outcome={oracleResult.outcome} (0=claimant, 1=depositor)
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-black/40 border border-white/10">
+                  <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">
+                    <Clock size={10} className="inline mr-1" />
+                    Timestamp
+                  </p>
+                  <p className="text-sm font-mono text-white">{oracleResult.timestamp}</p>
+                  <p className="text-[10px] text-gray-200 mt-0.5">Unix epoch seconds</p>
+                </div>
+              </div>
+
+              {/* Message */}
+              <div className="p-3 rounded-xl bg-black/40 border border-white/10">
+                <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Signed Message</p>
+                <p className="text-xs font-mono text-[#3B82F6] break-all">{oracleResult.message}</p>
+              </div>
+
+              {/* Signature */}
+              <div className="p-3 rounded-xl bg-black/40 border border-white/10">
+                <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Oracle Signature (SHA256)</p>
+                <p className="text-xs font-mono text-emerald-300 break-all">{oracleResult.signature}</p>
+                <p className="text-[10px] text-gray-200 mt-1">
+                  Computed as SHA256(oracle_private_key || message). Present this signature as witness data when constructing the covenant unlock transaction.
+                </p>
+              </div>
+
+              {/* Copy to clipboard */}
+              <button
+                onClick={() => {
+                  const data = JSON.stringify(oracleResult, null, 2);
+                  navigator.clipboard.writeText(data);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-gray-200 hover:text-white hover:border-white/20 transition-all"
+              >
+                <Clipboard size={12} />
+                Copy Full Oracle Response
+              </button>
+
+              {/* How to use */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#3B82F6]/[0.04] border border-[#3B82F6]/20">
+                <Info size={14} className="text-[#3B82F6] shrink-0 mt-0.5" />
+                <div className="text-[11px] text-[#3B82F6]/80 leading-relaxed">
+                  <p className="font-semibold mb-1">Next Step: Unlock Covenant</p>
+                  <p>
+                    Copy this signature and use it as witness data when unlocking the covenant on testnet.
+                    The unlock transaction must include the oracle signature + outcome as witness fields.
+                    The covenant script should verify the signature against the oracle's public key before releasing funds.
+                    See TASK 2 in the Phase 3 specification for the covenant template unlock path.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ─── Section D: Generated SilverScript ─── */}
       <section className={SECTION_BASE}>

@@ -310,6 +310,11 @@ fn emit_blackjack(unit: &CompileUnit) -> String {
 }
 
 /// Emit SilverScript for Merkle Membership Proof (2 outcomes: Proven/Rejected).
+/// Phase 3: The oracle signature (from POST /oracle/verify-and-sign) is used
+/// as witness data to unlock the covenant. The covenant script should verify
+/// SHA256(oracle_pubkey || message) == provided_signature where
+/// message = "covex-oracle:<covenant_id>:<outcome>:<timestamp>".
+/// This is an oracle-attested ZK resolution, NOT on-chain ZK verification.
 fn emit_merkle(unit: &CompileUnit) -> String {
     emit_generic_game(unit, 1) // outcomes: 0=Proven, 1=Rejected
 }

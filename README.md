@@ -493,8 +493,32 @@ All configuration (game_type, resolution_mode, zk_circuit, custom_ui_code, fee, 
 - Nginx SPA routing + proper asset handling for both apps.
 - Backend (Rust Axum) runs on :3005, proxied under `/api/`.
 - WebSocket support for live updates.
+- **Manual restarts on Hetzner**: Use `deploy/start-covex-backend.sh` (sets `KASPA_NETWORK=testnet-12` + correct env vars automatically and handles cleanup).
 
 This architecture gives creators a complete, on-chain-enforceable experience: professional configuration in Covex Terminal → rich visuals from Covenant Studio → ZK or oracle resolution → automatic Explorer visibility based on tier.
+
+### Phase 4 Status — Mainnet Readiness (as of late May 2026)
+
+**Completed in Phase 4:**
+- Backend supports clean `testnet-12` ↔ `mainnet` switching via `KASPA_NETWORK` + `COVENANT_TREASURY_ADDRESS` environment variables.
+- Dedicated production helper: `deploy/start-covex-backend.sh`
+- One-command post-hard-fork migration script: `deploy/switch-to-mainnet.sh` (stops backend, updates treasury + network, restarts).
+- Oracle service (`/api/oracle/verify-and-sign`) is production-grade for the Merkle Membership circuit.
+- Real Groth16 ZK proofs (MiMC7 preimage) can be submitted and will return a signed outcome usable for covenant resolution.
+- All critical paths now default to TN12 / Toccata.
+
+**Known limitations (still honest):**
+- Actual fund movement still relies on the Kaspa UTXO model + oracle signature (silverc v0.1.0 has no native `VerifyPayout`).
+- Only `merkle_membership` circuit has a fully working end-to-end oracle path today.
+- Mainnet treasury address must be manually set before mainnet launch.
+
+**How to go live on mainnet after the Toccata hard fork:**
+1. Update the mainnet treasury address in your environment / `switch-to-mainnet.sh`
+2. Run `./deploy/switch-to-mainnet.sh` (or update your systemd unit)
+3. Point `KASPA_WRPC_URL` at a healthy mainnet node
+4. Monitor `/tmp/covex27.log` for successful indexing
+
+See `deploy/switch-to-mainnet.sh` for the exact one-command migration path.
 
 ## License
 

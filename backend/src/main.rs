@@ -24,6 +24,10 @@ mod payment_verifier;
 mod signer;
 mod ui_generator;
 
+/// Default Kaspa network label used when KASPA_NETWORK env var is not set.
+/// The project targets Toccata Testnet-12 (TN12).
+const DEFAULT_KASPA_NETWORK: &str = "testnet-12";
+
 #[tokio::main]
 async fn main() {
     // --- Load .env ---
@@ -40,8 +44,16 @@ async fn main() {
     let wrpc_url =
         env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string());
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "../covex.db".to_string());
+    // Read network BEFORE treasury so we can branch on mainnet vs testnet
+    let network = env::var("KASPA_NETWORK")
+        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let treasury = env::var("COVENANT_TREASURY_ADDRESS").unwrap_or_else(|_| {
-        "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string()
+        if network == "mainnet" || network == "mainnet-1" {
+            // TODO: Replace with real mainnet treasury before mainnet launch
+            "kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq".to_string()
+        } else {
+            "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string()
+        }
     });
     let seed_addrs: Vec<String> = env::var("COVENANT_SEED_ADDRESSES")
         .unwrap_or_default()
@@ -56,9 +68,7 @@ async fn main() {
 
     info!(
         "Covex backend -- network: {}  wRPC: {}  bind: {}",
-        env::var("KASPA_NETWORK").unwrap_or_else(|_| "testnet-10".to_string()),
-        wrpc_url,
-        addr
+        network, wrpc_url, addr
     );
     info!("Treasury: {}", treasury);
 
@@ -159,7 +169,9 @@ async fn main() {
 // ─── Handlers ────────────────────────────────────────────────
 
 async fn root_handler() -> Json<serde_json::Value> {
-    Json(json!({"status": "ok", "app": "Covex v1.0.0", "network": "testnet-10"}))
+    let network = std::env::var("KASPA_NETWORK")
+        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    Json(json!({"status": "ok", "app": "Covex v1.0.0", "network": network}))
 }
 
 async fn status_handler(
@@ -168,9 +180,11 @@ async fn status_handler(
     let total = db::count_covenants(&db).unwrap_or(0);
     let active = db::count_active_covenants(&db).unwrap_or(0);
     let verified = db::count_verified_covenants(&db).unwrap_or(0);
+    let network = std::env::var("KASPA_NETWORK")
+        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     Json(json!({
         "status": "ok",
-        "network": "testnet-10",
+        "network": network,
         "node_connected": true,
         "total_covenants": total,
         "active_covenants": active,

@@ -55,10 +55,14 @@ pub fn oracle_routes() -> Router {
 }
 
 /// The oracle signing key (DEV_WALLET_1 private key on testnet).
+/// Override with COVEX_ORACLE_KEY env var for mainnet deployment.
 const ORACLE_KEY_HEX: &str = "549cd5a5426360da67b66edd561d37b348a026708d01b519d396b868cda267c9";
 
+/// Returns the oracle signing key, preferring COVEX_ORACLE_KEY env var.
+/// Falls back to the testnet dev key if env var is not set.
 fn oracle_key_bytes() -> Vec<u8> {
-    hex::decode(ORACLE_KEY_HEX).expect("ORACLE_KEY_HEX must be valid hex")
+    let raw = std::env::var("COVEX_ORACLE_KEY").unwrap_or_else(|_| ORACLE_KEY_HEX.to_string());
+    hex::decode(&raw).expect("COVEX_ORACLE_KEY (or default) must be valid hex")
 }
 
 /// Path to the snarkjs verify.js script.
@@ -203,7 +207,7 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
     info!(
         "Oracle signed outcome {} for covenant {} (circuit: {})",
         outcome,
-        &input.covenant_id[..16],
+        &input.covenant_id[..16.min(input.covenant_id.len())],
         input.circuit_type
     );
 

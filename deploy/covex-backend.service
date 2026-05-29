@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 User=kasparov
 WorkingDirectory=/home/kasparov/Covex27
+# Change to "mainnet" after Toccata hard fork + update treasury below
 Environment="KASPA_NETWORK=testnet-12"
 Environment="KASPA_WRPC_URL=ws://127.0.0.1:17217"
 Environment="BIND_ADDR=0.0.0.0:3005"

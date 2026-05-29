@@ -455,9 +455,16 @@ fn verify_terminal_ownership_signature(
         }
     }
 
-    // Not a dev wallet — string comparison fallback
-    // (extension wallets already authenticate the connection, so address trust is reasonable)
-    Ok(true)
+    // Not a dev wallet with known private key — we cannot verify signatures
+    // for arbitrary addresses without Schnorr support (secp256k1 0.29 lacks it).
+    // Extension wallets don't send signatures yet, so this path rejects
+    // signature-bearing requests for non-dev addresses. String comparison
+    // in the handler guards the no-sig fallback path.
+    Err(format!(
+        "Signature verification is currently only available for dev wallets. \
+         Non-dev wallets should not send signature data. Address: {}",
+        &signer_address[..16]
+    ))
 }
 
 /// GET /terminal-config-challenge/:covenant_id

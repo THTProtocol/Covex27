@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import ChessMini from './chess/ChessMini';
-import PokerMini from './poker/PokerMini';
-import BlackjackMini from './blackjack/BlackjackMini';
-import DiceMini from './dice/DiceMini';
+// Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
+// Covex main pages (Explorer) must remain neutral — no gambling/poker visuals.
+// Those specific rich previews only belong in Covenant Studio.
 
 // Detect game type from covenant data
 const detectGameType = (covenant) => {
@@ -56,15 +56,11 @@ const hasCustomUI = (covenant) => {
 const NativePreview = ({ gameType, covenant, compact }) => {
   switch (gameType) {
     case 'chess':
+      // Chess is allowed as a neutral strategic example (full ZK rules implemented)
       return <ChessMini compact={compact} />;
-    case 'poker':
-      return <PokerMini compact={compact} />;
-    case 'blackjack':
-      return <BlackjackMini compact={compact} />;
-    case 'dice':
-      return <DiceMini compact={compact} />;
     default:
-      // Generic game board for other known types
+      // All other types (poker, blackjack, dice, etc.) use neutral placeholder only.
+      // No visual gambling/poker table/card/dice imagery on the public Explorer.
       return <GamePlaceholder gameType={gameType} compact={compact} />;
   }
 };

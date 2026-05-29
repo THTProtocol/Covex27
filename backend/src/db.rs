@@ -340,6 +340,21 @@ pub fn confirm_payment(
     Ok(())
 }
 
+/// Returns the highest tier this address has ever successfully paid for (by amount).
+pub fn get_highest_paid_tier_for_address(
+    db: &Mutex<Connection>,
+    address: &str,
+) -> anyhow::Result<Option<String>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT tier FROM payments 
+         WHERE from_address = ?1 AND status = 'confirmed' 
+         ORDER BY amount_sompi DESC LIMIT 1"
+    )?;
+    let mut rows = stmt.query_map(params![address], |row| row.get::<_, String>(0))?;
+    Ok(rows.next().transpose()?)
+}
+
 pub fn upgrade_account(
     db: &Mutex<Connection>,
     address: &str,

@@ -63,8 +63,14 @@ export default function PaidDeploy() {
       setZkCircuit(gt.circuit);
       if (gt.circuit === 'chess_v1') {
         setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
-      } else if (gt.circuit === 'chess_v2') {
-        setZkVerifierKey('0xCHESSv2_DRAW_DETECTION_V1');
+      } else if (gt.circuit === 'merkle_generic') {
+        setZkVerifierKey('0xMERKLE_GENERIC_AUDITED_V1');
+      } else if (gt.circuit === 'bulletproofs_v1') {
+        setZkVerifierKey('0xBULLETPROOFS_V1_AUDITED');
+      } else if (gt.circuit === 'age_verify_v1') {
+        setZkVerifierKey('0xAGE_VERIFY_V1_AUDITED');
+      } else if (gt.circuit === 'risc0_generic') {
+        setZkVerifierKey('0xRISC0_GENERIC_V1');
       } else {
         setZkVerifierKey('');
       }
@@ -469,7 +475,7 @@ export default function PaidDeploy() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: Cpu, title: 'ZK Circuits', content: 'Select a Game Type above, it auto-picks the matching audited ZK circuit (Chess win/loss/draw, Poker hand ranking, Blackjack, Dice, Sudoku solution, Backgammon etc). The circuit proves the outcome without revealing private inputs. For custom games use the "Custom" type and provide your verifier key.' },
+            { icon: Cpu, title: 'ZK Circuits', content: 'Select a ZK circuit above. Realistic options include Chess (full FIDE rules), Sudoku, Verifiable Computation, and Custom. The circuit proves the outcome for on-chain enforcement. Use the Custom option for any audited circuit you bring.' },
             { icon: Link2, title: 'Oracle Integration', content: 'Choose resolution mode above: ZK (no oracle), Custom Oracle Key (your feed), or Standard Oracle. For real-world data (sports, weather, APIs) set the oracle key or endpoint. Oracles attest outcomes on-chain so the covenant can payout trustlessly.' },
             { icon: Palette, title: 'Custom UI & Covenant Studio', content: 'Use the Covenant Studio link (top of this page). Pick a template (game lobby, betting interface, escrow dashboard), brand it with your colors, generate the standalone HTML/JS/CSS bundle, paste it into the "Custom UI" box above. It renders instantly on your covenant page after deploy. No hosting required.' },
             { icon: Repeat, title: 'Reusability & Top-Ups', content: 'Toggle Reusable ON for multi-round or multi-player covenants. Enable Allow Top-Ups so users can add more KAS to an active pot. Critical for ongoing games, leagues, or progressive jackpots. Non-reusable = single-use escrow.' },

@@ -7,7 +7,7 @@ import {
   Cpu, Link2, Palette, Repeat, Percent, BookOpen, Zap, Gauge
 } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
-import { GAME_TYPES, generateSilverScriptForConfig } from '../components/CovexTerminal';
+import { ZK_CIRCUIT_TYPES, generateSilverScriptForConfig } from '../components/CovexTerminal';
 
 const SILVERSCRIPT_TEMPLATE = `contract PremiumCovenant {
     state {
@@ -78,12 +78,15 @@ export default function PremiumBuilder() {
 
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
-    const gt = GAME_TYPES.find(g => g.id === typeId);
+    const gt = ZK_CIRCUIT_TYPES.find(g => g.id === typeId);
     if (gt) {
       setResolutionMode('zk');
       setZkCircuit(gt.circuit);
       if (gt.circuit === 'chess_v1') setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
-      else if (gt.circuit === 'chess_v2') setZkVerifierKey('0xCHESSv2_DRAW_DETECTION_V1');
+      else if (gt.circuit === 'merkle_generic') setZkVerifierKey('0xMERKLE_GENERIC_AUDITED_V1');
+      else if (gt.circuit === 'bulletproofs_v1') setZkVerifierKey('0xBULLETPROOFS_V1_AUDITED');
+      else if (gt.circuit === 'age_verify_v1') setZkVerifierKey('0xAGE_VERIFY_V1_AUDITED');
+      else if (gt.circuit === 'risc0_generic') setZkVerifierKey('0xRISC0_GENERIC_V1');
       else setZkVerifierKey('');
     }
   }, []);
@@ -212,7 +215,7 @@ export default function PremiumBuilder() {
             This selects the correct ZK circuit and outcome resolution method. <strong className="text-white">Visual game interfaces (boards, tables, animations) should be designed in Covenant Studio and pasted below.</strong>
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {GAME_TYPES.map(gt => (
+            {ZK_CIRCUIT_TYPES.map(gt => (
               <button key={gt.id} onClick={() => handleGameTypeChange(gt.id)}
                 className={`p-4 rounded-xl border text-left transition ${gameType === gt.id ? 'border-[#49EACB] bg-[#49EACB]/5 ring-1 ring-[#49EACB]/30' : 'border-white/5 hover:border-white/10 bg-black/40'}`}>
                 <div className="text-3xl mb-1">{gt.emoji}</div>

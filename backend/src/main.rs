@@ -130,6 +130,7 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
+        .route("/paid-status", get(paid_status_handler))
         .route(
             "/terminal-config/:covenant_id",
             get(get_terminal_config_handler).post(save_terminal_config_handler),
@@ -243,6 +244,21 @@ async fn tiers_handler() -> Json<serde_json::Value> {
     Json(json!({"tiers": tiers}))
 }
 
+async fn paid_status_handler(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    let address = params.get("address").cloned().unwrap_or_default();
+    if address.is_empty() {
+        return Json(json!({"highest_tier": null}));
+    }
+
+    match db::get_highest_paid_tier_for_address(&db, &address) {
+        Ok(tier) => Json(json!({ "highest_tier": tier })),
+        Err(_) => Json(json!({"highest_tier": null})),
+    }
+}
+
 // ─── Terminal Config Handlers ────────────────────────────────────
 
 use serde::Deserialize;
@@ -260,6 +276,8 @@ struct TerminalConfigInput {
     zk_circuit: Option<String>,
     zk_verifier_key: Option<String>,
     game_type: Option<String>,
+    // Ownership proof: only the original deployer (creator_addr) may edit
+    signer_address: Option<String>,
 }
 
 async fn get_terminal_config_handler(
@@ -287,6 +305,18 @@ async fn save_terminal_config_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Json(input): Json<TerminalConfigInput>,
 ) -> Json<serde_json::Value> {
+    // Ownership enforcement: only the original deployer may edit Terminal config
+    if let Some(ref signer) = input.signer_address {
+        if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &covenant_id) {
+            if !cov.creator_addr.is_empty() && cov.creator_addr != *signer {
+                return Json(json!({
+                    "success": false,
+                    "error": "Only the original covenant deployer can edit this configuration"
+                }));
+            }
+        }
+    }
+
     // Build the config JSON from input
     let config = json!({
         "name": input.name,
@@ -304,11 +334,13 @@ async fn save_terminal_config_handler(
     let ui_html = input.custom_ui_code.unwrap_or_default();
     let slug = format!("covenant-{}", &covenant_id[..12.min(covenant_id.len())]);
 
-    // Use "system" as owner since terminal saves are per-covenant, not per-user
+    // Store with the actual signer as owner when provided (for future audit)
+    let owner = input.signer_address.clone().unwrap_or_else(|| "system".to_string());
+
     match db::save_generated_ui(
         &db,
         &covenant_id,
-        "system",
+        &owner,
         "TERMINAL",
         &ui_html,
         &config.to_string(),
@@ -316,7 +348,7 @@ async fn save_terminal_config_handler(
         false,
     ) {
         Ok(_) => {
-            info!("Terminal config saved for covenant {}", covenant_id);
+            info!("Terminal config saved for covenant {} by {}", covenant_id, owner);
             Json(json!({"success": true, "message": "Configuration saved successfully"}))
         }
         Err(e) => {

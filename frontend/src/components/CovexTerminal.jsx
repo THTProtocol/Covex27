@@ -16,21 +16,70 @@ const INPUT =
 const TEXTAREA =
   'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none';
 
-// ── Game Types (exported for Paid Builder) ──────────────────────────────────────────────
-export const GAME_TYPES = [
-  { id: 'chess_v1', name: 'Chess v1', emoji: '♟', description: '8×8 board. Full FIDE ruleset proven (castling, en passant, checkmate, 50-move, repetition).', circuit: 'chess_v1', accent: '#49EACB' },
-  { id: 'chess_v2', name: 'Chess v2', emoji: '♟', description: 'Extended chess with explicit draw detection surfaced for covenant branches.', circuit: 'chess_v2', accent: '#49EACB' },
-  { id: 'poker', name: 'Poker', emoji: '♠', description: 'Texas Hold\'em hand ranking and winner determination circuit.', circuit: 'generic_game', accent: '#A855F7' },
-  { id: 'blackjack', name: 'Blackjack', emoji: '🃟', description: 'Dealer vs player outcome verifier (win / loss / push / bust).', circuit: 'generic_game', accent: '#22C55E' },
-  { id: 'dice', name: 'Dice', emoji: '⚄', description: 'Provably fair dice roll result with BLAKE3 commitment.', circuit: 'generic_game', accent: '#F59E0B' },
-  { id: 'connect4', name: 'Connect 4', emoji: '◉', description: 'Connect-four board state and win-condition verifier.', circuit: 'generic_game', accent: '#3B82F6' },
-  { id: 'checkers', name: 'Checkers', emoji: '⬤', description: 'Forced-jump checkers outcome circuit on 8×8.', circuit: 'generic_game', accent: '#E8AF34' },
-  { id: 'go', name: 'Go', emoji: '○', description: '19×19 territory capture and scoring verifier.', circuit: 'generic_game', accent: '#49EACB' },
-  { id: 'backgammon', name: 'Backgammon', emoji: '⚄', description: 'Race + bear-off outcome circuit with doubling logic.', circuit: 'generic_game', accent: '#F59E0B' },
-  { id: 'battleship', name: 'Battleship', emoji: '⛶', description: '10×10 grid search and hit verification circuit.', circuit: 'generic_game', accent: '#06B6D4' },
-  { id: 'sudoku', name: 'Sudoku', emoji: '⌗', description: '9×9 puzzle solution correctness proof.', circuit: 'generic_game', accent: '#EC4899' },
-  { id: 'custom', name: 'Custom', emoji: '⚙', description: 'Supply your own audited ZK circuit and verifier key.', circuit: 'custom', accent: '#E8AF34' },
+// ── ZK Circuit Types (covenant-focused, no gambling games) ────────────────────────────────
+// These are ZK proof types for covenant resolution — not "game types."
+// Only circuits that make sense for Kaspa covenants: chess (the only viable p2p ZK game),
+// plus cryptographic primitives (membership, range, age, verifiable compute), and custom.
+// The "emoji" field is vestigial from the old game grid; use circuit badge codes instead.
+export const ZK_CIRCUIT_TYPES = [
+  { 
+    id: 'chess_v1', 
+    name: 'Chess (FIDE)', 
+    emoji: '♟', 
+    description: 'Proves complete legal play on 8×8 board according to FIDE rules: castling, en passant, checkmate, stalemate, 50-move rule, threefold repetition. The only fully specified p2p ZK game circuit.', 
+    circuit: 'chess_v1', 
+    accent: '#49EACB',
+    category: 'game',
+  },
+  { 
+    id: 'merkle_membership', 
+    name: 'Merkle Membership', 
+    emoji: '⊞', 
+    description: 'Proves a key/value pair exists in a committed Merkle tree without revealing sibling leaves. Used for whitelist/airdrop eligibility, token-gated access, DAO voting power proofs.', 
+    circuit: 'merkle_generic', 
+    accent: '#3B82F6',
+    category: 'crypto',
+  },
+  { 
+    id: 'range_proof', 
+    name: 'Range Proof', 
+    emoji: '∈', 
+    description: 'Proves a committed value lies within [min, max] without revealing the value. Used for KYC-free age verification, collateral sufficiency, tier qualification.', 
+    circuit: 'bulletproofs_v1', 
+    accent: '#22C55E',
+    category: 'crypto',
+  },
+  { 
+    id: 'age_verification', 
+    name: 'Age Verification', 
+    emoji: '🎂', 
+    description: 'Proves a birthdate is at least N years before a reference date (18+, 21+) without revealing exact birthdate. Zero-knowledge KYC alternative.', 
+    circuit: 'age_verify_v1', 
+    accent: '#F59E0B',
+    category: 'identity',
+  },
+  { 
+    id: 'verifiable', 
+    name: 'Verifiable Compute', 
+    emoji: '⚡', 
+    description: 'General-purpose circuit for proving correctness of arbitrary computation: custom predicates, state transitions, off-chain execution verification.', 
+    circuit: 'risc0_generic', 
+    accent: '#A855F7',
+    category: 'compute',
+  },
+  { 
+    id: 'custom', 
+    name: 'Custom Circuit', 
+    emoji: '⚙', 
+    description: 'Supply any audited circuit definition and its verifier key for a verifiable statement not covered above.', 
+    circuit: 'custom', 
+    accent: '#E8AF34',
+    category: 'custom',
+  },
 ];
+
+// Backward-compat alias
+export const GAME_TYPES = ZK_CIRCUIT_TYPES;
 
 // ── Standalone SilverScript Generator (exported for PaidBuilder / premium flow) ──
 export function generateSilverScriptForConfig(cfg) {
@@ -85,78 +134,76 @@ export function generateSilverScriptForConfig(cfg) {
         require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw refund failed");
       }`,
         };
-      case 'chess_v2':
+      case 'merkle_membership':
         return {
-          covenantName: 'ChessExtendedCovenant',
-          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw | Stalemate',
-          outcomeBranches: `      // ZK CIRCUIT (chess_v2) — same full FIDE rules as v1 PLUS explicit draw claims:
-      // • All v1 rules (castling rights, en passant target square tracking, 50-move counter in FEN)
-      // • Explicit stalemate vs draw distinction surfaced for covenant logic
-      // • Threefold repetition proof included in the public inputs to the circuit
-      Outcome::PlayerAWins => {
-        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+          covenantName: 'MerkleProofCovenant',
+          outcomeEnum: 'Outcome::Proven | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (merkle_generic): proves a leaf exists in a committed Merkle root
+      // Public inputs: merkle_root, key_hash, value_hash
+      // Private witness: Merkle proof path (sibling hashes + direction bits)
+      // No sensitive data revealed beyond the fact of membership
+      Outcome::Proven => {
+        require(VerifyPayout(treasury, claimant, pot), "Proof accepted, payout to claimant");
       }
-      Outcome::PlayerBWin => {
-        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
-      }
-      Outcome::Draw | Outcome::Stalemate => {
-        let half = pot / 2;
-        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw/stalemate payout failed");
+      Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Proof rejected, return to depositor");
       }`,
         };
-      case 'poker':
+      case 'range_proof':
         return {
-          covenantName: 'PokerHoldemCovenant',
-          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Fold',
-          outcomeBranches: `      Outcome::PlayerAWins => {
-        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+          covenantName: 'RangeProofCovenant',
+          outcomeEnum: 'Outcome::Proven | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (bulletproofs_v1): proves a committed value ∈ [min, max]
+      // Public inputs: commitment, min_bound, max_bound
+      // Private witness: actual value, blinding factor
+      // Used for collateral sufficiency, KYC-free tier qualification
+      Outcome::Proven => {
+        require(VerifyPayout(treasury, claimant, pot), "Range proof accepted");
       }
-      Outcome::PlayerBWin => {
-        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
-      }
-      Outcome::Fold => {
-        require(VerifyPayout(treasury, player_a, pot), "Fold payout failed");
+      Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Range proof rejected");
       }`,
         };
-      case 'blackjack':
+      case 'age_verification':
         return {
-          covenantName: 'BlackjackCovenant',
-          outcomeEnum: 'Outcome::PlayerWin | DealerWin | Push',
-          outcomeBranches: `      Outcome::PlayerWin => {
-        require(VerifyPayout(treasury, player_a, pot), "Player payout failed");
+          covenantName: 'AgeVerifyCovenant',
+          outcomeEnum: 'Outcome::Verified | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (age_verify_v1): proves birthdate ≥ N years before reference date
+      // Public inputs: commitment, threshold_years, reference_timestamp
+      // Private witness: actual birthdate, blinding factor
+      // Zero-knowledge alternative to KYC — no PII revealed
+      Outcome::Verified => {
+        require(VerifyPayout(treasury, claimant, pot), "Age verified, payout to claimant");
       }
-      Outcome::DealerWin => {
-        require(VerifyPayout(treasury, platform, pot), "House wins pot");
-      }
-      Outcome::Push => {
-        let half = pot / 2;
-        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Push refund failed");
+      Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Verification failed");
       }`,
         };
-      case 'dice':
+      case 'verifiable':
         return {
-          covenantName: 'DiceRollCovenant',
-          outcomeEnum: 'Outcome::Win | Loss',
-          outcomeBranches: `      Outcome::Win => {
-        require(VerifyPayout(treasury, player_a, pot), "Win payout failed");
+          covenantName: 'VerifiableComputeCovenant',
+          outcomeEnum: 'Outcome::Accepted | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (risc0_generic): proves correct execution of arbitrary computation
+      // Public inputs: program_hash, output_hash, input_hash
+      // Private witness: execution trace
+      // Attach custom predicates by embedding them in the program
+      Outcome::Accepted => {
+        require(VerifyPayout(treasury, claimant, pot), "Proof accepted");
       }
-      Outcome::Loss => {
-        require(VerifyPayout(treasury, platform, pot), "Loss payout failed");
+      Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Proof rejected");
       }`,
         };
       default:
         return {
-          covenantName: 'CustomGameCovenant',
-          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
-          outcomeBranches: `      Outcome::PlayerAWins => {
-        require(VerifyPayout(treasury, player_a, pot), "Payout to Player A failed");
+          covenantName: 'CustomCircuitCovenant',
+          outcomeEnum: 'Outcome::Proven | Rejected',
+          outcomeBranches: `      // Custom ZK circuit — user supplies audited circuit + verifier key
+      Outcome::Proven => {
+        require(VerifyPayout(treasury, claimant, pot), "Proof accepted");
       }
-      Outcome::PlayerBWin => {
-        require(VerifyPayout(treasury, player_b, pot), "Payout to Player B failed");
-      }
-      Outcome::Draw => {
-        let half = pot / 2;
-        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw payout failed");
+      Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Proof rejected, return to depositor");
       }`,
         };
     }
@@ -343,16 +390,22 @@ export default function CovexTerminal({ covenant }) {
 
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
-    const gt = GAME_TYPES.find(g => g.id === typeId);
+    const gt = ZK_CIRCUIT_TYPES.find(g => g.id === typeId);
     if (gt) {
-      // Auto-configure ZK resolution mode when a game type with ZK circuit is selected
+      // Auto-configure ZK resolution mode when a circuit type is selected
       setResolutionMode('zk');
       setZkCircuit(gt.circuit);
       // Pre-fill verifier key for known circuits
       if (gt.circuit === 'chess_v1') {
         setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
-      } else if (gt.circuit === 'chess_v2') {
-        setZkVerifierKey('0xCHESSv2_DRAW_DETECTION_V1');
+      } else if (gt.circuit === 'merkle_generic') {
+        setZkVerifierKey('0xMERKLE_GENERIC_AUDITED_V1');
+      } else if (gt.circuit === 'bulletproofs_v1') {
+        setZkVerifierKey('0xBULLETPROOFS_V1_AUDITED');
+      } else if (gt.circuit === 'age_verify_v1') {
+        setZkVerifierKey('0xAGE_VERIFY_V1_AUDITED');
+      } else if (gt.circuit === 'risc0_generic') {
+        setZkVerifierKey('0xRISC0_GENERIC_V1');
       } else {
         setZkVerifierKey('');
       }
@@ -382,321 +435,154 @@ export default function CovexTerminal({ covenant }) {
     const feePlatform = Math.round(feePercent * 10);
     const feeCreator = 10000 - feePlatform;
 
-    // ── Game-specific covenant definitions ──
-    const gameMeta = (() => {
-      switch (gameType) {
-        case 'chess_v1':
-          return {
-            covenantName: 'ChessDuelCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
-            outcomeBranches: `      // 2% platform fee already taken at resolution (winner takes all minus fee)
-      // ZK CIRCUIT (chess_v1) ENFORCES THE COMPLETE FIDE RULESET:
-      // • Standard 8x8 starting position + all piece movement rules
-      // • Pawn: forward only, double-step from rank 2/7, captures diagonally, en passant
-      // • Knight: L-shape (2,1), can jump
-      // • Bishop: any number of squares diagonally, blocked by pieces
-      // • Rook: any number of squares orthogonally, blocked by pieces
-      // • Queen: any combination of bishop + rook movement
-      // • King: one square in any direction
-      // • Castling (kingside/queenside): BOTH king and rook must never have moved,
-      //   path between them must be empty, king not in check, king does not pass through check
-      // • Check: king is attacked by at least one enemy piece
-      // • Checkmate: king is in check AND has no legal escape (no move, no capture, no block)
-      // • Stalemate: player to move has NO legal moves but king is NOT in check → draw
-      // • 50-move rule: 50 consecutive plies without pawn move or capture → draw claim
-      // • Threefold repetition: identical position repeated 3 times → draw
-      // • Insufficient material: K vs K, K+B vs K, K+N vs K → draw
-      // • Promotion: pawn reaching last rank must promote to Q/R/B/N
-      // The ZK proof commits to the full PGN + final FEN and proves every transition was legal.
-      Outcome::PlayerAWins => {
-        require(VerifyPayout(treasury, player_a, pot), "Winner payout failed");
-      }
-      Outcome::PlayerBWin => {
-        require(VerifyPayout(treasury, player_b, pot), "Winner payout failed");
-      }
-      Outcome::Draw => {
-        let half = pot / 2;
-        require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw refund failed");
-      }`,
-          };
-        case 'chess_v2':
-          return {
-            covenantName: 'ChessExtendedCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw | Stalemate',
-            outcomeBranches: `      // ZK CIRCUIT (chess_v2) — same full FIDE rules as v1 PLUS explicit draw claims:
-      // • All v1 rules (castling rights, en passant target square tracking, 50-move counter in FEN)
-      // • Explicit stalemate vs draw distinction surfaced for covenant logic
-      // • Threefold repetition proof included in the public inputs to the circuit
-      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWin => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Draw | Outcome::Stalemate => {
-        let half = pot / 2;
-        require(
-          VerifyPayout(treasury, player_a, half) &&
-          VerifyPayout(treasury, player_b, half),
-          "Draw/stalemate payout failed"
-        );
-      }`,
-          };
-        case 'poker':
-          return {
-            covenantName: 'PokerHoldemCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Fold',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWin => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Fold => {
-        ;; Fold, winner gets pot, folded player forfeits
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Fold payout failed"
-        );
-      }`,
-          };
-        case 'blackjack':
-          return {
-            covenantName: 'BlackjackCovenant',
-            outcomeEnum: 'Outcome::PlayerWins | DealerWins | Push | Bust',
-            outcomeBranches: `      Outcome::PlayerWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Player win payout failed"
-        );
-      }
-      Outcome::DealerWins => {
-        require(
-          VerifyPayout(treasury, platform, pot),
-          "Dealer win payout failed"
-        );
-      }
-      Outcome::Push => {
-        ;; Return stake on push
-        require(
-          VerifyPayout(treasury, player_a, locked_amount),
-          "Push refund failed"
-        );
-      }
-      Outcome::Bust => {
-        require(
-          VerifyPayout(treasury, platform, pot),
-          "Bust payout failed"
-        );
-      }`,
-          };
-        case 'dice':
-          return {
-            covenantName: 'DiceRollCovenant',
-            outcomeEnum: 'Outcome::Win | Loss',
-            outcomeBranches: `      Outcome::Win => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Win payout failed"
-        );
-      }
-      Outcome::Loss => {
-        ;; House takes the pot
-        require(
-          VerifyPayout(treasury, platform, pot),
-          "Loss payout failed"
-        );
-      }`,
-          };
-        case 'connect4':
-          return {
-            covenantName: 'ConnectFourCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWins => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Draw => {
-        let half = pot / 2;
-        require(
-          VerifyPayout(treasury, player_a, half) &&
-          VerifyPayout(treasury, player_b, half),
-          "Draw payout failed"
-        );
-      }`,
-          };
-        case 'checkers':
-          return {
-            covenantName: 'CheckersCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWins => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Draw => {
-        let half = pot / 2;
-        require(
-          VerifyPayout(treasury, player_a, half) &&
-          VerifyPayout(treasury, player_b, half),
-          "Draw payout failed"
-        );
-      }`,
-          };
-        case 'go':
-          return {
-            covenantName: 'GoCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw | Resign',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWins => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Draw => {
-        let half = pot / 2;
-        require(
-          VerifyPayout(treasury, player_a, half) &&
-          VerifyPayout(treasury, player_b, half),
-          "Draw payout failed"
-        );
-      }
-      Outcome::Resign => {
-        ;; Winner claims full pot on resignation
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Resignation payout failed"
-        );
-      }`,
-          };
-        case 'backgammon':
-          return {
-            covenantName: 'BackgammonCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Gammon | Backgammon',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWins => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Gammon => {
-        ;; Double stakes for gammon
-        let doubled = pot * 2;
-        require(
-          VerifyPayout(treasury, player_a, doubled),
-          "Gammon payout failed"
-        );
-      }
-      Outcome::Backgammon => {
-        ;; Triple stakes for backgammon
-        let tripled = pot * 3;
-        require(
-          VerifyPayout(treasury, player_a, tripled),
-          "Backgammon payout failed"
-        );
-      }`,
-          };
-        case 'battleship':
-          return {
-            covenantName: 'BattleshipCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWins => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }`,
-          };
-        case 'sudoku':
-          return {
-            covenantName: 'SudokuCovenant',
-            outcomeEnum: 'Outcome::Solve | Timeout',
-            outcomeBranches: `      Outcome::Solve => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Solution verified, payout to player"
-        );
-      }
-      Outcome::Timeout => {
-        ;; Timer expired, funds return to platform
-        require(
-          VerifyPayout(treasury, platform, pot),
-          "Timeout, funds returned to platform"
-        );
-      }`,
-          };
-        default: // custom
-          return {
-            covenantName: 'CustomGameCovenant',
-            outcomeEnum: 'Outcome::PlayerAWins | PlayerBWins | Draw',
-            outcomeBranches: `      Outcome::PlayerAWins => {
-        require(
-          VerifyPayout(treasury, player_a, pot),
-          "Payout to Player A failed"
-        );
-      }
-      Outcome::PlayerBWins => {
-        require(
-          VerifyPayout(treasury, player_b, pot),
-          "Payout to Player B failed"
-        );
-      }
-      Outcome::Draw => {
-        let half = pot / 2;
-        require(
-          VerifyPayout(treasury, player_a, half) &&
-          VerifyPayout(treasury, player_b, half),
-          "Draw payout failed"
-        );
-      }`,
-          };
-      }
-    })();
+    // ── ZK circuit-specific covenant definitions ──
+  const gameMeta = (() => {
+    switch (gameType) {
+      case 'chess_v1':
+        return {
+          covenantName: 'ChessDuelCovenant',
+          outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
+          outcomeBranches: `      // 2% platform fee already taken at resolution (winner takes all minus fee)
+    // ZK CIRCUIT (chess_v1) ENFORCES THE COMPLETE FIDE RULESET:
+    // • Standard 8x8 starting position + all piece movement rules
+    // • Pawn: forward only, double-step from rank 2/7, captures diagonally, en passant
+    // • Knight: L-shape (2,1), can jump
+    // • Bishop: any number of squares diagonally, blocked by pieces
+    // • Rook: any number of squares orthogonally, blocked by pieces
+    // • Queen: any combination of bishop + rook movement
+    // • King: one square in any direction
+    // • Castling (kingside/queenside): BOTH king and rook must never have moved,
+    //   path between them must be empty, king not in check, king does not pass through check
+    // • Check: king is attacked by at least one enemy piece
+    // • Checkmate: king is in check AND has no legal escape (no move, no capture, no block)
+    // • Stalemate: player to move has NO legal moves but king is NOT in check → draw
+    // • 50-move rule: 50 consecutive plies without pawn move or capture → draw claim
+    // • Threefold repetition: identical position repeated 3 times → draw
+    // • Insufficient material: K vs K, K+B vs K, K+N vs K → draw
+    // • Promotion: pawn reaching last rank must promote to Q/R/B/N
+    // The ZK proof commits to the full PGN + final FEN and proves every transition was legal.
+    Outcome::PlayerAWins => {
+      require(
+        VerifyPayout(treasury, player_a, pot),
+        "Winner payout failed"
+      );
+    }
+    Outcome::PlayerBWin => {
+      require(
+        VerifyPayout(treasury, player_b, pot),
+        "Winner payout failed"
+      );
+    }
+    Outcome::Draw => {
+      let half = pot / 2;
+      require(
+        VerifyPayout(treasury, player_a, half) &&
+        VerifyPayout(treasury, player_b, half),
+        "Draw refund failed"
+      );
+    }`,
+        };
+      case 'merkle_membership':
+        return {
+          covenantName: 'MerkleProofCovenant',
+          outcomeEnum: 'Outcome::Proven | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (merkle_generic): proves a leaf exists in a committed Merkle root
+    // Public inputs: merkle_root, key_hash, value_hash
+    // Private witness: Merkle proof path (sibling hashes + direction bits)
+    // No sensitive data revealed beyond the fact of membership
+    Outcome::Proven => {
+      require(
+        VerifyPayout(treasury, claimant, pot),
+        "Proof accepted, payout to claimant"
+      );
+    }
+    Outcome::Rejected => {
+      require(
+        VerifyPayout(treasury, depositor, pot),
+        "Proof rejected, return to depositor"
+      );
+    }`,
+        };
+      case 'range_proof':
+        return {
+          covenantName: 'RangeProofCovenant',
+          outcomeEnum: 'Outcome::Proven | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (bulletproofs_v1): proves a committed value ∈ [min, max]
+    // Public inputs: commitment, min_bound, max_bound
+    // Private witness: actual value, blinding factor
+    Outcome::Proven => {
+      require(
+        VerifyPayout(treasury, claimant, pot),
+        "Range proof accepted"
+      );
+    }
+    Outcome::Rejected => {
+      require(
+        VerifyPayout(treasury, depositor, pot),
+        "Range proof rejected"
+      );
+    }`,
+        };
+      case 'age_verification':
+        return {
+          covenantName: 'AgeVerifyCovenant',
+          outcomeEnum: 'Outcome::Verified | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (age_verify_v1): proves birthdate ≥ N years before reference date
+    // Public inputs: commitment, threshold_years, reference_timestamp
+    // Private witness: actual birthdate, blinding factor
+    Outcome::Verified => {
+      require(
+        VerifyPayout(treasury, claimant, pot),
+        "Age verified, payout to claimant"
+      );
+    }
+    Outcome::Rejected => {
+      require(
+        VerifyPayout(treasury, depositor, pot),
+        "Verification failed"
+      );
+    }`,
+        };
+      case 'verifiable':
+        return {
+          covenantName: 'VerifiableComputeCovenant',
+          outcomeEnum: 'Outcome::Accepted | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (risc0_generic): proves correct execution of arbitrary computation
+    // Public inputs: program_hash, output_hash, input_hash
+    // Private witness: execution trace
+    Outcome::Accepted => {
+      require(
+        VerifyPayout(treasury, claimant, pot),
+        "Proof accepted"
+      );
+    }
+    Outcome::Rejected => {
+      require(
+        VerifyPayout(treasury, depositor, pot),
+        "Proof rejected"
+      );
+    }`,
+        };
+      default: // custom
+        return {
+          covenantName: 'CustomCircuitCovenant',
+          outcomeEnum: 'Outcome::Proven | Rejected',
+          outcomeBranches: `      // Custom ZK circuit — user supplies audited circuit + verifier key
+    Outcome::Proven => {
+      require(
+        VerifyPayout(treasury, claimant, pot),
+        "Proof accepted"
+      );
+    }
+    Outcome::Rejected => {
+      require(
+        VerifyPayout(treasury, depositor, pot),
+        "Proof rejected, return to depositor"
+      );
+    }`,
+        };
+    }
+  })();
 
     let resolveBlock;
     switch (resolutionMode) {
@@ -918,6 +804,8 @@ ${gameMeta.outcomeBranches}
     if (!covenantId) return;
     setSaveStatus('saving');
 
+    // Send the connected wallet address so backend can enforce "only deployer can edit"
+    const connectedAddress = localStorage.getItem('covex_connected_address') || '';
     const payload = {
       game_type: gameType,
       name,
@@ -930,6 +818,7 @@ ${gameMeta.outcomeBranches}
       custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
       zk_circuit: resolutionMode === 'zk' ? zkCircuit : null,
       zk_verifier_key: resolutionMode === 'zk' ? zkVerifierKey : null,
+      signer_address: connectedAddress || undefined,
     };
 
     try {
@@ -1006,33 +895,27 @@ ${gameMeta.outcomeBranches}
         </div>
 
         <p className="text-xs text-gray-300 leading-relaxed">
-          This section selects the correct ZK circuit and outcome resolution method. <strong className="text-white">Visual game interfaces (boards, tables, animations, etc.) should be designed in Covenant Studio and pasted below.</strong>
+          Select the ZK circuit that defines what your covenant verifies. <strong className="text-white">Visual interfaces for interactive applications should be designed in Covenant Studio and pasted below.</strong> This section configures only the proof logic.
         </p>
 
         {/* ── Part A: ZK Circuit Selector ── */}
         <div className="space-y-3">
           <p className={LABEL}>ZK Circuit</p>
           <p className="text-[11px] text-gray-200 leading-relaxed">
-            Each circuit proves a specific type of game outcome without revealing private player data. The circuit determines what the covenant verifies on-chain.
+            Each circuit proves a specific verifiable statement. The covenant lock script contains the verifier key for the selected circuit. Only the proof output (or oracle signature) is submitted on-chain.
           </p>
 
-          {/* Circuit Grid — compact, professional, no emoji emphasis */}
-          <div className="grid grid-cols-4 gap-2">
-            {GAME_TYPES.map((gt) => {
+          {/* Circuit Grid — compact, professional */}
+          <div className="grid grid-cols-3 gap-2">
+            {ZK_CIRCUIT_TYPES.map((gt) => {
               const selected = gameType === gt.id;
               const circuitDescriptions = {
-                chess_v1: 'Proves every FIDE rule transition (castling rights, en passant, 50-move, threefold, checkmate, stalemate).',
-                chess_v2: 'Extended circuit that surfaces explicit draw types for covenant payout branches.',
-                poker: 'Proves hand rankings and pot winner without revealing private cards.',
-                blackjack: 'Proves final dealer vs player outcome for payout decision.',
-                dice: 'Proves a committed random roll result using BLAKE3.',
-                connect4: 'Proves board state and exact win condition reached.',
-                checkers: 'Proves forced-jump rules and final board outcome.',
-                go: 'Proves territory scoring and capture validity on 19×19.',
-                backgammon: 'Proves race completion, bear-off, and optional doubling.',
-                battleship: 'Proves hit/miss grid state and sinking conditions.',
-                sudoku: 'Proves that a submitted 9×9 grid satisfies all constraints.',
-                custom: 'Bring your own audited circuit and verifier key.',
+                chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
+                merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
+                range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
+                age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
+                verifiable: 'Proves correct execution of arbitrary computation via RISC Zero execution trace.',
+                custom: 'Supply any audited circuit definition and its corresponding verifier key.',
               };
               return (
                 <button
@@ -1070,27 +953,168 @@ ${gameMeta.outcomeBranches}
 
           {/* Auto-suggested Verifier Key */}
           {(() => {
-            const activeGame = GAME_TYPES.find(g => g.id === gameType);
-            if (!activeGame) return null;
+            const activeCircuit = ZK_CIRCUIT_TYPES.find(g => g.id === gameType);
+            if (!activeCircuit) return null;
             return (
               <div className="flex items-start gap-3 p-4 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/20">
                 <Shield size={14} className="text-kaspa-green shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-xs text-white font-semibold">Circuit: {activeGame.name}</p>
-                  <p className="text-[11px] text-gray-300">This circuit proves the outcome of the selected application according to its published rules. The proof (or oracle signature) is the only input required by the covenant unlock function.</p>
+                  <p className="text-xs text-white font-semibold">Circuit: {activeCircuit.name}</p>
+                  <p className="text-[11px] text-gray-300">This circuit proves the selected verifiable statement. The proof (or oracle signature) is the only input required by the covenant unlock function.</p>
                   <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15">
                     <span className="text-[10px] text-gray-200 font-mono">Auto-suggested Verifier Key</span>
                     <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded truncate max-w-[280px]">
-                      {zkVerifierKey || activeGame.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD_AUDITED' :
-                       activeGame.circuit === 'chess_v2' ? '0xCHESSv2_DRAW_DETECTION_V1' :
-                       activeGame.circuit === 'custom' ? '(manual entry required)' :
-                       'GENERIC_GAME_OUTCOME'}
+                      {zkVerifierKey || activeCircuit.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD_AUDITED' :
+                       activeCircuit.circuit === 'merkle_generic' ? '0xMERKLE_GENERIC_AUDITED_V1' :
+                       activeCircuit.circuit === 'bulletproofs_v1' ? '0xBULLETPROOFS_V1_AUDITED' :
+                       activeCircuit.circuit === 'age_verify_v1' ? '0xAGE_VERIFY_V1_AUDITED' :
+                       activeCircuit.circuit === 'risc0_generic' ? '0xRISC0_GENERIC_V1' :
+                       activeCircuit.circuit === 'custom' ? '(manual entry required)' :
+                       'CIRCUIT_VERIFIER_KEY'}
                     </code>
                   </div>
                 </div>
               </div>
             );
           })()}
+
+          {/* ── ZK Logic Details (collapsible) ── */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/15 hover:border-kaspa-green/30 transition-colors">
+              <Code2 size={14} className="text-kaspa-green shrink-0" />
+              <span className="text-xs text-white font-semibold flex-1">ZK Logic Details</span>
+              <span className="text-[10px] text-kaspa-green/60 font-mono group-open:hidden">Expand</span>
+              <span className="text-[10px] text-kaspa-green/60 font-mono hidden group-open:inline">Collapse</span>
+            </summary>
+            <div className="mt-3 ml-2 pl-4 border-l-2 border-kaspa-green/20 space-y-4">
+              {(() => {
+                const details = (() => {
+                  switch (gameType) {
+                    case 'chess_v1':
+                      return {
+                        circuitName: 'Chess v1 (FIDE Complete)',
+                        circuitId: 'chess_v1',
+                        verifierKey: zkVerifierKey || '0xCHESSv1_8x8_STANDARD_AUDITED',
+                        publicInputs: ['PGN game transcript (moves in algebraic notation)', 'Final FEN position', 'Player A pubkey hash', 'Player B pubkey hash'],
+                        privateWitness: ['Full move-by-move board state', 'Castling rights vector', 'En passant target square', '50-move rule counter', 'Threefold repetition hash chain'],
+                        whatItProves: 'Every move in the PGN is a legal chess move according to FIDE rules, the final position matches the claimed outcome, and the outcome is one of: Win/Loss/Draw.',
+                        gasEstimate: '~2.1M constraints',
+                        covenantFlow: 'Player A commits KAS to covenant. Player B matches stake. Players play off-chain. Loser (or draw-trigger) submits ZK proof of outcome to unlock funds. Winner receives pot minus platform fee.',
+                      };
+                    case 'merkle_membership':
+                      return {
+                        circuitName: 'Merkle Membership Proof',
+                        circuitId: 'merkle_generic',
+                        verifierKey: zkVerifierKey || '0xMERKLE_GENERIC_AUDITED_V1',
+                        publicInputs: ['Merkle root (32 bytes)', 'Key hash (32 bytes)', 'Value hash (32 bytes)'],
+                        privateWitness: ['Sibling hash at each tree level', 'Direction bit (left=0, right=1) for each sibling'],
+                        whatItProves: 'A specific (key, value) pair exists in the tree represented by the committed Merkle root. The tree depth and the exact sibling data remain private.',
+                        gasEstimate: '~50K constraints (depth 20)',
+                        covenantFlow: 'Depositor locks KAS with a Merkle root. Claimant submits a proof that their (address, amount) leaf exists in the tree. On success, KAS is paid to claimant. On failure, returned to depositor after timeout.',
+                      };
+                    case 'range_proof':
+                      return {
+                        circuitName: 'Range Proof (Bulletproofs)',
+                        circuitId: 'bulletproofs_v1',
+                        verifierKey: zkVerifierKey || '0xBULLETPROOFS_V1_AUDITED',
+                        publicInputs: ['Pedersen commitment C', 'Lower bound L', 'Upper bound U'],
+                        privateWitness: ['Actual value v (scalar)', 'Blinding factor r (scalar)'],
+                        whatItProves: 'The committed value v satisfies L ≤ v ≤ U. Neither v nor the blinding factor are revealed. Proof size is logarithmic in the range width.',
+                        gasEstimate: '~700 constraints (64-bit range)',
+                        covenantFlow: 'Claimant proves their balance/collateral/score exceeds a threshold. On success, the covenant unlocks. On failure, funds return to depositor. Used for tier qualification, DeFi collateral checks.',
+                      };
+                    case 'age_verification':
+                      return {
+                        circuitName: 'Age Verification (ZK-KYC)',
+                        circuitId: 'age_verify_v1',
+                        verifierKey: zkVerifierKey || '0xAGE_VERIFY_V1_AUDITED',
+                        publicInputs: ['Birthdate commitment C', 'Threshold years N', 'Reference timestamp T'],
+                        privateWitness: ['Actual birthdate (day/month/year)', 'Blinding factor r'],
+                        whatItProves: 'birthdate + N years ≤ T, meaning the subject is at least N years old at time T. The exact birthdate is never revealed.',
+                        gasEstimate: '~400 constraints (date arithmetic)',
+                        covenantFlow: 'Service requires 18+ verification. User submits ZK proof that their birthdate is at least 18 years before now. Covenant unlocks access/membership. On failure, deposit is returned.',
+                      };
+                    case 'verifiable':
+                      return {
+                        circuitName: 'Verifiable Computation (RISC Zero)',
+                        circuitId: 'risc0_generic',
+                        verifierKey: zkVerifierKey || '0xRISC0_GENERIC_V1',
+                        publicInputs: ['Program image ID (hash)', 'Output commitment', 'Input commitment'],
+                        privateWitness: ['Full execution trace of the RISC-V program', 'Memory state at each cycle'],
+                        whatItProves: 'A specific program, when executed on the committed input, produces the committed output. The execution trace proves correctness without re-executing the program.',
+                        gasEstimate: '~100K-1M constraints (program-dependent)',
+                        covenantFlow: 'Off-chain worker executes a computation. Submits the output + ZK proof to the covenant. If the proof verifies against the program image ID, the covenant pays the worker. If verification fails, deposit is slashed.',
+                      };
+                    default:
+                      return {
+                        circuitName: 'Custom Circuit',
+                        circuitId: 'custom',
+                        verifierKey: zkVerifierKey || '(manual entry required)',
+                        publicInputs: ['User-defined public inputs'],
+                        privateWitness: ['User-defined private witness'],
+                        whatItProves: 'Supply any audited ZK circuit. The verifier key must match the circuit. The covenant will accept any proof that verifies against this key.',
+                        gasEstimate: 'Unknown (circuit-dependent)',
+                        covenantFlow: 'Depositor locks KAS with a verifier key. Claimant submits a proof that satisfies the circuit. On acceptance, KAS is paid. On rejection, returned to depositor.',
+                      };
+                  }
+                })();
+                return (
+                  <>
+                    <div className="p-4 rounded-xl bg-black/30 border border-white/[0.05]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Cpu size={14} className="text-kaspa-green" />
+                        <p className="text-xs text-white font-semibold">{details.circuitName}</p>
+                        <code className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20">{details.circuitId}</code>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                        <div className="space-y-2">
+                          <p className="text-white font-semibold text-xs">Verifier Key</p>
+                          <code className="block text-[10px] font-mono text-kaspa-green/80 bg-black/40 px-2 py-1.5 rounded break-all">{details.verifierKey}</code>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-white font-semibold text-xs">Gas Estimate</p>
+                          <p className="text-gray-300">{details.gasEstimate}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-2">
+                        <p className="text-white font-semibold text-xs">What This Circuit Proves</p>
+                        <p className="text-gray-300 leading-relaxed">{details.whatItProves}</p>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] text-gray-200 font-semibold uppercase tracking-wider">Public Inputs (on-chain)</p>
+                          <ul className="list-disc list-inside text-gray-300 space-y-0.5">
+                            {details.publicInputs.map((pi, i) => (
+                              <li key={i} className="text-[11px]">{pi}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] text-gray-200 font-semibold uppercase tracking-wider">Private Witness (off-chain only)</p>
+                          <ul className="list-disc list-inside text-gray-300 space-y-0.5">
+                            {details.privateWitness.map((pw, i) => (
+                              <li key={i} className="text-[11px]">{pw}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-kaspa-green/[0.02] border border-kaspa-green/15">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Zap size={12} className="text-kaspa-green" />
+                        <p className="text-[11px] text-white font-semibold uppercase tracking-wider">Covenant Resolution Flow</p>
+                      </div>
+                      <p className="text-[11px] text-gray-300 leading-relaxed">{details.covenantFlow}</p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </details>
         </div>
 
         {/* ── Part B: Oracle / Resolution Options ── */}
@@ -1201,19 +1225,19 @@ ${gameMeta.outcomeBranches}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 leading-relaxed">
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">ZK vs Oracle</p>
-                <p>ZK proofs are trustless but computationally heavier. Oracles are faster but require trust in the key holder. For pure on-chain games (chess, poker), prefer ZK. For external data (sports, weather), use an Oracle.</p>
+                <p>ZK proofs are trustless but computationally heavier. Oracles are faster but require trust in the key holder. For on-chain verifiable statements (chess, membership, range proofs), prefer ZK. For external data (price feeds, weather), use an Oracle.</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Reusability</p>
-                <p>Enable Reusable to accept multiple rounds over time. Combined with Allow Top-ups, players can add KAS to the pot, making it a sustainable game rather than a one-shot escrow.</p>
+                <p>Enable Reusable to accept multiple proof submissions over time. Combined with Allow Top-ups, depositors can add KAS to the covenant, making it a sustainable escrow rather than a one-shot lock.</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Fees</p>
-                <p>Platform fee (0-5%) is deducted from each payout. Set it thoughtfully. High fees discourage play; zero fees leave no platform revenue. 2% is the default for most game types.</p>
+                <p>Platform fee (0-5%) is deducted from each resolution. Set it thoughtfully. High fees discourage usage; zero fees leave no platform revenue. 2% is the default.</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Common Pitfalls</p>
-                <p>Forgetting to set a verifier key for custom circuits. Leaving payout logic ambiguous. Deploying without testing on TN12 first. Skipping mobile UI testing. Not saving Terminal config after deploy.</p>
+                <p>Forgetting to set a verifier key for custom circuits. Leaving resolution logic ambiguous. Deploying without testing on TN12 first. Not saving Terminal config after deploy. Using an un-audited circuit without key verification.</p>
               </div>
             </div>
           </div>

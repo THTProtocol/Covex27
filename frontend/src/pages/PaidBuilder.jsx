@@ -55,6 +55,24 @@ export default function PaidBuilder() {
     if (address) fetchMyCovenants();
   }, [address, fetchMyCovenants]);
 
+  // Auto-detect previous on-chain payment
+  useEffect(() => {
+    if (!address) return;
+
+    fetch(`/api/paid-status?address=${encodeURIComponent(address)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.highest_tier) {
+          const current = localStorage.getItem('covex_paid_tier');
+          const tierOrder = { FREE: 0, CREATOR: 1, PRO: 2, MAX: 3 };
+          if (!current || (tierOrder[data.highest_tier] || 0) > (tierOrder[current] || 0)) {
+            localStorage.setItem('covex_paid_tier', data.highest_tier);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [address]);
+
   return (
     <div className="relative z-10 max-w-4xl mx-auto px-6 py-12">
 
@@ -83,6 +101,27 @@ export default function PaidBuilder() {
         </div>
       )}
 
+      {/* Payment broadcast / pending confirmation banner (for URI/deep-link wallets) */}
+      {sessionStorage.getItem('payment_pending_uri') && !justPaid && (
+        <div className="mb-8 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 flex items-start gap-4">
+          <Loader2 className="text-amber-400 mt-1 animate-spin" size={28} />
+          <div className="flex-1">
+            <div className="text-amber-400 font-bold text-xl">Payment Broadcast</div>
+            <div className="text-gray-300 mt-1 text-sm">
+              Your transaction was sent to your wallet. Once it is confirmed on-chain (usually a few minutes), 
+              any new covenants you deploy will automatically get the paid tier visibility.
+              You can use the Terminal right now for configuration.
+            </div>
+            <button
+              onClick={() => sessionStorage.removeItem('payment_pending_uri')}
+              className="mt-3 text-xs text-amber-300 hover:text-white underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Clean header */}
       <div className="flex items-center gap-4 mb-8">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: tierAccent + '20', border: `1px solid ${tierAccent}40` }}>
@@ -93,6 +132,29 @@ export default function PaidBuilder() {
           <p className="text-gray-200 text-sm">{tierBadge} Paid, Terminal access enabled</p>
         </div>
       </div>
+
+      {/* "Already paid, no covenant yet" friendly notification */}
+      {myCovenants.length === 0 && paidTier !== 'FREE' && (
+        <div className="mb-8 rounded-2xl border border-[#49EACB]/40 bg-[#49EACB]/10 p-6">
+          <div className="flex items-start gap-4">
+            <Zap className="text-[#49EACB] mt-1" size={28} />
+            <div className="flex-1">
+              <div className="text-[#49EACB] font-bold text-xl">You've already unlocked {tierBadge} tier</div>
+              <p className="text-gray-200 mt-2">
+                Your previous payment to the treasury has been recognized. 
+                You can now open the <strong>Covex Terminal</strong> to configure ZK circuits, oracles, fees, and custom UIs — 
+                then deploy your first covenant whenever you're ready.
+              </p>
+              <button
+                onClick={() => navigate('/paid-deploy')}
+                className="mt-4 px-6 py-2.5 rounded-xl bg-[#49EACB] text-black font-bold hover:bg-white transition flex items-center gap-2"
+              >
+                Open Terminal &amp; Create Your First Covenant <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Connect prompt */}
       {!address && (

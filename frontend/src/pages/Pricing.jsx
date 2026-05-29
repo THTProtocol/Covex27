@@ -80,6 +80,25 @@ const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27lt
 const Pricing = () => {
   const navigate = useNavigate();
   const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
+
+  // Auto-detect previous payment from backend when wallet connects
+  useEffect(() => {
+    if (!address) return;
+
+    fetch(`/api/paid-status?address=${encodeURIComponent(address)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.highest_tier) {
+          const current = localStorage.getItem('covex_paid_tier');
+          // Only upgrade, never downgrade
+          const tierOrder = { FREE: 0, CREATOR: 1, PRO: 2, MAX: 3 };
+          if (!current || (tierOrder[data.highest_tier] || 0) > (tierOrder[current] || 0)) {
+            localStorage.setItem('covex_paid_tier', data.highest_tier);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [address]);
   const [processing, setProcessing] = useState(null);           // tier id being processed
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(null); // {id, name, price, accent}
   const [paymentStatus, setPaymentStatus] = useState(null);     // 'sending' | 'success' | 'error' + message
@@ -126,16 +145,23 @@ const Pricing = () => {
       const result = await sendPayment(TREASURY, payingTier.price, { memo: `covex-upgrade:${payingTier.id}` });
 
       if (result.success) {
-        // Payment sent, unlock tier and redirect
+        // Payment broadcast (including via wallet deep link / URI)
+        // Optimistically unlock the tier so the user can immediately access the Terminal.
+        // The backend Payment Verifier will later upgrade any covenants for visibility/ranking.
         localStorage.setItem('covex_paid_tier', payingTier.id);
         sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: payingTier.name, id: payingTier.id }));
+
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);
+
+        // If it was a URI deep link, the user still needs to approve in their wallet.
+        // We still let them proceed with a clear message.
+        if (result.method === 'uri') {
+          sessionStorage.setItem('payment_pending_uri', 'true');
+        }
+
         navigate('/paid-builder');
-      } else if (result.method === 'uri') {
-        // Deep link opened, user needs to complete in wallet
-        setPaymentStatus({ type: 'info', message: 'Wallet opened. Complete the payment in your wallet, then click below.' });
       } else {
         setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (result.error || 'Unknown error') });
       }
@@ -239,12 +265,12 @@ const Pricing = () => {
             </div>
           )}
 
-          {/* Manual bypass for edge cases */}
+          {/* Manual bypass for edge cases (deep links, mobile wallets, etc.) */}
           <button
             onClick={handleConfirmPaid}
             className="w-full py-3 text-sm text-gray-200 hover:text-white transition border border-white/10 rounded-xl hover:border-white/20"
           >
-            I sent the payment manually - unlock my tier
+            I approved the payment in my wallet — unlock Terminal now
           </button>
 
           <button

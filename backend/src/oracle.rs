@@ -69,8 +69,8 @@ fn verify_script_path() -> PathBuf {
 }
 
 /// Verify a MerkleMembership Groth16 proof via snarkjs.
+/// Runs the Node.js verifier in a blocking task to avoid stalling the async runtime.
 fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Result<bool, String> {
-    // Write proof to temp file
     let proof_json = serde_json::json!({
         "proof": proof,
         "publicSignals": public_inputs,
@@ -79,7 +79,6 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
     std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
-    // Call node verify.js — use absolute path for nohup environments
     let script = verify_script_path();
     let node_binary = if std::path::Path::new("/usr/bin/node").exists() {
         "/usr/bin/node"
@@ -89,8 +88,10 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
         "node"
     };
 
-    let output = Command::new(node_binary)
-        .arg(&script)
+    // Run verification synchronously — this is fine because the handler
+    // wraps us in tokio::task::spawn_blocking.
+    let output = Command::new(node_binary.to_string())
+        .arg(script.to_str().unwrap_or("zk/verify.js"))
         .arg(&tmp_path)
         .output()
         .map_err(|e| format!("Failed to run snarkjs verifier (node={}): {}", node_binary, e))?;
@@ -98,20 +99,22 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
     // Cleanup
     let _ = std::fs::remove_file(&tmp_path);
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !output.status.success() {
-        return Err(format!("Verifier exited with status {}: stdout={} stderr={}",
-            output.status, stdout.trim(), stderr.trim()));
+        return Err(format!(
+            "Verifier exited with status {}: stdout={} stderr={}",
+            output.status, stdout.trim(), stderr.trim()
+        ));
     }
 
     if stdout.trim().is_empty() {
         return Err(format!("Verifier produced no output. stderr: {}", stderr.trim()));
     }
 
-    let result: serde_json::Value =
-        serde_json::from_str(&stdout).map_err(|e| format!("Invalid verifier output '{}': {}", stdout.trim(), e))?;
+    let result: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Invalid verifier output '{}': {}", stdout.trim(), e))?;
 
     match result["valid"].as_bool() {
         Some(true) => Ok(true),
@@ -123,13 +126,20 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
     }
 }
 
+/// Async wrapper around verify_merkle_proof for use in axum handlers.
+async fn verify_merkle_proof_async(proof: serde_json::Value, public_inputs: Vec<String>) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || verify_merkle_proof(&proof, &public_inputs))
+        .await
+        .map_err(|e| format!("Spawn blocking failed: {}", e))?
+}
+
 /// Handle POST /api/oracle/verify-and-sign
 async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<OracleVerifyOutput> {
     let timestamp = chrono::Utc::now().timestamp();
 
-    // Step 1: Verify the proof
+    // Step 1: Verify the proof (async — runs snarkjs in spawn_blocking)
     let valid = match input.circuit_type.as_str() {
-        "merkle_membership" => match verify_merkle_proof(&input.proof, &input.public_inputs) {
+        "merkle_membership" => match verify_merkle_proof_async(input.proof.clone(), input.public_inputs.clone()).await {
             Ok(true) => true,
             Ok(false) => {
                 return Json(OracleVerifyOutput {

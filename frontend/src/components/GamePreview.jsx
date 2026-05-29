@@ -19,29 +19,13 @@ const detectGameType = (covenant) => {
     if (cfg?.game_type) {
       const gt = cfg.game_type.toLowerCase();
       if (gt.includes('chess')) return 'chess';
-      if (gt.includes('poker')) return 'poker';
-      if (gt.includes('blackjack')) return 'blackjack';
-      if (gt.includes('dice')) return 'dice';
-      if (gt.includes('checkers')) return 'checkers';
-      if (gt.includes('battleship')) return 'battleship';
-      if (gt.includes('go')) return 'go';
-      if (gt.includes('connect4')) return 'connect4';
-      if (gt.includes('backgammon')) return 'backgammon';
-      if (gt.includes('sudoku')) return 'sudoku';
+      // New ZK circuit types (non-game) return null — no game preview
+      if (gt.includes('merkle') || gt.includes('range_proof') || gt.includes('age_verify') || gt.includes('verifiable')) return null;
     }
   } catch (_) {}
 
-  // Fallback name-based detection
+  // Fallback name-based detection — chess only
   if (combined.includes('chess') || combined.includes('chess_v1') || combined.includes('chess_v2')) return 'chess';
-  if (combined.includes('poker') || combined.includes('holdem') || combined.includes('texas')) return 'poker';
-  if (combined.includes('blackjack') || combined.includes('black jack') || combined.includes('21')) return 'blackjack';
-  if (combined.includes('dice') || combined.includes('craps')) return 'dice';
-  if (combined.includes('checkers') || combined.includes('draughts')) return 'checkers';
-  if (combined.includes('battleship') || combined.includes('naval')) return 'battleship';
-  if (combined.includes('connect 4') || combined.includes('connect4')) return 'connect4';
-  if (combined.includes('backgammon')) return 'backgammon';
-  if (combined.includes('sudoku')) return 'sudoku';
-  if (combined.includes('go ') || combined.includes('weiqi') || combined.includes('baduk')) return 'go';
 
   return null;
 };
@@ -56,32 +40,22 @@ const hasCustomUI = (covenant) => {
 const NativePreview = ({ gameType, covenant, compact }) => {
   switch (gameType) {
     case 'chess':
-      // Chess is allowed as a neutral strategic example (full ZK rules implemented)
+      // Chess is the only game with a full ZK-native interactive preview
       return <ChessMini compact={compact} />;
     default:
-      // All other types (poker, blackjack, dice, etc.) use neutral placeholder only.
-      // No visual gambling/poker table/card/dice imagery on the public Explorer.
-      return <GamePlaceholder gameType={gameType} compact={compact} />;
+      // Non-game ZK circuit types (merkle, range, age, verifiable) use a generic circuit badge
+      return <CircuitBadge compact={compact} />;
   }
 };
 
-const GamePlaceholder = ({ gameType, compact }) => {
-  const emojis = {
-    checkers: '⚫',
-    battleship: '🚢',
-    connect4: '🔴',
-    go: '⚪',
-    backgammon: '🎲',
-    sudoku: '🧩',
-  };
-  const emoji = emojis[gameType] || '🎮';
+const CircuitBadge = ({ compact }) => {
   return (
     <div className="flex items-center justify-center bg-black/30 rounded-lg"
       style={{ height: compact ? '140px' : '220px' }}>
       <div className="text-center">
-        <div className="text-4xl mb-2">{emoji}</div>
+        <div className="text-4xl mb-2">⚡</div>
         <p className="text-xs text-gray-200 font-mono uppercase tracking-wider">
-          {gameType} game
+          ZK Circuit
         </p>
       </div>
     </div>

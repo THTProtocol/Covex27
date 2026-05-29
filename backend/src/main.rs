@@ -19,6 +19,7 @@ mod crawler;
 mod db;
 mod dev_wallets;
 mod indexer;
+mod oracle;
 mod payment_verifier;
 mod signer;
 mod ui_generator;
@@ -146,6 +147,7 @@ async fn main() {
                 .layer(Extension(db.clone())),
         )
         .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
+        .merge(oracle::oracle_routes())
         .layer(app);
 
     info!("Serving on {}", addr);

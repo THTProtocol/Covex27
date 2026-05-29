@@ -1078,7 +1078,7 @@ ${gameMeta.outcomeBranches}
                 merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
                 range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
                 age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
-                verifiable: 'Proves correct execution of arbitrary computation via RISC Zero execution trace.',
+                verifiable: 'Proves correct execution of arbitrary computation (design target).',
                 custom: 'Supply any audited circuit definition and its corresponding verifier key.',
               };
               return (
@@ -1393,7 +1393,7 @@ ${gameMeta.outcomeBranches}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 leading-relaxed">
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">ZK vs Oracle</p>
-                <p>ZK proofs are trustless but computationally heavier. Oracles are faster but require trust in the key holder. For on-chain verifiable statements (chess, membership, range proofs), prefer ZK. For external data (price feeds, weather), use an Oracle.</p>
+                <p>ZK proofs (where circuits and zkeys exist) provide cryptographic verification of computation. Currently, only Merkle Membership has a complete proving pipeline. Oracles are faster but require trust in the key holder. Range Proof circuit foundation exists (Phase 9), awaiting zkey generation for live verification. For external data (price feeds, weather), use an Oracle.</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Reusability</p>
@@ -1841,7 +1841,7 @@ ${gameMeta.outcomeBranches}
                          zkCircuit === 'merkle_generic' ? 'Merkle Membership Proof' :
                          zkCircuit === 'bulletproofs_v1' ? 'Range Proof (Bulletproofs)' :
                          zkCircuit === 'age_verify_v1' ? 'Age Verification (ZK-KYC)' :
-                         zkCircuit === 'risc0_generic' ? 'Verifiable Computation (RISC Zero)' :
+                         zkCircuit === 'risc0_generic' ? 'Verifiable Computation (design target)' :
                          zkCircuit === 'custom' ? 'Custom Circuit' : zkCircuit}
                       </p>
                       <p className="text-[11px] text-gray-300 mt-0.5">
@@ -1860,7 +1860,7 @@ ${gameMeta.outcomeBranches}
                   {zkCircuit === 'age_verify_v1' &&
                     'Proves age ≥ threshold without revealing exact birthdate. Zero-knowledge KYC alternative.'}
                   {zkCircuit === 'risc0_generic' &&
-                    'Proves correct execution of arbitrary computation via RISC Zero execution trace verification.'}
+                    'Proves correct execution of arbitrary computation (design target — no circuit exists yet).'}
                   {zkCircuit === 'custom' &&
                     'Provide your own circuit definition and verifier key. Only use audited circuits from trusted sources.'}
                 </p>

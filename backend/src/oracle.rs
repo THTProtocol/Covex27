@@ -79,25 +79,39 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
     std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
-    // Call node verify.js
+    // Call node verify.js — use absolute path for nohup environments
     let script = verify_script_path();
-    let output = Command::new("node")
-        .arg(script)
+    let node_binary = if std::path::Path::new("/usr/bin/node").exists() {
+        "/usr/bin/node"
+    } else if std::path::Path::new("/root/.nvm/versions/node/v20.20.2/bin/node").exists() {
+        "/root/.nvm/versions/node/v20.20.2/bin/node"
+    } else {
+        "node"
+    };
+
+    let output = Command::new(node_binary)
+        .arg(&script)
         .arg(&tmp_path)
         .output()
-        .map_err(|e| format!("Failed to run snarkjs verifier: {}", e))?;
+        .map_err(|e| format!("Failed to run snarkjs verifier (node={}): {}", node_binary, e))?;
 
     // Cleanup
     let _ = std::fs::remove_file(&tmp_path);
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Verifier exited with error: {}", stderr));
+        return Err(format!("Verifier exited with status {}: stdout={} stderr={}",
+            output.status, stdout.trim(), stderr.trim()));
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim().is_empty() {
+        return Err(format!("Verifier produced no output. stderr: {}", stderr.trim()));
+    }
+
     let result: serde_json::Value =
-        serde_json::from_str(&stdout).map_err(|e| format!("Invalid verifier output: {}", e))?;
+        serde_json::from_str(&stdout).map_err(|e| format!("Invalid verifier output '{}': {}", stdout.trim(), e))?;
 
     match result["valid"].as_bool() {
         Some(true) => Ok(true),

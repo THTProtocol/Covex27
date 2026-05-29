@@ -37,11 +37,11 @@ check "Backend health endpoint" "curl -sf --max-time 5 $BASE_URL/health"
 
 echo
 echo "=== 2. Oracle Service ==="
-check "Oracle endpoint responds" "curl -sf --max-time 10 -X POST $BASE_URL/api/oracle/verify-and-sign -H 'Content-Type: application/json' -d '{\"covenant_id\":\"validation\",\"circuit_type\":\"merkle_membership\",\"proof\":{},\"public_inputs\":[]}' | grep -q 'success'"
+check "Oracle endpoint responds" "curl -sf --max-time 10 -X POST $BASE_URL/oracle/verify-and-sign -H 'Content-Type: application/json' -d '{\"covenant_id\":\"validation\",\"circuit_type\":\"merkle_membership\",\"proof\":{},\"public_inputs\":[]}' | grep -q 'success'"
 
 echo
 echo "=== 3. Configuration ==="
-check "KASPA_NETWORK is set" "curl -sf $BASE_URL/health | grep -q 'testnet-12\\|mainnet'"
+check "KASPA_NETWORK is set" "curl -sf $BASE_URL/ | grep -q 'testnet-12\\|mainnet'"
 
 echo
 echo "=== 4. Frontend ==="

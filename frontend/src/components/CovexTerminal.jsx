@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
+import { useWallet } from './WalletContext';
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
@@ -365,6 +366,9 @@ function ResolutionCard({ icon: Icon, title, desc, selected, onClick, accent = '
 }
 
 export default function CovexTerminal({ covenant }) {
+  // ── Wallet (for signing ownership challenges) ──
+  const { address: connectedAddress, signMessage } = useWallet();
+
   // ── Defaults derived from covenant ──
   const covenantId = covenant?.tx_id || '';
 
@@ -792,8 +796,29 @@ ${gameMeta.outcomeBranches}
     if (!covenantId) return;
     setSaveStatus('saving');
 
-    // Send the connected wallet address so backend can enforce "only deployer can edit"
-    const connectedAddress = localStorage.getItem('covex_connected_address') || '';
+    // Get wallet signature for ownership verification
+    let sig = '';
+    let nonce = '';
+    const addr = connectedAddress || '';
+    if (addr && signMessage) {
+      try {
+        // Step 1: fetch challenge nonce from backend
+        const chalResp = await fetch(`/api/terminal-config-challenge/${covenantId}`);
+        const chalData = await chalResp.json();
+        nonce = chalData.nonce || '';
+        const messageToSign = chalData.message || '';
+
+        // Step 2: sign the challenge message with the connected wallet
+        if (nonce && messageToSign) {
+          sig = await signMessage(messageToSign);
+        }
+      } catch (_) {
+        // If signing fails, fall back to address-only (string comparison path)
+        sig = '';
+        nonce = '';
+      }
+    }
+
     const payload = {
       game_type: gameType,
       name,
@@ -806,7 +831,9 @@ ${gameMeta.outcomeBranches}
       custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
       zk_circuit: resolutionMode === 'zk' ? zkCircuit : null,
       zk_verifier_key: resolutionMode === 'zk' ? zkVerifierKey : null,
-      signer_address: connectedAddress || undefined,
+      signer_address: addr || undefined,
+      signature: sig || undefined,
+      nonce: nonce || undefined,
     };
 
     try {

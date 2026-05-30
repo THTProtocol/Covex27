@@ -75,11 +75,30 @@ const TIERS = [
   },
 ];
 
-const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+const TESTNET_TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+
+// Phase 16: Dynamic treasury based on network (for production, this should come from backend)
+const getTreasuryAddress = (isMainnet) => {
+  // In real mainnet deployment, this would be set via env or /api/status
+  return isMainnet 
+    ? 'kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq' // Placeholder - UPDATE BEFORE MAINNET LAUNCH
+    : TESTNET_TREASURY;
+};
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
+  const [isMainnet, setIsMainnet] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => {
+        const net = data?.network || 'testnet-12';
+        setIsMainnet(net === 'mainnet' || net === 'mainnet-1');
+      })
+      .catch(() => setIsMainnet(false));
+  }, []);
 
   // Auto-detect previous payment from backend when wallet connects
   useEffect(() => {
@@ -196,6 +215,11 @@ const Pricing = () => {
           <p className="text-lg text-gray-300 max-w-xl mx-auto">
             Send exactly {p.price.toLocaleString()} KAS to the Covex Treasury to unlock {p.name} tier access.
           </p>
+          {isMainnet && (
+            <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium">
+              ⚠️ MAINNET — You are sending REAL KAS. There are no refunds or testnet do-overs.
+            </div>
+          )}
         </div>
 
         {/* Need wallet first */}
@@ -361,7 +385,8 @@ const Pricing = () => {
           Higher tier = better placement.
         </p>
         <p className="text-[11px] text-gray-200">
-          Treasury: <code className="text-gray-300 text-[10px] break-all">{TREASURY}</code>
+          Treasury: <code className="text-gray-300 text-[10px] break-all">{getTreasuryAddress(isMainnet)}</code>
+          {isMainnet && <span className="ml-2 text-emerald-400 font-bold">(MAINNET — REAL FUNDS)</span>}
         </p>
       </div>
     </div>

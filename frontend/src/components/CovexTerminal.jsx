@@ -492,8 +492,24 @@ export default function CovexTerminal({ covenant }) {
     publicSignals: ["1","20473339414381364284988912838485478706292217748325897174032535818078518775705"]
   }, null, 2);
 
-  // Phase 4: Network indicator
-  const isMainnet = false; // Set true for mainnet deployment
+  // Phase 16: Dynamic Mainnet Detection + Production Polish
+  const [isMainnet, setIsMainnet] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => {
+        const net = data.network || 'testnet-12';
+        const mainnet = net === 'mainnet' || net === 'mainnet-1';
+        setIsMainnet(mainnet);
+        setNetworkStatus(data);
+      })
+      .catch(() => {
+        setIsMainnet(false); // safe default
+      });
+  }, []);
+
   const networkLabel = isMainnet ? 'MAINNET' : 'TESTNET-12';
   const networkColor = isMainnet
     ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
@@ -1619,6 +1635,22 @@ ${gameMeta.outcomeBranches}
             chess.js validates all FIDE rules client-side. The SilverScript below shows the intended covenant structure. The actual compiled on-chain covenant enforces only fees and outcome ranges. ZK proof verification is a design target not yet implemented.
           </div>
         </section>
+      )}
+
+      {/* Phase 16: Mainnet Production Excellence Banner */}
+      {isMainnet && (
+        <div className="mb-6 p-4 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/5">
+          <div className="flex items-center gap-3">
+            <span className="text-emerald-400 text-xl">🚀</span>
+            <div>
+              <div className="font-bold text-emerald-400">MAINNET MODE — REAL CAPITAL AT RISK</div>
+              <div className="text-sm text-emerald-300/80 mt-1">
+                You are configuring a covenant on Kaspa mainnet. All funds are real. Double-check your resolution logic, oracle settings, and payout model. 
+                There are no do-overs on mainnet.
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ─── Section A: Covenant Configuration ─── */}

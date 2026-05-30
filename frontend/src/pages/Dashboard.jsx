@@ -21,6 +21,18 @@ export default function Dashboard() {
         }
       })
       .finally(() => setLoading(false));
+
+    // Phase 16: Basic Creator Analytics (fetch real covenant data for this address)
+    if (address) {
+      fetch(`/api/covenants?creator=${encodeURIComponent(address)}&limit=50`)
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setGeneratedUis(data);
+          }
+        })
+        .catch(() => {});
+    }
   }, [address]);
 
   if (!address) {
@@ -43,6 +55,36 @@ export default function Dashboard() {
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-10 space-y-8">
+      {/* Phase 16: Creator Insights (Basic Analytics) */}
+      {address && generatedUis.length > 0 && (
+        <div className="glass-panel p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <LayoutDashboard size={20} className="text-kaspa-green" />
+            <h2 className="font-semibold text-white">Creator Insights (Phase 16)</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="bg-black/30 p-4 rounded-xl">
+              <div className="text-gray-400 text-xs">Your Covenants</div>
+              <div className="text-2xl font-bold text-white mt-1">{generatedUis.length}</div>
+            </div>
+            <div className="bg-black/30 p-4 rounded-xl">
+              <div className="text-gray-400 text-xs">Total Value (est.)</div>
+              <div className="text-2xl font-bold text-white mt-1">
+                {generatedUis.reduce((sum, c) => sum + (c.amount_kaspa || 0), 0).toFixed(0)} KAS
+              </div>
+            </div>
+            <div className="bg-black/30 p-4 rounded-xl">
+              <div className="text-gray-400 text-xs">Highest Tier</div>
+              <div className="text-2xl font-bold text-kaspa-green mt-1">{accountTier}</div>
+            </div>
+            <div className="bg-black/30 p-4 rounded-xl">
+              <div className="text-gray-400 text-xs">Status</div>
+              <div className="text-sm text-emerald-400 mt-2">Production Ready (Phase 16)</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="glass-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">

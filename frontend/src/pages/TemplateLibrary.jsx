@@ -54,7 +54,7 @@ export default function TemplateLibrary() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-white mb-4">Covenant Templates</h1>
         <p className="text-gray-300 max-w-2xl mx-auto">
-          Choose a ready-made template. One click loads everything — correct circuit, oracle settings, 
+          Choose a ready-made template. One click loads everything: correct circuit, oracle settings, 
           fees, and a beautiful UI. Customize further in Covenant Studio if you want.
         </p>
       </div>

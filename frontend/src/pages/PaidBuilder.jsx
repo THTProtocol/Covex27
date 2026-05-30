@@ -173,7 +173,7 @@ export default function PaidBuilder() {
               <div className="text-[#49EACB] font-bold text-xl">You've already unlocked {tierBadge} tier</div>
               <p className="text-gray-200 mt-2">
                 Your previous payment to the treasury has been recognized. 
-                You can now open the <strong>Covex Terminal</strong> to configure ZK circuits, oracles, fees, and custom UIs — 
+                You can now open the <strong>Covex Terminal</strong> to configure ZK circuits, oracles, fees, and custom UIs,
                 then deploy your first covenant whenever you're ready.
               </p>
               <button

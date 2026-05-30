@@ -8,9 +8,42 @@
     <meta name="description" content="Covex — Native SilverScript covenant indexing and deployment on the Kaspa BlockDAG. Non-custodial. Transparent. 10 BPS." />
     <meta name="theme-color" content="#05050A" />
     <title>Covex — Kaspa Covenant Platform</title>
+    <style>
+      #covex-error-display {
+        display: none;
+        position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+        background: #1a0000; border-bottom: 2px solid #ff4444;
+        color: #ff8888; font: 12px/1.5 monospace; padding: 16px; max-height: 50vh; overflow: auto;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="covex-error-display"></div>
+    <script>
+      window.__covexErrors = [];
+      var ed = document.getElementById('covex-error-display');
+      function showErrors() {
+        if (window.__covexErrors.length > 0) {
+          ed.style.display = 'block';
+          ed.innerHTML = '<strong>Startup Errors:</strong><br>' + window.__covexErrors.map(function(e,i) { return (i+1) + '. ' + e; }).join('<br>');
+        }
+      }
+      window.addEventListener('error', function(e) {
+        if (e.target && e.target.tagName === 'SCRIPT') {
+          window.__covexErrors.push('SCRIPT LOAD FAIL: ' + (e.target.src || 'inline'));
+        } else {
+          window.__covexErrors.push('ERROR: ' + (e.message || e.error || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+        }
+        showErrors();
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        window.__covexErrors.push('REJECTION: ' + (e.reason && (e.reason.message || String(e.reason))));
+        showErrors();
+      });
+      // Also catch after 3s delay
+      setTimeout(showErrors, 3000);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

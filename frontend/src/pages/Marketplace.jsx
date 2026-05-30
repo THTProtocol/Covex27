@@ -21,15 +21,25 @@ export default function Marketplace() {
     setPublishingId(template.id);
     try {
       const config = template.generateConfig(address);
-      const result = await covex.publishTemplate({
-        name: template.name,
-        description: template.description,
-        author: address,
-        price_kas: 10, // Example price
-        config,
+      const res = await fetch('/api/marketplace/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: template.name,
+          description: template.description,
+          author: address,
+          price_kas: 10,
+          config
+        })
       });
-      setPublished([...published, { ...template, marketplaceId: result.id }]);
-      alert(`Template "${template.name}" published to the marketplace! (mock)`);
+      const result = await res.json();
+      
+      if (result.success) {
+        setPublished([...published, { ...template, marketplaceId: result.id }]);
+        alert(`Template "${template.name}" published successfully! ID: ${result.id}\n\nNote: Full monetization and discovery coming in next iteration.`);
+      } else {
+        alert("Publish failed: " + (result.error || result.message));
+      }
     } catch (e) {
       alert("Failed to publish: " + e.message);
     } finally {

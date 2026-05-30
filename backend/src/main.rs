@@ -507,12 +507,17 @@ async fn analytics_handler(
         let covenants = db::get_covenants_by_creator(&db, addr).unwrap_or_default();
         let total_val: f64 = covenants.iter().map(|c| c.amount_kaspa).sum();
         let count = covenants.len();
+        let active_count = covenants.iter().filter(|c| c.is_active).count();
+        
         Json(json!({
+            "creator": addr,
             "total_covenants": count,
             "total_value_kas": (total_val * 100.0).round() / 100.0,
-            "active_covenants": covenants.iter().filter(|c| c.is_active).count(),
-            "resolutions": 0,
-            "reputation_score": if count > 0 { 100 } else { 0 }
+            "active_covenants": active_count,
+            "verified_covenants": covenants.iter().filter(|c| c.verified_tier != "FREE").count(),
+            "resolutions": 0, // TODO: Add real resolution tracking table
+            "reputation_score": if count > 5 { 85 } else if count > 0 { 60 } else { 0 },
+            "average_value_per_covenant": if count > 0 { (total_val / count as f64 * 100.0).round() / 100.0 } else { 0.0 }
         }))
     } else {
         let total = db::count_covenants(&db).unwrap_or(0);
@@ -520,10 +525,11 @@ async fn analytics_handler(
         let verified = db::count_verified_covenants(&db).unwrap_or(0);
         Json(json!({
             "total_covenants": total,
-            "total_value_kas": 0,
+            "total_value_kas": 0, // Platform-wide TVL would require summing all
             "active_covenants": active,
             "verified_covenants": verified,
-            "resolutions": 0
+            "resolutions": 0,
+            "platform_note": "Global analytics require additional aggregation queries"
         }))
     }
 }
@@ -564,9 +570,31 @@ async fn marketplace_publish_handler(
     Json(input): Json<MarketplacePublishInput>,
 ) -> Json<serde_json::Value> {
     let id = format!("tmpl_{}", uuid::Uuid::new_v4().to_string()[..12].to_string());
-    Json(json!({
-        "success": true,
-        "id": id,
-        "message": format!("Template '{}' published (mock — full marketplace coming in Phase 18 expansion)", input.name)
-    }))
+    
+    // Actually store the template in generated_uis as a published template
+    let conn = db.lock().unwrap();
+    let result = conn.execute(
+        "INSERT OR REPLACE INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 0)",
+        params![
+            id,
+            input.author,
+            "PRO", // default tier for published templates
+            "", // ui_html can be empty or generated later
+            serde_json::to_string(&input.config).unwrap_or_default(),
+            input.name.replace(" ", "-").to_lowercase()
+        ],
+    );
+
+    match result {
+        Ok(_) => Json(json!({
+            "success": true,
+            "id": id,
+            "message": format!("Template '{}' successfully published to the marketplace.", input.name)
+        })),
+        Err(e) => Json(json!({
+            "success": false,
+            "error": format!("Failed to publish template: {}", e)
+        }))
+    }
 }

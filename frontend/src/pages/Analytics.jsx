@@ -16,15 +16,15 @@ export default function Analytics() {
       return;
     }
 
-    covex.getAnalytics(address)
+    fetch(`/api/analytics?creator=${encodeURIComponent(address)}`)
+      .then(r => r.json())
       .then(setData)
       .catch(() => {
-        // Fallback to basic stats
         setData({
           total_covenants: 0,
           total_value_kas: 0,
           resolutions: 0,
-          reputation_score: 42,
+          reputation_score: 0,
         });
       })
       .finally(() => setLoading(false));
@@ -66,6 +66,10 @@ export default function Analytics() {
           </div>
         </div>
       )}
+
+      <div className="mt-8 text-xs text-gray-500">
+        Note: Full historical analytics and resolution tracking will be added in the next iteration. Current data comes from the live covenant index.
+      </div>
 
       <div className="mt-12 text-xs text-gray-500">
         Full on-chain reputation and slashing coming in Phase 18 ecosystem expansion. 

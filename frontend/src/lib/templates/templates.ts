@@ -210,6 +210,47 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
       resolution: { mode: 'oracle', circuit: { type: 'merkle_membership' }, oracle: { provider: 'covex' }, payoutModel: { type: 'proportional', feeBasisPoints: 75 } },
       ui: { templateId: 'revenue-share-v1', theme: { primaryColor: '#F59E0B' } }
     })
+  },
+
+  // === Additional High-Value Templates ===
+  {
+    id: 'dao-treasury',
+    name: 'DAO Treasury (Multi-sig + Time Lock)',
+    description: 'Multi-party treasury with time locks and approval thresholds. Classic DAO primitive.',
+    category: 'Governance & DAOs',
+    icon: '🏛️',
+    difficulty: 'Advanced',
+    estimatedTime: '9 min',
+    recommendedTier: 'MAX',
+    tags: ['DAO', 'Treasury', 'Multi-sig'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'DAO Treasury', description: 'Multi-sig with time locks.' },
+      resolution: {
+        mode: 'hybrid',
+        circuit: { type: 'merkle_membership' },
+        oracle: { provider: 'multi', multiOracle: { providers: [], threshold: 2 } },
+        payoutModel: { type: 'proportional', feeBasisPoints: 50 }
+      },
+      ui: { templateId: 'dao-treasury-v1', theme: { primaryColor: '#6366F1' } }
+    })
+  },
+  {
+    id: 'insurance-pool',
+    name: 'Insurance / Risk Pool',
+    description: 'Contributors pay in, claims paid out on oracle or ZK proof of event.',
+    category: 'Financial Tools',
+    icon: '🛡️',
+    difficulty: 'Intermediate',
+    estimatedTime: '7 min',
+    recommendedTier: 'PRO',
+    tags: ['Insurance', 'Risk', 'Pool'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Insurance Pool', description: 'Risk sharing with oracle resolution.' },
+      resolution: { mode: 'oracle', circuit: { type: 'merkle_membership' }, oracle: { provider: 'multi', multiOracle: { providers: [], threshold: 2 } }, payoutModel: { type: 'proportional', feeBasisPoints: 100 } },
+      ui: { templateId: 'insurance-pool-v1', theme: { primaryColor: '#10B981' } }
+    })
   }
 ];
 

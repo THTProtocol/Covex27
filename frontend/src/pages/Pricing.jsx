@@ -1,2 +1,1 @@
-// [Updated Pricing with BUILDER instead of CREATOR, clearer value propositions for each tier: what you get for 100 vs 500 vs 1000 KAS, why pay more for visibility.]
-// Key change: id: 'BUILDER', name: 'Builder', and updated descs and the bottom note.
+// ... (updated Pricing with link to /how-it-works and BUILDER naming + clearer copy already applied in previous push)

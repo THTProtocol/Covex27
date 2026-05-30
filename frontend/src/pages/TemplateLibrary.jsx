@@ -6,6 +6,7 @@ import {
   getTemplatesByCategory,
   getTemplateById 
 } from '../lib/templates/templates';
+import { X } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 
 /**
@@ -144,7 +145,7 @@ export default function TemplateLibrary() {
                 <div className="text-5xl mb-4">{selectedTemplate.icon}</div>
                 <h2 className="text-2xl font-bold text-white">{selectedTemplate.name}</h2>
               </div>
-              <button onClick={() => setSelectedTemplate(null)} className="text-gray-400 hover:text-white">✕</button>
+              <button onClick={() => setSelectedTemplate(null)} className="text-gray-400 hover:text-white"><X size={14} /></button>
             </div>
 
             <p className="text-gray-300 mb-6">{selectedTemplate.description}</p>

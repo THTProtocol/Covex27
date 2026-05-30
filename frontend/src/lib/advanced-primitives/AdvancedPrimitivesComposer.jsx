@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scale } from 'lucide-react';
+import { Scale, Clock, Users, Shuffle, X } from 'lucide-react';
 
 /**
  * Phase 14: Advanced Covenant Primitives Composer
@@ -51,7 +51,7 @@ export default function AdvancedPrimitivesComposer({ initialConfig, onChange }) 
       {/* Time Locks */}
       <div className="border border-white/10 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[#49EACB]">⏰</span>
+          <span className="text-[#49EACB]"><Clock size={18} /></span>
           <span className="font-semibold text-white">Time Locks</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -78,7 +78,7 @@ export default function AdvancedPrimitivesComposer({ initialConfig, onChange }) 
       {/* Multi-Party */}
       <div className="border border-white/10 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[#49EACB]">👥</span>
+          <span className="text-[#49EACB]"><Users size={18} /></span>
           <span className="font-semibold text-white">Multi-Party Approval</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -107,7 +107,7 @@ export default function AdvancedPrimitivesComposer({ initialConfig, onChange }) 
       <div className="border border-white/10 rounded-2xl p-4">
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[#49EACB]">🔀</span>
+            <span className="text-[#49EACB]"><Shuffle size={18} /></span>
             <span className="font-semibold text-white">Cross Conditions</span>
           </div>
           <button onClick={addCondition} className="text-xs px-3 py-1 bg-white/5 rounded hover:bg-white/10">+ Add Condition</button>
@@ -143,7 +143,7 @@ export default function AdvancedPrimitivesComposer({ initialConfig, onChange }) 
               className="flex-1 bg-black/50 border border-white/10 rounded px-2 py-1 text-sm" 
               placeholder="Condition description"
             />
-            <button onClick={() => removeCondition(index)} className="text-red-400 text-sm px-2">✕</button>
+            <button onClick={() => removeCondition(index)} className="text-red-400 text-sm px-2"><X size={14} /></button>
           </div>
         ))}
       </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Terminal, Database, Code2, ShieldCheck, Globe, ExternalLink, Search, ArrowRight, Play } from 'lucide-react';
+import { Terminal, Database, Code2, ShieldCheck, Globe, ExternalLink, Search, ArrowRight, Play, Zap } from 'lucide-react';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 
 const TIER_STYLES = {

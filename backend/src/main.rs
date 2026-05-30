@@ -161,6 +161,7 @@ async fn main() {
         .route("/analytics", get(analytics_handler))
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
+        .layer(Extension(db.clone()))
         .merge(oracle::oracle_routes())
         .layer(app);
 

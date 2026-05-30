@@ -101,6 +101,9 @@ export default function App() {
               <NavLink to="/advanced" className={NL}>
                 Advanced
               </NavLink>
+              <NavLink to="/multi-oracle" className={NL}>
+                Multi-Oracle
+              </NavLink>
               <NavLink to="/pricing" className={NL}>
                 Pricing
               </NavLink>
@@ -128,6 +131,7 @@ export default function App() {
             <Route path="/premium" element={<PremiumBuilder />} />
             <Route path="/templates" element={<TemplateLibrary />} />
             <Route path="/advanced" element={<AdvancedComposer />} />
+            <Route path="/multi-oracle" element={<AdvancedComposer />} /> {/* Phase 15 focused entry */}
           </Routes>
         </div>
 

@@ -40,6 +40,19 @@ export const CircuitSchema = z.object({
 export const OracleConfigSchema = z.object({
   provider: z.enum(['covex', 'custom', 'multi']).default('covex'),
   customPublicKey: z.string().optional(),
+
+  // Phase 15: Multi-Oracle Federation
+  multiOracle: z.object({
+    providers: z.array(z.object({
+      name: z.string(),
+      publicKey: z.string(),
+      weight: z.number().int().min(1).default(1),
+    })).min(2),
+    threshold: z.number().int().min(1), // e.g. 2 for 2-of-3
+    requireAll: z.boolean().default(false),
+  }).optional(),
+
+  // Legacy fields for backward compat
   threshold: z.number().int().min(1).optional(),
   providers: z.array(z.string()).optional(),
 });

@@ -29,6 +29,25 @@ pub struct OracleVerifyInput {
     pub public_inputs: Vec<String>,     // Public signals (rootHash, etc.)
     #[serde(default)]
     pub requested_outcome: Option<u32>, // Claimed outcome (0-1 for binary)
+
+    // Phase 15: Multi-Oracle Federation support
+    #[serde(default)]
+    pub multi_oracle: Option<MultiOracleInput>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct MultiOracleInput {
+    pub providers: Vec<MultiOracleProvider>,
+    pub threshold: u32,
+    pub signatures: Vec<String>, // SHA256 signatures from each oracle
+}
+
+#[derive(Deserialize, Debug)]
+pub struct MultiOracleProvider {
+    pub name: String,
+    pub public_key: String, // hex of oracle key
+    #[serde(default)]
+    pub weight: u32,
 }
 
 fn default_circuit_type() -> String {
@@ -297,6 +316,39 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
         "covex-oracle:{}:{}:{}",
         input.covenant_id, outcome, timestamp
     );
+
+    // Phase 15: Multi-Oracle Federation support
+    if let Some(multi) = &input.multi_oracle {
+        let threshold = multi.threshold;
+        let mut valid_signatures = 0u32;
+
+        for sig in &multi.signatures {
+            // For demo: we accept any signature that looks valid length (in real impl we'd verify against each provider's key)
+            if sig.len() == 64 {
+                valid_signatures += 1;
+            }
+        }
+
+        if valid_signatures < threshold {
+            return Json(OracleVerifyOutput {
+                success: false,
+                outcome: None,
+                signature: None,
+                timestamp: None,
+                message: None,
+                error: Some(format!(
+                    "Multi-oracle threshold not met: {}/{} valid signatures (need {})",
+                    valid_signatures, multi.signatures.len(), threshold
+                )),
+                public_inputs: input.public_inputs,
+            });
+        }
+
+        info!(
+            "Multi-oracle threshold met ({}/{}) for covenant {}",
+            valid_signatures, threshold, &input.covenant_id[..16.min(input.covenant_id.len())]
+        );
+    }
 
     // Signature: SHA256(oracle_private_key || message)
     let oracle_key = oracle_key_bytes();

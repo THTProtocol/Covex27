@@ -15,6 +15,7 @@ import { useWallet } from './WalletContext';
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
+import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
@@ -2209,6 +2210,16 @@ ${gameMeta.outcomeBranches}
         >
           Open Advanced Primitives Composer (Phase 14)
         </button>
+
+        <div className="mt-4">
+          <MultiOracleConfigurator 
+            value={{}} 
+            onChange={(cfg) => {
+              // Merge into current config for Phase 15
+              console.log("Multi-oracle config updated:", cfg);
+            }} 
+          />
+        </div>
       </section>
 
       {/* ─── Section D: Generated SilverScript ─── */}

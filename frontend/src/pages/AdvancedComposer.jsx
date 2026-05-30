@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
+import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 
@@ -11,6 +12,7 @@ export default function AdvancedComposer() {
   const navigate = useNavigate();
   const { address } = useWallet();
   const [advancedConfig, setAdvancedConfig] = useState({});
+  const [multiOracleConfig, setMultiOracleConfig] = useState({});
 
   const handleSaveAndUse = () => {
     if (!address) {
@@ -24,7 +26,7 @@ export default function AdvancedComposer() {
       covenant: {
         id: crypto.randomUUID(),
         name: "Advanced Multi-Primitive Covenant",
-        description: "Complex agreement built with Phase 14 primitives",
+        description: "Complex agreement built with Phase 14 primitives + Phase 15 multi-oracle",
         creatorAddress: address,
         reusable: true,
         allowTopups: true,
@@ -32,7 +34,10 @@ export default function AdvancedComposer() {
       resolution: {
         mode: "oracle",
         circuit: { type: "merkle_membership" },
-        oracle: { provider: "covex" },
+        oracle: { 
+          provider: "multi", 
+          multiOracle: multiOracleConfig 
+        },
         payoutModel: { type: "proportional", feeBasisPoints: 150 },
         advancedPrimitives: advancedConfig,
       },
@@ -59,6 +64,13 @@ export default function AdvancedComposer() {
       <AdvancedPrimitivesComposer 
         onChange={setAdvancedConfig} 
       />
+
+      <div className="mt-8">
+        <MultiOracleConfigurator 
+          value={{ multiOracle: multiOracleConfig }} 
+          onChange={setMultiOracleConfig} 
+        />
+      </div>
 
       <div className="mt-8 flex justify-end">
         <button 

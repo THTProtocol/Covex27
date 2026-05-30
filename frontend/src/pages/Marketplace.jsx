@@ -4,7 +4,7 @@ import { COVENANT_TEMPLATES } from '../lib/templates/templates';
 import { covex } from '../lib/sdk/CovexClient';
 
 /**
- * Phase 18: Template Marketplace
+ * Template Marketplace
  * Creators can browse, publish, and monetize templates.
  */
 export default function Marketplace() {
@@ -53,7 +53,7 @@ export default function Marketplace() {
         <h1 className="text-4xl font-bold text-white mb-3">Covenant Template Marketplace</h1>
         <p className="text-gray-300 max-w-xl mx-auto">
           Discover, use, and publish professional covenant templates. 
-          Earn from your creations. Built on the Phase 11 config protocol.
+          Earn from your creations. Built on the shared configuration protocol.
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default function Marketplace() {
       </div>
 
       <div className="mt-12 text-center text-sm text-gray-500">
-        Marketplace powered by Covex SDK (Phase 18). Real monetization and on-chain publishing coming with ecosystem growth.
+        Marketplace powered by the Covex SDK. Real monetization and on-chain publishing coming with ecosystem growth.
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 
 /**
- * Phase 14: Advanced Covenant Composer
+ * Advanced Covenant Composer
  * Full visual + engineering tool for complex primitives.
  */
 export default function AdvancedComposer() {
@@ -20,13 +20,13 @@ export default function AdvancedComposer() {
       return;
     }
 
-    // Merge with base config and save to session (Phase 11 protocol)
+    // Merge with base config and save to session (shared config protocol)
     const baseConfig = {
       version: "1.0",
       covenant: {
         id: crypto.randomUUID(),
         name: "Advanced Multi-Primitive Covenant",
-        description: "Complex agreement built with Phase 14 primitives + Phase 15 multi-oracle",
+        description: "Complex agreement built with advanced primitives and multi-oracle support",
         creatorAddress: address,
         reusable: true,
         allowTopups: true,
@@ -62,7 +62,7 @@ export default function AdvancedComposer() {
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white">Advanced Covenant Composer</h1>
         <p className="text-gray-300 mt-2 max-w-2xl">
-          Phase 14 — Build sophisticated agreements using time locks, multi-party approvals, cross-conditions, 
+          Build sophisticated agreements using time locks, multi-party approvals, cross-conditions, 
           dispute systems, and advanced payout logic. This is the engineering power surface.
         </p>
       </div>

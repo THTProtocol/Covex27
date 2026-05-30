@@ -92,35 +92,14 @@ export default function App() {
               <span className="bg-gradient-to-r from-[#49EACB] via-[#00D2FF] to-[#7e14ff] bg-clip-text text-transparent font-black tracking-tight text-lg">COVEX</span>
             </Link>
             <div className="flex items-center gap-6">
-              <NavLink to="/what-is-kaspa" className={NL}>
-                What is Kaspa?
-              </NavLink>
               <NavLink to="/" end className={NL}>
-                Explorer
+                Explore
               </NavLink>
-              <NavLink to="/templates" className={NL}>
-                Templates
-              </NavLink>
-              <NavLink to="/advanced" className={NL}>
-                Advanced
-              </NavLink>
-              <NavLink to="/multi-oracle" className={NL}>
-                Multi-Oracle
-              </NavLink>
-              <NavLink to="/marketplace" className={NL}>
-                Marketplace
-              </NavLink>
-              <NavLink to="/analytics" className={NL}>
-                Analytics
-              </NavLink>
-              <NavLink to="/governance" className={NL}>
-                Governance
+              <NavLink to="/what-is-kaspa" className={NL}>
+                About
               </NavLink>
               <NavLink to="/pricing" className={NL}>
                 Pricing
-              </NavLink>
-              <NavLink to="/dashboard" className={NL}>
-                Dashboard
               </NavLink>
               <SmartDeployLink />
               <WalletButton />

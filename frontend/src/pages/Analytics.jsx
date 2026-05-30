@@ -3,7 +3,7 @@ import { useWallet } from '../components/WalletContext';
 import { covex } from '../lib/sdk/CovexClient';
 
 /**
- * Phase 18: Covenant Analytics & Reputation
+ * Covenant Analytics & Reputation
  */
 export default function Analytics() {
   const { address } = useWallet();
@@ -42,7 +42,7 @@ export default function Analytics() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       <h1 className="text-4xl font-bold text-white mb-2">Covenant Analytics</h1>
-      <p className="text-gray-400 mb-8">Phase 18 — Platform Ecosystem</p>
+      <p className="text-gray-400 mb-8">Platform Ecosystem</p>
 
       {loading ? (
         <div className="text-center py-12">Loading analytics...</div>
@@ -72,7 +72,7 @@ export default function Analytics() {
       </div>
 
       <div className="mt-12 text-xs text-gray-500">
-        Full on-chain reputation and slashing coming in Phase 18 ecosystem expansion. 
+        Full on-chain reputation and slashing coming in future ecosystem expansion. 
         Data currently aggregated from public covenant index.
       </div>
     </div>

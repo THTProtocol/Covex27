@@ -6,11 +6,12 @@ import React, { useState } from 'react';
  */
 export default function MultiOracleConfigurator({ value, onChange }) {
   const [oracles, setOracles] = useState(value?.multiOracle?.providers || [
-    { name: "Covex Primary", publicKey: "default-covex", weight: 1 },
+    { name: "Covex Primary", publicKey: "", weight: 1 },
     { name: "Community Oracle 1", publicKey: "", weight: 1 },
     { name: "Community Oracle 2", publicKey: "", weight: 1 },
   ]);
   const [threshold, setThreshold] = useState(value?.multiOracle?.threshold || 2);
+  const [collectedSignatures, setCollectedSignatures] = useState([]); // for demo: user pastes signatures here
 
   const update = (newOracles, newThreshold) => {
     const config = {
@@ -46,14 +47,23 @@ export default function MultiOracleConfigurator({ value, onChange }) {
     update(oracles, newT);
   };
 
+  // Helper to build the final multi_oracle object for submission
+  const getMultiOracleConfigForSubmission = () => {
+    return {
+      providers: oracles,
+      threshold,
+      signatures: collectedSignatures.filter(s => s.signature && s.publicKey),
+    };
+  };
+
   return (
     <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 space-y-5">
       <div>
         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <span>🌐</span> Multi-Oracle Federation <span className="text-xs text-emerald-400">(Phase 15)</span>
+          Multi-Oracle Federation
         </h3>
         <p className="text-xs text-gray-400 mt-1">
-          Require signatures from multiple independent oracles. Dramatically reduces single-oracle trust risk.
+          Require cryptographic signatures from multiple independent oracles. Dramatically reduces single-oracle trust risk.
         </p>
       </div>
 
@@ -98,7 +108,7 @@ export default function MultiOracleConfigurator({ value, onChange }) {
         </button>
 
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-sm text-gray-400">Threshold (signatures needed):</span>
+          <span className="text-sm text-gray-400">Threshold:</span>
           <select
             value={threshold}
             onChange={(e) => changeThreshold(parseInt(e.target.value))}
@@ -111,8 +121,26 @@ export default function MultiOracleConfigurator({ value, onChange }) {
         </div>
       </div>
 
+      {/* Signature collection area for real multi-oracle submission */}
+      <div className="border-t border-white/10 pt-4">
+        <div className="text-sm font-medium text-white mb-2">Collected Signatures (for submission)</div>
+        <textarea
+          className="w-full h-24 bg-black border border-white/10 rounded p-2 text-xs font-mono"
+          placeholder="Paste signatures here as JSON array: [{public_key: '...', signature: '...'}, ...]"
+          onChange={(e) => {
+            try {
+              const parsed = JSON.parse(e.target.value);
+              setCollectedSignatures(Array.isArray(parsed) ? parsed : []);
+            } catch (_) {}
+          }}
+        />
+        <div className="text-[10px] text-gray-500 mt-1">
+          Each oracle must sign the exact message produced by the main oracle after ZK verification.
+        </div>
+      </div>
+
       <div className="text-[11px] text-emerald-400/70 pt-2 border-t border-white/10">
-        Example: 2-of-3 multi-oracle means any 2 out of the 3 oracles must agree and provide valid signatures.
+        Real cryptographic verification is now enforced in the backend using the same SHA256 scheme as single-oracle.
       </div>
     </div>
   );

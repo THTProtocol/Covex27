@@ -9,7 +9,7 @@ import {
 import { useWallet } from '../components/WalletContext';
 
 /**
- * Phase 13: Covenant Template Library
+ * Covenant Template Library
  * One-click beautiful, correct covenants.
  */
 export default function TemplateLibrary() {
@@ -31,7 +31,7 @@ export default function TemplateLibrary() {
     // Generate the config
     const config = template.generateConfig(address);
 
-    // Store in session so Terminal can pick it up (Phase 11 integration)
+    // Store in session so Terminal can pick it up (shared config integration)
     sessionStorage.setItem('pending_covenant_config', JSON.stringify(config));
     sessionStorage.setItem('selected_template_id', template.id);
 
@@ -178,7 +178,7 @@ export default function TemplateLibrary() {
       )}
 
       <div className="mt-16 text-center text-xs text-gray-500">
-        Templates use the official Covex shared configuration protocol (Phase 11).<br />
+        Templates use the official Covex shared configuration protocol.<br />
         All templates are fully compatible with Covenant Studio for further customization.
       </div>
     </div>

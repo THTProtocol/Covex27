@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 /**
- * Phase 18: Light Governance (Functional stub)
+ * Light Governance
  */
 export default function Governance() {
   const [votes, setVotes] = useState({});
@@ -32,7 +32,7 @@ export default function Governance() {
     <div className="max-w-4xl mx-auto px-6 py-12">
       <h1 className="text-4xl font-bold text-white mb-4">Covex Governance</h1>
       <p className="text-gray-300 mb-8">
-        Phase 18 — Light, transparent governance for the ecosystem.
+        Light, transparent governance for the ecosystem.
       </p>
 
       <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 mb-8">

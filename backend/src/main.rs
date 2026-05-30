@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
+use rusqlite::params;
 
 mod broadcast;
 mod compiler;

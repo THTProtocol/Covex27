@@ -87,6 +87,40 @@ export default function PaidBuilder() {
         <span>Terminal Unlocked</span>
       </div>
 
+      {/* Studio Tools - Professional access to advanced features after payment */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold tracking-tight text-white">Studio Tools</h2>
+          <div className="text-xs text-gray-400">Full power unlocked with your tier</div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <a href="/templates" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
+            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Templates</div>
+            <div className="text-xs text-gray-400 mt-1">Ready professional covenant designs</div>
+          </a>
+          <a href="/advanced" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
+            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Advanced Composer</div>
+            <div className="text-xs text-gray-400 mt-1">Complex agreements with primitives</div>
+          </a>
+          <a href="/multi-oracle" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
+            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Multi-Oracle</div>
+            <div className="text-xs text-gray-400 mt-1">Decentralized resolution setup</div>
+          </a>
+          <a href="/marketplace" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
+            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Marketplace</div>
+            <div className="text-xs text-gray-400 mt-1">Discover and publish templates</div>
+          </a>
+          <a href="/analytics" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
+            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Analytics</div>
+            <div className="text-xs text-gray-400 mt-1">Performance and insights</div>
+          </a>
+          <a href="/governance" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
+            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Governance</div>
+            <div className="text-xs text-gray-400 mt-1">Platform direction</div>
+          </a>
+        </div>
+      </div>
+
       {/* Payment success banner */}
       {justPaid && (
         <div className="mb-8 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-6 flex items-start gap-4">

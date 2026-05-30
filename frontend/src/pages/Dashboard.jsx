@@ -22,7 +22,7 @@ export default function Dashboard() {
       })
       .finally(() => setLoading(false));
 
-    // Phase 16: Basic Creator Analytics (fetch real covenant data for this address)
+    // Basic Creator Analytics (fetch real covenant data for this address)
     if (address) {
       fetch(`/api/covenants?creator=${encodeURIComponent(address)}&limit=50`)
         .then(r => r.json())
@@ -55,12 +55,12 @@ export default function Dashboard() {
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-10 space-y-8">
-      {/* Phase 16: Creator Insights (Basic Analytics) */}
+      {/* Creator Insights */}
       {address && generatedUis.length > 0 && (
         <div className="glass-panel p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <LayoutDashboard size={20} className="text-kaspa-green" />
-            <h2 className="font-semibold text-white">Creator Insights (Phase 16)</h2>
+            <h2 className="font-semibold text-white">Creator Insights</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div className="bg-black/30 p-4 rounded-xl">
@@ -79,7 +79,7 @@ export default function Dashboard() {
             </div>
             <div className="bg-black/30 p-4 rounded-xl">
               <div className="text-gray-400 text-xs">Status</div>
-              <div className="text-sm text-emerald-400 mt-2">Production Ready (Phase 16)</div>
+              <div className="text-sm text-emerald-400 mt-2">Production Ready</div>
             </div>
           </div>
         </div>

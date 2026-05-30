@@ -217,7 +217,7 @@ const Pricing = () => {
           </p>
           {isMainnet && (
             <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium">
-              ⚠️ MAINNET — You are sending REAL KAS. There are no refunds or testnet do-overs.
+              MAINNET: You are sending REAL KAS. There are no refunds or testnet do-overs.
             </div>
           )}
         </div>
@@ -386,7 +386,7 @@ const Pricing = () => {
         </p>
         <p className="text-[11px] text-gray-200">
           Treasury: <code className="text-gray-300 text-[10px] break-all">{getTreasuryAddress(isMainnet)}</code>
-          {isMainnet && <span className="ml-2 text-emerald-400 font-bold">(MAINNET — REAL FUNDS)</span>}
+          {isMainnet && <span className="ml-2 text-emerald-400 font-bold">(MAINNET - REAL FUNDS)</span>}
         </p>
       </div>
     </div>

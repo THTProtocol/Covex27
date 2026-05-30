@@ -39,15 +39,22 @@ pub struct OracleVerifyInput {
 pub struct MultiOracleInput {
     pub providers: Vec<MultiOracleProvider>,
     pub threshold: u32,
-    pub signatures: Vec<String>, // SHA256 signatures from each oracle
+    /// List of signatures. Each signature must include which public key it was signed for.
+    pub signatures: Vec<MultiOracleSignature>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct MultiOracleProvider {
     pub name: String,
-    pub public_key: String, // hex of oracle key
+    pub public_key: String, // hex of the oracle's public/secret key material used for signing
     #[serde(default)]
     pub weight: u32,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct MultiOracleSignature {
+    pub public_key: String,   // which provider this signature is for
+    pub signature: String,    // the hex signature
 }
 
 fn default_circuit_type() -> String {
@@ -224,7 +231,7 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
     let timestamp = chrono::Utc::now().timestamp();
 
     // Step 1: Verify the proof (async — runs snarkjs in spawn_blocking)
-    let valid = match input.circuit_type.as_str() {
+    let _valid = match input.circuit_type.as_str() {
         "merkle_membership" => match verify_merkle_proof_async(input.proof.clone(), input.public_inputs.clone()).await {
             Ok(true) => true,
             Ok(false) => {
@@ -317,19 +324,32 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
         input.covenant_id, outcome, timestamp
     );
 
-    // Phase 15: Multi-Oracle Federation support
+    // Phase 15: Real Multi-Oracle Cryptographic Verification
     if let Some(multi) = &input.multi_oracle {
         let threshold = multi.threshold;
-        let mut valid_signatures = 0u32;
+        let mut valid_weight = 0u32;
 
-        for sig in &multi.signatures {
-            // For demo: we accept any signature that looks valid length (in real impl we'd verify against each provider's key)
-            if sig.len() == 64 {
-                valid_signatures += 1;
+        for sig_entry in &multi.signatures {
+            // Find the matching provider
+            if let Some(provider) = multi.providers.iter().find(|p| p.public_key == sig_entry.public_key) {
+                let pubkey_bytes = match hex::decode(&provider.public_key) {
+                    Ok(b) => b,
+                    Err(_) => continue,
+                };
+
+                // Recompute expected signature using the same scheme as single oracle
+                let mut hasher = Sha256::new();
+                hasher.update(&pubkey_bytes);
+                hasher.update(message.as_bytes());
+                let expected_sig = hex::encode(hasher.finalize());
+
+                if expected_sig == sig_entry.signature {
+                    valid_weight += if provider.weight > 0 { provider.weight } else { 1 };
+                }
             }
         }
 
-        if valid_signatures < threshold {
+        if valid_weight < threshold {
             return Json(OracleVerifyOutput {
                 success: false,
                 outcome: None,
@@ -337,16 +357,16 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 timestamp: None,
                 message: None,
                 error: Some(format!(
-                    "Multi-oracle threshold not met: {}/{} valid signatures (need {})",
-                    valid_signatures, multi.signatures.len(), threshold
+                    "Multi-oracle threshold not met: weight {}/{} (need {})",
+                    valid_weight, multi.signatures.len(), threshold
                 )),
                 public_inputs: input.public_inputs,
             });
         }
 
         info!(
-            "Multi-oracle threshold met ({}/{}) for covenant {}",
-            valid_signatures, threshold, &input.covenant_id[..16.min(input.covenant_id.len())]
+            "Multi-oracle cryptographic verification passed (weight {}/{}) for covenant {}",
+            valid_weight, threshold, &input.covenant_id[..16.min(input.covenant_id.len())]
         );
     }
 

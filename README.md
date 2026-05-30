@@ -596,6 +596,22 @@ All 10 planned phases have been executed. The core vision — a professional, ra
 
 These are documented transparently in the docs/.
 
+## Future Roadmap — Phases 11+ (The Path to "Everything Working to the Fullest")
+
+After completing the original 10-phase foundation, Covex has a clear, ambitious plan to reach the best possible version of the platform:
+
+- **Phase 11**: Full bidirectional integration between Covex Terminal and Covenant Studio (one-click handoff, shared config, live previews)
+- **Phase 12**: Complete production ZK circuit library (Range Proof live + Age Verification + Verifiable Compute + more)
+- **Phase 13**: Universal easy UI + 15–20 ready-made beautiful templates for games, escrow, DAOs, prediction markets, etc.
+- **Phase 14**: Advanced covenant primitives + visual composer (complex multi-primitive agreements)
+- **Phase 15**: Multi-oracle federation and decentralized resolution
+- **Phase 16**: Mainnet production excellence + "it just works" polish
+- **Phase 17–18**: Hybrid on-chain verification + full platform/ecosystem layer (SDKs, marketplace, governance)
+
+Full details: [docs/FUTURE_ROADMAP_PHASES_11_PLUS.md](docs/FUTURE_ROADMAP_PHASES_11_PLUS.md)
+
+The vision is to make Covex the standard professional layer for any serious covenant on Kaspa — with the easiest possible experience for creators while maintaining radical honesty about technical reality.
+
 ## License
 
 MIT

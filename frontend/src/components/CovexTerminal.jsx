@@ -10,6 +10,10 @@ import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 
+// Phase 11: Covenant Studio Integration
+import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
+import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
+
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
 const LABEL = 'text-xs text-gray-300 uppercase tracking-wider font-mono';
@@ -369,6 +373,33 @@ function ResolutionCard({ icon: Icon, title, desc, selected, onClick, accent = '
 export default function CovexTerminal({ covenant }) {
   // ── Wallet (for signing ownership challenges) ──
   const { address: connectedAddress, signMessage } = useWallet();
+
+  // Phase 11: Covenant Config + Studio Integration
+  const { 
+    config: studioConfig, 
+    loadOrCreate, 
+    exportToStudio,
+    updateConfig: updateStudioConfig,
+    loadFromJson 
+  } = useCovenantConfig(connectedAddress || '');
+
+  // Phase 11: Auto-load config from URL (for handoff from Covenant Studio)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const encodedConfig = params.get('config');
+    if (encodedConfig) {
+      try {
+        const jsonStr = atob(encodedConfig);
+        const success = loadFromJson(jsonStr);
+        if (success) {
+          // Optionally clear the param from URL after loading
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      } catch (e) {
+        console.warn('Failed to load config from URL', e);
+      }
+    }
+  }, [loadFromJson]);
 
   // ── Defaults derived from covenant ──
   const covenantId = covenant?.tx_id || '';
@@ -2104,6 +2135,62 @@ ${gameMeta.outcomeBranches}
           )}
         </section>
       )}
+
+      {/* ─── Phase 11: Covenant Studio Integration (NEW) ─── */}
+      <section className={SECTION_BASE}>
+        <div className={SECTION_HEADER}>
+          <Palette size={16} />
+          Phase 11 — Design in Covenant Studio
+        </div>
+
+        <p className="text-xs text-gray-300 leading-relaxed">
+          Send your current resolution, circuit, fees, and payout model to <strong>Covenant Studio</strong> to create a beautiful custom UI.
+          Changes made in Studio can be sent back here.
+        </p>
+
+        {studioConfig && (
+          <div className="my-3">
+            <ResolutionSimulator config={studioConfig} />
+          </div>
+        )}
+
+        <button
+          onClick={() => {
+            const address = connectedAddress || 'demo-address';
+            const cfg = loadOrCreate(address);
+            
+            // Sync current Terminal state into the shared config (best effort for Phase 11)
+            updateStudioConfig({
+              covenant: {
+                ...cfg.covenant,
+                name: name || cfg.covenant.name,
+                description: description || cfg.covenant.description,
+              },
+              resolution: {
+                mode: resolutionMode,
+                circuit: { type: zkCircuit, verifierKey: zkVerifierKey },
+                oracle: { provider: resolutionMode === 'custom_oracle' ? 'custom' : 'covex' },
+                payoutModel: { type: 'winner_takes_all', feeBasisPoints: Math.round(feePercent * 100) },
+              }
+            });
+
+            const studioUrl = exportToStudio();
+            if (studioUrl) {
+              window.open(studioUrl, '_blank');
+            } else {
+              alert('Configure your covenant first, then try again.');
+            }
+          }}
+          className="w-full mt-2 py-3 rounded-xl bg-[#49EACB] text-black font-bold flex items-center justify-center gap-2 hover:bg-[#3dd9b8] active:scale-[0.985] transition-all"
+        >
+          <ExternalLink size={16} />
+          Open in Covenant Studio (Phase 11)
+        </button>
+
+        <p className="text-[10px] text-gray-500 mt-2 text-center">
+          This will open Covenant Studio with your current settings pre-loaded (deep link).
+        </p>
+      </section>
 
       {/* ─── Section D: Generated SilverScript ─── */}
       <section className={SECTION_BASE}>

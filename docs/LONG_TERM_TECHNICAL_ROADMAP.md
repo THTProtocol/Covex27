@@ -33,4 +33,10 @@
 - Kaspa consensus / scripting upgrades
 - Growth of compatible ZK tooling
 
-This roadmap will be updated based on real ecosystem progress.
+This document is now superseded by the more ambitious post-Phase-10 plan:
+
+**See:** [docs/FUTURE_ROADMAP_PHASES_11_PLUS.md](FUTURE_ROADMAP_PHASES_11_PLUS.md)
+
+The new roadmap (Phases 11–18) focuses on deep Studio integration, completing the full ZK circuit library, universal easy templates for games + escrow + all covenant types, multi-oracle systems, and long-term hybrid on-chain verification as silverc and Kaspa scripting improve.
+
+This older document is kept for historical reference.

@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://covex.pro/schemas/covenant-config-v1.json",
+  "title": "Covex Covenant Configuration v1",
+  "description": "Shared configuration format between Covex Terminal and Covenant Studio. Version 1.0. Stable for Phase 11 integration.",
+  "type": "object",
+  "required": ["version", "covenant", "resolution", "ui"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version. Must be '1.0' for this spec."
+    },
+    "covenant": {
+      "type": "object",
+      "required": ["id", "name", "description", "creatorAddress"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid", "description": "Unique covenant identifier" },
+        "name": { "type": "string", "minLength": 3, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 500 },
+        "creatorAddress": { "type": "string", "description": "Kaspa address of the creator" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "reusable": { "type": "boolean", "default": false },
+        "allowTopups": { "type": "boolean", "default": false }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "required": ["mode", "circuit", "oracle", "payoutModel"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["zk", "oracle", "custom_oracle"],
+          "description": "Resolution mode"
+        },
+        "circuit": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "merkle_membership",
+                "range_proof",
+                "age_verification",
+                "verifiable_compute",
+                "chess_v1",
+                "custom"
+              ]
+            },
+            "verifierKey": { "type": "string", "description": "On-chain or oracle verifier identifier" },
+            "publicInputs": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Public inputs schema for the circuit"
+            }
+          }
+        },
+        "oracle": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": ["covex", "custom", "multi"],
+              "default": "covex"
+            },
+            "customPublicKey": { "type": "string" },
+            "threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "For multi-oracle: minimum signatures required"
+            },
+            "providers": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of oracle public keys when using multi-oracle"
+            }
+          }
+        },
+        "payoutModel": {
+          "type": "object",
+          "required": ["type", "feeBasisPoints"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["winner_takes_all", "proportional", "custom"]
+            },
+            "feeBasisPoints": { "type": "integer", "minimum": 0, "maximum": 1000 },
+            "platformShare": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "creatorShare": { "type": "integer", "minimum": 0, "maximum": 10000 }
+          }
+        },
+        "constraints": {
+          "type": "object",
+          "description": "On-chain enforceable constraints (silverc level)",
+          "properties": {
+            "minStake": { "type": "integer" },
+            "maxStake": { "type": "integer" },
+            "deadline": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "required": ["templateId", "theme"],
+      "properties": {
+        "templateId": { "type": "string", "description": "ID of the Covenant Studio template" },
+        "theme": {
+          "type": "object",
+          "properties": {
+            "primaryColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "backgroundColor": { "type": "string" },
+            "fontFamily": { "type": "string" }
+          }
+        },
+        "customizations": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Template-specific overrides"
+        },
+        "bundleUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the custom HTML/JS/CSS bundle (if uploaded)"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Free-form metadata for future extensibility"
+    }
+  },
+  "additionalProperties": false
+}

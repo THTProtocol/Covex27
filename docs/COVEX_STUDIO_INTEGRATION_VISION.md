@@ -31,4 +31,8 @@ Prioritize integration work after mainnet has real usage and feedback. Do not ru
 
 ---
 
-This document should be updated as integration work progresses.
+**Update (Post Phase 10):** This vision is now the core of **Phase 11**.
+
+Detailed plan: [PHASE11_COVENANT_STUDIO_INTEGRATION.md](PHASE11_COVENANT_STUDIO_INTEGRATION.md)
+
+The overall post-Phase-10 roadmap lives in [FUTURE_ROADMAP_PHASES_11_PLUS.md](FUTURE_ROADMAP_PHASES_11_PLUS.md).

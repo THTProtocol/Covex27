@@ -383,21 +383,29 @@ export default function CovexTerminal({ covenant }) {
     loadFromJson 
   } = useCovenantConfig(connectedAddress || '');
 
-  // Phase 11: Auto-load config from URL (for handoff from Covenant Studio)
+  // Phase 11 + Phase 13: Auto-load config from URL or selected template
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedConfig = params.get('config');
+    const templateId = params.get('template');
+
     if (encodedConfig) {
       try {
         const jsonStr = atob(encodedConfig);
-        const success = loadFromJson(jsonStr);
-        if (success) {
-          // Optionally clear the param from URL after loading
-          window.history.replaceState({}, '', window.location.pathname);
-        }
+        loadFromJson(jsonStr);
+        window.history.replaceState({}, '', window.location.pathname);
       } catch (e) {
-        console.warn('Failed to load config from URL', e);
+        console.warn('Failed to load config from URL');
       }
+    } else if (templateId) {
+      // Phase 13: Template was selected
+      const saved = sessionStorage.getItem('pending_covenant_config');
+      if (saved) {
+        try {
+          loadFromJson(saved);
+        } catch (e) {}
+      }
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }, [loadFromJson]);
 

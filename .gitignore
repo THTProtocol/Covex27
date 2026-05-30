@@ -3,14 +3,31 @@ backend/target/
 frontend/dist/
 frontend/node_modules/
 
-# Environment files
+# Environment files (never commit real secrets)
 .env
+.env.*
+!.env.example
 
 # Database
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Logs (never commit)
+*.log
+backend/backend.log
+logs/
+
+# Secrets and keys (CRITICAL - never commit these)
+**/*seed*
+**/*mnemonic*
+**/*private*
+**/*key*
+**/*secret*
+*.pem
+*.key
+id_rsa*
 
 # OS files
 .DS_Store
@@ -21,4 +38,9 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
 added-zk-to-gitignore
+
+# Additional security ignores
+*.env.production
+*.env.local

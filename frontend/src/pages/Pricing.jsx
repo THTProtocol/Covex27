@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, X as XIcon, ShieldCheck, Loader2, ArrowLeft } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';

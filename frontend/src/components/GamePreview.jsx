@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Zap } from 'lucide-react';
 import ChessMini from './chess/ChessMini';
 // Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
 // Covex main pages (Explorer) must remain neutral — no gambling visuals.
@@ -53,7 +54,7 @@ const CircuitBadge = ({ compact }) => {
     <div className="flex items-center justify-center bg-black/30 rounded-lg"
       style={{ height: compact ? '140px' : '220px' }}>
       <div className="text-center">
-        <div className="text-4xl mb-2">⚡</div>
+        <div className="text-4xl mb-2"><Zap size={40} className="mx-auto text-gray-400" /></div>
         <p className="text-xs text-gray-200 font-mono uppercase tracking-wider">
           ZK Circuit
         </p>

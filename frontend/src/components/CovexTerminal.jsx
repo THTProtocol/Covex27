@@ -5,7 +5,7 @@ import {
   ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
   Zap, AlertTriangle, CheckCircle2, Info, Key, Palette,
   Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft,
-  Loader, Server, XCircle, Clock, BadgeCheck, Globe,
+  Loader, Server, XCircle, Clock, BadgeCheck, Globe, Rocket,
 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
@@ -34,7 +34,7 @@ export const ZK_CIRCUIT_TYPES = [
   { 
     id: 'chess_v1', 
     name: 'Chess (FIDE)', 
-    emoji: '♟', 
+    emoji: '',
     description: 'Proves complete legal play on 8×8 board according to FIDE rules: castling, en passant, checkmate, stalemate, 50-move rule, threefold repetition. The only fully specified p2p ZK game circuit.', 
     circuit: 'chess_v1', 
     accent: '#49EACB',
@@ -43,7 +43,7 @@ export const ZK_CIRCUIT_TYPES = [
   { 
     id: 'merkle_membership', 
     name: 'Merkle Membership', 
-    emoji: '⊞', 
+    emoji: '',
     description: 'Proves a key/value pair exists in a committed Merkle tree without revealing sibling leaves. Used for whitelist/airdrop eligibility, token-gated access, DAO voting power proofs.', 
     circuit: 'merkle_generic', 
     accent: '#3B82F6',
@@ -52,7 +52,7 @@ export const ZK_CIRCUIT_TYPES = [
   { 
     id: 'range_proof', 
     name: 'Range Proof', 
-    emoji: '∈', 
+    emoji: '',
     description: 'Proves a committed value lies within [min, max] without revealing the value. Used for KYC-free age verification, collateral sufficiency, tier qualification.', 
     circuit: 'bulletproofs_v1', 
     accent: '#22C55E',
@@ -61,7 +61,7 @@ export const ZK_CIRCUIT_TYPES = [
   { 
     id: 'age_verification', 
     name: 'Age Verification', 
-    emoji: '🎂', 
+    emoji: '',
     description: 'Proves a birthdate is at least N years before a reference date (18+, 21+) without revealing exact birthdate. Zero-knowledge KYC alternative.', 
     circuit: 'age_verify_v1', 
     accent: '#F59E0B',
@@ -70,7 +70,7 @@ export const ZK_CIRCUIT_TYPES = [
   { 
     id: 'verifiable', 
     name: 'Verifiable Compute', 
-    emoji: '⚡', 
+    emoji: '',
     description: 'General-purpose circuit for proving correctness of arbitrary computation: custom predicates, state transitions, off-chain execution verification.', 
     circuit: 'risc0_generic', 
     accent: '#A855F7',
@@ -79,7 +79,7 @@ export const ZK_CIRCUIT_TYPES = [
   { 
     id: 'custom', 
     name: 'Custom Circuit', 
-    emoji: '⚙', 
+    emoji: '',
     description: 'Supply any audited circuit definition and its verifier key for a verifiable statement not covered above.', 
     circuit: 'custom', 
     accent: '#E8AF34',
@@ -1152,7 +1152,6 @@ ${gameMeta.outcomeBranches}
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm">{gt.emoji}</span>
                     <span className={`text-xs font-bold ${selected ? 'text-kaspa-green' : 'text-white'}`}>
                       {gt.name}
                     </span>
@@ -1453,7 +1452,7 @@ ${gameMeta.outcomeBranches}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 leading-relaxed">
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">ZK vs Oracle</p>
-                <p>ZK proofs (where circuits and zkeys exist) provide cryptographic verification of computation. Currently, only Merkle Membership has a complete proving pipeline. Oracles are faster but require trust in the key holder. Range Proof circuit foundation exists (Phase 9), awaiting zkey generation for live verification. For external data (price feeds, weather), use an Oracle.</p>
+                <p>ZK proofs (where circuits and zkeys exist) provide cryptographic verification of computation. Currently, only Merkle Membership has a complete proving pipeline. Oracles are faster but require trust in the key holder. Range Proof circuit foundation exists, awaiting zkey generation for live verification. For external data (price feeds, weather), use an Oracle.</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Reusability</p>
@@ -1480,7 +1479,7 @@ ${gameMeta.outcomeBranches}
               <div className="p-1.5 rounded-lg bg-[#49EACB]/20">
                 <Play size={16} className="text-[#49EACB]" />
               </div>
-              <span>Chess v1 — Client-Side Demo</span>
+              <span>Chess v1: Client-Side Demo</span>
               <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] font-mono border border-[#49EACB]/30">FIDE (chess.js)</span>
             </div>
             <div className="text-right">
@@ -1517,9 +1516,9 @@ ${gameMeta.outcomeBranches}
               <div className="font-mono text-xs text-gray-400">
                 {chessMatchState === 'idle' && 'POST STAKE TO OPEN A MATCH'}
                 {chessMatchState === 'posted' && 'WAITING FOR OPPONENT TO MATCH YOUR STAKE'}
-                {chessMatchState === 'matched' && `MATCHED vs ${chessOpponent} — WHITE TO MOVE`}
+                {chessMatchState === 'matched' && `MATCHED vs ${chessOpponent} - WHITE TO MOVE`}
                 {chessMatchState === 'playing' && `PLAYING vs ${chessOpponent} • ${chessGame.turn() === 'w' ? 'WHITE' : 'BLACK'} TO MOVE`}
-                {chessMatchState === 'finished' && chessResult && `GAME OVER — ${chessResult.outcome.toUpperCase()} WINS (${chessResult.method})`}
+                {chessMatchState === 'finished' && chessResult && `GAME OVER: ${chessResult.outcome.toUpperCase()} WINS (${chessResult.method})`}
               </div>
               <div className="flex gap-2">
                 {chessMatchState !== 'idle' && (
@@ -1562,7 +1561,7 @@ ${gameMeta.outcomeBranches}
                     onClick={postStakeForMatch}
                     className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                   >
-                    POST {chessStake} KAS — OPEN FOR MATCH (DEMO)
+                    POST {chessStake} KAS - OPEN FOR MATCH (DEMO)
                   </button>
                 )}
                 {chessMatchState === 'posted' && (
@@ -1578,7 +1577,7 @@ ${gameMeta.outcomeBranches}
                     onClick={() => setChessMatchState('playing')}
                     className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm"
                   >
-                    START PLAYING — WHITE MOVES FIRST
+                    START PLAYING - WHITE MOVES FIRST
                   </button>
                 )}
                 {chessMatchState === 'playing' && (
@@ -1607,7 +1606,7 @@ ${gameMeta.outcomeBranches}
             {chessZkVerified && chessResult && (
               <div className="mt-3 p-4 rounded-xl bg-purple-500/[0.06] border border-purple-500/30 text-sm">
                 <div className="flex items-center gap-2 text-amber-400 mb-2">
-                  <AlertTriangle size={15} /> GAME RESULT SIMULATED — client-side only (no ZK verification)
+                  <AlertTriangle size={15} /> GAME RESULT SIMULATED: client-side only (no ZK verification)
                 </div>
                 <div className="font-mono text-xs text-gray-400 break-all mb-3">Simulated hash (placeholder, not a real proof): {chessProofHash}</div>
 
@@ -1637,13 +1636,13 @@ ${gameMeta.outcomeBranches}
         </section>
       )}
 
-      {/* Phase 16: Mainnet Production Excellence Banner */}
+      {/* Mainnet Production Banner */}
       {isMainnet && (
         <div className="mb-6 p-4 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/5">
           <div className="flex items-center gap-3">
-            <span className="text-emerald-400 text-xl">🚀</span>
+            <Rocket size={24} className="text-emerald-400" />
             <div>
-              <div className="font-bold text-emerald-400">MAINNET MODE — REAL CAPITAL AT RISK</div>
+              <div className="font-bold text-emerald-400">MAINNET MODE: REAL CAPITAL AT RISK</div>
               <div className="text-sm text-emerald-300/80 mt-1">
                 You are configuring a covenant on Kaspa mainnet. All funds are real. Double-check your resolution logic, oracle settings, and payout model. 
                 There are no do-overs on mainnet.
@@ -1936,7 +1935,7 @@ ${gameMeta.outcomeBranches}
                   {zkCircuit === 'age_verify_v1' &&
                     'Proves age ≥ threshold without revealing exact birthdate. Zero-knowledge KYC alternative.'}
                   {zkCircuit === 'risc0_generic' &&
-                    'Proves correct execution of arbitrary computation (design target — no circuit exists yet).'}
+                    'Proves correct execution of arbitrary computation (design target, no circuit exists yet).'}
                   {zkCircuit === 'custom' &&
                     'Provide your own circuit definition and verifier key. Only use audited circuits from trusted sources.'}
                 </p>
@@ -1997,7 +1996,7 @@ ${gameMeta.outcomeBranches}
               <div className="p-1.5 rounded-lg bg-[#3B82F6]/20">
                 <Server size={16} className="text-[#3B82F6]" />
               </div>
-              <span>Oracle Resolution — Submit ZK Proof</span>
+              <span>Oracle Resolution: Submit ZK Proof</span>
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded bg-[#3B82F6]/10 text-[#3B82F6]/80 font-mono border border-[#3B82F6]/30">
               LIVE ORACLE
@@ -2120,7 +2119,7 @@ ${gameMeta.outcomeBranches}
                 <div className="p-3 rounded-xl bg-black/40 border border-white/10">
                   <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Outcome</p>
                   <p className="text-lg font-bold text-white">
-                    {oracleResult.outcome === 0 ? 'PROVEN — Claimant Wins' : 'REJECTED — Depositor Keeps Stake'}
+                    {oracleResult.outcome === 0 ? 'PROVEN: Claimant Wins' : 'REJECTED: Depositor Keeps Stake'}
                   </p>
                   <p className="text-[10px] text-gray-200 mt-0.5">
                     outcome={oracleResult.outcome} (0=claimant, 1=depositor)
@@ -2172,7 +2171,7 @@ ${gameMeta.outcomeBranches}
                     Copy this signature and use it as witness data when unlocking the covenant on testnet.
                     The unlock transaction must include the oracle signature + outcome as witness fields.
                     The covenant script should verify the signature against the oracle's public key before releasing funds.
-                    See TASK 2 in the Phase 3 specification for the covenant template unlock path.
+                    See TASK 2 in the specification for the covenant template unlock path.
                   </p>
                 </div>
               </div>
@@ -2185,7 +2184,7 @@ ${gameMeta.outcomeBranches}
       <section className={SECTION_BASE}>
         <div className={SECTION_HEADER}>
           <Palette size={16} />
-          Phase 11 — Design in Covenant Studio
+          Design in Covenant Studio
         </div>
 
         <p className="text-xs text-gray-300 leading-relaxed">
@@ -2229,7 +2228,7 @@ ${gameMeta.outcomeBranches}
           className="w-full mt-2 py-3 rounded-xl bg-[#49EACB] text-black font-bold flex items-center justify-center gap-2 hover:bg-[#3dd9b8] active:scale-[0.985] transition-all"
         >
           <ExternalLink size={16} />
-          Open in Covenant Studio (Phase 11)
+          Open in Covenant Studio
         </button>
 
         <p className="text-[10px] text-gray-500 mt-2 text-center">
@@ -2240,7 +2239,7 @@ ${gameMeta.outcomeBranches}
           onClick={() => navigate('/advanced')}
           className="mt-3 w-full py-2 text-sm rounded-xl border border-[#A855F7]/40 text-[#A855F7] hover:bg-[#A855F7]/10 transition"
         >
-          Open Advanced Primitives Composer (Phase 14)
+          Open Advanced Primitives Composer
         </button>
 
         <div className="mt-4">

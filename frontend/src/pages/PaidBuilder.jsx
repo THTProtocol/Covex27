@@ -114,10 +114,7 @@ export default function PaidBuilder() {
             <div className="font-medium text-white group-hover:text-[#49EACB] transition">Analytics</div>
             <div className="text-xs text-gray-400 mt-1">Performance and insights</div>
           </a>
-          <a href="/governance" className="block p-4 rounded-2xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition group">
-            <div className="font-medium text-white group-hover:text-[#49EACB] transition">Governance</div>
-            <div className="text-xs text-gray-400 mt-1">Platform direction</div>
-          </a>
+
         </div>
       </div>
 

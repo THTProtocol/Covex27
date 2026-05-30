@@ -88,7 +88,7 @@ export default function AdvancedComposer() {
       </div>
 
       <div className="mt-6 text-xs text-gray-500 text-center">
-        These settings will be merged into your covenant configuration using the Phase 11 protocol and can be further refined in the Terminal or sent to Covenant Studio.
+        These settings will be merged into your covenant configuration using the shared config protocol and can be further refined in the Terminal or sent to Covenant Studio.
       </div>
     </div>
   );

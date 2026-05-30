@@ -218,7 +218,7 @@ export default function PremiumBuilder() {
             {ZK_CIRCUIT_TYPES.map(gt => (
               <button key={gt.id} onClick={() => handleGameTypeChange(gt.id)}
                 className={`p-4 rounded-xl border text-left transition ${gameType === gt.id ? 'border-[#49EACB] bg-[#49EACB]/5 ring-1 ring-[#49EACB]/30' : 'border-white/5 hover:border-white/10 bg-black/40'}`}>
-                <div className="text-3xl mb-1">{gt.emoji}</div>
+                <div className="text-3xl mb-1">{gt.name[0]}</div>
                 <div className="font-semibold text-white text-sm">{gt.name}</div>
                 <div className="text-[10px] text-gray-300 mt-0.5">{gt.description}</div>
               </button>

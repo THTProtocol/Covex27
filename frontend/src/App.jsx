@@ -11,7 +11,7 @@ import TemplateLibrary from './pages/TemplateLibrary';
 import AdvancedComposer from './pages/AdvancedComposer';
 import Marketplace from './pages/Marketplace';
 import Analytics from './pages/Analytics';
-import Governance from './pages/Governance';
+
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
 import Deploy from './pages/Deploy';
@@ -95,8 +95,8 @@ export default function App() {
               <NavLink to="/" end className={NL}>
                 Explore
               </NavLink>
-              <NavLink to="/what-is-kaspa" className={NL}>
-                About
+              <NavLink to="/kaspa" className={NL}>
+                Kaspa
               </NavLink>
               <NavLink to="/pricing" className={NL}>
                 Pricing
@@ -112,7 +112,7 @@ export default function App() {
             <Route path="/" element={<Explorer />} />
             <Route path="/explorer" element={<Explorer />} />
             <Route path="/covenant/:id" element={<CovenantInteractive />} />
-            <Route path="/what-is-kaspa" element={<WhatIsKaspaPage />} />
+            <Route path="/kaspa" element={<WhatIsKaspaPage />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/terms" element={<Terms />} />
@@ -125,7 +125,7 @@ export default function App() {
             <Route path="/multi-oracle" element={<AdvancedComposer />} /> {/* Phase 15 focused entry */}
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/governance" element={<Governance />} />
+
           </Routes>
         </div>
 

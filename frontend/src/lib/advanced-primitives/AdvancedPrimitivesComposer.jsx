@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Scale } from 'lucide-react';
 
 /**
  * Phase 14: Advanced Covenant Primitives Composer
@@ -150,7 +151,7 @@ export default function AdvancedPrimitivesComposer({ initialConfig, onChange }) 
       {/* Dispute */}
       <div className="border border-white/10 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[#49EACB]">⚖️</span>
+          <span className="text-[#49EACB]"><Scale size={18} /></span>
           <span className="font-semibold text-white">Dispute / Challenge System</span>
           <label className="ml-auto flex items-center gap-2 text-xs">
             <input 

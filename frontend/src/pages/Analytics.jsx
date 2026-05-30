@@ -50,7 +50,7 @@ export default function Analytics() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
             <div className="text-sm text-gray-400">Your Covenants</div>
-            <div className="text-4xl font-bold mt-2">{data?.total_covenants ?? '—'}</div>
+            <div className="text-4xl font-bold mt-2">{data?.total_covenants ?? '0'}</div>
           </div>
           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
             <div className="text-sm text-gray-400">Total Value Locked</div>

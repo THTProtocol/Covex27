@@ -254,7 +254,7 @@ export default function PaidDeploy() {
                 onClick={() => handleGameTypeChange(gt.id)}
                 className={`p-4 rounded-xl border text-left transition-all flex flex-col ${gameType === gt.id ? 'border-[#49EACB] bg-[#49EACB]/[0.06] ring-1 ring-[#49EACB]/30' : 'border-white/[0.06] bg-black/30 hover:border-white/10'}`}
               >
-                <div className="text-2xl mb-1">{gt.emoji}</div>
+                <div className="text-2xl mb-1">{gt.name[0]}</div>
                 <div className="text-sm font-semibold text-white">{gt.name}</div>
                 <div className="text-[10px] text-gray-300 mt-0.5 line-clamp-2">{gt.description}</div>
               </button>

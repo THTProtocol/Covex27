@@ -48,7 +48,13 @@ export default function AdvancedComposer() {
     };
 
     sessionStorage.setItem('pending_covenant_config', JSON.stringify(baseConfig));
-    navigate('/deploy?advanced=true');
+    // Paid users go to premium, free users to deploy
+    const tier = localStorage.getItem('covex_paid_tier');
+    if (tier && tier !== 'FREE') {
+      navigate('/premium?advanced=true');
+    } else {
+      navigate('/deploy?advanced=true');
+    }
   };
 
   return (

@@ -36,7 +36,13 @@ export default function TemplateLibrary() {
     sessionStorage.setItem('selected_template_id', template.id);
 
     // Navigate to Terminal with template pre-loaded
-    navigate('/deploy?template=' + template.id);
+    // Paid users go to their paid builder area; free users go to free deploy
+    const tier = localStorage.getItem('covex_paid_tier');
+    if (tier && tier !== 'FREE') {
+      navigate('/premium?template=' + template.id);
+    } else {
+      navigate('/deploy?template=' + template.id);
+    }
   };
 
   const handlePreview = (template) => {

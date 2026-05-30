@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, Query},
     routing::get,
+    routing::post,
     Extension, Json, Router,
 };
 use serde_json::json;
@@ -157,6 +158,9 @@ async fn main() {
                 .layer(Extension(db.clone())),
         )
         .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
+        .route("/analytics", get(analytics_handler))
+        .route("/marketplace/templates", get(marketplace_templates_handler))
+        .route("/marketplace/publish", post(marketplace_publish_handler))
         .merge(oracle::oracle_routes())
         .layer(app);
 
@@ -487,5 +491,81 @@ async fn terminal_config_challenge_handler(
         "nonce": nonce,
         "message": message,
         "note": "Sign this exact message with your wallet to prove ownership of the covenant"
+    }))
+}
+
+// ── Analytics handler (Phase 18) ────────────────────────────────
+
+async fn analytics_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let creator = params.get("creator").cloned();
+
+    if let Some(addr) = &creator {
+        let covenants = db::get_covenants_by_creator(&db, addr).unwrap_or_default();
+        let total_val: f64 = covenants.iter().map(|c| c.amount_kaspa).sum();
+        let count = covenants.len();
+        Json(json!({
+            "total_covenants": count,
+            "total_value_kas": (total_val * 100.0).round() / 100.0,
+            "active_covenants": covenants.iter().filter(|c| c.is_active).count(),
+            "resolutions": 0,
+            "reputation_score": if count > 0 { 100 } else { 0 }
+        }))
+    } else {
+        let total = db::count_covenants(&db).unwrap_or(0);
+        let active = db::count_active_covenants(&db).unwrap_or(0);
+        let verified = db::count_verified_covenants(&db).unwrap_or(0);
+        Json(json!({
+            "total_covenants": total,
+            "total_value_kas": 0,
+            "active_covenants": active,
+            "verified_covenants": verified,
+            "resolutions": 0
+        }))
+    }
+}
+
+// ── Marketplace handlers (Phase 18) ─────────────────────────────
+
+async fn marketplace_templates_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    let uis = db::get_generated_uis(&db, None).unwrap_or_default();
+    let publishable: Vec<serde_json::Value> = uis
+        .into_iter()
+        .filter(|ui| ui.get("is_published").and_then(|v| v.as_bool()).unwrap_or(false))
+        .map(|ui| json!({
+            "id": ui.get("covenant_id").and_then(|v| v.as_str()).unwrap_or(""),
+            "name": ui.get("slug").and_then(|v| v.as_str()).unwrap_or("Untitled Template"),
+            "description": "",
+            "author": ui.get("owner_address").and_then(|v| v.as_str()).unwrap_or("unknown"),
+            "price_kas": 0,
+            "downloads": 0
+        }))
+        .collect();
+    Json(json!({"templates": publishable, "total": publishable.len()}))
+}
+
+#[derive(Deserialize)]
+struct MarketplacePublishInput {
+    name: String,
+    description: Option<String>,
+    author: String,
+    #[serde(default)]
+    price_kas: u64,
+    config: Option<serde_json::Value>,
+}
+
+async fn marketplace_publish_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(input): Json<MarketplacePublishInput>,
+) -> Json<serde_json::Value> {
+    let id = format!("tmpl_{}", uuid::Uuid::new_v4().to_string()[..12].to_string());
+    Json(json!({
+        "success": true,
+        "id": id,
+        "message": format!("Template '{}' published (mock — full marketplace coming in Phase 18 expansion)", input.name)
     }))
 }

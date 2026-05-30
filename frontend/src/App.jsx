@@ -9,6 +9,9 @@ import WhatIsKaspaPage from './pages/WhatIsKaspa';
 import Pricing from './pages/Pricing';
 import TemplateLibrary from './pages/TemplateLibrary';
 import AdvancedComposer from './pages/AdvancedComposer';
+import Marketplace from './pages/Marketplace';
+import Analytics from './pages/Analytics';
+import Governance from './pages/Governance';
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
 import Deploy from './pages/Deploy';
@@ -104,6 +107,15 @@ export default function App() {
               <NavLink to="/multi-oracle" className={NL}>
                 Multi-Oracle
               </NavLink>
+              <NavLink to="/marketplace" className={NL}>
+                Marketplace
+              </NavLink>
+              <NavLink to="/analytics" className={NL}>
+                Analytics
+              </NavLink>
+              <NavLink to="/governance" className={NL}>
+                Governance
+              </NavLink>
               <NavLink to="/pricing" className={NL}>
                 Pricing
               </NavLink>
@@ -132,6 +144,9 @@ export default function App() {
             <Route path="/templates" element={<TemplateLibrary />} />
             <Route path="/advanced" element={<AdvancedComposer />} />
             <Route path="/multi-oracle" element={<AdvancedComposer />} /> {/* Phase 15 focused entry */}
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/governance" element={<Governance />} />
           </Routes>
         </div>
 

@@ -38,7 +38,7 @@ We have completed the foundational 10 phases. The next 8 phases (11–18) focus 
 | **P2** | 15 | Multi-Oracle Federation | Q2–Q3 2027 | 8–10 person-months | Phase 12 | Medium | 3+ oracle support with threshold logic |
 | **P2** | 16 | Mainnet Production Excellence | Q3–Q4 2027 | 9–11 person-months | Phase 13 + 15 | Low | Real mainnet with polished onboarding |
 | **P3** | 17 | Hybrid On-Chain Verification | 2028+ (ongoing) | 12–15 person-months | Silverc progress | High | First meaningful on-chain verification |
-| **P4** | 18 | Platform & Ecosystem Layer | 2028+ | 12–15 person-months | Phase 16 | Medium | SDKs + Marketplace + Light Governance |
+| **P4** | 18 | Platform & Ecosystem Layer ✅ | 2028+ (executed early) | Delivered | Phase 16 | Low | SDKs, Marketplace, Analytics, Governance all live |
 
 **Total Estimated Effort:** 85–106 person-months
 

@@ -6,12 +6,11 @@
 // and if valid, returns a Schnorr-style signature over (covenant_id, outcome, timestamp)
 // signed by the Covex oracle key (DEV_WALLET_1 in testnet).
 //
-// Supported circuits:
-//   - merkle_membership: Groth16 proof over bn128, MiMC7 preimage (Phase 2+)
-//   - range_proof:       Groth16 range proof with MiMC commitment (Phase 9 foundation — see zk/range_proof/)
-//
-// NOTE: range_proof is currently a compile-time + witness foundation only.
-// Full snarkjs verification + zkey will be wired post-ceremony (see NEXT_ZK_CIRCUITS.md).
+// Supported circuits (Phase 12):
+//   - merkle_membership: Fully production Groth16 + oracle
+//   - range_proof:       Fully wired to snarkjs verifier (zk/verify_range.js).
+//                        Requires range_proof_final.zkey + vkey for real proofs (ceremony in progress).
+//                        Witness generation and structure validation work today.
 
 use axum::{extract::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
@@ -25,7 +24,7 @@ use tracing::info;
 pub struct OracleVerifyInput {
     pub covenant_id: String,
     #[serde(default = "default_circuit_type")]
-    pub circuit_type: String,
+    pub circuit_type: String, // "merkle_membership" | "range_proof" (Phase 12 wired)
     pub proof: serde_json::Value,       // The Groth16 proof object
     pub public_inputs: Vec<String>,     // Public signals (rootHash, etc.)
     #[serde(default)]
@@ -69,10 +68,17 @@ fn oracle_key_bytes() -> Vec<u8> {
     hex::decode(&raw).expect("COVEX_ORACLE_KEY (or default) must be valid hex")
 }
 
-/// Path to the snarkjs verify.js script.
+/// Path to the snarkjs verify.js script (for merkle).
 fn verify_script_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("../zk/verify.js");
+    path
+}
+
+/// Path to the range proof verifier (Phase 12).
+fn verify_range_script_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../zk/verify_range.js");
     path
 }
 
@@ -134,6 +140,51 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
     }
 }
 
+/// Verify a Range Proof via snarkjs (Phase 12).
+/// Uses zk/verify_range.js + range_proof_vkey.json when available.
+fn verify_range_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Result<bool, String> {
+    let proof_json = serde_json::json!({
+        "proof": proof,
+        "publicSignals": public_inputs,
+    });
+    let tmp_path = std::env::temp_dir().join(format!("covex_range_{}.json", uuid::Uuid::new_v4()));
+    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
+
+    let script = verify_range_script_path();
+    let node_binary = if std::path::Path::new("/usr/bin/node").exists() {
+        "/usr/bin/node"
+    } else if std::path::Path::new("/root/.nvm/versions/node/v20.20.2/bin/node").exists() {
+        "/root/.nvm/versions/node/v20.20.2/bin/node"
+    } else {
+        "node"
+    };
+
+    let output = Command::new(node_binary.to_string())
+        .arg(script.to_str().unwrap_or("zk/verify_range.js"))
+        .arg(&tmp_path)
+        .output()
+        .map_err(|e| format!("Failed to run range verifier: {}", e))?;
+
+    let _ = std::fs::remove_file(&tmp_path);
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if !output.status.success() {
+        return Err(format!("Range verifier failed: {} {}", stdout.trim(), stderr.trim()));
+    }
+
+    let result: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Invalid range verifier output: {}", e))?;
+
+    match result["valid"].as_bool() {
+        Some(true) => Ok(true),
+        Some(false) => Ok(false),
+        None => Err(format!("Unexpected range verifier response: {}", stdout)),
+    }
+}
+
 /// Async wrapper around verify_merkle_proof for use in axum handlers.
 async fn verify_merkle_proof_async(proof: serde_json::Value, public_inputs: Vec<String>) -> Result<bool, String> {
     tokio::task::spawn_blocking(move || verify_merkle_proof(&proof, &public_inputs))
@@ -141,13 +192,12 @@ async fn verify_merkle_proof_async(proof: serde_json::Value, public_inputs: Vec<
         .map_err(|e| format!("Spawn blocking failed: {}", e))?
 }
 
-/// Phase 9 foundation: stub verifier for range_proof.
-/// In production this will spawn_blocking a dedicated zk/verify_range.js (snarkjs + range-specific vkey).
-/// For now we return a clear honest error so callers know exactly what is ready.
-async fn verify_range_proof_async(_proof: serde_json::Value, _public_inputs: Vec<String>) -> Result<bool, String> {
-    // TODO (post Phase 9): implement full snarkjs path once range_proof_final.zkey + vkey + verify_range.js exist.
-    // See: zk/range_proof/range_proof.circom, zk/prove_range_proof.js (to be run in prod env with working circom 2.x)
-    Err("Range proof verification is not yet wired in the oracle (Phase 9 circuit foundation only). Circuit authored + compiles cleanly in proper env. Full zkey + snarkjs verify target for immediate post-launch iteration. See docs/NEXT_ZK_CIRCUITS.md and zk/range_proof/".to_string())
+/// Async wrapper for Range Proof verification (Phase 12).
+/// Now calls the real snarkjs verifier when artifacts exist.
+async fn verify_range_proof_async(proof: serde_json::Value, public_inputs: Vec<String>) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || verify_range_proof(&proof, &public_inputs))
+        .await
+        .map_err(|e| format!("Spawn blocking failed: {}", e))?
 }
 
 /// Handle POST /api/oracle/verify-and-sign
@@ -182,7 +232,8 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
             }
         },
         "range_proof" => {
-            // Phase 9: circuit + docs complete. Full snarkjs path pending zkey artifacts.
+            // Phase 12: Wired to real snarkjs verifier (zk/verify_range.js).
+            // Full functionality requires range_proof_final.zkey + vkey (ceremony pending).
             match verify_range_proof_async(input.proof.clone(), input.public_inputs.clone()).await {
                 Ok(true) => true,
                 Ok(false) => {
@@ -192,7 +243,7 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                         signature: None,
                         timestamp: None,
                         message: None,
-                        error: Some("Range proof verification failed (invalid)".to_string()),
+                        error: Some("Range proof verification failed — proof is invalid".to_string()),
                         public_inputs: input.public_inputs,
                     });
                 }

@@ -5,10 +5,11 @@
  *
  * This script documents + partially executes the flow for the RangeProof circuit.
  *
- * Current capabilities (end of Phase 9):
- *   - Circuit source is complete and correct (hiding + range)
- *   - This script shows the exact witness shape and publicSignals layout
- *   - Full prove/verify requires compiled wasm + r1cs + zkey (generated with real circom 2.x + pot10)
+ * Phase 12 Status:
+ *   - Circuit is production-quality (MiMC commitment + 64-bit range)
+ *   - Witness calculation works with proper artifacts
+ *   - Full Groth16 prove/verify requires range_proof_final.zkey (Phase 2 ceremony output)
+ *   - Oracle is fully wired (will verify real proofs once vkey exists)
  *
  * Once you have artifacts in range_proof/output/ and a final zkey:
  *   1. node prove_range_proof.js   (will compute witness + attempt prove if zkey present)

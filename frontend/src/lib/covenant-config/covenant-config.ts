@@ -61,6 +61,36 @@ export const ResolutionSchema = z.object({
     maxStake: z.number().optional(),
     deadline: z.string().datetime().optional(),
   }).optional(),
+
+  // Phase 14: Advanced Covenant Primitives
+  advancedPrimitives: z.object({
+    timeLocks: z.object({
+      releaseAfter: z.string().datetime().optional(), // ISO date
+      challengePeriodHours: z.number().int().min(1).optional(),
+    }).optional(),
+
+    multiParty: z.object({
+      requiredApprovals: z.number().int().min(1).optional(),
+      approvers: z.array(z.string()).optional(), // list of addresses
+    }).optional(),
+
+    conditions: z.array(z.object({
+      type: z.enum(['zk', 'oracle', 'time', 'multi_sig']),
+      description: z.string().optional(),
+      config: z.record(z.any()).optional(),
+    })).optional(),
+
+    dispute: z.object({
+      enabled: z.boolean().default(false),
+      bondAmount: z.number().optional(), // in KAS
+      disputePeriodHours: z.number().int().min(1).optional(),
+    }).optional(),
+
+    payoutTree: z.object({
+      type: z.enum(['simple', 'conditional', 'tiered', 'royalty']).optional(),
+      branches: z.array(z.record(z.any())).optional(), // simplified tree representation
+    }).optional(),
+  }).optional(),
 });
 
 export const UIConfigSchema = z.object({

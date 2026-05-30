@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Terminal, Settings, Code2, Gavel, Save, ExternalLink,
   ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
@@ -13,6 +14,7 @@ import { useWallet } from './WalletContext';
 // Phase 11: Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
+import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
@@ -371,6 +373,8 @@ function ResolutionCard({ icon: Icon, title, desc, selected, onClick, accent = '
 }
 
 export default function CovexTerminal({ covenant }) {
+  const navigate = useNavigate();
+
   // ── Wallet (for signing ownership challenges) ──
   const { address: connectedAddress, signMessage } = useWallet();
 
@@ -2198,6 +2202,13 @@ ${gameMeta.outcomeBranches}
         <p className="text-[10px] text-gray-500 mt-2 text-center">
           This will open Covenant Studio with your current settings pre-loaded (deep link).
         </p>
+
+        <button
+          onClick={() => navigate('/advanced')}
+          className="mt-3 w-full py-2 text-sm rounded-xl border border-[#A855F7]/40 text-[#A855F7] hover:bg-[#A855F7]/10 transition"
+        >
+          Open Advanced Primitives Composer (Phase 14)
+        </button>
       </section>
 
       {/* ─── Section D: Generated SilverScript ─── */}

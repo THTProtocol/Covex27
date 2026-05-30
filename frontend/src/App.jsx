@@ -8,6 +8,7 @@ import CovenantInteractive from './pages/CovenantInteractive';
 import WhatIsKaspaPage from './pages/WhatIsKaspa';
 import Pricing from './pages/Pricing';
 import TemplateLibrary from './pages/TemplateLibrary';
+import AdvancedComposer from './pages/AdvancedComposer';
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
 import Deploy from './pages/Deploy';
@@ -97,6 +98,9 @@ export default function App() {
               <NavLink to="/templates" className={NL}>
                 Templates
               </NavLink>
+              <NavLink to="/advanced" className={NL}>
+                Advanced
+              </NavLink>
               <NavLink to="/pricing" className={NL}>
                 Pricing
               </NavLink>
@@ -123,6 +127,7 @@ export default function App() {
             <Route path="/paid-builder" element={<PaidBuilder />} />
             <Route path="/premium" element={<PremiumBuilder />} />
             <Route path="/templates" element={<TemplateLibrary />} />
+            <Route path="/advanced" element={<AdvancedComposer />} />
           </Routes>
         </div>
 

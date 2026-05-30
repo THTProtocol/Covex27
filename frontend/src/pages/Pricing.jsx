@@ -89,6 +89,7 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
   const [isMainnet, setIsMainnet] = useState(false);
+  const TREASURY = getTreasuryAddress(isMainnet);
 
   useEffect(() => {
     fetch('/api/status')
@@ -187,7 +188,7 @@ const Pricing = () => {
     } catch (err) {
       setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (err.message || 'Network error') });
     }
-  }, [awaitingConfirmation, payingTier, sendPayment, navigate]);
+  }, [awaitingConfirmation, payingTier, sendPayment, navigate, TREASURY]);
 
   const cancelPayment = () => {
     setAwaitingConfirmation(null);

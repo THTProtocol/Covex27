@@ -16,6 +16,8 @@ export default class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const msg = this.state.error?.message || String(this.state.error) || 'Unknown error';
+      console.error('Covex ErrorBoundary:', this.state.error);
       return (
         <div style={{ 
           minHeight: '100vh', 
@@ -27,7 +29,7 @@ export default class ErrorBoundary extends React.Component {
           padding: '40px',
           fontFamily: 'system-ui, sans-serif'
         }}>
-          <div style={{ maxWidth: '480px', textAlign: 'center' }}>
+          <div style={{ maxWidth: '560px', textAlign: 'center' }}>
             <h1 style={{ fontSize: '28px', marginBottom: '16px', color: '#49EACB' }}>
               Something went wrong
             </h1>
@@ -35,6 +37,20 @@ export default class ErrorBoundary extends React.Component {
               We hit an unexpected error while loading the page. 
               This is usually temporary.
             </p>
+            <pre style={{ 
+              background: '#111', 
+              color: '#F87171', 
+              padding: '12px', 
+              borderRadius: '8px', 
+              fontSize: '12px', 
+              overflow: 'auto',
+              textAlign: 'left',
+              marginBottom: '24px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}>
+              {msg}
+            </pre>
             <button 
               onClick={() => window.location.reload()}
               style={{

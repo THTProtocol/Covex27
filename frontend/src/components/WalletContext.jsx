@@ -677,7 +677,7 @@ export function WalletProvider({ children }) {
       config={{
         appName: 'Covex',
         network: 'testnet-12',
-        autoConnect: true,
+        autoConnect: false,
         adapters: [kaswareAdapter()],
       }}
     >

@@ -15,6 +15,10 @@
         background: #1a0000; border-bottom: 2px solid #ff4444;
         color: #ff8888; font: 12px/1.5 monospace; padding: 16px; max-height: 50vh; overflow: auto;
       }
+      #covex-error-dismiss {
+        float: right; background: none; border: 1px solid #ff4444; color: #ff4444;
+        cursor: pointer; padding: 2px 8px; font: 11px monospace; border-radius: 4px;
+      }
     </style>
   </head>
   <body>
@@ -23,25 +27,33 @@
     <script>
       window.__covexErrors = [];
       var ed = document.getElementById('covex-error-display');
+      // Wallet init rejections from @kasflow are expected when no wallet extension is present
+      function isWalletNoise(msg) {
+        return /wallet|account|passkey|kasflow|connect/i.test(msg) && !/covex/i.test(msg);
+      }
       function showErrors() {
-        if (window.__covexErrors.length > 0) {
+        var real = window.__covexErrors.filter(function(e) { return !isWalletNoise(e); });
+        if (real.length > 0) {
           ed.style.display = 'block';
-          ed.innerHTML = '<strong>Startup Errors:</strong><br>' + window.__covexErrors.map(function(e,i) { return (i+1) + '. ' + e; }).join('<br>');
+          ed.innerHTML = '<button id="covex-error-dismiss" onclick="document.getElementById(\'covex-error-display\').style.display=\'none\'">Dismiss</button><strong>Startup Errors:</strong><br>' + real.map(function(e,i) { return (i+1) + '. ' + e; }).join('<br>');
         }
       }
       window.addEventListener('error', function(e) {
         if (e.target && e.target.tagName === 'SCRIPT') {
           window.__covexErrors.push('SCRIPT LOAD FAIL: ' + (e.target.src || 'inline'));
         } else {
-          window.__covexErrors.push('ERROR: ' + (e.message || e.error || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+          var msg = (e.message || e.error || 'unknown');
+          if (!isWalletNoise(msg)) {
+            window.__covexErrors.push('ERROR: ' + msg + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+          }
         }
         showErrors();
       });
       window.addEventListener('unhandledrejection', function(e) {
-        window.__covexErrors.push('REJECTION: ' + (e.reason && (e.reason.message || String(e.reason))));
+        var msg = e.reason && (e.reason.message || String(e.reason));
+        window.__covexErrors.push('REJECTION: ' + msg);
         showErrors();
       });
-      // Also catch after 3s delay
       setTimeout(showErrors, 3000);
     </script>
     <script type="module" src="/src/main.jsx"></script>

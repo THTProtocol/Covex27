@@ -4,6 +4,7 @@ import { Terminal, Database, Search, Zap, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { useWallet } from '../components/WalletContext';
 
 const TIER_STYLES = {
@@ -108,16 +109,15 @@ export default function Explorer() {
         })}
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-3 text-gray-500" size={18} />
-          <input
-            type="text"
+      {/* Search - now using shadcn Input */}
+      <div className="mb-6 max-w-md">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+          <Input
             placeholder="Search by name, description, or category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-[#49EACB]/50"
+            className="pl-10"
           />
         </div>
       </div>

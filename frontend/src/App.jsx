@@ -17,6 +17,8 @@ import Deploy from './pages/Deploy';
 import PaidDeploy from './pages/PaidDeploy';
 import PaidBuilder from './pages/PaidBuilder';
 import PremiumBuilder from './pages/PremiumBuilder';
+import { ThemeProvider } from './components/ThemeProvider';
+import { ThemeToggle } from './components/ThemeToggle';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
@@ -46,48 +48,51 @@ function SmartDeployLink() {
 
 export default function App() {
   return (
-    <WalletProvider>
-      <BrowserRouter>
-        <DagBackground />
-        <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/85 backdrop-blur-lg border-b border-white/5">
-          <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-            <Link to="/" className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] flex items-center gap-2.5">
-              COVEX
-            </Link>
-            <div className="flex items-center gap-6">
-              <NavLink to="/" end className={NL}>Explore</NavLink>
-              <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
-              <NavLink to="/pricing" className={NL}>Pricing</NavLink>
-              <SmartDeployLink />
-              <WalletButton />
+    <ThemeProvider>
+      <WalletProvider>
+        <BrowserRouter>
+          <DagBackground />
+          <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/85 backdrop-blur-lg border-b border-white/5">
+            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+              <Link to="/" className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] flex items-center gap-2.5">
+                COVEX
+              </Link>
+              <div className="flex items-center gap-6">
+                <NavLink to="/" end className={NL}>Explore</NavLink>
+                <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
+                <NavLink to="/pricing" className={NL}>Pricing</NavLink>
+                <SmartDeployLink />
+                <WalletButton />
+                <ThemeToggle />
+              </div>
             </div>
-          </div>
-        </nav>
+          </nav>
 
-        <div className="relative z-10 min-h-screen pt-16">
-          <Routes>
-            <Route path="/" element={<Explorer />} />
-            <Route path="/covenant/:id" element={<CovenantInteractive />} />
-            <Route path="/kaspa" element={<WhatIsKaspaPage />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/deploy" element={<Deploy />} />
-            <Route path="/deploy/paid" element={<PaidDeploy />} />
-            <Route path="/paid-builder" element={<PaidBuilder />} />
-            <Route path="/premium" element={<PremiumBuilder />} />
-            <Route path="/templates" element={<TemplateLibrary />} />
-            <Route path="/advanced" element={<AdvancedComposer />} />
-            <Route path="/analytics" element={<Analytics />} />
-          </Routes>
-        </div>
-
-        <footer className="relative z-10 border-t border-white/[0.03] py-8 px-4 text-xs text-gray-400">
-          <div className="max-w-6xl mx-auto text-center">
-            Non-custodial. Keys stay in your wallet.
+          <div className="relative z-10 min-h-screen pt-16">
+            <Routes>
+              <Route path="/" element={<Explorer />} />
+              <Route path="/covenant/:id" element={<CovenantInteractive />} />
+              <Route path="/kaspa" element={<WhatIsKaspaPage />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/deploy" element={<Deploy />} />
+              <Route path="/deploy/paid" element={<PaidDeploy />} />
+              <Route path="/paid-builder" element={<PaidBuilder />} />
+              <Route path="/premium" element={<PremiumBuilder />} />
+              <Route path="/templates" element={<TemplateLibrary />} />
+              <Route path="/advanced" element={<AdvancedComposer />} />
+              <Route path="/analytics" element={<Analytics />} />
+            </Routes>
           </div>
-        </footer>
-      </BrowserRouter>
-    </WalletProvider>
+
+          <footer className="relative z-10 border-t border-white/[0.03] py-8 px-4 text-xs text-gray-400">
+            <div className="max-w-6xl mx-auto text-center">
+              Non-custodial. Keys stay in your wallet.
+            </div>
+          </footer>
+        </BrowserRouter>
+      </WalletProvider>
+    </ThemeProvider>
   );
 }

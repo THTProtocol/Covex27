@@ -1,7 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Check, X as XIcon, ShieldCheck, Loader2, ArrowLeft } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 const TIERS = [
   {
@@ -24,6 +27,7 @@ const TIERS = [
     cta: 'Explore Covenants',
     ctaAction: 'explore',
     accent: '#6B7280',
+    variant: 'outline',
   },
   {
     id: 'BUILDER',
@@ -40,6 +44,7 @@ const TIERS = [
     cta: 'Pay 100 KAS',
     ctaAction: 'pay',
     accent: '#3B82F6',
+    variant: 'builder',
   },
   {
     id: 'PRO',
@@ -55,6 +60,7 @@ const TIERS = [
     cta: 'Pay 500 KAS',
     ctaAction: 'pay',
     accent: '#E8AF34',
+    variant: 'pro',
   },
   {
     id: 'MAX',
@@ -70,6 +76,7 @@ const TIERS = [
     cta: 'Pay 1,000 KAS',
     ctaAction: 'pay',
     accent: '#A855F7',
+    variant: 'max',
   },
 ];
 
@@ -77,7 +84,7 @@ const TESTNET_TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3v
 
 const getTreasuryAddress = (isMainnet) => {
   return isMainnet 
-    ? 'kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq'
+    ? 'kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq' // Placeholder
     : TESTNET_TREASURY;
 };
 
@@ -170,8 +177,13 @@ const Pricing = () => {
           </div>
           <h1 className="text-3xl font-black text-white mb-3">Payment Required</h1>
           <p className="text-lg text-gray-300 max-w-xl mx-auto">
-            Send exactly {p.price.toLocaleString()} KAS to unlock {p.name} tier.
+            Send exactly {p.price.toLocaleString()} KAS to unlock {p.name} tier access.
           </p>
+          {isMainnet && (
+            <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium">
+              MAINNET: You are sending REAL KAS. There are no refunds or testnet do-overs.
+            </div>
+          )}
         </div>
         {needWallet && (
           <div className="mb-8 max-w-md mx-auto">
@@ -181,24 +193,26 @@ const Pricing = () => {
             <DevConnectPanel compact />
           </div>
         )}
-        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 mb-8 text-left max-w-xl mx-auto">
-          <div className="flex justify-between py-3 border-b border-white/10">
-            <span className="text-gray-300">Tier</span>
-            <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
+        <Card className="max-w-xl mx-auto mb-8">
+          <CardContent className="p-6">
+            <div className="flex justify-between py-3 border-b border-white/10">
+              <span className="text-gray-300">Tier</span>
+              <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
+            </div>
+            <div className="flex justify-between py-3 border-b border-white/10">
+              <span className="text-gray-300">Amount</span>
+              <span className="font-mono font-bold text-white">{p.price.toLocaleString()} KAS</span>
+            </div>
+            <div className="flex justify-between py-3">
+              <span className="text-gray-300">Treasury</span>
+              <span className="font-mono text-[10px] text-gray-200 break-all">{TREASURY}</span>
+            </div>
           </div>
-          <div className="flex justify-between py-3 border-b border-white/10">
-            <span className="text-gray-300">Amount</span>
-            <span className="font-mono font-bold text-white">{p.price.toLocaleString()} KAS</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-300">Treasury</span>
-            <span className="font-mono text-[10px] text-gray-200 break-all">{TREASURY}</span>
-          </div>
-        </div>
+        </Card>
         <div className="space-y-4 max-w-md mx-auto">
-          <button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 rounded-2xl bg-[#49EACB] text-black font-black text-lg shadow-[0_0_30px_rgba(73,234,203,0.3)] hover:shadow-[0_0_50px_rgba(73,234,203,0.5)] transition-all active:scale-[0.985] disabled:opacity-60">
+          <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">
             {paymentStatus?.type === 'sending' ? 'Sending...' : `Send ${p.price.toLocaleString()} KAS Now`}
-          </button>
+          </Button>
           <button onClick={cancelPayment} className="w-full py-3 text-sm text-gray-200 hover:text-white transition">Cancel</button>
         </div>
       </div>
@@ -206,39 +220,59 @@ const Pricing = () => {
   }
 
   return (
-    <div className="relative z-10 max-w-5xl mx-auto px-6 py-16">
+    <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
       <div className="text-center max-w-2xl mx-auto mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">Deploy Interactive Covenants</h1>
-        <p className="text-sm md:text-base text-gray-200">One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility.</p>
-        <p className="mt-2 text-xs text-gray-400"><Link to="/how-covex-works" className="underline">How Covex Works →</Link></p>
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Deploy Interactive Covenants</h1>
+        <p className="text-base md:text-lg text-gray-300 leading-relaxed">
+          One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
+        </p>
+        <p className="mt-3 text-sm"><Link to="/how-covex-works" className="text-[#49EACB] underline">How Covex Works →</Link></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <div key={tier.id} className="relative bg-[#0a0a0a]/95 border rounded-2xl p-7 flex flex-col" style={{ borderColor: isFree ? 'rgba(255,255,255,0.08)' : tier.accent + '40' }}>
-              <div className="mb-5">
-                <h3 className="text-lg font-bold text-white">{tier.name}</h3>
-                <p className="text-xs text-gray-300 mt-1.5">{tier.desc}</p>
+            <Card key={tier.id} className={`flex flex-col ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{tier.name}</CardTitle>
+                  <Badge variant={tier.variant}>{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
+                </div>
+                <p className="text-sm text-gray-400 mt-1">{tier.desc}</p>
+              </CardHeader>
+              <CardContent className="flex-1">
+                <div className="space-y-2.5 mb-6">
+                  {tier.features.map((feature, i) => (
+                    <div key={i} className="flex gap-2.5 text-sm text-gray-300">
+                      <Check size={16} className="shrink-0 mt-0.5 text-[#49EACB]" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                  {tier.missing.map((feature, i) => (
+                    <div key={i} className="flex gap-2.5 text-sm text-gray-300 opacity-60">
+                      <XIcon size={16} className="shrink-0 mt-0.5" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <div className="p-6 pt-0">
+                <Button 
+                  onClick={() => handlePay(tier)} 
+                  variant={isFree ? 'outline' : 'default'}
+                  className="w-full"
+                >
+                  {tier.cta}
+                </Button>
               </div>
-              <div className="mb-5">
-                {isFree ? <span className="text-3xl font-black text-white">Free</span> : <span className="text-3xl font-black" style={{ color: tier.accent }}>{tier.price.toLocaleString()} KAS</span>}
-                <p className="text-[11px] text-gray-300 mt-1">one-time</p>
-              </div>
-              <div className="space-y-2.5 flex-1">
-                {tier.features.map((f, i) => (<div key={i} className="flex gap-2.5 text-xs text-gray-300"><Check size={14} className="mt-0.5" style={{ color: tier.accent }} />{f}</div>))}
-                {tier.missing.map((f, i) => (<div key={i} className="flex gap-2.5 text-xs text-gray-300 opacity-60"><XIcon size={14} className="mt-0.5" />{f}</div>))}
-              </div>
-              <button onClick={() => handlePay(tier)} className="w-full mt-6 px-5 py-3 rounded-xl text-sm font-bold transition-all" style={{ backgroundColor: isFree ? 'rgba(255,255,255,0.06)' : '#49EACB', color: isFree ? '#fff' : '#000' }}>
-                {tier.cta}
-              </button>
-            </div>
+            </Card>
           );
         })}
       </div>
-      <div className="text-center mt-10 text-xs text-gray-400">
-        All paid tiers include the full Terminal. Only visibility ranking changes.
+
+      <div className="text-center mt-10 text-sm text-gray-400 max-w-xl mx-auto">
+        All paid tiers include the full Covex Terminal for deploying custom interactive UIs. The only difference is your covenant's visibility ranking on the Explorer.
       </div>
     </div>
   );

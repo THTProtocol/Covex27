@@ -7,12 +7,13 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
-  /* Animation tokens */
   --animate-fade-in: fade-in 0.5s ease-out;
   --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Dark (default) + Light theme variables - cypherpunk with Kaspa green */
+/* ==========================================
+   THEME VARIABLES - Dark (default) + Light Cypherpunk
+   ========================================== */
 :root {
   --background: 5 5 10;
   --foreground: 243 244 246;
@@ -23,6 +24,7 @@
   --border: 255 255 255 / 0.08;
   --muted: 255 255 255 / 0.06;
   --accent: 73 234 203;
+  --input-bg: 0 0 0 / 0.4;
 }
 
 .light {
@@ -30,11 +32,12 @@
   --foreground: 15 23 42;
   --card: 255 255 255;
   --card-foreground: 15 23 42;
-  --primary: 20 184 166;        /* slightly deeper teal-green for light */
+  --primary: 20 184 166;
   --primary-foreground: 255 255 255;
   --border: 15 23 42 / 0.12;
   --muted: 15 23 42 / 0.08;
   --accent: 20 184 166;
+  --input-bg: 255 255 255;
 }
 
 body {
@@ -45,22 +48,86 @@ body {
 
 .light body {
   background: #f8fafc;
+  background-attachment: fixed;
 }
 
-/* Existing custom utilities kept for hybrid approach */
+/* ==========================================
+   GLASS & PANELS - Hybrid for both modes
+   ========================================== */
 .glass-panel {
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+}
+
+/* ==========================================
+   INPUTS & FORMS
+   ========================================== */
+.cyber-input, .shadcn-input {
+  background: rgb(var(--input-bg));
+  border: 1px solid rgba(73, 234, 203, 0.2);
+  color: rgb(var(--foreground));
+  transition: all 0.2s ease;
+}
+
+.light .cyber-input, .light .shadcn-input {
+  background: white;
+  border-color: rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+}
+
+/* ==========================================
+   BUTTONS - Kaspa green primary
+   ========================================== */
 .btn-kaspa-primary {
   @apply px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50;
 }
 
-/* Light mode overrides for cypherpunk elements */
-.light .glass-panel {
-  background: rgba(255,255,255,0.7);
-  border-color: rgba(15,23,42,0.1);
+/* ==========================================
+   CARDS & BADGES - Light mode friendly
+   ========================================== */
+.light .neon-card-max,
+.light .neon-card-pro {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ==========================================
+   SCROLLBAR
+   ========================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(15,23,42,0.15);
+}
+
+/* ==========================================
+   SELECTION
+   ========================================== */
+::selection {
+  background: rgba(73,234,203,0.18);
+  color: #49EACB;
+}
+
+.light ::selection {
+  background: rgba(20,184,166,0.2);
   color: #0f172a;
 }
+
+/* Animation tokens */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

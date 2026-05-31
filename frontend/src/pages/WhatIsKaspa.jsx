@@ -1,212 +1,77 @@
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+
 export default function WhatIsKaspaPage() {
   return (
     <div className="min-h-screen pt-16 pb-20">
       <div className="max-w-3xl mx-auto px-5 sm:px-6">
 
-        {/* Hero */}
-        <header className="mb-16">
+        <header className="mb-12">
           <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight mb-4">
-            Understanding the{' '}
-            <span className="text-kaspa-green">Kaspa</span>{' '}
-            Ecosystem
+            Understanding the <span className="text-[#49EACB]">Kaspa</span> Ecosystem
           </h1>
-          <p className="text-base text-gray-200 leading-relaxed">
+          <p className="text-base text-gray-300 leading-relaxed">
             The fastest Proof-of-Work Layer-1 on earth. From BlockDAG mathematics to
-            SilverScript covenants: everything you need to understand the infrastructure
-            powering Covex.
+            SilverScript covenants.
           </p>
         </header>
 
-        {/* What is Kaspa */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">What is Kaspa?</h2>
-          <p className="text-sm text-gray-200 leading-relaxed mb-4">
-            Kaspa is a proof-of-work cryptocurrency built on a BlockDAG architecture,
-            not a single chain. Multiple blocks are produced per second, 10 BPS on
-            mainnet since the Rust rewrite, all confirmed in parallel. It is the
-            fastest PoW network on earth.
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-white mb-3">What is Kaspa?</h2>
+          <p className="text-sm text-gray-300 leading-relaxed">
+            Kaspa is a proof-of-work cryptocurrency built on a BlockDAG architecture.
+            Multiple blocks are produced per second (10 BPS on mainnet), all confirmed in parallel.
+            It is currently the fastest PoW network on earth.
           </p>
-          <a
-            href="https://kaspa.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-kaspa-green hover:underline"
-          >
-            Official Website
-          </a>
         </section>
 
-        {/* SilverScript */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">SilverScript: Covenant Language</h2>
-          <p className="text-sm text-gray-200 leading-relaxed mb-4">
-            SilverScript is the native covenant scripting layer of the Kaspa BlockDAG.
-            It enables stateless smart contracts, programmable UTXOs, and non-custodial
-            enforcement directly on Layer-1.
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-white mb-3">SilverScript Covenants</h2>
+          <p className="text-sm text-gray-300 leading-relaxed">
+            SilverScript is Kaspa's native covenant scripting layer. It enables stateless smart contracts,
+            programmable UTXOs, and non-custodial enforcement directly on Layer-1.
           </p>
-          <a
-            href="https://github.com/kaspanet/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-kaspa-green hover:underline"
-          >
-            Kaspa Documentation
-          </a>
         </section>
 
-        {/* Toccata */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">Toccata Testnet-12</h2>
-          <p className="text-sm text-gray-200 leading-relaxed mb-4">
-            Toccata is the Kaspa Testnet-12 network, the same network Covex indexes
-            and monitors live. At 10 blocks per second, it demonstrates the full
-            latency-busting power of the BlockDAG before mainnet adoption.
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-white mb-3">Toccata Testnet-12</h2>
+          <p className="text-sm text-gray-300 leading-relaxed">
+            The network Covex currently indexes and monitors live. Demonstrates the full speed of the BlockDAG.
           </p>
-          <a
-            href="https://kaspa.org/developments/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-kaspa-green hover:underline"
-          >
-            Latest Developments
-          </a>
         </section>
 
-        {/* Covenants */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">What are Covenants?</h2>
-          <p className="text-sm text-gray-200 leading-relaxed mb-4">
-            Covenants enforce deterministic rules about how coins may be spent in the
-            future. Pure UTXO-based programmable locks enable escrow, timelocks,
-            multisig, community pools, and atomic swaps.
-          </p>
-          <a
-            href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-kaspa-green hover:underline"
-          >
-            Covenant Specification
-          </a>
-        </section>
-
-        {/* Network Specifications */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">Network Specifications</h2>
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-white mb-3">Core Specs</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
-              { label: 'Block Time', value: '0.1 sec', sub: '10 blocks per second' },
-              { label: 'Max Supply', value: '28.7B KAS', sub: '28,704,026,601 total' },
-              { label: 'Consensus', value: 'PoW + GHOSTDAG', sub: 'Nakamoto consensus on DAG' },
-              { label: 'Algorithm', value: 'kHeavyHash', sub: 'Optical-miner friendly' },
-              { label: 'Launch', value: 'Nov 2021', sub: 'Fair launch, no pre-mine' },
-              { label: 'Language', value: 'Rust', sub: 'High-performance reference node' },
+              { label: 'Block Time', value: '0.1 sec' },
+              { label: 'Speed', value: '10 BPS' },
+              { label: 'Consensus', value: 'PoW + GHOSTDAG' },
+              { label: 'Max Supply', value: '28.7B KAS' },
+              { label: 'Launch', value: 'Fair (2021)' },
             ].map(s => (
-              <div key={s.label} className="p-4 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                <p className="text-xs text-gray-300 uppercase tracking-wider mb-1">{s.label}</p>
-                <p className="text-xl font-bold text-white mb-0.5">{s.value}</p>
-                <p className="text-xs text-gray-300">{s.sub}</p>
-              </div>
+              <Card key={s.label} className="p-4">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">{s.label}</div>
+                <div className="text-xl font-bold text-white mt-1">{s.value}</div>
+              </Card>
             ))}
           </div>
         </section>
 
-        {/* Architecture */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">Core Architecture</h2>
-          <div className="space-y-4">
-            {[
-              { title: '10 Blocks Per Second', body: 'Running at 10 BPS on mainnet since the Rust rewrite, the fastest Proof-of-Work Layer-1 on earth.' },
-              { title: 'BlockDAG Engine', body: 'Multiple blocks are created concurrently and ordered mathematically via GHOSTDAG.' },
-              { title: 'Nakamoto Consensus', body: 'Kaspa retains Bitcoin\'s exact security assumptions. No pre-mine, 100% fair launch.' },
-              { title: 'kHeavyHash PoW', body: 'ASIC-resistant, optical-miner friendly hash function preventing mining centralization.' },
-              { title: 'Native Covenants', body: 'Stateless smart contracts on a stateless network via SilverScript programmable UTXO conditions.' },
-              { title: 'DAGKNIGHT Protocol', body: 'Next-gen consensus targeting 100+ BPS by auto-adapting to network latency in real-time.' },
-            ].map(item => (
-              <div key={item.title} className="p-4 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                <h3 className="text-sm font-bold text-white mb-1">{item.title}</h3>
-                <p className="text-sm text-gray-200 leading-relaxed">{item.body}</p>
-              </div>
-            ))}
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold text-white mb-3">Research & Resources</h2>
+          <div className="space-y-2 text-sm">
+            <a href="https://kaspa.org" target="_blank" className="block text-[#49EACB] hover:underline">kaspa.org</a>
+            <a href="https://github.com/kaspanet/docs" target="_blank" className="block text-[#49EACB] hover:underline">Kaspa Documentation (including Covenants)</a>
+            <a href="https://github.com/kaspanet/rusty-kaspa" target="_blank" className="block text-[#49EACB] hover:underline">Rusty Kaspa (Rust node)</a>
           </div>
         </section>
 
-        {/* Research Library */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-3">Research Library</h2>
-          <div className="space-y-2">
-            {[
-              { title: 'PHANTOM & GHOSTDAG', subtitle: 'Sompolinsky, Wyborski & Zohar (2018). Scalable Nakamoto Consensus', href: 'https://eprint.iacr.org/2018/104.pdf' },
-              { title: 'DAGKNIGHT Protocol', subtitle: 'Sompolinsky, Sutton & Wyborski (2022). Parameterless Generalization', href: 'https://eprint.iacr.org/2022/1494.pdf' },
-              { title: 'Kaspa BlockDAG Analysis', subtitle: 'Peresini et al. (2023). Formal performance and security analysis', href: 'https://eprint.iacr.org/2023/1479' },
-              { title: 'Toccata Covenant Specification', subtitle: 'SilverScript Smart Contract Architecture for the Kaspa BlockDAG', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md' },
-              { title: 'Rusty Kaspa Repository', subtitle: 'High-performance Rust node reference implementation', href: 'https://github.com/kaspanet/rusty-kaspa' },
-              { title: 'Kaspa Developer Documentation', subtitle: 'Protocol spec, REST API, WebSocket streams, and SilverScript reference', href: 'https://github.com/kaspanet/docs' },
-            ].map(p => (
-              <a
-                key={p.title}
-                href={p.href}
-                target="_blank"
-                rel="noreferrer"
-                className="block p-3 rounded-lg border border-white/[0.05] bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.03] transition-colors"
-              >
-                <h4 className="text-sm font-semibold text-white">{p.title}</h4>
-                <p className="text-xs text-gray-200 mt-0.5 leading-snug">{p.subtitle}</p>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        {/* Resources */}
-        <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">Official Resources</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { title: 'Kaspa Official Website', desc: 'Home of the Kaspa project: news, ecosystem, and network stats', href: 'https://kaspa.org', color: '#49EACB' },
-              { title: 'Kaspa Publications', desc: 'Whitepapers, research papers, and academic publications', href: 'https://kaspa.org/publications/', color: '#A855F7' },
-              { title: 'Kaspa Developments', desc: 'Network roadmap, protocol upgrades, and latest announcements', href: 'https://kaspa.org/developments/', color: '#3B82F6' },
-              { title: 'Kaspa Explorer (Mainnet)', desc: 'Live mainnet block explorer with transaction tracking and DAG visualization', href: 'https://explorer.kaspa.org', color: '#F59E0B' },
-              { title: 'Rusty Kaspa on GitHub', desc: 'High-performance Rust node reference implementation and consensus engine', href: 'https://github.com/kaspanet/rusty-kaspa', color: '#22C55E' },
-              { title: 'Kaspa Docs on GitHub', desc: 'Protocol specification, REST API docs, WebSocket streams, and SilverScript reference', href: 'https://github.com/kaspanet/docs', color: '#EC4899' },
-              { title: 'Covenant Design Doc', desc: 'Detailed SilverScript covenant architecture and smart contract design rationale', href: 'https://github.com/kaspanet/docs/blob/main/Design/covenants.md', color: '#EF4444' },
-              { title: 'Community Web Wallet', desc: 'Official Kaspa browser wallet: send, receive, and manage KAS', href: 'https://wallet.kaspa.org', color: '#8B5CF6' },
-            ].map(r => (
-              <a
-                key={r.title}
-                href={r.href}
-                target="_blank"
-                rel="noreferrer"
-                className="group relative block p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04] hover:scale-[1.02] transition-all duration-200"
-                style={{}}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = r.color + '40';
-                  e.currentTarget.style.boxShadow = `0 0 24px ${r.color}10`;
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = '';
-                  e.currentTarget.style.boxShadow = '';
-                }}
-              >
-                <h4 className="text-sm font-bold text-white mb-1.5 group-hover:text-kaspa-green transition-colors">
-                  {r.title}
-                </h4>
-                <p className="text-xs text-gray-300 leading-relaxed">
-                  {r.desc}
-                </p>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        {/* CTA */}
-        <footer className="text-center pt-8 border-t border-white/[0.06]">
-          <a
-            href="/"
-            className="inline-flex px-5 py-2.5 rounded-lg bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green text-sm font-semibold hover:bg-kaspa-green/15 transition-colors"
-          >
-            Explore Covenants
+        <div className="pt-6 border-t border-white/10 text-center">
+          <a href="/pricing" className="inline-block px-5 py-2 rounded-lg bg-[#49EACB] text-black font-bold text-sm hover:bg-[#3cd8b6]">
+            Deploy a Covenant
           </a>
-        </footer>
+        </div>
 
       </div>
     </div>

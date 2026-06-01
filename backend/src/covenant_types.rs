@@ -111,7 +111,7 @@ pub enum DisclosureLevel {
     #[serde(rename = "limited")]
     Limited, // FREE/EXPLORER: basic fields only + danger banner
     #[serde(rename = "full")]
-    Full, // CREATOR+: full transparency, all fields, verified badge
+    Full, // BUILDER+: full transparency, all fields, verified badge
 }
 
 impl DisclosureLevel {
@@ -184,7 +184,7 @@ pub fn get_tiers() -> Vec<TierInfo> {
             featured: false,
         },
         TierInfo {
-            name: "CREATOR".into(),
+            name: "BUILDER".into(),
             label: "Creator".into(),
             price_kas: 100,
             price_sompi: 10_000_000_00,
@@ -242,7 +242,7 @@ pub fn tier_from_amount(sompi: u64) -> Option<&'static str> {
     } else if kas >= 500.0 {
         Some("PRO")
     } else if kas >= 100.0 {
-        Some("CREATOR")
+        Some("BUILDER")
     } else {
         None
     }

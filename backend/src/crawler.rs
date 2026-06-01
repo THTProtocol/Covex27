@@ -19,7 +19,7 @@ use tracing::{debug, error, info, warn};
 const MAX_WALK_DISTANCE: u64 = 1_000_000;
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
-const CREATOR_THRESHOLD: u64 = 10_000_000_000;
+const BUILDER_THRESHOLD: u64 = 10_000_000_000;
 
 fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
     let payload = treasury_addr.payload.as_slice();
@@ -74,8 +74,8 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
         "MAX"
     } else if amount >= PRO_THRESHOLD {
         "PRO"
-    } else if amount >= CREATOR_THRESHOLD {
-        "CREATOR"
+    } else if amount >= BUILDER_THRESHOLD {
+        "BUILDER"
     } else {
         return ("FREE".to_string(), 0);
     };
@@ -262,7 +262,7 @@ pub async fn run_crawler(
                             let pri: i32 = match gt.as_str() {
                                 "MAX" => 100,
                                 "PRO" => 50,
-                                "CREATOR" => 10,
+                                "BUILDER" => 10,
                                 _ => 0,
                             };
                             let _ = db::save_generated_ui(

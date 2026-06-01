@@ -179,7 +179,7 @@ pub async fn run_payment_verifier(
                                                 let priority: i32 = match gen_tier.as_str() {
                                                     "MAX" => 100,
                                                     "PRO" => 50,
-                                                    "CREATOR" => 10,
+                                                    "BUILDER" => 10,
                                                     _ => 0,
                                                 };
                                                 let _ = db::set_visibility(

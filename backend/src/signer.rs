@@ -57,7 +57,7 @@ const COVENANT_AMOUNT: u64 = 100_000_000;
 /// Tier fees in KAS, multiplied to sompi
 const MAX_FEE: u64 = 1_000 * 100_000_000;
 const PRO_FEE: u64 = 500 * 100_000_000;
-const CREATOR_FEE: u64 = 100 * 100_000_000;
+const BUILDER_FEE: u64 = 100 * 100_000_000;
 
 // ── Request/Response types ─────────────────────────────────────────
 
@@ -70,7 +70,7 @@ pub struct SignAndBroadcastRequest {
     pub deployer_addr: String,
     /// Hex-encoded covenant script to embed in tx payload
     pub script_hex: String,
-    /// Optional string tier: "MAX", "PRO", "CREATOR", or absent/other for FREE
+    /// Optional string tier: "MAX", "PRO", "BUILDER", or absent/other for FREE
     #[serde(default)]
     pub tier: Option<String>,
     /// Optional custom script name for covenant embedding
@@ -107,7 +107,7 @@ fn tier_fee_sompi(tier: Option<&str>) -> u64 {
     match tier.map(|s| s.to_uppercase()).as_deref() {
         Some("MAX") => MAX_FEE,
         Some("PRO") => PRO_FEE,
-        Some("CREATOR") => CREATOR_FEE,
+        Some("BUILDER") => BUILDER_FEE,
         _ => 0,
     }
 }

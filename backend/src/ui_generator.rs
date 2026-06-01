@@ -55,7 +55,7 @@ pub fn generate_basic_ui(config: &UiGenerationConfig) -> String {
     )
 }
 
-/// Enhanced UI for CREATOR/PRO/MAX tier covenants.
+/// Enhanced UI for BUILDER/PRO/MAX tier covenants.
 /// Full disclosure: all fields, logic summary, receiving addresses, verified badge, customization hooks.
 pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) -> String {
     let form_html = build_form_html(&config.parameters);

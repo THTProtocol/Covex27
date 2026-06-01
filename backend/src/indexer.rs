@@ -16,7 +16,7 @@ use tracing::{debug, error, info, warn};
 // Tier thresholds in sompi
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
-const CREATOR_THRESHOLD: u64 = 10_000_000_000;
+const BUILDER_THRESHOLD: u64 = 10_000_000_000;
 
 /// Compute the expected P2PKH script hex for a Kaspa address
 fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
@@ -40,8 +40,8 @@ fn tier_from_script(spk_hex: &str, _treasury_script: &str, amount: u64) -> (Stri
         ("MAX".to_string(), amount)
     } else if amount >= PRO_THRESHOLD {
         ("PRO".to_string(), amount)
-    } else if amount >= CREATOR_THRESHOLD {
-        ("CREATOR".to_string(), amount)
+    } else if amount >= BUILDER_THRESHOLD {
+        ("BUILDER".to_string(), amount)
     } else {
         ("FREE".to_string(), 0)
     }
@@ -194,7 +194,7 @@ pub async fn run_indexer(
                                 let priority: i32 = match gen_tier.as_str() {
                                     "MAX" => 100,
                                     "PRO" => 50,
-                                    "CREATOR" => 10,
+                                    "BUILDER" => 10,
                                     _ => 0,
                                 };
                                 let _ = db::save_generated_ui(

@@ -11,11 +11,11 @@ use std::io::{self, Read, Write};
 async fn main() -> anyhow::Result<()> {
     let tier = std::env::args().nth(1).unwrap_or_else(|| "MAX".to_string());
     let tier_fee: u64 = match tier.as_str() {
-        "CREATOR" => 10_000_000_000,
+        "BUILDER" => 10_000_000_000,
         "PRO" => 50_000_000_000,
         "MAX" => 100_000_000_000,
         _ => {
-            eprintln!("Usage: deploy <CREATOR|PRO|MAX>");
+            eprintln!("Usage: deploy <BUILDER|PRO|MAX>");
             std::process::exit(1);
         }
     };

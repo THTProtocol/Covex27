@@ -204,9 +204,9 @@ const COVENANT_SELECT: &str =
 
 pub fn get_all_covenants(db: &Mutex<Connection>) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
-    // Tier-weighted sort: MAX=100, PRO=50, CREATOR=10, FREE=0 — then by TVL (amount_kaspa) descending
+    // Tier-weighted sort: MAX=100, PRO=50, BUILDER=10, FREE=0 — then by TVL (amount_kaspa) descending
     let sql = format!(
-        "{} WHERE is_active = 1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'CREATOR' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC",
+        "{} WHERE is_active = 1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC",
         COVENANT_SELECT
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -227,8 +227,8 @@ pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
         "PRO" => {
             serde_json::json!({"glow": true, "expanded": false, "priority": 50, "label": "PRO"})
         }
-        "CREATOR" => {
-            serde_json::json!({"glow": false, "expanded": false, "priority": 10, "label": "CREATOR"})
+        "BUILDER" => {
+            serde_json::json!({"glow": false, "expanded": false, "priority": 10, "label": "BUILDER"})
         }
         _ => serde_json::json!({"glow": false, "expanded": false, "priority": 0, "label": "FREE"}),
     }

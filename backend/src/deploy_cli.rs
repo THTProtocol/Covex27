@@ -2,7 +2,7 @@
 // Builds, signs, and broadcasts a MAX-tier covenant from Dev Wallet 1.
 //
 // Usage: cargo run --bin deploy -- <tier>
-// Tier: FREE | CREATOR | PRO | MAX (default: MAX)
+// Tier: FREE | BUILDER | PRO | MAX (default: MAX)
 
 use kaspa_consensus_core::tx::{Transaction, TransactionInput, TransactionOutput, TransactionOutpoint, UtxoEntry};
 use kaspa_consensus_core::subnets::SubnetworkId;
@@ -24,11 +24,11 @@ const BACKEND_URL: &str = "http://127.0.0.1:3005";
 async fn main() -> anyhow::Result<()> {
     let tier = std::env::args().nth(1).unwrap_or_else(|| "MAX".to_string());
     let tier_fee_sompi: u64 = match tier.as_str() {
-        "CREATOR" => 10_000_000_000,
+        "BUILDER" => 10_000_000_000,
         "PRO" => 50_000_000_000,
         "MAX" => 100_000_000_000,
         _ => {
-            eprintln!("Usage: deploy <FREE|CREATOR|PRO|MAX>");
+            eprintln!("Usage: deploy <FREE|BUILDER|PRO|MAX>");
             std::process::exit(1);
         }
     };

@@ -1,17 +1,17 @@
 #!/bin/bash
-# Phase 2 Complete Sync Script for hightable.pro
+# Covex27 Full Deploy to hightable.pro
 #
-# Run this from YOUR LOCAL MACHINE (the one that can reach the server).
-# It will pull all Phase 2 changes (shadcn/ui + hybrid components,
-# full light/dark cypherpunk theme with Kaspa green,
-# massively improved Explorer with BUILDER tier + My Paid Covenants fix + Interactive Demos,
-# polished PaidBuilder, improved Pricing & Kaspa pages, mobile responsiveness, etc.)
-# then rebuild the frontend and reload nginx.
+# Syncs GitHub master → Hetzner server → https://hightable.pro
+# Builds both frontend (Vite) and backend (Rust), restarts services.
 #
 # Prerequisites:
-# - You have the latest local copy of the repo (git pull origin master)
-# - You have your current rotated server password ready
-# - npm is available locally if you want to test build first (optional)
+#   export PASSWORD="your_rotated_server_password"
+#   ./DEPLOY_TO_HIGHTABLE.sh
+#
+# After running, verify triple sync:
+#   git rev-parse HEAD
+#   git ls-remote origin HEAD | awk '{print $1}'
+#   ssh root@178.105.76.81 'cd /root/Covex27 && git rev-parse HEAD'
 
 set -e
 
@@ -21,34 +21,90 @@ if [ -z "${PASSWORD:-}" ]; then
   exit 1
 fi
 
-SERVER="root@Hightable"
+SERVER="178.105.76.81"
+SSH_CMD="sshpass -p \"$PASSWORD\" ssh -o StrictHostKeyChecking=no root@$SERVER"
 
-echo "=== Deploying Phase 2 Complete to hightable.pro ==="
+echo "=== Covex27 Full Deploy ==="
 echo "Server: $SERVER"
+echo ""
 
-echo "Connecting and syncing latest code..."
-sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $SERVER << 'EOF'
-  set -e
+# ─── STEP 1: Push local to GitHub ───
+echo "[1/6] Pushing to GitHub..."
+git push origin master 2>/dev/null || echo "(already pushed or no changes)"
+
+# ─── STEP 2: Pull on Hetzner ───
+echo "[2/6] Pulling latest on Hetzner..."
+$SSH_CMD << 'PULL_EOF'
   cd /root/Covex27
-  echo "Current commit before pull:"
-  git log --oneline -1
-
   git fetch origin
   git reset --hard origin/master
+  echo "  Hetzner now at: $(git rev-parse --short HEAD) $(git log --oneline -1)"
+PULL_EOF
 
-  echo "Building frontend (Phase 2 UI overhaul)..."
-  cd frontend
-  npm install --prefer-offline --no-audit
-  npm run build
+# ─── STEP 3: Build frontend ───
+echo "[3/6] Building frontend (Vite)..."
+$SSH_CMD << 'FE_EOF'
+  cd /root/Covex27/frontend
+  npm install --legacy-peer-deps --prefer-offline --no-audit 2>&1 | tail -2
+  npx vite build 2>&1 | tail -4
+FE_EOF
 
-  echo "Reloading nginx..."
-  systemctl reload nginx || true
+# ─── STEP 4: Copy dist to nginx root + clean stale bundles ───
+echo "[4/6] Deploying frontend to nginx..."
+$SSH_CMD << 'CP_EOF'
+  cp -r /root/Covex27/frontend/dist/* /root/htp/public/
+  ACTIVE=$(grep -o 'index-[^.]*\.js' /root/htp/public/index.html)
+  cd /root/htp/public/assets
+  for f in index-*.js; do
+    if [ "$f" != "$ACTIVE" ]; then
+      rm -v "$f"
+    fi
+  done
+  echo "  Active bundle: $ACTIVE"
+CP_EOF
 
-  echo ""
-  echo "=== DEPLOY COMPLETE ==="
-  echo "hightable.pro is now fully synced with GitHub master (Phase 2 complete)."
-  echo "Visit https://hightable.pro to verify the new design system, theme toggle, Explorer improvements, etc."
-EOF
+# ─── STEP 5: Build backend (Rust release) ───
+echo "[5/6] Building backend (cargo --release)..."
+$SSH_CMD << 'BE_EOF'
+  source /root/.cargo/env
+  cd /root/Covex27/backend
+  cargo build --release 2>&1 | tail -3
+BE_EOF
 
+# ─── STEP 6: Restart backend ───
+echo "[6/6] Restarting backend..."
+$SSH_CMD << 'RESTART_EOF'
+  # Kill old process(es) by explicit PIDs
+  PIDS=$(pgrep covex27-backend)
+  if [ -n "$PIDS" ]; then
+    kill $PIDS 2>/dev/null
+    sleep 2
+  fi
+  # Verify dead
+  if pgrep covex27-backend > /dev/null; then
+    echo "  WARNING: old backend still alive, force-killing..."
+    pkill -9 covex27-backend
+    sleep 2
+  fi
+  # Start new binary
+  source /root/.cargo/env
+  nohup /mnt/HC_Volume_105579109/Covex27/backend/target/release/covex27-backend \
+    > /tmp/covex27.log 2>&1 &
+  sleep 4
+  HEALTH=$(curl -s http://127.0.0.1:3005/health)
+  echo "  Backend health: $HEALTH"
+  STATUS=$(curl -s http://127.0.0.1:3005/status)
+  echo "  Status: $STATUS"
+RESTART_EOF
+
+# ─── VERIFY ───
 echo ""
-echo "Done. All three (GitHub, Hetzner server, live hightable.pro) should now be on the same Phase 2 version."
+echo "=== DEPLOY COMPLETE ==="
+echo ""
+echo "Verify triple sync:"
+echo "  LOCAL:   $(git rev-parse --short HEAD)"
+echo "  GITHUB:  $(git ls-remote origin HEAD | awk '{print $1}' | cut -c1-8)"
+echo "  HETZNER: $($SSH_CMD 'cd /root/Covex27 && git rev-parse --short HEAD')"
+echo ""
+echo "Check live site: https://hightable.pro"
+echo "Check backend:   curl https://hightable.pro/api/status"

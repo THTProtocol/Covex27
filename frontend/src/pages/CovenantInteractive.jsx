@@ -10,7 +10,7 @@ const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27lt
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
-const tierValue = (t) => ({ MAX: 3, PRO: 2, CREATOR: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
+const tierValue = (t) => ({ MAX: 3, PRO: 2, BUILDER: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
 
 const DEFAULT_UI_CONFIG = {
   primaryColor: '#49EACB',
@@ -57,7 +57,7 @@ export default function CovenantInteractive() {
     tierValue(covenant?.verified_tier || covenant?.tier || 'FREE'),
     tierValue(effectiveTierLabel)
   );
-  const canCustomize = effectiveTierVal >= 1;  // CREATOR+
+  const canCustomize = effectiveTierVal >= 1;  // BUILDER+
   const canBrand = effectiveTierVal >= 2;       // PRO+
   const canMaxLayout = effectiveTierVal >= 3;   // MAX
 
@@ -71,7 +71,7 @@ export default function CovenantInteractive() {
   const [toast, setToast] = useState(null);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
-    { id: 'CREATOR', price: 100, label: 'Creator', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
+    { id: 'BUILDER', price: 100, label: 'Builder', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
     { id: 'PRO', price: 500, label: 'PRO', color: '#E8AF34', desc: 'Featured placement, advanced UI tools, covenant images.' },
     { id: 'MAX', price: 1000, label: 'MAX', color: '#A855F7', desc: 'Top placement, full UI suite, custom branding.' },
   ];

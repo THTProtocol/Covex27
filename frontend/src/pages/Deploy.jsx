@@ -39,7 +39,7 @@ export default function Deploy() {
 
   if (isPaid) {
     const tierName = paidTier || 'Paid';
-    const tierAccent = { CREATOR: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#49EACB';
+    const tierAccent = { BUILDER: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#49EACB';
     return (
       <div className="relative z-10 max-w-2xl mx-auto px-6 py-20 text-center">
         <div className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-6"

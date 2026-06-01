@@ -109,7 +109,7 @@ export default function Dashboard() {
                 ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
                 : accountTier === 'PRO'
                 ? 'bg-kaspa-gold/10 text-kaspa-gold border-kaspa-gold/30'
-                : accountTier === 'CREATOR'
+                : accountTier === 'BUILDER'
                 ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
                 : 'bg-gray-500/10 text-gray-200 border-gray-500/20'
             }`}>

@@ -22,7 +22,7 @@ export interface CovenantTemplate {
   icon: string;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   estimatedTime: string;
-  recommendedTier: 'CREATOR' | 'PRO' | 'MAX';
+  recommendedTier: 'BUILDER' | 'PRO' | 'MAX';
   tags: string[];
   
   // Generates the full config for this template
@@ -46,7 +46,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     icon: 'Chess',
     difficulty: 'Beginner',
     estimatedTime: '5 min',
-    recommendedTier: 'CREATOR',
+    recommendedTier: 'BUILDER',
     tags: ['Chess', '1v1', 'ZK'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'chess'),
@@ -109,7 +109,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     icon: 'Escrow',
     difficulty: 'Beginner',
     estimatedTime: '3 min',
-    recommendedTier: 'CREATOR',
+    recommendedTier: 'BUILDER',
     tags: ['Escrow', '2-party', 'Simple'],
     generateConfig: (addr) => createDefaultConfig(addr, 'escrow'),
     studioSuggestions: { primaryColor: '#3B82F6', style: 'Clean Professional' }
@@ -202,7 +202,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     icon: 'Revenue',
     difficulty: 'Beginner',
     estimatedTime: '4 min',
-    recommendedTier: 'CREATOR',
+    recommendedTier: 'BUILDER',
     tags: ['Finance', 'Split', 'Recurring'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),

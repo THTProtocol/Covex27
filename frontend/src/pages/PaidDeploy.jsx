@@ -39,7 +39,7 @@ export default function PaidDeploy() {
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  const paidTier = localStorage.getItem('covex_paid_tier') || 'CREATOR';
+  const paidTier = localStorage.getItem('covex_paid_tier') || 'BUILDER';
 
   // ── Full Covex Terminal State (embedded for premium paid experience) ──
   const [gameType, setGameType] = useState('chess_v1');

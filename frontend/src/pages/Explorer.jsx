@@ -322,14 +322,36 @@ function CovenantCard({ covenant: c, index, highlighted }) {
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
 
+  // Only the creator sees their own tier badge.
+  // Regular visitors see prioritized placement/visual weight only (no explicit tier label).
+  const isOwner = address && c.creator_addr?.toLowerCase() === address.toLowerCase();
+
+  // Apply tier-specific card styling (border + bg tint) for all viewers.
+  // Only the creator sees the explicit tier badge text.
+  const tierCardClass = highlighted
+    ? `${style.card} hover:border-kaspa-green/30 hover:-translate-y-0.5`
+    : `${style.card} hover:border-white/10 hover:bg-white/[0.03]`;
+
+  // Higher-tier glow for MAX/PRO
+  const tierGlow = tier === 'MAX' ? 'shadow-[0_0_25px_rgba(168,85,247,0.15)]' 
+    : tier === 'PRO' ? 'shadow-[0_0_18px_rgba(232,175,52,0.12)]'
+    : tier === 'BUILDER' ? 'shadow-[0_0_12px_rgba(59,130,246,0.08)]'
+    : '';
+
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${style.card} ${
-        highlighted ? 'hover:border-kaspa-green/30 hover:-translate-y-0.5' : 'hover:border-white/10 hover:bg-white/[0.03]'
-      }`}
+      className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass}`}
     >
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
       {isHighTVL && <div className="absolute top-3 right-3"><Badge variant="default">HIGH TVL</Badge></div>}
+
+      {/* Tier badge only visible to the covenant creator */}
+      {isOwner && (
+        <div className="absolute top-2 right-2">
+          <Badge tier={tier}>{style.label}</Badge>
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-2.5">
         <div className="flex-1 min-w-0 pr-2">
           <h3 className={`font-bold text-sm sm:text-base truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`}>
@@ -337,22 +359,28 @@ function CovenantCard({ covenant: c, index, highlighted }) {
           </h3>
           <p className="text-[11px] font-mono mt-0.5 text-gray-300 truncate">{truncate(c.tx_id, 8)}</p>
         </div>
-        <Badge tier={tier}>{style.label}</Badge>
+        <div className="text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0">
+          {formatKaspa(c.amount_kaspa)}
+        </div>
       </div>
+
       <p className="text-xs text-gray-200 mb-3 line-clamp-2">{c.description || 'No description provided.'}</p>
       <GamePreview covenant={c} compact />
+
       {(gameType || customUI) && (
         <div className="mt-2.5 flex flex-wrap gap-1">
           {gameType && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider"><Play size={9} />{gameType} game</span>}
           {customUI && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300"><Sparkles size={9} />Custom UI</span>}
         </div>
       )}
+
       <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-1.5 text-[10px] text-gray-300">
         <span>Category: <span className="text-white">{c.category || 'general'}</span></span>
         <span>Amount: <span className="text-white">{formatKaspa(c.amount_kaspa)}</span></span>
         <span>Type: <span className="text-white truncate block">{c.covenant_type || 'N/A'}</span></span>
         <span>DAA: <span className="text-white">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
       </div>
+
       <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:block">
         <div className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green text-[10px] font-bold uppercase tracking-wider">
           <Eye size={11} />View Covenant

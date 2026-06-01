@@ -45,7 +45,23 @@ async fn main() {
     let addr: SocketAddr = bind_addr.parse().expect("Invalid BIND_ADDR");
     let wrpc_url =
         env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string());
-    let db_path = env::var("DB_PATH").unwrap_or_else(|_| "../covex.db".to_string());
+    let db_path = env::var("DB_PATH").unwrap_or_else(|_| {
+        // Resolve relative to binary location to prevent zombie-DB when CWD is deleted
+        // (process holds stale file handles to deleted inodes after directory moves)
+        if let Ok(exe) = std::env::current_exe() {
+            // Binary is at <project>/backend/target/release/covex27-backend
+            // Project root is 3 levels up: <project>/
+            let project_root = exe.parent()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent());
+            if let Some(root) = project_root {
+                let abs_path = root.join("covex.db");
+                return abs_path.to_string_lossy().to_string();
+            }
+        }
+        "../covex.db".to_string()
+    });
     // Read network BEFORE treasury so we can branch on mainnet vs testnet
     let network = env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());

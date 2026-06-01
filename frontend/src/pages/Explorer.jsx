@@ -230,7 +230,7 @@ export default function Explorer() {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {searchResults.data.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} />)}
+                  {searchResults.data.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />)}
                 </div>
               </div>
             )}
@@ -269,7 +269,7 @@ export default function Explorer() {
               <>
                 <SectionLabel icon={Sparkles} label="Featured Covenants" accent />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-8">
-                  {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted />)}
+                  {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
                 </div>
               </>
             )}
@@ -289,7 +289,7 @@ export default function Explorer() {
               <>
                 <SectionLabel icon={Layers} label={paidCovenants.length > 0 ? 'All Covenants' : 'Covenants'} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                  {freeCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} />)}
+                  {freeCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />)}
                 </div>
               </>
             )}
@@ -314,7 +314,7 @@ function SectionLabel({ icon: Icon, label, accent }) {
 }
 
 /* ── Covenant Card ── */
-function CovenantCard({ covenant: c, index, highlighted }) {
+function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const tier = (c.verified_tier || c.tier || 'FREE').toUpperCase();
   const style = TIER_STYLES[tier] || TIER_STYLES.FREE;
   const isPremium = tier === 'MAX' || tier === 'PRO';
@@ -324,7 +324,7 @@ function CovenantCard({ covenant: c, index, highlighted }) {
 
   // Only the creator sees their own tier badge.
   // Regular visitors see prioritized placement/visual weight only (no explicit tier label).
-  const isOwner = address && c.creator_addr?.toLowerCase() === address.toLowerCase();
+  const isOwner = ownerAddress && c.creator_addr?.toLowerCase() === ownerAddress.toLowerCase();
 
   // Apply tier-specific card styling (border + bg tint) for all viewers.
   // Only the creator sees the explicit tier badge text.

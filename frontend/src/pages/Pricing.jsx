@@ -226,7 +226,7 @@ const Pricing = () => {
         <p className="text-base md:text-lg text-gray-300 leading-relaxed">
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
         </p>
-        <p className="mt-3 text-sm"><Link to="/how-covex-works" className="text-[#49EACB] underline">How Covex Works →</Link></p>
+        <p className="mt-3 text-sm"><Link to="/kaspa" className="text-kaspa-green underline">Learn about Kaspa</Link></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

@@ -268,6 +268,7 @@ export default function Explorer() {
             {!loading && paidCovenants.length > 0 && (
               <>
                 <SectionLabel icon={Sparkles} label="Featured Covenants" accent />
+                <p className="text-xs text-gray-400 -mt-2 mb-4">Higher-tier covenants are prioritized here with stronger visual presence (no tier names shown publicly).</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-8">
                   {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
                 </div>
@@ -345,7 +346,9 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
       {isHighTVL && <div className="absolute top-3 right-3"><Badge variant="default">HIGH TVL</Badge></div>}
 
-      {/* Tier badge only visible to the covenant creator */}
+      {/* Tier badge ONLY visible to the covenant creator.
+          Regular visitors see Featured Covenants prioritized by tier + TVL
+          via visual styling only — no explicit tier names are shown publicly. */}
       {isOwner && (
         <div className="absolute top-2 right-2">
           <Badge tier={tier}>{style.label}</Badge>

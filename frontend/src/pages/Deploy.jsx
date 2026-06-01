@@ -129,25 +129,24 @@ export default function Deploy() {
       </button>
 
       <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl shadow-2xl overflow-hidden">
-        {/* FREE-only banner */}
+        {/* Free deploy explanation */}
         <div className="px-8 py-5 bg-gradient-to-r from-[#49EACB]/[0.06] via-[#49EACB]/[0.03] to-transparent border-b border-[#49EACB]/15">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-[#49EACB]/10 border border-[#49EACB]/25 flex items-center justify-center shrink-0 mt-0.5">
-              <TrendingUp size={20} className="text-[#49EACB]" />
+              <Terminal size={20} className="text-[#49EACB]" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#49EACB] mb-1">This page is for FREE covenants only.</h3>
-              <p className="text-xs text-gray-300 leading-relaxed mb-3">
-                Want custom interactive UI, Terminal access, ZK/Oracle options and Covenant Studio?
-                Upgrade to a paid tier for the full premium deploy experience.
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-[#49EACB] mb-1">Free Covenant Deployment — Open to Everyone</h3>
+              <p className="text-xs text-gray-300 leading-relaxed mb-2">
+                This is the <strong>free entry point</strong> for deploying a basic covenant. No payment is required.
+                Anyone — including users who already have a paid tier — can create simple on-chain covenants here.
               </p>
-              <button
-                onClick={() => navigate('/pricing')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#49EACB] text-black text-xs font-bold hover:shadow-[0_0_20px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all"
-              >
-                <ArrowUpCircle size={14} />
-                Go to Pricing
-              </button>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Later, you can pay for a tier (BUILDER / PRO / MAX) on any specific covenant you own to unlock the full Covex Terminal, custom interactive UIs from Covenant Studio, ZK circuits, oracles, and advanced features.
+              </p>
+              <p className="text-[10px] text-gray-400 mt-2">
+                Paid users: Feel free to use this page for basic covenants. Your rich UI work happens in the Paid Builder after you attach a tier to a covenant.
+              </p>
             </div>
           </div>
         </div>

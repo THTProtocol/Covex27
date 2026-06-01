@@ -207,7 +207,7 @@ const Pricing = () => {
               <span className="text-gray-300">Treasury</span>
               <span className="font-mono text-[10px] text-gray-200 break-all">{TREASURY}</span>
             </div>
-          </div>
+          </CardContent>
         </Card>
         <div className="space-y-4 max-w-md mx-auto">
           <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">

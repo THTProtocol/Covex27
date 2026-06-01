@@ -18,7 +18,7 @@ import PaidDeploy from './pages/PaidDeploy';
 import PaidBuilder from './pages/PaidBuilder';
 import PremiumBuilder from './pages/PremiumBuilder';
 import { ThemeProvider } from './components/ThemeProvider';
-import { ThemeToggle } from './components/ThemeToggle';
+import ThemeToggle from './components/ThemeToggle';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${

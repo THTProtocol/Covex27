@@ -97,6 +97,7 @@ export function generateSilverScriptForConfig(cfg) {
   const {
     gameType = 'chess_v1',
     feePercent = 2,
+    potReturnPercent = 2,
     resolutionMode = 'oracle',
     customOracleKey = '',
     zkCircuit = 'chess_v1',
@@ -423,6 +424,7 @@ export default function CovexTerminal({ covenant }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [feePercent, setFeePercent] = useState(2);
+  const [potReturnPercent, setPotReturnPercent] = useState(2);
   const [reusable, setReusable] = useState(true);
   const [allowTopups, setAllowTopups] = useState(false);
 
@@ -748,7 +750,7 @@ ${gameMeta.outcomeBranches}
 }`;
 
     setGeneratedScript(script);
-  }, [gameType, feePercent, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey, reusable, allowTopups]);
+  }, [gameType, feePercent, potReturnPercent, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey, reusable, allowTopups]);
 
   // ── Chess ZK Arena Handlers (full rules via chess.js + ZK outcome submission) ──
   const resetChessArena = useCallback(() => {
@@ -968,6 +970,7 @@ ${gameMeta.outcomeBranches}
           if (cfg.name) setName(cfg.name);
           if (cfg.description) setDescription(cfg.description);
           if (cfg.fee_percent !== undefined) setFeePercent(cfg.fee_percent);
+          if (cfg.pot_return_percent !== undefined) setPotReturnPercent(cfg.pot_return_percent);
           if (cfg.reusable !== undefined) setReusable(cfg.reusable);
           if (cfg.allow_topups !== undefined) setAllowTopups(cfg.allow_topups);
           if (cfg.resolution_mode) setResolutionMode(cfg.resolution_mode);
@@ -1145,6 +1148,7 @@ ${gameMeta.outcomeBranches}
       name,
       description,
       fee_percent: feePercent,
+      pot_return_percent: potReturnPercent,
       reusable,
       allow_topups: allowTopups,
       custom_ui_code: customUICode,
@@ -1226,6 +1230,24 @@ ${gameMeta.outcomeBranches}
           {!isMainnet && <span className="text-white/50">(test)</span>}
         </div>
       </div>
+
+      {/* ─── Best Covenant Guide (collapsible) ─── */}
+      <details className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.01] ring-1 ring-kaspa-green/10 [&[open]]:pb-6`}>
+        <summary className="cursor-pointer select-none flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest">
+          <Info size={16} />
+          <span>Best Covenant Guide (Expand)</span>
+        </summary>
+        <div className="mt-4 ml-2 pl-4 border-l-2 border-kaspa-green/30 space-y-4">
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-sm text-white font-bold mb-2">Non-1time (Reusable) Covenants: Why Advisable</p>
+            <p className="text-xs text-gray-300 leading-relaxed">Reusable covenants support multiple sessions without redeploying. Toggle Reusable and Allow Top-ups. The covenant pot persists across games. Creator earns fees on every round. Example chess: 2 players stake equal KAS, winner takes 96%, creator earns 2%, 2% flows back to covenant pot for sustainability.</p>
+          </div>
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-sm text-white font-bold mb-2">Transparency: Required Information</p>
+            <p className="text-xs text-gray-300 leading-relaxed">Every covenant must provide: clear name, full description (rules/edge cases), exact payout percentages, resolution method (oracle/ZK with keys), reusable config, and test evidence. All displayed publicly in Explorer.</p>
+          </div>
+        </div>
+      </details>
 
       {/* ─── Section 0: Covenant Circuit Schema ─── */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
@@ -1979,101 +2001,86 @@ ${gameMeta.outcomeBranches}
         </div>
       </section>
 
-      {/* PROFESSIONAL FULL-SCREEN CHESS ARENA (chess.com quality) - only when stakes matched and launched */}
+      {/* PROFESSIONAL FULL-SCREEN CHESS ARENA (chess.com quality) - mobile-first responsive */}
       {showFullScreenChess && gameType === 'chess_v1' && (
         <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a0f0d 0%, #050505 70%)' }}>
-          {/* Pro top bar - chess.com polish */}
-          <div className="h-14 border-b border-white/10 flex items-center justify-between px-4 text-sm bg-black/60 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="font-bold tracking-wider text-[#49EACB]">CHESS V1 • KASPA COVENANT</div>
-              <div className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10">{(chessStake + opponentStake)} KAS POT • 2% FEE</div>
-              <div className="text-[10px] text-emerald-400 font-mono">BOTH STAKES MATCHED • PRO MODE</div>
+          {/* Pro top bar - compact on mobile */}
+          <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
+            <div className="flex items-center gap-1 sm:gap-3">
+              <div className="font-bold tracking-wider text-[#49EACB] hidden sm:block text-xs sm:text-sm">CHESS V1 - KASPA COVENANT</div>
+              <div className="font-bold tracking-wider text-[#49EACB] text-[10px] sm:hidden">CHESS</div>
+              <div className="px-2 py-0.5 rounded bg-white/5 text-[9px] sm:text-[10px] font-mono border border-white/10">{(chessStake + opponentStake)} KAS</div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="text-[10px] text-gray-400 font-mono">FIDE RULES • ORACLE ATTESTED</div>
-              <button
-                onClick={() => setShowFullScreenChess(false)}
-                className="px-4 py-1.5 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold"
-              >
-                EXIT FULL SCREEN
-              </button>
-            </div>
+            <button onClick={() => setShowFullScreenChess(false)} className="px-2 sm:px-4 py-1 sm:py-1.5 rounded-xl border border-white/20 hover:bg-white/5 text-[10px] sm:text-xs font-bold">EXIT</button>
           </div>
 
-          <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-6 p-4 overflow-auto">
-            {/* Left: White player + clock */}
-            <div className="flex flex-col items-center gap-2 w-64">
-              <div className="text-xs uppercase tracking-[2px] text-gray-400">WHITE</div>
-              <div className="font-mono text-lg text-white">{chessPlayerColor === 'w' ? 'YOU' : chessOpponent}</div>
-              <div className={`font-mono text-6xl font-bold tabular-nums tracking-tighter ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>
-                {Math.floor(whiteTime / 60000)}:{String(Math.floor((whiteTime % 60000) / 1000)).padStart(2, '0')}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Mobile clocks row */}
+            <div className="lg:hidden flex items-center justify-around px-2 py-1.5 bg-black/40 border-b border-white/5 shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="text-[9px] uppercase tracking-[1.5px] text-gray-400">WHITE</div>
+                <div className={`font-mono text-lg font-bold tabular-nums ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(whiteTime / 60000)}:{String(Math.floor((whiteTime % 60000) / 1000)).padStart(2, '0')}</div>
+              </div>
+              <div className="text-[10px] text-gray-500 font-mono">{chessMatchState === 'playing' ? `${chessGame.turn() === 'w' ? 'WHITE' : 'BLACK'} TO MOVE` : 'GAME OVER'}</div>
+              <div className="flex flex-col items-center">
+                <div className="text-[9px] uppercase tracking-[1.5px] text-gray-400">BLACK</div>
+                <div className={`font-mono text-lg font-bold tabular-nums ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(blackTime / 60000)}:{String(Math.floor((blackTime % 60000) / 1000)).padStart(2, '0')}</div>
               </div>
             </div>
 
-            {/* CENTER: Large professional board - chess.com smooth */}
-            <div className="relative">
-              <div className="rounded-3xl p-4 bg-[#111] shadow-2xl border border-white/10" style={{ boxShadow: '0 25px 80px -15px rgba(0,0,0,0.8), 0 0 0 1px rgba(73,234,203,0.08)' }}>
-                <Chessboard
-                  position={chessGame.fen()}
-                  onPieceDrop={handleChessMove}
-                  boardOrientation={chessPlayerColor === 'b' ? 'black' : 'white'}
-                  customBoardStyle={{
-                    borderRadius: '12px',
-                    boxShadow: 'inset 0 0 80px rgba(0,0,0,0.6), 0 10px 30px -10px rgba(0,0,0,0.9)',
-                  }}
-                  customDarkSquareStyle={{ backgroundColor: '#769656' }}
-                  customLightSquareStyle={{ backgroundColor: '#eeeed2' }}
-                  customPieces={{}} // can be extended with high-quality SVGs later
-                  boardWidth={Math.min(680, Math.max(420, Math.floor(typeof window !== 'undefined' ? window.innerWidth * 0.52 : 520)))}
-                />
+            <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-2 sm:gap-6 p-2 sm:p-4 overflow-auto">
+              {/* Desktop: White side panel */}
+              <div className="hidden lg:flex flex-col items-center gap-2 w-48 xl:w-64 shrink-0">
+                <div className="text-xs uppercase tracking-[2px] text-gray-400">WHITE</div>
+                <div className="font-mono text-sm xl:text-lg text-white truncate">{chessPlayerColor === 'w' ? 'YOU' : chessOpponent}</div>
+                <div className={`font-mono text-4xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(whiteTime / 60000)}:{String(Math.floor((whiteTime % 60000) / 1000)).padStart(2, '0')}</div>
               </div>
-              {/* Status overlay on board */}
-              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-black/80 border border-white/10 text-xs font-mono text-kaspa-green tracking-wider">
-                {chessMatchState === 'playing' ? `${chessGame.turn() === 'w' ? 'WHITE' : 'BLACK'} TO MOVE • LEGAL ONLY` : 'GAME OVER'}
+
+              {/* CENTER: Board - full-viewport on mobile */}
+              <div className="relative shrink-0">
+                <div className="rounded-xl sm:rounded-3xl p-1 sm:p-4 bg-[#111] shadow-2xl border border-white/10" style={{ boxShadow: '0 25px 80px -15px rgba(0,0,0,0.8), 0 0 0 1px rgba(73,234,203,0.08)' }}>
+                  <Chessboard
+                    position={chessGame.fen()}
+                    onPieceDrop={handleChessMove}
+                    boardOrientation={chessPlayerColor === 'b' ? 'black' : 'white'}
+                    customBoardStyle={{ borderRadius: '12px', boxShadow: 'inset 0 0 80px rgba(0,0,0,0.6), 0 10px 30px -10px rgba(0,0,0,0.9)' }}
+                    customDarkSquareStyle={{ backgroundColor: '#769656' }}
+                    customLightSquareStyle={{ backgroundColor: '#eeeed2' }}
+                    customPieces={{}}
+                    boardWidth={typeof window !== 'undefined' ? (window.innerWidth < 1024 ? Math.min(window.innerWidth - 24, window.innerHeight - 200) : Math.min(680, Math.max(420, Math.floor(window.innerWidth * 0.42)))) : 520}
+                  />
+                </div>
+                <div className="absolute -bottom-2 sm:-bottom-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-0.5 sm:py-1 rounded-full bg-black/80 border border-white/10 text-[10px] sm:text-xs font-mono text-kaspa-green tracking-wider whitespace-nowrap">{chessMatchState === 'playing' ? `${chessGame.turn() === 'w' ? 'WHITE' : 'BLACK'} TO MOVE` : 'GAME OVER'}</div>
+              </div>
+
+              {/* Desktop: Black side panel */}
+              <div className="hidden lg:flex flex-col items-center gap-2 w-48 xl:w-64 shrink-0">
+                <div className="text-xs uppercase tracking-[2px] text-gray-400">BLACK</div>
+                <div className="font-mono text-sm xl:text-lg text-white truncate">{chessPlayerColor === 'b' ? 'YOU' : chessOpponent}</div>
+                <div className={`font-mono text-4xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(blackTime / 60000)}:{String(Math.floor((blackTime % 60000) / 1000)).padStart(2, '0')}</div>
+                <div className="mt-4 w-full bg-black/60 border border-white/10 rounded-2xl p-3 text-[12px] font-mono max-h-[180px] xl:max-h-[220px] overflow-auto text-gray-200">
+                  {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<div key={i} className="py-0.5 border-b border-white/5 last:border-none">{i + 1}. {m.trim()}</div>)) : <div className="text-gray-500 italic">No moves yet</div>}
+                </div>
+                <div className="mt-3 flex flex-col gap-2 w-full">
+                  {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button onClick={() => { alert('Draw offered (demo)'); }} className="w-full py-2 rounded-xl border border-white/20 text-xs">OFFER DRAW</button></>)}
+                  {chessMatchState === 'finished' && !chessZkVerified && (<button onClick={submitChessResultToOracle} className="w-full py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_30px_rgba(73,234,203,0.35)]">SUBMIT RESULT TO ORACLE</button>)}
+                  {chessZkVerified && (<div className="text-center text-[10px] text-emerald-400 font-mono p-2 border border-emerald-500/30 rounded-xl">ORACLE SIGNATURE RECEIVED</div>)}
+                </div>
               </div>
             </div>
 
-            {/* Right: Black + clock + moves */}
-            <div className="flex flex-col items-center gap-2 w-64">
-              <div className="text-xs uppercase tracking-[2px] text-gray-400">BLACK</div>
-              <div className="font-mono text-lg text-white">{chessPlayerColor === 'b' ? 'YOU' : chessOpponent}</div>
-              <div className={`font-mono text-6xl font-bold tabular-nums tracking-tighter ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>
-                {Math.floor(blackTime / 60000)}:{String(Math.floor((blackTime % 60000) / 1000)).padStart(2, '0')}
+            {/* Mobile bottom panel: moves + actions */}
+            <div className="lg:hidden flex flex-col border-t border-white/10 bg-black/60 backdrop-blur-xl shrink-0" style={{ maxHeight: '30vh' }}>
+              <div className="overflow-auto px-3 py-2 text-[11px] font-mono text-gray-200" style={{ maxHeight: '12vh' }}>
+                {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<span key={i} className="inline-block mr-3">{i + 1}. {m.trim()}</span>)) : <div className="text-gray-500 italic text-center">Drag pieces to play</div>}
               </div>
-
-              {/* Professional move list (chess.com style) */}
-              <div className="mt-4 w-full bg-black/60 border border-white/10 rounded-2xl p-3 text-[12px] font-mono max-h-[220px] overflow-auto text-gray-200">
-                {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (
-                  <div key={i} className="py-0.5 border-b border-white/5 last:border-none">{i + 1}. {m.trim()}</div>
-                )) : <div className="text-gray-500 italic">No moves yet — play on the board</div>}
-              </div>
-
-              {/* Actions */}
-              <div className="mt-3 flex flex-col gap-2 w-full">
-                {chessMatchState === 'playing' && (
-                  <>
-                    <button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button>
-                    <button onClick={() => { /* draw offer stub */ alert('Draw offered (demo)'); }} className="w-full py-2 rounded-xl border border-white/20 text-xs">OFFER DRAW</button>
-                  </>
-                )}
-                {chessMatchState === 'finished' && !chessZkVerified && (
-                  <button onClick={submitChessResultToOracle} className="w-full py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_30px_rgba(73,234,203,0.35)]">
-                    SUBMIT RESULT TO ORACLE (GET SIGNED OUTCOME)
-                  </button>
-                )}
-                {chessZkVerified && (
-                  <div className="text-center text-[10px] text-emerald-400 font-mono p-2 border border-emerald-500/30 rounded-xl">
-                    ORACLE SIGNATURE RECEIVED — READY FOR COVENANT UNLOCK
-                  </div>
-                )}
-                <button onClick={() => setShowFullScreenChess(false)} className="text-xs text-gray-400 hover:text-white py-1">CLOSE FULL SCREEN</button>
+              <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
+                {chessMatchState === 'playing' ? (<><button onClick={() => resignGame(chessPlayerColor)} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button><button onClick={() => { alert('Draw offered'); }} className="flex-1 py-2 rounded-xl border border-white/20 text-[11px]">DRAW</button></>) : chessMatchState === 'finished' && !chessZkVerified ? (<button onClick={submitChessResultToOracle} className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_25px_rgba(73,234,203,0.3)]">SUBMIT TO ORACLE</button>) : chessZkVerified ? (<div className="flex-1 text-center text-[10px] text-emerald-400 font-mono p-2 border border-emerald-500/30 rounded-xl">SIGNATURE RECEIVED</div>) : null}
               </div>
             </div>
           </div>
 
-          <div className="h-10 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-center font-mono">
-            FULL FIDE RULES ENFORCED CLIENT-SIDE (chess.js) • OUTCOME ATTESTED BY COVEX ORACLE • REAL ZK CIRCUIT COMING SOON
-          </div>
+          <div className="h-8 sm:h-10 border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0">FIDE RULES (chess.js) - ORACLE ATTESTED - ZK CIRCUIT TARGET</div>
         </div>
       )}
 
@@ -2152,6 +2159,17 @@ ${gameMeta.outcomeBranches}
             step={0.1}
             onChange={setFeePercent}
           />
+
+          {/* Pot Return % Slider */}
+          <SliderField
+            label="% Returned to Covenant Pot"
+            value={potReturnPercent}
+            min={0}
+            max={10}
+            step={0.5}
+            onChange={setPotReturnPercent}
+          />
+          <p className="text-[10px] text-gray-400 -mt-4 ml-1">% of pot flowing back to sustain the covenant for future sessions. 0% = winner takes all after fee. 2% = sustainable pot.</p>
 
           {/* Reusable Toggle */}
           <Toggle

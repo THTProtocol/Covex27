@@ -180,3 +180,27 @@ Every major flow re-traced and confirmed working:
 - All 3 places + Studio are bit-identical with fixes deployed live
 - All prior analysis claims re-verified and confirmed true on live site
 - Zero gaps remain in user-facing code — system is airtight at SHA 229ac15
+
+
+────────────────────────────────────────────────────────────────
+## PROJECT COMPLETE — FINAL CLOSEOUT (SHA: 22e35bd) — 2026-06-04
+────────────────────────────────────────────────────────────────
+
+The final PERFECT WEBSITE closeout run (HERMES_FINALIZE_PERFECT_WEBSITE_PROMPT.md) found and fixed two additional bugs:
+
+1. **Favicon.svg was broken**: Invalid XML with duplicate content after the closing `</svg>` tag from the branding update. Fixed by rewriting favicon.svg with the clean refined DAG-network mark matching icon.svg.
+
+2. **Nav "COVEX" text invisible in light mode**: The gradient `from-white via-[#49EACB] to-white bg-clip-text text-transparent` rendered invisible on white nav background in light mode. Fixed with `dark:` prefix — light mode shows solid `text-white` (resolved to teal via `.light .text-white` override), dark mode keeps the premium animated gradient.
+
+**All verifications pass at SHA 22e35bd:**
+- Triple SHA identical (local=22e35bd, GitHub=22e35bd, Hetzner=22e35bd)
+- Frontend build 0 errors, 1.34s
+- /health 200, /manifest.json 200, /icon.svg 200, /favicon.svg 200
+- CLAIM PAYOUT: 2, PAYOUT COMPUTED: 2, compute-payout: 2
+- "Featured covenants" (neutral): 1, "Higher-tier" (forbidden): 0
+- kgi.kaspad.net DAG: 1, opacity-75: present
+- DAG instant toggle: confirmed (direct isDark, always-mounted iframes, CSS transition)
+- Favicon valid: single SVG root, matches icon.svg exactly
+- Nav COVEX visible in both themes: solid teal in light, gradient in dark
+
+**PROJECT IS THE BEST POSSIBLE VERSION. ALL DONE.**

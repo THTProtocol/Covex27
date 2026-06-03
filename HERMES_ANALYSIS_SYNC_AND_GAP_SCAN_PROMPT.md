@@ -248,3 +248,18 @@ The previous run claimed DAG was fixed but the useState/useEffect in DagBackgrou
 **Triple sync:** Local=229ac15, GitHub=229ac15, Hetzner=229ac15. Studio=79571e3. All builds 0 errors. Live bundle greps pass. "Higher-tier" count=0. All key production strings present.
 
 Files changed: DagBackground.jsx (1 file, removed useState/useEffect). Studio HERMES (1 file, updated note). All 4 HERMES prompts updated with completion records.
+
+
+────────────────────────────────────────────────────────────────
+## FINAL CLOSEOUT — 2026-06-04 (SHA: 22e35bd)
+────────────────────────────────────────────────────────────────
+
+The final PERFECT WEBSITE closeout run found and fixed two additional bugs not caught in the mega run:
+
+**1. Favicon.svg broken**: Invalid XML with duplicate SVG content after closing `</svg>` tag (from branding update). Rewritten with clean DAG-network mark matching icon.svg.
+
+**2. Nav "COVEX" invisible in light mode**: Gradient `from-white via-[#49EACB] to-white bg-clip-text` rendered invisible on white nav background. Fixed with `dark:` prefix for gradient; light mode uses solid `text-white group-hover:text-kaspa-green`.
+
+All verifications pass at SHA 22e35bd. Triple sync confirmed. Live bundle: all production strings present, forbidden phrase absent, DAG instant toggle confirmed, favicon valid, nav text visible in both themes.
+
+**PROJECT COMPLETE — COVEX IS THE BEST POSSIBLE VERSION.**

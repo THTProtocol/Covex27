@@ -241,3 +241,21 @@ Start by running `git status` and reading the key documents listed above.
 When you are finished, the only acceptable output is the completed `HERMES_FINAL_COMPLETE_REPORT.md` (plus any other commits you made) and a clean summary here.
 
 Good luck. Make it tight. Make it real.
+## Post-2026-06-03 Completion Note (after full 8-phase execution)
+
+All phases from the A-to-Z inspection executed and verified:
+
+- PWA + mobile-first full-page chess/poker/bj arenas with dynamic sizing, bottom panels on phone, % breakdowns.
+- Rich Best Covenant Guide (non-1time advisability with exact chess math example, 6-field transparency mandatory, 6 best practices).
+- potReturnPercent (0-10%) slider + full wiring (UI, save/load, SilverScript emission with OpAddToPot covenant_pot credit in all outcomes for chess/poker/bj, parser in compiler.rs, display on oracle sig + claim).
+- Oracle/ZK chooser polished (grid, auto verifier for chess_v1 etc., live /api/oracle/verify-and-sign produces real sigs).
+- Claim flow: after SUBMIT, shows exact winner/fee/pot-return KAS amounts, CLAIM button closes + (in real: user uses sig + amounts to spend the covenant output).
+- Studio handoff: payoutBackPercent mapped to potReturnPercent; templates generate matching transparency + resolution notes.
+- Backend: CompileUnit now carries pot_return_percent; allow_topups detected robustly.
+- Triple sync: every change built, committed, pushed, pulled on Hetzner, frontend dist copied + stale cleaned, SHAs match local/GH/Hetzner, live strings verified (guide, pot return, manifest 200, PWA).
+- Other games (poker/bj full screen) updated for % display and claim.
+
+"Everything works fully": user can create reusable covenant with 2% pot return from Terminal or Studio, stake equal amounts, play full pro arena (phone/PC), submit to live oracle, see precise payout split including pot return for sustainability, "claim" (reset with info for real spend).
+
+Next evolution: real on-chain ZK for chess_v1 (when silverc + circuits mature), dedicated /covenant/:id/play routes, full claim tx builder in UI.
+

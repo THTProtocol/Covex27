@@ -518,6 +518,21 @@ body {
 .light .text-purple-400 { color: #6d28d9 !important; }
 
 /* ═══════════════════════════════════════════════════════════════
+   EXTRA: Payout and claim section in light mode (Gap 3)
+   ═══════════════════════════════════════════════════════════════ */
+.light .bg-emerald-500\/\[0\.06\] { background: rgba(5, 150, 105, 0.06) !important; }
+.light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.25) !important; }
+.light .text-emerald-400 { color: #059669 !important; }
+.light .text-emerald-300 { color: #047857 !important; }
+
+/* ── details/summary → work in light ── */
+.light details summary { color: #475569 !important; }
+.light details pre { background: #f1f5f9 !important; color: #334155 !important; }
+
+/* ── Claim/Reset buttons in light ── */
+.light .bg-emerald-500 { background: #0f766e !important; color: #fff !important; }
+
+/* ═══════════════════════════════════════════════════════════════
    EXTRA: DAG Background — handled in DagBackground.jsx
    ═══════════════════════════════════════════════════════════════ */
 
@@ -526,7 +541,7 @@ body {
    these are intentionally dark sections (game boards, code, etc.)
    ═══════════════════════════════════════════════════════════════ */
 /* The game boards themselves keep dark text-on-dark for readability */
-.light [class*="bg-\[\#0a0a0a\"]"] [class*="text-white"],
-.light .bg-\[\#1f1f1f\] .text-white {
+.light [class*="bg-[#0a0a0a]"] [class*="text-white"],
+.light .bg-[#1f1f1f] .text-white {
   color: #e2e8f0 !important;
 }

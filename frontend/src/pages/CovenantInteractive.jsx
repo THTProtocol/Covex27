@@ -62,12 +62,16 @@ export default function CovenantInteractive() {
   const canMaxLayout = effectiveTierVal >= 3;   // MAX
 
   // Set activeTab based on URL param (paid → terminal, free → interact)
+  // Gap 4: ?play=chess/poker/bj deep-links auto-navigate to Terminal tab for paid users
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
-    // ?tab=terminal only works for paid users
-    if (tabParam === 'terminal' && (covexPaidTier || '')) return 'terminal';
+    const playParam = searchParams.get('play');
+    // ?tab=terminal or ?play=chess → terminal for paid users
+    if ((tabParam === 'terminal' || playParam) && (covexPaidTier || '')) return 'terminal';
     return 'interact';
   });
+  // Pass play mode to CovexTerminal
+  const playMode = searchParams.get('play') || null; // 'chess' | 'poker' | 'bj' | null
   const [toast, setToast] = useState(null);
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [

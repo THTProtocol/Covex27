@@ -24,6 +24,7 @@
     "react-chessboard": "^5.10.0",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.15.1",
+    "snarkjs": "^0.7.6",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.0",
     "three": "^0.175.0"

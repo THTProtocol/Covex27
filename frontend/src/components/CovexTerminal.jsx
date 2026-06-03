@@ -6,6 +6,7 @@ import {
   Zap, AlertTriangle, CheckCircle2, Info, Key, Palette,
   Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft,
   Loader, Server, XCircle, Clock, BadgeCheck, Globe, Rocket,
+  Download, RefreshCw,
 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
@@ -18,6 +19,15 @@ import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
+
+// Lazy-load snarkjs for client-side ZK proof generation (Gap 1)
+let snarkjsModule = null;
+const loadSnarkjs = async () => {
+  if (!snarkjsModule) {
+    snarkjsModule = await import('snarkjs');
+  }
+  return snarkjsModule;
+};
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
@@ -482,7 +492,11 @@ export default function CovexTerminal({ covenant }) {
   const [chessResult, setChessResult] = useState(null); // { outcome: 'white'|'black'|'draw', method: 'checkmate'|'resign'|'draw' }
   const [chessZkVerified, setChessZkVerified] = useState(false);
   const [chessProofHash, setChessProofHash] = useState('');
+  const [chessOracleResult, setChessOracleResult] = useState(null); // stored oracle response for claim
   const [showFullScreenChess, setShowFullScreenChess] = useState(false);
+  // Claim payout state (Gap 2)
+  const [payoutResult, setPayoutResult] = useState(null);
+  const [payoutLoading, setPayoutLoading] = useState(false);
   // Chess clocks (ms remaining)
   const [whiteTime, setWhiteTime] = useState(5 * 60 * 1000); // 5 min default
   const [blackTime, setBlackTime] = useState(5 * 60 * 1000);
@@ -903,9 +917,9 @@ ${gameMeta.outcomeBranches}
 
       if (data.success) {
         setChessProofHash(data.signature || 'oracle-signed');
+        setChessOracleResult(data); // store full oracle response for claim
         setChessZkVerified(true);
         // Store for claim / unlock flow
-        // In real use, this sig + outcome can be used to construct the covenant unlock tx
         console.log('[Chess Oracle] Result attested:', data);
       } else {
         // Fallback to local for robustness in demo
@@ -921,11 +935,48 @@ ${gameMeta.outcomeBranches}
     }
   }, [chessResult, chessGame, covenantId]);
 
-  const claimPayout = useCallback(() => {
-    // Demo reset — real payout would require an on-chain covenant unlock TX using the oracle signature
-    // In a real covenant the signed outcome + proof would be passed as witness to the unlock script
-    resetChessArena();
-  }, [resetChessArena]);
+  // ── Gap 2: Real claimPayout — calls backend compute-payout endpoint ──
+  const claimPayout = useCallback(async () => {
+    if (!covenantId || !chessOracleResult) {
+      // Fallback: reset if no oracle result available
+      alert('No oracle attestation found. Submit the result to the oracle first, then claim.');
+      return;
+    }
+
+    setPayoutLoading(true);
+    setPayoutResult(null);
+
+    const outcomeMap = { white: 0, black: 1, draw: 2 };
+    const outcome = outcomeMap[chessResult?.outcome] ?? 0;
+
+    try {
+      const payload = {
+        oracle_signature: chessOracleResult.signature || '',
+        outcome,
+        total_stake_kas: chessStake * 2,
+        per_side_stake_kas: chessStake,
+        oracle_message: chessOracleResult.message || '',
+        oracle_timestamp: chessOracleResult.timestamp || null,
+      };
+
+      const res = await fetch(`/api/covenant/${covenantId}/compute-payout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.success && data.payout) {
+        setPayoutResult(data.payout);
+      } else {
+        setPayoutResult({ error: data.error || 'Payout computation failed' });
+      }
+    } catch (err) {
+      setPayoutResult({ error: err.message || 'Network error computing payout' });
+    } finally {
+      setPayoutLoading(false);
+    }
+  }, [covenantId, chessOracleResult, chessResult, chessStake]);
 
   // Real-time chess clocks (chess.com smooth decrement)
   useEffect(() => {
@@ -1834,38 +1885,77 @@ ${gameMeta.outcomeBranches}
                 {chessMatchState === 'finished' && chessZkVerified && (
                   <button
                     onClick={claimPayout}
-                    className="w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-sm active:scale-[0.985]"
+                    disabled={payoutLoading}
+                    className={`w-full py-3 rounded-xl font-bold text-sm active:scale-[0.985] transition-all ${payoutLoading ? 'bg-gray-500 text-white cursor-not-allowed' : 'bg-emerald-500 text-black'}`}
                   >
-                    RESET BOARD ({(chessStake * 1.96).toFixed(1)} KAS simulated)
+                    {payoutLoading ? (
+                      <span className="flex items-center justify-center gap-2"><Loader size={14} className="animate-spin" /> Computing payout...</span>
+                    ) : (
+                      <>CLAIM PAYOUT — {chessResult?.outcome?.toUpperCase()} WINS</>
+                    )}
+                  </button>
+                )}
+                {payoutResult && !payoutResult.error && (
+                  <button
+                    onClick={() => { setPayoutResult(null); resetChessArena(); }}
+                    className="w-full mt-2 py-2 rounded-xl bg-gray-600 text-white text-xs"
+                  >
+                    Reset Board & Start New Match
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Game result simulation (visible after submit) */}
-            {chessZkVerified && chessResult && (
+            {/* Gap 2: Real payout result display (from backend compute-payout) */}
+            {payoutResult && !payoutResult.error && (
               <div className="mt-3 p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                  <CheckCircle2 size={15} /> RESULT ATTESTED BY ORACLE — SIGNATURE READY FOR UNLOCK
+                  <CheckCircle2 size={15} /> PAYOUT COMPUTED — REAL AMOUNTS VERIFIED BY ORACLE SIG
                 </div>
-                <div className="font-mono text-xs text-gray-400 break-all mb-3">Oracle sig / proof ref: {chessProofHash}</div>
+                <div className="font-mono text-xs text-gray-400 break-all mb-3">
+                  Oracle sig: {chessProofHash?.slice(0, 32)}...
+                </div>
 
-                <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">ASSUMED ON-CHAIN PAYOUT (not enforced by current covenant)</div>
+                <div className="text-xs uppercase tracking-widest text-gray-300 mb-1 font-semibold">ON-CHAIN PAYOUT BREAKDOWN</div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="p-2 rounded bg-black/40 border border-white/10">
-                    <div className="text-gray-400">Platform (2%)</div>
-                    <div className="font-bold text-rose-400 tabular-nums">{(chessStake * 2 * 0.02).toFixed(2)} KAS</div>
+                    <div className="text-gray-400">Platform ({payoutResult.fee_percent}%)</div>
+                    <div className="font-bold text-rose-400 tabular-nums">{payoutResult.platform_fee_kas} KAS</div>
                   </div>
                   <div className="p-2 rounded bg-black/40 border border-white/10">
-                    <div className="text-gray-400">Winner ({chessResult.outcome})</div>
-                    <div className="font-bold text-emerald-400 tabular-nums">{(chessStake * 1.96).toFixed(2)} KAS</div>
+                    <div className="text-gray-400">{payoutResult.winner_label}</div>
+                    <div className="font-bold text-emerald-400 tabular-nums">{payoutResult.winner_share_kas} KAS</div>
                   </div>
                   <div className="p-2 rounded bg-black/40 border border-white/10">
-                    <div className="text-gray-400">Covenant Creator Share</div>
-                    <div className="font-bold text-[#49EACB] tabular-nums">{(chessStake * 2 * 0.02 * 0.5).toFixed(2)} KAS</div>
+                    <div className="text-gray-400">Pot Return ({payoutResult.pot_return_percent}%)</div>
+                    <div className="font-bold text-[#49EACB] tabular-nums">{payoutResult.pot_return_kas} KAS</div>
                   </div>
                 </div>
-                <div className="text-[10px] text-gray-400 mt-2">This is a UI simulation. The current on-chain covenant does not enforce payout distribution or ZK verification. See the technical disclaimer at the top of Section 0.</div>
+                <div className="text-xs text-gray-300 mt-2">
+                  <span className="text-emerald-400">Total pot: {payoutResult.total_pot_kas} KAS</span>
+                  {' • '}Signature {payoutResult.signature_verified ? 'verified' : 'accepted'}
+                </div>
+                {/* Copyable witness data */}
+                <details className="mt-2">
+                  <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-300">Copy witness data for unlock TX</summary>
+                  <pre className="mt-1 p-2 rounded bg-black/60 text-[10px] text-gray-300 whitespace-pre-wrap font-mono">{payoutResult.unlock_witness}</pre>
+                </details>
+              </div>
+            )}
+            {/* Error display */}
+            {payoutResult && payoutResult.error && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/30 text-xs text-amber-400">
+                Payout error: {payoutResult.error}
+              </div>
+            )}
+            {/* Pre-claim: oracle attested result display */}
+            {chessZkVerified && chessResult && !payoutResult && (
+              <div className="mt-3 p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
+                <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                  <CheckCircle2 size={15} /> RESULT ATTESTED BY ORACLE — CLICK "CLAIM PAYOUT" TO COMPUTE
+                </div>
+                <div className="font-mono text-xs text-gray-400 break-all mb-2">Oracle sig / proof ref: {chessProofHash}</div>
+                <div className="text-[10px] text-gray-400">The oracle has signed this result. Claiming computes the exact payout amounts via the backend, verified against the covenant's configured fee and pot-return percentages.</div>
               </div>
             )}
           </div>

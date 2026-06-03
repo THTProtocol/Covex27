@@ -386,9 +386,16 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
         <span>DAA: <span className="text-white">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
       </div>
 
-      <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:block">
-        <div className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green text-[10px] font-bold uppercase tracking-wider">
-          <Eye size={11} />View Covenant
+      <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:flex gap-1.5">
+        <Link
+          to={`/covenant/${encodeURIComponent(c.tx_id)}?play=${gameType || 'chess'}`}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green text-[10px] font-bold uppercase tracking-wider"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Play size={11} />Play Now
+        </Link>
+        <div className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/5 border border-white/8 text-gray-300 text-[10px] font-bold uppercase tracking-wider">
+          <Eye size={11} />View
         </div>
       </div>
     </Link>

@@ -94,6 +94,11 @@ fn oracle_key_bytes() -> Vec<u8> {
     hex::decode(&raw).expect("COVEX_ORACLE_KEY (or default) must be valid hex")
 }
 
+/// Public version for use by the claim/payout handler in main.rs
+pub fn oracle_key_bytes_public() -> Vec<u8> {
+    oracle_key_bytes()
+}
+
 /// Path to the snarkjs verify.js script (for merkle).
 fn verify_script_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

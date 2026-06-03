@@ -57,7 +57,7 @@ export default function TemplateLibrary() {
       </div>
 
       <div className="mt-12 text-center text-sm text-gray-500">
-        More templates (including paid ones from creators) coming soon.
+        More templates (including paid ones from creators) will be added as the creator community grows.
       </div>
     </div>
   );

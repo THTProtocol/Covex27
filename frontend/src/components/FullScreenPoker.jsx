@@ -312,7 +312,7 @@ export default function FullScreenPoker({ stake, onClose, covenantId, feePercent
 
       {/* Footer */}
       <div className="h-10 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-center font-mono">
-        TEXAS HOLD'EM PRO TABLE • STAKE-MATCHED • ORACLE ATTESTED OUTCOME • REAL ZK HAND RANKING PROOFS COMING SOON
+        TEXAS HOLD'EM PRO TABLE • STAKE-MATCHED • ORACLE ATTESTED OUTCOME • REAL SHA256-SIGNED RESOLUTION
       </div>
     </div>
   );

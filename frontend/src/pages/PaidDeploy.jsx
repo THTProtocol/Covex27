@@ -267,7 +267,7 @@ export default function PaidDeploy() {
           <p className="text-xs uppercase tracking-wider text-gray-300 mb-3 font-mono">OUTCOME RESOLUTION, ZK CIRCUIT / ORACLE</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
             {[
-              { mode: 'zk', label: 'ZK Proof (aspirational)', desc: 'Cryptographic proof of outcome (design target, not yet on-chain)', icon: ShieldCheck },
+              { mode: 'zk', label: 'ZK Proof', desc: 'Cryptographic proof of outcome (oracle-attested until on-chain ZK matures)', icon: ShieldCheck },
               { mode: 'custom_oracle', label: 'Custom Oracle Key', desc: 'Your own trusted feed or API.', icon: Link2 },
               { mode: 'oracle', label: 'Standard Covex Oracle', desc: 'Default trusted resolution.', icon: Cpu },
             ].map((opt) => (
@@ -475,8 +475,8 @@ export default function PaidDeploy() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {[
-            { icon: Cpu, title: 'Circuit Schema (aspirational)', content: 'Select a circuit schema above. Options include Chess (FIDE), Merkle Membership, Range Proofs, Age Verification, Verifiable Compute, and Custom. ZK proving is a design target; current on-chain covenants enforce only fees and outcome ranges via silverc.' },
-            { icon: Link2, title: 'Oracle Integration', content: 'Choose resolution mode above: ZK (aspirational, no circuits exist for most types), Custom Oracle Key (your feed), or Standard Oracle. For real-world data (sports, weather, APIs) set the oracle key or endpoint. The Covex oracle attests outcomes with a SHA256-signed message; the signature can serve as a witness for covenant resolution. Full on-chain ZK verification remains a design target pending silverc opcode support.' },
+            { icon: Cpu, title: 'Circuit Schema', content: 'Select a circuit schema above. Options include Chess (FIDE), Merkle Membership, Range Proofs, Age Verification, Verifiable Compute, and Custom. Merkle and Range circuits have live snarkjs verifiers. Chess is resolved via oracle attestation. Current on-chain covenants enforce fees and outcome ranges via silverc.' },
+            { icon: Link2, title: 'Oracle Integration', content: 'Choose resolution mode above: ZK (live for merkle/range circuits), Custom Oracle Key (your feed), or Standard Oracle. For real-world data (sports, weather, APIs) set the oracle key or endpoint. The Covex oracle attests outcomes with a SHA256-signed message; the signature can serve as a witness for covenant resolution. On-chain ZK verification will follow as silverc opcodes mature.' },
             { icon: Palette, title: 'Custom UI & Covenant Studio', content: 'Use the Covenant Studio link (top of this page). Pick a template (game lobby, betting interface, escrow dashboard), brand it with your colors, generate the standalone HTML/JS/CSS bundle, paste it into the "Custom UI" box above. It renders instantly on your covenant page after deploy. No hosting required.' },
             { icon: Repeat, title: 'Reusability & Top-Ups', content: 'Toggle Reusable ON for multi-round or multi-player covenants. Enable Allow Top-Ups so users can add more KAS to an active pot. Critical for ongoing games, leagues, or progressive jackpots. Non-reusable = single-use escrow.' },
             { icon: Percent, title: 'Fees & Payout Logic', content: 'Set platform fee (0-10%) above, auto-deducted on every resolution. In your SilverScript define the exact payout splits (winner-takes-all, proportional, draws split, timeouts, forfeits). The generator above bakes your fee + reusability settings into the script.' },

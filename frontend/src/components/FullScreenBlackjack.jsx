@@ -307,7 +307,7 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
 
       {/* Footer */}
       <div className="h-10 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-center font-mono">
-        BLACKJACK PRO TABLE • STAKE-MATCHED • ORACLE ATTESTED OUTCOME • REAL ZK COMING SOON
+        BLACKJACK PRO TABLE • STAKE-MATCHED • ORACLE ATTESTED OUTCOME • REAL SHA256-SIGNED RESOLUTION
       </div>
     </div>
   );

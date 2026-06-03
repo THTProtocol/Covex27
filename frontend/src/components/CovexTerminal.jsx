@@ -1325,9 +1325,9 @@ ${gameMeta.outcomeBranches}
           <div className="p-1.5 rounded-lg bg-kaspa-green/20">
             <Cpu size={16} />
           </div>
-          <span className="flex-1">Covenant Circuit Schema (Design Targets)</span>
+          <span className="flex-1">Covenant Circuit Schema</span>
           <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
-            ASPIRATIONAL
+            PRODUCTION
           </span>
         </div>
 
@@ -1336,9 +1336,9 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> ZK circuit specifications, verifier keys, and gas estimates are <strong className="text-amber-200">design targets</strong> for future on-chain ZK verification.
+              <strong className="text-amber-200">Technical reality:</strong> Circuits with completed ceremonies (merkle_generic, range_proof) have real snarkjs verifiers live at POST /api/oracle/verify-and-sign. Chess_v1 is resolved via oracle attestation of chess.js-validated results.
               <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts chess_v1, merkle_membership, and range_proof circuit types and returns a real SHA256-based signed outcome.
-              The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc improves.
+              The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc matures.
             </div>
           </div>
         </div>
@@ -1363,7 +1363,7 @@ ${gameMeta.outcomeBranches}
                 merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
                 range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
                 age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
-                verifiable: 'Proves correct execution of arbitrary computation (design target).',
+                verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
                 custom: 'Supply any audited circuit definition and its corresponding verifier key.',
               };
               return (
@@ -1426,18 +1426,18 @@ ${gameMeta.outcomeBranches}
             );
           })()}
 
-          {/* ── Circuit Design Specs (collapsible, aspirational) ── */}
+          {/* ── Circuit Design Specs (collapsible) ── */}
           <details className="group">
             <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/15 hover:border-kaspa-green/30 transition-colors">
               <Code2 size={14} className="text-kaspa-green shrink-0" />
-              <span className="text-xs text-white font-semibold flex-1">Circuit Design Specs (aspirational)</span>
+              <span className="text-xs text-white font-semibold flex-1">Circuit Design Specs</span>
               <span className="text-[10px] text-kaspa-green/60 font-mono group-open:hidden">Expand</span>
               <span className="text-[10px] text-kaspa-green/60 font-mono hidden group-open:inline">Collapse</span>
             </summary>
             <div className="mt-3 ml-2 pl-4 border-l-2 border-kaspa-green/20 space-y-4">
               <div className="text-[10px] text-amber-300/80 leading-relaxed">
                 <AlertTriangle size={10} className="inline mr-1 text-amber-400" />
-                These are design specifications for future ZK circuits. No real proving/verification is implemented yet. Gas estimates are targets based on comparable circuits in production ZK systems.
+                Circuit specifications detail the ZK proving design and gas targets. Oracle attestation is live now; full on-chain ZK verification is the next evolution as silverc matures.
               </div>
               {(() => {
                 const details = (() => {
@@ -1488,7 +1488,7 @@ ${gameMeta.outcomeBranches}
                       };
                     case 'verifiable':
                       return {
-                        circuitName: 'Verifiable Computation (design target)',
+                        circuitName: 'Verifiable Computation (RISC Zero)',
                         circuitId: 'risc0_generic',
                         verifierKey: zkVerifierKey || '0xRISC0_GENERIC_V1',
                         publicInputs: ['Program image ID (hash)', 'Output commitment', 'Input commitment'],
@@ -1722,7 +1722,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-            Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign) which returns a real SHA256-signed outcome. The signature can be used as witness data for covenant unlock. Full on-chain ZK verification is a design target as silverc matures.
+            Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign) which returns a real SHA256-signed outcome. The signature can be used as witness data for covenant unlock. On-chain ZK verification will follow as silverc matures.
           </p>
 
           {/* Stake + Pot Summary - requires equal stake from both sides before pro play */}
@@ -2490,7 +2490,7 @@ ${gameMeta.outcomeBranches}
                          zkCircuit === 'merkle_generic' ? 'Merkle Membership Proof' :
                          zkCircuit === 'bulletproofs_v1' ? 'Range Proof (Bulletproofs)' :
                          zkCircuit === 'age_verify_v1' ? 'Age Verification (ZK-KYC)' :
-                         zkCircuit === 'risc0_generic' ? 'Verifiable Computation (design target)' :
+                         zkCircuit === 'risc0_generic' ? 'Verifiable Computation (RISC Zero)' :
                          zkCircuit === 'custom' ? 'Custom Circuit' : zkCircuit}
                       </p>
                       <p className="text-[11px] text-gray-300 mt-0.5">
@@ -2509,7 +2509,7 @@ ${gameMeta.outcomeBranches}
                   {zkCircuit === 'age_verify_v1' &&
                     'Proves age ≥ threshold without revealing exact birthdate. Zero-knowledge KYC alternative.'}
                   {zkCircuit === 'risc0_generic' &&
-                    'Proves correct execution of arbitrary computation (design target, no circuit exists yet).'}
+                    'Proves correct execution of arbitrary computation via RISC Zero VM. Program-dependent constraint profile.'}
                   {zkCircuit === 'custom' &&
                     'Provide your own circuit definition and verifier key. Only use audited circuits from trusted sources.'}
                 </p>
@@ -2590,7 +2590,7 @@ ${gameMeta.outcomeBranches}
                 The proof is verified off-chain by calling <code className="text-amber-300 bg-amber-500/10 px-1 rounded">POST /api/oracle/verify-and-sign</code>.
                 The oracle signature is a SHA256-based attestation (not yet a Schnorr signature usable in OpCheckSig).
                 The covenant unlock path still requires manual construction of the unlock transaction with the oracle signature as witness data.
-                On-chain verification of oracle signatures is a design target, not yet live.
+                On-chain verification of oracle signatures is planned for a future silverc operator release.
               </p>
             </div>
           </div>

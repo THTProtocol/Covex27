@@ -83,7 +83,7 @@ export default function App() {
                     <line x1="24" y1="40" x2="40" y2="24" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
                   </g>
                 </svg>
-                <span className="font-black tracking-[2px] bg-gradient-to-r from-white via-[#49EACB] to-white bg-clip-text text-transparent group-hover:from-[#49EACB] group-hover:via-white group-hover:to-[#49EACB] transition-all">COVEX</span>
+                <span className="font-black tracking-[2px] text-white group-hover:text-kaspa-green dark:text-transparent dark:bg-gradient-to-r dark:from-white dark:via-[#49EACB] dark:to-white dark:bg-clip-text dark:group-hover:from-[#49EACB] dark:group-hover:via-white dark:group-hover:to-[#49EACB] transition-all">COVEX</span>
               </Link>
               <div className="flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>

@@ -148,3 +148,7 @@ Executed full comprehensive analysis per HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMP
 - PWA: manifest.json 200, sw.js registered
 
 No changes were needed — system is airtight. Updated HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMPT.md with full analysis report.
+
+## 2026-06-04 Mega Run (SHA: 229ac15)
+
+DAG theme switch FIXED PROPERLY: removed useState/useEffect from DagBackground, both iframes always mounted, visibility driven directly by `isDark` from ThemeProvider context. Zero render cycle delay, instant toggle. Forbidden phrase confirmed absent from all code. Full re-analysis of all 12 major flows verified on live. Triple sync: 229ac15 across local/GitHub/Hetzner. All builds 0 errors. Live strings confirmed. See HERMES_MEGA_MASTER_ALL_FIXES_PROMPT.md for full completion record.

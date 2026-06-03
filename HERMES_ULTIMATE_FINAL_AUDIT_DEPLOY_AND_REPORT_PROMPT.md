@@ -308,3 +308,7 @@ Per HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMPT.md. Full comprehensive analysis exe
 
 **Result: ALL GAPS CLOSED. No issues found.** Zero forbidden language. Kaspa links all 200. ZK artifacts present both sides. DAG theme instant. Claim math real. Studio clean. Light mode comprehensive. PWA healthy. No changes required — system is airtight at this SHA. Full report in HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMPT.md.
 
+## 2026-06-04 Mega Run (SHA: 229ac15) — DAG Properly Fixed
+
+Previous DAG fix (useState/useEffect) had render-cycle lag. This run removed useState/useEffect entirely — both iframes always mounted, visibility driven by `isDark` from context directly. Instant toggle, zero delay. Forbidden phrase ("Higher-tier covenants...") confirmed absent from all code. Full 12-flow re-analysis verified on live. Triple sync: 229ac15 across all 3 places. See HERMES_MEGA_MASTER_ALL_FIXES_PROMPT.md.
+

@@ -159,8 +159,8 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Award size={20} className="text-[#49EACB]" /> Research Library: All Essential Papers</h2>
           <div className="space-y-3">
             {[
-              { title: "PHANTOM: A Scalable BlockDAG Protocol", subtitle: "Sompolinsky, Wyborski & Zohar (2018). The foundational BlockDAG paper that started it all. IACR ePrint 2018/104.", href: "https://eprint.iacr.org/2018/104.pdf" },
-              { title: "GHOSTDAG: A Greedy Heaviest-Observed-SubTree Protocol", subtitle: "Sompolinsky et al. The actual consensus algorithm running on Kaspa mainnet today. The practical, safe parameterization of PHANTOM ideas.", href: "https://eprint.iacr.org/2018/104.pdf" },
+              { title: "PHANTOM: A Scalable BlockDAG Protocol", subtitle: "Sompolinsky, Wyborski & Zohar (2018). The foundational BlockDAG paper (PHANTOM + GHOSTDAG). The mathematical basis for Kaspa. IACR ePrint 2018/104.", href: "https://eprint.iacr.org/2018/104.pdf" },
+              { title: "PHANTOM GHOSTDAG: A Scalable Generalization of Nakamoto Consensus", subtitle: "Sompolinsky, Wyborski, Zohar (AFT 2021 / ePrint 2018/104). The actual consensus algorithm (GHOSTDAG) running on Kaspa mainnet. Practical parameterization of the original PHANTOM BlockDAG ideas.", href: "https://eprint.iacr.org/2018/104.pdf" },
               { title: "DAGKNIGHT: A Parameterless Generalization of PHANTOM", subtitle: "Sompolinsky, Sutton & Wyborski (2022). Removes the k parameter entirely via real-time latency estimation. The future of Kaspa consensus. IACR 2022/1494.", href: "https://eprint.iacr.org/2022/1494.pdf" },
               { title: "Kaspa BlockDAG: Formal Performance & Security Analysis", subtitle: "Peresini, Sompolinsky, et al. (2023). Rigorous analysis of throughput, security bounds, and attack resistance of the deployed GHOSTDAG system. IACR 2023/1479.", href: "https://eprint.iacr.org/2023/1479" },
               { title: "SPECTRE: Serialization of Proof-of-work Events", subtitle: "Sompolinsky, Lewenberg & Zohar (2016). The earlier inclusive protocol that influenced all later BlockDAG work.", href: "https://eprint.iacr.org/2016/1159.pdf" },
@@ -253,7 +253,7 @@ export default function WhatIsKaspaPage() {
               { title: "Kaspa Documentation Hub", desc: "Protocol spec, REST/WebSocket APIs, SilverScript reference, node setup", href: "https://github.com/kaspanet/docs" },
               { title: "Covenant Design Document", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/docs/blob/main/Design/covenants.md" },
               { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
-              { title: "Toccata Testnet Faucet & Explorer", desc: "TN12 resources for developers testing covenants", href: "https://faucet.tn12.kaspanet.io" },
+              { title: "Toccata Testnet Faucet & Explorer", desc: "TN12 resources for developers testing covenants (faucet-tn12.kaspanet.io)", href: "https://faucet-tn12.kaspanet.io" },
               { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://kaspa.org/community" },
               { title: "Kaspa Improvement Proposals (KIPs)", desc: "Formal process for protocol changes", href: "https://github.com/kaspanet/kips" },
               { title: "Core Team & Research Blog", desc: "Updates from the researchers and protocol engineers", href: "https://research.kaspa.org" },

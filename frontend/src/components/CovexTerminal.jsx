@@ -793,6 +793,20 @@ ${gameMeta.outcomeBranches}
     }, 650);
   }, [chessStake]);
 
+  // Simple stake match helpers for poker and blackjack (same pattern as chess)
+  const postPokerStake = useCallback(() => {
+    setPokerMatchState('posted');
+  }, []);
+  const acceptPokerMatch = useCallback(() => {
+    setPokerMatchState('matched');
+  }, []);
+  const postBjStake = useCallback(() => {
+    setBjMatchState('posted');
+  }, []);
+  const acceptBjMatch = useCallback(() => {
+    setBjMatchState('matched');
+  }, []);
+
   const launchFullScreenChess = useCallback(() => {
     if (chessMatchState !== 'playing' && chessMatchState !== 'finished') return;
     // Only allow full screen professional play after stakes match
@@ -1833,7 +1847,7 @@ ${gameMeta.outcomeBranches}
             <div>
               {pokerMatchState === 'idle' && (
                 <button
-                  onClick={() => setPokerMatchState('posted')}
+                  onClick={postPokerStake}
                   className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                 >
                   POST {pokerStake} KAS — OPEN FOR MATCH (DEMO)
@@ -1841,7 +1855,7 @@ ${gameMeta.outcomeBranches}
               )}
               {pokerMatchState === 'posted' && (
                 <button
-                  onClick={() => setPokerMatchState('matched')}
+                  onClick={acceptPokerMatch}
                   className="w-full h-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-sm active:scale-[0.985] transition-all"
                 >
                   MATCH STAKE & JOIN (SIMULATED)
@@ -1931,7 +1945,7 @@ ${gameMeta.outcomeBranches}
             <div>
               {bjMatchState === 'idle' && (
                 <button
-                  onClick={() => setBjMatchState('posted')}
+                  onClick={postBjStake}
                   className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                 >
                   POST {bjStake} KAS — OPEN FOR MATCH (DEMO)
@@ -1939,7 +1953,7 @@ ${gameMeta.outcomeBranches}
               )}
               {bjMatchState === 'posted' && (
                 <button
-                  onClick={() => setBjMatchState('matched')}
+                  onClick={acceptBjMatch}
                   className="w-full h-full py-3 rounded-xl bg-amber-500 text-black font-bold text-sm active:scale-[0.985] transition-all"
                 >
                   MATCH STAKE & JOIN (SIMULATED)

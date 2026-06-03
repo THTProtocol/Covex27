@@ -269,7 +269,7 @@ export default function Explorer() {
               <>
                 <SectionLabel icon={Sparkles} label="Featured Covenants" accent />
                 <p className="text-xs text-gray-400 -mt-2 mb-4">Higher-tier covenants are prioritized here with stronger visual presence (no tier names shown publicly).</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
                   {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
                 </div>
               </>
@@ -333,16 +333,18 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const tierCardClass = highlighted
     ? `${style.card} hover:border-kaspa-green/30 hover:-translate-y-0.5`
     : `${style.card} hover:border-white/10 hover:bg-white/[0.03]`;
+  // Ensure cards have enough visual separation even with glows
+  const cardBase = 'bg-[#0a0a0f]'; // solid base to prevent bleed-through from shadows/glows of neighbors
 
-  // Higher-tier glow for MAX/PRO
-  const tierGlow = tier === 'MAX' ? 'shadow-[0_0_25px_rgba(168,85,247,0.15)]' 
-    : tier === 'PRO' ? 'shadow-[0_0_18px_rgba(232,175,52,0.12)]'
-    : tier === 'BUILDER' ? 'shadow-[0_0_12px_rgba(59,130,246,0.08)]'
-    : '';
+  // Higher-tier glow for MAX/PRO - toned down to avoid visual overlap in dense grids
+  const tierGlow = tier === 'MAX' ? 'shadow-[0_0_16px_rgba(168,85,247,0.12)] ring-1 ring-purple-500/10' 
+    : tier === 'PRO' ? 'shadow-[0_0_12px_rgba(232,175,52,0.10)] ring-1 ring-amber-500/10'
+    : tier === 'BUILDER' ? 'shadow-[0_0_8px_rgba(59,130,246,0.08)] ring-1 ring-blue-500/10'
+    : 'ring-1 ring-white/5';
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass}`}
+      className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase}`}
     >
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
       {isHighTVL && <div className="absolute top-3 right-3"><Badge variant="default">HIGH TVL</Badge></div>}

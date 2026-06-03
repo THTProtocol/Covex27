@@ -483,8 +483,13 @@ body {
 }
 
 /* Game overlay/modals — keep play surfaces but lighten UI */
-.light [class*="fixed inset-0 z-"] {
+.light [class*="fixed inset-0 z-"]:not(.dag-background) {
   background: rgba(248, 250, 252, 0.97) !important;
+}
+
+/* DAG background: pure white in light mode */
+.light .dag-background {
+  background: #fff !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════

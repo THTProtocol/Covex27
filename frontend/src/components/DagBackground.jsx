@@ -2,7 +2,7 @@ import React from 'react';
 
 const DagBackground = () => {
   return (
-    <div className="fixed inset-0 z-[-10] bg-white dark:bg-black pointer-events-none">
+    <div className="dag-background fixed inset-0 z-[-10] bg-white dark:bg-black pointer-events-none">
       <iframe 
         src="https://kgi.kaspad.net/?theme=dark" 
         className="absolute top-1/2 left-1/2 w-[125vw] h-[125vh] -translate-x-1/2 -translate-y-1/2 border-0 opacity-35 mix-blend-screen hidden dark:block"

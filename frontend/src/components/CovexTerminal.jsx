@@ -1638,8 +1638,8 @@ ${gameMeta.outcomeBranches}
               <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] font-mono border border-[#49EACB]/30">FIDE (chess.js)</span>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
-              <div className="text-[11px] text-[#49EACB] font-mono">{chessStake} KAS STAKE • 2% COVENANT FEE</div>
-              <div className="text-[10px] text-gray-400 -mt-0.5">Winner takes all (minus fee) • Oracle attested (ZK when circuit ready)</div>
+              <div className="text-[11px] text-[#49EACB] font-mono">{chessStake} KAS STAKE, {feePercent}% FEE, {potReturnPercent}% POT RETURN</div>
+              <div className="text-[10px] text-gray-400 -mt-0.5">Winner: {(100 - feePercent - potReturnPercent).toFixed(1)}%, Creator: {feePercent}%, Pot: {potReturnPercent}%, Oracle attested with ZK target</div>
               {opponentStake === chessStake && (chessMatchState === 'playing' || chessMatchState === 'finished') && (
                 <button
                   onClick={launchFullScreenChess}
@@ -1665,11 +1665,15 @@ ${gameMeta.outcomeBranches}
             <div className="text-right">
               <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
               <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{chessStake + opponentStake} KAS</div>
-              <div className="text-[11px] text-rose-400/90">−2% fee • {opponentStake === chessStake ? 'STAKES MATCHED — READY' : 'WAITING FOR OPPONENT MATCH'}</div>
+              <div className="text-[11px] text-rose-400/90">{opponentStake === chessStake ? 'STAKES MATCHED' : 'WAITING FOR OPPONENT MATCH'}</div>
             </div>
             <div className="text-right pl-3 border-l border-white/10">
-              <div className="text-[10px] uppercase tracking-widest text-gray-400">WINNER RECEIVES</div>
-              <div className="text-2xl font-bold tabular-nums text-emerald-400">{((chessStake + opponentStake) * 0.98).toFixed(1)} KAS</div>
+              <div className="text-[10px] uppercase tracking-widest text-gray-400">PAYOUT BREAKDOWN</div>
+              <div className="text-xs font-mono text-gray-300 leading-relaxed">
+                <div>Winner: {((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS ({(100 - feePercent - potReturnPercent).toFixed(1)}%)</div>
+                <div>Creator: {((chessStake + opponentStake) * feePercent / 100).toFixed(1)} KAS ({feePercent}%)</div>
+                <div className="text-kaspa-green">Pot return: {((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)} KAS ({potReturnPercent}%)</div>
+              </div>
             </div>
           </div>
 
@@ -2064,7 +2068,17 @@ ${gameMeta.outcomeBranches}
                 <div className="mt-3 flex flex-col gap-2 w-full">
                   {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button onClick={() => { alert('Draw offered (demo)'); }} className="w-full py-2 rounded-xl border border-white/20 text-xs">OFFER DRAW</button></>)}
                   {chessMatchState === 'finished' && !chessZkVerified && (<button onClick={submitChessResultToOracle} className="w-full py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_30px_rgba(73,234,203,0.35)]">SUBMIT RESULT TO ORACLE</button>)}
-                  {chessZkVerified && (<div className="text-center text-[10px] text-emerald-400 font-mono p-2 border border-emerald-500/30 rounded-xl">ORACLE SIGNATURE RECEIVED</div>)}
+                  {chessZkVerified && (
+                    <div className="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">
+                      <div className="text-[10px] text-emerald-400 font-mono text-center mb-2">ORACLE SIGNATURE RECEIVED</div>
+                      <div className="text-[10px] text-gray-300 leading-relaxed space-y-0.5">
+                        <div className="flex justify-between"><span>Winner:</span><span className="text-white">{((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</span></div>
+                        <div className="flex justify-between"><span>Creator fee:</span><span className="text-white">{((chessStake + opponentStake) * feePercent / 100).toFixed(1)} KAS</span></div>
+                        <div className="flex justify-between"><span className="text-kaspa-green">Pot return:</span><span className="text-kaspa-green">{((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)} KAS</span></div>
+                      </div>
+                      <button onClick={() => { resetChessArena(); setShowFullScreenChess(false); }} className="mt-2 w-full py-2 rounded-xl bg-[#49EACB] text-black text-xs font-bold active:scale-[0.985]">CLAIM &amp; CLOSE</button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2075,7 +2089,16 @@ ${gameMeta.outcomeBranches}
                 {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<span key={i} className="inline-block mr-3">{i + 1}. {m.trim()}</span>)) : <div className="text-gray-500 italic text-center">Drag pieces to play</div>}
               </div>
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
-                {chessMatchState === 'playing' ? (<><button onClick={() => resignGame(chessPlayerColor)} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button><button onClick={() => { alert('Draw offered'); }} className="flex-1 py-2 rounded-xl border border-white/20 text-[11px]">DRAW</button></>) : chessMatchState === 'finished' && !chessZkVerified ? (<button onClick={submitChessResultToOracle} className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_25px_rgba(73,234,203,0.3)]">SUBMIT TO ORACLE</button>) : chessZkVerified ? (<div className="flex-1 text-center text-[10px] text-emerald-400 font-mono p-2 border border-emerald-500/30 rounded-xl">SIGNATURE RECEIVED</div>) : null}
+                {chessMatchState === 'playing' ? (<><button onClick={() => resignGame(chessPlayerColor)} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button><button onClick={() => { alert('Draw offered'); }} className="flex-1 py-2 rounded-xl border border-white/20 text-[11px]">DRAW</button></>) : chessMatchState === 'finished' && !chessZkVerified ? (<button onClick={submitChessResultToOracle} className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_25px_rgba(73,234,203,0.3)]">SUBMIT TO ORACLE</button>) : chessZkVerified ? (
+                    <div className="flex-1 p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">
+                      <div className="text-[10px] text-emerald-400 font-mono text-center">SIGNATURE RECEIVED</div>
+                      <div className="text-[9px] text-gray-300 flex justify-around mt-1">
+                        <span>Winner: {((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</span>
+                        <span>Creator: {((chessStake + opponentStake) * feePercent / 100).toFixed(1)}</span>
+                        <span className="text-kaspa-green">Pot: {((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)}</span>
+                      </div>
+                      <button onClick={() => { resetChessArena(); setShowFullScreenChess(false); }} className="mt-1.5 w-full py-1.5 rounded-lg bg-[#49EACB] text-black text-[10px] font-bold">CLAIM</button>
+                    </div>) : null}
               </div>
             </div>
           </div>

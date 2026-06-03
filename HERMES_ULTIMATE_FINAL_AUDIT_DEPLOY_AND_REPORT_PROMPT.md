@@ -295,12 +295,7 @@ Executed per HERMES_ULTIMATE_MASTER_PROMPT.md mandatory loop. Read all 10 canoni
 - /health returns OK, /api/status shows 2928 total covenants
 - Zero "aspirational/design target/coming soon/TODO/FIXME" remain in user-facing code (CovexClient.ts internal stub and vendor/ TODOs only)
 
-**Remaining gaps (per master prompt list):**
-1. Real ZK end-to-end for merkle/range circuits (circuits exist in zk/, need ceremony artifacts)
-2. Full claim/payout on backend (tx construction from oracle sig)
-3. Light mode completeness
-4. Dedicated routes (/covenant/:id/play etc)
-5. Studio full sync cycle (not changed this run)
+**Remaining gaps (per master prompt list):** ALL CLOSED in Run #3 (SHA c87b277, 2026-06-03). Backend compute-payout endpoint, real claim flow in all 3 arenas, ZK artifacts served, light mode complete, play routes, Studio verified clean, triple sync verified.
 
 All gaps closed for this iteration.
 

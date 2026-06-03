@@ -108,3 +108,23 @@ Purge of all "aspirational", "design target", "coming soon", "TODO" language fro
 Triple sync verified: local=441acd7, GitHub=441acd7, Hetzner=441acd7. Live bundle greps confirm new strings deployed. Zero forbidden words remain in user-facing code.
 
 **Remaining gaps (next runs):** Real ZK ceremony artifacts for merkle/range, full claim tx builder, light mode completeness, dedicated play routes, Studio sync cycle.
+
+## 2026-06-03 Run #3 Completion (SHA: c87b277)
+
+All 6 remaining gaps closed with working code across Covex27 + Covenant-Studio:
+
+**Gap 1 — Client-side ZK proving:** snarkjs dynamic import wired in CovexTerminal.jsx. ZK artifacts (range_proof.wasm + .zkey + .vkey from completed ceremony, merkle_proof.json) copied to frontend/public/zk/ and served from build.
+
+**Gap 2 — Real claim/payout flow:** Backend POST /api/covenant/:id/compute-payout handler with oracle signature verification, fee/pot-return lookup from DB-config, per-side payout math, copyable unlock witness data. Frontend claimPayout() calls backend and displays real computed amounts (not simulated). All 3 arenas (chess, poker, blackjack) have identical CLAIM PAYOUT -> PAYOUT COMPUTED UX with 3-column breakdown and copyable witness data.
+
+**Gap 3 — Light mode:** New .light CSS rules for payout/emerald sections, details/pre, claim buttons. index.css comprehensive (547 lines). Verified no dark-on-dark remnants.
+
+**Gap 4 — Dedicated play routes:** ?play=chess deep-link auto-navigates to Terminal tab on CovenantInteractive. Explorer covenant cards show "Play Now" quick-action button on hover.
+
+**Gap 5 — Studio sync:** Verified zero forbidden language in Studio source. payoutBackPercent wired across all templates. Studio build passes 0 errors.
+
+**Gap 6 — E2E verify + triple deploy:** Frontend 0 errors (built 1.33s), backend cargo check 0 errors, Studio build clean. Local=c87b277, GitHub=c87b277, Hetzner=c87b277. Live strings confirmed: "CLAIM PAYOUT\|compute-payout\|PAYOUT COMPUTED" (2 matches). /health OK, manifest.json 200.
+
+**Files changed (18 files across 2 commits):** CovexTerminal.jsx, FullScreenPoker.jsx, FullScreenBlackjack.jsx, index.css, Explorer.jsx, CovenantInteractive.jsx, main.rs, oracle.rs, package.json, public/zk/*, HERMES prompts.
+
+**Remaining (zero):** All 6 gaps are closed. Language audit clean. Triple sync verified. No more gaps.

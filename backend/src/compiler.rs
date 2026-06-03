@@ -31,6 +31,7 @@ pub struct CompileUnit {
     pub zk_verifier_key: Option<String>,
     pub reusable: bool,
     pub allow_topups: bool,
+    pub pot_return_percent: f64,  // % returned to covenant_pot on resolution for reusable sustainability
     pub outcomes: Vec<OutcomeBranch>,
     /// "claimant" = claimant/depositor payout model (ZK circuit types)
     /// "player"   = player_a/player_b model (game types)
@@ -137,6 +138,21 @@ pub fn parse_dsl(source: &str) -> Result<CompileUnit> {
     let reusable = source.contains("OpReuseCovenant");
     let allow_topups = source.contains("OpAddToPot");
 
+    // Extract pot return % if present (from ;; PotReturn: 2 or in OpAddToPot amount)
+    let pot_return_pct = Regex::new(r";; PotReturn:\s*(\d+(?:\.\d+)?)")
+        .ok()
+        .and_then(|re| re.captures(source))
+        .and_then(|c| c.get(1).map(|m| m.as_str().parse::<f64>().ok()))
+        .flatten()
+        .or_else(|| {
+            // fallback: look for pot * X / 10000 in VerifyPayout for covenant_pot
+            Regex::new(r"VerifyPayout\([^,]+,\s*covenant_pot,\s*pot\s*\*\s*(\d+)\s*/\s*10000\)")
+                .ok()
+                .and_then(|re| re.captures(source))
+                .and_then(|c| c.get(1).map(|m| (m.as_str().parse::<f64>().unwrap_or(0.0) / 100.0)))
+        })
+        .unwrap_or(2.0);
+
     // Infer payout model: ZK circuit types use claimant/depositor model,
     // game types use player_a/player_b model
     let payout_model = match game_type.as_str() {
@@ -163,6 +179,7 @@ pub fn parse_dsl(source: &str) -> Result<CompileUnit> {
         zk_verifier_key: zk_key,
         reusable,
         allow_topups,
+        pot_return_percent: pot_return_pct,
         outcomes,
         payout_model,
     })

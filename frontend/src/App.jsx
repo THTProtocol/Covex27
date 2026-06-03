@@ -23,7 +23,9 @@ import ThemeToggle from './components/ThemeToggle';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
-    isActive ? 'text-kaspa-green' : 'text-gray-200 hover:text-white'
+    isActive
+      ? 'text-kaspa-green'
+      : 'text-gray-200 hover:text-white dark:text-gray-200 dark:hover:text-white'
   }`;
 
 function SmartDeployLink() {

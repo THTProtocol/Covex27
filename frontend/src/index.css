@@ -6,14 +6,13 @@
   --color-surface-base: #05050A;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-
   --animate-fade-in: fade-in 0.5s ease-out;
   --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ==========================================
-   THEME VARIABLES - Dark (default) + Light Cypherpunk
-   ========================================== */
+/* ═══════════════════════════════════════════════════════════════
+   CSS VARIABLE THEME ROOTS
+   ═══════════════════════════════════════════════════════════════ */
 :root {
   --background: 5 5 10;
   --foreground: 243 244 246;
@@ -25,81 +24,418 @@
   --muted: 255 255 255 / 0.06;
   --accent: 73 234 203;
   --input-bg: 0 0 0 / 0.4;
+  --kaspa-green: #49EACB;
 }
 
-.light {
-  --background: 248 250 252;
-  --foreground: 15 23 42;
-  --card: 255 255 255;
-  --card-foreground: 15 23 42;
-  --primary: 20 184 166;
-  --primary-foreground: 255 255 255;
-  --border: 15 23 42 / 0.12;
-  --muted: 15 23 42 / 0.08;
-  --accent: 20 184 166;
-  --input-bg: 255 255 255;
-}
-
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE (default) — Rich cypherpunk: deep blacks, neon green accents
+   ═══════════════════════════════════════════════════════════════ */
 body {
   background: radial-gradient(circle at 50% 0%, #11111a 0%, rgb(var(--background)) 100%);
   color: rgb(var(--foreground));
   font-family: var(--font-sans);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE — Clean, high-contrast cypherpunk light variant
+   Strong teal/green accents (#0f766e, #14b8a6), soft white backgrounds
+   ═══════════════════════════════════════════════════════════════ */
+.light {
+  --background: 248 250 252;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --primary: 15 118 110;
+  --primary-foreground: 255 255 255;
+  --border: 15 23 42 / 0.1;
+  --muted: 15 23 42 / 0.06;
+  --accent: 15 118 110;
+  --input-bg: 255 255 255;
+  --kaspa-green: #0f766e;
+}
+
 .light body {
   background: #f8fafc;
   background-attachment: fixed;
+  color: #0f172a;
 }
 
-/* ==========================================
-   GLASS & PANELS - Hybrid for both modes
-   ========================================== */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+/* ── Light Mode Text Hierarchy ── */
+.light h1, .light h2, .light h3, .light h4 {
+  color: #0f172a;
+}
+.light .text-white {
+  color: #0f172a !important;
+}
+.light .text-gray-200 { color: #334155 !important; }
+.light .text-gray-300 { color: #475569 !important; }
+.light .text-gray-400 { color: #475569 !important; }
+.light .text-gray-500 { color: #64748b !important; }
+
+/* ── Light Mode Accent Colors ── */
+.light .text-kaspa-green {
+  color: #0f766e !important;
+}
+.light a { color: #0f766e; }
+.light a:hover { color: #14b8a6; }
+
+/* ── Light Mode Background Overrides (catch all dark hardcodes) ── */
+/* General dark backgrounds → light */
+.light .bg-black\/10,
+.light .bg-black\/20,
+.light .bg-black\/30,
+.light .bg-black\/40,
+.light .bg-black\/50,
+.light .bg-black\/60,
+.light .bg-black\/80,
+.light [class*="bg-black/"] {
+  background-color: rgba(255, 255, 255, 0.7) !important;
 }
 
+.light .bg-\[\#0a0a0a\],
+.light .bg-\[\#0A0A0D\],
+.light .bg-\[\#0A0A0D\]\/95,
+.light .bg-\[\#0a0a0a\]\/95,
+.light .bg-\[\#0a0a0a\]\/80,
+.light .bg-\[\#0a0a0f\],
+.light .bg-\[\#05050A\],
+.light .bg-\[\#11111a\],
+.light .bg-\[\#111\] {
+  background-color: #ffffff !important;
+}
+
+.light .bg-\[\#1f1f1f\] {
+  background-color: #e2e8f0 !important;
+}
+
+.light .bg-zinc-900,
+.light .bg-zinc-800 {
+  background-color: #f8fafc !important;
+}
+.light .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+
+/* Glass-panel: frosted white in light */
 .light .glass-panel {
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   color: #0f172a;
 }
 
-/* ==========================================
-   INPUTS & FORMS
-   ========================================== */
-.cyber-input, .shadcn-input {
-  background: rgb(var(--input-bg));
-  border: 1px solid rgba(73, 234, 203, 0.2);
-  color: rgb(var(--foreground));
-  transition: all 0.2s ease;
+.light .glass-heavy {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
 }
 
-.light .cyber-input, .light .shadcn-input {
-  background: white;
-  border-color: rgba(15, 23, 42, 0.2);
+/* ── Light Mode Borders ── */
+.light .border-white\/5,
+.light .border-white\/\[0\.03\],
+.light .border-white\/\[0\.05\],
+.light .border-white\/\[0\.06\],
+.light .border-white\/\[0\.08\],
+.light .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.light .border-white\/20,
+.light .border-white\/30 {
+  border-color: rgba(15, 23, 42, 0.15) !important;
+}
+
+.light .border-\[\#1f1f1f\] {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* ── Light Mode Nav / Header ── */
+.light nav, .light header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* ── Light Mode Footer ── */
+.light footer {
+  border-top-color: rgba(15, 23, 42, 0.08) !important;
+  color: #64748b !important;
+}
+
+/* ── Light Mode Buttons ── */
+.light .btn-kaspa-primary {
+  background: #0f766e !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
+}
+.light .btn-kaspa-primary:hover {
+  background: #115e59 !important;
+}
+
+/* ── Light Mode Inputs & Textareas ── */
+.light .cyber-input,
+.light .shadcn-input,
+.light input[type="text"],
+.light input[type="search"],
+.light textarea,
+.light select {
+  background: #fff !important;
+  border-color: rgba(15, 23, 42, 0.2) !important;
+  color: #0f172a !important;
+}
+.light .cyber-input:focus,
+.light .shadcn-input:focus {
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
+}
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ── Light Mode Cards ── */
+.light .card,
+.light [class*="rounded-2xl border"] {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* ── Light Mode Badges ── */
+.light .badge {
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.15);
+}
+
+/* ── Light Mode Tier Glows ── */
+.light .tier-glow-max {
+  box-shadow: 0 0 0 1px #7c3aed, 0 4px 12px rgba(124, 58, 237, 0.1) !important;
+}
+.light .tier-glow-pro {
+  box-shadow: 0 0 0 1px #d97706, 0 4px 12px rgba(217, 119, 6, 0.1) !important;
+}
+.light .tier-glow-builder {
+  box-shadow: 0 0 0 1px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.1) !important;
+}
+
+/* ── Light Mode Featured Cards ── */
+.light .featured-covenant-card {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+/* ── Light Mode Terminal Sections ── */
+.light .terminal-section,
+.light section[class*="bg-black/30"] {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* ── Light Mode Sticky Bottom Bar (Save bar in Terminal) ── */
+.light section[class*="sticky bottom"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px);
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── Light Mode Game Arenas ── */
+.light .full-screen-arena,
+.light [class*="full-screen"] {
+  background: #f1f5f9 !important;
+  color: #0f172a;
+}
+/* Game boards keep their dark felt for contrast */
+.light [class*="felt"],
+.light .game-felt {
+  background: linear-gradient(145deg, #166534 0%, #14532d 100%) !important;
+}
+
+/* ── Light Mode Code Blocks & Pre ── */
+.light pre,
+.light code {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+.light pre code {
+  color: #334155 !important;
+}
+
+/* ── Light Mode Terminal: shadow overrides ── */
+.light .shadow-\[0_-4px_20px_rgba\(0\2c 0\2c 0\2c 0\.5\)\] {
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Light mode: status dot colors */
+.light .bg-gray-700 {
+  background-color: #cbd5e1 !important;
+}
+
+/* Light mode: code block header bar */
+.light .bg-black\/40 {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Light mode: hover glow shadows on green buttons → use teal */
+.light .hover\:shadow-\[0_0_25px_rgba\(73\2c 234\2c 203\2c 0\.35\)\],
+.light .hover\:shadow-\[0_0_30px_rgba\(73\2c 234\2c 203\2c 0\.4\)\] {
+  box-shadow: 0 0 25px rgba(15, 118, 110, 0.3) !important;
+}
+
+/* Light mode: focus shadow on inputs */
+.light .focus\:shadow-\[0_0_8px_rgba\(73\2c 234\2c 203\2c 0\.1\)\] {
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
+}
+
+/* ── Light Mode Modals ── */
+.light [class*="fixed inset-0"].bg-\[\#0a0a0a\] {
+  background: rgba(248, 250, 252, 0.95) !important;
+}
+
+/* ── Light Mode Selection ── */
+.light ::selection {
+  background: rgba(15, 118, 110, 0.15);
   color: #0f172a;
 }
 
-/* ==========================================
-   BUTTONS - Kaspa green primary
-   ========================================== */
-.btn-kaspa-primary {
-  @apply px-6 py-3 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50;
+/* ── Light Mode Focus Rings ── */
+.light :focus-visible {
+  outline-color: #0f766e;
 }
 
-/* ==========================================
-   CARDS & BADGES - Light mode friendly
-   ========================================== */
-.light .neon-card-max,
-.light .neon-card-pro {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+/* ── Light Mode Scrollbar ── */
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
 }
 
-/* ==========================================
-   SCROLLBAR
-   ========================================== */
+/* ── Light Mode Tier-Specific Accent Text ── */
+.light .tier-MAX { color: #5b21b6; }
+.light .tier-PRO { color: #92400e; }
+.light .tier-BUILDER { color: #1e40af; }
+
+/* ── Light Mode Wallet / Dev panel overrides ── */
+.light [class*="bg-\[\#0a0a0a\]"].rounded-2xl,
+.light [class*="bg-\[\#0a0a0a\]"].rounded-3xl {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE POLISH — Premium cypherpunk enhancements
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Dark mode accent */
+.dark .text-kaspa-green { color: #49EACB; }
+.dark a.text-kaspa-green:hover { color: #3cd8b6; }
+
+/* Pricing tier cards — better separation + hover */
+.dark .pricing-tier-card {
+  background: rgba(10, 10, 15, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dark .pricing-tier-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(73, 234, 203, 0.3);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+}
+
+/* Dark nav tweaks */
+.dark nav,
+.dark header {
+  background: rgba(10, 10, 13, 0.85) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PRICING PAGE — Premium treatment for BOTH modes
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Pricing tier cards: light mode */
+.light .pricing-tier-card {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.light .pricing-tier-card:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(15, 118, 110, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Pricing tier cards: dark enhancements */
+.dark .pricing-tier-card .border-2 {
+  border-width: 2px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPLORER — Cards, featured section, search
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Covenant cards in light */
+.light [class*="block rounded-2xl border"].bg-\[\#0a0a0f\] {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Demo cards in light */
+.light .bg-kaspa-green\/\[0\.015\],
+.light [class*="bg-kaspa-green/"] {
+  background-color: rgba(15, 118, 110, 0.04) !important;
+}
+.light .border-kaspa-green\/10,
+.light .border-kaspa-green\/\[0\.015\] {
+  border-color: rgba(15, 118, 110, 0.1) !important;
+}
+
+/* Search input glass-panel in light */
+.light [class*="focus-within:shadow"].glass-panel {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COVEX TERMINAL — Forms, sections, code blocks
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Terminal save button (kaspa-green bg stays the teal for contrast) */
+.light button.bg-kaspa-green {
+  background: #0f766e !important;
+  color: #fff !important;
+}
+.light button.bg-kaspa-green:hover {
+  background: #115e59 !important;
+}
+
+/* Copy button states */
+.light .bg-emerald-500\/10 {
+  background-color: rgba(5, 150, 105, 0.1) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KASPA GREEN VARIATIONS — light mode keeps it strong
+   ═══════════════════════════════════════════════════════════════ */
+.light .bg-kaspa-green\/10 { background-color: rgba(15, 118, 110, 0.08) !important; }
+.light .bg-kaspa-green\/8  { background-color: rgba(15, 118, 110, 0.06) !important; }
+.light .bg-kaspa-green\/\[0\.06\] { background-color: rgba(15, 118, 110, 0.06) !important; }
+.light .border-kaspa-green\/20 { border-color: rgba(15, 118, 110, 0.2) !important; }
+.light .border-kaspa-green\/25 { border-color: rgba(15, 118, 110, 0.25) !important; }
+.light .border-kaspa-green\/30 { border-color: rgba(15, 118, 110, 0.3) !important; }
+.light .border-kaspa-green\/40 { border-color: rgba(15, 118, 110, 0.4) !important; }
+.light .border-kaspa-green\/50 { border-color: rgba(15, 118, 110, 0.5) !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCROLLBAR (global)
+   ═══════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -108,29 +444,21 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 3px;
 }
-.light ::-webkit-scrollbar-thumb {
-  background: rgba(15,23,42,0.15);
-}
 
-/* ==========================================
-   SELECTION
-   ========================================== */
+/* ═══════════════════════════════════════════════════════════════
+   SELECTION (global)
+   ═══════════════════════════════════════════════════════════════ */
 ::selection {
-  background: rgba(73,234,203,0.18);
+  background: rgba(73, 234, 203, 0.18);
   color: #49EACB;
 }
 
-.light ::selection {
-  background: rgba(20,184,166,0.2);
-  color: #0f172a;
-}
-
-/* ==========================================
-   RICHER VISUAL DENSITY - Anti-minimalism (preserve cyberpunk character)
-   ========================================== */
+/* ═══════════════════════════════════════════════════════════════
+   VISUAL DENSITY — Anti-minimalism, cypherpunk hover states
+   ═══════════════════════════════════════════════════════════════ */
 .featured-covenant-card {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -138,239 +466,63 @@ body {
   transform: translateY(-1px);
 }
 
-.tier-glow-max { box-shadow: 0 0 28px rgba(168, 85, 247, 0.18), 0 0 60px rgba(168, 85, 247, 0.06); }
-.tier-glow-pro { box-shadow: 0 0 20px rgba(232, 175, 52, 0.15), 0 0 50px rgba(232, 175, 52, 0.05); }
+/* Tier glow — dark only */
+.tier-glow-max    { box-shadow: 0 0 28px rgba(168, 85, 247, 0.18), 0 0 60px rgba(168, 85, 247, 0.06); }
+.tier-glow-pro    { box-shadow: 0 0 20px rgba(232, 175, 52, 0.15), 0 0 50px rgba(232, 175, 52, 0.05); }
 .tier-glow-builder { box-shadow: 0 0 14px rgba(59, 130, 246, 0.12); }
 
-.light .tier-glow-max { box-shadow: 0 2px 12px rgba(168, 85, 247, 0.12); }
-.light .tier-glow-pro { box-shadow: 0 2px 10px rgba(232, 175, 52, 0.1); }
-
-.glass-heavy {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(32px);
+/* ═══════════════════════════════════════════════════════════════
+   GAME ARENAS — Keep play area dark, make chrome light-friendly
+   ═══════════════════════════════════════════════════════════════ */
+.light .bg-\[\#0A0A0D\]\/95,
+.light .bg-\[\#0a0a0f\] {
+  background: #ffffff !important;
 }
-.light .glass-heavy {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(15, 23, 42, 0.12);
+.light .bg-\[\#0A0A0D\] {
+  background: #f8fafc !important;
 }
 
-/* Stronger Kaspa green accents in light mode for cypherpunk feel */
-.light .text-kaspa-green { color: #0f766e; }
-.light .border-kaspa-green\/20 { border-color: rgba(15, 118, 110, 0.2); }
-.light .bg-kaspa-green\/10 { background-color: rgba(15, 118, 110, 0.08); }
-
-/* Animation tokens */
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-
-/* ==========================================
-   DARK MODE POLISH (cypherpunk, few targeted improvements)
-   ========================================== */
-.dark .pricing-tier-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-.dark .pricing-tier-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+/* Game overlay/modals — keep play surfaces but lighten UI */
+.light [class*="fixed inset-0 z-"] {
+  background: rgba(248, 250, 252, 0.97) !important;
 }
 
-/* ==========================================
-   LIGHT MODE - PERFECT CYBERPUNK LIGHT VARIANT
-   Strong green accents, clean light backgrounds, excellent contrast
-   ========================================== */
-.light {
-  --kaspa-green: #0f766e; /* strong teal for light */
-  --kaspa-green-bright: #14b8a6;
-  --background: 248 250 252;
-  --foreground: 15 23 42;
-  --card: 255 255 255;
-  --card-foreground: 15 23 42;
-  --primary: 15 118 110;
-  --primary-foreground: 255 255 255;
-  --border: 15 23 42 / 0.12;
-  --muted: 15 23 42 / 0.06;
-  --accent: 15 118 110;
-  --input-bg: 255 255 255;
+/* ═══════════════════════════════════════════════════════════════
+   EXTRA: Amber/alert/warning panels in light
+   ═══════════════════════════════════════════════════════════════ */
+.light .bg-amber-500\/\[0\.04\] { background: rgba(245, 158, 11, 0.05) !important; }
+.light .border-amber-500\/20 { border-color: rgba(245, 158, 11, 0.2) !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   EXTRA: Red/error panels in light
+   ═══════════════════════════════════════════════════════════════ */
+.light .bg-red-500\/\[0\.04\] { background: rgba(239, 68, 68, 0.06) !important; }
+.light .border-red-500\/20 { border-color: rgba(239, 68, 68, 0.25) !important; }
+.light .text-red-400 { color: #dc2626 !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   EXTRA: Purple/violet backgrounds in light (ZK sections, etc.)
+   ═══════════════════════════════════════════════════════════════ */
+.light .bg-purple-500\/\[0\.03\] { background: rgba(168, 85, 247, 0.04) !important; }
+.light .border-purple-500\/20 { border-color: rgba(168, 85, 247, 0.15) !important; }
+.light .bg-purple-500\/10 { background: rgba(168, 85, 247, 0.06) !important; }
+.light .border-purple-500\/30 { border-color: rgba(168, 85, 247, 0.2) !important; }
+.light .text-purple-300 { color: #7c3aed !important; }
+.light .text-purple-400 { color: #6d28d9 !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   EXTRA: DAG Background — hide in light mode
+   ═══════════════════════════════════════════════════════════════ */
+.light .dag-background {
+  opacity: 0.15;
 }
 
-.light body {
-  background: #f8fafc;
-  color: #0f172a;
+/* ═══════════════════════════════════════════════════════════════
+   EXTRA: Light mode white text in dark-background sections →
+   these are intentionally dark sections (game boards, code, etc.)
+   ═══════════════════════════════════════════════════════════════ */
+/* The game boards themselves keep dark text-on-dark for readability */
+.light [class*="bg-\[\#0a0a0a\"]"] [class*="text-white"],
+.light .bg-\[\#1f1f1f\] .text-white {
+  color: #e2e8f0 !important;
 }
-
-/* Light mode text hierarchy */
-.light h1, .light h2, .light h3, .light h4 {
-  color: #0f172a;
-}
-.light .text-white {
-  color: #0f172a !important;
-}
-.light .text-gray-200, .light .text-gray-300, .light .text-gray-400 {
-  color: #475569 !important;
-}
-.light .text-gray-500 {
-  color: #64748b !important;
-}
-
-/* Light mode links */
-.light a {
-  color: #0f766e;
-}
-.light a:hover {
-  color: #14b8a6;
-}
-
-/* Light mode glass & panels - elegant frosted */
-.light .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  color: #0f172a;
-}
-.light .glass-panel-heavy {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-}
-
-/* Light mode cards (ui/Card + custom) */
-.light .card, .light [class*="rounded-2xl border"] {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-.light .pricing-tier-card {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-}
-
-/* Light mode buttons */
-.light .btn-kaspa-primary {
-  background: #0f766e;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
-}
-.light .btn-kaspa-primary:hover {
-  background: #115e59;
-}
-
-/* Light mode inputs */
-.light .cyber-input, .light .shadcn-input,
-.light input, .light textarea, .light select {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.2);
-  color: #0f172a;
-}
-.light .cyber-input:focus, .light .shadcn-input:focus {
-  border-color: #0f766e;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
-}
-
-/* Light mode nav / header */
-.light nav, .light header {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
-  backdrop-filter: blur(12px);
-}
-
-/* Light mode explorer / cards */
-.light .tier-glow-max { box-shadow: 0 0 0 1px #7c3aed, 0 4px 12px rgba(124, 58, 237, 0.1); }
-.light .tier-glow-pro { box-shadow: 0 0 0 1px #d97706, 0 4px 12px rgba(217, 119, 6, 0.1); }
-.light .tier-glow-builder { box-shadow: 0 0 0 1px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.1); }
-
-.light .featured-covenant-card {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-}
-
-/* Light mode terminal / sections */
-.light .terminal-section, .light [class*="bg-black/30"], .light [class*="bg-[#0a0a0a]"] {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
-/* Light mode game arenas (chess, poker, blackjack full screen) */
-.light .full-screen-arena {
-  background: #f1f5f9 !important;
-}
-.light .full-screen-arena .felt {
-  background: linear-gradient(145deg, #166534 0%, #14532d 100%) !important; /* keep felt dark for games */
-}
-
-/* Light mode badges */
-.light .badge {
-  background: rgba(15, 118, 110, 0.1);
-  color: #0f766e;
-  border-color: rgba(15, 118, 110, 0.2);
-}
-
-/* Light mode selection and focus */
-.light :focus-visible {
-  outline-color: #0f766e;
-}
-
-/* Pricing specific light mode */
-.light .pricing-tier-card .border-2 {
-  border-color: rgba(15, 23, 42, 0.15) !important;
-}
-.light .pricing-tier-card:hover {
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 0 0 1px rgba(15,118,110,0.2);
-}
-
-/* Dark mode pricing tweak (few changes for premium feel) */
-.dark .pricing-tier-card {
-  background: rgba(10, 10, 15, 0.6);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-.dark .pricing-tier-card:hover {
-  border-color: rgba(73, 234, 203, 0.3);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
-}
-
-/* Additional dark polish */
-.dark .text-kaspa-green {
-  color: #49EACB;
-}
-.dark a.text-kaspa-green:hover {
-  color: #3cd8b6;
-}
-
-/* ==========================================
-   MORE LIGHT MODE COVERAGE (full app polish)
-   ========================================== */
-.light .bg-black\/30,
-.light [class*="bg-black/"] {
-  background-color: rgba(255,255,255,0.6) !important;
-}
-.light .bg-\[\#0a0a0a\],
-.light .bg-\[\#111\],
-.light .bg-zinc-900 {
-  background-color: #f8fafc !important;
-}
-
-.light .border-white\/5,
-.light .border-white\/10 {
-  border-color: rgba(15,23,42,0.1) !important;
-}
-
-.light .shadow-\[0_0_.*rgba\(73,234,203
-.light .shadow-\[0_0_.*#49EACB {
-  box-shadow: 0 0 15px rgba(15,118,110,0.15) !important;
-}
-
-/* Light mode for game previews and full screens */
-.light .full-screen-arena,
-.light [class*="full-screen"] {
-  background: #f1f5f9 !important;
-  color: #0f172a;
-}
-
-/* Light mode badges with tier colors */
-.light .tier-MAX { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
-.light .tier-PRO { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-.light .tier-BUILDER { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
-
-/* Ensure high contrast in light for all text in cards */
-.light .text-gray-200 { color: #334155 !important; }

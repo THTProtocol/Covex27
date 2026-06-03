@@ -347,8 +347,6 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
       className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase}`}
     >
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
-      {isHighTVL && <div className="absolute top-3 left-3"><Badge variant="default">HIGH TVL</Badge></div>}
-
       <div className="flex items-start justify-between mb-2.5">
         <div className="flex-1 min-w-0 pr-2">
           <h3 className={`font-bold text-sm sm:text-base truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`}>
@@ -356,14 +354,18 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
           </h3>
           <p className="text-[11px] font-mono mt-0.5 text-gray-300 truncate">{truncate(c.tx_id, 8)}</p>
         </div>
-        <div className="flex items-center gap-1.5 text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0">
-          {/* Tier badge ONLY visible to the covenant creator.
-              Regular visitors see Featured Covenants prioritized by tier + TVL
-              via visual styling only — no explicit tier names are shown publicly. */}
-          {isOwner && (
-            <Badge tier={tier} className="text-[9px] py-0 px-1.5">{style.label}</Badge>
-          )}
-          <span>{formatKaspa(c.amount_kaspa)}</span>
+        <div className="flex flex-col items-end gap-1 text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0 min-w-0">
+          {/* HIGH TVL badge sits above the amount — stacked right, never overlaps */}
+          {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
+          <div className="flex items-center gap-1.5">
+            {/* Tier badge ONLY visible to the covenant creator.
+                Regular visitors see Featured Covenants prioritized by tier + TVL
+                via visual styling only — no explicit tier names are shown publicly. */}
+            {isOwner && (
+              <Badge tier={tier} className="text-[9px] py-0 px-1.5">{style.label}</Badge>
+            )}
+            <span className="truncate">{formatKaspa(c.amount_kaspa)}</span>
+          </div>
         </div>
       </div>
 

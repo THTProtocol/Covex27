@@ -971,6 +971,8 @@ ${gameMeta.outcomeBranches}
           if (cfg.description) setDescription(cfg.description);
           if (cfg.fee_percent !== undefined) setFeePercent(cfg.fee_percent);
           if (cfg.pot_return_percent !== undefined) setPotReturnPercent(cfg.pot_return_percent);
+          else if (cfg.payoutBackPercent !== undefined) setPotReturnPercent(cfg.payoutBackPercent);
+          else if (cfg.payout_back_percent !== undefined) setPotReturnPercent(cfg.payout_back_percent);
           if (cfg.reusable !== undefined) setReusable(cfg.reusable);
           if (cfg.allow_topups !== undefined) setAllowTopups(cfg.allow_topups);
           if (cfg.resolution_mode) setResolutionMode(cfg.resolution_mode);

@@ -53,7 +53,7 @@ export default function App() {
       <WalletProvider>
         <BrowserRouter>
           <DagBackground />
-          <nav className="fixed top-0 w-full z-40 bg-[#0A0A0D]/85 backdrop-blur-lg border-b border-white/5">
+          <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
               <Link to="/" className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] flex items-center gap-2.5">
                 COVEX

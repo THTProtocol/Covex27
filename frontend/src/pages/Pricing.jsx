@@ -233,7 +233,7 @@ const Pricing = () => {
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <Card key={tier.id} className={`flex flex-col ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
+            <Card key={tier.id} className={`flex flex-col pricing-tier-card ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>{tier.name}</CardTitle>

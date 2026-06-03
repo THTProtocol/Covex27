@@ -163,3 +163,214 @@ body {
 /* Animation tokens */
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ==========================================
+   DARK MODE POLISH (cypherpunk, few targeted improvements)
+   ========================================== */
+.dark .pricing-tier-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dark .pricing-tier-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+}
+
+/* ==========================================
+   LIGHT MODE - PERFECT CYBERPUNK LIGHT VARIANT
+   Strong green accents, clean light backgrounds, excellent contrast
+   ========================================== */
+.light {
+  --kaspa-green: #0f766e; /* strong teal for light */
+  --kaspa-green-bright: #14b8a6;
+  --background: 248 250 252;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --primary: 15 118 110;
+  --primary-foreground: 255 255 255;
+  --border: 15 23 42 / 0.12;
+  --muted: 15 23 42 / 0.06;
+  --accent: 15 118 110;
+  --input-bg: 255 255 255;
+}
+
+.light body {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Light mode text hierarchy */
+.light h1, .light h2, .light h3, .light h4 {
+  color: #0f172a;
+}
+.light .text-white {
+  color: #0f172a !important;
+}
+.light .text-gray-200, .light .text-gray-300, .light .text-gray-400 {
+  color: #475569 !important;
+}
+.light .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* Light mode links */
+.light a {
+  color: #0f766e;
+}
+.light a:hover {
+  color: #14b8a6;
+}
+
+/* Light mode glass & panels - elegant frosted */
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  color: #0f172a;
+}
+.light .glass-panel-heavy {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+
+/* Light mode cards (ui/Card + custom) */
+.light .card, .light [class*="rounded-2xl border"] {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.light .pricing-tier-card {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+/* Light mode buttons */
+.light .btn-kaspa-primary {
+  background: #0f766e;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
+}
+.light .btn-kaspa-primary:hover {
+  background: #115e59;
+}
+
+/* Light mode inputs */
+.light .cyber-input, .light .shadcn-input,
+.light input, .light textarea, .light select {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+}
+.light .cyber-input:focus, .light .shadcn-input:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+/* Light mode nav / header */
+.light nav, .light header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Light mode explorer / cards */
+.light .tier-glow-max { box-shadow: 0 0 0 1px #7c3aed, 0 4px 12px rgba(124, 58, 237, 0.1); }
+.light .tier-glow-pro { box-shadow: 0 0 0 1px #d97706, 0 4px 12px rgba(217, 119, 6, 0.1); }
+.light .tier-glow-builder { box-shadow: 0 0 0 1px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.1); }
+
+.light .featured-covenant-card {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+/* Light mode terminal / sections */
+.light .terminal-section, .light [class*="bg-black/30"], .light [class*="bg-[#0a0a0a]"] {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Light mode game arenas (chess, poker, blackjack full screen) */
+.light .full-screen-arena {
+  background: #f1f5f9 !important;
+}
+.light .full-screen-arena .felt {
+  background: linear-gradient(145deg, #166534 0%, #14532d 100%) !important; /* keep felt dark for games */
+}
+
+/* Light mode badges */
+.light .badge {
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.2);
+}
+
+/* Light mode selection and focus */
+.light :focus-visible {
+  outline-color: #0f766e;
+}
+
+/* Pricing specific light mode */
+.light .pricing-tier-card .border-2 {
+  border-color: rgba(15, 23, 42, 0.15) !important;
+}
+.light .pricing-tier-card:hover {
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 0 0 1px rgba(15,118,110,0.2);
+}
+
+/* Dark mode pricing tweak (few changes for premium feel) */
+.dark .pricing-tier-card {
+  background: rgba(10, 10, 15, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.dark .pricing-tier-card:hover {
+  border-color: rgba(73, 234, 203, 0.3);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+}
+
+/* Additional dark polish */
+.dark .text-kaspa-green {
+  color: #49EACB;
+}
+.dark a.text-kaspa-green:hover {
+  color: #3cd8b6;
+}
+
+/* ==========================================
+   MORE LIGHT MODE COVERAGE (full app polish)
+   ========================================== */
+.light .bg-black\/30,
+.light [class*="bg-black/"] {
+  background-color: rgba(255,255,255,0.6) !important;
+}
+.light .bg-\[\#0a0a0a\],
+.light .bg-\[\#111\],
+.light .bg-zinc-900 {
+  background-color: #f8fafc !important;
+}
+
+.light .border-white\/5,
+.light .border-white\/10 {
+  border-color: rgba(15,23,42,0.1) !important;
+}
+
+.light .shadow-\[0_0_.*rgba\(73,234,203
+.light .shadow-\[0_0_.*#49EACB {
+  box-shadow: 0 0 15px rgba(15,118,110,0.15) !important;
+}
+
+/* Light mode for game previews and full screens */
+.light .full-screen-arena,
+.light [class*="full-screen"] {
+  background: #f1f5f9 !important;
+  color: #0f172a;
+}
+
+/* Light mode badges with tier colors */
+.light .tier-MAX { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+.light .tier-PRO { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.light .tier-BUILDER { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+
+/* Ensure high contrast in light for all text in cards */
+.light .text-gray-200 { color: #334155 !important; }

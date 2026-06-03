@@ -233,22 +233,7 @@ fn is_covenant_script(script_hex: &str) -> bool {
 }
 
 fn classify_covenant(script_hex: &str) -> String {
-    if script_hex.is_empty() {
-        return "unknown".into();
-    }
-    if script_hex.starts_with("aa20") && script_hex.ends_with("87") {
-        return "p2sh-covenant".into();
-    }
-    if script_hex.contains("aa21") {
-        return "extended-covenant".into();
-    }
-    if script_hex.contains("aa22") {
-        return "multi-sig-covenant".into();
-    }
-    if script_hex.contains("51") {
-        return "spendable-covenant".into();
-    }
-    "generic-covenant".into()
+    crate::covenant_types::CovenantCategory::covenant_type(script_hex)
 }
 
 /// Returns true if the script is a standard wallet output — NOT a covenant.

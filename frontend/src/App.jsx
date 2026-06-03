@@ -17,6 +17,7 @@ import Deploy from './pages/Deploy';
 import PaidDeploy from './pages/PaidDeploy';
 import PaidBuilder from './pages/PaidBuilder';
 import PremiumBuilder from './pages/PremiumBuilder';
+import DemoCovenant from './pages/DemoCovenant';
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 
@@ -71,6 +72,7 @@ export default function App() {
           <div className="relative z-10 min-h-screen pt-16">
             <Routes>
               <Route path="/" element={<Explorer />} />
+              <Route path="/covenant" element={<DemoCovenant />} />
               <Route path="/covenant/:id" element={<CovenantInteractive />} />
               <Route path="/kaspa" element={<WhatIsKaspaPage />} />
               <Route path="/pricing" element={<Pricing />} />

@@ -10,6 +10,8 @@ import {
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
+import FullScreenPoker from './FullScreenPoker';
+import FullScreenBlackjack from './FullScreenBlackjack';
 
 // Phase 11: Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
@@ -483,6 +485,16 @@ export default function CovexTerminal({ covenant }) {
   const [whiteTime, setWhiteTime] = useState(5 * 60 * 1000); // 5 min default
   const [blackTime, setBlackTime] = useState(5 * 60 * 1000);
   const [opponentStake, setOpponentStake] = useState(0); // for "both sides stake same amount" check
+
+  // ── Poker State (stake match → full screen pro table) ──
+  const [showFullScreenPoker, setShowFullScreenPoker] = useState(false);
+  const [pokerStake, setPokerStake] = useState(100);
+  const [pokerMatchState, setPokerMatchState] = useState('idle'); // idle | posted | matched | playing
+
+  // ── Blackjack State (stake match → full screen pro table) ──
+  const [showFullScreenBlackjack, setShowFullScreenBlackjack] = useState(false);
+  const [bjStake, setBjStake] = useState(100);
+  const [bjMatchState, setBjMatchState] = useState('idle'); // idle | posted | matched | playing
 
   // ── Oracle Resolution State (merkle_membership + future circuits) ──
   const [oracleProof, setOracleProof] = useState('');       // Pasted proof JSON
@@ -1213,15 +1225,14 @@ ${gameMeta.outcomeBranches}
           </span>
         </div>
 
-        {/* TECHNICAL DISCLAIMER — non-dismissible */}
+        {/* TECHNICAL DISCLAIMER — non-dismissible, accurately reflects current state */}
         <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25">
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> ZK circuit specifications, verifier keys, oracle services, and gas estimates shown here are <strong className="text-amber-200">design targets</strong>.
-              Current on-chain covenants compiled via silverc enforce only fee parameters and outcome ranges.
-              <strong className="text-amber-200"> No ZK proving, proof verification, or oracle attestation occurs on-chain.</strong> The Chess Arena uses client-side chess.js validation only.
-              This section is provided to define the intended covenant structure for future ZK integration.
+              <strong className="text-amber-200">Technical reality:</strong> ZK circuit specifications, verifier keys, and gas estimates are <strong className="text-amber-200">design targets</strong> for future on-chain ZK verification.
+              <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts chess_v1, merkle_membership, and range_proof circuit types and returns a real SHA256-based signed outcome.
+              The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc improves.
             </div>
           </div>
         </div>
@@ -1605,7 +1616,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-            Client-side chess demo. chess.js validates all FIDE rules locally. No real ZK proof is generated. The covenant on-chain only enforces fee params and outcome ranges via silverc. ZK verification is a design target.
+            Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign) which returns a real SHA256-signed outcome. The signature can be used as witness data for covenant unlock. Full on-chain ZK verification is a design target as silverc matures.
           </p>
 
           {/* Stake + Pot Summary - requires equal stake from both sides before pro play */}
@@ -1755,6 +1766,205 @@ ${gameMeta.outcomeBranches}
         </section>
       )}
 
+      {/* ─── PRO POKER TABLE (compact arena + full screen launch gate) ─── */}
+      {/* Poker uses a generic circuit, but this arena provides the game experience */}
+      <section className={`${SECTION_BASE} border-emerald-500/30 bg-[#0a1412] ring-1 ring-emerald-500/20`}>
+        <div className="flex items-center justify-between">
+          <div className={SECTION_HEADER}>
+            <div className="p-1.5 rounded-lg bg-emerald-500/20">
+              <Play size={16} className="text-emerald-400" />
+            </div>
+            <span>Poker Pro Table (Texas Hold'em)</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 font-mono border border-emerald-400/30">PRO TABLE</span>
+          </div>
+          <div className="text-right flex flex-col items-end gap-1">
+            <div className="text-[11px] text-emerald-400 font-mono">{pokerStake} KAS STAKE • 2% FEE</div>
+            <div className="text-[10px] text-gray-400 -mt-0.5">Each side stakes equally • Oracle attested result</div>
+            {pokerMatchState === 'matched' && (
+              <button
+                onClick={() => { setShowFullScreenPoker(true); setPokerMatchState('playing'); }}
+                className="mt-1 px-3 py-1 text-[10px] rounded-lg bg-white text-black font-bold flex items-center gap-1 hover:bg-[#49EACB] active:scale-[0.985] transition-all"
+              >
+                <Play size={12} /> LAUNCH FULL SCREEN PRO TABLE
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-300 leading-relaxed -mt-1">
+          Professional Texas Hold'em table. Stake match gate ensures equal risk. Full-screen table with hole cards, community cards, betting actions, and live oracle result attestation after showdown. Real ZK hand ranking proofs coming as silverc matures.
+        </p>
+
+        {/* Compact stake summary */}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400">YOUR STAKE</div>
+            <div className="text-3xl font-bold tabular-nums text-white">{pokerStake} <span className="text-sm font-mono text-gray-400">KAS</span></div>
+          </div>
+          <div className="flex-1 h-px bg-white/10" />
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
+            <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{pokerStake * 2} KAS</div>
+            <div className="text-[11px] text-rose-400/90">-2% fee • {pokerMatchState === 'matched' ? 'STAKES MATCHED — READY' : 'WAITING FOR MATCH'}</div>
+          </div>
+        </div>
+
+        {/* Table preview */}
+        <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#111] p-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-full max-w-[500px] aspect-[2/1] rounded-[100px] border-4 border-amber-900/40"
+                 style={{ background: 'radial-gradient(ellipse at 50% 50%, #0d6b2e 0%, #084d1a 50%, #042e0e 100%)' }}>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">♠ ♥ ♦ ♣</div>
+                  <div className="text-xs text-white/60 font-mono uppercase tracking-[4px]">TEXAS HOLD'EM TABLE</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
+              {pokerMatchState === 'idle' && 'Post stakes to open a match. Each side puts up equal KAS.'}
+              {pokerMatchState === 'posted' && 'Opponent matching your stake on testnet...'}
+              {pokerMatchState === 'matched' && 'STAKES MATCHED — Launch full screen pro table'}
+              {pokerMatchState === 'playing' && 'PRO TABLE ACTIVE — Play in full screen'}
+            </div>
+            <div>
+              {pokerMatchState === 'idle' && (
+                <button
+                  onClick={() => setPokerMatchState('posted')}
+                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
+                >
+                  POST {pokerStake} KAS — OPEN FOR MATCH (DEMO)
+                </button>
+              )}
+              {pokerMatchState === 'posted' && (
+                <button
+                  onClick={() => setPokerMatchState('matched')}
+                  className="w-full h-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-sm active:scale-[0.985] transition-all"
+                >
+                  MATCH STAKE & JOIN (SIMULATED)
+                </button>
+              )}
+              {pokerMatchState === 'matched' && (
+                <button
+                  onClick={() => { setShowFullScreenPoker(true); setPokerMatchState('playing'); }}
+                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm"
+                >
+                  LAUNCH FULL SCREEN PRO TABLE
+                </button>
+              )}
+              {pokerMatchState === 'playing' && (
+                <div className="text-center py-2 text-emerald-400 font-semibold">PLAYING IN FULL SCREEN</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-[10px] text-gray-400 px-1">
+          Stake match gate keeps it fair. Full-screen pro table with hole cards, community cards, betting actions (fold/call/raise), showdown, and live oracle attestation of result. Real ZK hand ranking proofs coming as circuits mature.
+        </div>
+      </section>
+
+      {/* ─── PRO BLACKJACK TABLE (compact arena + full screen launch gate) ─── */}
+      <section className={`${SECTION_BASE} border-amber-500/30 bg-[#1a140a] ring-1 ring-amber-500/20`}>
+        <div className="flex items-center justify-between">
+          <div className={SECTION_HEADER}>
+            <div className="p-1.5 rounded-lg bg-amber-500/20">
+              <Play size={16} className="text-amber-400" />
+            </div>
+            <span>Blackjack Pro Table</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 font-mono border border-amber-400/30">PRO TABLE</span>
+          </div>
+          <div className="text-right flex flex-col items-end gap-1">
+            <div className="text-[11px] text-amber-400 font-mono">{bjStake} KAS STAKE • 2% FEE</div>
+            <div className="text-[10px] text-gray-400 -mt-0.5">Each side stakes equally • Oracle attested result</div>
+            {bjMatchState === 'matched' && (
+              <button
+                onClick={() => { setShowFullScreenBlackjack(true); setBjMatchState('playing'); }}
+                className="mt-1 px-3 py-1 text-[10px] rounded-lg bg-white text-black font-bold flex items-center gap-1 hover:bg-[#49EACB] active:scale-[0.985] transition-all"
+              >
+                <Play size={12} /> LAUNCH FULL SCREEN PRO TABLE
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-300 leading-relaxed -mt-1">
+          Professional Blackjack table. Stake match gate ensures equal risk before play. Full-screen felt table with cards, hit/stand actions, live oracle result attestation. Real ZK verification coming as circuits mature.
+        </p>
+
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400">YOUR STAKE</div>
+            <div className="text-3xl font-bold tabular-nums text-white">{bjStake} <span className="text-sm font-mono text-gray-400">KAS</span></div>
+          </div>
+          <div className="flex-1 h-px bg-white/10" />
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
+            <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{bjStake * 2} KAS</div>
+            <div className="text-[11px] text-rose-400/90">-2% fee • {bjMatchState === 'matched' ? 'STAKES MATCHED — READY' : 'WAITING FOR MATCH'}</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#111] p-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-full max-w-[500px] aspect-[2/1] rounded-[100px] border-4 border-amber-900/40"
+                 style={{ background: 'radial-gradient(ellipse at 50% 55%, #0d6b2e 0%, #073d1a 50%, #031a0a 100%)' }}>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">🂡 🃕 🂦</div>
+                  <div className="text-xs text-white/60 font-mono uppercase tracking-[4px]">BLACKJACK TABLE</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
+              {bjMatchState === 'idle' && 'Post stakes. You vs dealer. Standard blackjack rules.'}
+              {bjMatchState === 'posted' && 'Opponent matching your stake...'}
+              {bjMatchState === 'matched' && 'STAKES MATCHED — Launch full screen pro table'}
+              {bjMatchState === 'playing' && 'PRO TABLE ACTIVE — Play in full screen'}
+            </div>
+            <div>
+              {bjMatchState === 'idle' && (
+                <button
+                  onClick={() => setBjMatchState('posted')}
+                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
+                >
+                  POST {bjStake} KAS — OPEN FOR MATCH (DEMO)
+                </button>
+              )}
+              {bjMatchState === 'posted' && (
+                <button
+                  onClick={() => setBjMatchState('matched')}
+                  className="w-full h-full py-3 rounded-xl bg-amber-500 text-black font-bold text-sm active:scale-[0.985] transition-all"
+                >
+                  MATCH STAKE & JOIN (SIMULATED)
+                </button>
+              )}
+              {bjMatchState === 'matched' && (
+                <button
+                  onClick={() => { setShowFullScreenBlackjack(true); setBjMatchState('playing'); }}
+                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm"
+                >
+                  LAUNCH FULL SCREEN PRO TABLE
+                </button>
+              )}
+              {bjMatchState === 'playing' && (
+                <div className="text-center py-2 text-amber-400 font-semibold">PLAYING IN FULL SCREEN</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-[10px] text-gray-400 px-1">
+          Stake match gate for equal risk. Full-screen pro table with cards, hit/stand mechanics, dealer reveal, and oracle attested result. Real ZK verification coming.
+        </div>
+      </section>
+
       {/* PROFESSIONAL FULL-SCREEN CHESS ARENA (chess.com quality) - only when stakes matched and launched */}
       {showFullScreenChess && gameType === 'chess_v1' && (
         <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a0f0d 0%, #050505 70%)' }}>
@@ -1851,6 +2061,24 @@ ${gameMeta.outcomeBranches}
             FULL FIDE RULES ENFORCED CLIENT-SIDE (chess.js) • OUTCOME ATTESTED BY COVEX ORACLE • REAL ZK CIRCUIT COMING SOON
           </div>
         </div>
+      )}
+
+      {/* PROFESSIONAL FULL-SCREEN POKER TABLE (Texas Hold'em) */}
+      {showFullScreenPoker && (
+        <FullScreenPoker
+          stake={pokerStake}
+          onClose={() => setShowFullScreenPoker(false)}
+          covenantId={covenantId}
+        />
+      )}
+
+      {/* PROFESSIONAL FULL-SCREEN BLACKJACK TABLE */}
+      {showFullScreenBlackjack && (
+        <FullScreenBlackjack
+          stake={bjStake}
+          onClose={() => setShowFullScreenBlackjack(false)}
+          covenantId={covenantId}
+        />
       )}
 
       {/* Mainnet Production Banner */}

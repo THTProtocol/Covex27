@@ -308,17 +308,7 @@ pub async fn run_crawler(
 }
 
 fn classify(hex: &str) -> String {
-    if hex.starts_with("aa20") && hex.ends_with("87") {
-        "p2sh-covenant".into()
-    } else if hex.contains("aa21") {
-        "extended-covenant".into()
-    } else if hex.contains("aa22") {
-        "multi-sig-covenant".into()
-    } else if hex.contains("aa23") {
-        "community-pool-covenant".into()
-    } else {
-        "generic-covenant".into()
-    }
+    crate::covenant_types::CovenantCategory::covenant_type(hex)
 }
 fn categorize(hex: &str) -> String {
     crate::covenant_types::CovenantCategory::from_script_ops(hex)

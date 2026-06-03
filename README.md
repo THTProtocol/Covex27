@@ -17,158 +17,246 @@
   <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-hightable.pro-49EACB?style=for-the-badge" alt="Live"></a>
   <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Toccata%20TN12-49EACB?style=for-the-badge" alt="Network"></a>
   <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="License"></a>
-  <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/Covenant%20Studio-UI%20Editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
+  <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/Covenant%20Studio-Visual%20Editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
 
   <br><br>
 
-  > **Non-custodial.** Real SilverScript covenants on the Kaspa BlockDAG.<br>
-  > **Verifiable.** ZK proofs + oracle attestation for fair game and claim resolution.<br>
-  > **Beautiful.** Pro full-screen experiences (chess.com-smooth after matched stakes) + rich custom UIs.
+  > **Non-custodial.** Real SilverScript covenants (`aa20`–`aa23`) on the Kaspa BlockDAG.<br>
+  > **Verifiable.** Production ZK (Merkle) + oracle attestation for fair games, claims, and outcomes.<br>
+  > **Pro UX.** Full-screen, chess.com-smooth playable games that unlock only after both sides stake equal amounts.<br>
+  > **Powerful tooling.** The Covex Terminal for configuration + rich custom UIs from Covenant Studio.
 
   <br>
 
-  **Live:** [hightable.pro](https://hightable.pro)
+  **Live:** [hightable.pro](https://hightable.pro) — Hundreds of real covenants indexed and interactive.
 
 </div>
 
 ---
 
-## What is Covex?
+## What Covex Represents
 
-Covex is the leading platform for building and experiencing **interactive, verifiable covenants** on Kaspa.
+Covex is the complete platform for **serious, fair, and beautiful interactive experiences** built directly on Kaspa native covenants.
 
-It combines:
-- A high-performance indexer and explorer for native Kaspa SilverScript covenants (`aa20`–`aa23`).
-- The **Covex Terminal** — a powerful configuration and deployment tool for paid users.
-- First-class support for **ZK-attested and oracle-signed resolution** so games and claims are fair and provable.
-- Professional, full-screen playable experiences (starting with chess after both players stake equal amounts) that feel like top consumer apps.
+It solves the hard parts:
+- Discovering and making visible real on-chain SilverScript covenants.
+- Attaching rich, custom, full-screen frontends.
+- Providing cryptographic or attested resolution so games and claims are actually fair (not "trust us").
+- Giving creators powerful tools (Terminal) without forcing them to run infrastructure.
 
-Covex makes it possible to deploy real on-chain logic with rich, custom frontends and cryptographic fairness — all while staying fully non-custodial.
+**Free for basic deployment. Paid tiers (BUILDER / PRO / MAX) are purely for better visibility + full access to the Terminal and pro game experiences.**
 
-**Covenant Studio** (companion project) lets you visually design beautiful game UIs and templates, then paste the generated code into the Covex Terminal.
-
----
-
-## Core Principles
-
-- **On-chain truth only** — Covenants live on the Kaspa BlockDAG. Covex only indexes, serves, and helps you attach UIs and resolution logic.
-- **Free entry, paid visibility** — Anyone can deploy a basic covenant for free. Paid tiers (BUILDER / PRO / MAX) unlock the full Terminal and give your covenant better placement on the Explorer.
-- **Verifiable outcomes** — Use real ZK circuits (Merkle Membership is production-ready) or trusted oracle attestation for game results, claims, and eligibility.
-- **Pro UX** — Full-screen, smooth, high-quality game experiences (chess.com level and beyond) once stakes are matched.
-- **Developer friendly** — Clear separation between covenant logic (Terminal) and presentation (Covenant Studio).
+Everything is non-custodial. The covenants live on the BlockDAG. Covex indexes, classifies, serves, and helps you attach the experience layer.
 
 ---
 
-## Current Tech Stack
+## High-Level Architecture
 
-### Backend (Rust)
-- **Runtime**: Tokio + Axum 0.7 (single binary)
-- **Kaspa Integration**: `kaspad` (Toccata TN12) via wRPC Borsh (`kaspa-wrpc-client`, `kaspa-rpc-core`)
-- **Consensus**: Vendored & patched `kaspa-consensus-core`
-- **Database**: SQLite (`rusqlite`) — 6 tables with tier-weighted native SQL sorting
-- **Components**:
-  - Historic Crawler (selected-parent BlockDAG walk + payload scanning)
-  - Live Indexer (UTXO polling on seed addresses)
-  - Payment Verifier (6 DAA treasury confirmations → tier upgrade)
-  - Oracle Service (`/api/oracle/verify-and-sign`) — real Groth16 verification via snarkjs + outcome signing
-  - SilverScript Compiler + UI Generator
-- **Signing/Broadcast**: Native secp256k1 + transaction construction
+```
+Browser (Explorer / Terminal / Full-Screen Games)
+          │
+          ▼
+Nginx (static + /api proxy)
+          │
+          ▼
+Rust Backend (Axum :3005)
+  ├── Historic Crawler (BlockDAG walk, payload scan)
+  ├── Live Indexer (UTXO polling on seeds)
+  ├── Payment Verifier (6 DAA treasury upgrades → tier)
+  ├── Oracle Service (snarkjs verify + sign outcomes)
+  ├── SilverScript Compiler + UI Generator
+  └── API (covenants, terminal-config, oracle, sign-and-broadcast)
+          │
+          ▼
+SQLite (covex.db) — tier-weighted native queries
+          │
+          ▼
+kaspad TN12 (wRPC Borsh :17217) — the source of truth
+```
+
+Two independent repos:
+
+- **Covex27** (this repo): The indexer, explorer, Terminal, oracle, and pro game experiences.
+- **Covenant-Studio**: Visual editor for designing game UIs and templates. "Generate Code" → paste into Covex Terminal.
+
+**Workflow for a pro game covenant**:
+Design UI in Studio → Deploy basic covenant (free) → Pay BUILDER/PRO/MAX on that covenant → Open Terminal → Configure resolution (ZK or Oracle), pick circuit, set fees → Paste rich UI or use built-in full-screen arena → Players stake equal amounts → Launch full-screen pro game → Submit result → Oracle attests + signs → Use signature to resolve on-chain.
+
+---
+
+## Current Technology Stack (2026)
+
+### Kaspa Layer
+- **Node**: kaspad (Toccata Testnet-12) with `--utxoindex`
+- **Covenant primitive**: SilverScript opcodes `aa20`–`aa23` inside transaction `payload` (not output scripts)
+- **wRPC**: Borsh protocol for fast structured queries
+
+### Backend (Single Rust Binary)
+- Tokio + Axum 0.7 (high-performance async HTTP + background tasks)
+- `kaspa-wrpc-client`, `kaspa-rpc-core`, vendored+patched `kaspa-consensus-core`
+- SQLite (`rusqlite`) — 6 core tables, heavy use of native SQL for tier sorting and visibility
+- Four long-running tasks:
+  - Historic Crawler (selected-parent chain walk + `tx.payload` opcode detection)
+  - Live Indexer (periodic `get_utxos_by_addresses` on configured seeds)
+  - Payment Verifier (monitors treasury, 6 DAA confirmation, upgrades `verified_tier`)
+  - Oracle (Node.js child process running snarkjs for real Groth16 verification + outcome signing)
+- Native transaction construction + secp256k1 signing (no external deps for signing)
+- Centralized classification in `covenant_types.rs` (used by crawler + indexer)
 
 ### Frontend
-- **Framework**: Vite 8 + React 19 + TypeScript
-- **Styling**: Tailwind CSS v4 + hybrid shadcn/ui components (Button, Card, Badge, etc.) + rich custom cyberpunk design system (glass panels, Kaspa-green glows, high visual density)
-- **Key Libraries**:
-  - `chess.js` + `react-chessboard` (pro full-screen chess)
-  - Framer Motion
-  - Lucide icons
-  - `@onekeyfe/kaspa-wasm` (dev-mode key derivation & tx building)
-- **Multi-wallet**: KasWare, Kastle, OKX, Kasperia, Kasanova, Kaspium, KaspaCom, Tangem + local WASM dev mode
-- **Theme**: Dark cypherpunk (default) + lighter cypherpunk light mode, both with strong #49EACB accents. Theme toggle in nav.
+- Vite 8 + React 19 + Tailwind CSS v4
+- Hybrid design system: shadcn/ui primitives (`Button`, `Card`, `Badge`...) + rich custom cyberpunk components (glass-panel, glow shadows, high information density)
+- Pro game experiences:
+  - `react-chessboard` + `chess.js` for full FIDE enforcement + chess.com-smooth full-screen arena (clocks, move list, resign, large board)
+  - Similar patterns prepared for poker / other games
+- Multi-wallet detection (8 providers) + `@onekeyfe/kaspa-wasm` dev mode (BIP39 → local keys/tx building)
+- Theme system (dark cypherpunk default + lighter cypherpunk variant, both with strong #49EACB)
 
-### ZK & Verifiable Resolution
-- **Circuits**: circom + Groth16 (snarkjs)
-  - Merkle Membership: Fully production (real proofs + live oracle path)
-  - Range Proof: Circuit + ceremony complete, oracle wired
-  - Chess v1 & others: Client-side perfect rule enforcement + oracle attestation path today; real ZK circuits as they mature
-- **Oracle**: Node.js snarkjs verifier + Schnorr-style outcome signatures consumable by covenants
-- **Integration**: Deeply wired into Covex Terminal and pro game arenas (submit result → get signed outcome)
+### ZK + Verifiable Resolution
+- **circuits**: circom (Groth16)
+- **prover/verifier**: snarkjs (run via Node child processes in the oracle)
+- **Production-ready**:
+  - Merkle Membership (full end-to-end: prove in browser/scripts → oracle verifies → signed outcome usable as covenant witness)
+  - Range Proof (circuit + ceremony complete, oracle handler ready)
+- **Game integration**: Client-side perfect rule enforcement (chess.js etc.) + one-click "Submit Result to Oracle" in the pro full-screen arenas. The oracle returns a signature that resolves the covenant outcome.
+- Future: Real on-chain ZK verification when silverc gains better primitives.
 
-### Infrastructure & Deployment
-- **Node**: kaspad `--testnet --netsuffix=12 --utxoindex` (wRPC on 17217)
-- **Hosting**: Hetzner (Nginx reverse proxy + static SPA)
-- **Process Management**: systemd (kaspad + covex-backend)
-- **CI/Deploy**: Idempotent bash scripts (`DEPLOY_TO_HIGHTABLE.sh`)
-- **Monitoring**: Health endpoints, crawler state, covenant counts
+### Infrastructure & Ops
+- Hetzner dedicated server
+- Nginx (SPA + API proxy + SSL)
+- systemd units for kaspad + covex-backend
+- Idempotent deploy scripts (`DEPLOY_TO_HIGHTABLE.sh`)
+- Absolute DB path resolution (prevents "zombie inode" bugs after deploys)
+- Health, status, and covenant count endpoints
 
-### Covenant Layer (Kaspa)
-- Native SilverScript (`aa20`–`aa23` opcodes in transaction payloads)
-- One-time tier payments to treasury (BUILDER 100 KAS, PRO 500 KAS, MAX 1000 KAS)
-- On-chain fee parameters, outcome enums, and payout branches enforced by the covenant script
-
----
-
-## Tiers (BUILDER / PRO / MAX)
-
-| Tier     | One-time Fee | Explorer Visibility          | Covex Terminal + Custom UIs | Pro Full-Screen Games | ZK / Oracle Config |
-|----------|--------------|------------------------------|-----------------------------|-----------------------|--------------------|
-| **FREE** | 0 KAS       | Standard                     | —                           | —                     | —                  |
-| **BUILDER** | 100 KAS  | Good                         | Full access                 | Yes                   | Yes                |
-| **PRO**  | 500 KAS     | Featured                     | Full access                 | Yes                   | Yes                |
-| **MAX**  | 1000 KAS    | Top priority + TVL boost     | Full access                 | Yes                   | Yes                |
-
-All paid tiers get **identical** powerful tools in the Terminal. The difference is purely visibility on the Explorer.
-
-Free basic covenant deployment is always available to everyone (including paid users).
+### Covenant Configuration (Terminal)
+- Fees (0-5%)
+- Reusability
+- Top-ups
+- Partial claims
+- Resolution mode: `zk` / `oracle` / `custom_oracle`
+- ZK circuit selection + verifier key (from the registry in `CovexTerminal.jsx`)
+- Custom UI paste area (from Covenant Studio or hand-crafted)
+- Auto-generates SilverScript with proper outcome branches and resolution comments
 
 ---
 
-## Pro Games & Verifiable Resolution
+## Covenant Classification (How the Indexer & Crawler Understand Covenants)
 
-Covex ships production-grade, full-screen playable experiences:
+Both the **Historic Crawler** and **Live Indexer** run the same classification logic on the raw `script_hex` (from `tx.payload` or UTXO script).
 
-- **Chess**: After both players stake the same amount, launch a chess.com-smooth full-screen arena (large board, real clocks, move list, legal moves only, resign). On game end, submit the result directly to the live oracle for a signed attestation that can be used to resolve the covenant.
-- **Poker, Blackjack, and others**: Same matched-stakes → professional full-screen table pattern, with oracle-backed resolution (ZK hand-ranking and outcome circuits in progress).
+The logic lives in `backend/src/covenant_types.rs` (`CovenantCategory::from_script_ops` and `CovenantCategory::covenant_type`).
 
-Resolution today is **oracle-attested** (real cryptographic verification of ZK proofs where available, followed by a signed outcome). This signature serves as a witness for covenant unlocking. Full on-chain ZK verification is the natural next step as the Kaspa covenant language evolves.
+### Broad Category (user-facing on Explorer cards)
+Current rich set (expanded for ZK/games/claims era):
 
----
+| Category              | Detection Heuristic                              | Typical Use Case                     |
+|-----------------------|--------------------------------------------------|--------------------------------------|
+| **Verifiable Games (ZK/Oracle)** | aa20 + OP_1 (51) + longer payload (>90 bytes) or complex game logic | Chess, Poker, skill games with real resolution |
+| **Skill Contests**    | aa20/aa21 + OP_1 (51), single outcome            | Classic one-winner contests          |
+| **Membership & Claims** | Short-to-medium aa20 with claim patterns        | Merkle membership, range proofs, eligibility, airdrops |
+| **Predictive Markets**| aa20 containing 52 or 53 (OP_2 / OP_3)           | Binary/ternary outcome markets       |
+| **Structured Settlement** | aa20 + payload > 120 bytes (timelock/DAA logic) | Escrow with time or block conditions |
+| **Escrow & Custody**  | aa21 without multi-outcome markers               | 2-party or multi-party time-locked   |
+| **Governance**        | aa21 + 51 + 52 (multi-outcome voting)            | DAO votes, multi-party decisions     |
+| **Tournaments**       | aa22                                             | Multi-sig threshold tournaments      |
+| **Community Pools**   | aa23                                             | Shared funds, lotteries, pools       |
+| **Flash Covenants**   | Any aa2x + raw payload < 80 bytes                | Simple one-shot logic                |
+| **General**           | Fallback                                         | Everything else                      |
 
-## How It Works (User Flow)
+**Custom override**: BUILDER+ users can set a free-form `custom_category` in the Terminal. This replaces the auto-detected label on the Explorer and detail page (stored in both `covenants.category` and the UI config).
 
-1. **Deploy** a basic covenant for free (or upgrade an existing one).
-2. **Pay a tier** (BUILDER/PRO/MAX) on that specific covenant → unlocks the Covex Terminal.
-3. In the **Terminal**:
-   - Configure fees, reusability, top-ups, claim percentages.
-   - Choose resolution method (ZK proof or Oracle).
-   - Select or attach a circuit (Merkle, Range, Chess, etc.).
-   - Paste rich UI code from Covenant Studio or use built-in pro game arenas.
-4. Players interact through the custom (or pro full-screen) UI.
-5. On resolution: Submit proof/result → Oracle verifies and signs → Use signature to unlock/payout on-chain.
+### Granular covenant_type (used internally + API)
+More precise types for developers and the Terminal:
 
-Everything stays non-custodial. Keys never leave the user's wallet.
+- `p2sh-covenant`
+- `extended-covenant`
+- `multi-sig-covenant`
+- `community-pool-covenant`
+- `complex-interactive-covenant` (rich games/ZK logic)
+- `verifiable-skill-covenant`
+- `skill-covenant`
+- `governance-covenant`
+- `generic-covenant`
 
----
-
-## For Developers & Builders
-
-- Use **Covenant Studio** to visually design and customize game templates.
-- Use the **Covex Terminal** (inside any paid covenant) to define the on-chain rules and attach your UI.
-- Real examples and proving scripts live in the `examples/` and `zk/` directories.
-- All covenant state and configuration is queryable via the public API.
-
-See the live site and Terminal for the best current examples.
-
----
-
-## Live & Resources
-
-- **Explorer & Terminal**: [https://hightable.pro](https://hightable.pro)
-- **Covenant Studio**: [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio)
-- **Repo**: This repository (Covex27)
-- **Treasury (TN12)**: `kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m`
+This classification happens **before** any UI generation or tier payment. It gives the Explorer its smart organization and helps the Terminal suggest appropriate circuits and templates.
 
 ---
 
-**Covex** — Making fair, beautiful, verifiable on-chain experiences possible on the Kaspa BlockDAG.
+## How Everything Flows Together (Full Followthrough)
+
+1. **On-chain birth**  
+   A user (or the backend signer) creates a transaction with a SilverScript payload in `tx.payload` containing `aa20`–`aa23` and the desired logic. Output[1] can contain the tier payment to the treasury.
+
+2. **Detection**  
+   - Crawler walks the selected-parent chain backward, fetches full blocks, scans payloads.
+   - Live Indexer polls UTXOs on seed addresses every 10s and filters for covenant scripts.
+   - Both call the centralized `from_script_ops` + `covenant_type`.
+
+3. **Tier & Visibility**  
+   Payment Verifier watches the treasury every 15s. On 6 DAA confirmation it upgrades `verified_tier`, enables `custom_ui_enabled`, and records visibility priority (MAX=100, PRO=50, BUILDER=10).
+
+4. **UI Generation**  
+   Basic (FREE) or enhanced (paid) HTML is generated and stored. Paid users can later override with rich code from Studio + Terminal config (fees, resolution mode, zk_circuit, etc.).
+
+5. **Pro Experiences (new in 2026)**  
+   In the Covex Terminal (or pasted custom UI) the user configures a game. Once two parties have staked equal amounts into the covenant pot, the full-screen professional arena becomes available.
+   - Chess: chess.com-smooth (large board, real clocks, move list, perfect FIDE enforcement via chess.js).
+   - Result submission calls the live oracle → signed outcome returned.
+
+6. **Resolution**  
+   - ZK path: Browser/scripts produce Groth16 proof → submitted to `/api/oracle/verify-and-sign` → snarkjs verifies → oracle signs outcome.
+   - Oracle path: Same endpoint (for game results, claims, etc.).
+   - The signature + outcome can be used as witness data when spending/unlocking the covenant UTXO.
+
+7. **Explorer**  
+   Always renders the SQL-sorted list. Paid covenants get visual priority (borders/glows) but **no tier labels are shown to regular visitors** — only the creator sees their own badge when their wallet is connected.
+
+---
+
+## Database Schema (Simplified)
+
+Core tables: `covenants`, `generated_uis`, `visibilities`, `payments`, `accounts`, `crawler_state`.
+
+The `covenants` table is the source of truth for what the Explorer shows. `generated_uis.ui_config` holds the rich Terminal configuration (including `zk_circuit`, `resolution_mode`, custom UI code, etc.).
+
+---
+
+## API Highlights
+
+- `GET /api/covenants` — tier-sorted list (the main feed for the Explorer)
+- `GET /api/covenants/:id`
+- `GET/POST /api/terminal-config/:id` — the heart of paid configuration
+- `POST /api/oracle/verify-and-sign` — submit proof or game result, get signed outcome
+- `POST /api/sign-and-broadcast` — convenient Rust-native covenant deployment
+
+Full list and auth rules are in the code and live on the site.
+
+---
+
+## Wallet Support
+
+Desktop + mobile detection for:
+KasWare, Kastle, Kasperia, OKX, KaspaCom, Kasanova, Kaspium, Tangem.
+
+Full local dev mode via WASM (no extension required for testing).
+
+---
+
+## Quick Start (for running your own)
+
+See `deploy/` scripts and the `Quick Start` section in the old detailed docs if you want to self-host. The production instance runs on hightable.pro with the official TN12 treasury.
+
+---
+
+**Covex** — Real covenants. Verifiable outcomes. Pro experiences. On the Kaspa BlockDAG.
 
 Built by HIGH TABLE PROTOCOL.
+
+Live: [hightable.pro](https://hightable.pro)  
+Studio: [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio)  
+Repo: This repository
+
+---
+
+*This README describes the current production state. Classification logic, pro game UIs, and oracle flows are actively used on the live site.*

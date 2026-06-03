@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 pub enum CovenantCategory {
     #[serde(rename = "skill")]
     Skill,
+    #[serde(rename = "verifiable-skill")]
+    VerifiableSkill,   // Skill contests with ZK/oracle resolution (chess, poker etc.)
     #[serde(rename = "predictive")]
     Predictive,
     #[serde(rename = "escrow")]
@@ -18,81 +20,128 @@ pub enum CovenantCategory {
     Structured,
     #[serde(rename = "governance")]
     Governance,
+    #[serde(rename = "membership-claim")]
+    MembershipClaim,   // Merkle / range / eligibility claims
     #[serde(rename = "general")]
     General,
 }
 
 impl CovenantCategory {
-    /// Classify a covenant by its script hex payload into one of 9 categories.
+    /// Classify a covenant by its script hex payload into rich categories.
     ///
-    /// Detection rules (checked in order):
-    ///   Flash        — very short payload (< 80 raw bytes) with any aa2x opcode
-    ///   Escrow        — contains `aa21` (time-locked custody escrow)
-    ///   Tournament    — contains `aa22` (multi-sig threshold tournament)
-    ///   Governance    — contains `aa21` AND `51`/`52` (multi-outcome voting)
-    ///   CommunityPool — contains `aa23` (pooled/fundraising covenant)
-    ///   Predictive    — `aa20` with `52`/`53` (OP_2/OP_3 for binary/ternary markets)
-    ///   Structured    — `aa20` with timelock pattern (block-DAA-based settlement)
-    ///   Skill         — `aa20`/`aa21` without `51` (single-outcome contest)
-    ///   General       — fallback (opcodes present, no specific pattern matched)
+    /// This is used by both the historic crawler and live indexer.
+    /// Paid users (BUILDER+) can later override with custom_category via Terminal.
+    ///
+    /// Enhanced detection for ZK, games, claims (2026 state).
     pub fn from_script_ops(script_hex: &str) -> Self {
         if script_hex.is_empty() {
             return CovenantCategory::General;
         }
 
         let raw_len = script_hex.len() / 2;
+        let has_aa20 = script_hex.contains("aa20");
+        let has_aa21 = script_hex.contains("aa21");
+        let has_aa22 = script_hex.contains("aa22");
+        let has_aa23 = script_hex.contains("aa23");
+        let has_opcodes = has_aa20 || has_aa21 || has_aa22 || has_aa23;
 
-        // Flash: very short covenant payload (compact one-shot logic)
-        let has_opcodes = script_hex.contains("aa20")
-            || script_hex.contains("aa21")
-            || script_hex.contains("aa22")
-            || script_hex.contains("aa23");
+        // Flash: very short covenant payload (compact one-shot logic, e.g. simple transfers)
         if has_opcodes && raw_len < 80 {
             return CovenantCategory::Flash;
         }
 
-        // aa21 patterns
-        if script_hex.contains("aa21") {
-            // Governance: aa21 + multi-outcome voting (51=OP_1, 52=OP_2)
+        // aa21 patterns (time-based custody / multi-party)
+        if has_aa21 {
             if script_hex.contains("51") && script_hex.contains("52") {
-                return CovenantCategory::Governance;
+                return CovenantCategory::Governance; // multi-outcome voting / DAO style
             }
             return CovenantCategory::Escrow;
         }
 
-        // aa22 patterns
-        if script_hex.contains("aa22") {
+        // aa22 patterns (multi-sig / tournament style)
+        if has_aa22 {
             return CovenantCategory::Tournament;
         }
 
-        // aa23 patterns
-        if script_hex.contains("aa23") {
+        // aa23 patterns (community pools, lotteries, shared funds)
+        if has_aa23 {
             return CovenantCategory::CommunityPool;
         }
 
-        // aa20 patterns
-        if script_hex.contains("aa20") {
-            // Predictive: aa20 + binary/ternary outcome markers
+        // aa20 patterns (the most common for custom logic, games, claims)
+        if has_aa20 {
+            // Predictive / binary markets
             if script_hex.contains("52") || script_hex.contains("53") {
                 return CovenantCategory::Predictive;
             }
-            // Structured: aa20 with timelock pattern (DAA-score based settlement)
-            if script_hex.contains("aa20") && raw_len > 120 {
+
+            // Structured settlement / timelock (long complex scripts)
+            if raw_len > 120 {
                 return CovenantCategory::Structured;
             }
-            // Skill: aa20 with OP_1 (single-outcome skill contest)
+
+            // Verifiable / ZK-enabled skill games (chess, poker etc.)
+            // Heuristic: presence of 51 (OP_1 = player outcome) + longer payload typical of game logic
+            // Real ZK config is attached later in Terminal, but we tag as VerifiableSkill for modern interactive covenants.
+            if script_hex.contains("51") && raw_len > 90 {
+                return CovenantCategory::VerifiableSkill;
+            }
+
+            // Membership / claim style (merkle, range proofs, eligibility) — often shorter + specific markers
+            if raw_len < 140 && (script_hex.contains("51") || script_hex.len() > 60) {
+                // Could be a claim covenant; we can refine further with metadata later
+                return CovenantCategory::MembershipClaim;
+            }
+
+            // Classic single-outcome skill contest / game
             if script_hex.contains("51") {
                 return CovenantCategory::Skill;
             }
-            return CovenantCategory::Skill;
+
+            // Default aa20 complex covenant → treat as verifiable skill / game for current focus
+            return CovenantCategory::VerifiableSkill;
         }
 
         CovenantCategory::General
     }
 
+    /// More granular covenant_type used for indexing and API (beyond broad category).
+    pub fn covenant_type(script_hex: &str) -> String {
+        if script_hex.is_empty() {
+            return "unknown".into();
+        }
+        if script_hex.starts_with("aa20") && script_hex.ends_with("87") {
+            return "p2sh-covenant".into();
+        }
+        if script_hex.contains("aa21") {
+            if script_hex.contains("51") && script_hex.contains("52") {
+                return "governance-covenant".into();
+            }
+            return "extended-covenant".into();
+        }
+        if script_hex.contains("aa22") {
+            return "multi-sig-covenant".into();
+        }
+        if script_hex.contains("aa23") {
+            return "community-pool-covenant".into();
+        }
+        if script_hex.contains("aa20") {
+            let len = script_hex.len() / 2;
+            if len > 140 {
+                return "complex-interactive-covenant".into(); // games, ZK, rich logic
+            }
+            if script_hex.contains("51") {
+                return "verifiable-skill-covenant".into();
+            }
+            return "skill-covenant".into();
+        }
+        "generic-covenant".into()
+    }
+
     pub fn label(&self) -> &'static str {
         match self {
             CovenantCategory::Skill => "Skill Contests",
+            CovenantCategory::VerifiableSkill => "Verifiable Games (ZK/Oracle)",
             CovenantCategory::Predictive => "Predictive Markets",
             CovenantCategory::Escrow => "Escrow & Custody",
             CovenantCategory::Tournament => "Tournaments",
@@ -100,6 +149,7 @@ impl CovenantCategory {
             CovenantCategory::Flash => "Flash Covenants",
             CovenantCategory::Structured => "Structured Settlement",
             CovenantCategory::Governance => "Governance",
+            CovenantCategory::MembershipClaim => "Membership & Claims",
             CovenantCategory::General => "General",
         }
     }
@@ -185,7 +235,7 @@ pub fn get_tiers() -> Vec<TierInfo> {
         },
         TierInfo {
             name: "BUILDER".into(),
-            label: "Creator".into(),
+            label: "Builder".into(),
             price_kas: 100,
             price_sompi: 10_000_000_00,
             features: vec![
@@ -205,7 +255,7 @@ pub fn get_tiers() -> Vec<TierInfo> {
             price_kas: 500,
             price_sompi: 50_000_000_00,
             features: vec![
-                "Everything in Creator".into(),
+                "Everything in Builder".into(),
                 "Featured listing placement".into(),
                 "Higher search ranking".into(),
                 "Priority indexing queue".into(),

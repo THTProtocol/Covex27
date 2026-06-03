@@ -278,10 +278,11 @@ export default function Explorer() {
             {!loading && (
               <>
                 <SectionLabel icon={Play} label="Interactive & Demos" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                  <DemoCard icon={Cpu} title="ZK Chess Arena" desc="Pro full-screen chess after equal stakes. chess.com-smooth (clocks, move list, large board, legal moves). Oracle attested outcome (real ZK circuit path ready)." tags={['Pro UI','Chess','Oracle+ZK']} path="/covenant?demo=chess" />
-                  <DemoCard icon={Users} title="Multi-Player Poker" desc="Texas Hold'em full-screen pro table after matched stakes. Oracle-backed resolution + future ZK hand ranking proofs." tags={['Pro UI','Poker','Oracle']} path="/covenant?demo=poker" />
-                  <DemoCard icon={TrendingUp} title="Range Proof Verifier" desc="Prove a value is within bounds without revealing it. Groth16 ceremony complete, awaiting witness generation fix." tags={['ZK Proof','Privacy','Groth16']} path="/covenant?demo=range" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <DemoCard icon={Cpu} title="ZK Chess Arena" desc="Pro full-screen chess.com-smooth after equal stakes. Clocks, move list, large board, oracle attested. Real ZK circuit path ready." tags={['Pro UI','Chess','Oracle+ZK']} path="/covenant?demo=chess" />
+                  <DemoCard icon={Users} title="Poker Pro Table" desc="Texas Hold'em full-screen pro table after matched stakes. Hole cards, community, betting actions. Oracle attested + ZK hand ranking coming." tags={['Pro UI','Poker','Oracle']} path="/covenant?demo=poker" />
+                  <DemoCard icon={TrendingUp} title="Blackjack Pro Table" desc="Full-screen felt table with hit/stand, dealer reveal, oracle attested result. Stake match gate for equal risk." tags={['Pro UI','Blackjack','Oracle']} path="/covenant?demo=blackjack" />
+                  <DemoCard icon={TrendingUp} title="Range Proof Verifier" desc="Prove a value is within bounds without revealing it. Groth16 ceremony artifacts ready, witness generation fix pending." tags={['ZK Proof','Privacy','Groth16']} path="/covenant?demo=range" />
                 </div>
               </>
             )}

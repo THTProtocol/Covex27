@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award } from 'lucide-react';
+import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award, Timer, TrendingUp, Coins, Fingerprint, Calendar, CheckCircle2, Code2, FileCode, Scissors, FlaskConical } from 'lucide-react';
 
 export default function WhatIsKaspaPage() {
   return (
@@ -17,7 +17,7 @@ export default function WhatIsKaspaPage() {
           </div>
           <p className="text-lg text-gray-300 leading-relaxed max-w-4xl">
             The fastest, most secure Proof-of-Work Layer-1. A true BlockDAG that achieves 10+ blocks per second today
-            and targets 100+ BPS with DAGKNIGHT — while preserving Bitcoin's exact security model. This is the
+            and targets 100+ BPS with DAGKNIGHT, while preserving Bitcoin's exact security model. This is the
             foundation that makes native covenants and Covex possible.
           </p>
           <div className="flex flex-wrap gap-2 mt-4">
@@ -37,7 +37,7 @@ export default function WhatIsKaspaPage() {
               It is the fastest PoW network on earth while retaining Bitcoin's core security model: Nakamoto Consensus, no pre-mine, 100% fair launch, and the same trust assumptions.
             </p>
             <p>
-              The protocol was designed by Yonatan Sompolinsky and collaborators. The key innovation is replacing the "longest chain" rule with a mathematically sound ordering of a directed acyclic graph (DAG) of blocks — GHOSTDAG (and its successor DAGKNIGHT).
+              The protocol was designed by Yonatan Sompolinsky and collaborators. The key innovation is replacing the "longest chain" rule with a mathematically sound ordering of a directed acyclic graph (DAG) of blocks: GHOSTDAG (and its successor DAGKNIGHT).
             </p>
             <p className="text-[#49EACB] font-medium">
               This removes the orphan rate problem that limits traditional blockchains. Kaspa can safely run at block rates that would destroy Bitcoin or any chain-based PoW system.
@@ -52,7 +52,7 @@ export default function WhatIsKaspaPage() {
             {[
               { icon: GitBranch, title: "Parallel Block Production", body: "Blocks are created concurrently by miners. No more waiting for the next block or suffering from orphan races. The DAG structure captures all valid work." },
               { icon: Shield, title: "Bitcoin-Grade Security", body: "Exact same assumptions as Bitcoin. The protocol reduces to Nakamoto Consensus when block rate is low. Proven security reductions exist for both PHANTOM and GHOSTDAG." },
-              { icon: Zap, title: "10+ Blocks Per Second Today", body: "Mainnet runs at 10 BPS since the 2022-2023 Rust rewrite. Sub-second block times with full confirmation in minutes via the DAG ordering." },
+              { icon: Zap, title: "10+ Blocks Per Second Today", body: "Mainnet runs at 10 BPS since the Crescendo hard fork (2025). Sub-second block times with practical finality in 5-10 seconds under GHOSTDAG ordering." },
               { icon: Cpu, title: "Future: 100+ BPS with DAGKNIGHT", body: "DAGKNIGHT removes all manual parameter tuning. It auto-adapts to real network latency in real time, safely enabling orders-of-magnitude higher throughput." },
             ].map((item, i) => (
               <Card key={i} className="border-white/5 hover:border-white/10 transition-colors">
@@ -95,7 +95,7 @@ export default function WhatIsKaspaPage() {
 
         {/* DAGKNIGHT */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">DAGKNIGHT — The Parameterless Future</h2>
+          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">DAGKNIGHT: The Parameterless Future</h2>
           <div className="glass-panel rounded-2xl p-6 border border-white/10">
             <p className="text-gray-300 leading-relaxed mb-4">
               DAGKNIGHT (2022) is the next-generation consensus protocol for Kaspa. It eliminates the single most important operational parameter (k) by continuously estimating the actual network latency and attack surface in real time.
@@ -103,10 +103,10 @@ export default function WhatIsKaspaPage() {
             <ul className="list-disc pl-5 space-y-1 text-gray-300 text-sm">
               <li>Automatically adjusts "aggressiveness" based on observed conditions.</li>
               <li>Provably safe under the same assumptions as GHOSTDAG/PHANTOM.</li>
-              <li>Enables the safe jump from 10 BPS → 100+ BPS without manual retuning or risk of liveness attacks.</li>
+              <li>Enables the safe jump from 10 BPS to 100+ BPS without manual retuning or risk of liveness attacks.</li>
               <li>Paper proves it generalizes both PHANTOM and GHOSTDAG as special cases.</li>
             </ul>
-            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="inline-block mt-4 text-[#49EACB] hover:underline text-sm font-medium">→ Read the DAGKNIGHT paper (IACR ePrint 2022/1494)</a>
+            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="inline-block mt-4 text-[#49EACB] hover:underline text-sm font-medium">Read the DAGKNIGHT paper (IACR ePrint 2022/1494)</a>
           </div>
         </section>
 
@@ -138,12 +138,12 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-2xl font-bold text-white mb-4">SilverScript: Native Layer-1 Covenants</h2>
           <div className="glass-panel rounded-2xl p-6 border border-white/10 mb-6">
             <p className="text-gray-300 leading-relaxed mb-4">
-              SilverScript is Kaspa's native covenant scripting system. It allows developers to attach programmable conditions to UTXOs that are enforced directly by the consensus layer — no EVM, no rollups, no additional trust.
+              SilverScript is Kaspa's native covenant scripting system. It allows developers to attach programmable conditions to UTXOs that are enforced directly by the consensus layer: no EVM, no rollups, no additional trust.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <div className="uppercase tracking-widest text-[10px] text-[#49EACB] mb-1">Core Primitive</div>
-                <p className="text-gray-200">UTXOs can carry small scripts (aa20–aa23 opcodes in Toccata) that control spending conditions, including time locks, hash locks, public key checks, and arbitrary state machines.</p>
+                <p className="text-gray-200">UTXOs can carry small scripts (aa20-aa23 opcodes in Toccata) that control spending conditions, including time locks, hash locks, public key checks, and arbitrary state machines.</p>
               </div>
               <div>
                 <div className="uppercase tracking-widest text-[10px] text-[#49EACB] mb-1">Covex Use Case</div>
@@ -151,23 +151,23 @@ export default function WhatIsKaspaPage() {
               </div>
             </div>
           </div>
-          <a href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md" target="_blank" rel="noreferrer" className="text-[#49EACB] hover:underline font-medium text-sm">Read the official SilverScript / Toccata Covenant Design Document →</a>
+          <a href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md" target="_blank" rel="noreferrer" className="text-[#49EACB] hover:underline font-medium text-sm">Read the official SilverScript / Toccata Covenant Design Document</a>
         </section>
 
         {/* Research Library - Comprehensive */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Award size={20} className="text-[#49EACB]" /> Research Library — All Essential Papers</h2>
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Award size={20} className="text-[#49EACB]" /> Research Library: All Essential Papers</h2>
           <div className="space-y-3">
             {[
-              { title: "PHANTOM: A Scalable BlockDAG Protocol", subtitle: "Sompolinsky, Wyborski & Zohar (2018) — The foundational BlockDAG paper that started it all. IACR ePrint 2018/104.", href: "https://eprint.iacr.org/2018/104.pdf" },
-              { title: "GHOSTDAG: A Greedy Heaviest-Observed-SubTree Protocol", subtitle: "Sompolinsky et al. — The actual consensus algorithm running on Kaspa mainnet today. The practical, safe parameterization of PHANTOM ideas.", href: "https://eprint.iacr.org/2018/104.pdf" },
-              { title: "DAGKNIGHT: A Parameterless Generalization of PHANTOM", subtitle: "Sompolinsky, Sutton & Wyborski (2022) — Removes the k parameter entirely via real-time latency estimation. The future of Kaspa consensus. IACR 2022/1494.", href: "https://eprint.iacr.org/2022/1494.pdf" },
-              { title: "Kaspa BlockDAG: Formal Performance & Security Analysis", subtitle: "Peresini, Sompolinsky, et al. (2023) — Rigorous analysis of throughput, security bounds, and attack resistance of the deployed GHOSTDAG system. IACR 2023/1479.", href: "https://eprint.iacr.org/2023/1479" },
-              { title: "SPECTRE: Serialization of Proof-of-work Events", subtitle: "Sompolinsky, Lewenberg & Zohar (2016) — The earlier inclusive protocol that influenced all later BlockDAG work.", href: "https://eprint.iacr.org/2016/1159.pdf" },
-              { title: "Inclusive Block Chain Protocols", subtitle: "Lewenberg, Sompolinsky & Zohar (2015) — The paper that introduced the idea of rewarding all honest work instead of discarding orphans.", href: "https://eprint.iacr.org/2015/1139.pdf" },
-              { title: "The GHOST Protocol", subtitle: "Sompolinsky & Zohar (2013) — The original Greedy Heaviest Observed SubTree idea that eventually became GHOSTDAG.", href: "https://eprint.iacr.org/2013/881.pdf" },
-              { title: "Toccata Testnet-12 Covenant Specification", subtitle: "Kaspa Core Team — The live design document for SilverScript (aa20–aa23) opcodes, covenant semantics, and how they are validated in the Rust node.", href: "https://github.com/kaspanet/docs/blob/main/Design/covenants.md" },
-              { title: "kHeavyHash Specification & Rationale", subtitle: "Kaspa documentation — Details on the custom PoW, optical mining design goals, and why it differs from SHA256 / Ethash / etc.", href: "https://github.com/kaspanet/docs" },
+              { title: "PHANTOM: A Scalable BlockDAG Protocol", subtitle: "Sompolinsky, Wyborski & Zohar (2018). The foundational BlockDAG paper that started it all. IACR ePrint 2018/104.", href: "https://eprint.iacr.org/2018/104.pdf" },
+              { title: "GHOSTDAG: A Greedy Heaviest-Observed-SubTree Protocol", subtitle: "Sompolinsky et al. The actual consensus algorithm running on Kaspa mainnet today. The practical, safe parameterization of PHANTOM ideas.", href: "https://eprint.iacr.org/2018/104.pdf" },
+              { title: "DAGKNIGHT: A Parameterless Generalization of PHANTOM", subtitle: "Sompolinsky, Sutton & Wyborski (2022). Removes the k parameter entirely via real-time latency estimation. The future of Kaspa consensus. IACR 2022/1494.", href: "https://eprint.iacr.org/2022/1494.pdf" },
+              { title: "Kaspa BlockDAG: Formal Performance & Security Analysis", subtitle: "Peresini, Sompolinsky, et al. (2023). Rigorous analysis of throughput, security bounds, and attack resistance of the deployed GHOSTDAG system. IACR 2023/1479.", href: "https://eprint.iacr.org/2023/1479" },
+              { title: "SPECTRE: Serialization of Proof-of-work Events", subtitle: "Sompolinsky, Lewenberg & Zohar (2016). The earlier inclusive protocol that influenced all later BlockDAG work.", href: "https://eprint.iacr.org/2016/1159.pdf" },
+              { title: "Inclusive Block Chain Protocols", subtitle: "Lewenberg, Sompolinsky & Zohar (2015). The paper that introduced the idea of rewarding all honest work instead of discarding orphans.", href: "https://eprint.iacr.org/2015/1139.pdf" },
+              { title: "The GHOST Protocol", subtitle: "Sompolinsky & Zohar (2013). The original Greedy Heaviest Observed SubTree idea that eventually became GHOSTDAG.", href: "https://eprint.iacr.org/2013/881.pdf" },
+              { title: "Toccata Testnet-12 Covenant Specification", subtitle: "Kaspa Core Team. The live design document for SilverScript (aa20-aa23) opcodes, covenant semantics, and how they are validated in the Rust node.", href: "https://github.com/kaspanet/docs/blob/main/Design/covenants.md" },
+              { title: "kHeavyHash Specification & Rationale", subtitle: "Kaspa documentation. Details on the custom PoW, optical mining design goals, and why it differs from SHA256 / Ethash / etc.", href: "https://github.com/kaspanet/docs" },
               { title: "Kaspa Rust Node Architecture (rusty-kaspa)", subtitle: "The reference implementation. Covers consensus core, UTXO set, mempool, RPC, and how covenants are indexed.", href: "https://github.com/kaspanet/rusty-kaspa" },
             ].map((p, i) => (
               <a key={i} href={p.href} target="_blank" rel="noreferrer"
@@ -187,37 +187,57 @@ export default function WhatIsKaspaPage() {
 
         {/* Network Specifications */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-            Current Network Specifications (Mainnet)
-            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider">VERIFIED 2026</span>
-          </h2>
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <CheckCircle2 size={20} className="text-[#49EACB]" />
+              Network Specifications
+            </h2>
+            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono">LIVE MAINNET 2026</span>
+          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[
-              { label: 'Block Interval', value: '100 ms', sub: '0.1 sec' },
-              { label: 'Block Rate', value: '10 BPS', sub: 'Mainnet (post-Crescendo 2025)' },
-              { label: 'Scaling Target', value: '100+ BPS', sub: 'DAGKNIGHT + future' },
-              { label: 'Max Supply', value: '28.7 B KAS', sub: '28,704,026,601 total' },
-              { label: 'Consensus', value: 'PoW + GHOSTDAG', sub: 'Current protocol' },
-              { label: 'Hash Function', value: 'kHeavyHash', sub: 'Optical-miner friendly' },
-              { label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch, zero premine' },
-              { label: 'Practical Finality', value: '5–10 seconds', sub: 'Strong probabilistic confirmation' },
-              { label: 'Primary Node', value: 'rusty-kaspa', sub: 'Rust (high performance)' },
-              { label: 'Covenants', value: 'TN12 (Toccata)', sub: 'Mainnet Toccata HF targeted 2026' },
-              { label: 'Pruning', value: 'Active', sub: '~30–42 hours history (NIPoW)' },
-              { label: 'Active Testnet', value: 'Toccata TN12', sub: 'SilverScript / covenants dev' },
+              { icon: Timer, label: 'Block Interval', value: '100 ms', sub: '0.1 seconds per block', badge: null },
+              { icon: TrendingUp, label: 'Block Rate', value: '10 BPS', sub: 'Mainnet, post-Crescendo hard fork (2025)', badge: 'VERIFIED' },
+              { icon: Zap, label: 'Scaling Target', value: '100+ BPS', sub: 'DAGKNIGHT and subsequent protocol upgrades', badge: 'TARGET' },
+              { icon: Coins, label: 'Max Supply', value: '28.7 B KAS', sub: 'Exactly 28,704,026,601 coins', badge: 'VERIFIED' },
+              { icon: Shield, label: 'Consensus', value: 'PoW + GHOSTDAG', sub: 'DAGKNIGHT enables higher block rates', badge: null },
+              { icon: Fingerprint, label: 'Hash Algorithm', value: 'kHeavyHash', sub: 'Optical-miner friendly, ASIC-resistant design', badge: null },
+              { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
+              { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },
+              { icon: Code2, label: 'Primary Node', value: 'rusty-kaspa', sub: 'Production Rust implementation, high performance', badge: null },
+              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Experimental on Toccata TN12; mainnet via Toccata hard fork (targeted 2026)', badge: 'TN12' },
+              { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
+              { icon: FlaskConical, label: 'Active Testnet', value: 'Toccata TN12', sub: 'SilverScript development and covenant testing network', badge: 'ACTIVE' },
             ].map((s, i) => (
-              <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.01] p-4 hover:border-kaspa-green/40 hover:bg-white/[0.015] transition-all group">
-                <div className="text-[9px] text-gray-400 uppercase tracking-[1.5px] mb-0.5">{s.label}</div>
-                <div className="text-2xl font-bold text-white tabular-nums group-hover:text-kaspa-green transition-colors leading-none">{s.value}</div>
-                <div className="text-[10px] text-gray-500 mt-1 leading-tight">{s.sub}</div>
+              <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.005] p-5 hover:border-[#49EACB]/40 hover:bg-white/[0.02] hover:shadow-[0_0_25px_rgba(73,234,203,0.08)] transition-all duration-300 group">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-[#49EACB]/10 border border-[#49EACB]/20 flex items-center justify-center shrink-0 group-hover:bg-[#49EACB]/20 transition-colors">
+                    <s.icon size={15} className="text-[#49EACB]" />
+                  </div>
+                  {s.badge && (
+                    <span className={`text-[8px] px-2 py-0.5 rounded-full font-mono tracking-wider shrink-0 ${
+                      s.badge === 'VERIFIED' ? 'bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/25' :
+                      s.badge === 'TARGET' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25' :
+                      s.badge === 'TN12' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/25' :
+                      'bg-blue-500/10 text-blue-400 border border-blue-500/25'
+                    }`}>{s.badge}</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-gray-400 uppercase tracking-[1.5px] font-mono mb-1">{s.label}</div>
+                <div className="text-xl font-bold text-white tabular-nums group-hover:text-[#49EACB] transition-colors leading-tight">{s.value}</div>
+                <div className="text-[11px] text-gray-300 mt-1.5 leading-relaxed">{s.sub}</div>
               </div>
             ))}
           </div>
 
-          <p className="mt-3 text-[10px] text-gray-500">
-            Cross-checked from kaspa.org, explorer.kaspa.org, official hard-fork announcements, and developer updates (mid-2026). Finality is probabilistic; practical spendability is near-instant for most use cases. Covenants / SilverScript are experimental on TN12; mainnet support arrives with the Toccata hard fork.
-          </p>
+          <div className="mt-5 p-4 rounded-2xl border border-white/5 bg-white/[0.005]">
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              <span className="text-[#49EACB] font-mono text-[10px] uppercase tracking-wider">Sources:</span> kaspa.org, explorer.kaspa.org, rusty-kaspa GitHub, official Crescendo/DAGKNIGHT/Toccata hard-fork announcements, and developer updates (mid-2026).
+              Finality is probabilistic; practical spendability is near-instant for most use cases.
+              SilverScript covenants are experimental on Toccata TN12; mainnet support arrives with the Toccata covenant-centric hard fork.
+            </p>
+          </div>
         </section>
 
         {/* Official Resources & Developer Links */}
@@ -229,10 +249,10 @@ export default function WhatIsKaspaPage() {
               { title: "Publications & Research", desc: "The canonical list of all whitepapers and academic output", href: "https://kaspa.org/publications/" },
               { title: "Developments & Roadmap", desc: "Protocol upgrades, DAGKNIGHT status, pruning, and upcoming features", href: "https://kaspa.org/developments/" },
               { title: "Mainnet BlockDAG Explorer", desc: "Live visualization of the DAG, blocks, and transactions", href: "https://explorer.kaspa.org" },
-              { title: "Rusty Kaspa (GitHub)", desc: "The production Rust node — consensus, RPC, UTXO index, covenant support", href: "https://github.com/kaspanet/rusty-kaspa" },
+              { title: "Rusty Kaspa (GitHub)", desc: "The production Rust node: consensus, RPC, UTXO index, covenant support", href: "https://github.com/kaspanet/rusty-kaspa" },
               { title: "Kaspa Documentation Hub", desc: "Protocol spec, REST/WebSocket APIs, SilverScript reference, node setup", href: "https://github.com/kaspanet/docs" },
               { title: "Covenant Design Document", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/docs/blob/main/Design/covenants.md" },
-              { title: "Official Web Wallet", desc: "kaspa.org wallet — send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
+              { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
               { title: "Toccata Testnet Faucet & Explorer", desc: "TN12 resources for developers testing covenants", href: "https://faucet.tn12.kaspanet.io" },
               { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://kaspa.org/community" },
               { title: "Kaspa Improvement Proposals (KIPs)", desc: "Formal process for protocol changes", href: "https://github.com/kaspanet/kips" },

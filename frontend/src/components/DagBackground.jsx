@@ -1,20 +1,36 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from './ThemeProvider';
 
 const DagBackground = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const dagSrc = `https://kgi.kaspad.net/?theme=${isDark ? 'dark' : 'light'}`;
+
+  // Preload both themed versions for instant switch
+  const darkSrc = 'https://kgi.kaspad.net/?theme=dark';
+  const lightSrc = 'https://kgi.kaspad.net/?theme=light';
+
+  // Use local state synced to theme for reliable visibility toggle
+  const [showDark, setShowDark] = useState(isDark);
+
+  useEffect(() => {
+    setShowDark(isDark);
+  }, [isDark]);
 
   return (
     <div 
       className={`dag-background fixed inset-0 z-[-10] pointer-events-none ${isDark ? 'bg-black' : 'bg-white'}`}
     >
+      {/* Dark DAG iframe - always mounted for instant visibility */}
       <iframe 
-        key={theme}  // Force remount with correct ?theme= param when theme switches
-        src={dagSrc} 
-        className={`absolute top-1/2 left-1/2 w-[125vw] h-[125vh] -translate-x-1/2 -translate-y-1/2 border-0 ${isDark ? 'opacity-30 mix-blend-screen' : 'opacity-75'}`}
-        title={`Live Kaspa DAG (${isDark ? 'dark' : 'light'})`}
+        src={darkSrc} 
+        className={`absolute top-1/2 left-1/2 w-[125vw] h-[125vh] -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-200 ${showDark ? 'opacity-30 mix-blend-screen' : 'opacity-0 pointer-events-none'}`}
+        title="Live Kaspa DAG (dark)"
+      />
+      {/* Light DAG iframe - always mounted for instant visibility */}
+      <iframe 
+        src={lightSrc} 
+        className={`absolute top-1/2 left-1/2 w-[125vw] h-[125vh] -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-200 ${!showDark ? 'opacity-75' : 'opacity-0 pointer-events-none'}`}
+        title="Live Kaspa DAG (light)"
       />
       {/* Subtle dark vignette only in dark mode */}
       {isDark && (

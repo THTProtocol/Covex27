@@ -81,6 +81,9 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
   const [oracleSig, setOracleSig] = useState(null);
   const [oracleLoading, setOracleLoading] = useState(false);
   const [oracleError, setOracleError] = useState(null);
+  const [oracleResult, setOracleResult] = useState(null);
+  const [payoutResult, setPayoutResult] = useState(null);
+  const [payoutLoading, setPayoutLoading] = useState(false);
 
   const totalPot = stake * 2;
   const playerVal = handValue(playerCards);
@@ -164,6 +167,7 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
       const data = await res.json();
       if (data.success) {
         setOracleSig(data.signature);
+        setOracleResult(data);
         setOracleSubmitted(true);
       } else {
         setOracleError(data.error || 'Oracle rejection');
@@ -176,6 +180,33 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
       setOracleLoading(false);
     }
   }, [result, covenantId, playerCards, dealerCards, playerVal, dealerVal]);
+
+  // ── Claim payout ──
+  const claimPayout = useCallback(async () => {
+    if (!covenantId || !oracleResult) return;
+    setPayoutLoading(true);
+    const outcomeMap = { player: 0, dealer: 1, push: 2 };
+    try {
+      const res = await fetch(`/api/covenant/${covenantId}/compute-payout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          oracle_signature: oracleResult.signature || '',
+          outcome: outcomeMap[result?.outcome] ?? 0,
+          total_stake_kas: totalPot,
+          per_side_stake_kas: stake,
+          oracle_message: oracleResult.message || '',
+          oracle_timestamp: oracleResult.timestamp || null,
+        }),
+      });
+      const data = await res.json();
+      setPayoutResult(data.success ? data.payout : { error: data.error || 'Payout failed' });
+    } catch (err) {
+      setPayoutResult({ error: err.message });
+    } finally {
+      setPayoutLoading(false);
+    }
+  }, [covenantId, oracleResult, result, totalPot, stake]);
 
   return (
     <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 60%, #0a1a0a 0%, #050510 70%)' }}>
@@ -285,7 +316,7 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
                 {oracleError}
               </div>
             )}
-            {oracleSubmitted && (
+            {oracleSubmitted && !payoutResult && (
               <div className="text-emerald-400 text-sm font-bold p-4 border border-emerald-500/30 rounded-xl bg-emerald-500/5 flex flex-col items-center gap-2">
                 <span className="flex items-center gap-2">
                   <Play size={14} className="text-emerald-400" />
@@ -296,10 +327,33 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
                 </span>
                 <div className="text-[9px] text-gray-300 mt-1 grid grid-cols-3 gap-2 w-full max-w-xs text-center">
                   <div>Winner: {((stake*2) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</div>
-                  <div>Creator: {((stake*2) * feePercent / 100).toFixed(1)} KAS</div>
+                  <div>Platform: {((stake*2) * feePercent / 100).toFixed(1)} KAS</div>
                   <div className="text-kaspa-green">Pot return: {((stake*2) * potReturnPercent / 100).toFixed(1)} KAS</div>
                 </div>
+                <button
+                  onClick={claimPayout}
+                  disabled={payoutLoading}
+                  className="mt-2 px-6 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"
+                >
+                  {payoutLoading ? 'Computing...' : 'CLAIM PAYOUT (VERIFY ON BACKEND)'}
+                </button>
               </div>
+            )}
+            {payoutResult && !payoutResult.error && (
+              <div className="text-emerald-400 text-sm font-bold p-4 border border-emerald-500/30 rounded-xl bg-emerald-500/5 flex flex-col items-center gap-2">
+                <span>PAYOUT COMPUTED</span>
+                <div className="grid grid-cols-3 gap-2 w-full max-w-xs text-center text-xs">
+                  <div>Winner: <span className="font-bold text-white">{payoutResult.winner_share_kas} KAS</span></div>
+                  <div>Platform: <span className="font-bold text-rose-400">{payoutResult.platform_fee_kas} KAS</span></div>
+                  <div>Pot Rtn: <span className="font-bold text-kaspa-green">{payoutResult.pot_return_kas} KAS</span></div>
+                </div>
+                <details className="w-full max-w-lg"><summary className="text-[10px] text-gray-400 cursor-pointer">Copy witness data</summary>
+                  <pre className="mt-1 p-2 rounded bg-black/40 text-[9px] text-gray-300 whitespace-pre-wrap font-mono">{payoutResult.unlock_witness}</pre>
+                </details>
+              </div>
+            )}
+            {payoutResult && payoutResult.error && (
+              <div className="text-amber-400 text-xs p-3 border border-amber-500/30 rounded-xl bg-amber-500/5">Payout error: {payoutResult.error}</div>
             )}
           </div>
         )}

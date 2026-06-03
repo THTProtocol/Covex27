@@ -455,7 +455,7 @@ The script performs 6 steps: pushes to GitHub, pulls on Hetzner, builds frontend
 Built by HIGH TABLE PROTOCOL.
 
 Live: [hightable.pro](https://hightable.pro)  
-Studio: [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio)  
+Studio: [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) (see HERMES_COVENANT_STUDIO_MASTER_PROMPT.md there for autonomous best-templates rules + triple-sync)  
 Repo: This repository
 
 ---

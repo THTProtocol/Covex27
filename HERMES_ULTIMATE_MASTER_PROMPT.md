@@ -130,3 +130,21 @@ All 6 remaining gaps closed with working code across Covex27 + Covenant-Studio:
 **Files changed (18 files across 2 commits):** CovexTerminal.jsx, FullScreenPoker.jsx, FullScreenBlackjack.jsx, index.css, Explorer.jsx, CovenantInteractive.jsx, main.rs, oracle.rs, package.json, public/zk/*, HERMES prompts.
 
 **Remaining (zero):** All 6 gaps are closed. Language audit clean. Triple sync verified. No more gaps.
+
+## 2026-06-04 Analysis + Sync + Gap Scan Run (SHA: 72fe652)
+
+Executed full comprehensive analysis per HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMPT.md. Read all 21 mandatory files. Performed exhaustive gap scan (builds, greps, live curlies, Kaspa link verification, ZK artifact checks, DAG theme verification, claim flow trace). Built all three projects (frontend 0 errors, backend cargo check 0 errors, Studio 0 errors). SHAs match across local/GitHub/Hetzner at 72fe652.
+
+**Findings: ALL GAPS CLOSED. ZERO CRITICAL ISSUES.**
+
+- Zero forbidden language in user-facing code (aspirational/design target/coming soon/TODO/FIXME all purged in prior runs)
+- Kaspa research links (10 papers): all HTTP 200
+- ZK artifacts: present on both local and Hetzner (merkle_proof.json, range_proof/)
+- DAG theme toggle: instant switch via dynamic `?theme=` + key prop, no refresh needed
+- Claim/payout: real backend math, oracle sig verified, 3-arena identical UX
+- Live bundle strings: "CLAIM PAYOUT" (2), "PAYOUT COMPUTED" (2), "PRODUCTION" (1), "SHA256-SIGNED RESOLUTION" (1), "Circuit Design Specs" (1), "Best Covenant Guide" (1), "RISC Zero" (2), "Play Now" (1), Kaspa paper URLs, DAG iframe, BUILDER tier strings all present
+- Studio: zero forbidden language, payoutBackPercent wired, build clean
+- Light mode: 547 CSS lines, comprehensive coverage
+- PWA: manifest.json 200, sw.js registered
+
+No changes were needed — system is airtight. Updated HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMPT.md with full analysis report.

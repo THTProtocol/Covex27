@@ -268,7 +268,7 @@ export default function Explorer() {
             {!loading && paidCovenants.length > 0 && (
               <>
                 <SectionLabel icon={Sparkles} label="Featured Covenants" accent />
-                <p className="text-xs text-gray-400 -mt-2 mb-4">Higher-tier covenants are prioritized here with stronger visual presence (no tier names shown publicly).</p>
+                <p className="text-xs text-gray-400 -mt-2 mb-4">Featured covenants are prioritized here with stronger visual presence.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
                   {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
                 </div>

@@ -20,7 +20,7 @@ Never stop at "tell the user". Always: inspect → edit → build (clean) → co
   ```
   After deploy, verify with `git rev-parse HEAD` on all three + curl live pages.
 
-- **Explorer public rules** (from prior master): "Featured Covenants" section with **no tier labels/badges visible to regular visitors**. Paid covenants get visual priority (colored borders/glows: MAX purple, PRO amber, BUILDER blue + sorting by tier+TVL). **Only the creator** (connected wallet == creator_addr) sees their own tier badge. Explanatory text under section: "Higher-tier covenants are prioritized here with stronger visual presence (no tier names shown publicly)."
+- **Explorer public rules** (from prior master): "Featured Covenants" section with **no tier labels/badges visible to regular visitors**. Paid covenants get visual priority (colored borders/glows: MAX purple, PRO amber, BUILDER blue + sorting by tier+TVL). **Only the creator** (connected wallet == creator_addr) sees their own tier badge. Explanatory text under section should be neutral (e.g. "Featured covenants are prioritized here with stronger visual presence.").
 
 - **Free deploy**: The /deploy page (and basic path) is **truly free and open to everyone**, explicitly including users who already hold paid tiers. "This is the free entry point... Paid users: Feel free to use this page for basic covenants. Your rich UI / ZK work happens after attaching a tier to that specific covenant."
 

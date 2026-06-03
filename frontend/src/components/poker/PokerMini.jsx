@@ -1,15 +1,14 @@
 import React from 'react';
 
-// Neutral placeholder - no gambling visuals on Covex public pages.
-// Rich poker visuals only exist inside Covenant Studio.
+// Enhanced mini for preview. Full pro full-screen Texas Hold'em (smooth like top poker apps) lives in
+// Covenant Studio generated UIs + Covex Terminal for paid covenants (stake match → full screen table → oracle/ZK resolution).
 const PokerMini = ({ compact = false }) => {
   return (
-    <div className="flex items-center justify-center h-full bg-black/30 rounded-lg p-3 text-center">
-      <div>
-        <div className="text-2xl mb-1 opacity-60">♠︎</div>
-        <div className="text-[10px] text-gray-300 font-mono uppercase tracking-wider">Poker</div>
-        <div className="text-[9px] text-gray-400 mt-1">ZK hand ranking circuit</div>
-      </div>
+    <div className="flex flex-col items-center justify-center h-full bg-[#0a0f0a] rounded-xl p-4 text-center border border-white/5">
+      <div className="text-3xl mb-1">♠︎ ♥︎ ♦︎ ♣︎</div>
+      <div className="text-xs text-white font-bold tracking-wider">TEXAS HOLD'EM</div>
+      <div className="text-[9px] text-emerald-400 mt-0.5 font-mono">ORACLE + FUTURE ZK HAND PROOFS</div>
+      <div className="mt-2 text-[8px] text-gray-500">Stake match → Full screen pro table (smooth like top apps)</div>
     </div>
   );
 };

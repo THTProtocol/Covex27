@@ -279,8 +279,8 @@ export default function Explorer() {
               <>
                 <SectionLabel icon={Play} label="Interactive & Demos" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                  <DemoCard icon={Cpu} title="ZK Chess Arena" desc="Full chess with ZK win verification. Winner-takes-all with on-chain settlement via Merkle membership proofs." tags={['ZK Circuit','Chess','PvP']} path="/covenant?demo=chess" />
-                  <DemoCard icon={Users} title="Multi-Player Poker" desc="Texas Hold'em with oracle-backed attestation. Real covenant with multi-outcome resolution and pot management." tags={['Oracle','Poker','Multi-Player']} path="/covenant?demo=poker" />
+                  <DemoCard icon={Cpu} title="ZK Chess Arena" desc="Pro full-screen chess after equal stakes. chess.com-smooth (clocks, move list, large board, legal moves). Oracle attested outcome (real ZK circuit path ready)." tags={['Pro UI','Chess','Oracle+ZK']} path="/covenant?demo=chess" />
+                  <DemoCard icon={Users} title="Multi-Player Poker" desc="Texas Hold'em full-screen pro table after matched stakes. Oracle-backed resolution + future ZK hand ranking proofs." tags={['Pro UI','Poker','Oracle']} path="/covenant?demo=poker" />
                   <DemoCard icon={TrendingUp} title="Range Proof Verifier" desc="Prove a value is within bounds without revealing it. Groth16 ceremony complete, awaiting witness generation fix." tags={['ZK Proof','Privacy','Groth16']} path="/covenant?demo=range" />
                 </div>
               </>

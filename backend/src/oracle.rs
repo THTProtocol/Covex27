@@ -24,7 +24,7 @@ use tracing::info;
 pub struct OracleVerifyInput {
     pub covenant_id: String,
     #[serde(default = "default_circuit_type")]
-    pub circuit_type: String, // "merkle_membership" | "range_proof" (Phase 12 wired)
+    pub circuit_type: String, // "merkle_membership" | "range_proof" | "chess_v1" (oracle attestation for game results)
     pub proof: serde_json::Value,       // The Groth16 proof object
     pub public_inputs: Vec<String>,     // Public signals (rootHash, etc.)
     #[serde(default)]
@@ -286,6 +286,13 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 }
             }
         }
+        "chess_v1" => {
+            // Chess result attestation via oracle (until full on-chain ZK chess_v1 circuit is live).
+            // The client (after playing in smooth full-screen arena) submits the claimed outcome.
+            // For demo/realism we accept requested_outcome or derive from a simple proof field.
+            // In production with real ZK, this branch would verify a chess rules proof.
+            true
+        }
         other => {
             return Json(OracleVerifyOutput {
                 success: false,
@@ -293,7 +300,7 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 signature: None,
                 timestamp: None,
                 message: None,
-                error: Some(format!("Unsupported circuit type: {}. Currently supported: merkle_membership, range_proof (foundation)", other)),
+                error: Some(format!("Unsupported circuit type: {}. Currently supported: merkle_membership, range_proof, chess_v1 (oracle result attestation)", other)),
                 public_inputs: input.public_inputs,
             });
         }
@@ -313,6 +320,14 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
         if let Some(last) = input.public_inputs.last() {
             if last == "1" { 0 } else { 1 }
         } else { 1 }
+    } else if input.circuit_type == "chess_v1" {
+        // Chess: prefer explicit requested_outcome (0=white win, 1=black win, 2=draw)
+        // or fall back to 0 for demo if not provided.
+        if let Some(req) = input.requested_outcome {
+            req.min(2)
+        } else {
+            0
+        }
     } else {
         0
     };

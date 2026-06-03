@@ -57,8 +57,33 @@ export default function App() {
           <DagBackground />
           <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-              <Link to="/" className="text-lg font-bold tracking-tight text-white hover:text-[#49EACB] flex items-center gap-2.5">
-                COVEX
+              <Link to="/" className="group flex items-center gap-2.5 text-lg font-extrabold tracking-[1.5px] text-white hover:text-[#49EACB] transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 48 48" className="shrink-0 drop-shadow-[0_0_8px_rgba(73,234,203,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(73,234,203,0.7)] transition-all">
+                  <defs>
+                    <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#49EACB"/><stop offset="45%" stopColor="#00D2FF"/><stop offset="100%" stopColor="#7e14ff"/>
+                    </linearGradient>
+                  </defs>
+                  <g>
+                    <circle cx="8" cy="8" r="2.1" fill="#49EACB"/>
+                    <circle cx="8" cy="24" r="2.9" fill="#00D2FF"/>
+                    <circle cx="8" cy="40" r="2.1" fill="#7e14ff"/>
+                    <circle cx="24" cy="8" r="1.9" fill="#7e14ff" opacity="0.9"/>
+                    <circle cx="24" cy="40" r="1.9" fill="#49EACB" opacity="0.9"/>
+                    <circle cx="40" cy="8" r="2.1" fill="#00D2FF"/>
+                    <circle cx="40" cy="24" r="2.9" fill="#49EACB"/>
+                    <circle cx="40" cy="40" r="2.1" fill="#7e14ff"/>
+                    <line x1="8" y1="8" x2="24" y2="8" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
+                    <line x1="8" y1="24" x2="24" y2="8" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
+                    <line x1="8" y1="24" x2="24" y2="40" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
+                    <line x1="8" y1="40" x2="24" y2="40" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
+                    <line x1="24" y1="8" x2="40" y2="8" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
+                    <line x1="24" y1="40" x2="40" y2="40" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
+                    <line x1="24" y1="8" x2="40" y2="24" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
+                    <line x1="24" y1="40" x2="40" y2="24" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
+                  </g>
+                </svg>
+                <span className="font-black tracking-[2px] bg-gradient-to-r from-white via-[#49EACB] to-white bg-clip-text text-transparent group-hover:from-[#49EACB] group-hover:via-white group-hover:to-[#49EACB] transition-all">COVEX</span>
               </Link>
               <div className="flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>

@@ -99,6 +99,8 @@ This prompt supersedes all prior HERMES files for completeness. Update it religi
 
 **Kaspa page note (fixed in the prompt-creation session):** All external links now point to primary verifiable sources. Re-verify + enhance on every run if Kaspa evolves (new papers, mainnet BPS changes, Toccata status). No gaps allowed in research library or resources.
 
+**DAG / Theme switch note (fixed 2026-06-03):** DagBackground now consumes useTheme(), uses dynamic src + key={theme} to instantly switch the live ?theme=light/dark iframe on toggle without requiring page refresh. Previously required refresh to see the correct DAG visualizer.
+
 Execute. Make it airtight. No gaps.
 
 ## 2026-06-03 Run #2 Completion (SHA: 441acd7)

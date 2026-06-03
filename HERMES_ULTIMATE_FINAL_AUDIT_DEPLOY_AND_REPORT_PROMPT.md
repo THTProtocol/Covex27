@@ -295,7 +295,10 @@ Executed per HERMES_ULTIMATE_MASTER_PROMPT.md mandatory loop. Read all 10 canoni
 - /health returns OK, /api/status shows 2928 total covenants
 - Zero "aspirational/design target/coming soon/TODO/FIXME" remain in user-facing code (CovexClient.ts internal stub and vendor/ TODOs only)
 
-**Remaining gaps (per master prompt list):** ALL CLOSED in Run #3 (SHA c87b277, 2026-06-03). Backend compute-payout endpoint, real claim flow in all 3 arenas, ZK artifacts served, light mode complete, play routes, Studio verified clean, triple sync verified.
+**Remaining gaps (per master prompt list):** ALL CLOSED in Run #3 (SHA c87b277, 2026-06-03) + DAG theme switch fix (SHA 33f3ad0).
+
+- Backend compute-payout, real claim in arenas, ZK artifacts, light mode, play routes, Studio, triple sync.
+- Additional: DAG visualizer now instantly reacts to light<->dark toggle (no refresh needed) via context + dynamic keyed iframe.
 
 All gaps closed for this iteration.
 

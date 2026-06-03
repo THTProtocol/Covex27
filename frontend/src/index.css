@@ -55,7 +55,7 @@ body {
 }
 
 .light body {
-  background: #f8fafc;
+  background: #fff;
   background-attachment: fixed;
   color: #0f172a;
 }
@@ -511,11 +511,8 @@ body {
 .light .text-purple-400 { color: #6d28d9 !important; }
 
 /* ═══════════════════════════════════════════════════════════════
-   EXTRA: DAG Background — hide in light mode
+   EXTRA: DAG Background — handled in DagBackground.jsx
    ═══════════════════════════════════════════════════════════════ */
-.light .dag-background {
-  opacity: 0.15;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    EXTRA: Light mode white text in dark-background sections →

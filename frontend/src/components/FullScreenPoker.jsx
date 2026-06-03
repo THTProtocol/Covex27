@@ -65,7 +65,7 @@ function handRankDisplay(cards) {
   return cards.map(c => `${c.rank}${SUITS[c.suit]}`).join(' ');
 }
 
-export default function FullScreenPoker({ stake, onClose, covenantId }) {
+export default function FullScreenPoker({ stake, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
   const [phase, setPhase] = useState('betting'); // betting | flop | turn | river | showdown | finished
   const [deck] = useState(() => shuffle(createDeck()));
   const [hands] = useState(() => dealHands(shuffle(createDeck())));
@@ -298,7 +298,12 @@ export default function FullScreenPoker({ stake, onClose, covenantId }) {
                 <span className="text-[10px] text-emerald-400/60 font-mono break-all max-w-lg text-center">
                   {oracleSig}
                 </span>
-                <span className="text-[10px] text-gray-400">Use this signature as witness data for covenant unlock</span>
+                <div className="text-[9px] text-gray-300 mt-1 grid grid-cols-3 gap-2 w-full max-w-xs text-center">
+                  <div>Winner: {((totalPot) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</div>
+                  <div>Creator: {((totalPot) * feePercent / 100).toFixed(1)} KAS</div>
+                  <div className="text-kaspa-green">Pot return: {((totalPot) * potReturnPercent / 100).toFixed(1)} KAS</div>
+                </div>
+                <span className="text-[10px] text-gray-400">Use this signature as witness data for covenant unlock. % back sustains the pot for reusable covenants.</span>
               </div>
             )}
           </div>

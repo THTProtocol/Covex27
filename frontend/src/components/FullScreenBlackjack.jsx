@@ -68,7 +68,7 @@ function Card({ rank, suit, faceDown, small }) {
   );
 }
 
-export default function FullScreenBlackjack({ stake, onClose, covenantId }) {
+export default function FullScreenBlackjack({ stake, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
   const [deck, setDeck] = useState(() => shuffle(createDeck()));
   const [hands] = useState(() => dealInitial(shuffle(createDeck())));
   const [playerCards, setPlayerCards] = useState([...hands.player]);
@@ -294,6 +294,11 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId }) {
                 <span className="text-[10px] text-emerald-400/60 font-mono break-all max-w-lg text-center">
                   {oracleSig}
                 </span>
+                <div className="text-[9px] text-gray-300 mt-1 grid grid-cols-3 gap-2 w-full max-w-xs text-center">
+                  <div>Winner: {((stake*2) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</div>
+                  <div>Creator: {((stake*2) * feePercent / 100).toFixed(1)} KAS</div>
+                  <div className="text-kaspa-green">Pot return: {((stake*2) * potReturnPercent / 100).toFixed(1)} KAS</div>
+                </div>
               </div>
             )}
           </div>

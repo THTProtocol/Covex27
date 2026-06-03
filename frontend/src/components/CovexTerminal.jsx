@@ -1233,18 +1233,86 @@ ${gameMeta.outcomeBranches}
 
       {/* ─── Best Covenant Guide (collapsible) ─── */}
       <details className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.01] ring-1 ring-kaspa-green/10 [&[open]]:pb-6`}>
-        <summary className="cursor-pointer select-none flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest">
+        <summary className="cursor-pointer select-none flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest -my-0.5">
           <Info size={16} />
-          <span>Best Covenant Guide (Expand)</span>
+          <span>Best Covenant Guide: How to Build the Best Covenant</span>
+          <span className="text-[10px] font-mono text-gray-300 normal-case tracking-normal ml-auto mr-2">Expand for full guide</span>
         </summary>
         <div className="mt-4 ml-2 pl-4 border-l-2 border-kaspa-green/30 space-y-4">
+          {/* Why non-1time (reusable) is advisable */}
           <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <p className="text-sm text-white font-bold mb-2">Non-1time (Reusable) Covenants: Why Advisable</p>
-            <p className="text-xs text-gray-300 leading-relaxed">Reusable covenants support multiple sessions without redeploying. Toggle Reusable and Allow Top-ups. The covenant pot persists across games. Creator earns fees on every round. Example chess: 2 players stake equal KAS, winner takes 96%, creator earns 2%, 2% flows back to covenant pot for sustainability.</p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-kaspa-green/15"><Settings size={14} className="text-kaspa-green" /></div>
+              <p className="text-sm text-white font-bold">Non-1time (Reusable) Covenants: Why and How</p>
+            </div>
+            <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
+              <p><strong className="text-white">1-time covenants</strong> lock funds once. One player or pair plays, one resolution, funds move, covenant is done. Simple but single-use. To run another session you must redeploy a new covenant on-chain.</p>
+              <p><strong className="text-kaspa-green">Reusable covenants are advisable for most use cases.</strong> They support multiple sessions and ongoing value:</p>
+              <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300">
+                <li>Multiple players or sessions from a single on-chain covenant deploy</li>
+                <li>The covenant pot persists and grows across games</li>
+                <li>Creator earns platform % on every game without redeploying</li>
+                <li>% back to covenant sustains the pot for future players</li>
+                <li>Less on-chain spam (one deploy, many sessions)</li>
+                <li>Builds community around popular covenants that live forever</li>
+              </ul>
+              <p><strong className="text-white">How it works:</strong> Enable "Reusable Covenant" and "Allow Top-ups" below. The covenant script includes OpReuseCovenant (multiple unlocks) and OpAddToPot (new deposits). On each resolution, the winner takes their share, creator gets %, and a configurable % flows back into the covenant pot for the next round.</p>
+              <p><strong className="text-white">Example (Chess):</strong> 2 players stake equal KAS to pot. Winner takes 96% of pot. Creator earns 2%. Remaining 2% goes back to the covenant pot for sustainability. Next pair of players can use the same covenant. Creator earns 2% on every game forever without deploying anything new.</p>
+            </div>
           </div>
+
+          {/* Transparency requirements */}
           <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <p className="text-sm text-white font-bold mb-2">Transparency: Required Information</p>
-            <p className="text-xs text-gray-300 leading-relaxed">Every covenant must provide: clear name, full description (rules/edge cases), exact payout percentages, resolution method (oracle/ZK with keys), reusable config, and test evidence. All displayed publicly in Explorer.</p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-kaspa-green/15"><Shield size={14} className="text-kaspa-green" /></div>
+              <p className="text-sm text-white font-bold">Full Transparency: Required Covenant Information</p>
+            </div>
+            <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
+              <p>Every covenant deployed on COVEX must provide complete information publicly visible in the Explorer. This protects participants:</p>
+              <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300">
+                <li><strong className="text-white">Name</strong>: Clear, descriptive covenant name</li>
+                <li><strong className="text-white">Full description</strong>: Rules, variants, edge cases, examples (minimum 80 characters for best results)</li>
+                <li><strong className="text-white">Exact payout structure</strong>: Who gets what percentage of the pot under each outcome</li>
+                <li><strong className="text-white">Resolution method</strong>: Which oracle or ZK circuit decides outcomes, with keys/endpoints</li>
+                <li><strong className="text-white">Reusable configuration</strong>: Whether the covenant accepts multiple sessions and top-ups, and if % flows back to the pot</li>
+                <li><strong className="text-white">Test evidence</strong>: Testnet-12 transaction links showing the covenant works</li>
+              </ul>
+              <p><strong className="text-amber-300">Incomplete transparency = no trust.</strong> Participants need to know exactly how their KAS will be handled before staking.</p>
+            </div>
+          </div>
+
+          {/* Best Practices */}
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-kaspa-green/15"><CheckCircle2 size={14} className="text-kaspa-green" /></div>
+              <p className="text-sm text-white font-bold">Best Practices Summary</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="space-y-1">
+                <p className="text-white font-semibold">1. Make it reusable</p>
+                <p className="text-gray-300">Toggle Reusable + Allow Top-ups. One deploy, many sessions, ongoing creator revenue.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-white font-semibold">2. Write a detailed description</p>
+                <p className="text-gray-300">Explain rules, edge cases, and examples. Public description builds trust.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-white font-semibold">3. Set % back to covenant pot</p>
+                <p className="text-gray-300">Keep 1-3% flowing back to sustain the pot for future players.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-white font-semibold">4. Choose ZK for high-stakes</p>
+                <p className="text-gray-300">For chess or other game outcomes where fairness matters, prefer ZK resolution when circuits are available.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-white font-semibold">5. Test on TN12 first</p>
+                <p className="text-gray-300">Use the testnet covenant deploy flow. Verify oracle/ZK submission works before mainnet stakes.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-white font-semibold">6. Paste rich UI from Studio</p>
+                <p className="text-gray-300">Design in Covenant Studio (github.com/THTProtocol/Covenant-Studio), generate, paste into Terminal for pro mobile+PC experience.</p>
+              </div>
+            </div>
           </div>
         </div>
       </details>
@@ -2113,6 +2181,8 @@ ${gameMeta.outcomeBranches}
           stake={pokerStake}
           onClose={() => setShowFullScreenPoker(false)}
           covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
         />
       )}
 
@@ -2122,6 +2192,8 @@ ${gameMeta.outcomeBranches}
           stake={bjStake}
           onClose={() => setShowFullScreenBlackjack(false)}
           covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
         />
       )}
 

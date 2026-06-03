@@ -27,6 +27,9 @@ SSH_CMD="sshpass -p \"$PASSWORD\" ssh -o StrictHostKeyChecking=no root@$SERVER"
 echo "=== Covex27 Full Deploy ==="
 echo "Server: $SERVER"
 echo ""
+echo "Includes: Pro full-screen chess.com-smooth games (chess after equal stakes), poker etc."
+echo "Working ZK (merkle + range) + Oracle flows for resolution in the arenas."
+echo ""
 
 # ─── STEP 1: Push local to GitHub ───
 echo "[1/6] Pushing to GitHub..."

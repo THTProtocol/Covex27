@@ -187,28 +187,37 @@ export default function WhatIsKaspaPage() {
 
         {/* Network Specifications */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6">Current Network Specifications (Mainnet)</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            Current Network Specifications (Mainnet)
+            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider">VERIFIED 2026</span>
+          </h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {[
-              { label: 'Block Time', value: '0.1 sec' },
-              { label: 'Current Speed', value: '10 BPS' },
-              { label: 'Target (DAGKNIGHT)', value: '100+ BPS' },
-              { label: 'Max Supply', value: '28.7B KAS' },
-              { label: 'Consensus', value: 'PoW + GHOSTDAG' },
-              { label: 'Algorithm', value: 'kHeavyHash' },
-              { label: 'Launch', value: 'Nov 2021 (Fair)' },
-              { label: 'Confirmation', value: '~10-60 min' },
-              { label: 'Node', value: 'Rust (rusty-kaspa)' },
-              { label: 'Covenants', value: 'Toccata TN12+' },
-              { label: 'Pruning', value: 'In Progress' },
-              { label: 'Testnet', value: 'Toccata (TN12)' },
+              { label: 'Block Interval', value: '100 ms', sub: '0.1 sec' },
+              { label: 'Block Rate', value: '10 BPS', sub: 'Mainnet (post-Crescendo 2025)' },
+              { label: 'Scaling Target', value: '100+ BPS', sub: 'DAGKNIGHT + future' },
+              { label: 'Max Supply', value: '28.7 B KAS', sub: '28,704,026,601 total' },
+              { label: 'Consensus', value: 'PoW + GHOSTDAG', sub: 'Current protocol' },
+              { label: 'Hash Function', value: 'kHeavyHash', sub: 'Optical-miner friendly' },
+              { label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch, zero premine' },
+              { label: 'Practical Finality', value: '5–10 seconds', sub: 'Strong probabilistic confirmation' },
+              { label: 'Primary Node', value: 'rusty-kaspa', sub: 'Rust (high performance)' },
+              { label: 'Covenants', value: 'TN12 (Toccata)', sub: 'Mainnet Toccata HF targeted 2026' },
+              { label: 'Pruning', value: 'Active', sub: '~30–42 hours history (NIPoW)' },
+              { label: 'Active Testnet', value: 'Toccata TN12', sub: 'SilverScript / covenants dev' },
             ].map((s, i) => (
-              <Card key={i} className="p-4 text-center border-white/5">
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider">{s.label}</div>
-                <div className="text-xl font-bold text-white mt-1">{s.value}</div>
-              </Card>
+              <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.01] p-4 hover:border-kaspa-green/40 hover:bg-white/[0.015] transition-all group">
+                <div className="text-[9px] text-gray-400 uppercase tracking-[1.5px] mb-0.5">{s.label}</div>
+                <div className="text-2xl font-bold text-white tabular-nums group-hover:text-kaspa-green transition-colors leading-none">{s.value}</div>
+                <div className="text-[10px] text-gray-500 mt-1 leading-tight">{s.sub}</div>
+              </div>
             ))}
           </div>
+
+          <p className="mt-3 text-[10px] text-gray-500">
+            Cross-checked from kaspa.org, explorer.kaspa.org, official hard-fork announcements, and developer updates (mid-2026). Finality is probabilistic; practical spendability is near-instant for most use cases. Covenants / SilverScript are experimental on TN12; mainnet support arrives with the Toccata hard fork.
+          </p>
         </section>
 
         {/* Official Resources & Developer Links */}

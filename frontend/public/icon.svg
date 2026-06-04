@@ -2,12 +2,12 @@
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#49EACB"/>
-      <stop offset="45%" stop-color="#00D2FF"/>
+      <stop offset="50%" stop-color="#00D2FF"/>
       <stop offset="100%" stop-color="#7e14ff"/>
     </linearGradient>
-    <filter id="glow" x="-55%" y="-55%" width="210%" height="210%">
-      <feGaussianBlur stdDeviation="1.6" result="b1"/>
-      <feGaussianBlur stdDeviation="3.2" result="b2"/>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.8" result="b1"/>
+      <feGaussianBlur stdDeviation="3.6" result="b2"/>
       <feMerge>
         <feMergeNode in="b2"/>
         <feMergeNode in="b1"/>
@@ -16,29 +16,20 @@
     </filter>
   </defs>
   <g filter="url(#glow)">
-    <!-- Premium refined Covex DAG / Covenant network mark -->
-    <circle cx="8" cy="10" r="2.35" fill="#49EACB"/>
-    <circle cx="8" cy="24" r="3.55" fill="#00D2FF"/>
-    <circle cx="8" cy="38" r="2.35" fill="#7e14ff"/>
-    <circle cx="24" cy="10" r="2.15" fill="#7e14ff" opacity="0.92"/>
-    <circle cx="24" cy="38" r="2.15" fill="#49EACB" opacity="0.92"/>
-    <circle cx="40" cy="10" r="2.35" fill="#00D2FF"/>
-    <circle cx="40" cy="24" r="3.55" fill="#49EACB"/>
-    <circle cx="40" cy="38" r="2.35" fill="#7e14ff"/>
-
-    <line x1="8" y1="10" x2="24" y2="10" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
-    <line x1="8" y1="24" x2="24" y2="10" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
-    <line x1="8" y1="24" x2="24" y2="38" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
-    <line x1="8" y1="38" x2="24" y2="38" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
-
-    <line x1="24" y1="10" x2="40" y2="10" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
-    <line x1="24" y1="38" x2="40" y2="38" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
-    <line x1="24" y1="10" x2="40" y2="24" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
-    <line x1="24" y1="38" x2="40" y2="24" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
-
-    <line x1="8" y1="10" x2="8" y2="24" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
-    <line x1="8" y1="24" x2="8" y2="38" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
-    <line x1="40" y1="10" x2="40" y2="24" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
-    <line x1="40" y1="24" x2="40" y2="38" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
+    <!-- DAG block (hexagon) at center -->
+    <polygon points="24,6 39,14 39,34 24,42 9,34 9,14"
+             fill="none" stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round"/>
+    <!-- Inner connection nodes -->
+    <circle cx="24" cy="8" r="2.5" fill="#49EACB"/>
+    <circle cx="36" cy="17" r="2.5" fill="#00D2FF"/>
+    <circle cx="36" cy="31" r="2.5" fill="#7e14ff"/>
+    <circle cx="24" cy="40" r="2.5" fill="#7e14ff"/>
+    <circle cx="12" cy="31" r="2.5" fill="#00D2FF"/>
+    <circle cx="12" cy="17" r="2.5" fill="#49EACB"/>
+    <!-- C arc wrapping right side -->
+    <path d="M 28 10 A 18 18 0 0 1 28 38"
+          fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>
+    <!-- Center dot -->
+    <circle cx="24" cy="24" r="3" fill="url(#g)"/>
   </g>
 </svg>

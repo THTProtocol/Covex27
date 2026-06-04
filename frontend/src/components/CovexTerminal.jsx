@@ -13,6 +13,10 @@ import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
 import FullScreenBlackjack from './FullScreenBlackjack';
+import FullScreenCheckers from './FullScreenCheckers';
+import FullScreenConnect4 from './FullScreenConnect4';
+import FullScreenTicTacToe from './FullScreenTicTacToe';
+import FullScreenReversi from './FullScreenReversi';
 
 // Phase 11: Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
@@ -511,6 +515,23 @@ export default function CovexTerminal({ covenant }) {
   const [showFullScreenBlackjack, setShowFullScreenBlackjack] = useState(false);
   const [bjStake, setBjStake] = useState(100);
   const [bjMatchState, setBjMatchState] = useState('idle'); // idle | posted | matched | playing
+
+  // ── Additional Skill Games States (checkers, connect4, tictactoe, reversi + more) ──
+  const [showFullScreenCheckers, setShowFullScreenCheckers] = useState(false);
+  const [checkersStake, setCheckersStake] = useState(50);
+  const [checkersMatchState, setCheckersMatchState] = useState('idle');
+
+  const [showFullScreenConnect4, setShowFullScreenConnect4] = useState(false);
+  const [connect4Stake, setConnect4Stake] = useState(30);
+  const [connect4MatchState, setConnect4MatchState] = useState('idle');
+
+  const [showFullScreenTicTacToe, setShowFullScreenTicTacToe] = useState(false);
+  const [tttStake, setTttStake] = useState(20);
+  const [tttMatchState, setTttMatchState] = useState('idle');
+
+  const [showFullScreenReversi, setShowFullScreenReversi] = useState(false);
+  const [reversiStake, setReversiStake] = useState(40);
+  const [reversiMatchState, setReversiMatchState] = useState('idle');
 
   // ── Oracle Resolution State (merkle_membership + future circuits) ──
   const [oracleProof, setOracleProof] = useState('');       // Pasted proof JSON

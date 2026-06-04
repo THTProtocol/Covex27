@@ -291,11 +291,11 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 }
             }
         }
-        "chess_v1" => {
-            // Chess result attestation via oracle (until full on-chain ZK chess_v1 circuit is live).
-            // The client (after playing in smooth full-screen arena) submits the claimed outcome.
-            // For demo/realism we accept requested_outcome or derive from a simple proof field.
-            // In production with real ZK, this branch would verify a chess rules proof.
+        "chess_v1" | "checkers" | "connect4" | "tictactoe" | "reversi" | "go" | "rps" | "custom" | "battleship" => {
+            // Game result attestation via oracle (for all skill games + custom).
+            // Client full-screen arenas (chess, checkers, connect4, ttt, reversi, etc) submit after play.
+            // We accept requested_outcome (0=playerA/white/red win, 1=playerB/black/yellow, 2=draw/push).
+            // Real ZK circuits will come later for complex ones; oracle sig is the witness today.
             true
         }
         other => {
@@ -305,7 +305,7 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 signature: None,
                 timestamp: None,
                 message: None,
-                error: Some(format!("Unsupported circuit type: {}. Currently supported: merkle_membership, range_proof, chess_v1 (oracle result attestation)", other)),
+                error: Some(format!("Unsupported circuit type: {}. Currently supported: merkle_membership, range_proof, chess_v1, checkers, connect4, tictactoe, reversi, go, rps, custom (oracle result attestation for skill games)", other)),
                 public_inputs: input.public_inputs,
             });
         }
@@ -325,9 +325,8 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
         if let Some(last) = input.public_inputs.last() {
             if last == "1" { 0 } else { 1 }
         } else { 1 }
-    } else if input.circuit_type == "chess_v1" {
-        // Chess: prefer explicit requested_outcome (0=white win, 1=black win, 2=draw)
-        // or fall back to 0 for demo if not provided.
+    } else if input.circuit_type == "chess_v1" || input.circuit_type == "checkers" || input.circuit_type == "connect4" || input.circuit_type == "tictactoe" || input.circuit_type == "reversi" || input.circuit_type == "go" || input.circuit_type == "rps" || input.circuit_type == "custom" || input.circuit_type == "battleship" {
+        // All game attestations: prefer explicit requested_outcome (0= A/white/red win, 1=B/black/yellow, 2=draw)
         if let Some(req) = input.requested_outcome {
             req.min(2)
         } else {

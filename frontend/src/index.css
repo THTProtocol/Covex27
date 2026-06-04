@@ -158,6 +158,15 @@ body {
   backdrop-filter: blur(12px);
 }
 
+/* Nav COVEX "COV" text in light mode — white invisible on white nav bg, use dark slate */
+.light .covex-brand span:first-child {
+  color: #0f172a;
+}
+/* Light mode hover: COV turns teal */
+.light .group:hover .covex-brand span:first-child {
+  color: #49EACB;
+}
+
 /* ── Light Mode Footer ── */
 .light footer {
   border-top-color: rgba(15, 23, 42, 0.08) !important;

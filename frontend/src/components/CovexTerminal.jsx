@@ -17,6 +17,7 @@ import FullScreenCheckers from './FullScreenCheckers';
 import FullScreenConnect4 from './FullScreenConnect4';
 import FullScreenTicTacToe from './FullScreenTicTacToe';
 import FullScreenReversi from './FullScreenReversi';
+import FullScreenRPS from './FullScreenRPS';
 
 // Phase 11: Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
@@ -457,6 +458,16 @@ export default function CovexTerminal({ covenant }) {
 
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
+    // Close any open pro arenas when switching covenant type (skill games + chess)
+    setShowFullScreenChess(false);
+    setShowFullScreenPoker(false);
+    setShowFullScreenBlackjack(false);
+    setShowFullScreenCheckers(false); setCheckersMatchState('idle');
+    setShowFullScreenConnect4(false); setConnect4MatchState('idle');
+    setShowFullScreenTicTacToe(false); setTttMatchState('idle');
+    setShowFullScreenReversi(false); setReversiMatchState('idle');
+    setShowFullScreenRPS(false); setRpsMatchState('idle');
+
     const gt = ZK_CIRCUIT_TYPES.find(g => g.id === typeId);
     if (gt) {
       // Auto-configure ZK resolution mode when a circuit type is selected
@@ -532,6 +543,11 @@ export default function CovexTerminal({ covenant }) {
   const [showFullScreenReversi, setShowFullScreenReversi] = useState(false);
   const [reversiStake, setReversiStake] = useState(40);
   const [reversiMatchState, setReversiMatchState] = useState('idle');
+
+  // RPS (rock paper scissors) quick skill game
+  const [showFullScreenRPS, setShowFullScreenRPS] = useState(false);
+  const [rpsStake, setRpsStake] = useState(25);
+  const [rpsMatchState, setRpsMatchState] = useState('idle');
 
   // ── Oracle Resolution State (merkle_membership + future circuits) ──
   const [oracleProof, setOracleProof] = useState('');       // Pasted proof JSON
@@ -801,6 +817,11 @@ ${gameMeta.outcomeBranches}
     setBlackTime(5 * 60 * 1000);
     setOpponentStake(0);
     setShowFullScreenChess(false);
+    setShowFullScreenCheckers(false); setCheckersMatchState('idle');
+    setShowFullScreenConnect4(false); setConnect4MatchState('idle');
+    setShowFullScreenTicTacToe(false); setTttMatchState('idle');
+    setShowFullScreenReversi(false); setReversiMatchState('idle');
+    setShowFullScreenRPS(false); setRpsMatchState('idle');
   }, []);
 
   const postStakeForMatch = useCallback(() => {
@@ -843,6 +864,27 @@ ${gameMeta.outcomeBranches}
   const acceptBjMatch = useCallback(() => {
     setBjMatchState('matched');
   }, []);
+
+  // ── New skill game gates (checkers, connect4, ttt, reversi, rps) ──
+  const postCheckersStake = useCallback(() => { setCheckersMatchState('posted'); }, []);
+  const acceptCheckersMatch = useCallback(() => { setCheckersMatchState('matched'); }, []);
+  const launchFullScreenCheckers = useCallback(() => { setShowFullScreenCheckers(true); setCheckersMatchState('playing'); }, []);
+
+  const postConnect4Stake = useCallback(() => { setConnect4MatchState('posted'); }, []);
+  const acceptConnect4Match = useCallback(() => { setConnect4MatchState('matched'); }, []);
+  const launchFullScreenConnect4 = useCallback(() => { setShowFullScreenConnect4(true); setConnect4MatchState('playing'); }, []);
+
+  const postTttStake = useCallback(() => { setTttMatchState('posted'); }, []);
+  const acceptTttMatch = useCallback(() => { setTttMatchState('matched'); }, []);
+  const launchFullScreenTicTacToe = useCallback(() => { setShowFullScreenTicTacToe(true); setTttMatchState('playing'); }, []);
+
+  const postReversiStake = useCallback(() => { setReversiMatchState('posted'); }, []);
+  const acceptReversiMatch = useCallback(() => { setReversiMatchState('matched'); }, []);
+  const launchFullScreenReversi = useCallback(() => { setShowFullScreenReversi(true); setReversiMatchState('playing'); }, []);
+
+  const postRpsStake = useCallback(() => { setRpsMatchState('posted'); }, []);
+  const acceptRpsMatch = useCallback(() => { setRpsMatchState('matched'); }, []);
+  const launchFullScreenRPS = useCallback(() => { setShowFullScreenRPS(true); setRpsMatchState('playing'); }, []);
 
   const launchFullScreenChess = useCallback(() => {
     if (chessMatchState !== 'playing' && chessMatchState !== 'finished') return;
@@ -2186,6 +2228,83 @@ ${gameMeta.outcomeBranches}
         </div>
       </section>
 
+      {/* ─── PRO SKILL GAMES: CHECKERS / CONNECT4 / TICTACTOE / REVERSI / RPS (time + equal stake + oracle claim) ─── */}
+      {/* Checkers */}
+      <section className={`${SECTION_BASE} border-amber-500/30 bg-[#0f0c08] ring-1 ring-amber-500/20`}>
+        <div className="flex items-center justify-between">
+          <div className={SECTION_HEADER}>
+            <div className="p-1.5 rounded-lg bg-amber-500/20"><Play size={16} className="text-amber-400" /></div>
+            <span>Checkers (8×8, forced jumps + kings)</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 font-mono border border-amber-400/30">PRO</span>
+          </div>
+          <div className="text-right text-[11px] text-amber-400 font-mono">{checkersStake} KAS • {potReturnPercent}% POT</div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-gray-400">YOUR STAKE (KAS)</label>
+            <input type="number" value={checkersStake} onChange={e=>setCheckersStake(Math.max(1,parseInt(e.target.value||'50')))} className={INPUT} />
+          </div>
+          <div className="flex items-end">
+            {checkersMatchState === 'idle' && <button onClick={postCheckersStake} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">POST {checkersStake} KAS — OPEN MATCH</button>}
+            {checkersMatchState === 'posted' && <button onClick={acceptCheckersMatch} className="w-full py-3 rounded-xl bg-amber-500 text-black font-bold text-sm">MATCH STAKE &amp; JOIN</button>}
+            {checkersMatchState === 'matched' && <button onClick={launchFullScreenCheckers} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">LAUNCH FULL SCREEN CHECKERS</button>}
+            {checkersMatchState === 'playing' && <div className="text-amber-400 text-xs py-2">IN ARENA — timers + oracle resolution active</div>}
+          </div>
+        </div>
+        <div className="text-[10px] text-gray-400">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT → CLAIM with {potReturnPercent}% pot return</div>
+      </section>
+
+      {/* Connect 4 + TTT + Reversi + RPS in a compact grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Connect 4 */}
+        <section className={`${SECTION_BASE} border-blue-500/20 bg-[#0a1218]`}>
+          <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-blue-400" /><span>Connect 4 (7×6)</span></div><div className="text-[10px] text-blue-400 font-mono">{connect4Stake} KAS</div></div>
+          <div className="flex gap-2">
+            <input type="number" value={connect4Stake} onChange={e=>setConnect4Stake(Math.max(5,parseInt(e.target.value||'30')))} className={INPUT + ' flex-1'} />
+            {connect4MatchState==='idle' && <button onClick={postConnect4Stake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
+            {connect4MatchState==='posted' && <button onClick={acceptConnect4Match} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
+            {connect4MatchState==='matched' && <button onClick={launchFullScreenConnect4} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+          </div>
+          <div className="text-[9px] text-gray-400 mt-1">Gravity drops • 4-in-row • 2min clocks • oracle + {potReturnPercent}% pot return</div>
+        </section>
+
+        {/* Tic Tac Toe */}
+        <section className={`${SECTION_BASE} border-rose-500/20 bg-[#120a0a]`}>
+          <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-rose-400" /><span>Tic-Tac-Toe (3×3)</span></div><div className="text-[10px] text-rose-400 font-mono">{tttStake} KAS</div></div>
+          <div className="flex gap-2">
+            <input type="number" value={tttStake} onChange={e=>setTttStake(Math.max(5,parseInt(e.target.value||'20')))} className={INPUT + ' flex-1'} />
+            {tttMatchState==='idle' && <button onClick={postTttStake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
+            {tttMatchState==='posted' && <button onClick={acceptTttMatch} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
+            {tttMatchState==='matched' && <button onClick={launchFullScreenTicTacToe} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+          </div>
+          <div className="text-[9px] text-gray-400 mt-1">Classic • 90s clocks • 3-in-row • fast oracle resolution + {potReturnPercent}% return</div>
+        </section>
+
+        {/* Reversi */}
+        <section className={`${SECTION_BASE} border-emerald-500/20 bg-[#0a120a]`}>
+          <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-emerald-400" /><span>Reversi / Othello</span></div><div className="text-[10px] text-emerald-400 font-mono">{reversiStake} KAS</div></div>
+          <div className="flex gap-2">
+            <input type="number" value={reversiStake} onChange={e=>setReversiStake(Math.max(5,parseInt(e.target.value||'40')))} className={INPUT + ' flex-1'} />
+            {reversiMatchState==='idle' && <button onClick={postReversiStake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
+            {reversiMatchState==='posted' && <button onClick={acceptReversiMatch} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
+            {reversiMatchState==='matched' && <button onClick={launchFullScreenReversi} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+          </div>
+          <div className="text-[9px] text-gray-400 mt-1">8×8 flips • legal only • 2.5min clocks • oracle attested + {potReturnPercent}% pot</div>
+        </section>
+
+        {/* RPS */}
+        <section className={`${SECTION_BASE} border-violet-500/20 bg-[#120a18]`}>
+          <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-violet-400" /><span>RPS (best of 3)</span></div><div className="text-[10px] text-violet-400 font-mono">{rpsStake} KAS</div></div>
+          <div className="flex gap-2">
+            <input type="number" value={rpsStake} onChange={e=>setRpsStake(Math.max(5,parseInt(e.target.value||'25')))} className={INPUT + ' flex-1'} />
+            {rpsMatchState==='idle' && <button onClick={postRpsStake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
+            {rpsMatchState==='posted' && <button onClick={acceptRpsMatch} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
+            {rpsMatchState==='matched' && <button onClick={launchFullScreenRPS} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+          </div>
+          <div className="text-[9px] text-gray-400 mt-1">Timed picks • 12s/choice • best of 3 • instant oracle + {potReturnPercent}% return</div>
+        </section>
+      </div>
+
       {/* PROFESSIONAL FULL-SCREEN CHESS ARENA (chess.com quality) - mobile-first responsive */}
       {showFullScreenChess && gameType === 'chess_v1' && (
         <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a0f0d 0%, #050505 70%)' }}>
@@ -2292,7 +2411,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenPoker && (
         <FullScreenPoker
           stake={pokerStake}
-          onClose={() => setShowFullScreenPoker(false)}
+          onClose={() => { setShowFullScreenPoker(false); setPokerMatchState('idle'); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
@@ -2303,7 +2422,54 @@ ${gameMeta.outcomeBranches}
       {showFullScreenBlackjack && (
         <FullScreenBlackjack
           stake={bjStake}
-          onClose={() => setShowFullScreenBlackjack(false)}
+          onClose={() => { setShowFullScreenBlackjack(false); setBjMatchState('idle'); }}
+          covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
+        />
+      )}
+
+      {/* NEW FULL-SCREEN SKILL GAME ARENAS (checkers, connect4, ttt, reversi, rps) */}
+      {showFullScreenCheckers && (
+        <FullScreenCheckers
+          stake={checkersStake}
+          onClose={() => { setShowFullScreenCheckers(false); setCheckersMatchState('idle'); }}
+          covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
+        />
+      )}
+      {showFullScreenConnect4 && (
+        <FullScreenConnect4
+          stake={connect4Stake}
+          onClose={() => { setShowFullScreenConnect4(false); setConnect4MatchState('idle'); }}
+          covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
+        />
+      )}
+      {showFullScreenTicTacToe && (
+        <FullScreenTicTacToe
+          stake={tttStake}
+          onClose={() => { setShowFullScreenTicTacToe(false); setTttMatchState('idle'); }}
+          covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
+        />
+      )}
+      {showFullScreenReversi && (
+        <FullScreenReversi
+          stake={reversiStake}
+          onClose={() => { setShowFullScreenReversi(false); setReversiMatchState('idle'); }}
+          covenantId={covenantId}
+          feePercent={feePercent}
+          potReturnPercent={potReturnPercent}
+        />
+      )}
+      {showFullScreenRPS && (
+        <FullScreenRPS
+          stake={rpsStake}
+          onClose={() => { setShowFullScreenRPS(false); setRpsMatchState('idle'); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}

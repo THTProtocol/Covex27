@@ -1,8 +1,0 @@
-[2m2026-05-22T20:13:17.187580Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Covex backend -- network: testnet-10  wRPC: wss://photon-10.kaspa.red/kaspa/testnet-10/wrpc/borsh  bind: 0.0.0.0:3005
-[2m2026-05-22T20:13:17.187620Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Treasury: kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
-[2m2026-05-22T20:13:17.676921Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Database opened at /mnt/HC_Volume_105579109/Covex27/covex.db
-[2m2026-05-22T20:13:17.678618Z[0m [34mDEBUG[0m [2mkaspa_notify::address::tracker[0m[2m:[0m Memory configuration: UTXO changed events wil be tracked for at most 1835007 addresses
-[2m2026-05-22T20:13:17.678650Z[0m [34mDEBUG[0m [2mkaspa_notify::address::tracker[0m[2m:[0m Creating an address tracker with a capacity of 0
-[2m2026-05-22T20:13:17.678708Z[0m [32m INFO[0m [2mcovex27_backend[0m[2m:[0m Connecting to Kaspa wRPC node at wss://photon-10.kaspa.red/kaspa/testnet-10/wrpc/borsh...
-[2m2026-05-22T20:13:17.678736Z[0m [34mDEBUG[0m [2mkaspa_notify::address::tracker[0m[2m:[0m Memory configuration: UTXO changed events wil be tracked for at most 1835007 addresses
-[2m2026-05-22T20:13:17.678742Z[0m [34mDEBUG[0m [2mkaspa_notify::address::tracker[0m[2m:[0m Creating an address tracker with a capacity of 0

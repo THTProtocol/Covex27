@@ -29,6 +29,11 @@ logs/
 *.key
 id_rsa*
 
+# ZK ceremony artifacts — committed (public verifier data, not secrets)
+!frontend/public/zk/merkle_membership/merkle_membership_final.zkey
+!frontend/public/zk/merkle_membership/merkle_membership_vkey.json
+!frontend/public/zk/range_proof/range_proof_final.zkey
+
 # OS files
 .DS_Store
 Thumbs.db

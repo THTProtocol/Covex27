@@ -74,16 +74,16 @@ export default function App() {
                     </filter>
                   </defs>
                   <g filter="url(#navGlow)">
-                    <!-- Organic central DAG block (Kaspa blockDAG shape) -->
+                    {/* Organic central DAG block — Kaspa blockDAG shape */}
                     <polygon points="24,5 41,13 42,33 25,43 7,34 6,14" fill="none" stroke="url(#navGrad)" strokeWidth="2.3" strokeLinejoin="round"/>
-                    <!-- Rich DAG edges (multiple parents / merges for real GHOSTDAG vibe) -->
+                    {/* Rich DAG edges — multiple parents/merges for real GHOSTDAG vibe */}
                     <path d="M12 17 Q18 11 24 9" fill="none" stroke="url(#navGrad)" strokeWidth="1.3" strokeLinecap="round" opacity="0.85"/>
                     <path d="M36 17 Q30 11 24 9" fill="none" stroke="url(#navGrad)" strokeWidth="1.3" strokeLinecap="round" opacity="0.85"/>
                     <path d="M9 28 Q15 24 21 27" fill="none" stroke="url(#navGrad)" strokeWidth="1.15" strokeLinecap="round" opacity="0.75"/>
                     <path d="M39 28 Q33 24 27 27" fill="none" stroke="url(#navGrad)" strokeWidth="1.15" strokeLinecap="round" opacity="0.75"/>
                     <path d="M13 37 Q18 41 24 40" fill="none" stroke="url(#navGrad)" strokeWidth="1.1" strokeLinecap="round" opacity="0.7"/>
                     <path d="M35 37 Q30 41 24 40" fill="none" stroke="url(#navGrad)" strokeWidth="1.1" strokeLinecap="round" opacity="0.7"/>
-                    <!-- DAG nodes (8+ for dense nice vibe) -->
+                    {/* DAG nodes — 8+ for dense nice vibe */}
                     <circle cx="11" cy="14" r="2.1" fill="#49EACB"/>
                     <circle cx="37" cy="14" r="2.0" fill="#00D2FF"/>
                     <circle cx="24" cy="23" r="3.1" fill="url(#navGrad)"/>
@@ -91,7 +91,7 @@ export default function App() {
                     <circle cx="40" cy="27" r="1.9" fill="#7C3AED"/>
                     <circle cx="13" cy="38" r="1.85" fill="#00D2FF"/>
                     <circle cx="35" cy="38" r="1.9" fill="#49EACB"/>
-                    <!-- Extra tip nodes for full DAG density -->
+                    {/* Extra tip nodes for full DAG density */}
                     <circle cx="18" cy="8" r="1.4" fill="#7C3AED"/>
                     <circle cx="30" cy="8" r="1.45" fill="#00D2FF"/>
                   </g>

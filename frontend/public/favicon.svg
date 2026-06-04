@@ -5,9 +5,9 @@
       <stop offset="45%" stop-color="#00D2FF"/>
       <stop offset="100%" stop-color="#7e14ff"/>
     </linearGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="1.5" result="b1"/>
-      <feGaussianBlur stdDeviation="3.5" result="b2"/>
+    <filter id="glow" x="-55%" y="-55%" width="210%" height="210%">
+      <feGaussianBlur stdDeviation="1.6" result="b1"/>
+      <feGaussianBlur stdDeviation="3.2" result="b2"/>
       <feMerge>
         <feMergeNode in="b2"/>
         <feMergeNode in="b1"/>
@@ -16,29 +16,29 @@
     </filter>
   </defs>
   <g filter="url(#glow)">
-    <!-- Refined DAG / Covenant node network -->
-    <circle cx="8" cy="8" r="2.2" fill="#49EACB"/>
-    <circle cx="8" cy="24" r="3.4" fill="#00D2FF"/>
-    <circle cx="8" cy="40" r="2.2" fill="#7e14ff"/>
-    <circle cx="24" cy="8" r="2" fill="#7e14ff" opacity="0.9"/>
-    <circle cx="24" cy="40" r="2" fill="#49EACB" opacity="0.9"/>
-    <circle cx="40" cy="8" r="2.2" fill="#00D2FF"/>
-    <circle cx="40" cy="24" r="3.4" fill="#49EACB"/>
-    <circle cx="40" cy="40" r="2.2" fill="#7e14ff"/>
+    <!-- Premium refined Covex DAG / Covenant network mark (square favicon version) -->
+    <circle cx="8" cy="10" r="2.35" fill="#49EACB"/>
+    <circle cx="8" cy="24" r="3.55" fill="#00D2FF"/>
+    <circle cx="8" cy="38" r="2.35" fill="#7e14ff"/>
+    <circle cx="24" cy="10" r="2.15" fill="#7e14ff" opacity="0.92"/>
+    <circle cx="24" cy="38" r="2.15" fill="#49EACB" opacity="0.92"/>
+    <circle cx="40" cy="10" r="2.35" fill="#00D2FF"/>
+    <circle cx="40" cy="24" r="3.55" fill="#49EACB"/>
+    <circle cx="40" cy="38" r="2.35" fill="#7e14ff"/>
 
-    <line x1="8" y1="8" x2="24" y2="8" stroke="url(#g)" stroke-width="1.2" opacity="0.65"/>
-    <line x1="8" y1="24" x2="24" y2="8" stroke="url(#g)" stroke-width="1" opacity="0.55"/>
-    <line x1="8" y1="24" x2="24" y2="40" stroke="url(#g)" stroke-width="1" opacity="0.55"/>
-    <line x1="8" y1="40" x2="24" y2="40" stroke="url(#g)" stroke-width="1.2" opacity="0.65"/>
+    <line x1="8" y1="10" x2="24" y2="10" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
+    <line x1="8" y1="24" x2="24" y2="10" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
+    <line x1="8" y1="24" x2="24" y2="38" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
+    <line x1="8" y1="38" x2="24" y2="38" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
 
-    <line x1="24" y1="8" x2="40" y2="8" stroke="url(#g)" stroke-width="1.2" opacity="0.65"/>
-    <line x1="24" y1="40" x2="40" y2="40" stroke="url(#g)" stroke-width="1.2" opacity="0.65"/>
-    <line x1="24" y1="8" x2="40" y2="24" stroke="url(#g)" stroke-width="1" opacity="0.55"/>
-    <line x1="24" y1="40" x2="40" y2="24" stroke="url(#g)" stroke-width="1" opacity="0.55"/>
+    <line x1="24" y1="10" x2="40" y2="10" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
+    <line x1="24" y1="38" x2="40" y2="38" stroke="url(#g)" stroke-width="1.18" opacity="0.68"/>
+    <line x1="24" y1="10" x2="40" y2="24" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
+    <line x1="24" y1="38" x2="40" y2="24" stroke="url(#g)" stroke-width="0.98" opacity="0.58"/>
 
-    <line x1="8" y1="8" x2="8" y2="24" stroke="url(#g)" stroke-width="1.1" opacity="0.6"/>
-    <line x1="8" y1="24" x2="8" y2="40" stroke="url(#g)" stroke-width="1.1" opacity="0.6"/>
-    <line x1="40" y1="8" x2="40" y2="24" stroke="url(#g)" stroke-width="1.1" opacity="0.6"/>
-    <line x1="40" y1="24" x2="40" y2="40" stroke="url(#g)" stroke-width="1.1" opacity="0.6"/>
+    <line x1="8" y1="10" x2="8" y2="24" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
+    <line x1="8" y1="24" x2="8" y2="38" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
+    <line x1="40" y1="10" x2="40" y2="24" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
+    <line x1="40" y1="24" x2="40" y2="38" stroke="url(#g)" stroke-width="1.08" opacity="0.62"/>
   </g>
 </svg>

@@ -115,50 +115,6 @@ export default function Explorer() {
     <>
       {/* ═══ HERO ═══ */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-20 pb-8 px-4 sm:px-6 text-center">
-        <div className="mb-5">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="none" viewBox="0 0 48 48" className="drop-shadow-[0_0_35px_rgba(73,234,203,0.45)]">
-            <defs>
-              <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#49EACB"/><stop offset="45%" stopColor="#00D2FF"/><stop offset="100%" stopColor="#7e14ff"/>
-              </linearGradient>
-              <filter id="heroGlow" x="-60%" y="-60%" width="220%" height="220%">
-                <feGaussianBlur stdDeviation="1.8" result="b1"/>
-                <feGaussianBlur stdDeviation="4" result="b2"/>
-                <feMerge>
-                  <feMergeNode in="b2"/>
-                  <feMergeNode in="b1"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            <g filter="url(#heroGlow)">
-              {/* Refined premium DAG / Covenant network mark */}
-              <circle cx="8" cy="8" r="2.4" fill="#49EACB"/>
-              <circle cx="8" cy="24" r="3.6" fill="#00D2FF"/>
-              <circle cx="8" cy="40" r="2.4" fill="#7e14ff"/>
-              <circle cx="24" cy="8" r="2.2" fill="#7e14ff" opacity="0.92"/>
-              <circle cx="24" cy="40" r="2.2" fill="#49EACB" opacity="0.92"/>
-              <circle cx="40" cy="8" r="2.4" fill="#00D2FF"/>
-              <circle cx="40" cy="24" r="3.6" fill="#49EACB"/>
-              <circle cx="40" cy="40" r="2.4" fill="#7e14ff"/>
-
-              <line x1="8" y1="8" x2="24" y2="8" stroke="url(#heroGrad)" strokeWidth="1.3" opacity="0.7"/>
-              <line x1="8" y1="24" x2="24" y2="8" stroke="url(#heroGrad)" strokeWidth="1.05" opacity="0.6"/>
-              <line x1="8" y1="24" x2="24" y2="40" stroke="url(#heroGrad)" strokeWidth="1.05" opacity="0.6"/>
-              <line x1="8" y1="40" x2="24" y2="40" stroke="url(#heroGrad)" strokeWidth="1.3" opacity="0.7"/>
-
-              <line x1="24" y1="8" x2="40" y2="8" stroke="url(#heroGrad)" strokeWidth="1.3" opacity="0.7"/>
-              <line x1="24" y1="40" x2="40" y2="40" stroke="url(#heroGrad)" strokeWidth="1.3" opacity="0.7"/>
-              <line x1="24" y1="8" x2="40" y2="24" stroke="url(#heroGrad)" strokeWidth="1.05" opacity="0.6"/>
-              <line x1="24" y1="40" x2="40" y2="24" stroke="url(#heroGrad)" strokeWidth="1.05" opacity="0.6"/>
-
-              <line x1="8" y1="8" x2="8" y2="24" stroke="url(#heroGrad)" strokeWidth="1.2" opacity="0.65"/>
-              <line x1="8" y1="24" x2="8" y2="40" stroke="url(#heroGrad)" strokeWidth="1.2" opacity="0.65"/>
-              <line x1="40" y1="8" x2="40" y2="24" stroke="url(#heroGrad)" strokeWidth="1.2" opacity="0.65"/>
-              <line x1="40" y1="24" x2="40" y2="40" stroke="url(#heroGrad)" strokeWidth="1.2" opacity="0.65"/>
-            </g>
-          </svg>
-        </div>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>

@@ -57,33 +57,48 @@ export default function App() {
           <DagBackground />
           <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-              <Link to="/" className="group flex items-center gap-2.5 text-lg font-extrabold tracking-[1.5px] text-white hover:text-[#49EACB] transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 48 48" className="shrink-0 drop-shadow-[0_0_8px_rgba(73,234,203,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(73,234,203,0.7)] transition-all">
+              <Link to="/" className="group flex items-center gap-3 text-[21px] font-black tracking-[3px] text-white hover:text-[#49EACB] transition-all duration-200">
+                {/* Premium refined Covex mark — clean DAG network with covenant node */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 48 48" className="shrink-0 drop-shadow-[0_0_6px_rgba(73,234,203,0.4)] group-hover:drop-shadow-[0_0_14px_rgba(73,234,203,0.65)] transition-all">
                   <defs>
-                    <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#49EACB"/><stop offset="45%" stopColor="#00D2FF"/><stop offset="100%" stopColor="#7e14ff"/>
+                    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#49EACB"/>
+                      <stop offset="45%" stopColor="#00D2FF"/>
+                      <stop offset="100%" stopColor="#7e14ff"/>
                     </linearGradient>
                   </defs>
                   <g>
-                    <circle cx="8" cy="8" r="2.1" fill="#49EACB"/>
-                    <circle cx="8" cy="24" r="2.9" fill="#00D2FF"/>
-                    <circle cx="8" cy="40" r="2.1" fill="#7e14ff"/>
-                    <circle cx="24" cy="8" r="1.9" fill="#7e14ff" opacity="0.9"/>
-                    <circle cx="24" cy="40" r="1.9" fill="#49EACB" opacity="0.9"/>
-                    <circle cx="40" cy="8" r="2.1" fill="#00D2FF"/>
-                    <circle cx="40" cy="24" r="2.9" fill="#49EACB"/>
-                    <circle cx="40" cy="40" r="2.1" fill="#7e14ff"/>
-                    <line x1="8" y1="8" x2="24" y2="8" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
-                    <line x1="8" y1="24" x2="24" y2="8" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
-                    <line x1="8" y1="24" x2="24" y2="40" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
-                    <line x1="8" y1="40" x2="24" y2="40" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
-                    <line x1="24" y1="8" x2="40" y2="8" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
-                    <line x1="24" y1="40" x2="40" y2="40" stroke="url(#navGrad)" strokeWidth="1.1" opacity="0.65"/>
-                    <line x1="24" y1="8" x2="40" y2="24" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
-                    <line x1="24" y1="40" x2="40" y2="24" stroke="url(#navGrad)" strokeWidth="0.9" opacity="0.55"/>
+                    {/* Core network nodes */}
+                    <circle cx="8" cy="10" r="2.3" fill="#49EACB"/>
+                    <circle cx="8" cy="24" r="3.5" fill="#00D2FF"/>
+                    <circle cx="8" cy="38" r="2.3" fill="#7e14ff"/>
+                    <circle cx="24" cy="10" r="2.1" fill="#7e14ff" opacity="0.9"/>
+                    <circle cx="24" cy="38" r="2.1" fill="#49EACB" opacity="0.9"/>
+                    <circle cx="40" cy="10" r="2.3" fill="#00D2FF"/>
+                    <circle cx="40" cy="24" r="3.5" fill="#49EACB"/>
+                    <circle cx="40" cy="38" r="2.3" fill="#7e14ff"/>
+
+                    {/* Elegant connections */}
+                    <line x1="8" y1="10" x2="24" y2="10" stroke="url(#brandGrad)" strokeWidth="1.15" opacity="0.65"/>
+                    <line x1="8" y1="24" x2="24" y2="10" stroke="url(#brandGrad)" strokeWidth="0.95" opacity="0.55"/>
+                    <line x1="8" y1="24" x2="24" y2="38" stroke="url(#brandGrad)" strokeWidth="0.95" opacity="0.55"/>
+                    <line x1="8" y1="38" x2="24" y2="38" stroke="url(#brandGrad)" strokeWidth="1.15" opacity="0.65"/>
+
+                    <line x1="24" y1="10" x2="40" y2="10" stroke="url(#brandGrad)" strokeWidth="1.15" opacity="0.65"/>
+                    <line x1="24" y1="38" x2="40" y2="38" stroke="url(#brandGrad)" strokeWidth="1.15" opacity="0.65"/>
+                    <line x1="24" y1="10" x2="40" y2="24" stroke="url(#brandGrad)" strokeWidth="0.95" opacity="0.55"/>
+                    <line x1="24" y1="38" x2="40" y2="24" stroke="url(#brandGrad)" strokeWidth="0.95" opacity="0.55"/>
+
+                    <line x1="8" y1="10" x2="8" y2="24" stroke="url(#brandGrad)" strokeWidth="1.05" opacity="0.6"/>
+                    <line x1="8" y1="24" x2="8" y2="38" stroke="url(#brandGrad)" strokeWidth="1.05" opacity="0.6"/>
+                    <line x1="40" y1="10" x2="40" y2="24" stroke="url(#brandGrad)" strokeWidth="1.05" opacity="0.6"/>
+                    <line x1="40" y1="24" x2="40" y2="38" stroke="url(#brandGrad)" strokeWidth="1.05" opacity="0.6"/>
                   </g>
                 </svg>
-                <span className="font-black tracking-[2px] text-white group-hover:text-kaspa-green dark:text-transparent dark:bg-gradient-to-r dark:from-white dark:via-[#49EACB] dark:to-white dark:bg-clip-text dark:group-hover:from-[#49EACB] dark:group-hover:via-white dark:group-hover:to-[#49EACB] transition-all">COVEX</span>
+
+                <span className="font-black tracking-[3.5px] text-[22px] leading-none text-white group-hover:text-[#49EACB] transition-colors dark:bg-gradient-to-r dark:from-white dark:via-[#49EACB] dark:to-white dark:bg-clip-text dark:text-transparent dark:group-hover:from-[#49EACB] dark:group-hover:via-white dark:group-hover:to-[#49EACB]">
+                  COVEX
+                </span>
               </Link>
               <div className="flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>

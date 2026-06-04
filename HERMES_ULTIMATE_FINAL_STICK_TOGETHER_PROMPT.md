@@ -168,6 +168,72 @@ This prompt sticks the entire history of work together into one clean, final, pr
 - Range proof final zkey pending ceremony (verifier wired, structure validated)
 - Claim provides witness data for manual TX construction (auto tx builder is future)
 
+### 2026-06-XX ADDITION: ALL SKILL GAMES + TIME FACTORS + FULL ZK 100% + NICE DAG-VIBE LOGO (user verbatim requests)
+- Primary user request: "now give me a full hermes prompt to incorporate all of this in all 3 places and have it fully 100% working all those ZK's and add a part to also change the logo and have a nice DAG vibe logo"
+- Preceding request: "can you make it for all possible skill games and games in general like poker, blackjack, checkers, connect 4, tic tac toe - all of thhose and some more - fully done and integrated with factors like time as well"
+
+- Games + time delivered (re-verify + ensure 100% in all places):
+  - Complete pro full-screen arenas for poker, blackjack, checkers (8x8 forced jumps, multi-jump, kings), connect4 (7x6 gravity), tictactoe (3x3), reversi (8x8 flips), RPS (best-of-3) + chess.
+  - Every arena: equal-stake match gate, per-turn timers (decrement ONLY current player's clock, red warning <30 000ms, timeout = loss + auto result), move logs, resign/draw, SUBMIT TO ORACLE (real fetch producing sig with correct circuit_type + requested_outcome), post-sig "PAYOUT COMPUTED" showing exact winner/platform/potReturn % + KAS math using props.potReturnPercent, CLAIM calling /api/covenant/.../compute-payout, full 3-col breakdown + copyable unlock_witness from backend.
+  - Mobile-first full-page (portrait stack, bottom sheet for controls) + desktop (side panels) perfect.
+  - Wired: CovexTerminal.jsx (states, launch helpers, pro sections with stake + potReturn labels, conditional renders, resets), oracle.rs extended, Studio templates parity (generators emit full logic + timers + pot return transparency).
+
+- ZK "all those ZK's fully 100% working" (hermes MUST execute this section completely):
+  - Audit current: ZK_CIRCUIT_TYPES lists chess_v1 (oracle), merkle_membership, range_proof, age_verification, verifiable, custom.
+  - Merkle membership: Make 100% end-to-end. Load bundled proof or add "Generate Fresh Merkle Proof" button that uses loadSnarkjs + zk/merkle_membership_final.zkey + wasm (from public/zk or frontend public copy) to call fullProve with simple inputs (e.g. key/value that satisfies the circuit). Paste field + "Submit to Oracle" must produce real verified sig. Verify in oracle handler works.
+  - Range proof: Fix to working. Files exist (range_proof_final.zkey, vkey, wasm in zk/range_proof/). The witness blocker (MiMC7 vs snarkjs) must be worked around: either update test_range_proof.js / prove scripts to use mimc_test.circom for commitment, patch the range prove JS, or expose a "Generate Range Proof (workaround)" that produces a valid proof the oracle accepts. Update RANGE_PROOF_STATUS...md to "WORKING with workaround". Add UI button in Terminal for range_proof covenants.
+  - Client-side generation: Activate the existing loadSnarkjs lazy loader. Add functional "Generate Proof" UI in the merkle/range sections of CovexTerminal (and PaidBuilder/AdvancedComposer if they have ZK config). On success, auto-fill the proof/publicInputs fields and allow one-click submit.
+  - Oracle: Ensure "range_proof" and "merkle_membership" branches run real verify_*_async and return success + sig only on valid. Extend any needed for age etc as "oracle attested for now".
+  - SilverScript + backend: generation for these circuits must emit correct OpZkVerify placeholders. DB ui_config must save zkCircuit choice. compute-payout must still work after ZK resolution.
+  - Result: User can create a merkle or range covenant, generate real proof in the UI (or use bundled), submit, receive sig, claim with correct payout math. Update comments everywhere from "Gap 1" to "Implemented for ready circuits".
+  - Honest note at end: "merkle: fully working end-to-end. range: working via workaround (witness gen fixed in this run). age/verifiable: UI functional + oracle path, ceremony not yet performed."
+
+- Logo + nice DAG vibe (hermes MUST do this):
+  - Create/replace with premium rich DAG-vibe logo:
+    - public/icon.svg (48x48): dense blockDAG — central irregular polygon block, 9-12+ nodes of varying size, multiple crossing parent edges + merge edges (authentic Kaspa GHOSTDAG/SPECTRE multi-parent feel), teal→cyan→blue→purple gradients, strong layered glow filter, subtle background faint DAG blocks for depth, small "C" arc hint integrated.
+    - public/favicon.svg (32x32 or 16x16 clean): compact version of same (no extra whitespace after </svg>).
+    - frontend/src/App.jsx nav link: replace the inline <svg> with the exact new richer DAG SVG (preserve size 28px, glow, hover drop-shadow, group-hover effects).
+    - Apply consistently (any other SVG logo marks, perhaps a version in Terminal header or Best Covenant section, manifest if icons listed).
+    - Light + dark: gradients must read well on both (test or use current .light overrides); nav COVEX text treatment remains (gradient in dark, solid teal hover in light).
+  - "Change the logo": make this the new canonical mark everywhere visible. Update any old hex/simple versions.
+  - Goal: "nice DAG vibe" — looks technical, premium, instantly says "Kaspa blockDAG covenant platform", beautiful at all sizes.
+
+- Exact execution order hermes must follow (read first everything):
+  1. Read this full prompt + all listed prior HERMES masters + README + key source (CovexTerminal, App.jsx, oracle.rs, icon.svg, the zk/ dir + RANGE_PROOF_STATUS, DEPLOY script, Studio templates/index.js).
+  2. git status + pull latest on both repos.
+  3. Audit current games arenas (play 1-2 mentally via code), ZK UI sections, current logo SVGs.
+  4. Implement/fix ZK 100% section above (add generate buttons + snarkjs calls, fix range witness, test oracle paths).
+  5. Implement logo change with the nice DAG vibe (use the detailed description or the exact SVG content from the local eef4094 commit if available; make it even better if possible).
+  6. Re-verify games + time + potReturn + mobile in code + any Studio updates.
+  7. Run local builds (vite + cargo check).
+  8. Commit with message that references both user verbatim requests + SHAs.
+  9. Push both GitHub repos.
+  10. Execute exact Hetzner deploy (ssh reset --hard, frontend build + cp + bundle clean, backend release build, kill/restart, health checks) using the DEPLOY_TO_HIGHTABLE.sh sequence.
+  11. Live verification on hightable.pro + ssh greps (see checklist below).
+  12. Update ALL active HERMES_*.md (append completion blocks with new SHAs, ZK status, logo description, games count, verification results).
+  13. GitHub cleanup if new bloat appeared.
+  14. Final report: honest % (games 100%, logo 100%, ZK X/6 circuits fully working end-to-end), limitations.
+
+- Post-deploy verification checklist (hermes must run and paste results):
+  - curl -s https://hightable.pro | grep -oE 'CHECKERS|CONNECT 4|REVERSI|RPS|TIC-TAC-TOE|DAG-vibe|blockDAG' | head -6
+  - ssh ... "grep -o 'FullScreenCheckers\|FullScreenRPS\|launchFullScreenReversi' /root/htp/public/assets/index-*.js | wc -l" (expect high)
+  - Inspect icon.svg on live: contains "DAG" nodes + multiple path edges.
+  - In live Terminal: create merkle covenant → generate/submit proof → sig received → claim shows payout with pot return.
+  - Same for range (after fix).
+  - Launch 3 different game arenas, confirm clocks decrement only on turn, submit → claim works, mobile view good.
+  - No console errors, no overlapping tags, light/dark DAG instant + logo visible.
+  - Triple SHA match + only needed files in tree.
+
+- Update this file at end with:
+  COMPLETED: <exact date/time>
+  Covex27 SHA: <new after hermes commits>
+  Studio SHA: <...>
+  Hetzner deployed: yes, live verified at https://hightable.pro
+  ZK status: merkle 100% working, range 100% with workaround, ...
+  Logo: new rich 10-node+ multi-edge DAG vibe applied.
+  Games: 7+ fully playable with time.
+  Overall project: 100% for requested slices.
+
 ### Files Updated This Run
 - All 7 Covex27 HERMES prompts + Studio HERMES: appended with this consolidation record
 - No code changes needed — system was already perfect at 4d13156

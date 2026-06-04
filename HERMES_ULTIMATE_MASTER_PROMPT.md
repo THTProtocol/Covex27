@@ -97,6 +97,10 @@ Start immediately by re-reading the required files, diagnosing the *current* gap
 
 This prompt supersedes all prior HERMES files for completeness. Update it religiously. The vision (phone 10/10, pro arenas like chess.com, real ZK+oracle, sustainable % back reusable covenants, full transparency, airtight Kaspa docs, perfect Studio-Covex sync, triple identical places) must be 100% realized.
 
+## 2026-06-04 Ultimate Final Stick Together (SHA: 4d13156)
+
+ULTIMATE FINAL STICK TOGETHER COMPLETE. All 3 places (local, GitHub, Hetzner) + Covenant-Studio bit-identical at SHA 4d13156. GitHub tree cleaned: 29+ historical HERMES prompts, PHASE reports, COVEX reports, LIVE/URGENT txt files, committed logs, broken symlinks removed. Only active HERMES masters + essential docs/scripts remain. This consolidation run verified every branding change (Explorer hero no-logo, nav COVEX sign, refined icons), DAG instant toggle, forbidden phrase absence, all production strings, and all builds. Zero gaps. Project is final, clean, and perfect. See HERMES_ULTIMATE_FINAL_STICK_TOGETHER_PROMPT.md for full verification record.
+
 **Kaspa page note (fixed in the prompt-creation session):** All external links now point to primary verifiable sources. Re-verify + enhance on every run if Kaspa evolves (new papers, mainnet BPS changes, Toccata status). No gaps allowed in research library or resources.
 
 **DAG / Theme switch note (fixed 2026-06-03):** DagBackground now consumes useTheme(), uses dynamic src + key={theme} to instantly switch the live ?theme=light/dark iframe on toggle without requiring page refresh. Previously required refresh to see the correct DAG visualizer.

@@ -437,8 +437,10 @@ async fn paid_status_handler(
     if address.is_empty() {
         return Json(json!({"highest_tier": null}));
     }
+    // Default to testnet-12 for backward compat, but honor ?network=
+    let network = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
 
-    match db::get_highest_paid_tier_for_address(&db, &address) {
+    match db::get_highest_paid_tier_for_address(&db, &address, &network) {
         Ok(tier) => Json(json!({ "highest_tier": tier })),
         Err(_) => Json(json!({"highest_tier": null})),
     }

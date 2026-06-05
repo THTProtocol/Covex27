@@ -115,7 +115,8 @@ const Pricing = () => {
 
   useEffect(() => {
     if (!address) return;
-    fetch(`/api/paid-status?address=${encodeURIComponent(address)}`)
+    const net = currentNetwork || 'testnet-12';
+    fetch(`/api/paid-status?address=${encodeURIComponent(address)}&network=${net}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.highest_tier) {

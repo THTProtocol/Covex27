@@ -136,6 +136,28 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         )?;
     }
 
+    // ── Migration: add 'network' column to payments if missing ──
+    let has_payments_network: bool = conn
+        .prepare("SELECT network FROM payments LIMIT 1")
+        .is_ok();
+    if !has_payments_network {
+        conn.execute_batch(
+            "ALTER TABLE payments ADD COLUMN network TEXT NOT NULL DEFAULT 'testnet-12';
+             CREATE INDEX IF NOT EXISTS idx_payments_network ON payments(network);"
+        )?;
+    }
+
+    // ── Migration: add 'network' column to accounts if missing ──
+    let has_accounts_network: bool = conn
+        .prepare("SELECT network FROM accounts LIMIT 1")
+        .is_ok();
+    if !has_accounts_network {
+        conn.execute_batch(
+            "ALTER TABLE accounts ADD COLUMN network TEXT NOT NULL DEFAULT 'testnet-12';
+             CREATE INDEX IF NOT EXISTS idx_accounts_network ON accounts(network);"
+        )?;
+    }
+
     Ok(Mutex::new(conn))
 }
 
@@ -365,13 +387,14 @@ pub fn insert_payment(
     amount_sompi: u64,
     tier: &str,
     covenant_id: Option<&str>,
+    network: &str,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     let amount = amount_sompi as f64 / 100_000_000.0;
     conn.execute(
-        "INSERT OR REPLACE INTO payments (tx_id, from_address, to_address, amount_sompi, amount_kaspa, tier, status, covenant_id, timestamp)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, unixepoch())",
-        params![tx_id, from_addr, to_addr, amount_sompi, amount, tier, covenant_id],
+        "INSERT OR REPLACE INTO payments (tx_id, from_address, to_address, amount_sompi, amount_kaspa, tier, status, covenant_id, network, timestamp)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, unixepoch())",
+        params![tx_id, from_addr, to_addr, amount_sompi, amount, tier, covenant_id, network],
     )?;
     Ok(())
 }
@@ -389,18 +412,20 @@ pub fn confirm_payment(
     Ok(())
 }
 
-/// Returns the highest tier this address has ever successfully paid for (by amount).
+/// Returns the highest tier this address has ever successfully paid for (by amount),
+/// filtered to a specific network so TN10 payments don't leak into TN12 and vice versa.
 pub fn get_highest_paid_tier_for_address(
     db: &Mutex<Connection>,
     address: &str,
+    network: &str,
 ) -> anyhow::Result<Option<String>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT tier FROM payments 
-         WHERE from_address = ?1 AND status = 'confirmed' 
-         ORDER BY amount_sompi DESC LIMIT 1"
+         WHERE from_address = ?1 AND status = 'confirmed' AND network = ?2
+         ORDER BY amount_sompi DESC LIMIT 1",
     )?;
-    let mut rows = stmt.query_map(params![address], |row| row.get::<_, String>(0))?;
+    let mut rows = stmt.query_map(params![address, network], |row| row.get::<_, String>(0))?;
     Ok(rows.next().transpose()?)
 }
 
@@ -409,22 +434,23 @@ pub fn upgrade_account(
     address: &str,
     tier: &str,
     payment_tx_id: &str,
+    network: &str,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
-        "INSERT OR REPLACE INTO accounts (address, tier, payment_tx_id, paid_at, is_active, created_at)
-         VALUES (?1, ?2, ?3, unixepoch(), 1, unixepoch())",
-        params![address, tier, payment_tx_id],
+        "INSERT OR REPLACE INTO accounts (address, tier, payment_tx_id, network, paid_at, is_active, created_at)
+         VALUES (?1, ?2, ?3, ?4, unixepoch(), 1, unixepoch())",
+        params![address, tier, payment_tx_id, network],
     )?;
     Ok(())
 }
 
-pub fn get_account_tier(db: &Mutex<Connection>, address: &str) -> anyhow::Result<String> {
+pub fn get_account_tier(db: &Mutex<Connection>, address: &str, network: &str) -> anyhow::Result<String> {
     let conn = db.lock().unwrap();
     Ok(conn
         .query_row(
-            "SELECT tier FROM accounts WHERE address = ?1 AND is_active = 1",
-            params![address],
+            "SELECT tier FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
+            params![address, network],
             |r| r.get(0),
         )
         .unwrap_or_else(|_| "FREE".to_string()))

@@ -79,6 +79,7 @@ pub async fn run_payment_verifier(
                             amount_sompi,
                             tier,
                             covenant_id.as_deref(),
+                            &network,
                         ) {
                             warn!(
                                 "Payment Verifier: insert_payment failed for {}: {}",
@@ -96,7 +97,7 @@ pub async fn run_payment_verifier(
                             } else {
                                 // Upgrade the account
                                 if let Err(e) =
-                                    db::upgrade_account(&db, &from_address, tier, &tx_id)
+                                    db::upgrade_account(&db, &from_address, tier, &tx_id, &network)
                                 {
                                     error!(
                                         "Payment Verifier: upgrade_account failed for {}: {}",

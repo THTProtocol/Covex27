@@ -1,8 +1,9 @@
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     routing::{get, post},
     Extension, Json, Router,
 };
+use std::collections::HashMap;
 use kaspa_addresses::Address;
 use kaspa_consensus_core::tx::Transaction;
 use kaspa_rpc_core::api::rpc::RpcApi;
@@ -12,6 +13,27 @@ use serde::Deserialize;
 use std::sync::Arc;
 use tracing::{info, warn};
 use workflow_serializer::prelude::BorshDeserialize;
+
+/// Resolve wRPC for network (on-demand, so /broadcast and balance checks target the chosen net).
+async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
+    let wrpc = if network == "testnet-10" {
+        std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
+    } else if network == "mainnet" || network == "mainnet-1" {
+        std::env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+    } else {
+        std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
+    };
+    let c = kaspa_wrpc_client::KaspaRpcClient::new(
+        kaspa_wrpc_client::WrpcEncoding::Borsh,
+        Some(&wrpc),
+        None,
+        None,
+        None,
+    )
+    .map_err(|e| format!("wRPC create failed for {}: {}", network, e))?;
+    let _ = c.connect(None).await;
+    Ok(Arc::new(c))
+}
 
 // ── TX broadcast endpoint ────────────────────────────────────────
 //
@@ -31,14 +53,34 @@ pub struct BroadcastRequest {
     pub script_name: Option<String>,
     #[serde(default)]
     pub tier: Option<String>,
+    /// Network for this broadcast. Allows a TN12-primary backend to broadcast to TN10 node.
+    #[serde(default = "default_network")]
+    pub network: String,
+}
+
+fn default_network() -> String {
+    "testnet-12".to_string()
 }
 
 /// POST /broadcast — accepts a signed Kaspa transaction hex, parses, broadcasts via wRPC
 pub async fn broadcast_handler(
-    Extension(client): Extension<Arc<KaspaRpcClient>>,
+    Extension(_client): Extension<Arc<KaspaRpcClient>>, // kept for router layer compat; we use on-demand below
     Json(payload): Json<BroadcastRequest>,
 ) -> Json<serde_json::Value> {
     let tx_hex = payload.tx_hex.trim();
+    let net = &payload.network;
+
+    // On-demand client so a broadcast POST with network=testnet-10 goes to the TN10 node.
+    let client: Arc<KaspaRpcClient> = match client_for_network(net).await {
+        Ok(c) => c,
+        Err(e) => {
+            return Json(serde_json::json!({
+                "success": false,
+                "tx_id": null,
+                "error": format!("Failed to reach {} node for broadcast: {}", net, e)
+            }));
+        }
+    };
 
     // Decode hex into bytes
     let tx_bytes = match hex::decode(tx_hex) {
@@ -99,9 +141,11 @@ pub struct UtxoEntry {
 }
 
 /// GET /utxos/:address — fetch UTXOs for a Kaspa address from the wRPC node
+/// Supports ?network=testnet-10 so balance/UTXO checks before deploy target the chosen net.
 pub async fn utxos_handler(
     Path(addr_str): Path<String>,
-    Extension(client): Extension<Arc<KaspaRpcClient>>,
+    Query(params): Query<HashMap<String, String>>,
+    Extension(_client): Extension<Arc<KaspaRpcClient>>,
 ) -> Json<serde_json::Value> {
     let addr = match Address::try_from(addr_str.as_str()) {
         Ok(a) => a,
@@ -109,6 +153,17 @@ pub async fn utxos_handler(
             return Json(serde_json::json!({
                 "utxos": [],
                 "error": format!("Invalid address: {}", e)
+            }));
+        }
+    };
+
+    let net = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+    let client: Arc<KaspaRpcClient> = match client_for_network(&net).await {
+        Ok(c) => c,
+        Err(e) => {
+            return Json(serde_json::json!({
+                "utxos": [],
+                "error": format!("Failed to reach {} node: {}", net, e)
             }));
         }
     };
@@ -143,9 +198,11 @@ pub async fn utxos_handler(
 }
 
 /// GET /balance/:address — check balance
+/// Supports ?network=... for correct chain when using the site toggle.
 pub async fn balance_handler(
     Path(addr_str): Path<String>,
-    Extension(client): Extension<Arc<KaspaRpcClient>>,
+    Query(params): Query<HashMap<String, String>>,
+    Extension(_client): Extension<Arc<KaspaRpcClient>>,
 ) -> Json<serde_json::Value> {
     let addr = match Address::try_from(addr_str.as_str()) {
         Ok(a) => a,
@@ -153,6 +210,14 @@ pub async fn balance_handler(
             return Json(
                 serde_json::json!({"balance": 0, "error": format!("Invalid address: {}", e)}),
             );
+        }
+    };
+
+    let net = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+    let client: Arc<KaspaRpcClient> = match client_for_network(&net).await {
+        Ok(c) => c,
+        Err(e) => {
+            return Json(serde_json::json!({"balance": 0, "error": format!("Failed to reach {} node: {}", net, e)}));
         }
     };
 

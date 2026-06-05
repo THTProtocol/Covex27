@@ -35,7 +35,7 @@ export default function PaidBuilder() {
   const fetchMyCovenants = useCallback(() => {
     if (!address) return;
     setFetchingCovenants(true); setFetchError(null);
-    fetch(`/api/covenants?creator=${encodeURIComponent(address)}`)
+    fetch(`/api/covenants?creator=${encodeURIComponent(address)}&network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(d => { setMyCovenants(Array.isArray(d.covenants) ? d.covenants : []); setFetchingCovenants(false); })
       .catch(err => { setFetchError(err.message); setFetchingCovenants(false); });

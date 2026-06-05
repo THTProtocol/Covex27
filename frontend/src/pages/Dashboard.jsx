@@ -24,7 +24,7 @@ export default function Dashboard() {
 
     // Basic Creator Analytics (fetch real covenant data for this address)
     if (address) {
-      fetch(`/api/covenants?creator=${encodeURIComponent(address)}&limit=50`)
+      fetch(`/api/covenants?creator=${encodeURIComponent(address)}&limit=50&network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
         .then(r => r.json())
         .then(data => {
           if (Array.isArray(data)) {

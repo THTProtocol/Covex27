@@ -40,7 +40,8 @@ export default function Deploy() {
   const fetchBalance = useCallback(async () => {
     if (!address) return;
     try {
-      const resp = await fetch(`/api/balance/${encodeURIComponent(address)}`);
+      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      const resp = await fetch(`/api/balance/${encodeURIComponent(address)}?network=${net}`);
       const data = await resp.json();
       if (data.balance !== undefined && data.balance !== null) setBalance(data.balance);
     } catch (_) {}
@@ -75,6 +76,7 @@ export default function Deploy() {
           || code.trim().split('\n')[0].split(' ')[1]
           || 'SilverScript Covenant';
 
+        const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
         const resp = await fetch('/api/sign-and-broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -85,6 +87,7 @@ export default function Deploy() {
             tier: 'FREE',
             covenant_name: scriptName,
             use_dev_mode: false,
+            network: net,
           }),
         });
 

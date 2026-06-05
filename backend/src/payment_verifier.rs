@@ -13,10 +13,11 @@ pub async fn run_payment_verifier(
     client: Arc<KaspaRpcClient>,
     db: Arc<Mutex<rusqlite::Connection>>,
     treasury_address: String,
+    network: String,
 ) {
     info!(
-        "Payment Verifier v2 started -- monitoring treasury: {}",
-        treasury_address
+        "Payment Verifier v2 started -- monitoring treasury: {} (network={})",
+        treasury_address, network
     );
 
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
@@ -62,7 +63,7 @@ pub async fn run_payment_verifier(
 
                         // MATCH payment to covenant by from_address == creator_addr
                         let matched_covenant =
-                            match db::get_covenants_by_creator(&db, &from_address) {
+                            match db::get_covenants_by_creator(&db, &from_address, Some(&network)) {
                                 Ok(list) => list.into_iter().next(),
                                 Err(_) => None,
                             };

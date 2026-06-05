@@ -126,29 +126,124 @@ async fn main() {
         Err(e) => warn!("wRPC connect failed (will retry in background): {}", e),
     }
 
-    // --- Background: Indexer ---
+    // --- Dual-network support: always also connect to the *other* testnet (TN10/TN12) ---
+    // This lets ONE backend process (the existing covex-backend service) index covenants
+    // for both networks. Frontend toggle uses ?network=... on reads and sends network in
+    // deploy payloads. Background indexers + crawlers + verifiers run for both.
+    let primary_network = network.clone();
+    let secondary_network = if primary_network == "testnet-10" {
+        "testnet-12".to_string()
+    } else if primary_network == "mainnet" || primary_network == "mainnet-1" {
+        "testnet-12".to_string()
+    } else {
+        "testnet-10".to_string()
+    };
+
+    let secondary_wrpc = if secondary_network == "testnet-10" {
+        env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
+    } else {
+        env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
+    };
+
+    let secondary_treasury = env::var(if secondary_network == "testnet-10" {
+        "COVENANT_TREASURY_ADDRESS_TN10"
+    } else {
+        "COVENANT_TREASURY_ADDRESS_TN12"
+    })
+    .unwrap_or_else(|_| dev_wallets::treasury_address_for_network(&secondary_network).to_string());
+
+    let secondary_seeds: Vec<String> = env::var(if secondary_network == "testnet-10" {
+        "COVENANT_SEED_ADDRESSES_TN10"
+    } else {
+        "COVENANT_SEED_ADDRESSES_TN12"
+    })
+    .unwrap_or_default()
+    .split(',')
+    .filter(|s| !s.is_empty())
+    .map(|s| s.trim().to_string())
+    .collect();
+
+    let (secondary_client, secondary_url) = match kaspa_wrpc_client::KaspaRpcClient::new(
+        kaspa_wrpc_client::WrpcEncoding::Borsh,
+        Some(&secondary_wrpc),
+        None,
+        None,
+        None,
+    ) {
+        Ok(c) => {
+            let url = c.url().unwrap_or(secondary_wrpc.clone());
+            (Arc::new(c), url)
+        }
+        Err(e) => {
+            warn!("Failed to create secondary wRPC client for {} at {}: {} (secondary indexing disabled)", secondary_network, secondary_wrpc, e);
+            // Fallback: use primary client (will only index primary net)
+            (Arc::clone(&client), secondary_wrpc.clone())
+        }
+    };
+
+    info!("Secondary network {} wRPC: {}", secondary_network, secondary_url);
+    match secondary_client.connect(None).await {
+        Ok(_) => info!("Connected to secondary {} wRPC", secondary_network),
+        Err(e) => warn!("Secondary {} wRPC connect failed (indexer will retry): {}", secondary_network, e),
+    }
+
+    // Spawn secondary indexer + verifier + crawler (so TN10 data appears when toggled, without mixing)
+    // Clone fresh for each task to avoid move-after-move across sequential spawns.
+    {
+        let s_db = Arc::clone(&db);
+        let s_client = Arc::clone(&secondary_client);
+        let s_seeds = secondary_seeds.clone();
+        let s_treasury = secondary_treasury.clone();
+        let s_net = secondary_network.clone();
+        tokio::spawn(async move {
+            indexer::run_indexer(s_client, s_db, s_seeds, s_treasury, s_net).await;
+        });
+    }
+    {
+        let s_db = Arc::clone(&db);
+        let s_client = Arc::clone(&secondary_client);
+        let s_treasury = secondary_treasury.clone();
+        let s_net = secondary_network.clone();
+        tokio::spawn(async move {
+            payment_verifier::run_payment_verifier(s_client, s_db, s_treasury, s_net).await;
+        });
+    }
+    {
+        let s_db = Arc::clone(&db);
+        let s_client = Arc::clone(&secondary_client);
+        let s_treasury = secondary_treasury.clone();
+        let s_net = secondary_network.clone();
+        tokio::spawn(async move {
+            crawler::run_crawler(s_client, s_db, s_treasury, crawl_start_daa, s_net).await;
+        });
+    }
+
+    // --- Background: Indexer (for the configured / primary network) ---
     let idx_db = Arc::clone(&db);
     let idx_client = Arc::clone(&client);
     let idx_seeds = seed_addrs.clone();
     let idx_treasury = treasury.clone();
+    let idx_network = network.clone();
     tokio::spawn(async move {
-        indexer::run_indexer(idx_client, idx_db, idx_seeds, idx_treasury).await;
+        indexer::run_indexer(idx_client, idx_db, idx_seeds, idx_treasury, idx_network).await;
     });
 
-    // --- Background: Payment Verifier ---
+    // --- Background: Payment Verifier (primary) ---
     let pay_db = Arc::clone(&db);
     let pay_client = Arc::clone(&client);
     let pay_treasury = treasury.clone();
+    let pay_network = primary_network.clone();
     tokio::spawn(async move {
-        payment_verifier::run_payment_verifier(pay_client, pay_db, pay_treasury).await;
+        payment_verifier::run_payment_verifier(pay_client, pay_db, pay_treasury, pay_network).await;
     });
 
-    // --- Background: Historic Crawler ---
+    // --- Background: Historic Crawler (for the configured network) ---
     let crawl_db = Arc::clone(&db);
     let crawl_client = Arc::clone(&client);
     let crawl_treasury = treasury.clone();
+    let crawl_network = network.clone();
     tokio::spawn(async move {
-        crawler::run_crawler(crawl_client, crawl_db, crawl_treasury, crawl_start_daa).await;
+        crawler::run_crawler(crawl_client, crawl_db, crawl_treasury, crawl_start_daa, crawl_network).await;
     });
 
     // --- Routes ---
@@ -176,7 +271,8 @@ async fn main() {
         )
         .merge(
             signer::signer_routes()
-                .layer(Extension(client.clone()))
+                // No client layer: sign handler constructs its own on-demand client_for_network(payload.network)
+                // so TN10 deploys target the correct TN10 wRPC even on a TN12-primary backend process.
                 .layer(Extension(db.clone())),
         )
         .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
@@ -232,8 +328,9 @@ async fn covenants_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
+    let network_filter = params.get("network").map(|s| s.as_str());
     let records = if let Some(creator_addr) = params.get("creator").filter(|s| !s.is_empty()) {
-        match db::get_covenants_by_creator(&db, creator_addr) {
+        match db::get_covenants_by_creator(&db, creator_addr, network_filter) {
             Ok(recs) => recs,
             Err(e) => {
                 error!(
@@ -244,7 +341,7 @@ async fn covenants_handler(
             }
         }
     } else {
-        match db::get_all_covenants(&db) {
+        match db::get_all_covenants(&db, network_filter) {
             Ok(recs) => recs,
             Err(e) => {
                 error!("Failed to query all covenants: {}", e);
@@ -528,7 +625,8 @@ async fn analytics_handler(
     let creator = params.get("creator").cloned();
 
     if let Some(addr) = &creator {
-        let covenants = db::get_covenants_by_creator(&db, addr).unwrap_or_default();
+        let network_filter = params.get("network").map(|s| s.as_str());
+        let covenants = db::get_covenants_by_creator(&db, addr, network_filter).unwrap_or_default();
         let total_val: f64 = covenants.iter().map(|c| c.amount_kaspa).sum();
         let count = covenants.len();
         let active_count = covenants.iter().filter(|c| c.is_active).count();

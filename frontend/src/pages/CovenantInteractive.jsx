@@ -125,7 +125,7 @@ export default function CovenantInteractive() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/covenants')
+    fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
       .then((r) => r.json())
       .then((d) => {
         const found = (d.covenants || []).find((c) => c.tx_id === id) || null;

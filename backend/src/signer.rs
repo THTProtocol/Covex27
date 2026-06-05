@@ -45,8 +45,7 @@ use crate::dev_wallets;
 // ── Constants ─────────────────────────────────────────────────────
 
 /// Treasury address — all tier fees go here
-const TREASURY_ADDRESS: &str =
-    "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m";
+const TREASURY_ADDRESS: &str = dev_wallets::TREASURY_ADDRESS;
 
 /// Minimum tx fee (10,000 sompi = 0.0001 KAS)
 const TX_FEE: u64 = 10_000;
@@ -83,7 +82,12 @@ pub struct SignAndBroadcastRequest {
     /// and used as tx.payload instead of script_hex.
     #[serde(default)]
     pub dsl_source: Option<String>,
+    /// Network to deploy on: "testnet-12" (default) or "testnet-10"
+    #[serde(default = "default_network")]
+    pub network: String,
 }
+
+fn default_network() -> String { "testnet-12".to_string() }
 
 #[derive(serde::Serialize)]
 pub struct SignAndBroadcastResponse {
@@ -171,20 +175,76 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
 /// 7. Finalize AFTER signing
 /// 8. Broadcast via wRPC
 /// 9. Return tx_id
+
+/// Resolve wRPC endpoint for a given network (on-demand client per deploy, so TN10 deploys
+/// go to the TN10 node even if this backend process was primarily started for TN12).
+async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
+    let wrpc = if network == "testnet-10" {
+        std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
+    } else if network == "mainnet" || network == "mainnet-1" {
+        std::env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+    } else {
+        std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
+    };
+    let c = kaspa_wrpc_client::KaspaRpcClient::new(
+        kaspa_wrpc_client::WrpcEncoding::Borsh,
+        Some(&wrpc),
+        None,
+        None,
+        None,
+    )
+    .map_err(|e| format!("wRPC client create failed for {}: {}", network, e))?;
+    // Fire-and-forget connect; indexer-style retries happen inside if needed for long-lived,
+    // here for a deploy we just need it briefly.
+    let _ = c.connect(None).await;
+    Ok(Arc::new(c))
+}
+
 pub async fn sign_and_broadcast_handler(
-    Extension(client): Extension<Arc<KaspaRpcClient>>,
     Extension(db): Extension<Arc<Mutex<Connection>>>,
     Json(payload): Json<SignAndBroadcastRequest>,
 ) -> Json<serde_json::Value> {
     // ── Step 1: Resolve private key ──────────────────────────────
+    let network = &payload.network;
     let private_key_hex: String = if payload.use_dev_mode {
-        if payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS {
-            dev_wallets::DEV_WALLET_2_PRIVATE_KEY.to_string()
+        if payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12
+            || payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10
+        {
+            if network == "testnet-10" {
+                dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10.to_string()
+            } else {
+                dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12.to_string()
+            }
         } else {
-            dev_wallets::DEV_WALLET_1_PRIVATE_KEY.to_string()
+            if network == "testnet-10" {
+                dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10.to_string()
+            } else {
+                dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12.to_string()
+            }
         }
     } else {
         payload.private_key_hex.clone()
+    };
+
+    // Network-aware treasury address
+    let treasury_addr_str: &str = if network == "testnet-10" {
+        dev_wallets::TREASURY_ADDRESS_TN10
+    } else {
+        dev_wallets::TREASURY_ADDRESS_TN12
+    };
+
+    // On-demand client for the *requested* network (key for same-website TN10/TN12 toggle).
+    // This ensures the UTXO query and broadcast target the correct kaspad (e.g. 17210 for TN10).
+    let client: Arc<KaspaRpcClient> = match client_for_network(network).await {
+        Ok(c) => c,
+        Err(e) => {
+            return Json(serde_json::json!(SignAndBroadcastResponse {
+                success: false,
+                tx_id: None,
+                outputs: None,
+                error: Some(format!("Failed to connect to {} node: {}", network, e)),
+            }));
+        }
     };
 
     let clean_hex = private_key_hex.trim().trim_start_matches("0x");
@@ -245,7 +305,7 @@ pub async fn sign_and_broadcast_handler(
     // Clone UTXO's script_public_key exactly — avoids byte mismatches
     let deployer_script = utxos[0].utxo_entry.script_public_key.clone();
 
-    let treasury_script = match script_pub_key_from_address(TREASURY_ADDRESS) {
+    let treasury_script = match script_pub_key_from_address(treasury_addr_str) {
         Ok(s) => s,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
@@ -479,6 +539,7 @@ pub async fn sign_and_broadcast_handler(
                 tier_str,
                 &desc,
                 &receiving_addrs,
+                network,
             );
             info!(
                 "Covenant {} saved to DB immediately after broadcast",

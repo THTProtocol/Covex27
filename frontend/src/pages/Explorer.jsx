@@ -41,7 +41,7 @@ export default function Explorer() {
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
 
   useEffect(() => {
-    fetch('/api/covenants')
+    fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
       .then(res => res.json())
       .then(data => {
         const list = (Array.isArray(data.covenants) ? data.covenants : []);
@@ -65,7 +65,7 @@ export default function Explorer() {
     const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:') || q.length >= 40;
 
     if (isTxId) {
-      fetch(`/api/covenants/${encodeURIComponent(q)}`)
+      fetch(`/api/covenants/${encodeURIComponent(q)}?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
         .then(r => r.json())
         .then(d => {
           setSearchResults({ type: 'covenant', data: d.success && d.covenant ? [d.covenant] : [] });
@@ -74,7 +74,7 @@ export default function Explorer() {
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     } else if (isWalletAddr) {
-      fetch('/api/covenants')
+      fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
         .then(r => r.json())
         .then(d => {
           const all = Array.isArray(d.covenants) ? d.covenants : [];

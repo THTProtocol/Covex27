@@ -109,7 +109,8 @@ export default function PaidDeploy() {
   const fetchBalance = useCallback(async () => {
     if (!address) return;
     try {
-      const resp = await fetch(`/api/balance/${encodeURIComponent(address)}`);
+      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      const resp = await fetch(`/api/balance/${encodeURIComponent(address)}?network=${net}`);
       const data = await resp.json();
       if (data.balance !== undefined && data.balance !== null) setBalance(data.balance);
     } catch (_) {}
@@ -145,6 +146,7 @@ export default function PaidDeploy() {
           || code.trim().split('\n')[0].split(' ')[1]
           || 'SilverScript Covenant';
 
+        const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
         const bodyPayload = {
           private_key_hex: devMode.privateKeyHex,
           deployer_addr: address,
@@ -152,6 +154,7 @@ export default function PaidDeploy() {
           tier: paidTier,
           covenant_name: scriptName,
           use_dev_mode: false,
+          network: net,
         };
 
         // When compiled mode is on, send dsl_source so backend uses silverc

@@ -9,7 +9,7 @@ const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
 
-const VKEY_PATH = path.join(__dirname, "range_proof_vkey.json");
+const VKEY_PATH = path.join(__dirname, "range_proof", "range_proof_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

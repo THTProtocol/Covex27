@@ -2599,6 +2599,14 @@ ${gameMeta.outcomeBranches}
 
       {/* ─── Section A: Covenant Configuration ─── */}
       <section className={SECTION_BASE}>
+        {/* New logo - the exact glowing network "C" (user image) + vector mark */}
+        <div className="flex items-center gap-3 pb-2 border-b border-white/10 mb-2">
+          <img src="/covex-logo-full.jpg" alt="Covex logo" className="h-9 w-9 rounded object-contain ring-1 ring-white/10" />
+          <div>
+            <div className="text-[10px] text-gray-400 tracking-[2px]">THE NEW COVEX LOGO</div>
+            <div className="text-xs text-kaspa-green font-mono">Glowing Network C — Kaspa BlockDAG</div>
+          </div>
+        </div>
         <div className={SECTION_HEADER}>
           <Settings size={16} />
           Covenant Configuration

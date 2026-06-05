@@ -89,3 +89,17 @@ curl -s "https://hightable.pro/api/covenants?network=testnet-10" | python3 -c "i
 curl -s -X POST https://hightable.pro/api/sign-and-broadcast -H "Content-Type: application/json" \
   -d '{"use_dev_mode":true,"deployer_addr":"kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353","script_hex":"00","tier":"FREE","network":"testnet-12"}'
 ```
+
+## MAINNET EXTENSION (3-network: TN12 + TN10 + MAINNET)
+
+See the dedicated focused prompt:
+`/home/kasparov/Covex27/HERMES_MASTER_MAINNET_3NET_PROMPT.md`
+
+Key differences for mainnet (already partially wired, the new prompt closes the gaps):
+- No dev hex/mnemonics ever for mainnet (signer hard-rejects use_dev_mode + UI hides the buttons).
+- All creation on mainnet must use real wallet extensions (KasWare etc.).
+- Global 3-button nav switcher (TN12 green / TN10 amber / MAIN red) + full event sync so every page (Explorer, Terminal, Deploy...) reacts instantly.
+- Backend indexing architecture is ready: set KASPA_NETWORK=mainnet + KASPA_WRPC_URL_MAINNET (pointing at operator's PC node or future synced mainnet node) and the indexer/crawler will start tagging real `network="mainnet"` covenants the moment Toccata mainnet launches.
+- Strong red warnings + production treasury must come from real env vars only.
+
+The immediate pre-work (commit bc1e166 + earlier) + the steps in the new master prompt will make the full 3-network experience live and 100% safe for mainnet.

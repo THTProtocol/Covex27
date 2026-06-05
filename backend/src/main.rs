@@ -90,6 +90,15 @@ async fn main() {
     );
     info!("Treasury: {}", treasury);
 
+    // Log mainnet readiness status
+    if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok() {
+        info!("Mainnet indexer ready -- will index when a mainnet wRPC is available via KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet");
+    } else if network == "mainnet" || network == "mainnet-1" {
+        info!("Mainnet mode active -- indexer will start syncing mainnet covenants when wRPC connects");
+    } else {
+        info!("Mainnet indexer: not configured. Set KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet to enable mainnet indexing when Toccata mainnet launches.");
+    }
+
     // --- Open DB ---
     let db = match db::open_db(&db_path) {
         Ok(d) => {
@@ -295,11 +304,19 @@ async fn root_handler() -> Json<serde_json::Value> {
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
+    let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
     Json(json!({
         "status": "ok",
         "app": "Covex v1.0.0",
         "network": network,
-        "oracle_key_mode": oracle_mode
+        "oracle_key_mode": oracle_mode,
+        "networks_configured": {
+            "testnet_12": true,
+            "testnet_10": has_tn10_wrpc,
+            "mainnet": has_mainnet_wrpc
+        },
+        "mainnet_ready": has_mainnet_wrpc
     }))
 }
 
@@ -312,6 +329,7 @@ async fn status_handler(
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     Json(json!({
         "status": "ok",
         "network": network,
@@ -320,6 +338,12 @@ async fn status_handler(
         "total_covenants": total,
         "active_covenants": active,
         "verified_covenants": verified,
+        "networks_configured": {
+            "testnet_12": true,
+            "testnet_10": std::env::var("KASPA_WRPC_URL_TN10").is_ok(),
+            "mainnet": has_mainnet_wrpc
+        },
+        "mainnet_ready": has_mainnet_wrpc,
         "message": "Indexer active"
     }))
 }

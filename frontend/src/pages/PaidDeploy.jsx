@@ -365,14 +365,25 @@ export default function PaidDeploy() {
             </div>
             <h3 className="text-lg font-semibold text-white">Connect Wallet to Deploy</h3>
             <p className="text-sm text-gray-300 max-w-md mx-auto">
-              Connect your TN12 wallet to sign and broadcast your {paidTier}-tier covenant.
+              Connect your wallet to sign and broadcast your {paidTier}-tier covenant.
             </p>
             <div className="mt-4 pt-4 border-t border-[#1f1f1f]">
-              <p className="text-[10px] text-gray-300 uppercase tracking-wider mb-3">Testing / Dev Only</p>
-              <button onClick={() => setDevWalletOpen(true)} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all">
-                <Key size={16} /> Connect TN12 Dev Wallet
-              </button>
-              <p className="text-[9px] text-gray-300 mt-2 text-center">Derives keys locally via kaspa-wasm. No extensions required.</p>
+              {(() => {
+                const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+                const isMain = net === 'mainnet' || net === 'mainnet-1';
+                if (isMain) {
+                  return <p className="text-[10px] text-red-400/80">Dev wallets disabled on MAINNET. Use a real wallet extension (KasWare etc.) to deploy covenants with real KAS.</p>;
+                }
+                return (
+                  <>
+                    <p className="text-[10px] text-gray-300 uppercase tracking-wider mb-3">Testing / Dev Only</p>
+                    <button onClick={() => setDevWalletOpen(true)} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all">
+                      <Key size={16} /> Connect Dev Wallet
+                    </button>
+                    <p className="text-[9px] text-gray-300 mt-2 text-center">Derives keys locally via kaspa-wasm. No extensions required.</p>
+                  </>
+                );
+              })()}
             </div>
           </div>
         ) : (
@@ -388,7 +399,7 @@ export default function PaidDeploy() {
               </div>
               <div className="flex items-center gap-3">
                 {balance !== null && <span className="text-[11px] font-mono text-gray-300">{(balance / 1e8).toFixed(4)} KAS</span>}
-                <span className="text-[10px] font-mono text-gray-300">TN12</span>
+                <span className="text-[10px] font-mono text-gray-300">{(() => { const n = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12'; return n === 'mainnet' ? 'MAINNET' : n === 'testnet-10' ? 'TN10' : 'TN12'; })()}</span>
               </div>
             </div>
 

@@ -100,7 +100,7 @@ export default function Deploy() {
           txid = typeof resp === 'string' ? resp : resp?.txid || resp?.transactionId;
         } catch (kasErr) { console.warn('KasWare sendTransaction failed:', kasErr.message); }
       } else {
-        throw new Error('No deployment-capable wallet. Use "Connect TN12 Dev Wallet" button below.');
+        throw new Error('No deployment-capable wallet. Use the "Connect Dev Wallet" button below (testnets only) or connect a real wallet extension for mainnet.');
       }
 
       if (!txid) throw new Error('No transaction ID returned.');
@@ -161,11 +161,11 @@ export default function Deploy() {
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">Deploy Free Covenant</h1>
             <p className="text-sm text-gray-300 mt-1">
-              Write SilverScript, sign with your TN12 wallet, deploy to Kaspa BlockDAG. Free tier only.
+              Write SilverScript, sign with your wallet, deploy to Kaspa BlockDAG. Free tier only.
             </p>
           </div>
           <span className="ml-auto px-3 py-1 rounded-full bg-[#49EACB]/10 border border-[#49EACB]/20 text-[#49EACB] text-xs font-mono">
-            TESTNET-12
+            {(() => { const n = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12'; return n === 'mainnet' ? 'MAINNET' : n === 'testnet-10' ? 'TESTNET-10' : 'TESTNET-12'; })()}
           </span>
         </div>
 
@@ -176,7 +176,7 @@ export default function Deploy() {
             </div>
             <h3 className="text-lg font-semibold text-white">Connect Wallet to Deploy Covenants</h3>
             <p className="text-sm text-gray-300 max-w-md mx-auto">
-              You need a connected Kaspa wallet to sign and broadcast SilverScript covenant deployments to the TN12 BlockDAG.
+              You need a connected Kaspa wallet to sign and broadcast SilverScript covenant deployments.
             </p>
             <div className="mt-5 pt-5 border-t border-[#1f1f1f]">
               {(() => {
@@ -191,7 +191,7 @@ export default function Deploy() {
                     <button onClick={() => setDevWalletOpen(true)}
                       className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
                     >
-                      <Key size={16} /> Connect TN12 Dev Wallet
+                      <Key size={16} /> Connect Dev Wallet
                     </button>
                     <p className="text-[9px] text-gray-300 mt-2 text-center">Derives keys locally via kaspa-wasm. No browser extensions required.</p>
                   </>
@@ -213,7 +213,7 @@ export default function Deploy() {
               </div>
               <div className="flex items-center gap-3">
                 {balance !== null && <span className="text-[11px] font-mono text-gray-300">{(balance / 1e8).toFixed(4)} KAS</span>}
-                <span className="text-[10px] font-mono text-gray-300">TOCCATA TN12</span>
+                <span className="text-[10px] font-mono text-gray-300">{(() => { const n = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12'; return n === 'mainnet' ? 'MAINNET' : n === 'testnet-10' ? 'TN10' : 'TOCCATA TN12'; })()}</span>
               </div>
             </div>
 
@@ -262,7 +262,7 @@ export default function Deploy() {
                 ) : <p className="text-xs text-red-400/80 whitespace-pre-wrap">{result.error}</p>}
                 {result.success && result.txid && (
                   <div className="mt-4 pt-3 border-t border-emerald-500/10 flex gap-4">
-                    <a href={`https://tn12.kaspa.stream/tx/${result.txid}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />View on TN12 Explorer</a>
+                    <a href={`https://explorer.kaspa.org/tx/${result.txid}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />View on Explorer</a>
                   </div>
                 )}
               </div>

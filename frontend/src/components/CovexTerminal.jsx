@@ -2992,7 +2992,7 @@ ${gameMeta.outcomeBranches}
               <textarea
                 value={oracleProof}
                 onChange={(e) => setOracleProof(e.target.value)}
-                placeholder={gameType === 'range_proof' ? '{"proof":{...},"publicSignals":["commitment","0","100","1"]}' : bundledMerkleProof.slice(0, 200) + '...'}
+                placeholder={gameType === 'range_proof' ? '{"proof":{...},"publicSignals":["commitment","0","100","1"]}' : gameType === 'merkle_membership' ? bundledMerkleProof.slice(0, 200) + '...' : '{"proof":{...},"publicSignals":["1"]}'}
                 rows={6}
                 className={`${TEXTAREA} font-mono text-[10px]`}
               />
@@ -3001,15 +3001,19 @@ ${gameMeta.outcomeBranches}
                   if (gameType === 'merkle_membership') {
                     setOracleProof(bundledMerkleProof);
                     setOraclePublicInputs('1,20473339414381364284988912838485478706292217748325897174032535818078518775705');
-                  } else {
+                  } else if (gameType === 'range_proof') {
                     // demo valid range proof signals (commitment, min, max, valid=1)
                     setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'range_demo' }, publicSignals: ['20473339414381364284988912838485478706292217748325897174032535818078518775705','0','100','1'] }));
                     setOraclePublicInputs('20473339414381364284988912838485478706292217748325897174032535818078518775705,0,100,1');
+                  } else {
+                    // age_verification, verifiable, custom — demo attested proof
+                    setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'oracle_attested_demo' }, publicSignals: ['1'] }));
+                    setOraclePublicInputs('1');
                   }
                 }}
                 className="text-[10px] text-[#3B82F6] hover:text-[#3B82F6]/80 font-mono underline underline-offset-2"
               >
-                {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : 'Load demo valid range proof (value inside [0,100])'}
+                {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : gameType === 'range_proof' ? 'Load demo valid range proof (value inside [0,100])' : 'Load demo attested proof'}
               </button>
 
               {/* Generate real ZK proof client-side via snarkjs (circuit-specific) */}
@@ -3026,7 +3030,7 @@ ${gameMeta.outcomeBranches}
                   <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
                   {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Merkle Proof (snarkjs)'}
                 </button>
-              ) : (
+              ) : gameType === 'range_proof' ? (
                 <button
                   onClick={generateRangeProof}
                   disabled={zkGenerating}
@@ -3039,6 +3043,11 @@ ${gameMeta.outcomeBranches}
                   <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
                   {zkGenerating ? 'Generating Range Proof...' : 'Generate Range Proof (snarkjs + mimc workaround)'}
                 </button>
+              ) : (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
+                  <Info size={14} />
+                  No client-side generator available. Ceremony artifacts not yet generated for this circuit type. Paste proof + public inputs above and submit — the oracle will attest and sign.
+                </div>
               )}
               {zkGenError && (
                 <p className="text-[10px] text-amber-400 font-mono">{zkGenError}</p>
@@ -3054,7 +3063,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.'}</p>
+              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
             </div>
 
             <button

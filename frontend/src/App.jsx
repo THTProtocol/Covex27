@@ -64,6 +64,7 @@ function NetworkSwitcher() {
   const networks = [
     { value: 'testnet-12', label: 'TN12', color: '#49EACB', title: 'Toccata Testnet 12' },
     { value: 'testnet-10', label: 'TN10', color: '#F59E0B', title: 'Testnet 10' },
+    { value: 'mainnet', label: 'MAIN', color: '#EF4444', title: 'Kaspa MAINNET — REAL FUNDS' },
   ];
 
   return (

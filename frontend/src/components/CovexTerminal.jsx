@@ -445,7 +445,25 @@ export default function CovexTerminal({ covenant }) {
   // Network selector: supports TN12, TN10, and Mainnet (architecture ready now)
   // When mainnet selected: strong warnings + real funds. TN12/TN10 use test addresses.
   const [kaspaNetwork, setKaspaNetwork] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('kaspaNetwork') || 'testnet-12') : 'testnet-12'));
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('kaspaNetwork', kaspaNetwork); }, [kaspaNetwork]);
+
+  // Keep localStorage + notify the rest of the app (global nav switcher, Explorer, Deploy pages etc.)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kaspaNetwork', kaspaNetwork);
+      window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: kaspaNetwork }));
+    }
+  }, [kaspaNetwork]);
+
+  // React to changes from the global nav NetworkSwitcher
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail && typeof e.detail === 'string') {
+        setKaspaNetwork(e.detail);
+      }
+    };
+    window.addEventListener('kaspa-network-change', handler);
+    return () => window.removeEventListener('kaspa-network-change', handler);
+  }, []);
 
   const isTN10 = kaspaNetwork === 'testnet-10';
   const isMainnet = kaspaNetwork === 'mainnet' || kaspaNetwork === 'mainnet-1';

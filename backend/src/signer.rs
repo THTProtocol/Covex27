@@ -206,6 +206,17 @@ pub async fn sign_and_broadcast_handler(
 ) -> Json<serde_json::Value> {
     // ── Step 1: Resolve private key ──────────────────────────────
     let network = &payload.network;
+
+    // MAINNET SECURITY: never allow hardcoded dev wallets / private keys from source.
+    if (network == "mainnet" || network == "mainnet-1") && payload.use_dev_mode {
+        return Json(serde_json::json!(SignAndBroadcastResponse {
+            success: false,
+            tx_id: None,
+            outputs: None,
+            error: Some("Dev mode and hardcoded keys are DISABLED on mainnet. Use a real wallet extension (KasWare etc.) to sign and broadcast covenant deployments. All value is real KAS.".into()),
+        }));
+    }
+
     let private_key_hex: String = if payload.use_dev_mode {
         if payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12
             || payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10

@@ -179,13 +179,24 @@ export default function Deploy() {
               You need a connected Kaspa wallet to sign and broadcast SilverScript covenant deployments to the TN12 BlockDAG.
             </p>
             <div className="mt-5 pt-5 border-t border-[#1f1f1f]">
-              <p className="text-[10px] text-gray-300 uppercase tracking-wider mb-3">Testing / Dev Only</p>
-              <button onClick={() => setDevWalletOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
-              >
-                <Key size={16} /> Connect TN12 Dev Wallet
-              </button>
-              <p className="text-[9px] text-gray-300 mt-2 text-center">Derives keys locally via kaspa-wasm. No browser extensions required.</p>
+              {(() => {
+                const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+                const isMain = net === 'mainnet' || net === 'mainnet-1';
+                if (isMain) {
+                  return <p className="text-[10px] text-red-400/80">Dev wallets disabled on MAINNET. Use a real wallet extension to deploy covenants with real KAS.</p>;
+                }
+                return (
+                  <>
+                    <p className="text-[10px] text-gray-300 uppercase tracking-wider mb-3">Testing / Dev Only</p>
+                    <button onClick={() => setDevWalletOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
+                    >
+                      <Key size={16} /> Connect TN12 Dev Wallet
+                    </button>
+                    <p className="text-[9px] text-gray-300 mt-2 text-center">Derives keys locally via kaspa-wasm. No browser extensions required.</p>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}

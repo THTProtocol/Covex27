@@ -442,11 +442,46 @@ export default function CovexTerminal({ covenant }) {
   const [potReturnPercent, setPotReturnPercent] = useState(2);
   const [reusable, setReusable] = useState(true);
 
-  // Network selector: TN12 (default) or TN10 — separate data, same UI
+  // Network selector: supports TN12, TN10, and Mainnet (architecture ready now)
+  // When mainnet selected: strong warnings + real funds. TN12/TN10 use test addresses.
   const [kaspaNetwork, setKaspaNetwork] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('kaspaNetwork') || 'testnet-12') : 'testnet-12'));
   useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('kaspaNetwork', kaspaNetwork); }, [kaspaNetwork]);
+
   const isTN10 = kaspaNetwork === 'testnet-10';
-  const networkLabel = isTN10 ? 'TN10' : 'TN12';
+  const isMainnet = kaspaNetwork === 'mainnet' || kaspaNetwork === 'mainnet-1';
+  const networkLabel = isMainnet ? 'MAINNET' : (isTN10 ? 'TN10' : 'TN12');
+  const networkColorClass = isMainnet 
+    ? 'text-red-400 border-red-500/40 bg-red-500/10' 
+    : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30');
+
+  // Per-network config — fully adapts when you switch (same pattern as TN10)
+  const getNetConfig = (net) => {
+    if (net === 'mainnet' || net === 'mainnet-1') {
+      return {
+        treasury: 'kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq', // MUST override via real mainnet env in production
+        seeds: [], // real mainnet seeds ONLY via secure env, never hardcoded
+        warning: 'REAL KAS — PRODUCTION'
+      };
+    }
+    if (net === 'testnet-10') {
+      return {
+        treasury: 'kaspatest:tn10-treasury-replace-with-accurate',
+        seeds: ['kaspatest:tn10-dev1-replace', 'kaspatest:tn10-dev2-replace'],
+        warning: 'TN10'
+      };
+    }
+    // default TN12
+    return {
+      treasury: 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m',
+      seeds: [
+        'kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353',
+        'kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs',
+        'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m'
+      ],
+      warning: ''
+    };
+  };
+  const netConfig = getNetConfig(kaspaNetwork);
   const [allowTopups, setAllowTopups] = useState(false);
 
   // ── Section B: Custom UI Integration ──
@@ -1289,6 +1324,7 @@ ${gameMeta.outcomeBranches}
         game_type: gameType,
         name, description,
         fee_percent: feePercent,
+        pot_return_percent: potReturnPercent,
         reusable, allow_topups: allowTopups,
         custom_ui_code: customUICode,
         resolution_mode: resolutionMode,
@@ -1297,6 +1333,7 @@ ${gameMeta.outcomeBranches}
         zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1_AUDITED' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_AUDITED_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1_AUDITED' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
         oracle_proof: JSON.stringify(proofObj),
         oracle_public_inputs: JSON.stringify(publicInputs),
+        network: kaspaNetwork, // tn12 / tn10 / mainnet — fully isolated data per network
       };
       await fetch(`/api/terminal-config/${covenantId}`, {
         method: 'POST',
@@ -1451,7 +1488,7 @@ ${gameMeta.outcomeBranches}
 
       {/* Network indicator (Phase 4) */}
       <div className="flex justify-end -mt-2 mb-2">
-        <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono border ${networkColor}`}>
+        <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono border ${networkColorClass}`}>
           <Globe size={12} />
           {networkLabel}
           {!isMainnet && <span className="text-white/50">(test)</span>}
@@ -2587,17 +2624,19 @@ ${gameMeta.outcomeBranches}
         />
       )}
 
-      {/* Mainnet Production Banner */}
+      {/* Mainnet Production Banner - shown when mainnet is selected in the chooser or server reports mainnet */}
       {isMainnet && (
-        <div className="mb-6 p-4 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/5">
+        <div className="mb-6 p-4 rounded-2xl border-2 border-red-600/70 bg-red-600/10">
           <div className="flex items-center gap-3">
-            <Rocket size={24} className="text-emerald-400" />
+            <Rocket size={24} className="text-red-400" />
             <div>
-              <div className="font-bold text-emerald-400">MAINNET MODE: REAL CAPITAL AT RISK</div>
-              <div className="text-sm text-emerald-300/80 mt-1">
-                You are configuring a covenant on Kaspa mainnet. All funds are real. Double-check your resolution logic, oracle settings, and payout model. 
-                There are no do-overs on mainnet.
+              <div className="font-bold text-red-400 text-lg">⚠️ MAINNET MODE — REAL CAPITAL AT RISK</div>
+              <div className="text-sm text-red-300/90 mt-1">
+                You have selected <strong>MAINNET</strong>. All stakes, fees, and payouts are REAL KAS on the live Kaspa mainnet. 
+                There are no testnet do-overs, refunds, or second chances. Double-check treasury, seeds, oracle, resolution logic, and pot return %.
+                Only proceed if you have real mainnet dev wallets and treasury configured via environment variables.
               </div>
+              <div className="text-[10px] text-red-400/70 mt-2 font-mono">NETWORK: {kaspaNetwork}</div>
             </div>
           </div>
         </div>
@@ -2618,13 +2657,32 @@ ${gameMeta.outcomeBranches}
           Covenant Configuration
         </div>
 
-        {/* Network switcher — TN10 fork vs TN12 on same site */}
-        <div className="flex items-center gap-2 mb-3">
+        {/* Network switcher — choose TN12 / TN10 / Mainnet. Fully separate per-network data, wallets, indexers. */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className="text-[10px] uppercase tracking-widest text-gray-400">NETWORK</span>
-          <button onClick={() => setKaspaNetwork('testnet-12')} className={`px-2.5 py-0.5 text-xs rounded border ${!isTN10 ? 'bg-kaspa-green text-black border-kaspa-green' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}>TN12 (current)</button>
-          <button onClick={() => setKaspaNetwork('testnet-10')} className={`px-2.5 py-0.5 text-xs rounded border ${isTN10 ? 'bg-amber-500 text-black border-amber-500' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}>TN10 (new fork)</button>
-          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30'}`}>{networkLabel}</span>
-          <span className="text-[9px] text-gray-500">— separate covenants, seeds, node</span>
+          <button 
+            onClick={() => setKaspaNetwork('testnet-12')} 
+            className={`px-2.5 py-0.5 text-xs rounded border ${!isTN10 && !isMainnet ? 'bg-kaspa-green text-black border-kaspa-green' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}
+          >
+            TN12
+          </button>
+          <button 
+            onClick={() => setKaspaNetwork('testnet-10')} 
+            className={`px-2.5 py-0.5 text-xs rounded border ${isTN10 ? 'bg-amber-500 text-black border-amber-500' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}
+          >
+            TN10
+          </button>
+          <button 
+            onClick={() => setKaspaNetwork('mainnet')} 
+            className={`px-2.5 py-0.5 text-xs rounded border ${isMainnet ? 'bg-red-600 text-white border-red-600' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}
+            title="MAINNET: REAL KAS. Extreme caution. Requires real mainnet keys and full testing."
+          >
+            MAINNET
+          </button>
+          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isMainnet ? 'text-red-400 border-red-500/30 bg-red-500/10' : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30')}`}>
+            {networkLabel}{isMainnet ? '' : ' (test)'}
+          </span>
+          <span className="text-[9px] text-gray-500">— fully isolated per network</span>
         </div>
 
         <div className="space-y-4">

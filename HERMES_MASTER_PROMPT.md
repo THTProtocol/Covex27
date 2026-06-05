@@ -1,38 +1,32 @@
-# HERMES_ULTIMATE_FINAL_STICK_TOGETHER_PROMPT.md (Master Consolidation - 2026-06-04)
+# HERMES_MASTER_PROMPT.md (Canonical Maintenance & Sync Instructions)
 
-**THIS IS THE DEFINITIVE PROMPT TO STICK EVERYTHING TOGETHER ACROSS ALL 3 PLACES + STUDIO.**
+**THIS IS THE SINGLE CANONICAL PROMPT FOR ONGOING WORK, CLEANUP, AND TRIPLE-SYNC ACROSS LOCAL / GITHUB / HETZNER (hightable.pro) + COVENANT-STUDIO.**
 
-**Context:** All previous work is complete:
-- Full gap closures (PWA, mobile arenas, pot return %, real claim/payout, ZK foundation, transparency, reusable covenants, etc.)
-- Language purge (no aspirational/design target language in user-facing code)
-- DAG visualizer instant theme switch (light/dark, no refresh needed, direct isDark + preloaded iframes)
-- Branding/logo/COVEX sign premium polish (refined DAG-network mark, consistent icon + premium nav text, light/dark perfect)
-- Removal of hero logo from Explorer page
-- Removal of "Higher-tier covenants are prioritized here with stronger visual presence (no tier names shown publicly)" phrase everywhere
-- Massive GitHub cleanup: removed 29+ unnecessary historical HERMES prompts, old PHASE completion reports, old COVEX reports, LIVE/URGENT txt files, committed logs, broken symlinks. Only active current master prompts remain in the tree.
-- All 3 places (local dev, GitHub THTProtocol/Covex27, Hetzner/hightable.pro) + Covenant-Studio repo must be identical.
+Only this prompt file + README.md + core code should remain for hermes instructions. All historical HERMES_* and old phase/plan documents have been removed.
 
-**CRITICAL: YOU MUST BEGIN BY READING THESE FILES (use tools, in this order):**
-1. This entire prompt.
-2. /home/kasparov/Covex27/HERMES_MEGA_MASTER_ALL_FIXES_PROMPT.md
-3. /home/kasparov/Covex27/HERMES_FINALIZE_PERFECT_WEBSITE_PROMPT.md
-4. /home/kasparov/Covex27/HERMES_FINALIZE_BRANDING_PROMPT.md
-5. /home/kasparov/Covex27/HERMES_ANALYSIS_SYNC_AND_GAP_SCAN_PROMPT.md
-6. /home/kasparov/Covex27/HERMES_ULTIMATE_MASTER_PROMPT.md and HERMES_ULTIMATE_FINAL_AUDIT_DEPLOY_AND_REPORT_PROMPT.md
-7. /home/kasparov/Covex27/README.md (exact deploy commands for 3 places)
-8. Current key files to verify changes:
-   - frontend/src/App.jsx (nav COVEX sign + icon)
-   - frontend/src/pages/Explorer.jsx (hero has NO logo, clean)
-   - frontend/public/icon.svg and favicon.svg (refined premium mark)
-   - frontend/src/components/DagBackground.jsx (instant theme)
-   - .gitignore (covers logs, node_modules, dist, db, secrets, etc.)
-9. Git state: current SHAs local/GitHub/Hetzner, list of remaining root HERMES files (should only be the active masters).
-10. Covenant-Studio HERMES and key files for sync.
-11. Live verification: https://hightable.pro (health, manifest, branding visuals, no old text, DAG theme works instantly).
+**Context (current state after cleanups):** 
+The project has completed major features (full skill game arenas with timers + pot return, ZK client generation + oracle flows for merkle/range + support for others, premium DAG-vibe logo, light/dark, PWA, mobile, triple-sync discipline, etc.).
+All historical HERMES_* prompt files, old PHASE*/VISION*/EXECUTION_PLAN*.md, duplicate changelogs, and development bloat have been removed from the GitHub tree (this run or prior). Only this single clearly-named HERMES_MASTER_PROMPT.md + README.md + core code/docs remain for instructions.
+All 3 places + Covenant-Studio must be kept identical via the exact deploy process.
+
+**CRITICAL: YOU MUST BEGIN BY READING THESE (use tools):**
+1. This entire prompt (HERMES_MASTER_PROMPT.md).
+2. /home/kasparov/Covex27/README.md (for deploy commands, project structure, and how to run triple-sync).
+3. Key current source files to inspect/verify changes (examples):
+   - frontend/src/components/CovexTerminal.jsx (games, ZK, potReturn, arenas)
+   - frontend/src/App.jsx (nav + logo)
+   - frontend/public/icon.svg + favicon.svg (DAG logo)
+   - backend/src/main.rs + oracle.rs (payout, oracle)
+   - .gitignore
+4. Git state + SHAs on local, GitHub, Hetzner (after pull).
+5. Covenant-Studio/ (for its templates and any master instructions).
+6. Live site: https://hightable.pro (verify no bloat in UI, correct branding, working features).
+
+**Note:** There are no other HERMES_*.md or historical prompt/plan files left in the repo root or docs/. This is the only one. If any bloat (old PHASE, VISION, EXECUTION_PLAN, duplicate md, etc.) is found during audit, git rm it immediately.
 
 **Your tasks in strict order:**
 
-1. **Verify the cleanup:** Confirm only the essential current HERMES master prompts remain in the repo root (the ones listed above). No old historical ones, no PHASE completion reports, no unnecessary COVEX reports, no committed logs or symlinks. If any bloat remains, remove it with git rm and commit.
+1. **Verify the cleanup:** Confirm that in the repo root and docs/ there are **no** HERMES_*.md files (except this renamed HERMES_MASTER_PROMPT.md), no PHASE*.md, no old *VISION*.md, *EXECUTION_PLAN*.md, *FINAL_*.md, *ROADMAP*.md, *LAUNCH*.md, duplicate README/LICENSE etc, no timestamped plan files, no obvious historical bloat. If any remain, `git rm` them, commit, and push. Only needed files + this one prompt (correctly named) should be present.
 
 2. **Verify all branding and feature changes are present and correct:**
    - Explorer hero has no logo (removed as requested).

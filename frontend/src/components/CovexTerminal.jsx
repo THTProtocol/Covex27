@@ -2945,14 +2945,14 @@ ${gameMeta.outcomeBranches}
       </section>
 
       {/* ─── Section C½: Oracle Resolution (Live ZK + Oracle attestation) ─── */}
-      {(gameType === 'merkle_membership' || gameType === 'range_proof') && (
+      {((gameType === 'merkle_membership' || gameType === 'range_proof' || gameType === 'age_verification' || gameType === 'verifiable' || gameType === 'custom') && resolutionMode === 'zk') && (
         <section className={`${SECTION_BASE} border-[#3B82F6]/30 bg-[#0a0e1a] ring-1 ring-[#3B82F6]/20`}>
           <div className="flex items-center justify-between">
             <div className={SECTION_HEADER}>
               <div className="p-1.5 rounded-lg bg-[#3B82F6]/20">
                 <Server size={16} className="text-[#3B82F6]" />
               </div>
-              <span>Oracle Resolution: Submit ZK Proof {gameType === 'range_proof' ? '(Range)' : '(Merkle)'}</span>
+              <span>Oracle Resolution: Submit ZK Proof {gameType === 'range_proof' ? '(Range)' : gameType === 'merkle_membership' ? '(Merkle)' : gameType === 'age_verification' ? '(Age)' : gameType === 'verifiable' ? '(Verifiable Compute)' : '(Custom)'}</span>
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded bg-[#3B82F6]/10 text-[#3B82F6]/80 font-mono border border-[#3B82F6]/30">
               LIVE ORACLE
@@ -2962,7 +2962,13 @@ ${gameMeta.outcomeBranches}
           <p className="text-xs text-gray-300 leading-relaxed">
             {gameType === 'range_proof'
               ? 'Paste (or generate) a Groth16 proof for the RangeProof circuit. Proves knowledge of a value inside [min, max] without revealing it. Verified by the Covex Oracle (snarkjs + vkey). Valid proof (valid=1) produces signed outcome 0 (proven/claimant).'
-              : 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by the Covex Oracle using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The signature is then used to unlock the covenant on-chain.'}
+              : gameType === 'merkle_membership'
+              ? 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by the Covex Oracle using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The signature is then used to unlock the covenant on-chain.'
+              : gameType === 'age_verification'
+              ? 'Paste a proof for the Age Verification circuit. Proves a birthdate meets an age threshold without revealing exact date. Oracle-attested — no client-side generator yet (ceremony pending). Submit any valid JSON + public inputs for oracle signing.'
+              : gameType === 'verifiable'
+              ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Oracle-attested — no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for oracle signing.'
+              : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Oracle-attested — no client-side generator. Submit any valid JSON + public inputs for oracle signing.'}
           </p>
 
           {/* Honesty disclaimer */}

@@ -30,7 +30,7 @@ BACKEND_BIN="$APP_DIR/backend/target/release/covex27-backend"
 LOG_FILE="/tmp/covex27.log"
 
 # === MAINNET CONFIGURATION (EDIT THESE BEFORE RUNNING) ===
-MAINNET_TREASURY="${MAINNET_TREASURY:-kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq}"
+MAINNET_TREASURY="${MAINNET_TREASURY:-kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2}"
 MAINNET_WRPC_URL="${MAINNET_WRPC_URL:-ws://127.0.0.1:17110}"   # Change to your mainnet node
 MAINNET_BIND_ADDR="0.0.0.0:3005"
 

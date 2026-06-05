@@ -65,6 +65,14 @@ pub const TREASURY_MNEMONIC_TN10: &str =
 pub const TREASURY_PRIVATE_KEY_TN10: &str =
     "REPLACE_WITH_TN10_TREASURY_PRIVATE_KEY_HEX";
 
+/// ─── Mainnet wallets ───────────────────────────────────────────────────
+/// Mainnet treasury address is the only hardcoded value (public, where KAS is sent).
+/// Private keys are NEVER in source — all mainnet signing goes through wallet extensions.
+/// Seed addresses are empty: mainnet covenants are discovered via the crawler, not UTXO polling.
+
+pub const TREASURY_ADDRESS_MAINNET: &str =
+    "kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2";
+
 /// ─── Backward-compatible aliases (TN12, kept for existing code) ──────
 
 pub const DEV_WALLET_1_ADDRESS: &str = DEV_WALLET_1_ADDRESS_TN12;
@@ -85,6 +93,8 @@ pub const TREASURY_PRIVATE_KEY: &str = TREASURY_PRIVATE_KEY_TN12;
 pub fn treasury_address_for_network(network: &str) -> &'static str {
     if network == "testnet-10" {
         TREASURY_ADDRESS_TN10
+    } else if network == "mainnet" || network == "mainnet-1" {
+        TREASURY_ADDRESS_MAINNET
     } else {
         TREASURY_ADDRESS_TN12
     }

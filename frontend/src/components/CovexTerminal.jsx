@@ -476,7 +476,7 @@ export default function CovexTerminal({ covenant }) {
   const getNetConfig = (net) => {
     if (net === 'mainnet' || net === 'mainnet-1') {
       return {
-        treasury: 'kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq', // MUST override via real mainnet env in production
+        treasury: 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2',
         seeds: [], // real mainnet seeds ONLY via secure env, never hardcoded
         warning: 'REAL KAS — PRODUCTION'
       };

@@ -84,7 +84,7 @@ const TESTNET_TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3v
 
 const getTreasuryAddress = (isMainnet) => {
   return isMainnet 
-    ? 'kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq' // Placeholder
+    ? 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2'
     : TESTNET_TREASURY;
 };
 

@@ -67,8 +67,7 @@ async fn main() {
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let treasury = env::var("COVENANT_TREASURY_ADDRESS").unwrap_or_else(|_| {
         if network == "mainnet" || network == "mainnet-1" {
-            // Mainnet treasury address — must be set via COVENANT_TREASURY_ADDRESS env var before mainnet launch
-            "kaspa:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq".to_string()
+            dev_wallets::TREASURY_ADDRESS_MAINNET.to_string()
         } else {
             "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string()
         }
@@ -135,99 +134,99 @@ async fn main() {
         Err(e) => warn!("wRPC connect failed (will retry in background): {}", e),
     }
 
-    // --- Dual-network support: always also connect to the *other* testnet (TN10/TN12) ---
-    // This lets ONE backend process (the existing covex-backend service) index covenants
-    // for both networks. Frontend toggle uses ?network=... on reads and sends network in
-    // deploy payloads. Background indexers + crawlers + verifiers run for both.
+    // --- Multi-network support: spawn indexers for ALL configured networks ---
+    // This lets ONE backend process index covenants for TN12, TN10, and MAINNET
+    // simultaneously. Frontend toggle uses ?network=... on reads and sends network in
+    // deploy payloads. Background indexers + crawlers + verifiers run for each network.
     let primary_network = network.clone();
-    let secondary_network = if primary_network == "testnet-10" {
-        "testnet-12".to_string()
-    } else if primary_network == "mainnet" || primary_network == "mainnet-1" {
-        "testnet-12".to_string()
-    } else {
-        "testnet-10".to_string()
-    };
 
-    let secondary_wrpc = if secondary_network == "testnet-10" {
-        env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
-    } else {
-        env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
-    };
+    // Networks to additionally index (all except the primary, which gets its own spawns below)
+    let extra_networks: Vec<&str> = ["testnet-10", "mainnet"]
+        .iter()
+        .filter(|&&n| n != primary_network)
+        .copied()
+        .collect();
 
-    let secondary_treasury = env::var(if secondary_network == "testnet-10" {
-        "COVENANT_TREASURY_ADDRESS_TN10"
-    } else {
-        "COVENANT_TREASURY_ADDRESS_TN12"
-    })
-    .unwrap_or_else(|_| dev_wallets::treasury_address_for_network(&secondary_network).to_string());
+    for &extra_net in &extra_networks {
+        let extra_wrpc = match extra_net {
+            "testnet-10" => env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string()),
+            "mainnet" => env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string()),
+            _ => continue,
+        };
 
-    let secondary_seeds: Vec<String> = env::var(if secondary_network == "testnet-10" {
-        "COVENANT_SEED_ADDRESSES_TN10"
-    } else {
-        "COVENANT_SEED_ADDRESSES_TN12"
-    })
-    .unwrap_or_default()
-    .split(',')
-    .filter(|s| !s.is_empty())
-    .map(|s| s.trim().to_string())
-    .collect();
+        let extra_treasury = match extra_net {
+            "testnet-10" => env::var("COVENANT_TREASURY_ADDRESS_TN10")
+                .unwrap_or_else(|_| dev_wallets::treasury_address_for_network(extra_net).to_string()),
+            "mainnet" => env::var("COVENANT_TREASURY_ADDRESS")
+                .unwrap_or_else(|_| dev_wallets::treasury_address_for_network(extra_net).to_string()),
+            _ => continue,
+        };
 
-    let (secondary_client, secondary_url) = match kaspa_wrpc_client::KaspaRpcClient::new(
-        kaspa_wrpc_client::WrpcEncoding::Borsh,
-        Some(&secondary_wrpc),
-        None,
-        None,
-        None,
-    ) {
-        Ok(c) => {
-            let url = c.url().unwrap_or(secondary_wrpc.clone());
-            (Arc::new(c), url)
+        let extra_seeds: Vec<String> = match extra_net {
+            "testnet-10" => env::var("COVENANT_SEED_ADDRESSES_TN10").unwrap_or_default(),
+            "mainnet" => String::new(), // mainnet: no UTXO seed polling, crawler-only discovery
+            _ => String::new(),
         }
-        Err(e) => {
-            warn!("Failed to create secondary wRPC client for {} at {}: {} (secondary indexing disabled)", secondary_network, secondary_wrpc, e);
-            // Fallback: use primary client (will only index primary net)
-            (Arc::clone(&client), secondary_wrpc.clone())
+        .split(',')
+        .filter(|s| !s.is_empty())
+        .map(|s| s.trim().to_string())
+        .collect();
+
+        let (extra_client, extra_url) = match kaspa_wrpc_client::KaspaRpcClient::new(
+            kaspa_wrpc_client::WrpcEncoding::Borsh,
+            Some(&extra_wrpc),
+            None, None, None,
+        ) {
+            Ok(c) => {
+                let url = c.url().unwrap_or(extra_wrpc.clone());
+                (Arc::new(c), url)
+            }
+            Err(e) => {
+                warn!("Failed to create wRPC client for {} at {}: {} (indexing disabled for this network)", extra_net, extra_wrpc, e);
+                continue;
+            }
+        };
+
+        info!("Additional network {} wRPC: {}", extra_net, extra_url);
+        match extra_client.connect(None).await {
+            Ok(_) => info!("Connected to {} wRPC", extra_net),
+            Err(e) => warn!("{} wRPC connect failed (indexer will retry): {}", extra_net, e),
         }
-    };
 
-    info!("Secondary network {} wRPC: {}", secondary_network, secondary_url);
-    match secondary_client.connect(None).await {
-        Ok(_) => info!("Connected to secondary {} wRPC", secondary_network),
-        Err(e) => warn!("Secondary {} wRPC connect failed (indexer will retry): {}", secondary_network, e),
-    }
-
-    // Spawn secondary indexer + verifier + crawler (so TN10 data appears when toggled, without mixing)
-    // Clone fresh for each task to avoid move-after-move across sequential spawns.
-    {
-        let s_db = Arc::clone(&db);
-        let s_client = Arc::clone(&secondary_client);
-        let s_seeds = secondary_seeds.clone();
-        let s_treasury = secondary_treasury.clone();
-        let s_net = secondary_network.clone();
-        tokio::spawn(async move {
-            indexer::run_indexer(s_client, s_db, s_seeds, s_treasury, s_net).await;
-        });
-    }
-    {
-        let s_db = Arc::clone(&db);
-        let s_client = Arc::clone(&secondary_client);
-        let s_treasury = secondary_treasury.clone();
-        let s_net = secondary_network.clone();
-        tokio::spawn(async move {
-            payment_verifier::run_payment_verifier(s_client, s_db, s_treasury, s_net).await;
-        });
-    }
-    {
-        let s_db = Arc::clone(&db);
-        let s_client = Arc::clone(&secondary_client);
-        let s_treasury = secondary_treasury.clone();
-        let s_net = secondary_network.clone();
-        tokio::spawn(async move {
-            crawler::run_crawler(s_client, s_db, s_treasury, crawl_start_daa, s_net).await;
-        });
+        // Spawn indexer
+        {
+            let s_db = Arc::clone(&db);
+            let s_client = Arc::clone(&extra_client);
+            let s_seeds = extra_seeds.clone();
+            let s_treasury = extra_treasury.clone();
+            let s_net = extra_net.to_string();
+            tokio::spawn(async move {
+                indexer::run_indexer(s_client, s_db, s_seeds, s_treasury, s_net).await;
+            });
+        }
+        // Spawn payment verifier
+        {
+            let s_db = Arc::clone(&db);
+            let s_client = Arc::clone(&extra_client);
+            let s_treasury = extra_treasury.clone();
+            let s_net = extra_net.to_string();
+            tokio::spawn(async move {
+                payment_verifier::run_payment_verifier(s_client, s_db, s_treasury, s_net).await;
+            });
+        }
+        // Spawn crawler
+        {
+            let s_db = Arc::clone(&db);
+            let s_client = Arc::clone(&extra_client);
+            let s_treasury = extra_treasury.clone();
+            let s_net = extra_net.to_string();
+            tokio::spawn(async move {
+                crawler::run_crawler(s_client, s_db, s_treasury, crawl_start_daa, s_net).await;
+            });
+        }
     }
 
-    // --- Background: Indexer (for the configured / primary network) ---
+    // --- Background: Indexer (for the primary network) ---
     let idx_db = Arc::clone(&db);
     let idx_client = Arc::clone(&client);
     let idx_seeds = seed_addrs.clone();

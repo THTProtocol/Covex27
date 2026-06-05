@@ -38,6 +38,11 @@ const NETWORK_LABELS = {
   'mainnet-1': 'MAINNET',
 };
 
+function getDevStorageKey(net) {
+  const safe = String(net || 'testnet-12').replace(/[^a-z0-9_-]/gi, '_');
+  return `covex_dev_wallet_${safe}`;
+}
+
 // ── Wallet logos from Chrome Web Store CDN (pattern from THTProtocol/27) ──
 const WALLET_LOGOS = {
   KasWare:  'https://lh3.googleusercontent.com/GWR2Bode3QAzDrsZJHVRsYhCN60azRCtL1xoOBxqCYcDpbMD_avwiFkuiAOAkuyLnEh9DGOAoZSbWDcNUhiZ7X6RZE8=s128',
@@ -197,7 +202,7 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
     } finally {
       setDeriving(false);
     }
-  }, [mode, phrase, hexKey, onConnect, netPrefix]);
+  }, [mode, phrase, hexKey, onConnect, network]);
 
   const isMainnet = network === 'mainnet' || network === 'mainnet-1';
   const accentColor = isMainnet ? 'red' : 'yellow';
@@ -213,57 +218,65 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
       </p>
       {isMainnet && (
         <div className="mb-3 p-2 rounded bg-red-500/10 border border-red-500/20">
-          <p className="text-[10px] text-red-400 font-semibold">MAINNET — use only with your own real wallet with real KAS.</p>
+          <p className="text-[10px] text-red-400 font-semibold">MAINNET — use only with your own real wallet with real KAS. No mnemonic/hex dev mode.</p>
         </div>
       )}
 
-      <div className="flex rounded-lg bg-black/40 border border-white/[0.06] mb-3 overflow-hidden">
-        <button
-          onClick={() => { setMode('mnemonic'); setError(null); }}
-          className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-            mode === 'mnemonic' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
-          }`}
-        >Mnemonic</button>
-        <button
-          onClick={() => { setMode('hex'); setError(null); }}
-          className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-            mode === 'hex' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
-          }`}
-        >Hex Key</button>
-      </div>
+      {!isMainnet && (
+        <>
+          <div className="flex rounded-lg bg-black/40 border border-white/[0.06] mb-3 overflow-hidden">
+            <button
+              onClick={() => { setMode('mnemonic'); setError(null); }}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                mode === 'mnemonic' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
+              }`}
+            >Mnemonic</button>
+            <button
+              onClick={() => { setMode('hex'); setError(null); }}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                mode === 'hex' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
+              }`}
+            >Hex Key</button>
+          </div>
 
-      {mode === 'mnemonic' ? (
-        <textarea
-          value={phrase}
-          onChange={(e) => { setPhrase(e.target.value); setError(null); }}
-          rows={3}
-          placeholder="witch collapse practice feed shame open despair creek road again ice least"
-          className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
-          spellCheck={false} autoCapitalize="none" autoCorrect="off"
-        />
-      ) : (
-        <input
-          type="password"
-          value={hexKey}
-          onChange={(e) => { setHexKey(e.target.value); setError(null); }}
-          placeholder="64 hex characters (32 bytes)"
-          className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
-          spellCheck={false}
-        />
+          {mode === 'mnemonic' ? (
+            <textarea
+              value={phrase}
+              onChange={(e) => { setPhrase(e.target.value); setError(null); }}
+              rows={3}
+              placeholder="witch collapse practice feed shame open despair creek road again ice least"
+              className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
+              spellCheck={false} autoCapitalize="none" autoCorrect="off"
+            />
+          ) : (
+            <input
+              type="password"
+              value={hexKey}
+              onChange={(e) => { setHexKey(e.target.value); setError(null); }}
+              placeholder="64 hex characters (32 bytes)"
+              className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
+              spellCheck={false}
+            />
+          )}
+
+          {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+
+          <button
+            onClick={handleDerive}
+            disabled={deriving}
+            className={`mt-3 w-full px-4 py-2.5 bg-${accentColor}-600/80 hover:bg-${accentColor}-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+          >
+            {deriving ? (
+              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : null}
+            {deriving ? 'Deriving Keys...' : 'Connect Dev Wallet'}
+          </button>
+        </>
       )}
 
-      {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
-
-      <button
-        onClick={handleDerive}
-        disabled={deriving}
-        className={`mt-3 w-full px-4 py-2.5 bg-${accentColor}-600/80 hover:bg-${accentColor}-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-      >
-        {deriving ? (
-          <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-        ) : null}
-        {deriving ? 'Deriving Keys...' : 'Connect Dev Wallet'}
-      </button>
+      {isMainnet && (
+        <p className="text-[11px] text-red-400/90 mt-2">Dev connections (mnemonic or private hex) are not supported on mainnet. All mainnet activity (including paid tiers) must use real connected Kaspa wallet extensions.</p>
+      )}
     </div>
   );
 }
@@ -300,10 +313,49 @@ function WalletBridge({ children }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
   const balanceTimerRef = useRef(null);
+  const prevNetworkRef = useRef(null);
 
   // ── Track the current app-level network for dev mode derivation ──
   const [appNetwork, setAppNetwork] = useState(() => getCurrentNetwork());
   useEffect(() => onNetworkChange(setAppNetwork), []);
+
+  // When the global network toggle changes, load the dev wallet saved for *that* specific network (separate connections for TN10 vs TN12)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = getDevStorageKey(appNetwork);
+    const savedDev = localStorage.getItem(key);
+    if (savedDev) {
+      try {
+        const parsed = JSON.parse(savedDev);
+        if (parsed.privateKeyHex && parsed.address) {
+          setDevMode(parsed);
+          setActiveWalletId('__dev_mode__');
+          setActiveAddress(parsed.address);
+          setActiveWalletNetwork(appNetwork);
+          setActiveBalance(null);
+          return;
+        }
+      } catch (_) {}
+    } else {
+      // No saved dev for this network — clear any previous devMode so we don't show stale dev connection from another network
+      if (devMode) {
+        setDevMode(null);
+        setActiveWalletId(null);
+        setActiveAddress(null);
+      }
+    }
+  }, [appNetwork]);
+
+  // On network switch (after mount), disconnect any real (extension) wallet because wallet connections are network-specific.
+  // User will re-connect the desired wallet while the chosen network (TN12/TN10/MAIN) is active.
+  useEffect(() => {
+    if (prevNetworkRef.current !== null && prevNetworkRef.current !== appNetwork) {
+      if (activeWalletId && activeWalletId !== '__dev_mode__' && !devMode) {
+        disconnectWallet().catch(() => {});
+      }
+    }
+    prevNetworkRef.current = appNetwork;
+  }, [appNetwork, activeWalletId, devMode, disconnectWallet]);
 
   // ── Dev mode state ──
   const [devMode, setDevMode] = useState(null);
@@ -385,8 +437,13 @@ function WalletBridge({ children }) {
     }
   }, [kf, appNetwork]);
 
-  // ── Dev mode connect (persists to localStorage) ──
+  // ── Dev mode connect (persists to localStorage, per-network for TN10/TN12) ──
   const connectDevMode = useCallback((devState) => {
+    const isMain = appNetwork === 'mainnet' || appNetwork === 'mainnet-1';
+    if (isMain) {
+      setError('Dev mode (mnemonic/hex) is disabled on mainnet. Use a real wallet extension (KasWare etc.) with real KAS.');
+      return;
+    }
     setDevMode(devState);
     setActiveWalletId('__dev_mode__');
     setActiveAddress(devState.address);
@@ -396,7 +453,8 @@ function WalletBridge({ children }) {
     if (typeof localStorage !== 'undefined') {
       const devSave = { ...devState };
       delete devSave.type;
-      localStorage.setItem('covex_dev_wallet', JSON.stringify(devSave));
+      const key = getDevStorageKey(appNetwork);
+      localStorage.setItem(key, JSON.stringify(devSave));
       localStorage.setItem('covex_connected_wallet', '__dev_mode__');
     }
   }, [appNetwork]);
@@ -423,7 +481,8 @@ function WalletBridge({ children }) {
     if (devMode) {
       setDevMode(null);
       if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('covex_dev_wallet');
+        const key = getDevStorageKey(appNetwork);
+        localStorage.removeItem(key);
         localStorage.removeItem('covex_connected_wallet');
       }
     }
@@ -455,15 +514,22 @@ function WalletBridge({ children }) {
     };
   }, [activeAddress, activeWalletId, devMode]);
 
-  // Auto-connect on mount
+  // Auto-connect on mount (load dev wallet for the initial network)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const savedDev = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_dev_wallet') : null;
+    const initialNet = getCurrentNetwork();
+    const savedDevKey = getDevStorageKey(initialNet);
+    const savedDev = typeof localStorage !== 'undefined' ? localStorage.getItem(savedDevKey) : null;
     if (savedDev) {
       try {
         const parsed = JSON.parse(savedDev);
         if (parsed.privateKeyHex && parsed.address) {
-          connectDevMode(parsed);
+          // set directly to avoid double save
+          setDevMode(parsed);
+          setActiveWalletId('__dev_mode__');
+          setActiveAddress(parsed.address);
+          setActiveWalletNetwork(initialNet);
+          localStorage.setItem('covex_connected_wallet', '__dev_mode__');
           return;
         }
       } catch (_) {}

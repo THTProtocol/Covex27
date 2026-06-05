@@ -96,6 +96,13 @@ export default function DevWalletModal({ isOpen, onClose }) {
     setDerivedAddr(null);
     setDeriving(true);
 
+    const isMainLocal = network === 'mainnet' || network === 'mainnet-1';
+    if (isMainLocal) {
+      setError('Dev mode (mnemonic or hex) is disabled on mainnet. Connect using a real wallet extension instead.');
+      setDeriving(false);
+      return;
+    }
+
     const netPrefix = network === 'mainnet' || network === 'mainnet-1' ? 'kaspa' : 'kaspatest';
 
     try {

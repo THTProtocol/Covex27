@@ -177,7 +177,7 @@ export default function PaidDeploy() {
           txid = typeof resp === 'string' ? resp : resp?.txid || resp?.transactionId;
         } catch (kasErr) { console.warn('KasWare sendTransaction failed:', kasErr.message); }
       } else {
-        throw new Error('No deployment-capable wallet. Use "Connect TN12 Dev Wallet" below to derive a test wallet from a mnemonic.');
+        throw new Error('No deployment-capable wallet. Use the "Connect Dev Wallet" button below to derive a test wallet from a mnemonic (testnets only). For mainnet, use your real wallet extension.');
       }
 
       if (!txid) throw new Error('No transaction ID returned.');

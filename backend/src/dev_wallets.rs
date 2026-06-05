@@ -38,32 +38,31 @@ pub const TREASURY_PRIVATE_KEY_TN12: &str =
     "0be4e04a2e0afdbe6caf73707ee9cbe8b11a986fea3bbd46dca98d5445b8a1d3";
 
 /// ─── TN10 (testnet-10) wallets ────────────────────────────────────────
-/// PLACEHOLDERS — REPLACE WITH ACTUAL TN10 VALUES PROVIDED BY OPERATOR
-/// These will be used when kaspaNetwork = 'testnet-10' is selected.
+/// TN10 uses the same treasury as TN12 — the private key derives the same address
+/// on both testnet chains. Backend indexers tag rows with network=testnet-10,
+/// so data stays fully isolated even though the treasury address is identical.
 
 /// Wallet 1 — Primary Dev Deployer (TN10)
 pub const DEV_WALLET_1_ADDRESS_TN10: &str =
-    "kaspatest:REPLACE_WITH_TN10_DEV_WALLET_1_ADDRESS";
+    "kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353";
 pub const DEV_WALLET_1_MNEMONIC_TN10: &str =
-    "REPLACE WITH TN10 DEV WALLET 1 MNEMONIC";
+    "fitness narrow gap scheme fold regret faint neck blanket discover feel machine";
 pub const DEV_WALLET_1_PRIVATE_KEY_TN10: &str =
-    "REPLACE_WITH_TN10_DEV_WALLET_1_PRIVATE_KEY_HEX";
+    "549cd5a5426360da67b66edd561d37b348a026708d01b519d396b868cda267c9";
 
 /// Wallet 2 — Secondary Dev Deployer (TN10)
 pub const DEV_WALLET_2_ADDRESS_TN10: &str =
-    "kaspatest:REPLACE_WITH_TN10_DEV_WALLET_2_ADDRESS";
+    "kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs";
 pub const DEV_WALLET_2_MNEMONIC_TN10: &str =
-    "REPLACE WITH TN10 DEV WALLET 2 MNEMONIC";
+    "giggle alpha happy until wing zone cat argue april walnut uncover rate";
 pub const DEV_WALLET_2_PRIVATE_KEY_TN10: &str =
-    "REPLACE_WITH_TN10_DEV_WALLET_2_PRIVATE_KEY_HEX";
+    "a6b2f789075ff7115a3b6224e7da0d676be999cb121640220784e30206f07f60";
 
 /// Wallet 3 — Treasury (TN10)
-pub const TREASURY_ADDRESS_TN10: &str =
-    "kaspatest:REPLACE_WITH_TN10_TREASURY_ADDRESS";
-pub const TREASURY_MNEMONIC_TN10: &str =
-    "REPLACE WITH TN10 TREASURY MNEMONIC";
-pub const TREASURY_PRIVATE_KEY_TN10: &str =
-    "REPLACE_WITH_TN10_TREASURY_PRIVATE_KEY_HEX";
+/// Same address as TN12: kaspatest:qpyfz03... — valid on both testnet-10 and testnet-12.
+pub const TREASURY_ADDRESS_TN10: &str = TREASURY_ADDRESS_TN12;
+pub const TREASURY_MNEMONIC_TN10: &str = TREASURY_MNEMONIC_TN12;
+pub const TREASURY_PRIVATE_KEY_TN10: &str = TREASURY_PRIVATE_KEY_TN12;
 
 /// ─── Mainnet wallets ───────────────────────────────────────────────────
 /// Mainnet treasury address is the only hardcoded value (public, where KAS is sent).

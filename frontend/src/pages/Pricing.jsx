@@ -80,28 +80,37 @@ const TIERS = [
   },
 ];
 
-const TESTNET_TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+const TESTNET_TREASURY_TN12 = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+// TN10 uses the same treasury address (same private key, valid on both testnet chains).
+// Backend monitors this address independently on each network via network-tagged verifiers.
+const TESTNET_TREASURY_TN10 = TESTNET_TREASURY_TN12;
+const MAINNET_TREASURY = 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2';
 
-const getTreasuryAddress = (isMainnet) => {
-  return isMainnet 
-    ? 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2'
-    : TESTNET_TREASURY;
+const getTreasuryAddress = () => {
+  if (typeof window === 'undefined') return TESTNET_TREASURY_TN12;
+  const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+  if (net === 'mainnet' || net === 'mainnet-1') return MAINNET_TREASURY;
+  if (net === 'testnet-10') return TESTNET_TREASURY_TN10;
+  return TESTNET_TREASURY_TN12;
 };
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
-  const [isMainnet, setIsMainnet] = useState(false);
-  const TREASURY = getTreasuryAddress(isMainnet);
+  const [currentNetwork, setCurrentNetwork] = useState(() => {
+    if (typeof window === 'undefined') return 'testnet-12';
+    return localStorage.getItem('kaspaNetwork') || 'testnet-12';
+  });
+  const isMainnet = currentNetwork === 'mainnet' || currentNetwork === 'mainnet-1';
+  const TREASURY = getTreasuryAddress();
 
   useEffect(() => {
-    fetch('/api/status')
-      .then(r => r.json())
-      .then(data => {
-        const net = data?.network || 'testnet-12';
-        setIsMainnet(net === 'mainnet' || net === 'mainnet-1');
-      })
-      .catch(() => setIsMainnet(false));
+    const handler = () => {
+      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      setCurrentNetwork(net);
+    };
+    window.addEventListener('kaspa-network-change', handler);
+    return () => window.removeEventListener('kaspa-network-change', handler);
   }, []);
 
   useEffect(() => {

@@ -141,11 +141,20 @@ async fn main() {
     let primary_network = network.clone();
 
     // Networks to additionally index (all except the primary, which gets its own spawns below)
-    let extra_networks: Vec<&str> = ["testnet-10", "mainnet"]
-        .iter()
-        .filter(|&&n| n != primary_network)
-        .copied()
-        .collect();
+    // Only include mainnet if KASPA_WRPC_URL_MAINNET is explicitly configured — the default
+    // ws://127.0.0.1:17110 hangs the startup if no mainnet node is running locally.
+    let mut extra_networks: Vec<&str> = Vec::new();
+    if primary_network != "testnet-10" {
+        extra_networks.push("testnet-10");
+    }
+    if primary_network != "testnet-12" && primary_network != "mainnet" && primary_network != "mainnet-1" {
+        extra_networks.push("testnet-12");
+    }
+    if primary_network != "mainnet" && primary_network != "mainnet-1"
+        && std::env::var("KASPA_WRPC_URL_MAINNET").is_ok()
+    {
+        extra_networks.push("mainnet");
+    }
 
     for &extra_net in &extra_networks {
         let extra_wrpc = match extra_net {

@@ -83,9 +83,9 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
 }
 
 /// Auto-generate a logic summary from covenant type, category and amount
-fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64) -> String {
+fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64, network_label: &str) -> String {
     let kas = amount_sompi as f64 / 100_000_000.0;
-    format!("{} covenant (category: {}) locking {:.2} KAS on Kaspa BlockDAG TN-12. Extracted automatically from on-chain UTXO data.", covenant_type, category, kas)
+    format!("{} covenant (category: {}) locking {:.2} KAS on Kaspa BlockDAG {}. Extracted automatically from on-chain UTXO data.", covenant_type, category, kas, network_label)
 }
 
 pub async fn run_crawler(
@@ -93,6 +93,7 @@ pub async fn run_crawler(
     db: Arc<Mutex<rusqlite::Connection>>,
     treasury_address: String,
     start_daa: u64,
+    network: String,
 ) {
     let treasury_addr = match Address::try_from(treasury_address.as_str()) {
         Ok(a) => a,
@@ -109,8 +110,8 @@ pub async fn run_crawler(
         }
     };
     info!(
-        "Crawler started: treasury={}, start_daa={}",
-        treasury_address, start_daa
+        "Crawler started: treasury={}, start_daa={}, network={}",
+        treasury_address, start_daa, network
     );
 
     let mut scan_daa = db::get_last_scanned_daa(&db).unwrap_or(start_daa);
@@ -201,7 +202,8 @@ pub async fn run_crawler(
                     address_from_p2pk_script(&deployer_script_hex).unwrap_or_else(|| addr.clone());
                 let shash = crate::compute_script_hash(&pl);
 
-                let summary = auto_summary(&ctype, &cat, amt);
+                let nlabel = if network == "testnet-10" { "TN-10" } else { "TN-12" };
+                let summary = auto_summary(&ctype, &cat, amt, nlabel);
                 let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
                 match db::insert_covenant(
                     &db,
@@ -218,6 +220,7 @@ pub async fn run_crawler(
                     &tier,
                     &summary,
                     &recv_addrs,
+                    &network,
                 ) {
                     Ok(_) => {
                         batch += 1;

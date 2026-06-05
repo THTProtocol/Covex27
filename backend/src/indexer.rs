@@ -52,10 +52,11 @@ pub async fn run_indexer(
     db: Arc<Mutex<rusqlite::Connection>>,
     seed_addresses: Vec<String>,
     treasury_address: String,
+    network: String,
 ) {
     info!(
-        "Covex Indexer v3 started — tier-aware indexing (treasury={})",
-        treasury_address
+        "Covex Indexer v3 started — tier-aware indexing (treasury={}, network={})",
+        treasury_address, network
     );
 
     let treasury_addr = match Address::try_from(treasury_address.as_str()) {
@@ -152,11 +153,13 @@ pub async fn run_indexer(
                             block_daa,
                             &tier,
                             &format!(
-                                "{} covenant locking {:.2} KAS on Kaspa BlockDAG TN-12",
+                                "{} covenant locking {:.2} KAS on Kaspa BlockDAG {}",
                                 covenant_type,
-                                amount_sompi as f64 / 100_000_000.0
+                                amount_sompi as f64 / 100_000_000.0,
+                                if network == "testnet-10" { "TN-10" } else { "TN-12" }
                             ),
                             &format!("[\"{}\"]", address),
+                            &network,
                         ) {
                             error!("Indexer: insert failed {}: {}", tx_id, e);
                         } else {

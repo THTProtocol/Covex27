@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 /**
- * Phase 15: Multi-Oracle Federation Configurator
+ * Multi-Oracle Federation Configurator
  * Allows users to configure multiple oracles + threshold for decentralized resolution.
  */
 export default function MultiOracleConfigurator({ value, onChange }) {

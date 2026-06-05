@@ -1,7 +1,7 @@
 {
   "name": "COVEX - Kaspa Covenant Platform",
   "short_name": "COVEX",
-  "description": "Native SilverScript covenant indexing and deployment on Kaspa BlockDAG. Non-custodial. Transparent.",
+  "description": "Verifiable interactive covenant platform on Kaspa BlockDAG. ZK circuits, oracle resolution, pro game arenas. Non-custodial.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#05050A",

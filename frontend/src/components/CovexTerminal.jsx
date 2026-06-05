@@ -19,7 +19,7 @@ import FullScreenTicTacToe from './FullScreenTicTacToe';
 import FullScreenReversi from './FullScreenReversi';
 import FullScreenRPS from './FullScreenRPS';
 
-// Phase 11: Covenant Studio Integration
+// Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
@@ -397,7 +397,7 @@ export default function CovexTerminal({ covenant }) {
   // ── Wallet (for signing ownership challenges) ──
   const { address: connectedAddress, signMessage } = useWallet();
 
-  // Phase 11: Covenant Config + Studio Integration
+  // Covenant Config + Studio Integration
   const { 
     config: studioConfig, 
     loadOrCreate, 
@@ -406,7 +406,7 @@ export default function CovexTerminal({ covenant }) {
     loadFromJson 
   } = useCovenantConfig(connectedAddress || '');
 
-  // Phase 11 + Phase 13: Auto-load config from URL or selected template
+  // Auto-load config from URL or selected template
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedConfig = params.get('config');
@@ -421,7 +421,7 @@ export default function CovexTerminal({ covenant }) {
         console.warn('Failed to load config from URL');
       }
     } else if (templateId) {
-      // Phase 13: Template was selected
+      // Template was selected
       const saved = sessionStorage.getItem('pending_covenant_config');
       if (saved) {
         try {
@@ -1483,7 +1483,7 @@ ${gameMeta.outcomeBranches}
         </div>
       </div>
 
-      {/* Network indicator (Phase 4) */}
+      {/* Network indicator */}
       <div className="flex justify-end -mt-2 mb-2">
         <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono border ${networkColorClass}`}>
           <Globe size={12} />
@@ -3269,7 +3269,7 @@ ${gameMeta.outcomeBranches}
         </section>
       )}
 
-      {/* ─── Phase 11: Covenant Studio Integration (NEW) ─── */}
+      {/* ─── Covenant Studio Integration ─── */}
       <section className={SECTION_BASE}>
         <div className={SECTION_HEADER}>
           <Palette size={16} />
@@ -3292,7 +3292,7 @@ ${gameMeta.outcomeBranches}
             const address = connectedAddress || 'demo-address';
             const cfg = loadOrCreate(address);
             
-            // Sync current Terminal state into the shared config (best effort for Phase 11)
+            // Sync current Terminal state into the shared config
             updateStudioConfig({
               covenant: {
                 ...cfg.covenant,
@@ -3335,7 +3335,7 @@ ${gameMeta.outcomeBranches}
           <MultiOracleConfigurator 
             value={{}} 
             onChange={(cfg) => {
-              // Merge into current config for Phase 15
+              // Merge into current config
               console.log("Multi-oracle config updated:", cfg);
             }} 
           />

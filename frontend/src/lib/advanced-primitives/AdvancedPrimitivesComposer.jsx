@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Scale, Clock, Users, Shuffle, X } from 'lucide-react';
 
 /**
- * Phase 14: Advanced Covenant Primitives Composer
+ * Advanced Covenant Primitives Composer
  * 
  * A functional visual composer for building complex covenants.
  * Supports:

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { validateCovenantConfig, isValidCovenantConfig, createDefaultConfig } from './covenant-config';
 
 /**
- * Phase 11 Hook for managing Covenant Configuration inside the Terminal
+ * Hook for managing Covenant Configuration inside the Terminal
  */
 export function useCovenantConfig(initialCreatorAddress = '') {
   const [config, setConfig] = useState(null);

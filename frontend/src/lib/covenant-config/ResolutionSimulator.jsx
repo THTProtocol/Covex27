@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * ResolutionSimulator
- * Phase 11 — Shows what happens under different outcomes based on the config.
+ * Shows what happens under different outcomes based on the config.
  * This is a simplified but honest simulator for the current oracle-attested model.
  */
 export default function ResolutionSimulator({ config }) {

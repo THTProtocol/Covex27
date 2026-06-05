@@ -91,11 +91,11 @@ async fn main() {
 
     // Log mainnet readiness status
     if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok() {
-        info!("Mainnet indexer ready -- will index when a mainnet wRPC is available via KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet");
+        info!("Toccata mainnet indexer ready -- will index when a mainnet wRPC is available via KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet");
     } else if network == "mainnet" || network == "mainnet-1" {
-        info!("Mainnet mode active -- indexer will start syncing mainnet covenants when wRPC connects");
+        info!("Toccata mainnet mode active -- indexer will start syncing mainnet covenants when wRPC connects");
     } else {
-        info!("Mainnet indexer: not configured. Set KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet to enable mainnet indexing when Toccata mainnet launches.");
+        info!("Toccata mainnet indexer: not configured. Set KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet to enable mainnet indexing when Toccata mainnet launches.");
     }
 
     // --- Open DB ---

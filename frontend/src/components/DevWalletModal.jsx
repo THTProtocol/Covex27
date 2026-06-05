@@ -1,18 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useWallet } from './WalletContext';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange } from './WalletContext';
 import { Key, Terminal, X, AlertTriangle, Wand2 } from 'lucide-react';
 
-// ── Standalone TN12 Dev Wallet Modal ──
-// Isolated from browser extension wallet flow. Uses kaspa-wasm to derive
-// keys locally from mnemonic or hex private key. Stores result in devSigner
-// state via connectDevMode. Zero interaction with window.kasware/kastle/etc.
+// ── Standalone Dev Wallet Modal ──
+// Now network-aware — derives keys for the currently selected network (TN10/TN12/Mainnet).
+// Uses kaspa-wasm to derive keys locally from mnemonic or hex private key.
 
-let _wasmModule = null; // cached WASM module
+let _wasmModule = null;
 
 async function ensureWasm() {
   if (_wasmModule) return _wasmModule;
   const wasm = await import('@onekeyfe/kaspa-wasm');
-  // Must explicitly init WASM binary before using any class
   if (typeof wasm.default === 'function') {
     await wasm.default();
   }
@@ -20,7 +18,7 @@ async function ensureWasm() {
   return _wasmModule;
 }
 
-function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
+function deriveFromMnemonic(phrase, networkId = 'kaspatest') {
   return ensureWasm().then(async (wasm) => {
     const { Mnemonic, XPrv } = wasm;
     const mnemonic = new Mnemonic(phrase);
@@ -35,7 +33,7 @@ function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   });
 }
 
-function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
+function deriveFromPrivateKey(hexKey, networkId = 'kaspatest') {
   return ensureWasm().then(async (wasm) => {
     const { PrivateKey } = wasm;
     const cleanHex = hexKey.replace(/^0x/i, '');
@@ -62,7 +60,8 @@ function generateRandomMnemonic() {
 
 export default function DevWalletModal({ isOpen, onClose }) {
   const { connectDevMode, disconnect, isDevMode, address: currentAddr } = useWallet();
-  const [tab, setTab] = useState('mnemonic'); // 'mnemonic' | 'hex'
+  const [network, setNetwork] = useState(() => getCurrentNetwork());
+  const [tab, setTab] = useState('mnemonic');
   const [mnemonic, setMnemonic] = useState('');
   const [hexKey, setHexKey] = useState('');
   const [deriving, setDeriving] = useState(false);
@@ -71,16 +70,20 @@ export default function DevWalletModal({ isOpen, onClose }) {
   const [isWasmReady, setIsWasmReady] = useState(false);
   const wasmLoadAttempted = useRef(false);
 
-  // Preload WASM on mount (or when modal opens)
+  // Listen for network changes while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    return onNetworkChange(setNetwork);
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen || wasmLoadAttempted.current) return;
     wasmLoadAttempted.current = true;
     ensureWasm()
       .then(() => setIsWasmReady(true))
-      .catch(() => {}); // error state handled by UI
+      .catch(() => {});
   }, [isOpen]);
 
-  // Reset WASM flag when modal closes so it reloads next time if needed
   useEffect(() => {
     if (!isOpen) {
       wasmLoadAttempted.current = false;
@@ -93,16 +96,18 @@ export default function DevWalletModal({ isOpen, onClose }) {
     setDerivedAddr(null);
     setDeriving(true);
 
+    const netPrefix = network === 'mainnet' || network === 'mainnet-1' ? 'kaspa' : 'kaspatest';
+
     try {
       let result;
       if (tab === 'mnemonic') {
         const trimmed = mnemonic.trim();
         if (!trimmed) throw new Error('Enter a 12 or 24-word mnemonic phrase');
-        result = await deriveFromMnemonic(trimmed);
+        result = await deriveFromMnemonic(trimmed, netPrefix);
       } else {
         const trimmed = hexKey.trim();
         if (!trimmed) throw new Error('Enter a 64-character hex private key');
-        result = await deriveFromPrivateKey(trimmed);
+        result = await deriveFromPrivateKey(trimmed, netPrefix);
       }
 
       setDerivedAddr(result.address);
@@ -117,7 +122,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
     } finally {
       setDeriving(false);
     }
-  }, [tab, mnemonic, hexKey, connectDevMode]);
+  }, [tab, mnemonic, hexKey, connectDevMode, network]);
 
   const handleGenerate = useCallback(async () => {
     setError(null);
@@ -142,6 +147,9 @@ export default function DevWalletModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   const isConnected = isDevMode && currentAddr;
+  const netLabel = NETWORK_LABELS[network] || network;
+  const isMainnet = network === 'mainnet' || network === 'mainnet-1';
+  const accentColor = isMainnet ? 'red' : 'yellow';
 
   return (
     <div
@@ -155,12 +163,12 @@ export default function DevWalletModal({ isOpen, onClose }) {
         {/* Header */}
         <div className="flex justify-between items-center p-5 border-b border-[#1f1f1f] bg-[#0d0d0d]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-yellow-600/20 border border-yellow-600/30 flex items-center justify-center">
-              <Key size={18} className="text-yellow-400" />
+            <div className={`w-9 h-9 rounded-lg bg-${accentColor}-600/20 border border-${accentColor}-600/30 flex items-center justify-center`}>
+              <Key size={18} className={`text-${accentColor}-400`} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">TN12 Dev Wallet</h3>
-              <p className="text-[10px] text-yellow-500/80 font-mono uppercase tracking-wider">
+              <h3 className="text-base font-bold text-white">{netLabel} Dev Wallet</h3>
+              <p className={`text-[10px] text-${accentColor}-500/80 font-mono uppercase tracking-wider`}>
                 Isolated · Kaspa WASM · No Extensions
               </p>
             </div>
@@ -172,20 +180,24 @@ export default function DevWalletModal({ isOpen, onClose }) {
 
         {/* Body */}
         <div className="p-5 space-y-4">
-          {/* WASM loading overlay */}
+          {/* Network indicator */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-${accentColor}-500/[0.06] border border-${accentColor}-500/20`}>
+            <div className={`w-2 h-2 rounded-full bg-${accentColor}-400`} />
+            <span className="text-xs text-gray-200">Keys will be derived for <strong className={`text-${accentColor}-400}`}>{netLabel}</strong></span>
+          </div>
+
           {!isWasmReady && !isConnected && (
-            <div className="p-4 rounded-xl bg-yellow-600/[0.04] border border-yellow-600/20 flex items-center gap-3">
-              <span className="inline-block w-5 h-5 border-2 border-yellow-500/30 border-t-yellow-400 rounded-full animate-spin" />
+            <div className={`p-4 rounded-xl bg-${accentColor}-600/[0.04] border border-${accentColor}-600/20 flex items-center gap-3`}>
+              <span className={`inline-block w-5 h-5 border-2 border-${accentColor}-500/30 border-t-${accentColor}-400 rounded-full animate-spin`} />
               <div>
-                <p className="text-sm text-yellow-400 font-semibold">Loading WASM...</p>
-                <p className="text-[10px] text-yellow-500/60">
+                <p className={`text-sm text-${accentColor}-400 font-semibold`}>Loading WASM...</p>
+                <p className={`text-[10px] text-${accentColor}-500/60`}>
                   Initializing kaspa-wasm cryptographic module (~11MB)
                 </p>
               </div>
             </div>
           )}
 
-          {/* Already connected state */}
           {isConnected && (
             <div className="p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30">
               <div className="flex items-center gap-2 mb-2">
@@ -193,7 +205,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 <span className="text-xs text-emerald-400 font-mono uppercase tracking-wider">Dev Mode Active</span>
               </div>
               <p className="text-sm font-mono text-white break-all">{currentAddr}</p>
-              <p className="text-[10px] text-emerald-400/50 mt-1">testnet-12 · Signing with locally-derived key</p>
+              <p className="text-[10px] text-emerald-400/50 mt-1">{netLabel} · Signing with locally-derived key</p>
               <button
                 onClick={handleDisconnect}
                 className="mt-3 w-full px-4 py-2 bg-red-600/10 border border-red-600/30 text-red-400 hover:bg-red-600/20 text-sm font-bold rounded-lg transition-all"
@@ -203,17 +215,15 @@ export default function DevWalletModal({ isOpen, onClose }) {
             </div>
           )}
 
-          {/* Connection form (hidden when already connected) */}
           {!isConnected && (
             <>
-              {/* Tab switcher */}
               <div className="flex rounded-lg bg-[#111] border border-[#1f1f1f] overflow-hidden">
                 <button
                   onClick={() => { setTab('mnemonic'); setError(null); }}
                   disabled={!isWasmReady}
                   className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
                     tab === 'mnemonic'
-                      ? 'bg-yellow-600/20 text-yellow-400 border-b-2 border-yellow-500'
+                      ? `bg-${accentColor}-600/20 text-${accentColor}-400 border-b-2 border-${accentColor}-500`
                       : 'text-gray-300 hover:text-gray-300'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
@@ -225,7 +235,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   disabled={!isWasmReady}
                   className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
                     tab === 'hex'
-                      ? 'bg-yellow-600/20 text-yellow-400 border-b-2 border-yellow-500'
+                      ? `bg-${accentColor}-600/20 text-${accentColor}-400 border-b-2 border-${accentColor}-500`
                       : 'text-gray-300 hover:text-gray-300'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
@@ -234,7 +244,6 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 </button>
               </div>
 
-              {/* Generate New Wallet button */}
               {tab === 'mnemonic' && (
                 <button
                   onClick={handleGenerate}
@@ -250,7 +259,6 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 </button>
               )}
 
-              {/* Mnemonic input */}
               {tab === 'mnemonic' && (
                 <textarea
                   value={mnemonic}
@@ -265,7 +273,6 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 />
               )}
 
-              {/* Hex private key input */}
               {tab === 'hex' && (
                 <textarea
                   value={hexKey}
@@ -280,7 +287,6 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 />
               )}
 
-              {/* Error */}
               {error && (
                 <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2">
                   <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
@@ -288,19 +294,17 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 </div>
               )}
 
-              {/* Derived address preview */}
               {derivedAddr && !error && (
-                <div className="p-3 rounded-lg bg-[#49EACB]/[0.04] border border-[#49EACB]/20">
-                  <p className="text-[10px] text-[#49EACB]/60 uppercase tracking-wider">Derived Address (TN12)</p>
-                  <p className="text-sm font-mono text-[#49EACB] break-all mt-1">{derivedAddr}</p>
+                <div className={`p-3 rounded-lg bg-${accentColor}-500/[0.04] border border-${accentColor}-500/20`}>
+                  <p className={`text-[10px] text-${accentColor}-400/60 uppercase tracking-wider`}>Derived Address ({netLabel})</p>
+                  <p className={`text-sm font-mono text-${accentColor}-400 break-all mt-1`}>{derivedAddr}</p>
                 </div>
               )}
 
-              {/* Connect button */}
               <button
                 onClick={handleDerive}
                 disabled={!isWasmReady || deriving || (tab === 'mnemonic' ? !mnemonic.trim() : !hexKey.trim())}
-                className="w-full px-5 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(234,179,8,0.2)]"
+                className={`w-full px-5 py-3 bg-${accentColor}-600 hover:bg-${accentColor}-500 text-black font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(${isMainnet ? '239,68,68,0.2' : '234,179,8,0.2'})]`}
               >
                 {deriving ? (
                   <>
@@ -315,7 +319,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                 ) : (
                   <>
                     <Terminal size={16} />
-                    Connect TN12 Dev Wallet
+                    Connect {netLabel} Dev Wallet
                   </>
                 )}
               </button>
@@ -327,7 +331,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
         <div className="px-5 pb-5">
           <p className="text-[10px] text-gray-200 text-center leading-relaxed">
             Keys are derived locally via kaspa-wasm. Never leaves your browser.
-            For covenant testing only, no real funds. TN12 Testnet (Toccata).
+            For covenant testing only, no real funds. {netLabel}.
           </p>
         </div>
       </div>

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useWallet } from './WalletContext';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork } from './WalletContext';
 import { X, Wallet, ExternalLink, AlertTriangle } from 'lucide-react';
 
 export default function WalletButton() {
   const { address, balance, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect } = useWallet();
   const [open, setOpen] = useState(false);
+  const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'TN12 (Toccata)';
 
   const handleWalletClick = async (wallet) => {
     const detected = wallet.detect ? wallet.detect() : false;
@@ -58,7 +59,7 @@ export default function WalletButton() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              <p className="text-sm text-gray-300 mb-4">Select a Kaspa wallet to connect to Covex (TN12 Testnet)</p>
+              <p className="text-sm text-gray-300 mb-4">Select a Kaspa wallet to connect to Covex ({netLabel})</p>
 
               {/* Error display */}
               {error && (
@@ -137,7 +138,7 @@ export default function WalletButton() {
 
             <div className="p-6 border-t border-[#1f1f1f] shrink-0">
               <p className="text-xs text-gray-200 text-center">
-                TN12 Testnet · Non-custodial · Keys stay in your wallet
+                {netLabel} · Non-custodial · Keys stay in your wallet
               </p>
             </div>
           </div>

@@ -7,11 +7,38 @@ import {
 
 const WalletContext = createContext(null);
 
-const KASPA_NETWORK = 'kaspatest';
-const REQUIRED_NETWORK = 'testnet-12';
+// ── Network-aware helpers ──
+export function getCurrentNetwork() {
+  if (typeof window === 'undefined') return 'testnet-12';
+  return localStorage.getItem('kaspaNetwork') || 'testnet-12';
+}
+
+export function onNetworkChange(fn) {
+  const handler = (e) => {
+    const net = e?.detail || localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    fn(net);
+  };
+  window.addEventListener('kaspa-network-change', handler);
+  // Also listen to regular storage changes (for other tabs)
+  const storageHandler = () => {
+    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    fn(net);
+  };
+  window.addEventListener('storage', storageHandler);
+  return () => {
+    window.removeEventListener('kaspa-network-change', handler);
+    window.removeEventListener('storage', storageHandler);
+  };
+}
+
+const NETWORK_LABELS = {
+  'testnet-12': 'TN12 (Toccata)',
+  'testnet-10': 'TN10',
+  'mainnet': 'MAINNET',
+  'mainnet-1': 'MAINNET',
+};
 
 // ── Wallet logos from Chrome Web Store CDN (pattern from THTProtocol/27) ──
-// Wallet logos from Chrome Web Store CDN + known favicons (sourced from THTProtocol/27)
 const WALLET_LOGOS = {
   KasWare:  'https://lh3.googleusercontent.com/GWR2Bode3QAzDrsZJHVRsYhCN60azRCtL1xoOBxqCYcDpbMD_avwiFkuiAOAkuyLnEh9DGOAoZSbWDcNUhiZ7X6RZE8=s128',
   Kastle:   'https://lh3.googleusercontent.com/byDg7ykj9UUJRur0v8jFr9orcj7N1_M6LuqtwnJxlnVNk4GV0JrhFmS0Xp0U9QRgxGZa4wf7-8M29v7kfEBc-Ha9kg=s128',
@@ -69,7 +96,6 @@ function getProvider(name) {
 
 // ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
 function kasToSompi(amountKas) {
-  // Split at decimal, handle exactly
   const [whole = '0', frac = ''] = String(amountKas).split('.');
   const paddedFrac = (frac + '00000000').slice(0, 8);
   return BigInt(whole) * 100_000_000n + BigInt(paddedFrac);
@@ -110,31 +136,16 @@ async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
 
   const { Mnemonic, XPrv } = wasm;
 
-  // Parse mnemonic phrase
   const mnemonic = new Mnemonic(phrase);
-
-  // Get seed from mnemonic (no passphrase for dev mode)
   const seed = mnemonic.toSeed('');
-
-  // Create master extended private key from seed
   const xprv = new XPrv(seed);
-
-  // Derive standard Kaspa BIP44 path for testnet: m/44'/111111'/0'/0/0
-  //   coin_type 111111 = Kaspa Testnet
   const derived = xprv.derivePath("m/44'/111111'/0'/0/0");
-
-  // Get private key from derived XPrv
   const privateKeyHex = derived.toPrivateKey().toString();
-
-  // Derive address from private key
   const address = derived.toPrivateKey().toAddress(networkId);
   const addressStr = address.toString();
-
-  // Clean up
   mnemonic.free();
   xprv.free();
   derived.free();
-
   return { privateKeyHex, address: addressStr };
 }
 
@@ -143,45 +154,42 @@ async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
   if (!wasm) throw new Error('kaspa-wasm module failed to load');
 
   const { PrivateKey } = wasm;
-
-  // Strip 0x prefix if present
   const cleanHex = hexKey.replace(/^0x/i, '');
-
   if (!/^[0-9a-fA-F]{64}$/.test(cleanHex)) {
     throw new Error('Invalid private key hex. Must be 64 hex characters (32 bytes).');
   }
-
   const pk = new PrivateKey(cleanHex);
   const address = pk.toAddress(networkId);
   const addressStr = address.toString();
-
   pk.free();
-
   return { privateKeyHex: cleanHex, address: addressStr };
 }
 
-// ── Base TN12 Connect Panel, mnemonic + hex key tabs (internal, takes onConnect prop) ──
-function DevConnectPanelBase({ onConnect, compact = false }) {
-  const [mode, setMode] = useState('mnemonic'); // 'mnemonic' | 'hex'
+// ── Dev Connect Panel (internal, takes onConnect prop + network) ──
+function DevConnectPanelBase({ onConnect, compact = false, network }) {
+  const [mode, setMode] = useState('mnemonic');
   const [phrase, setPhrase] = useState('');
   const [hexKey, setHexKey] = useState('');
   const [deriving, setDeriving] = useState(false);
   const [error, setError] = useState(null);
+
+  const netLabel = NETWORK_LABELS[network] || network;
 
   const handleDerive = useCallback(async () => {
     setDeriving(true);
     setError(null);
     try {
       let result;
+      const netPrefix = network === 'mainnet' || network === 'mainnet-1' ? 'kaspa' : 'kaspatest';
       if (mode === 'hex') {
         const cleanHex = hexKey.trim().replace(/^0x/i, '');
         if (!cleanHex) throw new Error('Enter a 64-character hex private key');
-        result = await deriveFromPrivateKey(cleanHex);
+        result = await deriveFromPrivateKey(cleanHex, netPrefix);
         onConnect({ type: 'hex', privateKeyHex: result.privateKeyHex, address: result.address });
       } else {
         const trimmed = phrase.trim();
         if (!trimmed) throw new Error('Enter a 12 or 24 word mnemonic phrase');
-        result = await deriveFromMnemonic(trimmed);
+        result = await deriveFromMnemonic(trimmed, netPrefix);
         onConnect({ type: 'mnemonic', phrase: trimmed, privateKeyHex: result.privateKeyHex, address: result.address });
       }
     } catch (err) {
@@ -189,30 +197,37 @@ function DevConnectPanelBase({ onConnect, compact = false }) {
     } finally {
       setDeriving(false);
     }
-  }, [mode, phrase, hexKey, onConnect]);
+  }, [mode, phrase, hexKey, onConnect, netPrefix]);
+
+  const isMainnet = network === 'mainnet' || network === 'mainnet-1';
+  const accentColor = isMainnet ? 'red' : 'yellow';
 
   return (
-    <div className={`rounded-xl border border-yellow-600/30 bg-yellow-600/[0.04] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
+    <div className={`rounded-xl border border-${accentColor}-600/30 bg-${accentColor}-600/[0.04] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse" />
-        <span className="text-xs font-mono text-yellow-400 uppercase tracking-wider">TN12 Dev Connect</span>
+        <div className={`w-2.5 h-2.5 rounded-full bg-${accentColor}-500 animate-pulse`} />
+        <span className={`text-xs font-mono text-${accentColor}-400 uppercase tracking-wider`}>{netLabel} Dev Connect</span>
       </div>
       <p className="text-xs text-gray-300 mb-3 leading-relaxed">
         Connect via mnemonic or hex private key. Keys are derived locally and never leave your browser.
       </p>
+      {isMainnet && (
+        <div className="mb-3 p-2 rounded bg-red-500/10 border border-red-500/20">
+          <p className="text-[10px] text-red-400 font-semibold">MAINNET — use only with your own real wallet with real KAS.</p>
+        </div>
+      )}
 
-      {/* Tab toggle */}
       <div className="flex rounded-lg bg-black/40 border border-white/[0.06] mb-3 overflow-hidden">
         <button
           onClick={() => { setMode('mnemonic'); setError(null); }}
           className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-            mode === 'mnemonic' ? 'bg-yellow-600/20 text-yellow-400' : 'text-gray-300 hover:text-white'
+            mode === 'mnemonic' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
           }`}
         >Mnemonic</button>
         <button
           onClick={() => { setMode('hex'); setError(null); }}
           className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-            mode === 'hex' ? 'bg-yellow-600/20 text-yellow-400' : 'text-gray-300 hover:text-white'
+            mode === 'hex' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
           }`}
         >Hex Key</button>
       </div>
@@ -242,7 +257,7 @@ function DevConnectPanelBase({ onConnect, compact = false }) {
       <button
         onClick={handleDerive}
         disabled={deriving}
-        className="mt-3 w-full px-4 py-2.5 bg-yellow-600/80 hover:bg-yellow-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className={`mt-3 w-full px-4 py-2.5 bg-${accentColor}-600/80 hover:bg-${accentColor}-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
       >
         {deriving ? (
           <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -256,55 +271,51 @@ function DevConnectPanelBase({ onConnect, compact = false }) {
 function WalletBridge({ children }) {
   const kf = useKasFlowWallet();
 
-  // ── Polling/Retry Detection for wallet injection ──
   const [injections, setInjections] = useState({ KasWare: false, OKX: false });
   const [pollingActive, setPollingActive] = useState(true);
 
   useEffect(() => {
     let attempts = 0;
-    const MAX_ATTEMPTS = 25; // 25 × 200ms = 5 seconds
-
+    const MAX_ATTEMPTS = 25;
     const interval = setInterval(() => {
       attempts++;
       const kaswareDetected = detectWallet('KasWare');
       const okxDetected = detectWallet('OKX');
-
       setInjections(prev => {
         if (prev.KasWare === kaswareDetected && prev.OKX === okxDetected) return prev;
         return { KasWare: kaswareDetected, OKX: okxDetected };
       });
-
       if (attempts >= MAX_ATTEMPTS) {
         setPollingActive(false);
         clearInterval(interval);
       }
     }, 200);
-
     return () => clearInterval(interval);
   }, []);
 
-  // ── State: connected wallet identity (stores WHICH wallet, not just address) ──
-  const [activeWalletId, setActiveWalletId] = useState(null);     // 'KasWare' | 'Kastle' | null
+  const [activeWalletId, setActiveWalletId] = useState(null);
   const [activeAddress, setActiveAddress] = useState(null);
   const [activeBalance, setActiveBalance] = useState(null);
-  const [activeNetwork, setActiveNetwork] = useState(null);
+  const [activeWalletNetwork, setActiveWalletNetwork] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
   const balanceTimerRef = useRef(null);
 
-  // ── Dev mode state: mnemonic-derived keys that bypass browser extensions ──
-  const [devMode, setDevMode] = useState(null); // { phrase, privateKeyHex, address } | null
+  // ── Track the current app-level network for dev mode derivation ──
+  const [appNetwork, setAppNetwork] = useState(() => getCurrentNetwork());
+  useEffect(() => onNetworkChange(setAppNetwork), []);
 
-  // ── Resolve active wallet/provider from connected ID (not detect-guessing) ──
+  // ── Dev mode state ──
+  const [devMode, setDevMode] = useState(null);
+
   const walletMeta = activeWalletId ? ALL_WALLETS.find(w => w.id === activeWalletId) : null;
 
   function getActiveProvider() {
-    if (devMode) return null; // Dev mode bypasses extensions entirely
+    if (devMode) return null;
     if (!activeWalletId || !activeAddress) return null;
     return getProvider(activeWalletId);
   }
 
-  // ── Connect ──
   const connectWallet = useCallback(async (walletId) => {
     const wallet = ALL_WALLETS.find(w => w.id === walletId);
     if (!wallet) { setError('Unknown wallet'); return; }
@@ -323,7 +334,6 @@ function WalletBridge({ children }) {
       const provider = wallet.provider();
       if (!provider) throw new Error('Provider not available');
 
-      // Get accounts, try multiple provider APIs
       let accounts;
       if (typeof provider.requestAccounts === 'function') {
         accounts = await provider.requestAccounts();
@@ -344,11 +354,10 @@ function WalletBridge({ children }) {
       }
 
       const addr = accounts[0];
-      setDevMode(null); // Disable dev mode when real wallet connects
+      setDevMode(null);
       setActiveWalletId(walletId);
       setActiveAddress(addr);
 
-      // Validate network
       try {
         let net;
         if (typeof provider.getNetwork === 'function') {
@@ -356,17 +365,14 @@ function WalletBridge({ children }) {
         } else if (typeof provider.request === 'function') {
           net = await provider.request({ method: 'getNetwork' });
         }
-        setActiveNetwork(net || null);
-        if (net && net !== REQUIRED_NETWORK) {
-          console.warn(`[Covex] Network mismatch: got ${net}, expected ${REQUIRED_NETWORK}`);
-          setError(`Wrong network: ${net}. Please switch to ${REQUIRED_NETWORK} in your wallet.`);
+        setActiveWalletNetwork(net || null);
+        if (net && net !== appNetwork) {
+          console.warn(`[Covex] Wallet network ${net} does not match app network ${appNetwork}`);
         }
       } catch (_) {}
 
-      // Get balance
       await refreshBalanceForProvider(provider);
 
-      // Also connect via KasFlow for dual-path reliability
       if (walletId === 'KasWare') {
         try { await kf.connect('kasware'); } catch (_) {}
       }
@@ -377,26 +383,24 @@ function WalletBridge({ children }) {
     } finally {
       setConnecting(false);
     }
-  }, [kf]);
+  }, [kf, appNetwork]);
 
   // ── Dev mode connect (persists to localStorage) ──
   const connectDevMode = useCallback((devState) => {
     setDevMode(devState);
     setActiveWalletId('__dev_mode__');
     setActiveAddress(devState.address);
-    setActiveNetwork('testnet-12');
+    setActiveWalletNetwork(appNetwork);
     setActiveBalance(null);
     setError(null);
-    // Persist to localStorage for refresh survival
     if (typeof localStorage !== 'undefined') {
       const devSave = { ...devState };
-      delete devSave.type; // Don't persist type discriminator
+      delete devSave.type;
       localStorage.setItem('covex_dev_wallet', JSON.stringify(devSave));
       localStorage.setItem('covex_connected_wallet', '__dev_mode__');
     }
-  }, []);
+  }, [appNetwork]);
 
-  // ── Balance refresh helper ──
   async function refreshBalanceForProvider(provider) {
     if (!provider) return;
     try {
@@ -415,7 +419,6 @@ function WalletBridge({ children }) {
     } catch (_) {}
   }
 
-  // ── Disconnect (actually closes provider connections) ──
   const disconnectWallet = useCallback(async () => {
     if (devMode) {
       setDevMode(null);
@@ -425,43 +428,36 @@ function WalletBridge({ children }) {
       }
     }
     const provider = getActiveProvider();
-    // Try to disconnect the provider if supported
     if (provider) {
       try {
         if (typeof provider.disconnect === 'function') await provider.disconnect();
         else if (typeof provider.close === 'function') await provider.close();
       } catch (_) {}
     }
-    // Disconnect KasFlow too
     try { kf.disconnect(); } catch (_) {}
 
     setActiveWalletId(null);
     setActiveAddress(null);
     setActiveBalance(null);
-    setActiveNetwork(null);
+    setActiveWalletNetwork(null);
     setError(null);
   }, [devMode, kf]);
 
-  // ── Auto-refresh balance every 15s ──
   useEffect(() => {
     if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);
     if (!activeAddress || devMode) return;
-
     balanceTimerRef.current = setInterval(() => {
       const provider = getActiveProvider();
       if (provider) refreshBalanceForProvider(provider);
     }, 15000);
-
     return () => {
       if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);
     };
   }, [activeAddress, activeWalletId, devMode]);
 
-  // ── Auto-connect on mount: restore dev wallet or detect browser wallet ──
+  // Auto-connect on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    // Priority 1: Restore saved dev wallet from localStorage
     const savedDev = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_dev_wallet') : null;
     if (savedDev) {
       try {
@@ -470,23 +466,19 @@ function WalletBridge({ children }) {
           connectDevMode(parsed);
           return;
         }
-      } catch (_) { /* corrupt data, fall through */ }
+      } catch (_) {}
     }
-
-    // Priority 2: Restore browser extension wallet
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_connected_wallet') : null;
     if (saved && ALL_WALLETS.find(w => w.id === saved && w.detect())) {
       connectWallet(saved).catch(() => {});
     } else {
-      // Auto-detect first available wallet (prefer KasWare)
       const autoWallet = ALL_WALLETS.find(w => w.detect());
       if (autoWallet) {
         connectWallet(autoWallet.id).catch(() => {});
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Persist connected wallet ID ──
   useEffect(() => {
     if (activeWalletId && typeof localStorage !== 'undefined') {
       localStorage.setItem('covex_connected_wallet', activeWalletId);
@@ -495,9 +487,8 @@ function WalletBridge({ children }) {
     }
   }, [activeWalletId]);
 
-  // ── URI builder ──
   const buildUri = useCallback((recipient, amountKas, meta = {}) => {
-    const prefix = 'kaspatest:';
+    const prefix = appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'kaspa:' : 'kaspatest:';
     const addr = recipient.replace(/^(kaspatest:|kaspa:)/, '');
     const q = [];
     if (amountKas) q.push(`amount=${amountKas}`);
@@ -505,61 +496,46 @@ function WalletBridge({ children }) {
     let uri = `${prefix}${addr}`;
     if (q.length) uri += `?${q.join('&')}`;
     return uri;
-  }, []);
+  }, [appNetwork]);
 
-  // ── Dev mode: sign message with locally-derived private key ──
   const devSignMessage = useCallback(async (message) => {
     if (!devMode) throw new Error('Dev mode not active');
     const wasm = await loadKaspaWasm();
     if (!wasm) throw new Error('kaspa-wasm module failed to load');
-
     const { PrivateKey } = wasm;
     const pk = new PrivateKey(devMode.privateKeyHex);
-    // Use signMessage available on PrivateKey (kaspa-wasm v1.0)
     const signature = pk.signMessage ? pk.signMessage(message) : pk.toString();
     pk.free();
     return signature;
   }, [devMode]);
 
-  // ── Dev mode: build transaction signed with locally-derived private key ──
   const devSendTransaction = useCallback(async (recipient, amountKas) => {
     if (!devMode) throw new Error('Dev mode not active');
     const wasm = await loadKaspaWasm();
     if (!wasm) throw new Error('kaspa-wasm module failed to load');
-
     const { PrivateKey, createTransaction, signTransaction } = wasm;
     const pk = new PrivateKey(devMode.privateKeyHex);
     const amountSompi = kasToSompi(amountKas);
-
-    // Build a basic transaction (dev mode: no UTXO lookup, placeholder)
-    // In dev mode we create a minimal transaction and sign it locally.
-    // The caller receives the signed transaction hex for manual broadcast.
     try {
-      const utxos = []; // Real UTXOs would come from node queries
+      const utxos = [];
       const outputs = [{ address: recipient, amount: BigInt(amountSompi) }];
       const tx = createTransaction(utxos, outputs, 1000n);
       const signed = signTransaction(tx, [pk], false);
       const txHex = signed.toHex ? signed.toHex() : signed.toString();
       pk.free();
-      return { success: true, method: 'dev-mode-tn12', txid: signed.id || txHex, txHex };
+      return { success: true, method: 'dev-mode', txid: signed.id || txHex, txHex };
     } catch (_) {
-      // Fallback for dev mode: sign a mock payment record
       const sig = await devSignMessage(`PAYMENT:${recipient}:${amountSompi}`);
       pk.free();
       return { success: true, method: 'dev-mode-sig', sig, recipient, amountSompi: Number(amountSompi) };
     }
   }, [devMode, devSignMessage]);
 
-  // ── Send payment (uses connected wallet's provider, or dev mode, or detect-guess) ──
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
-    // Path 0: Dev mode, sign locally with derived key
     if (devMode && activeAddress) {
       return await devSendTransaction(recipient, amountKas);
     }
-
     const provider = getActiveProvider();
-
-    // Path 1: Extension payment via connected wallet
     if (provider && activeAddress) {
       try {
         const amountSompi = kasToSompi(amountKas);
@@ -574,10 +550,8 @@ function WalletBridge({ children }) {
           txid = result.txId || result.txid;
         }
         if (txid) return { success: true, method: 'extension', txid };
-      } catch (_) { /* fall through */ }
+      } catch (_) {}
     }
-
-    // Path 2: KasFlow fallback
     if (kf.connected && kf.address) {
       try {
         const amountSompi = kasToSompi(amountKas);
@@ -585,56 +559,46 @@ function WalletBridge({ children }) {
         return { success: true, method: 'kasflow', txid: result.txId };
       } catch (_) {}
     }
-
-    // Path 3: URI fallback
     const uri = buildUri(recipient, amountKas, meta);
     window.open(uri, '_blank');
     return { success: true, method: 'uri', uri };
   }, [activeAddress, activeWalletId, devMode, devSendTransaction, kf, buildUri]);
 
-  // ── Sign message (dev mode: sign locally; otherwise: use extension provider) ──
   const signMessage = useCallback(async (message) => {
-    // Dev mode: sign with locally-derived private key
     if (devMode && activeAddress) {
       return await devSignMessage(message);
     }
-
     const provider = getActiveProvider();
     if (!provider || !activeAddress) throw new Error('No wallet connected');
-
     if (typeof provider.signMessage === 'function') return await provider.signMessage(message);
     if (typeof provider.request === 'function') return await provider.request({ method: 'signMessage', params: { message } });
     throw new Error('signMessage not available on this wallet');
   }, [activeAddress, activeWalletId, devMode, devSignMessage]);
 
-  // ── Active wallet list (filtered by mobile/desktop) ──
   const targetList = isMobile() ? MOBILE_WALLETS : DESKTOP_WALLETS;
   const activeWallets = ALL_WALLETS.filter(w => targetList.includes(w.id));
 
   const value = {
-    // Connected state
     activeWalletId,
     address: activeAddress,
     balance: activeBalance,
     connecting,
     error,
-    network: activeNetwork || KASPA_NETWORK,
+    network: activeWalletNetwork || (appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'mainnet' : 'kaspatest'),
+    appNetwork,
 
-    // Wallet metadata
     walletMeta,
     wallets: activeWallets,
     allWallets: ALL_WALLETS,
 
-    // Dev mode
     isDevMode: !!devMode,
     devMode,
     connectDevMode,
-    mnemonicPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} />,
-    DevConnectPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} />,
+    mnemonicPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} network={appNetwork} />,
+    DevConnectPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} network={appNetwork} />,
     injections,
     pollingActive,
 
-    // Actions
     connect: connectWallet,
     disconnect: disconnectWallet,
     sendPayment,
@@ -651,7 +615,7 @@ function WalletBridge({ children }) {
     },
     buildUri,
     refreshBalance: async () => {
-      if (devMode) return; // No balance queries in dev mode
+      if (devMode) return;
       const provider = getActiveProvider();
       if (provider) await refreshBalanceForProvider(provider);
     },
@@ -672,11 +636,12 @@ export function useWallet() {
 }
 
 export function WalletProvider({ children }) {
+  const network = getCurrentNetwork();
   return (
     <KasFlowProvider
       config={{
         appName: 'Covex',
-        network: 'testnet-12',
+        network: network === 'mainnet' || network === 'mainnet-1' ? network : 'testnet-12',
         autoConnect: false,
         adapters: [kaswareAdapter()],
       }}
@@ -688,4 +653,4 @@ export function WalletProvider({ children }) {
   );
 }
 
-export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase };
+export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase, NETWORK_LABELS };

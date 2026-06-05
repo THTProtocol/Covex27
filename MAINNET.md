@@ -1,8 +1,10 @@
 # Mainnet Integration for Covex27
 
-## Current State (2026-06-05)
+## Current State (2026-06-05, updated)
 
-**Status:** Code-complete, 3-network selector live, security guards enforced. Real mainnet covenants will appear the moment Toccata mainnet launches and a backend is pointed at a synced mainnet node.
+**Status:** Production-ready. 3-network selector live, real mainnet treasury wired everywhere, multi-network indexer loop (TN12 + TN10 + MAINNET) spawning simultaneously. Real mainnet covenants will appear the moment Toccata mainnet launches and a backend is pointed at a synced mainnet node.
+
+**Mainnet Treasury:** `kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2`
 
 ## Architecture
 

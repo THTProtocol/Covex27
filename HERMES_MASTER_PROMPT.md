@@ -439,3 +439,77 @@ Code audit revealed that while merkle_membership and range_proof had full ZK sub
 7. Confirm "all 3 places" (and Studio) now use this exact image as the logo.
 
 After this, the glowing network "C" from the user image is THE Covex logo everywhere.
+
+
+────────────────────────────────────────────────────────────────
+## COMPLETED 2026-06-05 — NEW COVEX LOGO (glowing network C) deployed everywhere
+────────────────────────────────────────────────────────────────
+
+### Execution Summary
+
+The exact user-provided glowing neon network "C" image (1062x1079, neon green/cyan on dark grid with particles, mesh lines, bright nodes) is now THE official Covex logo across all surfaces.
+
+### Assets Deployed
+
+| Asset | Format | Size | Location |
+|-------|--------|------|----------|
+| covex-logo-full.jpg | JPEG | 282KB, 1062x1079 | Covex27 + Studio + Hetzner |
+| covex-logo.svg | SVG | 4.7KB, 512x512 | Covex27 + Studio + Hetzner |
+| icon.svg | SVG | 1.8KB | Covex27 + Studio + Hetzner |
+| favicon.svg | SVG | 1.1KB | Covex27 + Studio + Hetzner |
+
+### Changes Made
+
+1. **Covenant-Studio (93419d4)** — Replaced old hexagon DAG icons with new network C:
+   - icon.svg + favicon.svg: old style → network C with glow
+   - Added covex-logo-full.jpg + covex-logo.svg
+   - App.jsx nav: inline SVG hexagons → `<img src="/covex-logo.svg">` with cyberglow
+
+2. **Covex27 README (bfe33f8)** — Replaced ASCII art header with glowing network C logo image (via raw GitHub URL)
+
+3. **Covex27 frontend** (162acdb, prior session) — Already done:
+   - All public/assets: covex-logo-full.jpg, covex-logo.svg, icon.svg, favicon.svg
+   - App.jsx nav: `<img src="/covex-logo.svg">` with drop-shadow glow
+   - CovexTerminal.jsx: brand row with covex-logo-full.jpg + "THE NEW COVEX LOGO"
+   - manifest.json: icon.svg + covex-logo-full.jpg for PWA
+   - index.html: `<link rel="icon" type="image/svg+xml" href="/icon.svg">`
+
+### Live Verification Results at SHA bfe33f8
+
+```
+Triple SHA:          bfe33f8 / bfe33f8 / bfe33f8 ✓
+/covex-logo-full.jpg: HTTP 200, 282,423 bytes, image/jpeg ✓
+/covex-logo.svg:      HTTP 200, 4,765 bytes, image/svg+xml ✓
+/icon.svg:            HTTP 200, 1,834 bytes ✓
+/favicon.svg:         HTTP 200, 1,121 bytes ✓
+Bundle references:    2 covex-logo + 1 "THE NEW COVEX LOGO" + 1 "Glowing Network C" ✓
+Nav logo (live):      Network C SVG with cyberglow next to COVEX wordmark ✓
+Terminal brand row:   covex-logo-full.jpg + label visible in config section ✓
+PWA manifest:         icon.svg + covex-logo-full.jpg listed ✓
+Covenant-Studio:      Synced — same network C icons + raster + vector ✓
+"Higher-tier":        0 matches ✓
+ZK flows:             Unaffected, all functional ✓
+Games + timers:       Unaffected, all functional ✓
+```
+
+### All Places Status
+
+| Place | Icon | Favicon | Raster Logo | Nav Logo | Terminal Logo | README Logo |
+|-------|:----:|:-------:|:-----------:|:--------:|:------------:|:-----------:|
+| Local Covex27 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GitHub Covex27 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Hetzner/hightable.pro | ✓ | ✓ | ✓ | ✓ | ✓ | N/A |
+| Covenant-Studio (local) | ✓ | ✓ | ✓ | ✓ | N/A | N/A |
+| GitHub Covenant-Studio | ✓ | ✓ | ✓ | ✓ | N/A | N/A |
+
+### Final SHAs
+
+- Covex27: **bfe33f8** (README logo + prompt update)
+- Covenant-Studio: **93419d4** (icon/favicon + logo assets + nav update)
+
+### Honest Notes
+
+- The fancy glow/particles in the exact raster look best at larger sizes (hero/Terminal). Tiny favicons use the simplified vector network C for clarity.
+- The exact user-provided image is dark-background + bright neon. On light mode, the neon glow still pops well due to bright cyan-green colors.
+- Studio's deployed site (hightable.pro/studio) won't update until a separate Studio deploy is run (assets are committed but the Studio nginx needs a build + cp cycle).
+- Backend restart was not needed (no backend code changed this run).

@@ -80,3 +80,90 @@
 You know the drill from previous runs. Make Covex the best 3-network professional platform. Everything separate per network, beautiful UI, logo perfect on tab, no junk text, fully working.
 
 BEGIN.
+
+---
+
+## COMPLETED BLOCK — 2026-06-05 (3-Network Polish: Logo, UI, Phase Cleanup, Toccata Mainnet)
+
+### Final Git SHAs (triple sync confirmed)
+- **Local**: `1e83f87`
+- **GitHub (origin/master)**: `1e83f87`
+- **Hetzner (hightable.pro)**: `1e83f87`
+- Commit: `polish: professional 3-network UI — rewrite PremiumBuilder with circuit grid, remove all Phase references, update favicon/tab title/manifest, Toccata mainnet log clarity`
+
+### What Was Done
+
+**1. PremiumBuilder.jsx — Complete Rewrite**
+Replaced the stub `"Premium Builder (Phase 1 Fixed)"` page + `"(Full terminal UI restored in next push...)"` placeholder with a fully professional Covenant Builder:
+- **Circuit Selection Grid**: Beautiful 3-column cards for all 6 ZK_CIRCUIT_TYPES (Chess FIDE, Merkle Membership, Range Proof, Age Verification, Verifiable Compute, Custom Circuit). Each card has its own icon (Shield, Layers, Hash, Fingerprint, Cpu, Code), accent color, and description. Selected circuit gets a highlighted border with glow effect.
+- **Circuit Configuration Panel**: Shows selected circuit detail (name, circuit ID, category badge), plus config fields for fee percentage, reusable toggle, and top-up allowance — all with professional styling.
+- **SilverScript Generator**: `handleGenerate` builds covenant code from selected circuit + config + network context. Displayed in a code viewer with copy button, line count, and "Deploy This Covenant" action that routes to /deploy.
+- **Header**: Covex logo + tier badge (BUILDER/PRO/MAX) + network badge (TOCCATA TN12/TESTNET-10/MAINNET) with per-network colors.
+- **Footer reminder**: Visual grid showing what circuits can build (Chess arenas, token-gated access, private age checks, verifiable compute) with color-coded dots.
+- **Paid tier guard**: Redirects to /pricing if no paid tier or FREE.
+- Zero "Phase" references, zero placeholder text, zero unprofessional copy.
+
+**2. All "Phase" References Removed**
+Cleaned every "Phase N", "Phase N: ...", "Phase N + Phase M" comment across the entire frontend:
+- `CovexTerminal.jsx` (6 occurrences): imports, config integration, event handlers, network indicator, Covenant Studio section, config sync comments — all cleaned to plain descriptive comments.
+- `MultiOracleConfigurator.jsx`: "Phase 15" removed from doc comment.
+- `useCovenantConfig.js`: "Phase 11" removed from doc comment.  
+- `ResolutionSimulator.jsx`: "Phase 11" removed from doc comment.
+- `AdvancedPrimitivesComposer.jsx`: "Phase 14" removed from doc comment.
+- `FullScreenPoker.jsx` / `FullScreenBlackjack.jsx`: Left alone — "phase" is a legitimate game state variable, not a development phase marker.
+- Verified: `grep -rn 'Phase' frontend/src --include='*.jsx'` returns zero results after cleaning.
+
+**3. Logo, Favicon, Tab Title, Manifest — Professional**
+- **Tab title**: Updated from `"Covex - Kaspa Covenant Platform"` to `"Covex | Kaspa Covenant Platform"` — cleaner, more professional pipe separator.
+- **Favicon**: Changed from `/icon.svg` to `/favicon.svg` (the glowing network C SVG with green-cyan gradient + node dots). Also added `/covex-logo-192.png` as apple-touch-icon.
+- **Manifest.json**: Updated description from "Native SilverScript covenant indexing and deployment" to "Verifiable interactive covenant platform on Kaspa BlockDAG. ZK circuits, oracle resolution, pro game arenas. Non-custodial."
+- **Meta description**: Updated to match the manifest — emphasizes ZK circuits, oracle resolution, pro game arenas.
+- All log PNGs (16, 32, 48, 192, 512, full, square), SVG, and favicon confirmed present in public dir and served live at hightable.pro.
+
+**4. Toccata Mainnet Log Clarity**
+Updated backend startup logs in `main.rs`:
+- `"Mainnet indexer ready"` → `"Toccata mainnet indexer ready"`
+- `"Mainnet mode active"` → `"Toccata mainnet mode active"`
+- `"Mainnet indexer: not configured"` → `"Toccata mainnet indexer: not configured"`
+- All three messages now explicitly mention "Toccata mainnet" for clarity.
+
+**5. 3-Network Data Isolation (preserved from prior work)**
+- **TN12**: 3,017 covenants (network=testnet-12)
+- **TN10**: 3,172 covenants (network=testnet-10)
+- **MAINNET**: 0 covenants (network=mainnet, expected — no mainnet node running)
+- All three API endpoints verified: `curl https://hightable.pro/api/covenants?network=` returns independent counts.
+
+**6. Mainnet Security (preserved from prior work)**
+- `POST /api/sign-and-broadcast` with `{"network":"mainnet","use_dev_mode":true}` returns: `"Dev mode and hardcoded keys are DISABLED on mainnet. Use a real wallet extension..."` — confirmed live.
+- No dev wallet UI anywhere on mainnet (Deploy.jsx, PaidDeploy.jsx, CreateCovenant.jsx, DevWalletModal.jsx, WalletContext.jsx all have isMainnet guards).
+- Zero JavaScript errors on live site (`window.__covexErrors` is empty array).
+
+**7. Backend Multi-Network Indexers (running live)**
+- TN12: indexer + crawler + payment_verifier on ws://127.0.0.1:17217
+- TN10: indexer + crawler + payment_verifier on ws://127.0.0.1:17210
+- Toccata mainnet: log confirmed: `"Toccata mainnet indexer: not configured. Set KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet to enable mainnet indexing when Toccata mainnet launches."`
+
+**8. Frontend Build & Deploy**
+- Frontend: `npm run build` succeeds in 3.75s (local) / 2.76s (Hetzner), no errors.
+- Backend: `cargo build --release` succeeds in 23.80s on Hetzner.
+- Nginx root: `/root/htp/public` — confirmed serving hightable.pro.
+- Copy: `dist/*` → `/root/htp/public/` with stale bundle cleanup.
+- systemd: `covex-backend` restarted, active/running, all indexers started correctly.
+- Browser verification: site loads with correct title, 3-button selector visible, favicon served, zero JS errors.
+
+### Key Files Changed
+- `frontend/src/pages/PremiumBuilder.jsx` — complete rewrite (stub → professional builder)
+- `frontend/src/components/CovexTerminal.jsx` — remove 6 Phase comments
+- `frontend/index.html` — tab title, favicon path, meta description
+- `frontend/public/manifest.json` — description update
+- `backend/src/main.rs` — Toccata mainnet log clarity
+- `frontend/src/lib/multi-oracle/MultiOracleConfigurator.jsx` — Phase 15 comment removed
+- `frontend/src/lib/covenant-config/useCovenantConfig.js` — Phase 11 comment removed
+- `frontend/src/lib/covenant-config/ResolutionSimulator.jsx` — Phase 11 comment removed
+- `frontend/src/lib/advanced-primitives/AdvancedPrimitivesComposer.jsx` — Phase 14 comment removed
+
+### Honest Remaining Items
+- **No mainnet kaspad on Hetzner**: 28GB free on volume, 400GB+ needed for full node. Mainnet node is on operator's PC.
+- **Toccata mainnet indexing ready** but requires either `KASPA_WRPC_URL_MAINNET=ws://<PC-IP>:<port>` or `KASPA_NETWORK=mainnet` env set on covex-backend. All code paths for mainnet indexing, signing, treasury, and data isolation are complete.
+- **Mainnet treasury address** (`kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2`) is hardcoded in `dev_wallets.rs` — operator must verify accuracy.
+- **Covenant Studio**: Not yet deployed (studio.hightable.pro → `/root/htp/studio`). Separate task.

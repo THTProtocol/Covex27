@@ -315,6 +315,9 @@ function WalletBridge({ children }) {
   const balanceTimerRef = useRef(null);
   const prevNetworkRef = useRef(null);
 
+  // ── Dev mode state (must be before useEffects that reference it) ──
+  const [devMode, setDevMode] = useState(null);
+
   // ── Track the current app-level network for dev mode derivation ──
   const [appNetwork, setAppNetwork] = useState(() => getCurrentNetwork());
   useEffect(() => onNetworkChange(setAppNetwork), []);
@@ -345,20 +348,6 @@ function WalletBridge({ children }) {
       }
     }
   }, [appNetwork]);
-
-  // On network switch (after mount), disconnect any real (extension) wallet because wallet connections are network-specific.
-  // User will re-connect the desired wallet while the chosen network (TN12/TN10/MAIN) is active.
-  useEffect(() => {
-    if (prevNetworkRef.current !== null && prevNetworkRef.current !== appNetwork) {
-      if (activeWalletId && activeWalletId !== '__dev_mode__' && !devMode) {
-        disconnectWallet().catch(() => {});
-      }
-    }
-    prevNetworkRef.current = appNetwork;
-  }, [appNetwork, activeWalletId, devMode, disconnectWallet]);
-
-  // ── Dev mode state ──
-  const [devMode, setDevMode] = useState(null);
 
   const walletMeta = activeWalletId ? ALL_WALLETS.find(w => w.id === activeWalletId) : null;
 
@@ -501,6 +490,17 @@ function WalletBridge({ children }) {
     setActiveWalletNetwork(null);
     setError(null);
   }, [devMode, kf]);
+
+  // On network switch (after mount), disconnect any real (extension) wallet because wallet connections are network-specific.
+  // User will re-connect the desired wallet while the chosen network (TN12/TN10/MAIN) is active.
+  useEffect(() => {
+    if (prevNetworkRef.current !== null && prevNetworkRef.current !== appNetwork) {
+      if (activeWalletId && activeWalletId !== '__dev_mode__' && !devMode) {
+        disconnectWallet().catch(() => {});
+      }
+    }
+    prevNetworkRef.current = appNetwork;
+  }, [appNetwork, activeWalletId, devMode, disconnectWallet]);
 
   useEffect(() => {
     if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);

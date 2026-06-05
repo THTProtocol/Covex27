@@ -158,6 +158,18 @@ export default function DevWalletModal({ isOpen, onClose }) {
   const isMainnet = network === 'mainnet' || network === 'mainnet-1';
   const accentColor = isMainnet ? 'red' : 'yellow';
 
+  if (isMainnet) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+        <div className="w-full max-w-md rounded-2xl border border-red-600/30 bg-[#0a0a0c] p-6 text-center" onClick={e => e.stopPropagation()}>
+          <div className="text-red-400 text-lg font-bold mb-2">MAINNET — Dev Wallets Disabled</div>
+          <p className="text-sm text-gray-300 mb-4">Mnemonic and private key (hex) dev connections are not available on mainnet.<br/>Use a real Kaspa wallet extension (KasWare, etc.) connected to mainnet for all interactions and paid tier covenant deployments.</p>
+          <button onClick={onClose} className="px-6 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-sm">Close</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"

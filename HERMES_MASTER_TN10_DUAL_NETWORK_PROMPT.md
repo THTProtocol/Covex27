@@ -90,16 +90,31 @@ curl -s -X POST https://hightable.pro/api/sign-and-broadcast -H "Content-Type: a
   -d '{"use_dev_mode":true,"deployer_addr":"kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353","script_hex":"00","tier":"FREE","network":"testnet-12"}'
 ```
 
-## MAINNET EXTENSION (3-network: TN12 + TN10 + MAINNET)
+## MAINNET EXTENSION (3-network: TN12 + TN10 + MAINNET) — COMPLETED 2026-06-05
 
-See the dedicated focused prompt:
-`/home/kasparov/Covex27/HERMES_MASTER_MAINNET_3NET_PROMPT.md`
+The 3-network implementation is COMPLETE at SHA `59b53d0` (triple-synced: local / GitHub / Hetzner).
 
-Key differences for mainnet (already partially wired, the new prompt closes the gaps):
-- No dev hex/mnemonics ever for mainnet (signer hard-rejects use_dev_mode + UI hides the buttons).
-- All creation on mainnet must use real wallet extensions (KasWare etc.).
-- Global 3-button nav switcher (TN12 green / TN10 amber / MAIN red) + full event sync so every page (Explorer, Terminal, Deploy...) reacts instantly.
-- Backend indexing architecture is ready: set KASPA_NETWORK=mainnet + KASPA_WRPC_URL_MAINNET (pointing at operator's PC node or future synced mainnet node) and the indexer/crawler will start tagging real `network="mainnet"` covenants the moment Toccata mainnet launches.
-- Strong red warnings + production treasury must come from real env vars only.
+See the master 3-network prompt for full evidence:
+`HERMES_MASTER_3NET_FULL_PROMPT.md`
 
-The immediate pre-work (commit bc1e166 + earlier) + the steps in the new master prompt will make the full 3-network experience live and 100% safe for mainnet.
+**Current live state on hightable.pro:**
+- 3-button nav selector: TN12 (green) | TN10 (amber) | MAIN (red) — working, reactive across all pages
+- TN12: 3,017 covenants, TN10: 3,172 covenants, MAINNET: 0 covenants (independent per-network data)
+- Per-network dev wallets: TN12 and TN10 each have independent persisted mnemonic/hex connections
+- Mainnet: ZERO dev paths — all pages hide dev buttons, signer returns security error for use_dev_mode on mainnet
+- Backend dual-indexer: TN12 + TN10 indexers/crawlers/verifiers running. Mainnet ready via KASPA_WRPC_URL_MAINNET env var
+- Mainnet node currently on operator's PC (not enough space on Hetzner for 400GB+ kaspad)
+- Key fixes applied: TDZ crash resolved, CreateCovenant.jsx isMainnet guard added
+
+### Verification Commands (updated for 2026-06-05)
+```bash
+# Check all three network data counts
+curl -s https://hightable.pro/api/covenants?network=testnet-12 | python3 -c "import sys,json;d=json.load(sys.stdin);print('TN12:',d['total'])"
+curl -s https://hightable.pro/api/covenants?network=testnet-10 | python3 -c "import sys,json;d=json.load(sys.stdin);print('TN10:',d['total'])"
+curl -s https://hightable.pro/api/covenants?network=mainnet | python3 -c "import sys,json;d=json.load(sys.stdin);print('MAINNET:',d['total'])"
+
+# Verify mainnet security (must return error)
+curl -s -X POST https://hightable.pro/api/sign-and-broadcast -H "Content-Type: application/json" \
+  -d '{"network":"mainnet","use_dev_mode":true,"deployer_addr":"kaspa:test","script_hex":"aa20","private_key_hex":""}'
+```
+

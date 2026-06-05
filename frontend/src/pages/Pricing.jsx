@@ -219,6 +219,16 @@ const Pricing = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* QR code for easy payment from any wallet (will be matched to your address by indexer) */}
+        <div className="max-w-md mx-auto mt-4">
+          <div className="text-xs text-gray-400 mb-1 text-center">Scan to pay exactly {p.price} KAS (from the wallet you will use to deploy)</div>
+          <img 
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`kaspa:${TREASURY.replace(/^kaspa:|^kaspatest:/i,'')}?amount=${p.price}&message=COVEX-${p.id}`)}`}
+            alt="QR to pay tier"
+            className="mx-auto rounded border border-white/10 bg-white p-1"
+          />
+        </div>
         <div className="space-y-4 max-w-md mx-auto">
           <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">
             {paymentStatus?.type === 'sending' ? 'Sending...' : `Send ${p.price.toLocaleString()} KAS Now`}

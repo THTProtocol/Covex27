@@ -237,7 +237,11 @@ export function generateSilverScriptForConfig(cfg) {
   })();
 
   let resolveBlock = '';
-  switch (resolutionMode) {
+  let effectiveResolution = resolutionMode;
+  if (!hasPaidAccess && effectiveResolution === 'zk') {
+    effectiveResolution = 'oracle';
+  }
+  switch (effectiveResolution) {
     case 'zk':
       resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0xCHESSv1_8x8_STANDARD_AUDITED'} ;; circuit: ${zkCircuit}`;
       break;
@@ -472,6 +476,34 @@ export default function CovexTerminal({ covenant }) {
     ? 'text-red-400 border-red-500/40 bg-red-500/10' 
     : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30');
 
+  // ── Paid tier enforcement (for advanced features like circuits - required on ALL networks including mainnet)
+  // Free basic SilverScript creation is always allowed (no special treatment).
+  // Circuits / pro features only after verified payment from the SAME wallet address.
+  const [paidStatus, setPaidStatus] = useState(null);
+  const [checkingPaid, setCheckingPaid] = useState(false);
+  const currentTier = paidStatus?.highest_tier || 'FREE';
+  const hasPaidAccess = currentTier !== 'FREE';
+
+  useEffect(() => {
+    if (!connectedAddress) {
+      setPaidStatus({ highest_tier: 'FREE' });
+      return;
+    }
+    setCheckingPaid(true);
+    const net = kaspaNetwork;
+    fetch(`/api/paid-status?address=${encodeURIComponent(connectedAddress)}&network=${net}`)
+      .then(r => r.ok ? r.json() : { highest_tier: 'FREE' })
+      .then(data => setPaidStatus(data))
+      .catch(() => setPaidStatus({ highest_tier: 'FREE' }))
+      .finally(() => setCheckingPaid(false));
+  }, [connectedAddress, kaspaNetwork]);
+
+  const TIERS = [
+    { id: 'BUILDER', name: 'BUILDER', price: 100, accent: '#3B82F6', desc: 'Interactive UIs, standard circuits' },
+    { id: 'PRO', name: 'PRO', price: 500, accent: '#E8AF34', desc: 'Full pro arenas + priority' },
+    { id: 'MAX', name: 'MAX', price: 1000, accent: '#A855F7', desc: 'Max visibility + all features' },
+  ];
+
   // Per-network config — fully adapts when you switch (same pattern as TN10)
   const getNetConfig = (net) => {
     if (net === 'mainnet' || net === 'mainnet-1') {
@@ -501,6 +533,39 @@ export default function CovexTerminal({ covenant }) {
   };
   const netConfig = getNetConfig(kaspaNetwork);
   const [allowTopups, setAllowTopups] = useState(false);
+
+  // ── In-terminal payment (QR for tiers, tied to current wallet only)
+  const [payingTier, setPayingTier] = useState(null);
+  const [lastPaidCheck, setLastPaidCheck] = useState(null);
+
+  const startPaymentForTier = (tier) => {
+    const treasury = netConfig.treasury;
+    const cleanTreasury = treasury.replace(/^kaspa:|^kaspatest:/i, '');
+    const uri = `kaspa:${cleanTreasury}?amount=${tier.price}&message=COVEX-${tier.id}-${(connectedAddress || '').slice(0,8)}`;
+    setPayingTier({ ...tier, uri, treasury });
+  };
+
+  const cancelPayment = () => setPayingTier(null);
+
+  const checkPaymentNow = async () => {
+    if (!connectedAddress) return;
+    setCheckingPaid(true);
+    try {
+      const net = kaspaNetwork;
+      const r = await fetch(`/api/paid-status?address=${encodeURIComponent(connectedAddress)}&network=${net}`);
+      const data = await r.json();
+      setPaidStatus(data);
+      setLastPaidCheck(Date.now());
+      if (data?.highest_tier && data.highest_tier !== 'FREE') {
+        // auto clear pay UI
+        setPayingTier(null);
+      }
+    } catch (e) {
+      // ignore
+    } finally {
+      setCheckingPaid(false);
+    }
+  };
 
   // ── Section B: Custom UI Integration ──
   const [customUICode, setCustomUICode] = useState('');
@@ -873,7 +938,11 @@ export default function CovexTerminal({ covenant }) {
   })();
 
     let resolveBlock;
-    switch (resolutionMode) {
+    let effectiveResolution = resolutionMode;
+    if (!hasPaidAccess && effectiveResolution === 'zk') {
+      effectiveResolution = 'oracle'; // circuits only after payment
+    }
+    switch (effectiveResolution) {
       case 'custom':
         resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Oracle pubkey: ${customOracleKey || '(not set)'}\n  OpCheckSig ${customOracleKey || 'OP_0'}`;
         break;
@@ -1578,7 +1647,53 @@ ${gameMeta.outcomeBranches}
         </div>
       </details>
 
-      {/* ─── Section 0: Covenant Circuit Schema ─── */}
+      {/* ─── Paid gate + QR for circuits (only after payment from this wallet; free basic SilverScript always works) ─── */}
+      {!hasPaidAccess && connectedAddress && (
+        <section className={`${SECTION_BASE} border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20`}>
+          <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+            <Shield size={16} /> CIRCUITS & ADVANCED FEATURES — PAYMENT REQUIRED
+          </div>
+          <p className="text-xs text-gray-300 mt-1">Free basic SilverScript (simple compile to Kaspa covenant) is always available with no special treatment. ZK circuit types, pro resolution, and advanced arenas are unlocked only after one-time payment from <b>this exact connected wallet</b> to the current network's treasury. The indexer detects it automatically (same from_address as your deployer).</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+            {TIERS.map((t) => (
+              <button key={t.id} onClick={() => startPaymentForTier(t)} className="p-3 rounded-xl border text-left transition hover:scale-[1.01]" style={{ borderColor: t.accent + '40', background: t.accent + '08' }}>
+                <div className="font-bold text-sm" style={{ color: t.accent }}>{t.name}</div>
+                <div className="text-[11px] text-gray-300">{t.price} KAS • {t.desc}</div>
+              </button>
+            ))}
+          </div>
+
+          {payingTier && (
+            <div className="mt-4 p-4 rounded-xl bg-black/60 border border-amber-500/30">
+              <div className="text-sm font-semibold mb-1">Scan or copy to pay exactly {payingTier.price} KAS for {payingTier.name} from {connectedAddress}</div>
+              <div className="font-mono text-[10px] break-all text-gray-400 mb-2">{payingTier.treasury}</div>
+              <div className="flex gap-4 items-start">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(payingTier.uri)}`} 
+                  alt="Payment QR" 
+                  className="rounded border border-white/10 bg-white p-1" 
+                />
+                <div className="text-xs flex-1 space-y-1">
+                  <div>URI (tap to pay in wallet):</div>
+                  <div className="font-mono break-all bg-black/40 p-1 rounded text-amber-300">{payingTier.uri}</div>
+                  <button onClick={() => navigator.clipboard?.writeText(payingTier.uri)} className="text-[10px] underline">Copy URI</button>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={checkPaymentNow} disabled={checkingPaid} className="flex-1 py-2 rounded bg-amber-600 text-black text-xs font-bold disabled:opacity-60">
+                  {checkingPaid ? 'CHECKING PAYMENT FROM YOUR WALLET...' : 'I SENT THE PAYMENT — REFRESH STATUS'}
+                </button>
+                <button onClick={cancelPayment} className="px-3 py-2 text-xs border border-white/20 rounded">Cancel</button>
+              </div>
+              <div className="text-[9px] text-gray-400 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain for this network. Works on mainnet (real KAS) and testnets.</div>
+            </div>
+          )}
+          {!connectedAddress && <p className="text-xs text-amber-400 mt-2">Connect a wallet to see payment options for this network.</p>}
+        </section>
+      )}
+
+      {/* ─── Section 0: Covenant Circuit Schema (circuits only after payment; free basic always available) ─── */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
         <div className={SECTION_HEADER}>
           <div className="p-1.5 rounded-lg bg-kaspa-green/20">
@@ -1613,9 +1728,10 @@ ${gameMeta.outcomeBranches}
             Each circuit proves a specific verifiable statement. The covenant lock script contains the verifier key for the selected circuit. Only the proof output (or oracle signature) is submitted on-chain.
           </p>
 
-          {/* Circuit Grid — compact, professional */}
+          {/* Circuit Grid — compact, professional (disabled until paid from this wallet) */}
           <div className="grid grid-cols-3 gap-2">
             {ZK_CIRCUIT_TYPES.map((gt) => {
+              const disabled = !hasPaidAccess;
               const selected = gameType === gt.id;
               const circuitDescriptions = {
                 chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
@@ -1628,12 +1744,13 @@ ${gameMeta.outcomeBranches}
               return (
                 <button
                   key={gt.id}
-                  onClick={() => handleGameTypeChange(gt.id)}
+                  onClick={() => !disabled && handleGameTypeChange(gt.id)}
+                  disabled={disabled}
                   className={`text-left p-3 rounded-lg border transition-all duration-200 ${
                     selected
                       ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_20px_rgba(73,234,203,0.15)]'
                       : 'border-white/[0.05] bg-black/30 hover:border-white/[0.10] hover:bg-white/[0.03]'
-                  }`}
+                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-xs font-bold ${selected ? 'text-kaspa-green' : 'text-white'}`}>

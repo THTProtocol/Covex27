@@ -25,7 +25,7 @@ import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 
-// Lazy-load snarkjs for client-side ZK proof generation (Gap 1)
+// Lazy-load snarkjs for client-side ZK proof generation (implemented for merkle + range circuits)
 let snarkjsModule = null;
 const loadSnarkjs = async () => {
   if (!snarkjsModule) {
@@ -509,7 +509,7 @@ export default function CovexTerminal({ covenant }) {
   const [chessProofHash, setChessProofHash] = useState('');
   const [chessOracleResult, setChessOracleResult] = useState(null); // stored oracle response for claim
   const [showFullScreenChess, setShowFullScreenChess] = useState(false);
-  // Claim payout state (Gap 2)
+  // Claim payout state (implemented: real compute-payout endpoint)
   const [payoutResult, setPayoutResult] = useState(null);
   const [payoutLoading, setPayoutLoading] = useState(false);
   // Chess clocks (ms remaining)
@@ -1093,7 +1093,7 @@ ${gameMeta.outcomeBranches}
     }
   }, [chessResult, chessGame, covenantId]);
 
-  // ── Gap 2: Real claimPayout — calls backend compute-payout endpoint ──
+  // ── Real claimPayout — calls backend compute-payout endpoint ──
   const claimPayout = useCallback(async () => {
     if (!covenantId || !chessOracleResult) {
       // Fallback: reset if no oracle result available
@@ -1288,7 +1288,7 @@ ${gameMeta.outcomeBranches}
         resolution_mode: resolutionMode,
         custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
         zk_circuit: zkCircuit,
-        zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1_AUDITED' : '0xMERKLE_GENERIC_AUDITED_V1'),
+        zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1_AUDITED' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_AUDITED_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1_AUDITED' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
         oracle_proof: JSON.stringify(proofObj),
         oracle_public_inputs: JSON.stringify(publicInputs),
       };
@@ -2074,7 +2074,7 @@ ${gameMeta.outcomeBranches}
               </div>
             </div>
 
-            {/* Gap 2: Real payout result display (from backend compute-payout) */}
+            {/* Real payout result display (from backend compute-payout) */}
             {payoutResult && !payoutResult.error && (
               <div className="mt-3 p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">

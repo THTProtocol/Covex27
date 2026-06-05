@@ -115,6 +115,11 @@ export default function Explorer() {
     <>
       {/* ═══ HERO ═══ */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-20 pb-8 px-4 sm:px-6 text-center">
+        <img 
+          src="/covex-logo-full.jpg" 
+          alt="Covex" 
+          className="w-32 h-48 sm:w-40 sm:h-60 object-contain mb-6 drop-shadow-[0_0_24px_rgba(0,255,157,0.3)]"
+        />
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>

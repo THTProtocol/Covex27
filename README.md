@@ -1,9 +1,18 @@
 <div align="center">
   <br>
 
-  <img src="https://raw.githubusercontent.com/THTProtocol/Covex27/master/frontend/public/covex-logo-full.jpg" alt="Covex Logo" width="256" height="260" />
-  
-  <h3 style="margin-top: 10px;">The Platform for Verifiable Interactive Covenants on Kaspa</h3>
+  <pre>
+ ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ██╗
+██╔════╝██╔═══██╗██║   ██║██╔════╝╚██╗██╔╝
+██║     ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+██║     ██║   ██║╚██╗ ██╔╝██╔══╝   ██╔██╗ 
+╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╔╝ ██╗
+ ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
+  </pre>
+
+  <img src="https://raw.githubusercontent.com/THTProtocol/Covex27/master/frontend/public/covex-logo-full.jpg" alt="Covex Logo" width="256" height="383" />
+
+  <h3 style="margin-top: 0px;">The Platform for Verifiable Interactive Covenants on Kaspa</h3>
 
   <br>
 

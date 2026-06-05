@@ -681,7 +681,7 @@ export default function CovexTerminal({ covenant }) {
       });
   }, []);
 
-  const networkLabel = isMainnet ? 'MAINNET' : 'TESTNET-12';
+  const mainnetLabel = isMainnet ? 'MAINNET' : 'TESTNET-12';
   const networkColor = isMainnet
     ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
     : 'text-amber-400 border-amber-500/40 bg-amber-500/10';
@@ -2607,7 +2607,7 @@ ${gameMeta.outcomeBranches}
       <section className={SECTION_BASE}>
         {/* New logo - the exact glowing network "C" (user image) + vector mark */}
         <div className="flex items-center gap-3 pb-2 border-b border-white/10 mb-2">
-          <img src="/covex-logo-full.jpg" alt="Covex logo" className="h-9 w-9 rounded object-contain ring-1 ring-white/10" />
+          <img src="/covex-logo-full.jpg" alt="Covex logo" className="h-9 w-9 rounded object-cover ring-1 ring-white/10" />
           <div>
             <div className="text-[10px] text-gray-400 tracking-[2px]">THE NEW COVEX LOGO</div>
             <div className="text-xs text-kaspa-green font-mono">Glowing Network C — Kaspa BlockDAG</div>

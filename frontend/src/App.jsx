@@ -58,13 +58,13 @@ export default function App() {
           <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
               <Link to="/" className="group flex items-center gap-2.5">
-                {/* New glowing network "C" logo — exact user-provided DAG/neon mesh style (vectorized for crisp nav + icons) */}
+                {/* New user-provided glowing network C logo */}
                 <img 
-                  src="/covex-logo.svg" 
+                  src="/covex-logo-48.png" 
                   alt="Covex" 
                   width="28" 
                   height="28" 
-                  className="shrink-0 drop-shadow-[0_0_8px_rgba(0,255,157,0.45)] group-hover:drop-shadow-[0_0_16px_rgba(0,229,255,0.6)] transition-all duration-300" 
+                  className="shrink-0 drop-shadow-[0_0_8px_rgba(0,255,157,0.45)] group-hover:drop-shadow-[0_0_16px_rgba(0,229,255,0.6)] transition-all duration-300 rounded"
                 />
                 {/* COVEX wordmark */}
                 <span className="covex-brand font-extrabold text-[23px] tracking-[4px] leading-none select-none">

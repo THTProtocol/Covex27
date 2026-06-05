@@ -3,7 +3,21 @@ import { FileCode, Code, AlertTriangle, ArrowLeft, Terminal, CheckCircle, Key } 
 import DevWalletModal from '../components/DevWalletModal';
 import { useWallet } from '../components/WalletContext';
 
+const getCurrentNetwork = () => {
+  if (typeof window === 'undefined') return 'testnet-12';
+  return localStorage.getItem('kaspaNetwork') || 'testnet-12';
+};
+const getNetworkLabel = (net) => {
+  if (net === 'mainnet' || net === 'mainnet-1') return 'MAINNET';
+  if (net === 'testnet-10') return 'TESTNET-10';
+  return 'TOCCATA TN12';
+};
+const isMainnet = (net) => net === 'mainnet' || net === 'mainnet-1';
+
 const CreateCovenant = () => {
+  const currentNet = getCurrentNetwork();
+  const isMain = isMainnet(currentNet);
+  const netLabel = getNetworkLabel(currentNet);
   const { address, isDevMode } = useWallet();
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [code, setCode] = useState(`// SilverScript covenant example:
@@ -80,31 +94,37 @@ contract TransferWithTimeout {
                   <p className="text-sm font-mono text-white truncate max-w-[300px]">{address}</p>
                 </div>
               </div>
-              <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>TOCCATA TN12</span>
+              <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>{netLabel}</span>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
                 <p className="text-xs text-amber-400 font-mono mb-1">WALLET NOT CONNECTED</p>
                 <p className="text-sm text-gray-200">
-                  Connect a wallet to sign and deploy your SilverScript covenant to TN12.
+                  Connect a wallet to sign and deploy your SilverScript covenant to {netLabel}.
                 </p>
               </div>
 
-              {/* TN12 Dev Wallet, isolated from extension flow */}
-              <div className="pt-2">
-                <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-2">Testing / Dev Only</p>
-                <button
-                  onClick={() => setDevWalletOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
-                >
-                  <Key size={16} />
-                  Connect TN12 Dev Wallet
-                </button>
-                <p className="text-[9px] text-gray-200 mt-2 text-center leading-relaxed">
-                  Derives keys locally via kaspa-wasm. For covenant testing, no browser extensions required.
-                </p>
-              </div>
+              {/* Dev Wallet — hidden on mainnet */}
+              {isMain ? (
+                <div className="pt-2">
+                  <p className="text-[10px] text-red-400/80">Dev wallets disabled on MAINNET. Use a real Kaspa wallet extension to deploy covenants with real KAS.</p>
+                </div>
+              ) : (
+                <div className="pt-2">
+                  <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-2">Testing / Dev Only</p>
+                  <button
+                    onClick={() => setDevWalletOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-yellow-600/40 bg-yellow-600/[0.06] hover:bg-yellow-600/[0.12] text-yellow-400 hover:text-yellow-300 font-semibold text-sm transition-all"
+                  >
+                    <Key size={16} />
+                    Connect {currentNet === 'testnet-10' ? 'TN10' : 'TN12'} Dev Wallet
+                  </button>
+                  <p className="text-[9px] text-gray-200 mt-2 text-center leading-relaxed">
+                    Derives keys locally via kaspa-wasm. For covenant testing, no browser extensions required.
+                  </p>
+                </div>
+              )}
             </div>
           )}
           
@@ -174,7 +194,7 @@ contract TransferWithTimeout {
 
       </div>
 
-      {/* TN12 Dev Wallet Modal */}
+      {/* Dev Wallet Modal */}
       <DevWalletModal isOpen={devWalletOpen} onClose={() => setDevWalletOpen(false)} />
     </div>
   );

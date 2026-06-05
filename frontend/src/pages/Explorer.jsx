@@ -40,8 +40,21 @@ export default function Explorer() {
   const [searchError, setSearchError] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
 
+  const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
+
   useEffect(() => {
-    fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
+    const handler = (e) => {
+      const net = typeof e.detail === 'string' ? e.detail : localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      setKaspaNetwork(net);
+    };
+    window.addEventListener('kaspa-network-change', handler);
+    return () => window.removeEventListener('kaspa-network-change', handler);
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/covenants?network=${kaspaNetwork}`)
       .then(res => res.json())
       .then(data => {
         const list = (Array.isArray(data.covenants) ? data.covenants : []);
@@ -54,7 +67,7 @@ export default function Explorer() {
         setLoading(false);
       })
       .catch(err => { setError('Could not load covenants'); setLoading(false); });
-  }, []);
+  }, [kaspaNetwork]);
 
   const handleSearch = useCallback((e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -65,7 +78,7 @@ export default function Explorer() {
     const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:') || q.length >= 40;
 
     if (isTxId) {
-      fetch(`/api/covenants/${encodeURIComponent(q)}?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
+      fetch(`/api/covenants/${encodeURIComponent(q)}?network=${kaspaNetwork}`)
         .then(r => r.json())
         .then(d => {
           setSearchResults({ type: 'covenant', data: d.success && d.covenant ? [d.covenant] : [] });
@@ -74,7 +87,7 @@ export default function Explorer() {
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     } else if (isWalletAddr) {
-      fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
+      fetch(`/api/covenants?network=${kaspaNetwork}`)
         .then(r => r.json())
         .then(d => {
           const all = Array.isArray(d.covenants) ? d.covenants : [];

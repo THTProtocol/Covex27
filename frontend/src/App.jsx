@@ -49,6 +49,43 @@ function SmartDeployLink() {
   return <NavLink to={to} className={NL}>Deploy</NavLink>;
 }
 
+function NetworkSwitcher() {
+  const [network, setNetwork] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    return 'testnet-12';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('kaspaNetwork', network);
+    // Dispatch event so CovexTerminal and other components sync
+    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: network }));
+  }, [network]);
+
+  const networks = [
+    { value: 'testnet-12', label: 'TN12', color: '#49EACB', title: 'Toccata Testnet 12' },
+    { value: 'testnet-10', label: 'TN10', color: '#F59E0B', title: 'Testnet 10' },
+  ];
+
+  return (
+    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5" title={networks.find(n => n.value === network)?.title}>
+      {networks.map(n => (
+        <button
+          key={n.value}
+          onClick={() => setNetwork(n.value)}
+          className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
+            network === n.value
+              ? 'text-black'
+              : 'text-gray-400 hover:text-white'
+          }`}
+          style={network === n.value ? { backgroundColor: n.color } : {}}
+        >
+          {n.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -77,6 +114,7 @@ export default function App() {
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
+                <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
               </div>

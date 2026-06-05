@@ -167,3 +167,6 @@ Updated backend startup logs in `main.rs`:
 - **Toccata mainnet indexing ready** but requires either `KASPA_WRPC_URL_MAINNET=ws://<PC-IP>:<port>` or `KASPA_NETWORK=mainnet` env set on covex-backend. All code paths for mainnet indexing, signing, treasury, and data isolation are complete.
 - **Mainnet treasury address** (`kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2`) is hardcoded in `dev_wallets.rs` — operator must verify accuracy.
 - **Covenant Studio**: Not yet deployed (studio.hightable.pro → `/root/htp/studio`). Separate task.
+
+### UPDATE 2026-06-05 — See HERMES_MASTER_3NET_COMPLETE_AND_FINAL_PROMPT.md for the final run (SHA 899f216)
+The final run built on this polish work: added circuit gates with QR paywall in Terminal, QR codes in Pricing, same-wallet payment enforcement, updated tab title/manifest for multi-network branding. All three indexer/crawler/verifier tasks confirmed running independently on Hetzner. Triple-sync at 899f216.

@@ -239,3 +239,6 @@ Startup journal confirms:
 - `backend/src/signer.rs` — mainnet use_dev_mode security reject
 - `backend/src/dev_wallets.rs` — mainnet treasury-only (public), no keys
 - `backend/src/main.rs` — multi-network spawn + mainnet startup log
+
+### UPDATE 2026-06-05 — See HERMES_MASTER_3NET_COMPLETE_AND_FINAL_PROMPT.md for the final run (SHA 899f216)
+The final run added: circuit gates with QR paywall in Terminal, QR codes in Pricing, same-wallet payment enforcement, free basic SilverScript always available, updated tab title to "Covex | Multi-Network Covenant Platform", and full triple-sync verified. All 3 networks have independent indexer/crawler/verifier tasks running on Hetzner. Go to the final prompt for the complete COMPLETED BLOCK.

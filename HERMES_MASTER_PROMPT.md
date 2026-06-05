@@ -513,3 +513,69 @@ Games + timers:       Unaffected, all functional ✓
 - The exact user-provided image is dark-background + bright neon. On light mode, the neon glow still pops well due to bright cyan-green colors.
 - Studio's deployed site (hightable.pro/studio) won't update until a separate Studio deploy is run (assets are committed but the Studio nginx needs a build + cp cycle).
 - Backend restart was not needed (no backend code changed this run).
+
+### TN10 FORK + DUAL NETWORK (TN10 + TN12) ON SAME WEBSITE + HETZNER TN10 NODE
+
+**User request (verbatim):** "I want a fork of covex specifically for tn10 now - so I can have 2 instances 1 for tn12 and 1 for tn10 - I need to run a tn on hetzner and I need the indexers and everything to fetch covenants from tn10 too - its not combined - I need to be able to choose if its tn10 or tn12 on the same website - so make everything fit tn10 now and give hermes the masterprompt to run a node and make sure all of this happens - you do what you can as much as possible and then let hermes do the rest - I also need to make sure the node has enough space on hetzner and only start it once confirmed that there is enough space - so make Covex compatible with tn10 now - all the wallets and mnemonics and hex will be accurately chosen when I press tn10 - so its all for tn10 and when I do tn12 its like now - everything fits only for tn12 - make it happen now"
+
+**Requirements:**
+- Same website, user can choose TN10 or TN12 (not combined data).
+- Separate instances conceptually (separate seeds, treasury, indexer data, node).
+- Frontend has explicit toggle "TN12 | TN10".
+- When TN10 selected: all dev wallets/mnemonics/private hex in UI and signer use TN10-accurate ones (user will provide exact; code has placeholders).
+- Backend supports both (via network param or two instances).
+- Run real TN10 kaspad on Hetzner (in addition to existing TN12).
+- Space check before starting TN10 node (only start if >=80GB free).
+- Indexer/crawler for TN10 too (fetch its covenants).
+- Give/update the master prompt (this) with full steps so Hermes can complete the node run, backend multi-net, deploy, etc.
+- You (the AI) do the frontend + script + prompt parts now; let Hermes handle the Hetzner node start + full backend wiring + 2-instance or multi-net setup + verification.
+
+**What was already done in this session (you can verify):**
+- Frontend: added kaspaNetwork state + toggle buttons in CovexTerminal (top of config section). Visible choice, persists in localStorage. Network label shown.
+- WalletContext: updated to SUPPORTED_NETWORKS including 'testnet-10'.
+- Created deploy/start-tn10-kaspad.sh with explicit disk space check (80GB min) before starting kaspad --testnet ... --appdir for tn10, dedicated ports (16610/16210/17210).
+- Updated HERMES_MASTER_PROMPT with previous logo etc; now appending this full TN10 task.
+- Some deploy scripts already had tn10 mentions (launch-verify, deploy_all had tn10-data dir).
+
+**Steps for Hermes (complete the rest):**
+1. Read this full prompt + current code state (frontend toggle exists, start-tn10 script exists with space check).
+2. SSH to Hetzner, first CHECK DISK: df -h / ; if <80-100GB free on the volume for /home or data, STOP and report "insufficient space — resize volume first". Only if OK, proceed.
+3. Start the TN10 node using the script: cd /root/Covex27 && ./deploy/start-tn10-kaspad.sh
+   - Confirm it runs (ps, logs), note the Borsh/wRPC port (default 17210 in script).
+   - Set up as service if needed (copy covex-backend.service pattern for kaspad-tn10).
+4. For backend multi-network support (same website):
+   - Update main.rs to support KASPA_NETWORK_TN10 etc or accept network= in queries.
+   - Create two clients at startup (one for tn12 using current env, one for tn10 using KASPA_WRPC_URL_TN10=ws://127.0.0.1:17210 or public if available).
+   - Spawn two indexers (one per network), pass network to db inserts.
+   - Add 'network' column to covenants table (ALTER or in create if fresh).
+   - Update all handlers (/covenants, /status, terminal-config, etc) to accept ?network=tn10|testnet-12 and filter/scope by it. Default to tn12 for backward.
+   - For signer: make it take network param, use different dev_wallets based on network (add TN10_* consts in dev_wallets.rs with accurate hex/mnemonics — placeholders now, user will fill).
+   - Treasury/seeds per network from env or hardcoded per net.
+   - DB queries updated to include network.
+5. Frontend:
+   - The toggle is there; make sure when isTN10, the pro sections use TN10-specific treasury/seed display strings (add consts).
+   - When saving terminal config or launching, include the kaspaNetwork in payload.
+   - Update explorer/covenants list to pass &network=... and filter.
+   - Wallet connects with the selected (testnet-10 supported in deps).
+   - In status/health, show current selected network.
+6. Update start-covex-backend.sh (or make tn10 variant) to export TN10 envs when chosen.
+7. Update .env or production env on server for TN10: KASPA_WRPC_URL_TN10=..., TN10_TREASURY= (user provides accurate), TN10_SEEDS=...
+8. For "2 instances": optionally run two backends (port 3005 tn12, 3006 tn10) with systemd units covex-tn12.service covex-tn10.service. Frontend toggle can switch fetch base (for prod, use nginx location /tn10-api proxy to 3006, or just query param if single backend).
+9. Full build, commit, push.
+10. Deploy: use full sequence, make sure both nodes running, both backends if used, space was checked.
+11. Verify live: toggle on hightable.pro switches, TN10 shows its (empty or test) covenants, uses correct addresses, node is up (check via ssh or status), no mixing of data.
+12. Update this prompt with completion, SHAs, "TN10 node running with space guard, choice works on site, separate data".
+
+**TN10 specifics (from research):**
+- Explorer: https://explorer-tn10.kaspa.org/
+- API example: api-tn10.kaspa.org
+- Node: kaspad --testnet (TN10 is the 10-BPS testnet replica), utxoindex, dedicated data dir.
+- wRPC/Borsh typically on testnet shifted ports (17210 in the starter script).
+- Addresses still kaspatest: prefix.
+- User will provide the exact dev wallet mnemonics/hex/addresses for TN10 (accurate on-chain for that net).
+
+Do as much as possible locally (frontend toggle already done, script done), then the Hetzner node + backend wiring + verification via the ssh/deploy in the prompt.
+
+After, the site lets you choose TN10 or TN12, everything (wallets, indexer, covenants, node) fits only that network. Separate, not combined.
+
+BEGIN.

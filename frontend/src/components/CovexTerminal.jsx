@@ -441,6 +441,12 @@ export default function CovexTerminal({ covenant }) {
   const [feePercent, setFeePercent] = useState(2);
   const [potReturnPercent, setPotReturnPercent] = useState(2);
   const [reusable, setReusable] = useState(true);
+
+  // Network selector: TN12 (default) or TN10 — separate data, same UI
+  const [kaspaNetwork, setKaspaNetwork] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('kaspaNetwork') || 'testnet-12') : 'testnet-12'));
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('kaspaNetwork', kaspaNetwork); }, [kaspaNetwork]);
+  const isTN10 = kaspaNetwork === 'testnet-10';
+  const networkLabel = isTN10 ? 'TN10' : 'TN12';
   const [allowTopups, setAllowTopups] = useState(false);
 
   // ── Section B: Custom UI Integration ──
@@ -2610,6 +2616,15 @@ ${gameMeta.outcomeBranches}
         <div className={SECTION_HEADER}>
           <Settings size={16} />
           Covenant Configuration
+        </div>
+
+        {/* Network switcher — TN10 fork vs TN12 on same site */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10px] uppercase tracking-widest text-gray-400">NETWORK</span>
+          <button onClick={() => setKaspaNetwork('testnet-12')} className={`px-2.5 py-0.5 text-xs rounded border ${!isTN10 ? 'bg-kaspa-green text-black border-kaspa-green' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}>TN12 (current)</button>
+          <button onClick={() => setKaspaNetwork('testnet-10')} className={`px-2.5 py-0.5 text-xs rounded border ${isTN10 ? 'bg-amber-500 text-black border-amber-500' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}>TN10 (new fork)</button>
+          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30'}`}>{networkLabel}</span>
+          <span className="text-[9px] text-gray-500">— separate covenants, seeds, node</span>
         </div>
 
         <div className="space-y-4">

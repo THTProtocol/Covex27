@@ -173,3 +173,69 @@
 You have all the prior TN10 + mainnet prep work as the foundation. Close every gap so that selecting any of the 3 networks on the website gives a complete, isolated, safe experience with the correct wallet story for that network.
 
 BEGIN.
+
+---
+
+## COMPLETED BLOCK — 2026-06-05 (3-Network Full Implementation)
+
+### Final Git SHAs (triple sync confirmed)
+- **Local**: `6a4466a`
+- **GitHub (origin/master)**: `6a4466a`
+- **Hetzner (hightable.pro)**: `6a4466a`
+- Commit: `fix: TDZ crash — move devMode useState before useEffects that reference it, re-add network-switch disconnect after all states/functions declared`
+
+### What Was Done
+
+**1. Live 3-Button Selector on hightable.pro**
+The top navigation bar renders a 3-button pill: **TN12** (green, #49EACB) | **TN10** (amber, #F59E0B) | **MAIN** (red, #EF4444).
+Clicking any button dispatches `kaspa-network-change` event + updates localStorage, synced in real-time across all components (Terminal, Deploy pages, DevWalletModal).
+
+**2. Per-Network Dev Wallets (Independent Connections)**
+- TN12 and TN10: full independent dev wallet support — each network has its own localStorage slot (`covex_dev_wallet_testnet-12` vs `covex_dev_wallet_testnet-10`). Connecting a mnemonic on TN12 persists separately; switching to TN10 shows the other network's dev connection.
+- Network switch auto-disconnects real extension wallets so they reconnect on the correct network.
+- TDZ crash fixed: `devMode` useState moved before useEffects that reference it.
+
+**3. Mainnet: ZERO Dev Paths**
+- **Deploy.jsx**: Hides "Connect Dev Wallet" button, shows red "Dev wallets disabled on MAINNET" message when mainnet selected.
+- **PaidDeploy.jsx**: Same — dev wallet button hidden, red message shown.
+- **CreateCovenant.jsx**: Full isMainnet guard added — hides dev wallet button, shows red warning, uses dynamic network labels (MAINNET/TESTNET-10/TOCCATA TN12).
+- **DevWalletModal.jsx**: Early return on mainnet — shows dedicated red modal "MAINNET — Dev Wallets Disabled" with clear message.
+- **WalletContext.jsx**: `connectDevMode` hard-blocks with error on mainnet.
+- **Pricing.jsx**: Mainnet warning displayed on tier page.
+- **Backend signer.rs**: `use_dev_mode` on mainnet returns error: "Dev mode and hardcoded keys are DISABLED on mainnet. Use a real wallet extension."
+- **Backend dev_wallets.rs**: Mainnet section has only public treasury address; no private keys. Commented "ENV REQUIRED ONLY".
+
+**4. Data Isolation per Network**
+- TN12: 3,017 covenants (network=testnet-12)
+- TN10: 3,172 covenants (network=testnet-10)
+- MAINNET: 0 covenants (network=mainnet, expected — no mainnet node running)
+- All three endpoints verified: `/api/covenants?network=` returns independent counts.
+
+**5. Backend Multi-Network Indexers**
+Startup journal confirms:
+- TN12: indexer + crawler + payment_verifier running
+- TN10: indexer + crawler + payment_verifier running (secondary connection on ws://127.0.0.1:17210)
+- MAINNET: "Mainnet indexer: not configured. Set KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet to enable mainnet indexing"
+- Nginx root: `/root/htp/public` — confirmed, frontend copied to correct location.
+
+**6. Live Verification Evidence**
+- Browser screenshot: 3-button selector visible in nav, site loads without JS errors.
+- Backend security curl: POST `/api/sign-and-broadcast` with `{"network":"mainnet","use_dev_mode":true}` returns `{"success":false,"error":"Dev mode and hardcoded keys are DISABLED on mainnet..."}`.
+- Deploy page with MAINNET: shows "MAINNET" badge, no dev wallet button, only red warning text.
+- Deploy page with TN12: shows "TESTNET-12" badge, "Connect Dev Wallet" button active.
+
+### Honest Remaining Items
+- **No mainnet kaspad on Hetzner**: Only 28GB free on /mnt/HC_Volume_105579109 (82% used). Mainnet requires 400GB+. Node is on operator's PC.
+- **Mainnet indexing will auto-start** when either `KASPA_WRPC_URL_MAINNET=ws://<operator-PC-IP>:17110` or `KASPA_NETWORK=mainnet` is set in covex-backend env. The code paths are fully ready.
+- **Mainnet treasury**: `kaspa:qr6vs4wy4m3za6mzchjctx...` is in dev_wallets.rs — the operator must verify this is the real treasury address.
+- **Covenant Studio**: Not yet deployed (studio.hightable.pro points to `/root/htp/studio`). Separate task.
+
+### Key Files Changed
+- `frontend/src/components/WalletContext.jsx` — TDZ fix, per-network dev storage, mainnet connect block, network-switch wallet disconnect
+- `frontend/src/components/DevWalletModal.jsx` — mainnet early return with red modal
+- `frontend/src/pages/CreateCovenant.jsx` — isMainnet guard, dynamic network labels
+- `frontend/src/pages/Deploy.jsx` — mainnet dev-wallet hide (already done)
+- `frontend/src/pages/PaidDeploy.jsx` — mainnet dev-wallet hide (already done)
+- `backend/src/signer.rs` — mainnet use_dev_mode security reject
+- `backend/src/dev_wallets.rs` — mainnet treasury-only (public), no keys
+- `backend/src/main.rs` — multi-network spawn + mainnet startup log

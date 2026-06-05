@@ -698,28 +698,7 @@ export default function CovexTerminal({ covenant }) {
     setZkGenerating(false);
   };
 
-  // Phase 16: Dynamic Mainnet Detection + Production Polish
-  const [isMainnet, setIsMainnet] = useState(false);
-  const [networkStatus, setNetworkStatus] = useState(null);
-
-  useEffect(() => {
-    fetch('/api/status')
-      .then(r => r.json())
-      .then(data => {
-        const net = data.network || 'testnet-12';
-        const mainnet = net === 'mainnet' || net === 'mainnet-1';
-        setIsMainnet(mainnet);
-        setNetworkStatus(data);
-      })
-      .catch(() => {
-        setIsMainnet(false); // safe default
-      });
-  }, []);
-
-  const mainnetLabel = isMainnet ? 'MAINNET' : 'TESTNET-12';
-  const networkColor = isMainnet
-    ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
-    : 'text-amber-400 border-amber-500/40 bg-amber-500/10';
+  // ── Mainnet is derived from the toggle (line 451) — no separate detection needed ──
 
   const generateSilverScript = useCallback(() => {
     const feeBasis = Math.round(feePercent * 100);

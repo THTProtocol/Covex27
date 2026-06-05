@@ -132,3 +132,26 @@
 **Start executing now.** Read the files. Check space on Hetzner first. Run the node only if safe. Wire the code. Test both networks thoroughly. Deploy. Verify live. Update this prompt with full evidence.
 
 BEGIN.
+
+---
+
+## POST-TRUNCATION UPDATE (completed by direct AI work + this prompt for Hermes)
+
+**Problem diagnosed from the pasted YOLO log:** The stream truncated while Hermes was in the middle of main.rs (after successful patches to dev_wallets/db/indexer/crawler/signer). Result: background tasks and the wRPC client were still single-network only. The frontend toggle + ?network= would filter DB reads, but (a) no TN10 indexer/crawler was running so TN10 covenants would never appear, and (b) even if you sent network=testnet-10 in a sign payload, the broadcast would still go through the primary (TN12) client -> covenants would be created on the wrong chain or fail.
+
+**What was fixed locally (before handing to you):**
+- main.rs now always starts a secondary client + spawns dedicated indexer + payment_verifier + crawler for the other net (using dev_wallets treasury/seeds or *_TN10 envs, correct WRPC defaults 17210/17217).
+- signer.rs + broadcast.rs: sign-and-broadcast, balance, utxos, broadcast now construct a fresh short-lived client_for_network(payload.network or ?network=) and target the right kaspad (on-demand, no change to the long-lived primary client the service was started with).
+- payment_verifier now takes + passes network.
+- db.rs: the query_map if/else type errors (pre-existing from the original network patch) were fixed so it compiles.
+- All relevant frontend POST/GET for deploys and creator lists now forward the localStorage 'kaspaNetwork'.
+- cargo check: clean.
+- Committed ddd1c1f + pushed to github.
+
+**Next (you/Hermes):** Use the dedicated focused prompt at HERMES_TN10_DUAL_WIRING_FIX_PROMPT.md (cat it, copy, paste to a fresh hermes). It starts with "verify current Hetzner state" (the mandatory df/ps/ss/journalctl), re-starts TN10 node if needed via the guarded script, does the git reset --hard + cargo build + systemctl restart on the box (single service now dual), runs the verification curls + sqlite + a test TN10 dev deploy, collects the exact evidence, and appends the big COMPLETED block with SHAs, Hetzner outputs, sample TN10 covenant tx, honest limitations (the REPLACE_ wallets), etc.
+
+The single covex-backend on Hetzner is now capable of serving both networks on the same website via the existing toggle. TN12 is untouched.
+
+(Also see the small HERMES_TN10_NOW_PROMPT.md that was written earlier in the session.)
+
+**Current good commit on github (use in the reset):** ddd1c1f9ba5d2f04c3d8434b19a609d47bdeb7a2

@@ -383,6 +383,7 @@ async fn covenants_handler(
                 "timestamp": c.timestamp,
                 "name": c.covenant_type,
                 "tier": c.verified_tier,
+                "network": c.network,
                 "custom_ui_html": custom_ui_html,
                 "custom_ui_config": ui_config_display,
             })

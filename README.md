@@ -454,3 +454,11 @@ Repo: This repository
 ---
 
 *This README describes the current production state. Classification logic, pro game UIs, and oracle flows are actively used on the live site.*
+
+## Network Support (TN12 + TN10 fork)
+- Toggle in Covex Terminal: choose TN12 or TN10 on the **same website**.
+- Separate data (covenants, indexer results, dev wallets/seeds/treasury per network).
+- TN10: use the provided start-tn10-kaspad.sh (checks >=80GB free disk before starting the node).
+- See HERMES_MASTER_PROMPT.md for the full "TN10 FORK + DUAL NETWORK" task (includes running the Hetzner TN10 node after space confirmation).
+- Wallets/mnemonics/hex switch automatically based on selection (accurate TN10 values to be supplied by operator).
+

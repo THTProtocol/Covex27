@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Layers, Sparkles, Plus, Cpu, Zap, Palette, Code, ChevronRight, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Terminal, Layers, Sparkles, Plus, Cpu, Zap, Palette, Code, ChevronRight, Loader2, ShieldCheck, AlertTriangle, Crown, Star, Eye } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 
@@ -132,7 +132,10 @@ export default function PaidBuilder() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: tierAccent + '20', border: `1px solid ${tierAccent}40` }}>
-          <Sparkles size={24} style={{ color: tierAccent }} />
+          {paidTier === 'BUILDER' && <Terminal size={24} style={{ color: tierAccent }} />}
+          {paidTier === 'PRO' && <Star size={24} style={{ color: tierAccent }} />}
+          {paidTier === 'MAX' && <Crown size={24} style={{ color: tierAccent }} />}
+          {paidTier !== 'BUILDER' && paidTier !== 'PRO' && paidTier !== 'MAX' && <Sparkles size={24} style={{ color: tierAccent }} />}
         </div>
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">Your Covenants</h1>

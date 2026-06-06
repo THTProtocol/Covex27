@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import {
   ArrowLeft, Sparkles, Cpu, Zap, Code, Layers, Shield, Terminal, ChevronRight,
-  Plus, Check, Copy, Loader2, Play, Palette, Users, Clock, Coins, Eye, Award
+  Plus, Check, Copy, Loader2, Play, Palette, Users, Clock, Coins, Eye, Award, Crown, Star
 } from 'lucide-react';
 import { ZK_CIRCUIT_TYPES } from '../components/CovexTerminal';
 
@@ -195,7 +195,7 @@ export default function PremiumBuilder() {
     }
   };
 
-  const categories = ['all', 'game', 'crypto', 'ownership', 'defi', 'compute', 'custom', 'other'];
+  const categories = ['all', 'game', 'crypto', 'ownership', 'defi', 'compute', 'gating', 'custom', 'other'];
 
   if (auth.loading) {
     return <div className="min-h-[60vh] flex items-center justify-center text-gray-400">Checking payment status via server...</div>;
@@ -221,6 +221,9 @@ export default function PremiumBuilder() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <img src="/covex-logo-48.png" alt="Covex" width="36" height="36" className="drop-shadow-[0_0_8px_rgba(0,255,157,0.45)] rounded" />
+          {paidTier === 'BUILDER' && <Terminal size={16} style={{ color: tierAccent }} />}
+          {paidTier === 'PRO' && <Star size={16} style={{ color: tierAccent }} />}
+          {paidTier === 'MAX' && <Crown size={16} style={{ color: tierAccent }} />}
           <div>
             <h1 className="text-3xl font-black tracking-tight">Covenant Studio <span className="text-xs align-super text-emerald-400">PAID</span></h1>
             <p className="text-xs text-gray-400 font-mono">Name it • Make it look however you want • Full wallet transparency • Top visibility</p>
@@ -267,9 +270,14 @@ export default function PremiumBuilder() {
                 <div className="flex gap-3">
                   <div className="mt-0.5" style={{ color: c.accent }}><Icon size={18} /></div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-sm flex items-center gap-2">{c.name} {c.variant && <span className="text-[9px] px-1.5 py-px rounded bg-white/10">variant</span>}</div>
+                    <div className="font-semibold text-sm flex items-center gap-2">{c.name} {c.variant && <span className="text-[9px] px-1.5 py-px rounded bg-white/10">variant</span>} {c.artifacts && <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">artifact</span>}</div>
                     <div className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{c.description}</div>
-                    <div className="text-[9px] mt-1 opacity-60">{c.category} • {c.circuit}</div>
+                    <div className="text-[9px] mt-1 flex items-center gap-2">
+                      <span className="opacity-60">{c.category} • {c.circuit}</span>
+                      {c.reality === 'full-zk' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">Full ZK</span>}
+                      {c.reality === 'hybrid' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 font-semibold">Hybrid</span>}
+                      {c.reality === 'oracle-attested' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">Oracle Attested</span>}
+                    </div>
                   </div>
                 </div>
               </button>

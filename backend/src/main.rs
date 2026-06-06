@@ -933,6 +933,9 @@ struct CovenantMetadataInput {
     resolution: Option<String>,
     paid_token: Option<String>,
     network: Option<String>,
+    reality: Option<String>,           // 'full-zk' | 'hybrid' | 'oracle-attested'
+    circuit_category: Option<String>,  // 'game' | 'crypto' | 'ownership' | 'defi' | etc.
+    has_artifacts: Option<bool>,       // true if real artifacts exist in zk/
 }
 
 /// POST /api/auth-session
@@ -1098,6 +1101,9 @@ async fn save_covenant_metadata_handler(
         "theme": input.theme,
         "custom_circuit": input.custom_circuit,
         "resolution": input.resolution,
+        "reality": input.reality,
+        "circuit_category": input.circuit_category,
+        "has_artifacts": input.has_artifacts,
         "paid_token_hash": input.paid_token.map(|t| {
             use sha2::{Digest, Sha256};
             hex::encode(Sha256::digest(t.as_bytes()))

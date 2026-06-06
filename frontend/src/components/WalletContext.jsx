@@ -206,6 +206,19 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
 
   const isMainnet = network === 'mainnet' || network === 'mainnet-1';
   const accentColor = isMainnet ? 'red' : 'yellow';
+  if (isMainnet) {
+    return (
+      <div className={`rounded-xl border border-red-500/20 bg-red-500/[0.03] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.5)]" />
+          <span className="text-xs font-mono text-red-400 uppercase tracking-wider">MAINNET · Real Wallet Only</span>
+        </div>
+        <p className="text-xs text-gray-300 mb-3 leading-relaxed">
+          Connect a real Kaspa wallet extension. Dev mnemonic/hex connections are not supported on mainnet. All mainnet activity uses real KAS from your connected wallet.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-xl border border-${accentColor}-600/30 bg-${accentColor}-600/[0.04] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
@@ -216,67 +229,55 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
       <p className="text-xs text-gray-300 mb-3 leading-relaxed">
         Connect via mnemonic or hex private key. Keys are derived locally and never leave your browser.
       </p>
-      {isMainnet && (
-        <div className="mb-3 p-2 rounded bg-red-500/10 border border-red-500/20">
-          <p className="text-[10px] text-red-400 font-semibold">MAINNET — use only with your own real wallet with real KAS. No mnemonic/hex dev mode.</p>
-        </div>
-      )}
-
-      {!isMainnet && (
-        <>
-          <div className="flex rounded-lg bg-black/40 border border-white/[0.06] mb-3 overflow-hidden">
-            <button
-              onClick={() => { setMode('mnemonic'); setError(null); }}
-              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                mode === 'mnemonic' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
-              }`}
-            >Mnemonic</button>
-            <button
-              onClick={() => { setMode('hex'); setError(null); }}
-              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                mode === 'hex' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
-              }`}
-            >Hex Key</button>
-          </div>
-
-          {mode === 'mnemonic' ? (
-            <textarea
-              value={phrase}
-              onChange={(e) => { setPhrase(e.target.value); setError(null); }}
-              rows={3}
-              placeholder="witch collapse practice feed shame open despair creek road again ice least"
-              className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
-              spellCheck={false} autoCapitalize="none" autoCorrect="off"
-            />
-          ) : (
-            <input
-              type="password"
-              value={hexKey}
-              onChange={(e) => { setHexKey(e.target.value); setError(null); }}
-              placeholder="64 hex characters (32 bytes)"
-              className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
-              spellCheck={false}
-            />
-          )}
-
-          {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
-
+      <>
+        <div className="flex rounded-lg bg-black/40 border border-white/[0.06] mb-3 overflow-hidden">
           <button
-            onClick={handleDerive}
-            disabled={deriving}
-            className={`mt-3 w-full px-4 py-2.5 bg-${accentColor}-600/80 hover:bg-${accentColor}-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-          >
-            {deriving ? (
-              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : null}
-            {deriving ? 'Deriving Keys...' : 'Connect Dev Wallet'}
-          </button>
-        </>
-      )}
+            onClick={() => { setMode('mnemonic'); setError(null); }}
+            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+              mode === 'mnemonic' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
+            }`}
+          >Mnemonic</button>
+          <button
+            onClick={() => { setMode('hex'); setError(null); }}
+            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+              mode === 'hex' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
+            }`}
+          >Hex Key</button>
+        </div>
 
-      {isMainnet && (
-        <p className="text-[11px] text-red-400/90 mt-2">Dev connections (mnemonic or private hex) are not supported on mainnet. All mainnet activity (including paid tiers) must use real connected Kaspa wallet extensions.</p>
-      )}
+        {mode === 'mnemonic' ? (
+          <textarea
+            value={phrase}
+            onChange={(e) => { setPhrase(e.target.value); setError(null); }}
+            rows={3}
+            placeholder="witch collapse practice feed shame open despair creek road again ice least"
+            className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
+            spellCheck={false} autoCapitalize="none" autoCorrect="off"
+          />
+        ) : (
+          <input
+            type="password"
+            value={hexKey}
+            onChange={(e) => { setHexKey(e.target.value); setError(null); }}
+            placeholder="64 hex characters (32 bytes)"
+            className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-300 focus:outline-none focus:border-[#49EACB] transition-all"
+            spellCheck={false}
+          />
+        )}
+
+        {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+
+        <button
+          onClick={handleDerive}
+          disabled={deriving}
+          className={`mt-3 w-full px-4 py-2.5 bg-${accentColor}-600/80 hover:bg-${accentColor}-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+        >
+          {deriving ? (
+            <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : null}
+          {deriving ? 'Deriving Keys...' : 'Connect Dev Wallet'}
+        </button>
+      </>
     </div>
   );
 }

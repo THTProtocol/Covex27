@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange } from './WalletContext';
-import { Key, Terminal, X, AlertTriangle, Wand2 } from 'lucide-react';
+import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
 // Now network-aware — derives keys for the currently selected network (TN10/TN12/Mainnet).
@@ -159,12 +159,21 @@ export default function DevWalletModal({ isOpen, onClose }) {
   const accentColor = isMainnet ? 'red' : 'yellow';
 
   if (isMainnet) {
+    return <MainnetWalletModal walletContext={useWallet()} onClose={onClose} />;
+  }
+
+  if (isConnected) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-        <div className="w-full max-w-md rounded-2xl border border-red-600/30 bg-[#0a0a0c] p-6 text-center" onClick={e => e.stopPropagation()}>
-          <div className="text-red-400 text-lg font-bold mb-2">MAINNET — Dev Wallets Disabled</div>
-          <p className="text-sm text-gray-300 mb-4">Mnemonic and private key (hex) dev connections are not available on mainnet.<br/>Use a real Kaspa wallet extension (KasWare, etc.) connected to mainnet for all interactions and paid tier covenant deployments.</p>
-          <button onClick={onClose} className="px-6 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-sm">Close</button>
+        <div className="w-full max-w-sm rounded-2xl border border-emerald-500/30 bg-[#0a0a0c] p-6" onClick={e => e.stopPropagation()}>
+          <div className="text-center">
+            <div className="w-3 h-3 rounded-full bg-emerald-400 mx-auto mb-3 animate-pulse" />
+            <div className="text-emerald-400 text-sm font-mono mb-1">Dev Mode Active ({netLabel})</div>
+            <p className="text-xs font-mono text-white break-all mb-4">{currentAddr}</p>
+            <button onClick={handleDisconnect} className="w-full px-4 py-2.5 bg-red-600/10 border border-red-600/30 text-red-400 hover:bg-red-600/20 text-sm font-bold rounded-lg">
+              Disconnect Dev Wallet
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -351,6 +360,118 @@ export default function DevWalletModal({ isOpen, onClose }) {
           <p className="text-[10px] text-gray-200 text-center leading-relaxed">
             Keys are derived locally via kaspa-wasm. Never leaves your browser.
             For covenant testing only, no real funds. {netLabel}.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Mainnet Wallet Modal — real wallet extensions only, no dev mnemonic/hex ──
+function MainnetWalletModal({ walletContext, onClose }) {
+  const { wallets, connect, connecting, error, clearError } = walletContext;
+
+  const handleClick = async (wallet) => {
+    const detected = wallet.detect ? wallet.detect() : false;
+    if (detected) {
+      try {
+        await connect(wallet.id);
+        onClose();
+      } catch (_) {}
+    } else {
+      window.open(wallet.url, '_blank');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-[#0a0a0c] shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-red-500/10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+            <div>
+              <h3 className="text-base font-bold text-white">MAINNET Connect</h3>
+              <p className="text-[10px] text-red-400/70 font-mono uppercase tracking-wider">Real KAS · Real Wallet Extension Only</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-300 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          <div className="p-3 rounded-lg bg-red-500/[0.04] border border-red-500/15">
+            <p className="text-xs text-red-300 leading-relaxed">
+              MAINNET uses real KAS. Connect a Kaspa wallet extension to deploy real covenants with paid tiers. No mnemonic or hex key input — your keys stay in your wallet.
+            </p>
+          </div>
+
+          {/* Wallet grid */}
+          <div className="space-y-2">
+            {wallets.map((wallet) => {
+              const detected = wallet.detect ? wallet.detect() : false;
+              return (
+                <button
+                  key={wallet.id}
+                  onClick={() => handleClick(wallet)}
+                  disabled={connecting}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-red-500/10 bg-red-500/[0.02] hover:border-red-500/30 hover:bg-red-500/[0.06] transition-all group disabled:opacity-50 text-left"
+                >
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-black/40 border border-red-500/10">
+                    {wallet.logo ? (
+                      <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md"
+                        onError={(e) => { e.target.style.display = 'none'; }} />
+                    ) : (
+                      <Wallet size={18} className="text-red-400/60" />
+                    )}
+                  </div>
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="text-white font-medium text-sm flex items-center gap-2">
+                      {wallet.name}
+                      {detected && (
+                        <span className="text-[9px] uppercase tracking-wider bg-red-500/15 text-red-400 px-1.5 py-0.5 rounded-sm shrink-0 font-mono">Detected</span>
+                      )}
+                      {wallet.recommended && !detected && (
+                        <span className="text-[9px] uppercase tracking-wider bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-sm shrink-0 font-mono">Recommended</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {detected ? 'Click to connect' : wallet.sub || 'Install'}
+                    </div>
+                  </div>
+                  {!detected ? (
+                    <ExternalLink size={14} className="text-gray-400 group-hover:text-red-400 transition-colors shrink-0" />
+                  ) : (
+                    <div className="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_4px_rgba(239,68,68,0.5)] shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {error && (
+            <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-red-300">{error}</p>
+                <button onClick={clearError} className="text-[10px] text-red-400/70 hover:text-red-300 mt-1">Dismiss</button>
+              </div>
+            </div>
+          )}
+
+          {connecting && (
+            <div className="p-3 rounded-lg bg-red-500/[0.04] border border-red-500/15 text-center">
+              <p className="text-sm text-red-400 animate-pulse">Connecting to wallet...</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t border-red-500/10">
+          <p className="text-[10px] text-gray-400 text-center">
+            MAINNET · Non-custodial · Real KAS only · Keys never leave your wallet
           </p>
         </div>
       </div>

@@ -1001,22 +1001,23 @@ async fn consume_auth_token_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Json(req): Json<ConsumeTokenRequest>,
 ) -> Json<serde_json::Value> {
-    // The token itself encodes nothing — we need the address from auth_tokens.
-    // Look up the token in the DB first.
-    let conn = db.lock().unwrap();
-    let (address, network, tier, used): (String, String, String, i32) = match conn.query_row(
-        "SELECT address, network, tier, used_for_deploy FROM auth_tokens WHERE token = ?1",
-        params![req.token],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-    ) {
-        Ok(row) => row,
-        Err(_) => {
-            return Json(json!({
-                "consumed": false,
-                "error": "Token not found or expired"
-            }))
+    // Look up the token in the DB first, then drop the lock before calling consume.
+    let (address, network, tier, used): (String, String, String, i32) = {
+        let conn = db.lock().unwrap();
+        match conn.query_row(
+            "SELECT address, network, tier, used_for_deploy FROM auth_tokens WHERE token = ?1",
+            params![req.token],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        ) {
+            Ok(row) => row,
+            Err(_) => {
+                return Json(json!({
+                    "consumed": false,
+                    "error": "Token not found or expired"
+                }))
+            }
         }
-    };
+    }; // lock dropped here
 
     if used != 0 {
         return Json(json!({
@@ -1025,7 +1026,7 @@ async fn consume_auth_token_handler(
         }));
     }
 
-    // Consume via the dedicated function
+    // Consume via the dedicated function (acquires its own lock)
     match db::consume_auth_token(&db, &req.token, &address, &network) {
         Ok(remaining) => {
             info!(

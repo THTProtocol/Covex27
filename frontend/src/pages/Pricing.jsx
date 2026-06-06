@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Check, X as XIcon, ShieldCheck, Loader2, ArrowLeft } from 'lucide-react';
+import { Check, X as XIcon, Loader2, ArrowLeft, Terminal, Star, Crown, Eye } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -169,8 +169,11 @@ const Pricing = () => {
           <ArrowLeft size={16} /> Cancel
         </button>
         <div className="mb-8">
-          <div className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-6" style={{ backgroundColor: p.accent + '15', border: `2px solid ${p.accent}30` }}>
-            <ShieldCheck size={44} style={{ color: p.accent }} />
+          <div className="mx-auto mb-6">
+            {p.id === 'BUILDER' && <Terminal size={48} style={{ color: p.accent }} />}
+            {p.id === 'PRO' && <Star size={48} style={{ color: p.accent }} />}
+            {p.id === 'MAX' && <Crown size={48} style={{ color: p.accent }} />}
+            {p.id === 'FREE' && <Eye size={48} style={{ color: p.accent }} />}
           </div>
           <h1 className="text-3xl font-black text-white mb-3">Payment Required</h1>
           <p className="text-lg text-gray-300 max-w-xl mx-auto">
@@ -237,8 +240,14 @@ const Pricing = () => {
           return (
             <Card key={tier.id} className={`flex flex-col pricing-tier-card ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{tier.name}</CardTitle>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    {tier.id === 'FREE' && <Eye size={22} className="text-gray-400" />}
+                    {tier.id === 'BUILDER' && <Terminal size={22} style={{ color: tier.accent }} />}
+                    {tier.id === 'PRO' && <Star size={22} style={{ color: tier.accent }} />}
+                    {tier.id === 'MAX' && <Crown size={22} style={{ color: tier.accent }} />}
+                    <CardTitle>{tier.name}</CardTitle>
+                  </div>
                   <Badge variant={tier.variant}>{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
                 </div>
                 <p className="text-sm text-gray-400 mt-1">{tier.desc}</p>

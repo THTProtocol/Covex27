@@ -122,7 +122,7 @@ export default function App() {
             </div>
           </nav>
 
-          <div className="relative z-10 min-h-screen pt-16">
+          <div className="relative z-10 pt-14">
             <Routes>
               <Route path="/" element={<Explorer />} />
               <Route path="/covenant" element={<DemoCovenant />} />
@@ -141,7 +141,7 @@ export default function App() {
             </Routes>
           </div>
 
-          <footer className="relative z-10 border-t border-white/[0.03] py-8 px-4 text-xs text-gray-400">
+          <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400">
             <div className="max-w-6xl mx-auto text-center">
               Non-custodial. Keys stay in your wallet.
             </div>

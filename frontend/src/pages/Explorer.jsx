@@ -155,7 +155,7 @@ export default function Explorer() {
   return (
     <>
       {/* ═══ HERO ═══ */}
-      <section className="relative z-10 flex flex-col items-center justify-center pt-20 pb-8 px-4 sm:px-6 text-center">
+      <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-6 px-4 sm:px-6 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
@@ -209,7 +209,7 @@ export default function Explorer() {
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <div className="relative z-10 px-4 sm:px-6 pb-16 max-w-6xl mx-auto">
+      <div className="relative z-10 px-4 sm:px-6 pb-8 max-w-6xl mx-auto">
         {/* SEARCH TAB */}
         {activeTab === 'search' && (
           <div className="space-y-6">
@@ -265,7 +265,7 @@ export default function Explorer() {
         {activeTab === 'explore' && (
           <>
             {loading && (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-300 gap-3">
+              <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
                 <div className="w-10 h-10 border-2 border-kaspa-green/20 border-t-kaspa-green rounded-full animate-spin" />
                 <p className="text-sm font-mono">Loading from the BlockDAG...</p>
               </div>

@@ -122,10 +122,6 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             last_scanned_daa INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (id, network)
         );
-        -- Insert defaults for known networks (ignore if already exists)
-        INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'testnet-12', 0);
-        INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'testnet-10', 0);
-        INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'mainnet', 0);
 
         CREATE TABLE IF NOT EXISTS skill_games (
             covenant_id     TEXT PRIMARY KEY,
@@ -193,8 +189,9 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
     }
 
     // ── Migration: upgrade crawler_state to network-aware (per-network scan progress) ──
+    // Try selecting network column; if it fails, table needs migration
     let has_crawler_network: bool = conn
-        .prepare("SELECT network FROM crawler_state LIMIT 1")
+        .execute("SELECT network FROM crawler_state LIMIT 0", [])
         .is_ok();
     if !has_crawler_network {
         // Drop old single-row table and recreate with composite PK + per-network rows

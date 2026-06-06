@@ -348,20 +348,35 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
 
+  // Check for paid covenant metadata (from /api/covenant-metadata)
+  let paidMetadata = null;
+  try {
+    const cfg = c.custom_ui_config;
+    if (cfg && typeof cfg === 'object' && cfg.paid_token_hash) {
+      paidMetadata = cfg;
+    } else if (cfg && typeof cfg === 'string') {
+      const parsed = JSON.parse(cfg);
+      if (parsed.paid_token_hash) paidMetadata = parsed;
+    }
+  } catch (_) {}
+
+  const isPaidVerified = !!paidMetadata;
+  const disclosedWallets = paidMetadata?.disclosed_wallets;
+  const covenantName = paidMetadata?.name || c.name || c.covenant_type || 'Unnamed Covenant';
+  const covenantDesc = paidMetadata?.description || c.description || 'No description provided.';
+  const themeAccent = paidMetadata?.theme?.accent || '#49EACB';
+
   // Only the creator sees their own tier badge.
-  // Regular visitors see prioritized placement/visual weight only (no explicit tier label).
   const isOwner = ownerAddress && c.creator_addr?.toLowerCase() === ownerAddress.toLowerCase();
 
-  // Apply tier-specific card styling (border + bg tint) for all viewers.
-  // Only the creator sees the explicit tier badge text.
   const tierCardClass = highlighted
     ? `${style.card} hover:border-kaspa-green/30 hover:-translate-y-0.5`
     : `${style.card} hover:border-white/10 hover:bg-white/[0.03]`;
-  // Ensure cards have enough visual separation even with glows
-  const cardBase = 'bg-[#0a0a0f]'; // solid base to prevent bleed-through from shadows/glows of neighbors
+  const cardBase = 'bg-[#0a0a0f]';
 
-  // Higher-tier glow for MAX/PRO - toned down to avoid visual overlap in dense grids
-  const tierGlow = tier === 'MAX' ? 'shadow-[0_0_16px_rgba(168,85,247,0.12)] ring-1 ring-purple-500/10' 
+  const tierGlow = isPaidVerified
+    ? 'shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20'
+    : tier === 'MAX' ? 'shadow-[0_0_16px_rgba(168,85,247,0.12)] ring-1 ring-purple-500/10' 
     : tier === 'PRO' ? 'shadow-[0_0_12px_rgba(232,175,52,0.10)] ring-1 ring-amber-500/10'
     : tier === 'BUILDER' ? 'shadow-[0_0_8px_rgba(59,130,246,0.08)] ring-1 ring-blue-500/10'
     : 'ring-1 ring-white/5';
@@ -370,21 +385,19 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
       className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase}`}
     >
+      {isPaidVerified && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-emerald-400/60 via-emerald-400/20 to-transparent" />}
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
       <div className="flex items-start justify-between mb-2.5">
         <div className="flex-1 min-w-0 pr-2">
-          <h3 className={`font-bold text-sm sm:text-base truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`}>
-            {c.name || c.covenant_type || 'Unnamed Covenant'}
+          <h3 className={`font-bold text-sm sm:text-base truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`} style={{ color: isPaidVerified ? themeAccent : undefined }}>
+            {covenantName}
           </h3>
           <p className="text-[11px] font-mono mt-0.5 text-gray-300 truncate">{truncate(c.tx_id, 8)}</p>
         </div>
         <div className="flex flex-col items-end gap-1 text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0 min-w-0">
-          {/* HIGH TVL badge sits above the amount — stacked right, never overlaps */}
+          {isPaidVerified && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">PAID VERIFIED</span>}
           {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
           <div className="flex items-center gap-1.5">
-            {/* Tier badge ONLY visible to the covenant creator.
-                Regular visitors see Featured Covenants prioritized by tier + TVL
-                via visual styling only — no explicit tier names are shown publicly. */}
             {isOwner && (
               <Badge tier={tier} className="text-[9px] py-0 px-1.5">{style.label}</Badge>
             )}
@@ -393,7 +406,20 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
         </div>
       </div>
 
-      <p className="text-xs text-gray-200 mb-3 line-clamp-2">{c.description || 'No description provided.'}</p>
+      <p className="text-xs text-gray-200 mb-3 line-clamp-2">{covenantDesc}</p>
+
+      {/* Disclosed wallets section for paid verified covenants */}
+      {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
+        <div className="mb-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2.5">
+          <div className="text-[10px] text-emerald-400 font-mono uppercase tracking-wide mb-1">All Wallets Disclosed</div>
+          <div className="flex flex-wrap gap-1.5">
+            {disclosedWallets.slice(0, 3).map((w, i) => (
+              <span key={i} className="text-[9px] text-gray-300 bg-white/5 px-1.5 py-0.5 rounded">{w.role}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <GamePreview covenant={c} compact />
 
       {(gameType || customUI) && (

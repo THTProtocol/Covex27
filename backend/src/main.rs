@@ -264,6 +264,7 @@ async fn main() {
     });
 
     // --- Routes ---
+    let db_clone = db.clone();
     let app = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root_handler))
@@ -272,6 +273,12 @@ async fn main() {
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .route("/paid-status", get(paid_status_handler))
+        // ── Auth endpoints (server-side paywall) ──
+        .route("/auth-session", post(auth_session_handler))
+        .route("/auth-session/consume", post(consume_auth_token_handler))
+        .route("/deploy-capacity", get(deploy_capacity_handler))
+        .route("/covenant-metadata", post(save_covenant_metadata_handler))
+        .layer(Extension(db_clone))
         .route(
             "/terminal-config/:covenant_id",
             get(get_terminal_config_handler).post(save_terminal_config_handler),
@@ -898,4 +905,221 @@ async fn compute_payout_handler(
         "success": true,
         "payout": payout,
     }))
+}
+
+// ─── Auth Session Handlers ────────────────────────────────────
+// Server-side paywall: only addresses with verified on-chain payment
+// can obtain a one-time auth token. Token is consumed on first deploy.
+
+#[derive(Deserialize)]
+struct AuthSessionRequest {
+    address: String,
+    network: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ConsumeTokenRequest {
+    token: String,
+}
+
+#[derive(Deserialize)]
+struct CovenantMetadataInput {
+    tx_id: String,
+    name: Option<String>,
+    description: Option<String>,
+    disclosed_wallets: Option<serde_json::Value>,
+    theme: Option<serde_json::Value>,
+    custom_circuit: Option<serde_json::Value>,
+    resolution: Option<String>,
+    paid_token: Option<String>,
+    network: Option<String>,
+}
+
+/// POST /api/auth-session
+/// Returns {token, tier} only if the address has a verified payment on this network.
+async fn auth_session_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(req): Json<AuthSessionRequest>,
+) -> Json<serde_json::Value> {
+    let network = req.network.unwrap_or_else(|| "testnet-12".to_string());
+
+    // Check if this address has a confirmed payment (any tier) on this network
+    let tier = match db::get_highest_paid_tier_for_address(&db, &req.address, &network) {
+        Ok(Some(t)) => t,
+        _ => {
+            return Json(json!({
+                "token": null,
+                "tier": "FREE",
+                "address": req.address,
+                "network": network,
+                "error": "No verified payment found for this address on this network"
+            }))
+        }
+    };
+
+    // Determine how many deployments this account has
+    let can_deploy = db::can_deploy(&db, &req.address, &network).unwrap_or(false);
+    if !can_deploy {
+        return Json(json!({
+            "token": null,
+            "tier": "FREE",
+            "address": req.address,
+            "network": network,
+            "deployments_exhausted": true,
+            "error": "All deployment credits used. Pay again for another deployment."
+        }));
+    }
+
+    // Create a one-time auth token (valid for 1 hour)
+    match db::create_auth_token(&db, &req.address, &network, &tier) {
+        Ok(token) => {
+            info!(
+                "Auth token issued for {} on {} (tier: {})",
+                &req.address[..12.min(req.address.len())],
+                network,
+                tier
+            );
+            Json(json!({
+                "token": token,
+                "tier": tier,
+                "address": req.address,
+                "network": network,
+                "expires_in_secs": 3600
+            }))
+        }
+        Err(e) => Json(json!({
+            "token": null,
+            "tier": "FREE",
+            "error": format!("Failed to create auth token: {}", e)
+        }))
+    }
+}
+
+/// POST /api/auth-session/consume
+/// Marks a token as used (one-time use) and increments the deployment counter.
+async fn consume_auth_token_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(req): Json<ConsumeTokenRequest>,
+) -> Json<serde_json::Value> {
+    // The token itself encodes nothing — we need the address from auth_tokens.
+    // Look up the token in the DB first.
+    let conn = db.lock().unwrap();
+    let (address, network, tier, used): (String, String, String, i32) = match conn.query_row(
+        "SELECT address, network, tier, used_for_deploy FROM auth_tokens WHERE token = ?1",
+        params![req.token],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    ) {
+        Ok(row) => row,
+        Err(_) => {
+            return Json(json!({
+                "consumed": false,
+                "error": "Token not found or expired"
+            }))
+        }
+    };
+
+    if used != 0 {
+        return Json(json!({
+            "consumed": false,
+            "error": "Token already used"
+        }));
+    }
+
+    // Consume via the dedicated function
+    match db::consume_auth_token(&db, &req.token, &address, &network) {
+        Ok(remaining) => {
+            info!(
+                "Auth token consumed for {} on {}. {} deployments remaining.",
+                &address[..12.min(address.len())],
+                network,
+                remaining
+            );
+            Json(json!({
+                "consumed": true,
+                "tier": tier,
+                "address": address,
+                "network": network,
+                "deployments_remaining": remaining
+            }))
+        }
+        Err(e) => Json(json!({
+            "consumed": false,
+            "error": format!("Failed to consume token: {}", e)
+        }))
+    }
+}
+
+/// GET /api/deploy-capacity?address=X&network=Y
+/// Returns whether the address can deploy and how many credits remain.
+async fn deploy_capacity_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let address = params.get("address").cloned().unwrap_or_default();
+    let network = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+
+    if address.is_empty() {
+        return Json(json!({ "can_deploy": false, "error": "address required" }));
+    }
+
+    let conn = db.lock().unwrap();
+    let (max_deploy, used): (i32, i32) = conn.query_row(
+        "SELECT COALESCE(max_deployments, 0), COALESCE(deployments_used, 0)
+         FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
+        params![address, network],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    ).unwrap_or((0, 0));
+
+    let remaining = (max_deploy - used).max(0);
+    let can_deploy = remaining > 0;
+
+    Json(json!({
+        "can_deploy": can_deploy,
+        "deployments_remaining": remaining,
+        "max_deployments": max_deploy,
+        "deployments_used": used,
+        "address": address,
+        "network": network,
+    }))
+}
+
+/// POST /api/covenant-metadata
+/// Save rich covenant metadata (disclosed wallets, theme, custom circuit, paid proof)
+/// alongside the covenant record for persistent top-visibility display.
+async fn save_covenant_metadata_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(input): Json<CovenantMetadataInput>,
+) -> Json<serde_json::Value> {
+    let metadata_json = json!({
+        "name": input.name,
+        "description": input.description,
+        "disclosed_wallets": input.disclosed_wallets,
+        "theme": input.theme,
+        "custom_circuit": input.custom_circuit,
+        "resolution": input.resolution,
+        "paid_token_hash": input.paid_token.map(|t| {
+            use sha2::{Digest, Sha256};
+            hex::encode(Sha256::digest(t.as_bytes()))
+        }),
+        "metadata_saved_at": chrono::Utc::now().timestamp(),
+    });
+
+    let slug = format!("meta-{}", &input.tx_id[..12.min(input.tx_id.len())]);
+
+    match db::save_generated_ui(
+        &db,
+        &input.tx_id,
+        &input.network.as_deref().unwrap_or("unknown"),
+        "METADATA",
+        "",
+        &metadata_json.to_string(),
+        &slug,
+        true, // featured = true for paid covenants
+    ) {
+        Ok(_) => {
+            info!("Covenant metadata saved for {}", &input.tx_id[..16]);
+            Json(json!({ "success": true, "message": "Metadata persisted. Covenant now has top visibility." }))
+        }
+        Err(e) => Json(json!({ "success": false, "error": e.to_string() }))
+    }
 }

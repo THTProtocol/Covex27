@@ -48,60 +48,107 @@ const TEXTAREA =
 // plus cryptographic primitives (membership, range, age, verifiable compute), and custom.
 // The "emoji" field is vestigial from the old game grid; use circuit badge codes instead.
 export const ZK_CIRCUIT_TYPES = [
-  { 
-    id: 'chess_v1', 
-    name: 'Chess (FIDE)', 
-    emoji: '',
-    description: 'Proves complete legal play on 8×8 board according to FIDE rules: castling, en passant, checkmate, stalemate, 50-move rule, threefold repetition. The only fully specified p2p ZK game circuit.', 
-    circuit: 'chess_v1', 
-    accent: '#49EACB',
-    category: 'game',
-  },
-  { 
-    id: 'merkle_membership', 
-    name: 'Merkle Membership', 
-    emoji: '',
-    description: 'Proves a key/value pair exists in a committed Merkle tree without revealing sibling leaves. Used for whitelist/airdrop eligibility, token-gated access, DAO voting power proofs.', 
-    circuit: 'merkle_generic', 
-    accent: '#3B82F6',
-    category: 'crypto',
-  },
-  { 
-    id: 'range_proof', 
-    name: 'Range Proof', 
-    emoji: '',
-    description: 'Proves a committed value lies within [min, max] without revealing the value. Used for KYC-free age verification, collateral sufficiency, tier qualification.', 
-    circuit: 'bulletproofs_v1', 
-    accent: '#22C55E',
-    category: 'crypto',
-  },
-  { 
-    id: 'age_verification', 
-    name: 'Age Verification', 
-    emoji: '',
-    description: 'Proves a birthdate is at least N years before a reference date (18+, 21+) without revealing exact birthdate. Zero-knowledge KYC alternative.', 
-    circuit: 'age_verify_v1', 
-    accent: '#F59E0B',
-    category: 'identity',
-  },
-  { 
-    id: 'verifiable', 
-    name: 'Verifiable Compute', 
-    emoji: '',
-    description: 'General-purpose circuit for proving correctness of arbitrary computation: custom predicates, state transitions, off-chain execution verification.', 
-    circuit: 'risc0_generic', 
-    accent: '#A855F7',
-    category: 'compute',
-  },
-  { 
-    id: 'custom', 
-    name: 'Custom Circuit', 
-    emoji: '',
-    description: 'Supply any audited circuit definition and its verifier key for a verifiable statement not covered above.', 
-    circuit: 'custom', 
-    accent: '#E8AF34',
-    category: 'custom',
-  },
+  // ═══════════════════════════════════════════
+  // GAME CIRCUITS (32 entries) — real per-turn timers
+  // "only active player clock decrements; <30s red; zero = auto-resolve + submit to oracle"
+  // ═══════════════════════════════════════════
+  { id: 'chess_v1', name: 'Chess (FIDE)', description: 'Complete FIDE rules: castling, en passant, checkmate, stalemate, 50-move, threefold repetition. Real per-turn timer — only active player clock decrements. <30s = red; zero = auto-resolve + oracle payout.', circuit: 'chess_v1', accent: '#49EACB', category: 'game' },
+  { id: 'chess_blitz', name: 'Chess Blitz (3+2)', description: '3 min + 2s increment. FIDE ruleset. Per-turn timer: only clock of player-to-move ticks. Red <30s. Zero = auto-loss + PAYOUT COMPUTED via oracle.', circuit: 'chess_blitz', accent: '#49EACB', category: 'game', variant: true },
+  { id: 'chess_bullet', name: 'Chess Bullet (1+0)', description: '1 min no increment. Same FIDE circuit, aggressive clock. Per-turn timer — zero = instant auto-resolve.', circuit: 'chess_bullet', accent: '#49EACB', category: 'game', variant: true },
+  { id: 'poker_v1', name: 'Poker (Texas Hold\'em)', description: 'Full hand ranking, pot split, side pots. 2-9 players. Real per-turn timer (blinds/action only current player). Zero = fold + PAYOUT COMPUTED. Oracle + ZK hybrid.', circuit: 'poker_v1', accent: '#E8AF34', category: 'game' },
+  { id: 'poker_6max', name: 'Poker 6-Max', description: 'Hold\'em 6-max with 15s action timer. Per-turn — current player clock only. Red <5s, zero = auto-fold.', circuit: 'poker_6max', accent: '#E8AF34', category: 'game', variant: true },
+  { id: 'poker_tourney', name: 'Poker Tournament', description: 'Multi-table tournament structure, escalating blinds, ICM chop. Per-turn timer per table.', circuit: 'poker_tourney', accent: '#E8AF34', category: 'game', variant: true },
+  { id: 'blackjack_v1', name: 'Blackjack (Full)', description: 'Hit/stand/double/split/insurance. Dealer reveals after all actions. 6-deck shoe. Per-hand timer — current player only. Oracle-attested result.', circuit: 'blackjack_v1', accent: '#EF4444', category: 'game' },
+  { id: 'blackjack_multi', name: 'Blackjack Multi-Hand', description: 'Play up to 3 hands simultaneously. Same full rules. Per-hand per-player timer.', circuit: 'blackjack_multi', accent: '#EF4444', category: 'game', variant: true },
+  { id: 'go_9x9', name: 'Go 9×9 Territory', description: 'Japanese rules, territory scoring, komi. Real per-turn timer. Zero = pass + auto-score. Oracle resolution.', circuit: 'go_9x9', accent: '#22C55E', category: 'game' },
+  { id: 'go_13x13', name: 'Go 13×13', description: 'Intermediate board. Same rules/timer as 9×9.', circuit: 'go_13x13', accent: '#22C55E', category: 'game', variant: true },
+  { id: 'go_19x19', name: 'Go 19×19 (Full Board)', description: 'Standard full board. Per-turn timer with byo-yomi. Oracle + ZK territory verification.', circuit: 'go_19x19', accent: '#22C55E', category: 'game', variant: true },
+  { id: 'backgammon_v1', name: 'Backgammon (Doubling Cube)', description: 'Standard rules + doubling cube. Per-turn timer. Zero = auto-resign. Oracle + VRF for dice fairness.', circuit: 'backgammon_v1', accent: '#F59E0B', category: 'game' },
+  { id: 'connect4_v1', name: 'Connect Four', description: '7×6 board, 4-in-a-row. Per-turn timer. Zero = auto-forfeit + oracle payout.', circuit: 'connect4_v1', accent: '#3B82F6', category: 'game' },
+  { id: 'checkers_v1', name: 'Checkers (Standard)', description: '8×8 American checkers, forced jumps, kings. Per-turn timer. Zero = auto-resolve.', circuit: 'checkers_v1', accent: '#A855F7', category: 'game' },
+  { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: '3×3 classic. Per-turn timer (short). Zero = draw/forfeit.', circuit: 'tictactoe_v1', accent: '#EC4899', category: 'game' },
+  { id: 'reversi_v1', name: 'Reversi / Othello', description: '8×8, capture-flip mechanics. Per-turn timer. Oracle resolution.', circuit: 'reversi_v1', accent: '#06B6D4', category: 'game' },
+  { id: 'battleship_v1', name: 'Battleship', description: '10×10 fleet placement + salvo. Per-turn (salvo phase). VRF for ship placement fairness.', circuit: 'battleship_v1', accent: '#84CC16', category: 'game' },
+  { id: 'scrabble_v1', name: 'Scrabble', description: '15×15 board, dictionary validation, premium squares. Per-turn timer. Oracle word-check.', circuit: 'scrabble_v1', accent: '#F97316', category: 'game' },
+  { id: 'dominoes_v1', name: 'Dominoes (Draw)', description: 'Double-6 draw dominoes. Per-turn timer. Zero = draw from boneyard + auto-pass.', circuit: 'dominoes_v1', accent: '#14B8A6', category: 'game' },
+  { id: 'rummikub_v1', name: 'Rummikub', description: 'Tile sets/runs, 30-point initial meld. Per-turn timer. Oracle validation of board state.', circuit: 'rummikub_v1', accent: '#8B5CF6', category: 'game' },
+  { id: 'mancala_v1', name: 'Mancala / Kalah', description: '6-pocket + store per side, capture rules. Per-turn timer. Oracle resolution.', circuit: 'mancala_v1', accent: '#10B981', category: 'game' },
+  { id: 'risk_v1', name: 'Risk (Territory)', description: 'Multi-territory conquest, dice combat. Per-turn (deploy + attack + fortify). VRF dice. Oracle.', circuit: 'risk_v1', accent: '#DC2626', category: 'game' },
+  { id: 'catan_v1', name: 'Catan (Settlement)', description: 'Resource trading, settlement/road building. Per-turn timer. VRF dice rolls.', circuit: 'catan_v1', accent: '#D946EF', category: 'game' },
+  { id: 'monopoly_v1', name: 'Monopoly (Property)', description: 'Property trading, auctions. Per-turn timer. VRF dice. Oracle validates trades.', circuit: 'monopoly_v1', accent: '#FBBF24', category: 'game' },
+  { id: 'yahtzee_v1', name: 'Yahtzee / Dice', description: '5-dice scorecard game. Per-turn (3 rolls). VRF for dice fairness. Oracle scorecard.', circuit: 'yahtzee_v1', accent: '#34D399', category: 'game' },
+  { id: 'gin_rummy_v1', name: 'Gin Rummy', description: '10-card standard deck, knock/gin/undercut. Per-turn timer. VRF shuffle.', circuit: 'gin_rummy_v1', accent: '#F472B6', category: 'game' },
+  { id: 'hearts_v1', name: 'Hearts (Trick-Taking)', description: '4-player trick-taking, shoot-the-moon. Per-turn timer. Oracle validates tricks.', circuit: 'hearts_v1', accent: '#A78BFA', category: 'game' },
+  { id: 'spades_v1', name: 'Spades', description: '4-player partnership, bidding, nil/blind nil. Per-turn timer. Oracle.', circuit: 'spades_v1', accent: '#FB923C', category: 'game' },
+  { id: 'bridge_v1', name: 'Bridge (Contract)', description: '4-player, bidding + dummy + play. Per-turn timer. Oracle + VRF shuffle.', circuit: 'bridge_v1', accent: '#38BDF8', category: 'game' },
+  { id: 'euchre_v1', name: 'Euchre', description: '4-player trump-based trick game. Per-turn timer. Oracle.', circuit: 'euchre_v1', accent: '#A3E635', category: 'game' },
+  { id: 'cribbage_v1', name: 'Cribbage', description: '2-4 player peg-scoring + discard. Per-turn timer. Oracle counting.', circuit: 'cribbage_v1', accent: '#FDA4AF', category: 'game' },
+  { id: 'mahjong_v1', name: 'Mahjong (Riichi)', description: '4-player tile-matching with yaku scoring. Per-turn timer. VRF wall shuffle.', circuit: 'mahjong_v1', accent: '#C084FC', category: 'game' },
+
+  // ═══════════════════════════════════════════
+  // CRYPTO PRIMITIVES (12 entries)
+  // ═══════════════════════════════════════════
+  { id: 'merkle_membership', name: 'Merkle Membership', description: 'Proves a key/value pair exists in a committed Merkle tree. Whitelist eligibility, DAO voting power, airdrop claims, token-gated access.', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto' },
+  { id: 'merkle_dao', name: 'Merkle DAO Voting', description: 'Voting power = merkle leaf value. Threshold quorum. No individual votes revealed.', circuit: 'merkle_dao', accent: '#3B82F6', category: 'crypto', variant: true },
+  { id: 'merkle_airdrop', name: 'Merkle Airdrop Claim', description: 'Prove eligibility without revealing other claimers. Single-use nullifier per leaf.', circuit: 'merkle_airdrop', accent: '#3B82F6', category: 'crypto', variant: true },
+  { id: 'range_proof', name: 'Range Proof', description: 'Prove committed value within [min, max] without revealing value. Collateral sufficiency, KYC-free tier qualification.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto' },
+  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Prove collateral >= loan amount * threshold. Liquidation trigger detection. No amount disclosed.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true },
+  { id: 'schnorr_knowledge', name: 'Schnorr Knowledge Proof', description: 'Standard Sigma protocol: prove knowledge of discrete log without revealing it. Building block for ring sigs, DLCs.', circuit: 'schnorr_generic', accent: '#6366F1', category: 'crypto' },
+  { id: 'pedersen_commitment', name: 'Pedersen Commitment', description: 'Homomorphic commitment scheme. Prove committed value satisfies linear equation. Used for UTXO amount hiding + range proof combo.', circuit: 'pedersen_generic', accent: '#8B5CF6', category: 'crypto' },
+  { id: 'hash_preimage', name: 'Hash Preimage Proof', description: 'Prove knowledge of preimage for SHA256/Blake2b hash. Used for HTLC-style covenant script constraints on Kaspa.', circuit: 'hash_preimage', accent: '#F59E0B', category: 'crypto' },
+  { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Verifiable Random Function — proves output was correctly derived from seed + secret key. Fair coin flips, card shuffles without trusted dealer.', circuit: 'vrf_generic', accent: '#EC4899', category: 'crypto' },
+  { id: 'vrf_shuffle', name: 'VRF Shuffle (Deck)', description: 'Provably fair deck/card shuffle. Each player contributes entropy. No trusted dealer. Used for poker/blackjack/gin.', circuit: 'vrf_shuffle', accent: '#EC4899', category: 'crypto', variant: true },
+  { id: 'bls_signature', name: 'BLS Threshold Signature', description: 'Aggregate BLS signatures for multi-oracle consensus. M-of-N threshold without revealing individual keys.', circuit: 'bls_threshold', accent: '#14B8A6', category: 'crypto' },
+  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Prove a unique nullifier not yet spent. Single-use claim prevention. Used for one-vote-per-identity, airdrop double-spend protection.', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto' },
+
+  // ═══════════════════════════════════════════
+  // OWNERSHIP / SCRIPT / TIMELOCK (8 entries)
+  // ═══════════════════════════════════════════
+  { id: 'utxo_ownership', name: 'UTXO Ownership Proof', description: 'Prove control of a specific UTXO (address + amount) via Schnorr signature. Used for covenant spend authorization.', circuit: 'utxo_ownership', accent: '#06B6D4', category: 'ownership' },
+  { id: 'script_hash_match', name: 'Script Hash Validation', description: 'Prove a particular locking script (script_hash) was used. Verify covenant constraints on-chain. SilverScript → Kaspa Script attestation.', circuit: 'script_hash_match', accent: '#84CC16', category: 'ownership' },
+  { id: 'timelock_absolute', name: 'Absolute Timelock Proof', description: 'Prove current DAA score >= lock threshold. Vesting schedule, challenge window open verification.', circuit: 'timelock_abs', accent: '#F97316', category: 'ownership' },
+  { id: 'timelock_relative', name: 'Relative Timelock Proof', description: 'Prove N blocks have passed since a reference point. Dispute periods, cooldown windows.', circuit: 'timelock_rel', accent: '#F97316', category: 'ownership', variant: true },
+  { id: 'multisig_threshold', name: 'Multi-Sig Threshold', description: 'Prove M-of-N signatures collected. Governance approval, DAO treasury spend authorization.', circuit: 'multisig_threshold', accent: '#A855F7', category: 'ownership' },
+  { id: 'state_transition', name: 'State Transition Proof', description: 'Prove valid transition S_i → S_{i+1} given rules. Off-chain game engine state verification. Used for complex game logic.', circuit: 'state_transition', accent: '#10B981', category: 'ownership' },
+  { id: 'vesting_schedule', name: 'Vesting Schedule Proof', description: 'Prove vested amount at current block height given cliff + linear/sigmoid curve. Token vesting, founder allocation.', circuit: 'vesting_generic', accent: '#34D399', category: 'ownership' },
+  { id: 'replay_protection', name: 'Replay Protection', description: 'Bound covenant unlock to a specific block hash or DAA window. Anti-replay, chain-specific execution.', circuit: 'replay_protect', accent: '#F472B6', category: 'ownership' },
+
+  // ═══════════════════════════════════════════
+  // DEFI / COLLATERAL (10 entries)
+  // ═══════════════════════════════════════════
+  { id: 'collateral_loan', name: 'Collateralized Loan', description: 'Prove locked collateral >= loan * threshold. Liquidation trigger on price feed. Multi-oracle consensus for price.', circuit: 'collateral_loan', accent: '#DC2626', category: 'defi' },
+  { id: 'yield_accrual', name: 'Yield Accrual Snapshot', description: 'Verifiable yield/interest calculation over time. A = P * (1+r)^t. Oracle-attested rate + on-chain time proof.', circuit: 'yield_accrual', accent: '#FBBF24', category: 'defi' },
+  { id: 'token_gated', name: 'Token-Gated Access', description: 'Prove ownership of a specific token/NFT via merkle + UTXO proof. Gated covenant entry, premium features.', circuit: 'token_gated', accent: '#D946EF', category: 'defi' },
+  { id: 'pot_distribution', name: 'Multi-Party Pot Split', description: 'Verifiable split of total pot among N participants. Weighted by stake, score, or predefined shares. On-chain verifiable math.', circuit: 'pot_split', accent: '#FB923C', category: 'defi' },
+  { id: 'escrow_2party', name: '2-Party Escrow', description: 'Timelocked escrow with mutual release or timeout refund. Oracle dispute resolution option.', circuit: 'escrow_2party', accent: '#38BDF8', category: 'defi' },
+  { id: 'escrow_multiparty', name: 'Multi-Party Escrow', description: 'N-party escrow with M-of-N release threshold. Milestone-based with oracle verification.', circuit: 'escrow_multi', accent: '#38BDF8', category: 'defi', variant: true },
+  { id: 'auction_dutch', name: 'Dutch Auction', description: 'Price descends linearly over blocks. First bidder wins at current price. Verifiable price curve. Oracle timestamp.', circuit: 'auction_dutch', accent: '#A78BFA', category: 'defi' },
+  { id: 'auction_english', name: 'English Auction', description: 'Ascending bids, reserve price, time extension on late bids. Verifiable bid ordering. Oracle-attested.', circuit: 'auction_english', accent: '#A78BFA', category: 'defi', variant: true },
+  { id: 'lending_pool', name: 'Lending Pool Share', description: 'Prove proportional share of a lending pool. Deposit/withdraw with verifiable exchange rate. On-chain TVL attestation.', circuit: 'lending_pool', accent: '#10B981', category: 'defi' },
+  { id: 'prediction_market', name: 'Prediction Market', description: 'Binary/ternary outcome market. Stake on outcome. Oracle resolves winner. Verifiable payout ratios.', circuit: 'prediction_market', accent: '#F59E0B', category: 'defi' },
+
+  // ═══════════════════════════════════════════
+  // VERIFIABLE COMPUTE (8 entries)
+  // ═══════════════════════════════════════════
+  { id: 'verifiable', name: 'Verifiable Compute (General)', description: 'Arbitrary computation proof: custom predicates, state transitions, off-chain execution. RISC0/SP1 backend.', circuit: 'risc0_generic', accent: '#A855F7', category: 'compute' },
+  { id: 'game_ai_verify', name: 'Game AI Move Validation', description: 'Prove a chess/Go AI move is legal + optimal according to engine eval. Prevents collusion. Attested by compute proof.', circuit: 'game_ai_verify', accent: '#A855F7', category: 'compute', variant: true },
+  { id: 'wasm_execution', name: 'WASM Execution Proof', description: 'Prove deterministic execution of a WebAssembly module. Custom games, financial formulas, predicates in any lang compiled to WASM.', circuit: 'wasm_generic', accent: '#6366F1', category: 'compute' },
+  { id: 'ml_inference', name: 'ML Inference Attestation', description: 'Prove a machine learning model produced a specific output for given input. Credit scoring, fraud detection, game skill rating.', circuit: 'ml_inference', accent: '#8B5CF6', category: 'compute' },
+  { id: 'financial_formula', name: 'Financial Formula Proof', description: 'Prove complex financial calculation: Black-Scholes, bond yield, DCF, IRR. Oracle price feed + ZK compute.', circuit: 'financial_formula', accent: '#EC4899', category: 'compute' },
+  { id: 'sorting_proof', name: 'Sorting / Ranking Proof', description: 'Prove a list is correctly sorted without revealing elements. Tournament rankings, leaderboard verification.', circuit: 'sorting_generic', accent: '#06B6D4', category: 'compute' },
+  { id: 'graph_reachability', name: 'Graph Reachability', description: 'Prove a path exists between two nodes in a committed graph. Supply chain provenance, social graph attestation.', circuit: 'graph_reach', accent: '#84CC16', category: 'compute' },
+  { id: 'zk_email', name: 'ZK Email / DKIM', description: 'Prove an email was sent/received per DKIM signature without revealing content. Receipt verification, account recovery.', circuit: 'zk_email', accent: '#F97316', category: 'compute' },
+
+  // ═══════════════════════════════════════════
+  // OTHER (2 entries — de-prioritized, not primary for p2p covenants)
+  // ═══════════════════════════════════════════
+  { id: 'age_verification', name: 'Age Verification (KYC-free)', description: 'Prove birthdate >= N years before reference. ZK alternative to KYC — no PII revealed. Low priority for p2p covenants.', circuit: 'age_verify_v1', accent: '#9CA3AF', category: 'other' },
+  { id: 'kyc_alternative', name: 'KYC Alternative', description: 'Generic credential proof without centralized issuer. Low priority — not primary for Kaspa p2p covenant use-cases.', circuit: 'kyc_alt', accent: '#9CA3AF', category: 'other' },
+
+  // ═══════════════════════════════════════════
+  // CUSTOM (1 entry)
+  // ═══════════════════════════════════════════
+  { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and verifier key. Full flexibility for novel covenant types.', circuit: 'custom', accent: '#E8AF34', category: 'custom' },
 ];
 
 // Backward-compat alias

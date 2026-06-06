@@ -558,6 +558,7 @@ dependencies = [
  "kaspa-rpc-core",
  "kaspa-txscript",
  "kaspa-wrpc-client",
+ "rand 0.8.6",
  "regex",
  "rusqlite",
  "secp256k1",

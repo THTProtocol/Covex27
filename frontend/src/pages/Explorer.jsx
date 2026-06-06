@@ -119,6 +119,34 @@ export default function Explorer() {
       return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
     });
 
+  // Top visibility: paid covenants (those with verified tier or created via auth token) bubble up with badge + disclosure hint
+  const renderCovenantCard = (c, isPaid) => {
+    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+    const accent = t === 'MAX' ? '#A855F7' : t === 'PRO' ? '#E8AF34' : t === 'BUILDER' ? '#3B82F6' : '#49EACB';
+    const hasDisclosure = c.disclosed_wallets || c.creator_addr;
+    return (
+      <div key={c.id || c.txid} className={`group rounded-2xl border p-4 transition ${isPaid ? 'border-white/20 bg-white/[0.015] hover:border-white/30' : 'border-white/5 bg-white/[0.005] hover:border-white/10'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="font-semibold text-white flex items-center gap-2">
+              {c.name || (c.txid || '').slice(0, 12) + '...'}
+              {isPaid && <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">PAID VERIFIED • TOP</span>}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{c.description || 'SilverScript covenant'}</div>
+          </div>
+          <div className="text-right text-[10px] font-mono" style={{ color: accent }}>{t}</div>
+        </div>
+        {hasDisclosure && (
+          <div className="mt-2 text-[10px] text-gray-500 font-mono">Wallets disclosed • creator {TRUNC(c.creator_addr)} • treasury verified on-chain</div>
+        )}
+        <div className="mt-3 flex items-center gap-2 text-xs">
+          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">{(c.amount_kaspa || 0).toFixed(2)} KAS</span>
+          <span className="text-gray-500">• {c.network || 'tn12'}</span>
+        </div>
+      </div>
+    );
+  };
+
   const freeCovenants = displayCovenants.filter(c => {
     const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
     return t === 'FREE';

@@ -192,6 +192,27 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         conn.execute("UPDATE accounts SET max_deployments = 2 WHERE tier = 'PRO'", [])?;
     }
 
+    // ── Migration: upgrade crawler_state to network-aware (per-network scan progress) ──
+    let has_crawler_network: bool = conn
+        .prepare("SELECT network FROM crawler_state LIMIT 1")
+        .is_ok();
+    if !has_crawler_network {
+        // Drop old single-row table and recreate with composite PK + per-network rows
+        // Losing scan positions is fine — crawlers restart from config start_daa
+        conn.execute_batch("DROP TABLE IF EXISTS crawler_state;")?;
+        conn.execute_batch(
+            "CREATE TABLE crawler_state (
+                id            INTEGER NOT NULL DEFAULT 1,
+                network       TEXT NOT NULL DEFAULT 'testnet-12',
+                last_scanned_daa INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (id, network)
+            );
+            INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'testnet-12', 0);
+            INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'testnet-10', 0);
+            INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'mainnet', 0);"
+        )?;
+    }
+
     Ok(Mutex::new(conn))
 }
 

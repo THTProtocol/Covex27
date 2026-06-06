@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
-import { WalletProvider } from './components/WalletContext';
+import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import Explorer from './pages/Explorer';
@@ -29,21 +29,21 @@ const NL = ({ isActive }) =>
   }`;
 
 function SmartDeployLink() {
+  const { address } = useWallet();
   const [isPaid, setIsPaid] = useState(false);
+
   useEffect(() => {
-    const tier = localStorage.getItem('covex_paid_tier');
-    setIsPaid(tier && tier !== 'FREE');
-    const onStorage = () => {
-      const t = localStorage.getItem('covex_paid_tier');
-      setIsPaid(t && t !== 'FREE');
-    };
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('covex-tier-change', onStorage);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('covex-tier-change', onStorage);
-    };
-  }, []);
+    if (!address) return;
+    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    fetch('/api/auth-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, network: net })
+    })
+      .then(r => r.ok ? r.json() : { tier: 'FREE' })
+      .then(data => setIsPaid(data.tier && data.tier !== 'FREE'))
+      .catch(() => setIsPaid(false));
+  }, [address]);
 
   const to = isPaid ? '/paid-builder' : '/deploy';
   return <NavLink to={to} className={NL}>Deploy</NavLink>;

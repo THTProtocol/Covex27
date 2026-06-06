@@ -113,22 +113,8 @@ const Pricing = () => {
     return () => window.removeEventListener('kaspa-network-change', handler);
   }, []);
 
-  useEffect(() => {
-    if (!address) return;
-    const net = currentNetwork || 'testnet-12';
-    fetch(`/api/paid-status?address=${encodeURIComponent(address)}&network=${net}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.highest_tier) {
-          const current = localStorage.getItem('covex_paid_tier');
-          const tierOrder = { FREE: 0, BUILDER: 1, PRO: 2, MAX: 3 };
-          if (!current || (tierOrder[data.highest_tier] || 0) > (tierOrder[current] || 0)) {
-            localStorage.setItem('covex_paid_tier', data.highest_tier);
-          }
-        }
-      })
-      .catch(() => {});
-  }, [address]);
+  // Server-confirmed tier sync only — no localStorage pre-write
+  // The auth-session endpoint is the only source of truth for paid access
 
   const [processing, setProcessing] = useState(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(null);
@@ -152,8 +138,9 @@ const Pricing = () => {
     try {
       const result = await sendPayment(TREASURY, payingTier.price, { memo: `covex-upgrade:${payingTier.id}` });
       if (result.success) {
-        localStorage.setItem('covex_paid_tier', payingTier.id);
-        sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: payingTier.name, id: payingTier.id }));
+        // Payment broadcast. Server-side payment verifier will detect it.
+        // The server auth-session endpoint confirms real on-chain payment.
+        sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: payingTier.name, id: payingTier.id, address }));
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);
@@ -164,7 +151,7 @@ const Pricing = () => {
     } catch (err) {
       setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (err.message || 'Network error') });
     }
-  }, [awaitingConfirmation, payingTier, sendPayment, navigate, TREASURY]);
+  }, [awaitingConfirmation, payingTier, sendPayment, navigate, TREASURY, address]);
 
   const cancelPayment = () => {
     setAwaitingConfirmation(null);

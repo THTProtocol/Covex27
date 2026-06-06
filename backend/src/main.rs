@@ -272,6 +272,10 @@ async fn main() {
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .route("/paid-status", get(paid_status_handler))
+        .route("/auth-session", post(auth_session_handler))
+        .route("/auth-session/validate", get(auth_validate_handler))
+        .route("/auth-session/consume", post(auth_consume_handler))
+        .route("/deploy-capacity", get(deploy_capacity_handler))
         .route(
             "/terminal-config/:covenant_id",
             get(get_terminal_config_handler).post(save_terminal_config_handler),
@@ -446,7 +450,112 @@ async fn paid_status_handler(
     }
 }
 
-// ─── Terminal Config Handlers ────────────────────────────────────
+// ---- Auth Session Handlers (fixes localStorage bypass) ----
+
+#[derive(serde::Deserialize)]
+struct AuthSessionRequest {
+    address: String,
+    network: Option<String>,
+}
+
+async fn auth_session_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(body): Json<AuthSessionRequest>,
+) -> Json<serde_json::Value> {
+    let address = body.address;
+    if address.is_empty() {
+        return Json(json!({"error": "address required"}));
+    }
+    let network = body.network.unwrap_or_else(|| "testnet-12".to_string());
+
+    match db::get_highest_paid_tier_for_address(&db, &address, &network) {
+        Ok(Some(tier)) => {
+            match db::create_auth_token(&db, &address, &tier, &network) {
+                Ok(token) => {
+                    let expires_at = chrono::Utc::now().timestamp() + 3600;
+                    Json(json!({
+                        "token": token,
+                        "tier": tier,
+                        "expires_at": expires_at
+                    }))
+                }
+                Err(e) => Json(json!({"error": format!("Token creation failed: {}", e)})),
+            }
+        }
+        Ok(None) => Json(json!({
+            "error": "No paid tier found for this address on this network",
+            "tier": "FREE"
+        })),
+        Err(e) => Json(json!({"error": format!("DB error: {}", e)})),
+    }
+}
+
+async fn auth_validate_handler(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    let token = params.get("token").cloned().unwrap_or_default();
+    let network = params.get("network")
+        .cloned()
+        .unwrap_or_else(|| "testnet-12".to_string());
+    if token.is_empty() {
+        return Json(json!({"valid": false, "error": "token required"}));
+    }
+    match db::validate_auth_token(&db, &token, &network) {
+        Ok(Some((addr, tier))) => Json(json!({
+            "valid": true,
+            "address": addr,
+            "tier": tier
+        })),
+        Ok(None) => Json(json!({"valid": false, "error": "invalid or expired token"})),
+        Err(e) => Json(json!({"valid": false, "error": format!("{}", e)})),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct AuthConsumeRequest {
+    token: String,
+}
+
+async fn auth_consume_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Json(body): Json<AuthConsumeRequest>,
+) -> Json<serde_json::Value> {
+    if body.token.is_empty() {
+        return Json(json!({"consumed": false, "error": "token required"}));
+    }
+    match db::consume_auth_token(&db, &body.token) {
+        Ok(true) => Json(json!({"consumed": true})),
+        Ok(false) => Json(json!({
+            "consumed": false,
+            "error": "Token already used or invalid. Each payment grants one deployment."
+        })),
+        Err(e) => Json(json!({"consumed": false, "error": format!("{}", e)})),
+    }
+}
+
+async fn deploy_capacity_handler(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+) -> Json<serde_json::Value> {
+    let address = params.get("address").cloned().unwrap_or_default();
+    let network = params.get("network")
+        .cloned()
+        .unwrap_or_else(|| "testnet-12".to_string());
+    if address.is_empty() {
+        return Json(json!({"can_deploy": false, "error": "address required"}));
+    }
+    match db::can_deploy(&db, &address, &network) {
+        Ok(true) => Json(json!({"can_deploy": true})),
+        Ok(false) => Json(json!({
+            "can_deploy": false,
+            "error": "No deployment capacity remaining. Each payment grants one deployment."
+        })),
+        Err(e) => Json(json!({"can_deploy": false, "error": format!("{}", e)})),
+    }
+}
+
+// --- Terminal Config Handlers
 
 use serde::{Deserialize, Serialize};
 

@@ -48,64 +48,85 @@ const TEXTAREA =
 // plus cryptographic primitives (membership, range, age, verifiable compute), and custom.
 // The "emoji" field is vestigial from the old game grid; use circuit badge codes instead.
 export const ZK_CIRCUIT_TYPES = [
-  { 
-    id: 'chess_v1', 
-    name: 'Chess (FIDE)', 
-    emoji: '',
-    description: 'Proves complete legal play on 8×8 board according to FIDE rules: castling, en passant, checkmate, stalemate, 50-move rule, threefold repetition. The only fully specified p2p ZK game circuit.', 
-    circuit: 'chess_v1', 
-    accent: '#49EACB',
-    category: 'game',
-  },
-  { 
-    id: 'merkle_membership', 
-    name: 'Merkle Membership', 
-    emoji: '',
-    description: 'Proves a key/value pair exists in a committed Merkle tree without revealing sibling leaves. Used for whitelist/airdrop eligibility, token-gated access, DAO voting power proofs.', 
-    circuit: 'merkle_generic', 
-    accent: '#3B82F6',
-    category: 'crypto',
-  },
-  { 
-    id: 'range_proof', 
-    name: 'Range Proof', 
-    emoji: '',
-    description: 'Proves a committed value lies within [min, max] without revealing the value. Used for KYC-free age verification, collateral sufficiency, tier qualification.', 
-    circuit: 'bulletproofs_v1', 
-    accent: '#22C55E',
-    category: 'crypto',
-  },
-  { 
-    id: 'age_verification', 
-    name: 'Age Verification', 
-    emoji: '',
-    description: 'Proves a birthdate is at least N years before a reference date (18+, 21+) without revealing exact birthdate. Zero-knowledge KYC alternative.', 
-    circuit: 'age_verify_v1', 
-    accent: '#F59E0B',
-    category: 'identity',
-  },
-  { 
-    id: 'verifiable', 
-    name: 'Verifiable Compute', 
-    emoji: '',
-    description: 'General-purpose circuit for proving correctness of arbitrary computation: custom predicates, state transitions, off-chain execution verification.', 
-    circuit: 'risc0_generic', 
-    accent: '#A855F7',
-    category: 'compute',
-  },
-  { 
-    id: 'custom', 
-    name: 'Custom Circuit', 
-    emoji: '',
-    description: 'Supply any audited circuit definition and its verifier key for a verifiable statement not covered above.', 
-    circuit: 'custom', 
-    accent: '#E8AF34',
-    category: 'custom',
-  },
+  // ── GAME CIRCUITS (14 types) ──
+  { id: 'chess_v1', name: 'Chess (FIDE)', description: 'FIDE rules on 8x8: castling, en passant, 50-move, repetition.', circuit: 'chess_v1', accent: '#49EACB', category: 'game' },
+  { id: 'poker_v1', name: 'Poker (Texas Holdem)', description: 'Proves correct hand ranking and pot distribution between 2-9 players.', circuit: 'poker_v1', accent: '#E91E63', category: 'game' },
+  { id: 'blackjack_v1', name: 'Blackjack', description: 'Proves dealer vs player outcome: bust, stand, split, double-down, insurance.', circuit: 'blackjack_v1', accent: '#FF5722', category: 'game' },
+  { id: 'connect4_v1', name: 'Connect Four', description: 'Proves four-in-a-row win on 7x6 board with gravity mechanics.', circuit: 'connect4_v1', accent: '#2196F3', category: 'game' },
+  { id: 'checkers_v1', name: 'Checkers (English)', description: 'Proves legal moves, jumps, king promotion on 8x8 board.', circuit: 'checkers_v1', accent: '#4CAF50', category: 'game' },
+  { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: 'Proves win/draw conditions on 3x3 grid.', circuit: 'tictactoe_v1', accent: '#9C27B0', category: 'game' },
+  { id: 'reversi_v1', name: 'Reversi / Othello', description: 'Proves legal disk flips and territory count on 8x8.', circuit: 'reversi_v1', accent: '#00BCD4', category: 'game' },
+  { id: 'go_v1', name: 'Go (9x9)', description: 'Proves territory scoring, captures, and ko-rule on 9x9 board.', circuit: 'go_v1', accent: '#8D6E63', category: 'game' },
+  { id: 'backgammon_v1', name: 'Backgammon', description: 'Proves dice rolls, legal moves, bearing off, doubling cube.', circuit: 'backgammon_v1', accent: '#FF9800', category: 'game' },
+  { id: 'battleship_v1', name: 'Battleship', description: 'Proves hit/miss coordinates and fleet sinkage on 10x10 grids.', circuit: 'battleship_v1', accent: '#607D8B', category: 'game' },
+  { id: 'scrabble_v1', name: 'Scrabble', description: 'Proves word validity, tile placement, and premium squares scoring.', circuit: 'scrabble_v1', accent: '#795548', category: 'game' },
+  { id: 'dominoes_v1', name: 'Dominoes', description: 'Proves legal tile placement and scoring across multiple rounds.', circuit: 'dominoes_v1', accent: '#000000', category: 'game' },
+  { id: 'rummikub_v1', name: 'Rummikub', description: 'Proves valid groups and runs of tiles with joker substitution.', circuit: 'rummikub_v1', accent: '#1565C0', category: 'game' },
+  { id: 'mancala_v1', name: 'Mancala / Kalah', description: 'Proves capture rules and seed distribution across 14 pits.', circuit: 'mancala_v1', accent: '#2E7D32', category: 'game' },
+
+  // ── CRYPTOGRAPHIC PRIMITIVES (12 types) ──
+  { id: 'merkle_membership', name: 'Merkle Membership', description: 'Proves leaf exists in Merkle root without sibling revelation.', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto' },
+  { id: 'range_proof', name: 'Range Proof', description: 'Proves value in [min,max] via Bulletproofs, zero value disclosure.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto' },
+  { id: 'schnorr_sig', name: 'Schnorr Signature', description: 'Proves knowledge of a discrete log matching a public key.', circuit: 'schnorr_v1', accent: '#F97316', category: 'crypto' },
+  { id: 'pedersen_commit', name: 'Pedersen Commitment', description: 'Proves opening of Pedersen commitment without revealing value.', circuit: 'pedersen_v1', accent: '#6366F1', category: 'crypto' },
+  { id: 'hash_preimage', name: 'Hash Preimage', description: 'Proves knowledge of preimage x such that H(x)=y, without revealing x.', circuit: 'hash_preimage_v1', accent: '#EC4899', category: 'crypto' },
+  { id: 'ecdh_key_exchange', name: 'ECDH Key Exchange', description: 'Proves shared secret from ECDH matches public commitment.', circuit: 'ecdh_v1', accent: '#14B8A6', category: 'crypto' },
+  { id: 'bls_signature', name: 'BLS Signature', description: 'Proves BLS12-381 signature verifies against aggregate pubkey.', circuit: 'bls_v1', accent: '#A855F7', category: 'crypto' },
+  { id: 'zk_snark_compose', name: 'ZK-SNARK Composition', description: 'Proves a SNARK verifier accepted another SNARK (recursive proof).', circuit: 'snark_compose_v1', accent: '#F43F5E', category: 'crypto' },
+  { id: 'threshold_sig', name: 'Threshold Signature', description: 'Proves t-of-n threshold signing quorum met on committed message.', circuit: 'threshold_sig_v1', accent: '#0EA5E9', category: 'crypto' },
+  { id: 'ring_signature', name: 'Ring Signature', description: 'Proves signer is one of N pubkeys without revealing which one.', circuit: 'ring_sig_v1', accent: '#8B5CF6', category: 'crypto' },
+  { id: 've_encryption', name: 'Verifiable Encryption', description: 'Proves ciphertext encrypts plaintext matching public commitment.', circuit: 've_enc_v1', accent: '#D946EF', category: 'crypto' },
+  { id: 'shuffle_proof', name: 'Mixnet Shuffle', description: 'Proves output list is a permutation of input list without link disclosure.', circuit: 'shuffle_v1', accent: '#FB923C', category: 'crypto' },
+
+  // ── IDENTITY / KYC (8 types) ──
+  { id: 'age_verification', name: 'Age Verification', description: 'Proves birthdate >= N years before now, no date disclosure.', circuit: 'age_verify_v1', accent: '#F59E0B', category: 'identity' },
+  { id: 'citizenship_proof', name: 'Citizenship Proof', description: 'Proves holder is citizen of country X without revealing passport number.', circuit: 'citizen_v1', accent: '#EF4444', category: 'identity' },
+  { id: 'credit_score', name: 'Credit Score Range', description: 'Proves credit score >= threshold without revealing exact score.', circuit: 'credit_v1', accent: '#10B981', category: 'identity' },
+  { id: 'kyc_tier', name: 'KYC Tier Proof', description: 'Proves user completed KYC level N at institution without data leak.', circuit: 'kyc_tier_v1', accent: '#3B82F6', category: 'identity' },
+  { id: 'did_auth', name: 'DID Authentication', description: 'Proves control of W3C DID without exposing private key material.', circuit: 'did_auth_v1', accent: '#6366F1', category: 'identity' },
+  { id: 'accreditation', name: 'Academic Accreditation', description: 'Proves degree from verified institution without revealing transcript.', circuit: 'accredit_v1', accent: '#8B5CF6', category: 'identity' },
+  { id: 'sanction_check', name: 'Sanctions Exclusion', description: 'Proves address NOT on sanctions list without revealing identity.', circuit: 'sanction_excl_v1', accent: '#DC2626', category: 'identity' },
+  { id: 'reputation_score', name: 'Reputation Score', description: 'Proves multi-source reputation score >= threshold.', circuit: 'reputation_v1', accent: '#06B6D4', category: 'identity' },
+
+  // ── DEFI / FINANCIAL (10 types) ──
+  { id: 'auction_vickrey', name: 'Vickrey Auction', description: 'Proves winning bid is highest without revealing other bids.', circuit: 'auction_vickrey_v1', accent: '#EAB308', category: 'defi' },
+  { id: 'escrow_lock', name: 'Escrow / Atomic Swap', description: 'Proves both parties met conditions for simultaneous asset release.', circuit: 'escrow_v1', accent: '#14B8A6', category: 'defi' },
+  { id: 'lending_collat', name: 'Lending Collateral', description: 'Proves deposit collateral >= loan value with oracle price feed.', circuit: 'lending_v1', accent: '#22C55E', category: 'defi' },
+  { id: 'voting_quadratic', name: 'Quadratic Voting', description: 'Proves vote weight is sqrt(credits) with ballot privacy.', circuit: 'qvote_v1', accent: '#3B82F6', category: 'defi' },
+  { id: 'lottery_provable', name: 'Provable Lottery', description: 'Proves winner selected by VRF from committed participant set.', circuit: 'lottery_v1', accent: '#F97316', category: 'defi' },
+  { id: 'options_contract', name: 'Options Contract', description: 'Proves strike condition met per oracle, determines exercise payout.', circuit: 'options_v1', accent: '#EC4899', category: 'defi' },
+  { id: 'yield_farming', name: 'Yield Aggregator', description: 'Proves farming rewards computed correctly from pool share history.', circuit: 'yield_v1', accent: '#10B981', category: 'defi' },
+  { id: 'insurance_claim', name: 'Insurance Claim', description: 'Proves parametric trigger event occurred per oracle data.', circuit: 'insurance_v1', accent: '#F43F5E', category: 'defi' },
+  { id: 'airdrop_claim', name: 'Airdrop Merkle Claim', description: 'Proves address in airdrop tree without revealing full tree.', circuit: 'airdrop_v1', accent: '#A855F7', category: 'defi' },
+  { id: 'dutch_auction', name: 'Dutch Auction', description: 'Proves price decay slope and first bidder wins at current price.', circuit: 'dutch_v1', accent: '#F59E0B', category: 'defi' },
+
+  // ── COMPUTATION (8 types) ──
+  { id: 'verifiable', name: 'RISC Zero VM', description: 'Proves correct execution of arbitrary RISC-V program.', circuit: 'risc0_generic', accent: '#A855F7', category: 'compute' },
+  { id: 'wasm_proof', name: 'WASM Proof', description: 'Proves correct execution of WebAssembly binary with given inputs.', circuit: 'wasm_v1', accent: '#6366F1', category: 'compute' },
+  { id: 'evm_proof', name: 'EVM State Proof', description: 'Proves EVM state transition from block A to B via verified execution.', circuit: 'evm_v1', accent: '#3B82F6', category: 'compute' },
+  { id: 'svm_proof', name: 'Solana SVM Proof', description: 'Proves Sealevel VM program execution output is correct.', circuit: 'svm_v1', accent: '#14B8A6', category: 'compute' },
+  { id: 'ml_inference', name: 'ML Inference Proof', description: 'Proves model M(input) = output without revealing model weights.', circuit: 'ml_inf_v1', accent: '#EC4899', category: 'compute' },
+  { id: 'sql_query', name: 'SQL Query Proof', description: 'Proves SELECT query on private DB returns correct aggregated result.', circuit: 'sql_v1', accent: '#F97316', category: 'compute' },
+  { id: 'graph_reach', name: 'Graph Reachability', description: 'Proves path exists between nodes without revealing path.', circuit: 'graph_v1', accent: '#10B981', category: 'compute' },
+  { id: 'sorting_network', name: 'Sorting Network', description: 'Proves output list is sorted permutation of input list.', circuit: 'sort_v1', accent: '#EF4444', category: 'compute' },
+
+  // ── CUSTOM (1 type) ──
+  { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and its verifier key.', circuit: 'custom', accent: '#E8AF34', category: 'custom' },
 ];
 
+// Total: 53 circuit types across 5 categories (games, crypto, identity, defi, compute)
 // Backward-compat alias
 export const GAME_TYPES = ZK_CIRCUIT_TYPES;
+
+// ── Resolution modes (expanded) ──
+export const RESOLUTION_MODES = [
+  { id: 'zk', name: 'ZK Proof', desc: 'Pure zero-knowledge mathematical proof. Most private, highest security.', requiresPayment: true },
+  { id: 'oracle', name: 'Oracle Attestation', desc: 'Covex oracle signs outcome after off-chain validation. Live now.', requiresPayment: false },
+  { id: 'multi_oracle', name: 'Multi-Oracle Consensus', desc: '3-of-5 oracles must agree on outcome. Fault-tolerant resolution.', requiresPayment: true },
+  { id: 'timeout', name: 'Timeout Fallback', desc: 'Funds return to depositor after N blocks if no proof submitted.', requiresPayment: false },
+  { id: 'hybrid', name: 'Hybrid (ZK + Oracle)', desc: 'Oracle triggers initial resolution; ZK proves payout correctness.', requiresPayment: true },
+  { id: 'committed_random', name: 'Commited Random (VRF)', desc: 'VRF-based randomness with public verifiability for lottery/raffle.', requiresPayment: true },
+];
 
 // ── Standalone SilverScript Generator (exported for PaidBuilder / premium flow) ──
 export function generateSilverScriptForConfig(cfg) {
@@ -476,25 +497,37 @@ export default function CovexTerminal({ covenant }) {
     ? 'text-red-400 border-red-500/40 bg-red-500/10' 
     : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30');
 
-  // ── Paid tier enforcement (for advanced features like circuits - required on ALL networks including mainnet)
-  // Free basic SilverScript creation is always allowed (no special treatment).
-  // Circuits / pro features only after verified payment from the SAME wallet address.
+  // ── Paid tier enforcement (server-verified auth session, fixes localStorage bypass)
+  // Free basic SilverScript creation is always allowed.
+  // Circuits / pro features only after verified on-chain payment from the SAME wallet.
   const [paidStatus, setPaidStatus] = useState(null);
   const [checkingPaid, setCheckingPaid] = useState(false);
-  const currentTier = paidStatus?.highest_tier || 'FREE';
-  const hasPaidAccess = currentTier !== 'FREE';
+  const [authToken, setAuthToken] = useState(null);
+  const currentTier = paidStatus?.tier || 'FREE';
+  const hasPaidAccess = currentTier !== 'FREE' && !!authToken;
 
   useEffect(() => {
     if (!connectedAddress) {
-      setPaidStatus({ highest_tier: 'FREE' });
+      setPaidStatus({ tier: 'FREE' });
+      setAuthToken(null);
       return;
     }
     setCheckingPaid(true);
     const net = kaspaNetwork;
-    fetch(`/api/paid-status?address=${encodeURIComponent(connectedAddress)}&network=${net}`)
-      .then(r => r.ok ? r.json() : { highest_tier: 'FREE' })
-      .then(data => setPaidStatus(data))
-      .catch(() => setPaidStatus({ highest_tier: 'FREE' }))
+    fetch('/api/auth-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: connectedAddress, network: net })
+    })
+      .then(r => r.ok ? r.json() : { tier: 'FREE', token: null })
+      .then(data => {
+        setPaidStatus({ tier: data.tier || 'FREE' });
+        setAuthToken(data.token || null);
+      })
+      .catch(() => {
+        setPaidStatus({ tier: 'FREE' });
+        setAuthToken(null);
+      })
       .finally(() => setCheckingPaid(false));
   }, [connectedAddress, kaspaNetwork]);
 

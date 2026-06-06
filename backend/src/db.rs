@@ -158,6 +158,33 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         )?;
     }
 
+    // ── Migration: auth_tokens table for paid session security (fixes localStorage bypass) ──
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS auth_tokens (
+            token           TEXT PRIMARY KEY,
+            address         TEXT NOT NULL,
+            tier            TEXT NOT NULL,
+            network         TEXT NOT NULL DEFAULT 'testnet-12',
+            created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+            expires_at      INTEGER NOT NULL DEFAULT (unixepoch() + 3600),
+            used_for_deploy INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_auth_token_addr ON auth_tokens(address);
+        CREATE INDEX IF NOT EXISTS idx_auth_token_exp ON auth_tokens(expires_at);"
+    )?;
+
+    // ── Migration: deployment tracking on accounts (one-pay-one-deploy) ──
+    let has_deploy_tracking: bool = conn
+        .prepare("SELECT deployments_used FROM accounts LIMIT 1")
+        .is_ok();
+    if !has_deploy_tracking {
+        conn.execute_batch(
+            "ALTER TABLE accounts ADD COLUMN deployments_used INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE accounts ADD COLUMN max_deployments INTEGER NOT NULL DEFAULT 1;
+             ALTER TABLE accounts ADD COLUMN last_deployed_at INTEGER;"
+        )?;
+    }
+
     Ok(Mutex::new(conn))
 }
 
@@ -640,6 +667,78 @@ pub fn set_visibility(
         "INSERT OR REPLACE INTO visibilities (covenant_id, tier, featured, priority, custom_domain)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         params![covenant_id, tier, featured as i32, priority, custom_domain],
+    )?;
+    Ok(())
+}
+
+/// ---- Auth token management ----
+pub fn create_auth_token(
+    db: &Mutex<Connection>,
+    address: &str,
+    tier: &str,
+    network: &str,
+) -> anyhow::Result<String> {
+    let token = uuid::Uuid::new_v4().to_string();
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT INTO auth_tokens (token, address, tier, network) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![token, address, tier, network],
+    )?;
+    Ok(token)
+}
+
+pub fn validate_auth_token(
+    db: &Mutex<Connection>,
+    token: &str,
+    network: &str,
+) -> anyhow::Result<Option<(String, String)>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT address, tier FROM auth_tokens WHERE token = ?1 AND network = ?2 AND expires_at > unixepoch()"
+    )?;
+    let result = stmt.query_row(rusqlite::params![token, network], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    });
+    match result {
+        Ok(v) => Ok(Some(v)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub fn consume_auth_token(
+    db: &Mutex<Connection>,
+    token: &str,
+) -> anyhow::Result<bool> {
+    let conn = db.lock().unwrap();
+    let affected = conn.execute(
+        "UPDATE auth_tokens SET used_for_deploy = 1 WHERE token = ?1 AND used_for_deploy = 0",
+        rusqlite::params![token],
+    )?;
+    Ok(affected > 0)
+}
+
+/// Check if address has deployment capacity remaining
+pub fn can_deploy(db: &Mutex<Connection>, address: &str, network: &str) -> anyhow::Result<bool> {
+    let conn = db.lock().unwrap();
+    let result = conn.query_row(
+        "SELECT deployments_used, max_deployments FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
+        rusqlite::params![address, network],
+        |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)),
+    );
+    match result {
+        Ok((used, max)) => Ok(used < max),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Mark one deployment used for address
+pub fn mark_deployment_used(db: &Mutex<Connection>, address: &str, network: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE accounts SET deployments_used = deployments_used + 1, last_deployed_at = unixepoch() WHERE address = ?1 AND network = ?2",
+        rusqlite::params![address, network],
     )?;
     Ok(())
 }

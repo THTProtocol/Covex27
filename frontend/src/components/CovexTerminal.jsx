@@ -43,22 +43,22 @@ const TEXTAREA =
   'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none';
 
 // ── ZK Circuit Types (covenant-focused, no gambling games) ────────────────────────────────
-// These are ZK proof types for covenant resolution — not "game types."
+// These are ZK proof types for covenant resolution - not "game types."
 // Only circuits that make sense for Kaspa covenants: chess (the only viable p2p ZK game),
 // plus cryptographic primitives (membership, range, age, verifiable compute), and custom.
 // The "emoji" field is vestigial from the old game grid; use circuit badge codes instead.
 export const ZK_CIRCUIT_TYPES = [
   // ═══════════════════════════════════════════
-  // GAME CIRCUITS (32 entries) — real per-turn timers
+  // GAME CIRCUITS (32 entries) - real per-turn timers
   // "only active player clock decrements; <30s red; zero = auto-resolve + submit to oracle"
   // ═══════════════════════════════════════════
-  { id: 'chess_v1', name: 'Chess (FIDE)', description: 'Complete FIDE rules: castling, en passant, checkmate, stalemate, 50-move, threefold repetition. Real per-turn timer — only active player clock decrements. <30s = red; zero = auto-resolve + oracle payout.', circuit: 'chess_v1', accent: '#49EACB', category: 'game' },
+  { id: 'chess_v1', name: 'Chess (FIDE)', description: 'Complete FIDE rules: castling, en passant, checkmate, stalemate, 50-move, threefold repetition. Real per-turn timer - only active player clock decrements. <30s = red; zero = auto-resolve + oracle payout.', circuit: 'chess_v1', accent: '#49EACB', category: 'game' },
   { id: 'chess_blitz', name: 'Chess Blitz (3+2)', description: '3 min + 2s increment. FIDE ruleset. Per-turn timer: only clock of player-to-move ticks. Red <30s. Zero = auto-loss + PAYOUT COMPUTED via oracle.', circuit: 'chess_blitz', accent: '#49EACB', category: 'game', variant: true },
-  { id: 'chess_bullet', name: 'Chess Bullet (1+0)', description: '1 min no increment. Same FIDE circuit, aggressive clock. Per-turn timer — zero = instant auto-resolve.', circuit: 'chess_bullet', accent: '#49EACB', category: 'game', variant: true },
+  { id: 'chess_bullet', name: 'Chess Bullet (1+0)', description: '1 min no increment. Same FIDE circuit, aggressive clock. Per-turn timer - zero = instant auto-resolve.', circuit: 'chess_bullet', accent: '#49EACB', category: 'game', variant: true },
   { id: 'poker_v1', name: 'Poker (Texas Hold\'em)', description: 'Full hand ranking, pot split, side pots. 2-9 players. Real per-turn timer (blinds/action only current player). Zero = fold + PAYOUT COMPUTED. Oracle + ZK hybrid.', circuit: 'poker_v1', accent: '#E8AF34', category: 'game' },
-  { id: 'poker_6max', name: 'Poker 6-Max', description: 'Hold\'em 6-max with 15s action timer. Per-turn — current player clock only. Red <5s, zero = auto-fold.', circuit: 'poker_6max', accent: '#E8AF34', category: 'game', variant: true },
+  { id: 'poker_6max', name: 'Poker 6-Max', description: 'Hold\'em 6-max with 15s action timer. Per-turn - current player clock only. Red <5s, zero = auto-fold.', circuit: 'poker_6max', accent: '#E8AF34', category: 'game', variant: true },
   { id: 'poker_tourney', name: 'Poker Tournament', description: 'Multi-table tournament structure, escalating blinds, ICM chop. Per-turn timer per table.', circuit: 'poker_tourney', accent: '#E8AF34', category: 'game', variant: true },
-  { id: 'blackjack_v1', name: 'Blackjack (Full)', description: 'Hit/stand/double/split/insurance. Dealer reveals after all actions. 6-deck shoe. Per-hand timer — current player only. Oracle-attested result.', circuit: 'blackjack_v1', accent: '#EF4444', category: 'game' },
+  { id: 'blackjack_v1', name: 'Blackjack (Full)', description: 'Hit/stand/double/split/insurance. Dealer reveals after all actions. 6-deck shoe. Per-hand timer - current player only. Oracle-attested result.', circuit: 'blackjack_v1', accent: '#EF4444', category: 'game' },
   { id: 'blackjack_multi', name: 'Blackjack Multi-Hand', description: 'Play up to 3 hands simultaneously. Same full rules. Per-hand per-player timer.', circuit: 'blackjack_multi', accent: '#EF4444', category: 'game', variant: true },
   { id: 'go_9x9', name: 'Go 9×9 Territory', description: 'Japanese rules, territory scoring, komi. Real per-turn timer. Zero = pass + auto-score. Oracle resolution.', circuit: 'go_9x9', accent: '#22C55E', category: 'game' },
   { id: 'go_13x13', name: 'Go 13×13', description: 'Intermediate board. Same rules/timer as 9×9.', circuit: 'go_13x13', accent: '#22C55E', category: 'game', variant: true },
@@ -96,7 +96,7 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'schnorr_knowledge', name: 'Schnorr Knowledge Proof', description: 'Standard Sigma protocol: prove knowledge of discrete log without revealing it. Building block for ring sigs, DLCs.', circuit: 'schnorr_generic', accent: '#6366F1', category: 'crypto' },
   { id: 'pedersen_commitment', name: 'Pedersen Commitment', description: 'Homomorphic commitment scheme. Prove committed value satisfies linear equation. Used for UTXO amount hiding + range proof combo.', circuit: 'pedersen_generic', accent: '#8B5CF6', category: 'crypto' },
   { id: 'hash_preimage', name: 'Hash Preimage Proof', description: 'Prove knowledge of preimage for SHA256/Blake2b hash. Used for HTLC-style covenant script constraints on Kaspa.', circuit: 'hash_preimage', accent: '#F59E0B', category: 'crypto' },
-  { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Verifiable Random Function — proves output was correctly derived from seed + secret key. Fair coin flips, card shuffles without trusted dealer.', circuit: 'vrf_generic', accent: '#EC4899', category: 'crypto' },
+  { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Verifiable Random Function - proves output was correctly derived from seed + secret key. Fair coin flips, card shuffles without trusted dealer.', circuit: 'vrf_generic', accent: '#EC4899', category: 'crypto' },
   { id: 'vrf_shuffle', name: 'VRF Shuffle (Deck)', description: 'Provably fair deck/card shuffle. Each player contributes entropy. No trusted dealer. Used for poker/blackjack/gin.', circuit: 'vrf_shuffle', accent: '#EC4899', category: 'crypto', variant: true },
   { id: 'bls_signature', name: 'BLS Threshold Signature', description: 'Aggregate BLS signatures for multi-oracle consensus. M-of-N threshold without revealing individual keys.', circuit: 'bls_threshold', accent: '#14B8A6', category: 'crypto' },
   { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Prove a unique nullifier not yet spent. Single-use claim prevention. Used for one-vote-per-identity, airdrop double-spend protection.', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto' },
@@ -140,10 +140,10 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'zk_email', name: 'ZK Email / DKIM', description: 'Prove an email was sent/received per DKIM signature without revealing content. Receipt verification, account recovery.', circuit: 'zk_email', accent: '#F97316', category: 'compute' },
 
   // ═══════════════════════════════════════════
-  // OTHER (2 entries — de-prioritized, not primary for p2p covenants)
+  // OTHER (2 entries - de-prioritized, not primary for p2p covenants)
   // ═══════════════════════════════════════════
-  { id: 'age_verification', name: 'Age Verification (KYC-free)', description: 'Prove birthdate >= N years before reference. ZK alternative to KYC — no PII revealed. Low priority for p2p covenants.', circuit: 'age_verify_v1', accent: '#9CA3AF', category: 'other' },
-  { id: 'kyc_alternative', name: 'KYC Alternative', description: 'Generic credential proof without centralized issuer. Low priority — not primary for Kaspa p2p covenant use-cases.', circuit: 'kyc_alt', accent: '#9CA3AF', category: 'other' },
+  { id: 'age_verification', name: 'Age Verification (KYC-free)', description: 'Prove birthdate >= N years before reference. ZK alternative to KYC - no PII revealed. Low priority for p2p covenants.', circuit: 'age_verify_v1', accent: '#9CA3AF', category: 'other' },
+  { id: 'kyc_alternative', name: 'KYC Alternative', description: 'Generic credential proof without centralized issuer. Low priority - not primary for Kaspa p2p covenant use-cases.', circuit: 'kyc_alt', accent: '#9CA3AF', category: 'other' },
 
   // ═══════════════════════════════════════════
   // CUSTOM (1 entry)
@@ -245,7 +245,7 @@ export function generateSilverScriptForConfig(cfg) {
           outcomeBranches: `      // ZK CIRCUIT (age_verify_v1): proves birthdate ≥ N years before reference date
       // Public inputs: commitment, threshold_years, reference_timestamp
       // Private witness: actual birthdate, blinding factor
-      // Zero-knowledge alternative to KYC — no PII revealed
+      // Zero-knowledge alternative to KYC - no PII revealed
       Outcome::Verified => {
         require(VerifyPayout(treasury, claimant, pot), "Age verified, payout to claimant");
       }
@@ -272,7 +272,7 @@ export function generateSilverScriptForConfig(cfg) {
         return {
           covenantName: 'CustomCircuitCovenant',
           outcomeEnum: 'Outcome::Proven | Rejected',
-          outcomeBranches: `      // Custom ZK circuit — user supplies audited circuit + verifier key
+          outcomeBranches: `      // Custom ZK circuit - user supplies audited circuit + verifier key
       Outcome::Proven => {
         require(VerifyPayout(treasury, claimant, pot), "Proof accepted");
       }
@@ -551,13 +551,13 @@ export default function CovexTerminal({ covenant }) {
     { id: 'MAX', name: 'MAX', price: 1000, accent: '#A855F7', desc: 'Max visibility + all features' },
   ];
 
-  // Per-network config — fully adapts when you switch (same pattern as TN10)
+  // Per-network config - fully adapts when you switch (same pattern as TN10)
   const getNetConfig = (net) => {
     if (net === 'mainnet' || net === 'mainnet-1') {
       return {
         treasury: 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2',
         seeds: [], // real mainnet seeds ONLY via secure env, never hardcoded
-        warning: 'REAL KAS — PRODUCTION'
+        warning: 'REAL KAS - PRODUCTION'
       };
     }
     if (net === 'testnet-10') {
@@ -727,7 +727,7 @@ export default function CovexTerminal({ covenant }) {
   const [oracleResult, setOracleResult] = useState(null);   // { success, outcome, signature, message, timestamp, error }
   const [oracleError, setOracleError] = useState('');
 
-  // ── Default merkle proof (from zk/merkle_proof.json — bundled for convenience) ──
+  // ── Default merkle proof (from zk/merkle_proof.json - bundled for convenience) ──
   const bundledMerkleProof = JSON.stringify({
     proof: {pi_a:["18181728626747598512185236779782051408160831199146039141258343705294485377857","11249631687762252152790251352667177721597613535563072444007178274350918034293","1"],pi_b:[["18162424250835540918304993628173056026804582110058747751016796879041503358866","150409713570574904247288534137005688594977003217787346725000334109531127627"],["416138915697748307225291215901104649602159952580384513301073977638018174561","4190255711945735306577052854365915644921611118037145678718479286457518249622"],["1","0"]],pi_c:["5508794692018130626208187447388241780732532444861493044334671306046524780394","19987894614350216942694495648718785689000977620697338739577847839130351284395","1"],protocol:"groth16",curve:"bn128"},
     publicSignals: ["1","20473339414381364284988912838485478706292217748325897174032535818078518775705"]
@@ -757,7 +757,7 @@ export default function CovexTerminal({ covenant }) {
       const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
       const proofStr = JSON.stringify({ proof, publicSignals }, null, 2);
       setOracleProof(proofStr);
-      // publicSignals typically [rootHash, valid] or similar — oracle uses last for some, or requested_outcome
+      // publicSignals typically [rootHash, valid] or similar - oracle uses last for some, or requested_outcome
       setOraclePublicInputs(publicSignals.map(s => s.toString()).join(','));
     } catch (e) {
       setZkGenError(`Proof generation failed: ${e.message}. Loading bundled proof instead.`);
@@ -828,7 +828,7 @@ export default function CovexTerminal({ covenant }) {
     setZkGenerating(false);
   };
 
-  // ── Mainnet is derived from the toggle (line 451) — no separate detection needed ──
+  // ── Mainnet is derived from the toggle (line 451) - no separate detection needed ──
 
   const generateSilverScript = useCallback(() => {
     const feeBasis = Math.round(feePercent * 100);
@@ -967,7 +967,7 @@ export default function CovexTerminal({ covenant }) {
         return {
           covenantName: 'CustomCircuitCovenant',
           outcomeEnum: 'Outcome::Proven | Rejected',
-          outcomeBranches: `      // Custom ZK circuit — user supplies audited circuit + verifier key
+          outcomeBranches: `      // Custom ZK circuit - user supplies audited circuit + verifier key
     Outcome::Proven => {
       require(
         VerifyPayout(treasury, claimant, pot),
@@ -1088,7 +1088,7 @@ ${gameMeta.outcomeBranches}
   }, []);
 
   const acceptMatch = useCallback(() => {
-    // Opponent matches the exact same stake amount — required before full screen play
+    // Opponent matches the exact same stake amount - required before full screen play
     setOpponentStake(chessStake);
     setChessMatchState('matched');
     setTimeout(() => {
@@ -1247,7 +1247,7 @@ ${gameMeta.outcomeBranches}
     }
   }, [chessResult, chessGame, covenantId]);
 
-  // ── Real claimPayout — calls backend compute-payout endpoint ──
+  // ── Real claimPayout - calls backend compute-payout endpoint ──
   const claimPayout = useCallback(async () => {
     if (!covenantId || !chessOracleResult) {
       // Fallback: reset if no oracle result available
@@ -1446,7 +1446,7 @@ ${gameMeta.outcomeBranches}
         zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1_AUDITED' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_AUDITED_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1_AUDITED' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
         oracle_proof: JSON.stringify(proofObj),
         oracle_public_inputs: JSON.stringify(publicInputs),
-        network: kaspaNetwork, // tn12 / tn10 / mainnet — fully isolated data per network
+        network: kaspaNetwork, // tn12 / tn10 / mainnet - fully isolated data per network
       };
       await fetch(`/api/terminal-config/${covenantId}`, {
         method: 'POST',
@@ -1495,7 +1495,7 @@ ${gameMeta.outcomeBranches}
 
         if (nonce && messageToSign) {
           // Step 2: compute key possession proof
-          // Dev wallets: SHA256(private_key || message) — backend knows the key
+          // Dev wallets: SHA256(private_key || message) - backend knows the key
           // Extension wallets: signMessage returns browser-provider signature
           // Try dev mode first (we have the key locally)
           const devWallet = JSON.parse(localStorage.getItem('covex_dev_wallet') || 'null');
@@ -1698,7 +1698,7 @@ ${gameMeta.outcomeBranches}
       {!hasPaidAccess && connectedAddress && (
         <section className={`${SECTION_BASE} border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20`}>
           <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
-            <Shield size={16} /> CIRCUITS & ADVANCED FEATURES — PAYMENT REQUIRED
+            <Shield size={16} /> CIRCUITS & ADVANCED FEATURES - PAYMENT REQUIRED
           </div>
           <p className="text-xs text-gray-300 mt-1">Free basic SilverScript (simple compile to Kaspa covenant) is always available with no special treatment. ZK circuit types, pro resolution, and advanced arenas are unlocked only after one-time payment from <b>this exact connected wallet</b> to the current network's treasury. The indexer detects it automatically (same from_address as your deployer).</p>
 
@@ -1729,7 +1729,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div className="mt-3 flex gap-2">
                 <button onClick={checkPaymentNow} disabled={checkingPaid} className="flex-1 py-2 rounded bg-amber-600 text-black text-xs font-bold disabled:opacity-60">
-                  {checkingPaid ? 'CHECKING PAYMENT FROM YOUR WALLET...' : 'I SENT THE PAYMENT — REFRESH STATUS'}
+                  {checkingPaid ? 'CHECKING PAYMENT FROM YOUR WALLET...' : 'I SENT THE PAYMENT - REFRESH STATUS'}
                 </button>
                 <button onClick={cancelPayment} className="px-3 py-2 text-xs border border-white/20 rounded">Cancel</button>
               </div>
@@ -1752,7 +1752,7 @@ ${gameMeta.outcomeBranches}
           </span>
         </div>
 
-        {/* TECHNICAL DISCLAIMER — non-dismissible, accurately reflects current state */}
+        {/* TECHNICAL DISCLAIMER - non-dismissible, accurately reflects current state */}
         <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25">
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
@@ -1775,7 +1775,7 @@ ${gameMeta.outcomeBranches}
             Each circuit proves a specific verifiable statement. The covenant lock script contains the verifier key for the selected circuit. Only the proof output (or oracle signature) is submitted on-chain.
           </p>
 
-          {/* Circuit Grid — compact, professional (disabled until paid from this wallet) */}
+          {/* Circuit Grid - compact, professional (disabled until paid from this wallet) */}
           <div className="grid grid-cols-3 gap-2">
             {ZK_CIRCUIT_TYPES.map((gt) => {
               const disabled = !hasPaidAccess;
@@ -2263,7 +2263,7 @@ ${gameMeta.outcomeBranches}
                     {payoutLoading ? (
                       <span className="flex items-center justify-center gap-2"><Loader size={14} className="animate-spin" /> Computing payout...</span>
                     ) : (
-                      <>CLAIM PAYOUT — {chessResult?.outcome?.toUpperCase()} WINS</>
+                      <>CLAIM PAYOUT - {chessResult?.outcome?.toUpperCase()} WINS</>
                     )}
                   </button>
                 )}
@@ -2282,7 +2282,7 @@ ${gameMeta.outcomeBranches}
             {payoutResult && !payoutResult.error && (
               <div className="mt-3 p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                  <CheckCircle2 size={15} /> PAYOUT COMPUTED — REAL AMOUNTS VERIFIED BY ORACLE SIG
+                  <CheckCircle2 size={15} /> PAYOUT COMPUTED - REAL AMOUNTS VERIFIED BY ORACLE SIG
                 </div>
                 <div className="font-mono text-xs text-gray-400 break-all mb-3">
                   Oracle sig: {chessProofHash?.slice(0, 32)}...
@@ -2324,7 +2324,7 @@ ${gameMeta.outcomeBranches}
             {chessZkVerified && chessResult && !payoutResult && (
               <div className="mt-3 p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                  <CheckCircle2 size={15} /> RESULT ATTESTED BY ORACLE — CLICK "CLAIM PAYOUT" TO COMPUTE
+                  <CheckCircle2 size={15} /> RESULT ATTESTED BY ORACLE - CLICK "CLAIM PAYOUT" TO COMPUTE
                 </div>
                 <div className="font-mono text-xs text-gray-400 break-all mb-2">Oracle sig / proof ref: {chessProofHash}</div>
                 <div className="text-[10px] text-gray-400">The oracle has signed this result. Claiming computes the exact payout amounts via the backend, verified against the covenant's configured fee and pot-return percentages.</div>
@@ -2377,7 +2377,7 @@ ${gameMeta.outcomeBranches}
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
             <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{pokerStake * 2} KAS</div>
-            <div className="text-[11px] text-rose-400/90">-2% fee • {pokerMatchState === 'matched' ? 'STAKES MATCHED — READY' : 'WAITING FOR MATCH'}</div>
+            <div className="text-[11px] text-rose-400/90">-2% fee • {pokerMatchState === 'matched' ? 'STAKES MATCHED - READY' : 'WAITING FOR MATCH'}</div>
           </div>
         </div>
 
@@ -2399,8 +2399,8 @@ ${gameMeta.outcomeBranches}
             <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
               {pokerMatchState === 'idle' && 'Post stakes to open a match. Each side puts up equal KAS.'}
               {pokerMatchState === 'posted' && 'Opponent matching your stake on testnet...'}
-              {pokerMatchState === 'matched' && 'STAKES MATCHED — Launch full screen pro table'}
-              {pokerMatchState === 'playing' && 'PRO TABLE ACTIVE — Play in full screen'}
+              {pokerMatchState === 'matched' && 'STAKES MATCHED - Launch full screen pro table'}
+              {pokerMatchState === 'playing' && 'PRO TABLE ACTIVE - Play in full screen'}
             </div>
             <div>
               {pokerMatchState === 'idle' && (
@@ -2408,7 +2408,7 @@ ${gameMeta.outcomeBranches}
                   onClick={postPokerStake}
                   className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                 >
-                  POST {pokerStake} KAS — OPEN FOR MATCH (DEMO)
+                  POST {pokerStake} KAS - OPEN FOR MATCH (DEMO)
                 </button>
               )}
               {pokerMatchState === 'posted' && (
@@ -2476,7 +2476,7 @@ ${gameMeta.outcomeBranches}
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
             <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{bjStake * 2} KAS</div>
-            <div className="text-[11px] text-rose-400/90">-2% fee • {bjMatchState === 'matched' ? 'STAKES MATCHED — READY' : 'WAITING FOR MATCH'}</div>
+            <div className="text-[11px] text-rose-400/90">-2% fee • {bjMatchState === 'matched' ? 'STAKES MATCHED - READY' : 'WAITING FOR MATCH'}</div>
           </div>
         </div>
 
@@ -2497,8 +2497,8 @@ ${gameMeta.outcomeBranches}
             <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
               {bjMatchState === 'idle' && 'Post stakes. You vs dealer. Standard blackjack rules.'}
               {bjMatchState === 'posted' && 'Opponent matching your stake...'}
-              {bjMatchState === 'matched' && 'STAKES MATCHED — Launch full screen pro table'}
-              {bjMatchState === 'playing' && 'PRO TABLE ACTIVE — Play in full screen'}
+              {bjMatchState === 'matched' && 'STAKES MATCHED - Launch full screen pro table'}
+              {bjMatchState === 'playing' && 'PRO TABLE ACTIVE - Play in full screen'}
             </div>
             <div>
               {bjMatchState === 'idle' && (
@@ -2506,7 +2506,7 @@ ${gameMeta.outcomeBranches}
                   onClick={postBjStake}
                   className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                 >
-                  POST {bjStake} KAS — OPEN FOR MATCH (DEMO)
+                  POST {bjStake} KAS - OPEN FOR MATCH (DEMO)
                 </button>
               )}
               {bjMatchState === 'posted' && (
@@ -2554,10 +2554,10 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={checkersStake} onChange={e=>setCheckersStake(Math.max(1,parseInt(e.target.value||'50')))} className={INPUT} />
           </div>
           <div className="flex items-end">
-            {checkersMatchState === 'idle' && <button onClick={postCheckersStake} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">POST {checkersStake} KAS — OPEN MATCH</button>}
+            {checkersMatchState === 'idle' && <button onClick={postCheckersStake} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">POST {checkersStake} KAS - OPEN MATCH</button>}
             {checkersMatchState === 'posted' && <button onClick={acceptCheckersMatch} className="w-full py-3 rounded-xl bg-amber-500 text-black font-bold text-sm">MATCH STAKE &amp; JOIN</button>}
             {checkersMatchState === 'matched' && <button onClick={launchFullScreenCheckers} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">LAUNCH FULL SCREEN CHECKERS</button>}
-            {checkersMatchState === 'playing' && <div className="text-amber-400 text-xs py-2">IN ARENA — timers + oracle resolution active</div>}
+            {checkersMatchState === 'playing' && <div className="text-amber-400 text-xs py-2">IN ARENA - timers + oracle resolution active</div>}
           </div>
         </div>
         <div className="text-[10px] text-gray-400">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT → CLAIM with {potReturnPercent}% pot return</div>
@@ -2791,7 +2791,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-center gap-3">
             <Rocket size={24} className="text-red-400" />
             <div>
-              <div className="font-bold text-red-400 text-lg">⚠️ MAINNET MODE — REAL CAPITAL AT RISK</div>
+              <div className="font-bold text-red-400 text-lg">⚠️ MAINNET MODE - REAL CAPITAL AT RISK</div>
               <div className="text-sm text-red-300/90 mt-1">
                 You have selected <strong>MAINNET</strong>. All stakes, fees, and payouts are REAL KAS on the live Kaspa mainnet. 
                 There are no testnet do-overs, refunds, or second chances. Double-check treasury, seeds, oracle, resolution logic, and pot return %.
@@ -2810,7 +2810,7 @@ ${gameMeta.outcomeBranches}
           <img src="/covex-logo-full.jpg" alt="Covex logo" className="h-9 w-9 rounded object-cover ring-1 ring-white/10" />
           <div>
             <div className="text-[10px] text-gray-400 tracking-[2px]">THE NEW COVEX LOGO</div>
-            <div className="text-xs text-kaspa-green font-mono">Glowing Network C — Kaspa BlockDAG</div>
+            <div className="text-xs text-kaspa-green font-mono">Glowing Network C - Kaspa BlockDAG</div>
           </div>
         </div>
         <div className={SECTION_HEADER}>
@@ -2818,7 +2818,7 @@ ${gameMeta.outcomeBranches}
           Covenant Configuration
         </div>
 
-        {/* Network switcher — choose TN12 / TN10 / Mainnet. Fully separate per-network data, wallets, indexers. */}
+        {/* Network switcher - choose TN12 / TN10 / Mainnet. Fully separate per-network data, wallets, indexers. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className="text-[10px] uppercase tracking-widest text-gray-400">NETWORK</span>
           <button 
@@ -2843,7 +2843,7 @@ ${gameMeta.outcomeBranches}
           <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isMainnet ? 'text-red-400 border-red-500/30 bg-red-500/10' : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30')}`}>
             {networkLabel}{isMainnet ? '' : ' (test)'}
           </span>
-          <span className="text-[9px] text-gray-500">— fully isolated per network</span>
+          <span className="text-[9px] text-gray-500">- fully isolated per network</span>
         </div>
 
         <div className="space-y-4">
@@ -2930,7 +2930,7 @@ ${gameMeta.outcomeBranches}
         </div>
 
         <div className="space-y-4">
-          {/* Open Studio Button — prominent */}
+          {/* Open Studio Button - prominent */}
           <button
             onClick={handleOpenStudio}
             className="w-full flex items-center justify-between gap-4 py-5 px-6 rounded-xl
@@ -3207,10 +3207,10 @@ ${gameMeta.outcomeBranches}
               : gameType === 'merkle_membership'
               ? 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by the Covex Oracle using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The signature is then used to unlock the covenant on-chain.'
               : gameType === 'age_verification'
-              ? 'Paste a proof for the Age Verification circuit. Proves a birthdate meets an age threshold without revealing exact date. Oracle-attested — no client-side generator yet (ceremony pending). Submit any valid JSON + public inputs for oracle signing.'
+              ? 'Paste a proof for the Age Verification circuit. Proves a birthdate meets an age threshold without revealing exact date. Oracle-attested - no client-side generator yet (ceremony pending). Submit any valid JSON + public inputs for oracle signing.'
               : gameType === 'verifiable'
-              ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Oracle-attested — no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for oracle signing.'
-              : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Oracle-attested — no client-side generator. Submit any valid JSON + public inputs for oracle signing.'}
+              ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Oracle-attested - no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for oracle signing.'
+              : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Oracle-attested - no client-side generator. Submit any valid JSON + public inputs for oracle signing.'}
           </p>
 
           {/* Honesty disclaimer */}
@@ -3248,7 +3248,7 @@ ${gameMeta.outcomeBranches}
                     setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'range_demo' }, publicSignals: ['20473339414381364284988912838485478706292217748325897174032535818078518775705','0','100','1'] }));
                     setOraclePublicInputs('20473339414381364284988912838485478706292217748325897174032535818078518775705,0,100,1');
                   } else {
-                    // age_verification, verifiable, custom — demo attested proof
+                    // age_verification, verifiable, custom - demo attested proof
                     setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'oracle_attested_demo' }, publicSignals: ['1'] }));
                     setOraclePublicInputs('1');
                   }
@@ -3288,7 +3288,7 @@ ${gameMeta.outcomeBranches}
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
                   <Info size={14} />
-                  No client-side generator available. Ceremony artifacts not yet generated for this circuit type. Paste proof + public inputs above and submit — the oracle will attest and sign.
+                  No client-side generator available. Ceremony artifacts not yet generated for this circuit type. Paste proof + public inputs above and submit - the oracle will attest and sign.
                 </div>
               )}
               {zkGenError && (

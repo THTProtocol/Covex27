@@ -105,7 +105,7 @@ contract TransferWithTimeout {
                 </p>
               </div>
 
-              {/* Dev Wallet — hidden on mainnet */}
+              {/* Dev Wallet - hidden on mainnet */}
               {isMain ? (
                 <div className="pt-2">
                   <p className="text-[10px] text-red-400/80">Dev wallets disabled on MAINNET. Use a real Kaspa wallet extension to deploy covenants with real KAS.</p>

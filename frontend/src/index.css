@@ -30,7 +30,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK MODE (default) — Rich cypherpunk: deep blacks, neon green accents
+   DARK MODE (default) - Rich cypherpunk: deep blacks, neon green accents
    ═══════════════════════════════════════════════════════════════ */
 body {
   background: radial-gradient(circle at 50% 0%, #11111a 0%, rgb(var(--background)) 100%);
@@ -39,7 +39,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE — Clean, high-contrast cypherpunk light variant
+   LIGHT MODE - Clean, high-contrast cypherpunk light variant
    Strong teal/green accents (#0f766e, #14b8a6), soft white backgrounds
    ═══════════════════════════════════════════════════════════════ */
 .light {
@@ -158,7 +158,7 @@ body {
   backdrop-filter: blur(12px);
 }
 
-/* Nav COVEX "COV" text in light mode — white invisible on white nav bg, use dark slate */
+/* Nav COVEX "COV" text in light mode - white invisible on white nav bg, use dark slate */
 .light .covex-brand span:first-child {
   color: #0f172a;
 }
@@ -334,14 +334,14 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK MODE POLISH — Premium cypherpunk enhancements
+   DARK MODE POLISH - Premium cypherpunk enhancements
    ═══════════════════════════════════════════════════════════════ */
 
 /* Dark mode accent */
 .dark .text-kaspa-green { color: #49EACB; }
 .dark a.text-kaspa-green:hover { color: #3cd8b6; }
 
-/* Pricing tier cards — better separation + hover */
+/* Pricing tier cards - better separation + hover */
 .dark .pricing-tier-card {
   background: rgba(10, 10, 15, 0.6);
   border-color: rgba(255, 255, 255, 0.08);
@@ -361,7 +361,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PRICING PAGE — Premium treatment for BOTH modes
+   PRICING PAGE - Premium treatment for BOTH modes
    ═══════════════════════════════════════════════════════════════ */
 
 /* Pricing tier cards: light mode */
@@ -381,7 +381,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   EXPLORER — Cards, featured section, search
+   EXPLORER - Cards, featured section, search
    ═══════════════════════════════════════════════════════════════ */
 
 /* Covenant cards in light */
@@ -406,7 +406,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   COVEX TERMINAL — Forms, sections, code blocks
+   COVEX TERMINAL - Forms, sections, code blocks
    ═══════════════════════════════════════════════════════════════ */
 
 /* Terminal save button (kaspa-green bg stays the teal for contrast) */
@@ -424,7 +424,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   KASPA GREEN VARIATIONS — light mode keeps it strong
+   KASPA GREEN VARIATIONS - light mode keeps it strong
    ═══════════════════════════════════════════════════════════════ */
 .light .bg-kaspa-green\/10 { background-color: rgba(15, 118, 110, 0.08) !important; }
 .light .bg-kaspa-green\/8  { background-color: rgba(15, 118, 110, 0.06) !important; }
@@ -468,7 +468,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   VISUAL DENSITY — Anti-minimalism, cypherpunk hover states
+   VISUAL DENSITY - Anti-minimalism, cypherpunk hover states
    ═══════════════════════════════════════════════════════════════ */
 .featured-covenant-card {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
@@ -477,13 +477,13 @@ body {
   transform: translateY(-1px);
 }
 
-/* Tier glow — dark only */
+/* Tier glow - dark only */
 .tier-glow-max    { box-shadow: 0 0 28px rgba(168, 85, 247, 0.18), 0 0 60px rgba(168, 85, 247, 0.06); }
 .tier-glow-pro    { box-shadow: 0 0 20px rgba(232, 175, 52, 0.15), 0 0 50px rgba(232, 175, 52, 0.05); }
 .tier-glow-builder { box-shadow: 0 0 14px rgba(59, 130, 246, 0.12); }
 
 /* ═══════════════════════════════════════════════════════════════
-   GAME ARENAS — Keep play area dark, make chrome light-friendly
+   GAME ARENAS - Keep play area dark, make chrome light-friendly
    ═══════════════════════════════════════════════════════════════ */
 .light .bg-\[\#0A0A0D\]\/95,
 .light .bg-\[\#0a0a0f\] {
@@ -493,7 +493,7 @@ body {
   background: #f8fafc !important;
 }
 
-/* Game overlay/modals — keep play surfaces but lighten UI */
+/* Game overlay/modals - keep play surfaces but lighten UI */
 .light [class*="fixed inset-0 z-"]:not(.dag-background) {
   background: rgba(248, 250, 252, 0.97) !important;
 }
@@ -542,7 +542,7 @@ body {
 .light .bg-emerald-500 { background: #0f766e !important; color: #fff !important; }
 
 /* ═══════════════════════════════════════════════════════════════
-   EXTRA: DAG Background — handled in DagBackground.jsx
+   EXTRA: DAG Background - handled in DagBackground.jsx
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════

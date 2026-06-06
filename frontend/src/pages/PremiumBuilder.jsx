@@ -100,7 +100,7 @@ export default function PremiumBuilder() {
   const removeBase = (id) => setSandboxBases(sandboxBases.filter(b => b !== id));
 
   // === FULL COVENANT DESIGN (name it, make it look however you want, disclose everything) ===
-  const [covenantName, setCovenantName] = useState('Kaspa Chess Club — Season 3');
+  const [covenantName, setCovenantName] = useState('Kaspa Chess Club - Season 3');
   const [covenantDesc, setCovenantDesc] = useState('FIDE chess with real per-turn timers (only active player clock decrements). <30s = red. Zero = auto-resolve + oracle payout. Top visibility paid covenant.');
   const [themeAccent, setThemeAccent] = useState('#49EACB');
   const [lookPreset, setLookPreset] = useState('classic');
@@ -180,7 +180,7 @@ export default function PremiumBuilder() {
 
       setDeployResult({
         success: true,
-        message: 'Deployment credit consumed. Covenant metadata saved — PAID VERIFIED + top visibility active.',
+        message: 'Deployment credit consumed. Covenant metadata saved - PAID VERIFIED + top visibility active.',
         def,
         next: 'Open in Covex Terminal or Explorer to see your covenant at the top with full wallet disclosure.',
         metadataSaved: metaJson.success,
@@ -235,7 +235,7 @@ export default function PremiumBuilder() {
 
       {/* Transparent disclosure banner (always shown for paid - this is what makes top-visibility covenants trusted) */}
       <div className="mb-8 rounded-2xl border border-white/10 bg-black/40 p-5">
-        <div className="flex items-center gap-2 mb-2 text-emerald-400 text-xs font-mono uppercase tracking-widest"><Eye size={14} /> ALL WALLETS DISCLOSED — TOP VISIBILITY</div>
+        <div className="flex items-center gap-2 mb-2 text-emerald-400 text-xs font-mono uppercase tracking-widest"><Eye size={14} /> ALL WALLETS DISCLOSED - TOP VISIBILITY</div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
           {disclosedWallets.map((w, i) => (
             <div key={i} className="rounded-lg bg-white/5 p-3 border border-white/10">
@@ -247,10 +247,10 @@ export default function PremiumBuilder() {
         <div className="text-[10px] text-gray-500 mt-2">Paid covenants created here appear with priority + badge in Explorer and Terminal. Transparency is permanent.</div>
       </div>
 
-      {/* LIBRARY — wide selection (hundreds via variants + sandbox) */}
+      {/* LIBRARY - wide selection (hundreds via variants + sandbox) */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-sm text-gray-300"><Cpu size={15} /> Circuit Library (77+ entries, 6 resolution modes — hundreds of combinations)</div>
+          <div className="flex items-center gap-2 text-sm text-gray-300"><Cpu size={15} /> Circuit Library (77+ entries, 6 resolution modes - hundreds of combinations)</div>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search circuits..." className="bg-black/50 border border-white/10 rounded px-3 py-1 text-sm w-64" />
         </div>
         <div className="flex flex-wrap gap-1 mb-3">
@@ -276,12 +276,12 @@ export default function PremiumBuilder() {
             );
           })}
         </div>
-        <div className="text-[10px] text-gray-500 mt-2">KYC/identity circuits de-prioritized (only 2 in "other"). Focus: real Kaspa covenant needs — games with timers, ownership/script/timelock proofs, DAO/collateral, verifiable compute.</div>
+        <div className="text-[10px] text-gray-500 mt-2">KYC/identity circuits de-prioritized (only 2 in "other"). Focus: real Kaspa covenant needs - games with timers, ownership/script/timelock proofs, DAO/collateral, verifiable compute.</div>
       </section>
 
-      {/* SANDBOX — the killer feature for "best possible interactive covenant" */}
+      {/* SANDBOX - the killer feature for "best possible interactive covenant" */}
       <section className="mb-10 rounded-3xl border border-white/10 bg-black/50 p-6">
-        <div className="flex items-center gap-2 mb-4"><Sparkles size={16} className="text-amber-400" /><div className="uppercase text-xs tracking-[2px] text-amber-400 font-mono">Sandbox — Compose Your Own Circuit (paid only)</div></div>
+        <div className="flex items-center gap-2 mb-4"><Sparkles size={16} className="text-amber-400" /><div className="uppercase text-xs tracking-[2px] text-amber-400 font-mono">Sandbox - Compose Your Own Circuit (paid only)</div></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Bases */}
@@ -319,7 +319,7 @@ export default function PremiumBuilder() {
         </div>
       </section>
 
-      {/* DESIGN — name it, make it look however you want */}
+      {/* DESIGN - name it, make it look however you want */}
       <section className="mb-8">
         <div className="text-xs uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2"><Palette size={14} /> Design Your Covenant (look, name, full info)</div>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -342,7 +342,7 @@ export default function PremiumBuilder() {
 
         {/* Live preview + disclosure */}
         <div className="mt-6 rounded-2xl border border-white/10 bg-black/60 p-5" style={{ borderColor: previewAccent + '30' }}>
-          <div className="text-xs text-gray-400 mb-2">LIVE PREVIEW — this is exactly how it will appear (with top visibility + full disclosure)</div>
+          <div className="text-xs text-gray-400 mb-2">LIVE PREVIEW - this is exactly how it will appear (with top visibility + full disclosure)</div>
           <div className="rounded-xl p-4" style={{ background: '#0a0a0a', border: `1px solid ${previewAccent}20` }}>
             <div className="font-bold text-lg" style={{ color: previewAccent }}>{previewName}</div>
             <div className="text-sm text-gray-300 mt-1 line-clamp-2">{covenantDesc || customDesc}</div>
@@ -368,7 +368,7 @@ export default function PremiumBuilder() {
       )}
       {deployResult && (
         <div className={`mt-4 p-4 rounded-2xl border ${deployResult.success ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-          {deployResult.success ? 'Success — token consumed. ' : 'Error: '}{deployResult.message || deployResult.error}
+          {deployResult.success ? 'Success - token consumed. ' : 'Error: '}{deployResult.message || deployResult.error}
           <div className="text-xs mt-1 text-gray-400">{deployResult.next}</div>
         </div>
       )}

@@ -8,7 +8,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
   const [board, setBoard] = useState(() => initBoard());
   const [selected, setSelected] = useState(null);
   const [turn, setTurn] = useState('w'); // 'w' white bottom, 'b' black top
-  const [message, setMessage] = useState('White to move — jumps are mandatory');
+  const [message, setMessage] = useState('White to move - jumps are mandatory');
   const [result, setResult] = useState(null); // { outcome: 'white'|'black'|'draw', method: '...' }
   const [moves, setMoves] = useState([]); // [{san: '12-21 (J)'} ...]
 
@@ -124,7 +124,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
       }
       if (hasMoreJump) {
         setSelected(to);
-        setMessage('Multi-jump — continue jumping');
+        setMessage('Multi-jump - continue jumping');
         return { newBoard, chain: true };
       }
     }
@@ -155,7 +155,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
     if (!hasAnyMoves(nextTurn)) {
       const winner = nextTurn === 'w' ? 'black' : 'white';
       setResult({ outcome: winner, method: 'no_legal_moves' });
-      setMessage(`Game over — ${winner} wins (no moves left)`);
+      setMessage(`Game over - ${winner} wins (no moves left)`);
     }
     return { newBoard, chain: false };
   };
@@ -189,7 +189,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
           if (nt <= 0) {
             const r = { outcome: 'black', method: 'timeout' };
             setResult(r);
-            setMessage('White timeout — Black wins');
+            setMessage('White timeout - Black wins');
           }
           return nt;
         });
@@ -199,7 +199,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
           if (nt <= 0) {
             const r = { outcome: 'white', method: 'timeout' };
             setResult(r);
-            setMessage('Black timeout — White wins');
+            setMessage('Black timeout - White wins');
           }
           return nt;
         });
@@ -406,7 +406,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
           {/* Pre/post payout info */}
           {result && !payoutResult && (
             <div className="mt-2 text-[10px] w-full text-center text-gray-300">
-              {oracleSubmitted ? 'Signature ready — claim to compute shares' : 'Game finished — submit for oracle sig'}
+              {oracleSubmitted ? 'Signature ready - claim to compute shares' : 'Game finished - submit for oracle sig'}
             </div>
           )}
         </div>
@@ -475,7 +475,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         )}
         {payoutResult && !payoutResult.error && (
           <div className="max-w-lg mx-auto mt-1 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
-            <div className="flex items-center gap-2 text-emerald-400 mb-1 text-xs"><CheckCircle2 size={14} /> PAYOUT COMPUTED — ORACLE SIG VERIFIED</div>
+            <div className="flex items-center gap-2 text-emerald-400 mb-1 text-xs"><CheckCircle2 size={14} /> PAYOUT COMPUTED - ORACLE SIG VERIFIED</div>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="p-2 rounded bg-black/40 border border-white/10">
                 <div className="text-gray-400">Platform ({payoutResult.fee_percent || feePercent}%)</div>

@@ -11,7 +11,7 @@ export default function PaidBuilder() {
   const navigate = useNavigate();
   const { address, DevConnectPanel } = useWallet();
 
-  // Server-side auth state — the ONLY source of truth
+  // Server-side auth state - the ONLY source of truth
   const [auth, setAuth] = useState({ token: null, tier: null, address: null, loading: true, error: null });
   const [myCovenants, setMyCovenants] = useState([]);
   const [fetchingCovenants, setFetchingCovenants] = useState(false);
@@ -30,7 +30,7 @@ export default function PaidBuilder() {
     }
   }, []);
 
-  // Step 2: Request server auth session — the ONLY way to get paid access
+  // Step 2: Request server auth session - the ONLY way to get paid access
   useEffect(() => {
     if (!address) {
       setAuth({ token: null, tier: null, address: null, loading: false, error: null });
@@ -60,7 +60,7 @@ export default function PaidBuilder() {
   // Step 3: Redirect FREE/no-token users to pricing
   useEffect(() => {
     if (!auth.loading && !auth.token && !address) {
-      // No wallet connected — show connect prompt, don't redirect
+      // No wallet connected - show connect prompt, don't redirect
       return;
     }
     if (!auth.loading && (!auth.token || auth.tier === 'FREE')) {
@@ -89,7 +89,7 @@ export default function PaidBuilder() {
     );
   }
 
-  // Not paid — show gate before redirect kicks in
+  // Not paid - show gate before redirect kicks in
   if (!auth.token || auth.tier === 'FREE') {
     return (
       <div className="p-20 text-center">
@@ -110,7 +110,7 @@ export default function PaidBuilder() {
 
   return (
     <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-12">
-      {/* Persistent paid-area indicator — server-verified */}
+      {/* Persistent paid-area indicator - server-verified */}
       <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold tracking-wide"
         style={{ background: tierAccent + '15', border: `1px solid ${tierAccent}30`, color: tierAccent }}>
         <ShieldCheck size={14} /><span>SERVER-VERIFIED PAID AREA</span><span className="opacity-50">|</span><span>{tierBadge}</span><span className="opacity-50">|</span><span>Terminal Unlocked</span>
@@ -147,7 +147,7 @@ export default function PaidBuilder() {
             <div className="flex items-start gap-4">
               <Zap className="text-kaspa-green mt-1 shrink-0" size={28} />
               <div className="flex-1">
-                <div className="text-kaspa-green font-bold text-xl">You've unlocked {tierBadge} tier — server verified</div>
+                <div className="text-kaspa-green font-bold text-xl">You've unlocked {tierBadge} tier - server verified</div>
                 <p className="text-gray-200 mt-2 text-sm">Your on-chain payment is confirmed. Each payment grants one covenant deployment. Open the Covex Terminal to configure ZK circuits, oracles, fees, and custom UIs.</p>
                 <Button onClick={() => navigate('/premium')} className="mt-4">
                   Open Terminal, Create First Covenant <ChevronRight size={18} />

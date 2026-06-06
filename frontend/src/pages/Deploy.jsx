@@ -139,10 +139,10 @@ export default function Deploy() {
               <Terminal size={20} className="text-[#49EACB]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-[#49EACB] mb-1">Free Covenant Deployment — Open to Everyone</h3>
+              <h3 className="text-sm font-bold text-[#49EACB] mb-1">Free Covenant Deployment - Open to Everyone</h3>
               <p className="text-xs text-gray-300 leading-relaxed mb-2">
                 This is the <strong>free entry point</strong> for deploying a basic covenant. No payment is required.
-                Anyone — including users who already have a paid tier — can create simple on-chain covenants here.
+                Anyone - including users who already have a paid tier - can create simple on-chain covenants here.
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
                 Later, you can pay for a tier (BUILDER / PRO / MAX) on any specific covenant you own to unlock the full Covex Terminal, custom interactive UIs from Covenant Studio, ZK circuits, oracles, and advanced features.

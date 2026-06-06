@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Zap } from 'lucide-react';
 import ChessMini from './chess/ChessMini';
 // Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
-// Covex main pages (Explorer) must remain neutral — no gambling visuals.
+// Covex main pages (Explorer) must remain neutral - no gambling visuals.
 // Only chess has a native React preview. All other ZK circuits show a generic badge.
 
 // Detect game type from covenant data
@@ -20,12 +20,12 @@ const detectGameType = (covenant) => {
     if (cfg?.game_type) {
       const gt = cfg.game_type.toLowerCase();
       if (gt.includes('chess')) return 'chess';
-      // New ZK circuit types (non-game) return null — no game preview
+      // New ZK circuit types (non-game) return null - no game preview
       if (gt.includes('merkle') || gt.includes('range_proof') || gt.includes('age_verify') || gt.includes('verifiable')) return null;
     }
   } catch (_) {}
 
-  // Fallback name-based detection — chess only
+  // Fallback name-based detection - chess only
   if (combined.includes('chess') || combined.includes('chess_v1')) return 'chess';
 
   return null;

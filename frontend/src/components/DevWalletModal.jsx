@@ -3,7 +3,7 @@ import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange } from '.
 import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
-// Now network-aware — derives keys for the currently selected network (TN10/TN12/Mainnet).
+// Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
 // Uses kaspa-wasm to derive keys locally from mnemonic or hex private key.
 
 let _wasmModule = null;
@@ -367,7 +367,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
   );
 }
 
-// ── Mainnet Wallet Modal — real wallet extensions only, no dev mnemonic/hex ──
+// ── Mainnet Wallet Modal - real wallet extensions only, no dev mnemonic/hex ──
 function MainnetWalletModal({ walletContext, onClose }) {
   const { wallets, connect, connecting, error, clearError } = walletContext;
 
@@ -404,7 +404,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
         <div className="p-5 space-y-4">
           <div className="p-3 rounded-lg bg-red-500/[0.04] border border-red-500/15">
             <p className="text-xs text-red-300 leading-relaxed">
-              MAINNET uses real KAS. Connect a Kaspa wallet extension to deploy real covenants with paid tiers. No mnemonic or hex key input — your keys stay in your wallet.
+              MAINNET uses real KAS. Connect a Kaspa wallet extension to deploy real covenants with paid tiers. No mnemonic or hex key input - your keys stay in your wallet.
             </p>
           </div>
 

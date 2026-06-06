@@ -113,7 +113,7 @@ const Pricing = () => {
     return () => window.removeEventListener('kaspa-network-change', handler);
   }, []);
 
-  // Server-confirmed tier sync only — no localStorage pre-write
+  // Server-confirmed tier sync only - no localStorage pre-write
   // The auth-session endpoint is the only source of truth for paid access
 
   const [processing, setProcessing] = useState(null);

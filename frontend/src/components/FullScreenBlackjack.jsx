@@ -320,7 +320,7 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
               <div className="text-emerald-400 text-sm font-bold p-4 border border-emerald-500/30 rounded-xl bg-emerald-500/5 flex flex-col items-center gap-2">
                 <span className="flex items-center gap-2">
                   <Play size={14} className="text-emerald-400" />
-                  ORACLE SIGNATURE RECEIVED — RESOLUTION READY
+                  ORACLE SIGNATURE RECEIVED - RESOLUTION READY
                 </span>
                 <span className="text-[10px] text-emerald-400/60 font-mono break-all max-w-lg text-center">
                   {oracleSig}

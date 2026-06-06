@@ -341,7 +341,7 @@ function WalletBridge({ children }) {
         }
       } catch (_) {}
     } else {
-      // No saved dev for this network — clear any previous devMode so we don't show stale dev connection from another network
+      // No saved dev for this network - clear any previous devMode so we don't show stale dev connection from another network
       if (devMode) {
         setDevMode(null);
         setActiveWalletId(null);

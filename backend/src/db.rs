@@ -63,7 +63,6 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         CREATE INDEX IF NOT EXISTS idx_accounts_tier ON accounts(tier);
 
         -- Migration: add deployment columns if missing (existing DBs from before auth)
-        INSERT OR IGNORE INTO pragma_user_version VALUES (0);
         CREATE TABLE IF NOT EXISTS auth_tokens (
             token           TEXT PRIMARY KEY,
             address         TEXT NOT NULL,

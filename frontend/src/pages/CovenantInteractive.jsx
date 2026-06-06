@@ -109,13 +109,6 @@ export default function CovenantInteractive() {
 
   const getUpgradeUri = (tier) => `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`;
 
-  const handleSimulatePayment = (tier) => {
-    localStorage.setItem('covex_paid_tier', tier.label);
-    setCovexPaidTier(tier.label);
-    setShowUpgrade(false);
-    setToast({ type: 'success', msg: `${tier.label} tier unlocked! UI Builder is now available.` });
-  };
-
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(null), 4000);

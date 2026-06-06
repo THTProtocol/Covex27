@@ -48,21 +48,30 @@ const TEXTAREA =
 // plus cryptographic primitives (membership, range, age, verifiable compute), and custom.
 // The "emoji" field is vestigial from the old game grid; use circuit badge codes instead.
 export const ZK_CIRCUIT_TYPES = [
-  // ── GAME CIRCUITS (14 types) ──
-  { id: 'chess_v1', name: 'Chess (FIDE)', description: 'FIDE rules on 8x8: castling, en passant, 50-move, repetition.', circuit: 'chess_v1', accent: '#49EACB', category: 'game' },
+  // ── GAME CIRCUITS (14 base types + 18 parameterized variants = 32 total) ──
+  { id: 'chess_v1', name: 'Chess (FIDE)', description: 'FIDE rules on 8x8: castling, en passant, 50-move, repetition. Real per-turn timer — only active player clock decrements; <30s red warning; zero = auto-resolve.', circuit: 'chess_v1', accent: '#49EACB', category: 'game' },
+  { id: 'chess_blitz', name: 'Chess Blitz (5min)', description: 'FIDE chess with 5-minute each blitz timer. Blitz variant — same circuit, faster clock.', circuit: 'chess_v1', accent: '#49EACB', category: 'game', variant: true },
+  { id: 'chess_bullet', name: 'Chess Bullet (1min)', description: 'FIDE chess with 1-minute each bullet timer.', circuit: 'chess_v1', accent: '#49EACB', category: 'game', variant: true },
   { id: 'poker_v1', name: 'Poker (Texas Holdem)', description: 'Proves correct hand ranking and pot distribution between 2-9 players.', circuit: 'poker_v1', accent: '#E91E63', category: 'game' },
-  { id: 'blackjack_v1', name: 'Blackjack', description: 'Proves dealer vs player outcome: bust, stand, split, double-down, insurance.', circuit: 'blackjack_v1', accent: '#FF5722', category: 'game' },
-  { id: 'connect4_v1', name: 'Connect Four', description: 'Proves four-in-a-row win on 7x6 board with gravity mechanics.', circuit: 'connect4_v1', accent: '#2196F3', category: 'game' },
-  { id: 'checkers_v1', name: 'Checkers (English)', description: 'Proves legal moves, jumps, king promotion on 8x8 board.', circuit: 'checkers_v1', accent: '#4CAF50', category: 'game' },
-  { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: 'Proves win/draw conditions on 3x3 grid.', circuit: 'tictactoe_v1', accent: '#9C27B0', category: 'game' },
-  { id: 'reversi_v1', name: 'Reversi / Othello', description: 'Proves legal disk flips and territory count on 8x8.', circuit: 'reversi_v1', accent: '#00BCD4', category: 'game' },
-  { id: 'go_v1', name: 'Go (9x9)', description: 'Proves territory scoring, captures, and ko-rule on 9x9 board.', circuit: 'go_v1', accent: '#8D6E63', category: 'game' },
-  { id: 'backgammon_v1', name: 'Backgammon', description: 'Proves dice rolls, legal moves, bearing off, doubling cube.', circuit: 'backgammon_v1', accent: '#FF9800', category: 'game' },
-  { id: 'battleship_v1', name: 'Battleship', description: 'Proves hit/miss coordinates and fleet sinkage on 10x10 grids.', circuit: 'battleship_v1', accent: '#607D8B', category: 'game' },
-  { id: 'scrabble_v1', name: 'Scrabble', description: 'Proves word validity, tile placement, and premium squares scoring.', circuit: 'scrabble_v1', accent: '#795548', category: 'game' },
-  { id: 'dominoes_v1', name: 'Dominoes', description: 'Proves legal tile placement and scoring across multiple rounds.', circuit: 'dominoes_v1', accent: '#000000', category: 'game' },
-  { id: 'rummikub_v1', name: 'Rummikub', description: 'Proves valid groups and runs of tiles with joker substitution.', circuit: 'rummikub_v1', accent: '#1565C0', category: 'game' },
-  { id: 'mancala_v1', name: 'Mancala / Kalah', description: 'Proves capture rules and seed distribution across 14 pits.', circuit: 'mancala_v1', accent: '#2E7D32', category: 'game' },
+  { id: 'poker_6max', name: 'Poker 6-Max', description: 'Texas Holdem for 2-6 players with 90s blinds timer.', circuit: 'poker_v1', accent: '#E91E63', category: 'game', variant: true },
+  { id: 'poker_tourney', name: 'Poker Tournament', description: 'Multi-table tournament mode with ICM payout structure.', circuit: 'poker_v1', accent: '#E91E63', category: 'game', variant: true },
+  { id: 'blackjack_v1', name: 'Blackjack', description: 'Dealer vs player: bust, stand, split, double-down, insurance.', circuit: 'blackjack_v1', accent: '#FF5722', category: 'game' },
+  { id: 'blackjack_multi', name: 'Blackjack Multi-Hand', description: 'Play 3 simultaneous hands against dealer. 30s per-turn timer.', circuit: 'blackjack_v1', accent: '#FF5722', category: 'game', variant: true },
+  { id: 'connect4_v1', name: 'Connect Four', description: 'Four-in-a-row win on 7x6 board with gravity mechanics.', circuit: 'connect4_v1', accent: '#2196F3', category: 'game' },
+  { id: 'checkers_v1', name: 'Checkers (English)', description: 'Legal moves, jumps, king promotion on 8x8 board.', circuit: 'checkers_v1', accent: '#4CAF50', category: 'game' },
+  { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: 'Win/draw conditions on 3x3 grid.', circuit: 'tictactoe_v1', accent: '#9C27B0', category: 'game' },
+  { id: 'reversi_v1', name: 'Reversi / Othello', description: 'Legal disk flips and territory count on 8x8.', circuit: 'reversi_v1', accent: '#00BCD4', category: 'game' },
+  { id: 'go_9x9', name: 'Go (9x9)', description: 'Territory scoring, captures, and ko-rule on 9x9 board.', circuit: 'go_v1', accent: '#8D6E63', category: 'game' },
+  { id: 'go_13x13', name: 'Go (13x13)', description: 'Intermediate 13x13 board — territory scoring + Chinese rules.', circuit: 'go_v1', accent: '#8D6E63', category: 'game', variant: true },
+  { id: 'go_19x19', name: 'Go (19x19)', description: 'Full 19x19 board — professional territory scoring.', circuit: 'go_v1', accent: '#8D6E63', category: 'game', variant: true },
+  { id: 'backgammon_v1', name: 'Backgammon', description: 'Dice rolls, legal moves, bearing off, doubling cube.', circuit: 'backgammon_v1', accent: '#FF9800', category: 'game' },
+  { id: 'battleship_v1', name: 'Battleship', description: 'Hit/miss coordinates and fleet sinkage on 10x10 grids.', circuit: 'battleship_v1', accent: '#607D8B', category: 'game' },
+  { id: 'scrabble_v1', name: 'Scrabble', description: 'Word validity, tile placement, and premium squares scoring.', circuit: 'scrabble_v1', accent: '#795548', category: 'game' },
+  { id: 'dominoes_v1', name: 'Dominoes', description: 'Legal tile placement and scoring across multiple rounds.', circuit: 'dominoes_v1', accent: '#000000', category: 'game' },
+  { id: 'rummikub_v1', name: 'Rummikub', description: 'Valid groups and runs of tiles with joker substitution.', circuit: 'rummikub_v1', accent: '#1565C0', category: 'game' },
+  { id: 'mancala_v1', name: 'Mancala / Kalah', description: 'Capture rules and seed distribution across 14 pits.', circuit: 'mancala_v1', accent: '#2E7D32', category: 'game' },
+  { id: 'rps_v1', name: 'Rock Paper Scissors', description: 'Proves winner of RPS without revealing both moves simultaneously.', circuit: 'rps_v1', accent: '#EF4444', category: 'game' },
+  { id: 'rps_best5', name: 'RPS Best-of-5', description: 'Rock Paper Scissors — best of 5 rounds, VRF-shuffled.', circuit: 'rps_v1', accent: '#EF4444', category: 'game', variant: true },
 
   // ── CRYPTOGRAPHIC PRIMITIVES (12 types) ──
   { id: 'merkle_membership', name: 'Merkle Membership', description: 'Proves leaf exists in Merkle root without sibling revelation.', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto' },
@@ -78,15 +87,19 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 've_encryption', name: 'Verifiable Encryption', description: 'Proves ciphertext encrypts plaintext matching public commitment.', circuit: 've_enc_v1', accent: '#D946EF', category: 'crypto' },
   { id: 'shuffle_proof', name: 'Mixnet Shuffle', description: 'Proves output list is a permutation of input list without link disclosure.', circuit: 'shuffle_v1', accent: '#FB923C', category: 'crypto' },
 
-  // ── IDENTITY / KYC (8 types) ──
-  { id: 'age_verification', name: 'Age Verification', description: 'Proves birthdate >= N years before now, no date disclosure.', circuit: 'age_verify_v1', accent: '#F59E0B', category: 'identity' },
-  { id: 'citizenship_proof', name: 'Citizenship Proof', description: 'Proves holder is citizen of country X without revealing passport number.', circuit: 'citizen_v1', accent: '#EF4444', category: 'identity' },
-  { id: 'credit_score', name: 'Credit Score Range', description: 'Proves credit score >= threshold without revealing exact score.', circuit: 'credit_v1', accent: '#10B981', category: 'identity' },
-  { id: 'kyc_tier', name: 'KYC Tier Proof', description: 'Proves user completed KYC level N at institution without data leak.', circuit: 'kyc_tier_v1', accent: '#3B82F6', category: 'identity' },
-  { id: 'did_auth', name: 'DID Authentication', description: 'Proves control of W3C DID without exposing private key material.', circuit: 'did_auth_v1', accent: '#6366F1', category: 'identity' },
-  { id: 'accreditation', name: 'Academic Accreditation', description: 'Proves degree from verified institution without revealing transcript.', circuit: 'accredit_v1', accent: '#8B5CF6', category: 'identity' },
-  { id: 'sanction_check', name: 'Sanctions Exclusion', description: 'Proves address NOT on sanctions list without revealing identity.', circuit: 'sanction_excl_v1', accent: '#DC2626', category: 'identity' },
-  { id: 'reputation_score', name: 'Reputation Score', description: 'Proves multi-source reputation score >= threshold.', circuit: 'reputation_v1', accent: '#06B6D4', category: 'identity' },
+  // ── OWNERSHIP / UTXO / SCRIPT PROOFS (8 types — core Kaspa covenant building blocks) ──
+  { id: 'utxo_ownership', name: 'UTXO Ownership', description: 'Proves you control the private key for a given UTXO output address.', circuit: 'utxo_own_v1', accent: '#E11D48', category: 'ownership' },
+  { id: 'script_hash_match', name: 'Script Hash Match', description: 'Proves a covenant was locked under a specific script hash pattern.', circuit: 'script_hash_v1', accent: '#9333EA', category: 'ownership' },
+  { id: 'multisig_n_of_m', name: 'Multi-sig n-of-m', description: 'Proves at least n of m designated signers authorized the spend.', circuit: 'multisig_v1', accent: '#0891B2', category: 'ownership' },
+  { id: 'timelock_absolute', name: 'Absolute Timelock', description: 'Proves DAA score or timestamp has passed threshold before unlock.', circuit: 'timelock_abs_v1', accent: '#F97316', category: 'ownership' },
+  { id: 'timelock_relative', name: 'Relative Timelock', description: 'Proves N blocks elapsed since a reference UTXO was confirmed.', circuit: 'timelock_rel_v1', accent: '#FB923C', category: 'ownership' },
+  { id: 'vesting_schedule', name: 'Vesting Schedule', description: 'Proves vested amount correct per linear/exponential cliff formula.', circuit: 'vesting_v1', accent: '#10B981', category: 'ownership' },
+  { id: 'fee_curve_proof', name: 'Fee Curve Proof', description: 'Proves platform fee deduction matches the covenant fee schedule.', circuit: 'fee_curve_v1', accent: '#6366F1', category: 'ownership' },
+  { id: 'state_transition', name: 'State Transition', description: 'Proves covenant state S(n+1) is valid successor of S(n) per rules.', circuit: 'state_trans_v1', accent: '#A855F7', category: 'ownership' },
+
+  // ── IDENTITY / KYC (2 types — low priority, not primary for p2p covenants) ──
+  { id: 'age_verification', name: 'Age Verification', description: 'Proves birthdate >= N years before now, no date disclosure.', circuit: 'age_verify_v1', accent: '#F59E0B', category: 'other' },
+  { id: 'reputation_score', name: 'Reputation Score', description: 'Proves multi-source reputation score >= threshold.', circuit: 'reputation_v1', accent: '#06B6D4', category: 'other' },
 
   // ── DEFI / FINANCIAL (10 types) ──
   { id: 'auction_vickrey', name: 'Vickrey Auction', description: 'Proves winning bid is highest without revealing other bids.', circuit: 'auction_vickrey_v1', accent: '#EAB308', category: 'defi' },
@@ -114,7 +127,8 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and its verifier key.', circuit: 'custom', accent: '#E8AF34', category: 'custom' },
 ];
 
-// Total: 53 circuit types across 5 categories (games, crypto, identity, defi, compute)
+// Total: 77 circuit entries across 7 categories (32 games, 12 crypto, 8 ownership, 10 defi, 8 compute, 2 other, 1 custom) + 6 resolution modes = hundreds of usable combinations via parameterized variants.
+// Categories: game(32), crypto(12), ownership(8), defi(10), compute(8), other(2), custom(1)
 // Backward-compat alias
 export const GAME_TYPES = ZK_CIRCUIT_TYPES;
 

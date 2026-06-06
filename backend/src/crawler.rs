@@ -114,7 +114,7 @@ pub async fn run_crawler(
         treasury_address, start_daa, network
     );
 
-    let mut scan_daa = db::get_last_scanned_daa(&db).unwrap_or(start_daa);
+    let mut scan_daa = db::get_last_scanned_daa(&db, &network).unwrap_or(start_daa);
     let mut total_found: u64 = 0;
 
     loop {
@@ -142,7 +142,7 @@ pub async fn run_crawler(
         };
         let virtual_daa = dag.virtual_daa_score;
         if scan_daa >= virtual_daa {
-            let _ = db::update_last_scanned_daa(&db, scan_daa);
+            let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
         }
@@ -305,7 +305,7 @@ pub async fn run_crawler(
         // Advance past the floor — lowest is the minimum DAA seen in this batch.
         // Without this decrement, the next cycle hits the same floor and makes zero net progress.
         scan_daa = lowest.saturating_sub(1);
-        let _ = db::update_last_scanned_daa(&db, scan_daa);
+        let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }

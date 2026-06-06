@@ -117,10 +117,15 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         CREATE INDEX IF NOT EXISTS idx_custom_ui_owner ON custom_ui_configs(owner_address);
 
         CREATE TABLE IF NOT EXISTS crawler_state (
-            id            INTEGER PRIMARY KEY CHECK (id = 1),
-            last_scanned_daa INTEGER NOT NULL DEFAULT 0
+            id            INTEGER NOT NULL DEFAULT 1,
+            network       TEXT NOT NULL DEFAULT 'testnet-12',
+            last_scanned_daa INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (id, network)
         );
-        INSERT OR IGNORE INTO crawler_state (id, last_scanned_daa) VALUES (1, 0);
+        -- Insert defaults for known networks (ignore if already exists)
+        INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'testnet-12', 0);
+        INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'testnet-10', 0);
+        INSERT OR IGNORE INTO crawler_state (id, network, last_scanned_daa) VALUES (1, 'mainnet', 0);
 
         CREATE TABLE IF NOT EXISTS skill_games (
             covenant_id     TEXT PRIMARY KEY,
@@ -681,21 +686,22 @@ pub fn set_visibility(
     Ok(())
 }
 
-pub fn get_last_scanned_daa(db: &Mutex<Connection>) -> anyhow::Result<u64> {
+pub fn get_last_scanned_daa(db: &Mutex<Connection>, network: &str) -> anyhow::Result<u64> {
     let conn = db.lock().unwrap();
     Ok(conn
         .query_row(
-            "SELECT last_scanned_daa FROM crawler_state WHERE id = 1",
-            [],
+            "SELECT last_scanned_daa FROM crawler_state WHERE id = 1 AND network = ?1",
+            params![network],
             |r| r.get(0),
-        )?)
+        )
+        .unwrap_or(0))
 }
 
-pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64) -> anyhow::Result<()> {
+pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64, network: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
-        "UPDATE crawler_state SET last_scanned_daa = ?1 WHERE id = 1",
-        params![daa],
+        "UPDATE crawler_state SET last_scanned_daa = ?1 WHERE id = 1 AND network = ?2",
+        params![daa, network],
     )?;
     Ok(())
 }

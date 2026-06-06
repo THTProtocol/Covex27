@@ -176,11 +176,6 @@ const Pricing = () => {
           <p className="text-lg text-gray-300 max-w-xl mx-auto">
             Send exactly {p.price.toLocaleString()} KAS to unlock {p.name} tier access.
           </p>
-          {isMainnet && (
-            <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium">
-              MAINNET: You are sending REAL KAS. There are no refunds or testnet do-overs.
-            </div>
-          )}
         </div>
         {needWallet && (
           <div className="mb-8 max-w-md mx-auto">

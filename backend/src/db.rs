@@ -3,6 +3,8 @@ use std::sync::Mutex;
 
 pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
     let conn = Connection::open(path)?;
+    // WAL mode allows concurrent reads during writes — critical with 6 background tasks
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS covenants (
             tx_id               TEXT PRIMARY KEY,

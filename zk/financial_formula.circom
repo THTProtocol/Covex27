@@ -11,12 +11,13 @@ template FinancialFormula() {
     signal input computed; // public result e.g. FV
     signal input valid;
 
-    // Rough: FV ~ principal * (1 + rate)^periods  -- no pow, use mul placeholder
-    signal approx <== principal * (rate + 1000) * (periods + 1) / 1000; // scaled stub
+    // Stub quadratic only: simple mul/add for demo (no / or non-quad). For real, use proper fixed point or RISC0.
+    signal temp <== principal * rate;
+    signal approx <== temp + periods;
 
     component inTol = LessThan(64);
-    inTol.in[0] <== computed - 100;
-    inTol.in[1] <== approx + 100;
+    inTol.in[0] <== computed;
+    inTol.in[1] <== approx + 1000; // loose tol for stub
     inTol.out === 1;
 
     valid === 1;

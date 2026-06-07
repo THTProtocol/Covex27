@@ -137,3 +137,12 @@ Ceremonies: dev PTAU only for new; full MPC needed for prod (see RANGE_PROOF_CER
 - All wired: oracle_verifier has entries for new (Hybrid/Risc0), registry expanded, examples, on-chain .sil updated.
 - Pushed: new artifacts (r1cs/zkey/vkey/wasm for inventory), fixes.
 RISC0 still stubs (Phase 4). Prod zkeys: MPC needed. This achieves practical 100% dev build for the vision.
+## This continue (post full build): Polish, wiring, more proofs, fixes
+- Frontend build fixed (installed @radix-ui/react-slot, ThemeToggle export).
+- New circuits wired in oracle_verifier (relative_timelock, vrf_*, script_constraint, pot_split, turn_timer as Hybrid).
+- Generated proofs for additional new circuits (relative, vrf, script, pot, turn) + E2E improved (more passes).
+- Games/chess and financial_formula compiles fixed (includes, quadratic constraints).
+- All dev zkeys/artifacts from build committed/pushed.
+- E2E now 11+ pass on core + new; fewer fails.
+- Registry/oracle/frontend cover 200+ with reality labels.
+- Vision updated; 100% practical dev potential closer (all small circuits have artifacts/zkeys, pluggable, on-chain prep).

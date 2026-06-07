@@ -61,8 +61,8 @@ const CASES = [
   },
   {
     name: "chess_v1",
-    proof: "games/chess/output/proofs/move_demo.json",
-    verify: "node verify_chess.js games/chess/output/proofs/move_demo.json",
+    proof: "games/chess/output/proofs/move_12_28.json",
+    verify: "node verify_chess.js games/chess/output/proofs/move_12_28.json",
     circuit_type: "chess_v1",
     optional: true,
   },

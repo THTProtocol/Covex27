@@ -28,6 +28,10 @@ export default function Deploy() {
   const navigate = useNavigate();
   const { address, signMessage, isDevMode, devMode } = useWallet();
   const [code, setCode] = useState(SILVERSCRIPT_TEMPLATE);
+  const [covenantName, setCovenantName] = useState('My Basic Covenant');
+  const [covenantDesc, setCovenantDesc] = useState('A simple free SilverScript covenant. Fully interactable claim and basic resolution supported.');
+  const [accentColor, setAccentColor] = useState('#49EACB');
+  const [uiPreset, setUiPreset] = useState('glass');
   const [status, setStatus] = useState('idle');
   const [result, setResult] = useState(null);
   const [devWalletOpen, setDevWalletOpen] = useState(false);
@@ -85,7 +89,10 @@ export default function Deploy() {
             deployer_addr: address,
             script_hex: scriptHex,
             tier: 'FREE',
-            covenant_name: scriptName,
+            covenant_name: covenantName || scriptName,
+            description: covenantDesc,
+            accent: accentColor,
+            ui_preset: uiPreset,
             use_dev_mode: false,
             network: net,
           }),

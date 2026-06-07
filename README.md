@@ -17,13 +17,13 @@
   <br>
 
   <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-hightable.pro-49EACB?style=for-the-badge" alt="Live"></a>
-  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Toccata%20TN12-49EACB?style=for-the-badge" alt="Network"></a>
+  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Mainnet%20%28Toccata%29-49EACB?style=for-the-badge" alt="Network"></a>
   <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="License"></a>
   <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/Covenant%20Studio-Visual%20Editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
 
   <br><br>
 
-  **Live:** [hightable.pro](https://hightable.pro) -- Hundreds of real covenants indexed and interactive.
+  **Live:** [hightable.pro](https://hightable.pro) -- Production mainnet covenants with real KAS. Testnets for development only. Hundreds of real covenants indexed and interactive. All architecture is mainnet-ready: real wallet extensions, production oracles, local PC node indexing support, server-verified one-pay-one-deploy paywall, rich on-chain metadata for transparency and top visibility.
 
 </div>
 
@@ -80,15 +80,21 @@ flowchart TD
     P --> K
 ```
 
-The Rust binary spawns four long-running background tasks at startup:
+The Rust binary spawns long-running background tasks at startup (mainnet production via local Toccata PC node or remote wRPC; testnets for dev):
 
-1. **Historic Crawler** (`crawler.rs`): Walks the selected-parent chain backward from the virtual tip, fetches full blocks, scans `tx.payload` for `aa20`-`aa23` opcodes, classifies each covenant via the centralized `covenant_types.rs` module, and inserts records into the `covenants` table with auto-generated UI.
+1. **Historic Crawler** (`crawler.rs`): Walks the selected-parent chain, scans for SilverScript covenants (`aa20`-`aa23`), classifies via `covenant_types.rs`.
 
-2. **Live Indexer** (`indexer.rs`): Polls `get_utxos_by_addresses` on configured seed addresses every 10 seconds. Filters out standard wallet outputs via `is_standard_output` and enforces `looks_like_covenant`. Classifies and inserts new covenant UTXOs with the same centralized logic as the crawler.
+2. **Live Indexer** (`indexer.rs`): Polls seed UTXOs, detects new covenants.
 
-3. **Payment Verifier** (`payment_verifier.rs`): Polls the treasury address UTXOs every 15 seconds. On a 6 DAA confirmation threshold, upgrades the covenant's `verified_tier` and sets `custom_ui_enabled`. Assigns visibility priority: MAX=100, PRO=50, BUILDER=10.
+3. **Payment Verifier** (`payment_verifier.rs`): Monitors mainnet treasury (real KAS). On 6 DAA confs, upgrades tier. **Server-side auth tokens** (`/api/auth-session`) are issued only after verified on-chain payment from the exact wallet. One-pay-one-deploy enforced via `auth_tokens.used_for_deploy` + `accounts.deployments_used` (consume on deploy via `/api/auth-session/consume` + capacity check).
 
-4. **Oracle Service** (`oracle.rs`): Runs snarkjs verification in a `tokio::task::spawn_blocking` for Merkle Membership and Range Proof circuits. Signs outcomes with `SHA256(oracle_key || message)` and supports multi-oracle federation with threshold-based weighted voting.
+4. **Oracle Service** (`oracle.rs`): snarkjs for full-zk (merkle/range), generic signing for hybrid/oracle-attested (new circuits with reality labels). Supports multi-oracle.
+
+**Recent architecture additions (mainnet production):**
+- **Rich covenant metadata**: Every covenant (free + paid) stores `disclosed_wallets` (transparent creator + treasury + oracles), `reality` (full-zk/hybrid/oracle-attested), `circuit_category`, `has_artifacts`, `custom_circuit_def`, `theme`, `name`, `description`. Free covenants are fully interactable in the viewer (claim, timeout resolve, state/logs) + simple visuals (accent color, ui_preset like glass/card/minimal) set at creation time in Deploy/CreateCovenant.
+- **Reality-labeled circuits** (85+ entries in ZK_CIRCUIT_TYPES): Explicit `reality` + `artifacts` fields. UI badges (Full ZK green, Hybrid blue, Oracle Attested amber). Only ~6 have real circom artifacts today; others accurately labeled as oracle-attested of off-chain execution + property proofs. Sandbox in Covenant Studio (paid) allows composing new useful Kaspa-focused circuits (timelocks, script constraints, VRF fairness, state machines, collateral liquidation, DAO multisig, NFT gating, etc.).
+- **Free tier**: Plain SilverScript creation + basic interactivity + limited visuals (no circuits). Paid (BUILDER/PRO/MAX after server token): full Terminal, Studio sandbox, custom UI, pro arenas, top visibility in Explorer (paid sort + "PAID VERIFIED" + full disclosure).
+- **Mainnet specifics**: Real extensions only (KasWare, etc. — dev hex blocked in signer/UI). Real KAS payments to mainnet treasury (env). Indexing via operator PC Toccata node (KASPA_NETWORK=mainnet + KASPA_WRPC_URL_MAINNET). Production oracles sign real outcomes. All metadata/disclosures live on-chain for transparency. No testnet assumptions in mainnet paths.
 
 ---
 
@@ -127,19 +133,25 @@ flowchart TD
 
 ### Step-by-step
 
-**On-chain birth**: A user creates a transaction containing a SilverScript payload with `aa20`-`aa23` opcodes. Output[1] may route a tier payment to the treasury address.
+**Mainnet Production Flow (real KAS, real wallets, production oracles)**:
 
-**Detection**: The crawler walks the selected-parent chain scanning block transactions. The indexer polls seed address UTXOs every 10 seconds. Both call the centralized `CovenantCategory::from_script_ops` and `CovenantCategory::covenant_type` functions for classification.
+1. **On-chain birth (mainnet)**: User (real wallet extension only — KasWare, Kastle, etc.) creates tx with SilverScript payload (`aa20`-`aa23`). For paid: sends real KAS to mainnet treasury (from .env / MAINNET_TREASURY). Dev mode/hex completely blocked on mainnet in signer + UI.
 
-**Classification**: Raw `script_hex` is analyzed for opcode presence, payload length, and specific byte patterns. The result is a broad **category** and a granular **covenant_type**. These drive the Explorer organization and suggest appropriate ZK circuits and templates in the Terminal.
+2. **Detection + Indexing**: Crawler/indexer (pointed at operator's local Toccata mainnet kaspad via KASPA_WRPC_URL_MAINNET) scan and poll. Classify. For paid payments, Payment Verifier (6 DAA on mainnet) triggers server auth token issuance.
 
-**Tier and visibility**: The Payment Verifier watches the treasury. When it detects a transaction with 6 DAA confirmations whose output[1] amount matches a tier threshold, it upgrades the covenant record and assigns visibility priority.
+3. **Server-verified Paywall (one-pay-one-deploy)**: `POST /api/auth-session` (address + network=mainnet) returns short-lived token + tier **only** if verified on-chain payment from that exact wallet on mainnet. Token consumed on first deploy (`/auth-session/consume` + increments deployments_used). No localStorage. Free basic always available.
 
-**UI generation**: A basic interactive UI is auto-generated for every detected covenant. Paid tiers get enhanced UIs. The Terminal supports further customization: fee percentages, reusable flag, top-up allowance, resolution mode, ZK circuit selection, and custom UI code pasting.
+4. **Classification + Metadata**: Centralized logic. Rich metadata persisted: `disclosed_wallets` (creator + mainnet treasury + oracles — transparent, shown everywhere for top visibility), `reality` (full-zk/hybrid/oracle-attested), `custom_circuit_def` (from paid Studio sandbox), `theme`, `name`, `description`, `has_artifacts`.
 
-**Pro game experience**: In the Terminal, the covenant creator configures a game type. Two players stake equal amounts. Once stakes match, the full-screen professional arena becomes available. Chess uses chess.js for complete FIDE enforcement and react-chessboard for a chess.com-smooth board with real clocks and a move list.
+5. **Free tier (mainnet-ready, fully interactable)**: Deploy basic SilverScript via Deploy/CreateCovenant (real wallet). Set simple visuals at creation (name, desc, accent color, ui_preset: glass/card/minimal). After deploy, covenant viewer (`/covenant/:txid`) is fully interactive even for free: basic claim, timeout/oracle resolve, state/logs viewer. Simple visuals (accent + preset) applied from metadata. No circuits.
 
-**Resolution**: The game result, with client-side rule enforcement, is submitted to `POST /api/oracle/verify-and-sign`. For ZK circuits, a Groth16 proof is verified via snarkjs. The oracle signs the outcome. The signature and outcome can be used as witness data when spending the covenant UTXO.
+6. **Paid tiers + Studio (mainnet)**: After server token, use Covenant Studio (PremiumBuilder) for sandbox composition of new useful circuits (with reality labels), full disclosure editor, name/desc/theme. Or Covex Terminal for config + pro arenas. Deploy via real wallet signs real mainnet tx. Paid get top Explorer visibility + full disclosure section.
+
+7. **UI + Resolution (mainnet)**: Basic or enhanced UI from metadata. For games/circuits: stake (real KAS), play (timers, VRF where applicable), submit to production oracle (`/api/oracle/verify-and-sign` — snarkjs for full-zk, generic sign for oracle-attested/hybrid with new circuits). Oracle signs real outcome. Claim unlocks with potReturn math. All on mainnet with real KAS.
+
+8. **Indexing on Mainnet**: Operator runs local Toccata kaspad (--utxoindex), points backend with KASPA_NETWORK=mainnet + KASPA_WRPC_URL_MAINNET. No full mainnet node required on Hetzner (space). Crawler/indexer/oracle all respect mainnet prefixes/params.
+
+**Reality & Transparency on Mainnet**: Every covenant (free/paid) carries full disclosed wallets + circuit reality label. Paid covenants bubble to top in Explorer with "PAID VERIFIED • TOP VISIBILITY" + complete wallet list. Free are plain but interactive + visually tweaked. No misleading ZK claims — labels are honest.
 
 ---
 

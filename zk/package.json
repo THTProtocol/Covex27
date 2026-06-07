@@ -3,18 +3,21 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile:chess": "cd games/chess && circom2 ../../games/chess/chess_v1.circom --r1cs --wasm -o output/chess_v1_build",
+    "verify:chess": "node verify_chess.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "circom": "^0.5.46",
+    "circom": "^0.5.45",
     "circom_runtime": "^0.1.28",
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
     "snarkjs": "^0.7.6",
+    "chess.js": "^1.0.0",
     "wasmbuilder": "^0.0.16"
   }
 }

@@ -34,6 +34,15 @@ id_rsa*
 !frontend/public/zk/merkle_membership/merkle_membership_vkey.json
 !frontend/public/zk/range_proof/range_proof_final.zkey
 
+# Chess ZK artifacts (vkey is public verifier data; ptau/zkey/wasm are local build outputs)
+zk/games/chess/output/**/*.ptau
+zk/games/chess/output/*.ptau
+zk/games/chess/output/*.zkey
+zk/games/chess/output/chess_v1_build/
+zk/games/chess/output/ptau/
+!zk/games/chess/output/chess_v1_vkey.json
+!zk/chess_v1_vkey.json
+
 # OS files
 .DS_Store
 Thumbs.db

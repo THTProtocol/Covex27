@@ -34,7 +34,7 @@ id_rsa*
 !frontend/public/zk/merkle_membership/merkle_membership_vkey.json
 !frontend/public/zk/range_proof/range_proof_final.zkey
 
-# Chess ZK artifacts (vkey is public verifier data; ptau/zkey/wasm are local build outputs)
+# ZK build artifacts (vkeys are public verifier data; ptau/zkey/wasm regenerated via scripts)
 zk/games/chess/output/**/*.ptau
 zk/games/chess/output/*.ptau
 zk/games/chess/output/*.zkey
@@ -42,6 +42,30 @@ zk/games/chess/output/chess_v1_build/
 zk/games/chess/output/ptau/
 !zk/games/chess/output/chess_v1_vkey.json
 !zk/chess_v1_vkey.json
+
+zk/games/tictactoe/output/**/*.ptau
+zk/games/tictactoe/output/*.ptau
+zk/games/tictactoe/output/*.zkey
+zk/games/tictactoe/output/tictactoe_v1_js/
+!zk/tictactoe_v1_vkey.json
+
+zk/games/connect4/output/**/*.ptau
+zk/games/connect4/output/*.ptau
+zk/games/connect4/output/*.zkey
+zk/games/connect4/output/connect4_v1_js/
+!zk/connect4_v1_vkey.json
+
+zk/timelock/output/**/*.ptau
+zk/timelock/output/*.ptau
+zk/timelock/output/*.zkey
+zk/timelock/output/timelock_absolute_js/
+!zk/timelock_absolute_vkey.json
+
+zk/hash_preimage/output/**/*.ptau
+zk/hash_preimage/output/*.ptau
+zk/hash_preimage/output/*.zkey
+zk/hash_preimage/output/hash_preimage_js/
+!zk/hash_preimage_vkey.json
 
 # OS files
 .DS_Store

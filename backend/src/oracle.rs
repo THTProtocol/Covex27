@@ -11,6 +11,7 @@
 //   - range_proof:       Fully wired to snarkjs verifier (zk/verify_range.js).
 //   - chess_v1:          Full ZK move proof via zk/verify_chess.js when Groth16 proof supplied;
 //                        falls back to oracle attestation with requested_outcome if no proof.
+//   - tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage: Groth16 + oracle fallback.
 
 use axum::{extract::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
@@ -118,6 +119,102 @@ fn verify_chess_script_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("../zk/verify_chess.js");
     path
+}
+
+fn verify_tictactoe_script_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../zk/verify_tictactoe.js");
+    path
+}
+
+fn verify_connect4_script_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../zk/verify_connect4.js");
+    path
+}
+
+fn verify_timelock_script_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../zk/verify_timelock.js");
+    path
+}
+
+fn verify_hash_preimage_script_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../zk/verify_hash_preimage.js");
+    path
+}
+
+fn node_binary() -> &'static str {
+    if std::path::Path::new("/usr/bin/node").exists() {
+        "/usr/bin/node"
+    } else if std::path::Path::new("/root/.nvm/versions/node/v20.20.2/bin/node").exists() {
+        "/root/.nvm/versions/node/v20.20.2/bin/node"
+    } else {
+        "node"
+    }
+}
+
+fn run_zk_verifier(
+    script: PathBuf,
+    tmp_prefix: &str,
+    proof: &serde_json::Value,
+    public_inputs: &[String],
+) -> Result<bool, String> {
+    let proof_json = serde_json::json!({
+        "proof": proof,
+        "publicSignals": public_inputs,
+    });
+    let tmp_path = std::env::temp_dir().join(format!("{}_{}.json", tmp_prefix, uuid::Uuid::new_v4()));
+    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
+
+    let output = Command::new(node_binary())
+        .arg(script.to_str().unwrap_or("zk/verify.js"))
+        .arg(&tmp_path)
+        .output()
+        .map_err(|e| format!("Failed to run verifier: {}", e))?;
+
+    let _ = std::fs::remove_file(&tmp_path);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if !output.status.success() {
+        return Err(format!("Verifier failed: {} {}", stdout.trim(), stderr.trim()));
+    }
+
+    let result: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Invalid verifier output: {}", e))?;
+
+    match result["valid"].as_bool() {
+        Some(v) => Ok(v),
+        None => Err(format!("Unexpected verifier output: {}", result)),
+    }
+}
+
+async fn run_zk_verifier_async(
+    script: PathBuf,
+    tmp_prefix: &'static str,
+    proof: serde_json::Value,
+    public_inputs: Vec<String>,
+) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || run_zk_verifier(script, tmp_prefix, &proof, &public_inputs))
+        .await
+        .map_err(|e| format!("Spawn blocking failed: {}", e))?
+}
+
+async fn verify_hybrid_game_async(
+    script: PathBuf,
+    prefix: &'static str,
+    label: &'static str,
+    proof: serde_json::Value,
+    public_inputs: Vec<String>,
+) -> Result<bool, String> {
+    if proof_has_groth16_body(&proof) {
+        run_zk_verifier_async(script, prefix, proof, public_inputs).await
+    } else {
+        Ok(true)
+    }
 }
 
 /// Verify a MerkleMembership Groth16 proof via snarkjs.
@@ -351,35 +448,176 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
             }
         }
         "chess_v1" => {
-            if proof_has_groth16_body(&input.proof) {
-                match verify_chess_proof_async(input.proof.clone(), input.public_inputs.clone()).await {
-                    Ok(true) => true,
-                    Ok(false) => {
-                        return Json(OracleVerifyOutput {
-                            success: false,
-                            outcome: None,
-                            signature: None,
-                            timestamp: None,
-                            message: None,
-                            error: Some("Chess ZK proof verification failed — proof is invalid".to_string()),
-                            public_inputs: input.public_inputs,
-                        });
-                    }
-                    Err(e) => {
-                        return Json(OracleVerifyOutput {
-                            success: false,
-                            outcome: None,
-                            signature: None,
-                            timestamp: None,
-                            message: None,
-                            error: Some(format!("Chess ZK verification error: {}", e)),
-                            public_inputs: input.public_inputs,
-                        });
-                    }
+            match verify_hybrid_game_async(
+                verify_chess_script_path(),
+                "covex_chess",
+                "chess_v1",
+                input.proof.clone(),
+                input.public_inputs.clone(),
+            )
+            .await
+            {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Chess ZK proof verification failed — proof is invalid".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
                 }
-            } else {
-                // Oracle attestation fallback (no Groth16 proof supplied)
-                true
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Chess ZK verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+            }
+        }
+        "tictactoe_v1" => {
+            match verify_hybrid_game_async(
+                verify_tictactoe_script_path(),
+                "covex_tt",
+                "tictactoe_v1",
+                input.proof.clone(),
+                input.public_inputs.clone(),
+            )
+            .await
+            {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Tic-tac-toe ZK proof verification failed".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Tic-tac-toe ZK verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+            }
+        }
+        "connect4_v1" => {
+            match verify_hybrid_game_async(
+                verify_connect4_script_path(),
+                "covex_c4",
+                "connect4_v1",
+                input.proof.clone(),
+                input.public_inputs.clone(),
+            )
+            .await
+            {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Connect Four ZK proof verification failed".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Connect Four ZK verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+            }
+        }
+        "timelock_absolute" | "timelock_abs" => {
+            match run_zk_verifier_async(
+                verify_timelock_script_path(),
+                "covex_tl",
+                input.proof.clone(),
+                input.public_inputs.clone(),
+            )
+            .await
+            {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Timelock ZK proof verification failed".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Timelock ZK verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+            }
+        }
+        "hash_preimage" => {
+            match run_zk_verifier_async(
+                verify_hash_preimage_script_path(),
+                "covex_hp",
+                input.proof.clone(),
+                input.public_inputs.clone(),
+            )
+            .await
+            {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Hash preimage ZK proof verification failed".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Hash preimage ZK verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
             }
         }
         "checkers" | "connect4" | "tictactoe" | "reversi" | "go" | "rps" | "custom" | "battleship" | "age_verification" | "verifiable" => {
@@ -439,6 +677,32 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
             req.min(2)
         } else {
             0
+        }
+    } else if input.circuit_type == "tictactoe_v1" || input.circuit_type == "connect4_v1" {
+        // game_status at index 4: 0=ongoing, 1=P1/X wins, 2=P2/O wins, 3=draw
+        if proof_has_groth16_body(&input.proof) && input.public_inputs.len() >= 5 {
+            match input.public_inputs[4].as_str() {
+                "1" => 0,
+                "2" => 1,
+                "3" => 2,
+                _ => input.requested_outcome.unwrap_or(2).min(2),
+            }
+        } else if let Some(req) = input.requested_outcome {
+            req.min(2)
+        } else {
+            0
+        }
+    } else if input.circuit_type == "timelock_absolute" || input.circuit_type == "timelock_abs" {
+        if input.public_inputs.first().map(|s| s.as_str()) == Some("1") {
+            0
+        } else {
+            1
+        }
+    } else if input.circuit_type == "hash_preimage" {
+        if input.public_inputs.first().map(|s| s.as_str()) == Some("1") {
+            0
+        } else {
+            1
         }
     } else if input.circuit_type == "checkers" || input.circuit_type == "connect4" || input.circuit_type == "tictactoe" || input.circuit_type == "reversi" || input.circuit_type == "go" || input.circuit_type == "rps" || input.circuit_type == "custom" || input.circuit_type == "battleship" || input.circuit_type == "age_verification" || input.circuit_type == "verifiable" {
         if let Some(req) = input.requested_outcome {

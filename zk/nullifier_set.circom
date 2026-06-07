@@ -1,8 +1,26 @@
 pragma circom 2.0.0;
-// nullifier_set.circom (privacy + double-spend prevention primitive)
+
+include "node_modules/circomlib/circuits/poseidon.circom";
+
+// Derive nullifier from secret and bind to merkle_root (set anchor).
+// spent output is 0 when derivation is valid (not a double-spend proof alone).
+
 template NullifierSet() {
-    signal input nullifier; signal input merkle_root; signal input secret;
-    signal output spent <== 0; // 0=ok (not spent); real = membership + nullifier derivation
-    signal t <== nullifier * secret + merkle_root; t === t;
+    signal input nullifier;
+    signal input merkle_root;
+    signal input secret;
+    signal output spent;
+
+    component derive = Poseidon(1);
+    derive.inputs[0] <== secret;
+    nullifier === derive.out;
+
+    component bind = Poseidon(2);
+    bind.inputs[0] <== secret;
+    bind.inputs[1] <== nullifier;
+    merkle_root === bind.out;
+
+    spent <== 0;
 }
-component main { public [merkle_root] } = NullifierSet();
+
+component main { public [nullifier, merkle_root] } = NullifierSet();

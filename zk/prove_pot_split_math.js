@@ -21,6 +21,8 @@ async function main() {
         fee_bps: feeBps.toString(),
         pot_return_bps: returnBps.toString(),
         winner_share: winnerShare.toString(),
+        fee: fee.toString(),
+        ret: ret.toString(),
     };
     const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);

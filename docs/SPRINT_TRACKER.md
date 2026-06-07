@@ -105,3 +105,12 @@ Update this file at the end of every "continue" session.
 - Checks upcoming; full compatibility (simulate for testing, .sil for wiring, pluggable, uniform verifies).
 - Sprint 3 advancing (decentralized sim, on-chain examples, polish).
 
+
+## This continue (Sprint 2/3 continuation - more reals, RISC0, on-chain depth)
+- More real proofs for multi_sig_gating, anon_credential, sorting_proof, weather_feed if possible; E2E updated.
+- E2E re-run; added RISC0 poker_solver case.
+- Decentralized: added real multi note.
+- Added onchain_sig_covenant.sil for on-chain depth.
+- Checks upcoming; full compatibility (simulate for testing, .sil for wiring, pluggable, uniform verifies).
+- Sprint 3 advancing (decentralized sim, on-chain examples, polish).
+

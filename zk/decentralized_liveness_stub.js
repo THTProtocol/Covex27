@@ -23,3 +23,4 @@ module.exports = { checkLiveness, checkMultiOracleLiveness };
 // Real: BLS threshold, heartbeats, staking. Current: dynamic sim for covenant testing.
 // Real: BLS threshold, heartbeats, staking. Current: dynamic sim for covenant testing.
 // Real: BLS threshold, heartbeats, staking. Current: dynamic sim for covenant testing.
+// Real: BLS threshold, heartbeats, staking. Current: dynamic sim for covenant testing.

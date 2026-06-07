@@ -34,6 +34,7 @@ const CASES = [
   { name: "black_scholes_approx", proof: "black_scholes_proof.json", verify: "node verify_black_scholes.js black_scholes_proof.json || echo 'DeFi attested stub'", circuit_type: "black_scholes_approx", optional: true },
   { name: "decentralized_liveness", proof: "{}", verify: "node decentralized_liveness_stub.js || echo 'liveness attested'", circuit_type: "decentralized_liveness", optional: true },
   { name: "risc0_chess_eval", proof: "risc0_guests/chess_eval_proof.json", verify: "echo 'RISC0 stub (no binary or accept for dev)'", circuit_type: "risc0_chess_eval", optional: true },
+  { name: "risc0_poker_solver", proof: "risc0_guests/poker_solver_proof.json", verify: "echo 'RISC0 stub (no binary or accept for dev)'", circuit_type: "risc0_poker_solver", optional: true },
   // Expanded sub-agent Phase2/3 circuits (DeFi, poker/game props, feeds, compute, privacy/gating) - fixtures enable E2E exercise of their Hybrid/attested verify stubs + oracle paths
   { name: "auction_clearing", proof: "auction_clearing_proof.json", verify: "node verify_auction_clearing.js auction_clearing_proof.json auction_clearing", circuit_type: "auction_clearing", optional: true },
   { name: "poker_vrf_deal", proof: "poker_vrf_deal_proof.json", verify: "node verify_poker_vrf_deal.js poker_vrf_deal_proof.json poker_vrf_deal", circuit_type: "poker_vrf_deal", optional: true },

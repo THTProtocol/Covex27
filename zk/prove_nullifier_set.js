@@ -3,20 +3,21 @@
 const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
+const { hash } = require("./lib/poseidon_hash");
 
 const WASM = path.join(__dirname, "nullifier_set_js/nullifier_set.wasm");
 const ZKEY = path.join(__dirname, "nullifier_set.zkey");
 const OUT = path.join(__dirname, "nullifier/nullifier_set_proof.json");
 
 async function main() {
-    const nullifier = BigInt(process.argv[2] || "555555555");
-    const merkleRoot = BigInt(process.argv[3] || "123456789");
-    const secret = BigInt(process.argv[4] || "42");
+    const secret = process.argv[2] || "42";
+    const nullifier = await hash([secret]);
+    const merkle_root = await hash([secret, nullifier]);
 
     const input = {
-        nullifier: nullifier.toString(),
-        merkle_root: merkleRoot.toString(),
-        secret: secret.toString(),
+        nullifier,
+        merkle_root,
+        secret,
     };
     const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);

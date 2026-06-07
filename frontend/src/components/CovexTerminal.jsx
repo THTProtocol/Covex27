@@ -1781,8 +1781,8 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> Circuits with completed ceremonies (merkle_generic, range_proof) have real snarkjs verifiers live at POST /api/oracle/verify-and-sign. Chess_v1 is resolved via oracle attestation of chess.js-validated results.
-              <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts chess_v1, merkle_membership, and range_proof circuit types and returns a real SHA256-based signed outcome.
+              <strong className="text-amber-200">Technical reality:</strong> Full-ZK circuits (merkle, range_proof, chess_v1, tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage) verify real Groth16 proofs at POST /api/oracle/verify-and-sign when pi_a is supplied; hybrid/game circuits fall back to oracle attestation.
+              <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts all circuit types and returns a real SHA256-based signed outcome.
               The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc matures.
             </div>
           </div>

@@ -139,6 +139,29 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
         );
         CREATE INDEX IF NOT EXISTS idx_skill_games_status ON skill_games(status);
+
+        CREATE TABLE IF NOT EXISTS mixer_leaves (
+            covenant_id   TEXT NOT NULL,
+            leaf_index    INTEGER NOT NULL,
+            leaf_hash     TEXT NOT NULL,
+            created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+            PRIMARY KEY (covenant_id, leaf_index)
+        );
+        CREATE INDEX IF NOT EXISTS idx_mixer_leaves_covenant ON mixer_leaves(covenant_id);
+
+        CREATE TABLE IF NOT EXISTS mixer_roots (
+            covenant_id   TEXT PRIMARY KEY,
+            merkle_root   TEXT NOT NULL DEFAULT '0',
+            leaf_count    INTEGER NOT NULL DEFAULT 0,
+            updated_at    INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        CREATE TABLE IF NOT EXISTS mixer_nullifiers (
+            nullifier     TEXT PRIMARY KEY,
+            covenant_id   TEXT NOT NULL,
+            spent_at      INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_mixer_nullifiers_covenant ON mixer_nullifiers(covenant_id);
         ",
     )?;
 
@@ -844,4 +867,112 @@ pub fn can_deploy(
         |r| r.get(0),
     ).unwrap_or(0);
     Ok(remaining > 0)
+}
+
+// ── Privacy Mixer ─────────────────────────────────────────────────────────
+
+pub fn mixer_add_leaf(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    leaf_hash: &str,
+) -> anyhow::Result<(i64, String)> {
+    let conn = db.lock().unwrap();
+    let leaf_index: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(leaf_index), -1) + 1 FROM mixer_leaves WHERE covenant_id = ?1",
+        params![covenant_id],
+        |r| r.get(0),
+    ).unwrap_or(0);
+
+    conn.execute(
+        "INSERT INTO mixer_leaves (covenant_id, leaf_index, leaf_hash) VALUES (?1, ?2, ?3)",
+        params![covenant_id, leaf_index, leaf_hash],
+    )?;
+
+    let leaves: Vec<String> = {
+        let mut stmt = conn.prepare(
+            "SELECT leaf_hash FROM mixer_leaves WHERE covenant_id = ?1 ORDER BY leaf_index ASC",
+        )?;
+        let rows = stmt.query_map(params![covenant_id], |row| row.get::<_, String>(0))?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let root = compute_mixer_root(&leaves)?;
+    let count = leaves.len() as i64;
+
+    conn.execute(
+        "INSERT INTO mixer_roots (covenant_id, merkle_root, leaf_count, updated_at)
+         VALUES (?1, ?2, ?3, unixepoch())
+         ON CONFLICT(covenant_id) DO UPDATE SET
+           merkle_root = excluded.merkle_root,
+           leaf_count = excluded.leaf_count,
+           updated_at = unixepoch()",
+        params![covenant_id, root, count],
+    )?;
+
+    Ok((leaf_index, root))
+}
+
+pub fn mixer_get_root(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<(String, i64)> {
+    let conn = db.lock().unwrap();
+    conn.query_row(
+        "SELECT merkle_root, leaf_count FROM mixer_roots WHERE covenant_id = ?1",
+        params![covenant_id],
+        |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+    )
+    .or_else(|_| Ok(("0".to_string(), 0)))
+}
+
+pub fn mixer_nullifier_spent(db: &Mutex<Connection>, nullifier: &str) -> anyhow::Result<bool> {
+    let conn = db.lock().unwrap();
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM mixer_nullifiers WHERE nullifier = ?1",
+        params![nullifier],
+        |r| r.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+pub fn mixer_record_nullifier(
+    db: &Mutex<Connection>,
+    nullifier: &str,
+    covenant_id: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR IGNORE INTO mixer_nullifiers (nullifier, covenant_id) VALUES (?1, ?2)",
+        params![nullifier, covenant_id],
+    )?;
+    Ok(())
+}
+
+fn compute_mixer_root(leaves: &[String]) -> anyhow::Result<String> {
+    use std::process::Command;
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let script = manifest.join("../zk/privacy_mixer/lib/compute_root.js");
+    let node = if std::path::Path::new("/usr/bin/node").exists() {
+        "/usr/bin/node"
+    } else {
+        "node"
+    };
+    let input = serde_json::to_string(leaves)?;
+    let output = Command::new(node)
+        .arg(script)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut child| {
+            use std::io::Write;
+            if let Some(stdin) = child.stdin.as_mut() {
+                stdin.write_all(input.as_bytes())?;
+            }
+            child.wait_with_output()
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to run compute_root.js: {}", e))?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "compute_root.js failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }

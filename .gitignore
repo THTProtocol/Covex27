@@ -67,6 +67,12 @@ zk/hash_preimage/output/*.zkey
 zk/hash_preimage/output/hash_preimage_js/
 !zk/hash_preimage_vkey.json
 
+zk/privacy_mixer/output/**/*.ptau
+zk/privacy_mixer/output/*.ptau
+zk/privacy_mixer/output/*.zkey
+zk/privacy_mixer/output/privacy_mixer_v1_js/
+!zk/privacy_mixer_v1_vkey.json
+
 # OS files
 .DS_Store
 Thumbs.db

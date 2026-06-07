@@ -13,11 +13,13 @@
 //                        falls back to oracle attestation with requested_outcome if no proof.
 //   - tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage: Groth16 + oracle fallback.
 
-use axum::{extract::Json, routing::post, Router};
+use axum::{extract::Extension, extract::Json, routing::post, Router};
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use tracing::info;
 
 /// Input to the oracle verification endpoint.
@@ -142,6 +144,12 @@ fn verify_timelock_script_path() -> PathBuf {
 fn verify_hash_preimage_script_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("../zk/verify_hash_preimage.js");
+    path
+}
+
+fn verify_privacy_mixer_script_path() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../zk/verify_privacy_mixer.js");
     path
 }
 
@@ -388,8 +396,28 @@ fn proof_has_groth16_body(proof: &serde_json::Value) -> bool {
 }
 
 /// Handle POST /api/oracle/verify-and-sign
-async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<OracleVerifyOutput> {
+async fn verify_and_sign_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(input): Json<OracleVerifyInput>,
+) -> Json<OracleVerifyOutput> {
     let timestamp = chrono::Utc::now().timestamp();
+
+    // Privacy mixer: reject spent nullifiers before ZK verify
+    if input.circuit_type == "privacy_mixer_v1" {
+        if let Some(nullifier) = input.public_inputs.get(2) {
+            if crate::db::mixer_nullifier_spent(&db, nullifier).unwrap_or(false) {
+                return Json(OracleVerifyOutput {
+                    success: false,
+                    outcome: None,
+                    signature: None,
+                    timestamp: None,
+                    message: None,
+                    error: Some("Nullifier already spent — double-withdraw rejected".to_string()),
+                    public_inputs: input.public_inputs,
+                });
+            }
+        }
+    }
 
     // Step 1: Verify the proof (async — runs snarkjs in spawn_blocking)
     let _valid = match input.circuit_type.as_str() {
@@ -620,6 +648,41 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
                 }
             }
         }
+        "privacy_mixer_v1" => {
+            match verify_hybrid_game_async(
+                verify_privacy_mixer_script_path(),
+                "covex_mixer",
+                "privacy_mixer_v1",
+                input.proof.clone(),
+                input.public_inputs.clone(),
+            )
+            .await
+            {
+                Ok(true) => true,
+                Ok(false) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some("Privacy mixer ZK proof verification failed".to_string()),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+                Err(e) => {
+                    return Json(OracleVerifyOutput {
+                        success: false,
+                        outcome: None,
+                        signature: None,
+                        timestamp: None,
+                        message: None,
+                        error: Some(format!("Privacy mixer ZK verification error: {}", e)),
+                        public_inputs: input.public_inputs,
+                    });
+                }
+            }
+        }
         "checkers" | "connect4" | "tictactoe" | "reversi" | "go" | "rps" | "custom" | "battleship" | "age_verification" | "verifiable" => {
             true
         }
@@ -704,6 +767,15 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
         } else {
             1
         }
+    } else if input.circuit_type == "privacy_mixer_v1" {
+        // publicSignals: [mixer_valid, merkle_root, nullifier, recipient_hash, ...]
+        if proof_has_groth16_body(&input.proof) && input.public_inputs.first().map(|s| s.as_str()) == Some("1") {
+            0 // WithdrawAuthorized
+        } else if let Some(req) = input.requested_outcome {
+            req.min(1)
+        } else {
+            1 // Rejected
+        }
     } else if input.circuit_type == "checkers" || input.circuit_type == "connect4" || input.circuit_type == "tictactoe" || input.circuit_type == "reversi" || input.circuit_type == "go" || input.circuit_type == "rps" || input.circuit_type == "custom" || input.circuit_type == "battleship" || input.circuit_type == "age_verification" || input.circuit_type == "verifiable" {
         if let Some(req) = input.requested_outcome {
             req.min(2)
@@ -780,6 +852,12 @@ async fn verify_and_sign_handler(Json(input): Json<OracleVerifyInput>) -> Json<O
         &input.covenant_id[..16.min(input.covenant_id.len())],
         input.circuit_type
     );
+
+    if input.circuit_type == "privacy_mixer_v1" && outcome == 0 {
+        if let Some(nullifier) = input.public_inputs.get(2) {
+            let _ = crate::db::mixer_record_nullifier(&db, nullifier, &input.covenant_id);
+        }
+    }
 
     Json(OracleVerifyOutput {
         success: true,

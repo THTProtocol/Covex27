@@ -291,6 +291,7 @@ pub fn emit_silverscript(unit: &CompileUnit) -> String {
         "blackjack" => emit_blackjack(unit),
         "merkle_membership" => emit_merkle(unit),
         "range_proof" => emit_range_proof(unit),
+        "privacy_mixer_v1" => emit_privacy_mixer(unit),
         "age_verification" => emit_age_verify(unit),
         "verifiable" => emit_verifiable(unit),
         _ => emit_generic(unit),
@@ -339,6 +340,11 @@ fn emit_merkle(unit: &CompileUnit) -> String {
 /// Emit SilverScript for Range Proof (Bulletproofs) (2 outcomes: Proven/Rejected).
 fn emit_range_proof(unit: &CompileUnit) -> String {
     emit_generic_game(unit, 1) // outcomes: 0=Proven, 1=Rejected
+}
+
+/// Emit SilverScript for Privacy Mixer (2 outcomes: WithdrawAuthorized/Rejected).
+fn emit_privacy_mixer(unit: &CompileUnit) -> String {
+    emit_generic_game(unit, 1) // outcomes: 0=WithdrawAuthorized, 1=Rejected
 }
 
 /// Emit SilverScript for Age Verification (2 outcomes: Verified/Rejected).

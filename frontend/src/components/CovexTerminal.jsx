@@ -18,6 +18,7 @@ import FullScreenConnect4 from './FullScreenConnect4';
 import FullScreenTicTacToe from './FullScreenTicTacToe';
 import FullScreenReversi from './FullScreenReversi';
 import FullScreenRPS from './FullScreenRPS';
+import PrivacyMixerPanel from './PrivacyMixerPanel';
 
 // Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
@@ -99,10 +100,11 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'schnorr_knowledge', name: 'Schnorr Knowledge Proof', description: 'Oracle-path (no artifacts yet): standard Sigma protocol - prove knowledge of discrete log without revealing it. Building block for ring sigs, DLCs. Artifacts planned.', circuit: 'schnorr_generic', accent: '#6366F1', category: 'crypto', reality: 'oracle-attested' },
   { id: 'pedersen_commitment', name: 'Pedersen Commitment', description: 'Oracle-path (no artifacts yet): homomorphic commitment scheme. Prove committed value satisfies linear equation. Used for UTXO amount hiding + range proof combo. Artifacts planned.', circuit: 'pedersen_generic', accent: '#8B5CF6', category: 'crypto', reality: 'oracle-attested' },
   { id: 'hash_preimage', name: 'Hash Preimage Proof', description: 'Full ZK: Groth16 MiMC7 preimage proof (HTLC-style commitment). Honest limit: MiMC7 not SHA256/Blake2b. Artifacts in zk/hash_preimage/.', circuit: 'hash_preimage', accent: '#F59E0B', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'privacy_mixer_v1', name: 'Privacy Mixer (ZK)', description: 'Full ZK: deposit → MiMC7 Merkle pool → withdraw with membership + nullifier proof. Optional hidden amounts via range proof. Hybrid oracle nullifier set. Artifacts in zk/privacy_mixer/.', circuit: 'privacy_mixer_v1', accent: '#8B5CF6', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Oracle-path (no artifacts yet): verifiable random function - proves output was correctly derived from seed + secret key. Fair coin flips, card shuffles without trusted dealer. VRF artifacts planned.', circuit: 'vrf_generic', accent: '#EC4899', category: 'crypto', reality: 'oracle-attested' },
   { id: 'vrf_shuffle', name: 'VRF Shuffle (Deck)', description: 'Oracle-path (no artifacts yet): provably fair deck/card shuffle. Each player contributes entropy. No trusted dealer. Uses VRF building block.', circuit: 'vrf_shuffle', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'bls_signature', name: 'BLS Threshold Signature', description: 'Oracle-path (no artifacts yet): aggregate BLS signatures for multi-oracle consensus. M-of-N threshold without revealing individual keys. Artifacts planned for multi-oracle federation.', circuit: 'bls_threshold', accent: '#14B8A6', category: 'crypto', reality: 'oracle-attested' },
-  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Oracle-path (no artifacts yet): prove a unique nullifier not yet spent. Single-use claim prevention. Used for one-vote-per-identity, airdrop double-spend protection.', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto', reality: 'oracle-attested' },
+  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Hybrid: standalone nullifier derivation used by privacy_mixer_v1. Oracle DB tracks spent nullifiers. Full standalone circuit in zk/nullifier/.', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto', reality: 'hybrid', artifacts: true },
   // NEW: VRF extensions for gaming
   { id: 'vrf_dice_roll', name: 'VRF Dice Roll', description: 'Oracle-path (no artifacts yet): verifiable single-die roll. Each player contributes entropy. Used for backgammon, yahtzee, monopoly, risk turn-based dice. Building block for any number of dice.', circuit: 'vrf_dice_roll', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'vrf_card_deal', name: 'VRF Card Deal', description: 'Oracle-path (no artifacts yet): verifiable card dealing from a shuffled deck. Prove each dealt card came from the committed shuffled deck at correct position. Used for poker/blackjack/gin/hearts.', circuit: 'vrf_card_deal', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
@@ -260,6 +262,20 @@ export function generateSilverScriptForConfig(cfg) {
       }
       Outcome::Rejected => {
         require(VerifyPayout(treasury, depositor, pot), "Range proof rejected");
+      }`,
+        };
+      case 'privacy_mixer_v1':
+        return {
+          covenantName: 'PrivacyMixerCovenant',
+          outcomeEnum: 'Outcome::WithdrawAuthorized | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (privacy_mixer_v1): Merkle membership + nullifier + optional range
+      // Public: merkle_root, nullifier, recipient_hash, amount_commitment, min/max
+      // Oracle verifies Groth16 + enforces nullifier freshness (hybrid)
+      Outcome::WithdrawAuthorized => {
+        require(VerifyPayout(treasury, claimant, pot), "Mixer withdraw authorized");
+      }
+      Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Mixer withdraw rejected");
       }`,
         };
       case 'age_verification':
@@ -947,6 +963,18 @@ export default function CovexTerminal({ covenant }) {
       );
     }`,
         };
+      case 'privacy_mixer_v1':
+        return {
+          covenantName: 'PrivacyMixerCovenant',
+          outcomeEnum: 'Outcome::WithdrawAuthorized | Rejected',
+          outcomeBranches: `      // ZK CIRCUIT (privacy_mixer_v1): Merkle membership + nullifier
+    Outcome::WithdrawAuthorized => {
+      require(VerifyPayout(treasury, claimant, pot), "Mixer withdraw authorized");
+    }
+    Outcome::Rejected => {
+      require(VerifyPayout(treasury, depositor, pot), "Mixer withdraw rejected");
+    }`,
+        };
       case 'age_verification':
         return {
           covenantName: 'AgeVerifyCovenant',
@@ -1442,10 +1470,15 @@ ${gameMeta.outcomeBranches}
       // Dynamic circuit type based on selected ZK circuit / gameType
       const circuitType = (gameType === 'range_proof' || zkCircuit === 'bulletproofs_v1')
         ? 'range_proof'
+        : gameType === 'privacy_mixer_v1' || zkCircuit === 'privacy_mixer_v1'
+          ? 'privacy_mixer_v1'
         : (gameType === 'merkle_membership' || zkCircuit.includes('merkle'))
           ? 'merkle_membership'
           : gameType.startsWith('age') ? 'age_verification'
           : gameType === 'verifiable' ? 'verifiable'
+          : gameType === 'chess_v1' ? 'chess_v1'
+          : gameType === 'tictactoe_v1' ? 'tictactoe_v1'
+          : gameType === 'connect4_v1' ? 'connect4_v1'
           : 'custom';
 
       const payload = {
@@ -3214,7 +3247,13 @@ ${gameMeta.outcomeBranches}
       </section>
 
       {/* ─── Section C½: Oracle Resolution (Live ZK + Oracle attestation) ─── */}
-      {((gameType === 'merkle_membership' || gameType === 'range_proof' || gameType === 'age_verification' || gameType === 'verifiable' || gameType === 'custom') && resolutionMode === 'zk') && (
+      {gameType === 'privacy_mixer_v1' && (
+        <section className={`${SECTION_BASE} border-violet-500/30 bg-[#0a0e1a] ring-1 ring-violet-500/20`}>
+          <PrivacyMixerPanel covenantId={covenantId || 'demo-mixer'} />
+        </section>
+      )}
+
+      {((gameType === 'merkle_membership' || gameType === 'range_proof' || gameType === 'privacy_mixer_v1' || gameType === 'age_verification' || gameType === 'verifiable' || gameType === 'custom') && resolutionMode === 'zk') && (
         <section className={`${SECTION_BASE} border-[#3B82F6]/30 bg-[#0a0e1a] ring-1 ring-[#3B82F6]/20`}>
           <div className="flex items-center justify-between">
             <div className={SECTION_HEADER}>

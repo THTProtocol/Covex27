@@ -21,6 +21,7 @@ mod crawler;
 mod db;
 mod dev_wallets;
 mod indexer;
+mod mixer;
 mod oracle;
 mod payment_verifier;
 mod signer;
@@ -304,7 +305,8 @@ async fn main() {
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
-        .merge(oracle::oracle_routes())
+        .merge(mixer::mixer_routes().layer(Extension(db.clone())))
+        .merge(oracle::oracle_routes().layer(Extension(db.clone())))
         .layer(app);
 
     info!("Serving on {}", addr);

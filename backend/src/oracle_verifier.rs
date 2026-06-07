@@ -769,11 +769,8 @@ pub(crate) fn determine_outcome_for_circuit(
             1
         }
     } else if circuit_type == "chess_v1" {
-        // chess_v1 now supports proving_mode as extra public signal (appended; game_status remains at index 8 for compat).
-        // mode: public_inputs[9] if len >=10 (0=Hybrid, 1=Full ZK). Currently used for metadata/policy; outcome derivation same.
-        let has_body = proof_has_groth16_body(proof);
-        if has_body && public_inputs.len() >= 10 {
-            // game_status at [8], proving_mode at [9]
+        // chess_v1: game_status at [8]; proving_mode at [9] when len >= 10 (hybrid may supply signals without Groth body).
+        if public_inputs.len() >= 10 {
             let _mode = public_inputs.get(9).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
             match public_inputs[8].as_str() {
                 "1" => 0,
@@ -781,14 +778,15 @@ pub(crate) fn determine_outcome_for_circuit(
                 "3" => 2,
                 _ => 2,
             }
-        } else if has_body && public_inputs.len() >= 9 {
-            // legacy compat (pre-mode public signals)
+        } else if public_inputs.len() >= 9 {
             match public_inputs[8].as_str() {
                 "1" => 0,
                 "2" => 1,
                 "3" => 2,
                 _ => 2,
             }
+        } else if proof_has_groth16_body(proof) {
+            0
         } else {
             0
         }

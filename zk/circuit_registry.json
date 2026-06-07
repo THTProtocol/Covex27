@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0-fully-executed",
+  "version": "0.3.0-100pct-potential",
   "generated": "2026 during final 'continue until fully done' execution",
   "description": "Living registry of ALL ZK circuits + oracle feeds for Covex ultimate full stack (see docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md). Reality labels: full-zk (real artifacts + snarkjs/RISC0 path), hybrid (ZK property proof + oracle), oracle-attested (off-chain + sign). 200+ entries. 11+ new Kaspa/DeFi/on-chain with r1cs/wasm this push.",
   "core_full_zk": [
@@ -236,7 +236,6 @@
       "script": "verify_ml_inference_stub.js",
       "note": "Verifiable ML / inference stub (even more)."
     },
-
     {
       "id": "tictactoe_v1",
       "category": "game",
@@ -382,5 +381,6 @@
       "note": "Private transfer nullifier variant."
     }
   ],
-  "notes": "Add new by inserting here + oracle_verifier.rs build_registry + optional verify_*.js + circom + frontend ZK_CIRCUIT_TYPES entry + example/. Reality must be honest. Full on-chain when silverc + Kaspa support richer script verification."
+  "notes": "Add new by inserting here + oracle_verifier.rs build_registry + optional verify_*.js + circom + frontend ZK_CIRCUIT_TYPES entry + example/. Reality must be honest. Full on-chain when silverc + Kaspa support richer script verification.",
+  "note": "Expanded to cover full vision inventory. Many are attested/hybrid stubs pending real zkeys/MPC. See vision doc for honest status."
 }

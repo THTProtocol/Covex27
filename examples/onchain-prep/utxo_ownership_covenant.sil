@@ -1,0 +1,6 @@
+pragma silverscript ^0.1.0;
+contract UtxoOwnershipCovenant() {
+  entrypoint unlock(int outcome, int utxoProof, int oracleSig, int ts) {
+    // consume basic_utxo_ownership proof + oracle sig
+  }
+}

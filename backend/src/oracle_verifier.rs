@@ -409,6 +409,31 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "verifiable_poker_solver",
         VerifierSpec::HybridGroth16 { script: "verify_verifiable_poker_solver.js", prefix: "covex_pks" },
     );
+    // Latest sub-agent Phase 0/1 circuits (relative timelock, VRF family, script constraints, pot split, turn timer)
+    m.insert(
+        "relative_timelock",
+        VerifierSpec::HybridGroth16 { script: "verify_relative_timelock.js", prefix: "covex_rtl" },
+    );
+    m.insert(
+        "vrf_dice_roll",
+        VerifierSpec::HybridGroth16 { script: "verify_vrf_dice_roll.js", prefix: "covex_vrf" },
+    );
+    m.insert(
+        "vrf_random",
+        VerifierSpec::HybridGroth16 { script: "verify_vrf_random.js", prefix: "covex_vrf" },
+    );
+    m.insert(
+        "script_constraint",
+        VerifierSpec::HybridGroth16 { script: "verify_script_constraint.js", prefix: "covex_script" },
+    );
+    m.insert(
+        "pot_split_math",
+        VerifierSpec::HybridGroth16 { script: "verify_pot_split_math.js", prefix: "covex_pot" },
+    );
+    m.insert(
+        "turn_timer",
+        VerifierSpec::HybridGroth16 { script: "verify_turn_timer.js", prefix: "covex_timer" },
+    );
 
     m
 }

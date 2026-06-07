@@ -22,7 +22,7 @@ async function main() {
         pot_return_bps: returnBps.toString(),
         winner_share: winnerShare.toString(),
     };
-    const wtns = path.join(__dirname, "pot_split/move.wtns");
+    const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);
     const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtns);
     fs.mkdirSync(path.dirname(OUT), { recursive: true });

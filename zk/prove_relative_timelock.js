@@ -19,7 +19,7 @@ async function main() {
         lock_duration: lockDuration.toString(),
         valid: "1",
     };
-    const wtns = path.join(__dirname, "relative_timelock/move.wtns");
+    const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);
     const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtns);
     fs.writeFileSync(OUT, JSON.stringify({ proof, publicSignals }, null, 2));

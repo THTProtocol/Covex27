@@ -18,7 +18,7 @@ async function main() {
         merkle_root: merkleRoot.toString(),
         secret: secret.toString(),
     };
-    const wtns = path.join(__dirname, "nullifier/move.wtns");
+    const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);
     const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtns);
     fs.mkdirSync(path.dirname(OUT), { recursive: true });

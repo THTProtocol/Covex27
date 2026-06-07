@@ -19,7 +19,7 @@ async function main() {
         owner_sig_s: "555",
         utxo_hash: utxoHash.toString(),
     };
-    const wtns = path.join(__dirname, "ownership/move.wtns");
+    const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);
     const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtns);
     fs.mkdirSync(path.dirname(OUT), { recursive: true });

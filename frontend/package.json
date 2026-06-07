@@ -12,6 +12,7 @@
   "dependencies": {
     "@kasflow/wallet-connector": "^0.1.4",
     "@onekeyfe/kaspa-wasm": "^1.0.2",
+    "@radix-ui/react-slot": "^1.2.5",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.1.0",
     "@tailwindcss/vite": "^4.3.0",

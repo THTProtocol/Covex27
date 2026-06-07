@@ -20,14 +20,14 @@ async function getMiMC7() {
 
 async function fullPositionHash(board, playerToMove, castlingRights, enPassantTarget, halfmoveClock) {
     const m = await getMiMC7();
-    let state = m.F.toObject(m.hash(BigInt(0), 0n));
-    for (let i = 0; i < 64; i++) {
-        state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(board[i])), 0n));
+    const F = m.F;
+    // Matches FullPositionHasher: h0 = MiMC7(0), then chain absorb board + metadata
+    let state = m.hash(F.zero, F.zero);
+    const chain = [...board, playerToMove, castlingRights, enPassantTarget, halfmoveClock];
+    for (const v of chain) {
+        state = m.hash(F.add(state, F.e(BigInt(v))), F.zero);
     }
-    for (const v of [playerToMove, castlingRights, enPassantTarget, halfmoveClock]) {
-        state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(v)), 0n));
-    }
-    return state;
+    return F.toObject(state);
 }
 
 function enc(pt, col) { return pt | (col << 3); }
@@ -151,25 +151,21 @@ function isValidPieceMove(board, from, to) {
     }
 }
 
-function applyMove(board, from, to, promotionPiece, playerToMove, flags) {
-    const nb = board.slice();
-    const pt = unpack(nb[from]);
-    let place = enc(pt.type, pt.color);
-    if (flags.is_promotion && promotionPiece > 0) place = enc(promotionPiece, pt.color);
-    nb[to] = place;
-    nb[from] = E;
-    if (flags.is_en_passant) nb[flags.en_passant_captured_square] = E;
-    if (flags.is_castling) {
-        const fr = rank(from);
-        if (file(to) > file(from)) { // kingside
-            nb[sq(5, fr)] = nb[sq(7, fr)];
-            nb[sq(7, fr)] = E;
-        } else {
-            nb[sq(3, fr)] = nb[sq(0, fr)];
-            nb[sq(0, fr)] = E;
-        }
+function replicateBoardUpdater(oldBoard, from, to, promotionPiece, isCapture, isEnPassant, isPromotion, epCapSq, newEpTarget, oldHm) {
+    const pt = unpack(oldBoard[from]);
+    const newPieceType = isPromotion ? promotionPiece : pt.type;
+    const newPiece = enc(newPieceType, pt.color);
+    const nb = new Array(64);
+    for (let i = 0; i < 64; i++) {
+        if (i === to) nb[i] = newPiece;
+        else if (i === from) nb[i] = E;
+        else if (isEnPassant && i === epCapSq) nb[i] = E;
+        else nb[i] = oldBoard[i];
     }
-    return nb;
+    // Match BoardUpdater.circom logic (increments on pawn/capture, else 0)
+    const resetClock = (pt.type === 1 ? 1 : 0) + isCapture;
+    const newHm = resetClock === 0 ? 0 : oldHm + 1;
+    return { newBoard: nb, newEpTarget, newHalfmoveClock: newHm };
 }
 
 function pad12(arr, fill = 0) {
@@ -236,8 +232,8 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
     let newEpTarget = 255;
     if (pawnResult.double) newEpTarget = sq(ff, fr + interDir);
 
-    let newHmClock = oldHmClock + 1;
-    if (pt.type === 1 || isCapture) newHmClock = 0;
+    const resetClock = (pt.type === 1 ? 1 : 0) + (isCapture ? 1 : 0);
+    const newHmClock = resetClock === 0 ? 0 : oldHmClock + 1;
 
     let newRights = oldRights;
     if (pt.type === 6) newRights &= pt.color === 0 ? ~3 : ~12;
@@ -253,11 +249,13 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
     const newTb = playerToMove === 1 ? oldTimers[1] - elapsedSec : oldTimers[1];
     const nextPlayer = 1 - playerToMove;
 
-    const flags = { is_capture: isCapture, is_en_passant: pawnResult.ep ? 1 : 0, is_promotion: isPromotion, is_castling: isCastling, en_passant_captured_square: epCapSquareVal };
-    const newBoard = applyMove(board, from, to, promotionPiece, playerToMove, flags);
+    const isEnPassant = pawnResult.ep ? 1 : 0;
+    const { newBoard, newHalfmoveClock: computedHm, newEpTarget: computedEp } = replicateBoardUpdater(
+        board, from, to, promotionPiece, isCapture, isEnPassant, isPromotion, epCapSquareVal, newEpTarget, oldHmClock
+    );
 
     const oldHash = await fullPositionHash(board, playerToMove, oldRights, oldEp, oldHmClock);
-    const newHash = await fullPositionHash(newBoard, nextPlayer, newRights, newEpTarget, newHmClock);
+    const newHash = await fullPositionHash(newBoard, nextPlayer, newRights, computedEp, computedHm);
 
     const opponentColor = 1 - playerToMove;
     const kingSq = findKingSquare(board, playerToMove);
@@ -284,7 +282,7 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
         promotion_piece: promotionPiece || 0,
         new_timer_white: newTw,
         new_timer_black: newTb,
-        game_status: 0,
+        game_status: 0, // ongoing
         old_board: board,
         old_timer_white: oldTimers[0],
         old_timer_black: oldTimers[1],
@@ -297,7 +295,7 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
         path_is_intermediate: pathIntermediate,
         path_pieces: pathPieces,
         castling_empty_squares: castlingSq,
-        new_ep_target: newEpTarget,
+        new_ep_target: computedEp,
         is_capture_flag: isCapture,
         is_promotion_flag: isPromotion,
         is_castling_flag: isCastling,

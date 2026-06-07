@@ -5,52 +5,42 @@
 const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
-
-// MiMC7 hash computation (matches circomlib MiMC7 with nRounds=91, key=0)
 const mimcjs = require("circomlibjs");
-let mimc7;
 
+const BASE = path.resolve(__dirname, "..");
+const WASM = path.join(BASE, "output", "chess_v1_build", "chess_v1_js", "chess_v1.wasm");
+const ZKEY = path.join(BASE, "output", "chess_v1.zkey");
+const VKEY = path.join(BASE, "output", "chess_v1_vkey.json");
+
+let mimc7;
 async function getMiMC7() {
     if (!mimc7) mimc7 = await mimcjs.buildMimc7();
     return mimc7;
 }
 
-async function mimcHash(data) {
-    const m = await getMiMC7();
-    return m.F.toObject(m.multiHash(data.map(x => BigInt(x)), 0n));
-}
-
 async function fullPositionHash(board, playerToMove, castlingRights, enPassantTarget, halfmoveClock) {
-    // Chain 64 board squares + 4 metadata through MiMC7
-    // state[0] = MiMC7(0)
     const m = await getMiMC7();
     let state = m.F.toObject(m.hash(BigInt(0), 0n));
     for (let i = 0; i < 64; i++) {
         state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(board[i])), 0n));
     }
-    state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(playerToMove)), 0n));
-    state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(castlingRights)), 0n));
-    state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(enPassantTarget)), 0n));
-    state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(halfmoveClock)), 0n));
+    for (const v of [playerToMove, castlingRights, enPassantTarget, halfmoveClock]) {
+        state = m.F.toObject(m.hash(m.F.add(m.F.e(state), BigInt(v)), 0n));
+    }
     return state;
 }
 
-// =============================================================================
-// CHESS LOGIC (inline chess.js replacement for lightweight witness gen)
-// =============================================================================
-
 function enc(pt, col) { return pt | (col << 3); }
-const E = enc(0, 0); // empty
+const E = enc(0, 0);
 
-// Initial position
 function initialBoard() {
-    const pieces = [4, 2, 3, 5, 6, 3, 2, 1]; // rook, knight, bishop, queen, king, bishop, knight, rook
+    const pieces = [4, 2, 3, 5, 6, 3, 2, 1];
     const b = new Array(64).fill(E);
     for (let f = 0; f < 8; f++) {
-        b[f] = enc(pieces[f], 0);           // white back rank
-        b[f + 8] = enc(1, 0);               // white pawns
-        b[f + 48] = enc(1, 1);              // black pawns
-        b[f + 56] = enc(pieces[f], 1);      // black back rank
+        b[f] = enc(pieces[f], 0);
+        b[f + 8] = enc(1, 0);
+        b[f + 48] = enc(1, 1);
+        b[f + 56] = enc(pieces[f], 1);
     }
     return b;
 }
@@ -59,70 +49,28 @@ function file(sq) { return sq & 7; }
 function rank(sq) { return sq >> 3; }
 function sq(f, r) { return f + r * 8; }
 
-// Decode a packed piece
 function unpack(p) {
     return { type: p & 7, color: (p >> 3) & 1, isEmpty: (p & 7) === 0 };
 }
 
-// Build piece-type bitmask from board
-function pieceTypes(board) {
-    return board.map(p => p & 7);
-}
-
-// Check if a pawn move is valid
-function isPawnMoveValid(board, from, to, promotionPiece) {
-    const pt = unpack(board[from]);
-    const dt = unpack(board[to]);
+function pieceAttacksSquare(board, from, target, pieceType, pieceColor) {
     const ff = file(from), fr = rank(from);
-    const tf = file(to), tr = rank(to);
-    const dir = pt.color === 0 ? 1 : -1;
-
-    // Single push
-    if (ff === tf && tr === fr + dir && dt.isEmpty) return { valid: true, capture: false, double: false, ep: false, promo: tr === (pt.color === 0 ? 7 : 0), inter: 0, epCap: E };
-
-    // Double push
-    if (ff === tf && tr === fr + 2 * dir && fr === (pt.color === 0 ? 1 : 6) && dt.isEmpty) {
-        const inter = board[sq(ff, fr + dir)];
-        if (unpack(inter).isEmpty) return { valid: true, capture: false, double: true, ep: false, promo: false, inter, epCap: E };
-    }
-
-    // Capture
-    if (Math.abs(ff - tf) === 1 && tr === fr + dir && !dt.isEmpty && dt.color !== pt.color) {
-        return { valid: true, capture: true, double: false, ep: false, promo: tr === (pt.color === 0 ? 7 : 0), inter: 0, epCap: E };
-    }
-
-    // En passant (simplified: check if to is empty and there's an opponent pawn next to from)
-    if (Math.abs(ff - tf) === 1 && tr === fr + dir && dt.isEmpty) {
-        const epSquare = sq(tf, fr);
-        const epPiece = board[epSquare];
-        const epu = unpack(epPiece);
-        if (!epu.isEmpty && epu.type === 1 && epu.color !== pt.color && fr === (pt.color === 0 ? 4 : 3)) {
-            return { valid: true, capture: true, double: false, ep: true, promo: false, inter: 0, epCap: epPiece };
+    const tf = file(target), tr = rank(target);
+    const adf = Math.abs(ff - tf), adr = Math.abs(fr - tr);
+    switch (pieceType) {
+        case 1: {
+            const dir = pieceColor === 0 ? 1 : -1;
+            return adf === 1 && tr - fr === dir;
         }
+        case 2: return (adf === 1 && adr === 2) || (adf === 2 && adr === 1);
+        case 3: return adf === adr && adf > 0 && pathClear(board, from, target);
+        case 4: return ((adf === 0 && adr > 0) || (adr === 0 && adf > 0)) && pathClear(board, from, target);
+        case 5: return ((adf === adr && adf > 0) || adf === 0 || adr === 0) && adf + adr > 0 && pathClear(board, from, target);
+        case 6: return adf <= 1 && adr <= 1 && adf + adr > 0;
+        default: return false;
     }
-
-    return { valid: false };
 }
 
-// Simple move validation (covers knight, bishop, rook, queen, king)
-function isValidPieceMove(board, from, to) {
-    const pt = unpack(board[from]);
-    const dt = unpack(board[to]);
-    if (dt.isEmpty || dt.color !== pt.color) {
-        const adf = Math.abs(file(from) - file(to));
-        const adr = Math.abs(rank(from) - rank(to));
-        switch (pt.type) {
-            case 2: return (adf === 1 && adr === 2) || (adf === 2 && adr === 1);
-            case 3: return adf === adr && adf > 0;
-            case 4: return (adf === 0 && adr > 0) || (adr === 0 && adf > 0);
-            case 5: return (adf === adr && adf > 0) || (adf === 0 && adr > 0) || (adr === 0 && adf > 0);
-            case 6: return adf <= 1 && adr <= 1 && (adf + adr > 0);
-        }
-    }
-    return false;
-}
-
-// Check path clearance for sliders
 function pathClear(board, from, to) {
     const ff = file(from), fr = rank(from);
     const tf = file(to), tr = rank(to);
@@ -136,125 +84,210 @@ function pathClear(board, from, to) {
     return true;
 }
 
-// =============================================================================
-// WITNESS GENERATOR
-// =============================================================================
+function findKingSquare(board, color) {
+    for (let i = 0; i < 64; i++) {
+        const p = unpack(board[i]);
+        if (p.type === 6 && p.color === color) return i;
+    }
+    return -1;
+}
 
-function computeWitness(board, from, to, promotionPiece, playerToMove, oldTimers, oldRights, oldEp, oldHmClock, elapsed) {
+function attackersOnSquare(board, target, attackerColor) {
+    const squares = [], active = [];
+    for (let i = 0; i < 64; i++) {
+        const p = unpack(board[i]);
+        if (!p.isEmpty && p.color === attackerColor && pieceAttacksSquare(board, i, target, p.type, p.color)) {
+            squares.push(i);
+            active.push(1);
+        }
+    }
+    while (squares.length < 12) { squares.push(0); active.push(0); }
+    return { squares: squares.slice(0, 12), active: active.slice(0, 12) };
+}
+
+function isPawnMoveValid(board, from, to, promotionPiece) {
+    const pt = unpack(board[from]);
+    const dt = unpack(board[to]);
+    const ff = file(from), fr = rank(from);
+    const tf = file(to), tr = rank(to);
+    const dir = pt.color === 0 ? 1 : -1;
+
+    if (ff === tf && tr === fr + dir && dt.isEmpty)
+        return { valid: true, capture: false, double: false, ep: false, promo: tr === (pt.color === 0 ? 7 : 0), inter: 0, epCap: E };
+
+    if (ff === tf && tr === fr + 2 * dir && fr === (pt.color === 0 ? 1 : 6) && dt.isEmpty) {
+        const inter = board[sq(ff, fr + dir)];
+        if (unpack(inter).isEmpty)
+            return { valid: true, capture: false, double: true, ep: false, promo: false, inter, epCap: E };
+    }
+
+    if (Math.abs(ff - tf) === 1 && tr === fr + dir && !dt.isEmpty && dt.color !== pt.color)
+        return { valid: true, capture: true, double: false, ep: false, promo: tr === (pt.color === 0 ? 7 : 0), inter: 0, epCap: E };
+
+    if (Math.abs(ff - tf) === 1 && tr === fr + dir && dt.isEmpty) {
+        const epSquare = sq(tf, fr);
+        const epPiece = board[epSquare];
+        const epu = unpack(epPiece);
+        if (!epu.isEmpty && epu.type === 1 && epu.color !== pt.color)
+            return { valid: true, capture: true, double: false, ep: true, promo: false, inter: 0, epCap: epPiece };
+    }
+    return { valid: false };
+}
+
+function isValidPieceMove(board, from, to) {
+    const pt = unpack(board[from]);
+    const dt = unpack(board[to]);
+    if (pt.isEmpty) return false;
+    if (!dt.isEmpty && dt.color === pt.color) return false;
+    const adf = Math.abs(file(from) - file(to));
+    const adr = Math.abs(rank(from) - rank(to));
+    switch (pt.type) {
+        case 2: return (adf === 1 && adr === 2) || (adf === 2 && adr === 1);
+        case 3: return adf === adr && adf > 0 && pathClear(board, from, to);
+        case 4: return ((adf === 0 && adr > 0) || (adr === 0 && adf > 0)) && pathClear(board, from, to);
+        case 5: return ((adf === adr && adf > 0) || adf === 0 || adr === 0) && adf + adr > 0 && pathClear(board, from, to);
+        case 6: return adf <= 1 && adr <= 1 && adf + adr > 0;
+        default: return false;
+    }
+}
+
+function applyMove(board, from, to, promotionPiece, playerToMove, flags) {
+    const nb = board.slice();
+    const pt = unpack(nb[from]);
+    let place = enc(pt.type, pt.color);
+    if (flags.is_promotion && promotionPiece > 0) place = enc(promotionPiece, pt.color);
+    nb[to] = place;
+    nb[from] = E;
+    if (flags.is_en_passant) nb[flags.en_passant_captured_square] = E;
+    if (flags.is_castling) {
+        const fr = rank(from);
+        if (file(to) > file(from)) { // kingside
+            nb[sq(5, fr)] = nb[sq(7, fr)];
+            nb[sq(7, fr)] = E;
+        } else {
+            nb[sq(3, fr)] = nb[sq(0, fr)];
+            nb[sq(0, fr)] = E;
+        }
+    }
+    return nb;
+}
+
+function pad12(arr, fill = 0) {
+    const out = arr.slice(0, 12);
+    while (out.length < 12) out.push(fill);
+    return out;
+}
+
+function pad8(arr, fill = 0) {
+    const out = arr.slice(0, 8);
+    while (out.length < 8) out.push(fill);
+    return out;
+}
+
+function pad100(arr, fill = 0) {
+    const out = arr.slice(0, 100);
+    while (out.length < 100) out.push(fill);
+    return out;
+}
+
+async function computeWitness(board, from, to, promotionPiece, playerToMove, oldTimers, oldRights, oldEp, oldHmClock, elapsed, historyHashes = [], historyLen = 0) {
     const pt = unpack(board[from]);
     const dt = unpack(board[to]);
     const ff = file(from), fr = rank(from);
     const tf = file(to), tr = rank(to);
 
-    // Pawn validation
     let pawnResult = { valid: false, capture: false, double: false, ep: false, promo: false, inter: 0, epCap: E };
-    if (pt.type === 1) {
-        pawnResult = isPawnMoveValid(board, from, to, promotionPiece);
-    }
+    if (pt.type === 1) pawnResult = isPawnMoveValid(board, from, to, promotionPiece);
 
-    // Piece validation
-    const pieceValid = isValidPieceMove(board, from, to);
-
-    // Path clearance
-    const pathIntermediate = [];
-    const pathPieces = [];
+    const pathIntermediate = [], pathPieces = [];
     if ([3, 4, 5].includes(pt.type)) {
         const df = Math.sign(tf - ff), dr = Math.sign(tr - fr);
         let cf = ff + df, cr = fr + dr;
-        let step = 0;
         while (cf !== tf || cr !== tr) {
-            const piece = board[sq(cf, cr)] || E;
-            pathPieces.push(piece);
+            pathPieces.push(board[sq(cf, cr)] || E);
             pathIntermediate.push(1);
-            cf += df;
-            cr += dr;
-            step++;
+            cf += df; cr += dr;
         }
     }
-    // Pad to 7 entries
     while (pathPieces.length < 7) { pathPieces.push(E); pathIntermediate.push(0); }
 
-    // Intermediate piece (for double push)
     const interDir = pt.color === 0 ? 1 : -1;
-    const interSquare = sq(ff, fr + interDir);
-    const interPiece = board[interSquare] || E;
+    const interPiece = board[sq(ff, fr + interDir)] || E;
+    const epCapturable = board[sq(tf, fr)] || E;
 
-    // En passant capturable
-    const epCapSquare = pt.color === 0 ? sq(tf, fr) : sq(tf, fr);
-    const epCapturable = board[epCapSquare] || E;
-
-    // Castling empty squares
-    const isWhite = pt.color === 0;
     const castlingSq = [E, E, E];
     if (pt.type === 6 && Math.abs(tf - ff) === 2) {
         if (tf > ff) {
-            // King-side
             castlingSq[0] = board[sq(ff + 1, fr)];
             castlingSq[1] = board[sq(ff + 2, fr)];
         } else {
-            // Queen-side
             castlingSq[0] = board[sq(ff - 1, fr)];
             castlingSq[1] = board[sq(ff - 2, fr)];
             castlingSq[2] = board[sq(ff - 3, fr)];
         }
     }
 
-    // King not in check — simplified: assume yes for initial position
-    const kingSafe = 1;
-    const traverseSafe = [1, 1];
-
-    // Is capture?
-    let isCapture = 0;
-    if (pt.type === 1) isCapture = pawnResult.capture ? 1 : 0;
-    else if (!dt.isEmpty) isCapture = 1;
+    let isCapture = pt.type === 1 ? (pawnResult.capture ? 1 : 0) : (!dt.isEmpty ? 1 : 0);
     if (pawnResult.ep) isCapture = 1;
-
-    // Is promotion?
     const isPromotion = pawnResult.promo ? 1 : 0;
-
-    // Is castling?
     const isCastling = (pt.type === 6 && Math.abs(tf - ff) === 2) ? 1 : 0;
-
-    // En passant captured square
     const epCapSquareVal = pawnResult.ep ? sq(tf, fr) : 0;
 
-    // New ep target
     let newEpTarget = 255;
     if (pawnResult.double) newEpTarget = sq(ff, fr + interDir);
 
-    // New halfmove clock
     let newHmClock = oldHmClock + 1;
     if (pt.type === 1 || isCapture) newHmClock = 0;
 
-    // New castling rights
     let newRights = oldRights;
-    if (pt.type === 6) {
-        if (isWhite) newRights &= ~3; // clear WK and WQ
-        else newRights &= ~12; // clear BK and BQ
-    }
+    if (pt.type === 6) newRights &= pt.color === 0 ? ~3 : ~12;
     if (pt.type === 4) {
-        // Rook moved
-        if (from === 0) newRights &= ~1;   // a1 rook -> clear WQ
-        if (from === 7) newRights &= ~2;   // h1 rook -> clear WK
-        if (from === 56) newRights &= ~4;  // a8 rook -> clear BQ
-        if (from === 63) newRights &= ~8;  // h8 rook -> clear BK
+        if (from === 0) newRights &= ~1;
+        if (from === 7) newRights &= ~2;
+        if (from === 56) newRights &= ~4;
+        if (from === 63) newRights &= ~8;
     }
 
-    // Timer decrement
     const elapsedSec = Math.max(1, elapsed || 5);
+    const newTw = playerToMove === 0 ? oldTimers[0] - elapsedSec : oldTimers[0];
+    const newTb = playerToMove === 1 ? oldTimers[1] - elapsedSec : oldTimers[1];
+    const nextPlayer = 1 - playerToMove;
+
+    const flags = { is_capture: isCapture, is_en_passant: pawnResult.ep ? 1 : 0, is_promotion: isPromotion, is_castling: isCastling, en_passant_captured_square: epCapSquareVal };
+    const newBoard = applyMove(board, from, to, promotionPiece, playerToMove, flags);
+
+    const oldHash = await fullPositionHash(board, playerToMove, oldRights, oldEp, oldHmClock);
+    const newHash = await fullPositionHash(newBoard, nextPlayer, newRights, newEpTarget, newHmClock);
+
+    const opponentColor = 1 - playerToMove;
+    const kingSq = findKingSquare(board, playerToMove);
+    const preAtk = attackersOnSquare(board, kingSq, opponentColor);
+
+    const postKingSq = findKingSquare(newBoard, playerToMove);
+    const postAtk = attackersOnSquare(newBoard, postKingSq, opponentColor);
+
+    const baseRank = 7 * playerToMove;
+    const traverseSq0 = 5 + 8 * baseRank;
+    const traverseSq1 = 6 + 8 * baseRank;
+    const trav0 = attackersOnSquare(board, traverseSq0, opponentColor);
+    const trav1 = attackersOnSquare(board, traverseSq1, opponentColor);
+
+    const oppKingSq = findKingSquare(newBoard, nextPlayer);
+    const oppAtk = attackersOnSquare(newBoard, oppKingSq, playerToMove);
 
     return {
-        old_board: board,
-        old_board_hash: 0, // computed below
-        new_board_hash: 0, // computed below
+        old_board_hash: oldHash.toString(),
+        new_board_hash: newHash.toString(),
         player_to_move: playerToMove,
         move_from: from,
         move_to: to,
         promotion_piece: promotionPiece || 0,
+        new_timer_white: newTw,
+        new_timer_black: newTb,
+        game_status: 0,
+        old_board: board,
         old_timer_white: oldTimers[0],
         old_timer_black: oldTimers[1],
-        new_timer_white: playerToMove === 0 ? oldTimers[0] - elapsedSec : oldTimers[0],
-        new_timer_black: playerToMove === 0 ? oldTimers[1] : oldTimers[1] - elapsedSec,
         elapsed_seconds: elapsedSec,
         old_castling_rights: oldRights,
         old_en_passant_target: oldEp,
@@ -263,111 +296,81 @@ function computeWitness(board, from, to, promotionPiece, playerToMove, oldTimers
         en_passant_captured: epCapturable,
         path_is_intermediate: pathIntermediate,
         path_pieces: pathPieces,
-        king_not_in_check: kingSafe,
-        traverse_squares_safe: traverseSafe,
         castling_empty_squares: castlingSq,
         new_ep_target: newEpTarget,
         is_capture_flag: isCapture,
         is_promotion_flag: isPromotion,
         is_castling_flag: isCastling,
         en_passant_captured_square: epCapSquareVal,
-        game_status: 0, // ongoing
-        _intermediate: interPiece,
-        _double: pawnResult.double,
-        _capture: isCapture,
-        _newRights: newRights,
-        _newHmClock: newHmClock
+        history_hashes: pad100(historyHashes),
+        history_len: historyLen,
+        insufficient_material: 0,
+        candidate_from: pad8([]),
+        candidate_to: pad8([]),
+        candidate_active: pad8([]),
+        pre_attack_witness_squares: preAtk.squares,
+        pre_attack_witness_active: preAtk.active,
+        post_attack_witness_squares: postAtk.squares,
+        post_attack_witness_active: postAtk.active,
+        traverse0_witness_squares: trav0.squares,
+        traverse0_witness_active: trav0.active,
+        traverse1_witness_squares: trav1.squares,
+        traverse1_witness_active: trav1.active,
+        opp_witness_squares: oppAtk.squares,
+        opp_witness_active: oppAtk.active,
     };
 }
 
-// =============================================================================
-// MAIN
-// =============================================================================
 async function main() {
     const args = process.argv.slice(2);
-    const usage = () => {
-        console.log("Usage: node scripts/prove_move.js <from> <to> [promotion_piece]");
-        console.log("  Squares: 0-63 (a1=0, h8=63)");
-        console.log("  Promotion: 1=Q, 2=R, 3=B, 4=N");
-        console.log("  Example: node scripts/prove_move.js 12 28   (e2-e4)");
+    if (args.length < 2) {
+        console.log("Usage: node scripts/prove_move.js <from> <to> [promotion]");
         process.exit(1);
-    };
-
-    if (args.length < 2) usage();
-    const from = parseInt(args[0]);
-    const to = parseInt(args[1]);
+    }
+    const from = parseInt(args[0]), to = parseInt(args[1]);
     const prom = args[2] ? parseInt(args[2]) : 0;
 
-    if (isNaN(from) || isNaN(to) || from < 0 || from > 63 || to < 0 || to > 63) usage();
-
-    const BASE = path.resolve(__dirname, "..");
-    const wasm = path.join("/tmp/chess_v1/chess_v1_js/chess_v1.wasm");
-
-    if (!fs.existsSync(wasm)) {
-        console.error("ERROR: No WASM found. Compile with: circom chess_v1.circom --r1cs --wasm --sym --O2 -o /tmp/chess_v1");
+    if (!fs.existsSync(WASM)) {
+        console.error(`Missing WASM: ${WASM}`);
+        console.error("Run: bash scripts/setup_chess.sh (compile step)");
         process.exit(1);
     }
 
-    // Start with initial position
     const board = initialBoard();
-    const playerToMove = 0; // white
-    const oldTimers = [600, 600]; // 10 min each
-    const oldRights = 15; // all castling available
-    const oldEp = 255; // no en passant
-    const oldHmClock = 0;
+    const witness = await computeWitness(board, from, to, prom, 0, [600, 600], 15, 255, 0, 5);
 
-    console.log("\n=== CHESS V1 WITNESS GENERATION ===");
-    console.log(`Move: ${from} -> ${to}  promo=${prom}`);
-    console.log(`Board[${from}]: ${board[from]} (type=${unpack(board[from]).type}, color=${unpack(board[from]).color})`);
-    console.log(`Board[${to}]: ${board[to]} (type=${unpack(board[to]).type}, color=${unpack(board[to]).color})`);
+    console.log(`\n=== chess_v1 witness: ${from} -> ${to} ===`);
+    const wtnsFile = path.join(BASE, "output", `witness_${from}_${to}.wtns`);
 
-    const witness = computeWitness(board, from, to, prom, playerToMove, oldTimers, oldRights, oldEp, oldHmClock, 5);
-    console.log("Witness computed:");
-    console.log(`  Valid: ${witness._capture !== undefined ? 'checking...' : 'N/A'}`);
-    console.log(`  Is capture: ${witness._capture}`);
-    console.log(`  Is double: ${witness._double}`);
-
-    // Generate witness
-    console.log("\nGenerating witness...");
-    const wtnsFile = path.join("/tmp", `chess_v1_witness_${from}_${to}.wtns`);
     try {
-        await snarkjs.wtns.calculate(witness, wasm, wtnsFile);
-        const w = await snarkjs.wtns.exportJson(wtnsFile);
+        await snarkjs.wtns.calculate(witness, WASM, wtnsFile);
+        console.log("Witness: OK (move legal)");
 
-        // Find move_valid in the witness — it's the constraint that must equal 1
-        // In ChessV1, line 340: move_valid === 1
-        // move_valid is a signal deep in the constraint system.
-        // If the witness generates successfully, the move is legal.
-        console.log("SUCCESS! Witness generated — move is LEGAL.");
-        console.log(`Witness signals: ${w.length}`);
-        console.log(`First 5: [${w.slice(0, 5).map(x => x.toString()).join(', ')}]`);
-        console.log(`Last 1: ${w[w.length - 1]}`);
-
-        // Try proving if zkey available
-        const zkeyPath = path.join(BASE, "output", "chess_v1.zkey");
-        const vkeyPath = path.join(BASE, "output", "chess_v1_vkey.json");
-
-        if (fs.existsSync(zkeyPath)) {
-            console.log("\nGenerating proof...");
-            const { proof, publicSignals } = await snarkjs.groth16.prove(zkeyPath, wtnsFile);
+        if (fs.existsSync(ZKEY)) {
+            const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtnsFile);
             const proofFile = path.join(BASE, "output", "proofs", `move_${from}_${to}.json`);
+            fs.mkdirSync(path.dirname(proofFile), { recursive: true });
             fs.writeFileSync(proofFile, JSON.stringify({ proof, publicSignals }, null, 2));
-            console.log(`Proof written to ${proofFile}`);
-
-            const vkey = JSON.parse(fs.readFileSync(vkeyPath, "utf8"));
+            const vkey = JSON.parse(fs.readFileSync(VKEY, "utf8"));
             const valid = await snarkjs.groth16.verify(vkey, publicSignals, proof);
-            console.log(`Verification: ${valid ? 'VALID' : 'INVALID'}`);
-        } else {
-            console.log("\nNo zkey found — skipping proof generation.");
-            console.log("Run: snarkjs groth16 setup ... to create zkey.");
-        }
+            console.log(`Proof: ${valid ? "VALID" : "INVALID"}`);
+            console.log(`Saved: ${proofFile}`);
 
+            const verifyScript = path.join(BASE, "..", "..", "verify_chess.js");
+            if (fs.existsSync(verifyScript)) {
+                fs.writeFileSync("/tmp/chess_proof_test.json", JSON.stringify({ proof, publicSignals }));
+                const { execSync } = require("child_process");
+                const out = execSync(`node "${verifyScript}" /tmp/chess_proof_test.json`, { encoding: "utf8" });
+                console.log(`Oracle verifier: ${out.trim()}`);
+            }
+        } else {
+            console.log("No zkey yet — run: bash scripts/setup_chess.sh");
+        }
         fs.unlinkSync(wtnsFile);
     } catch (e) {
-        console.error(`WITNESS FAILED: ${e.message.split("\n")[0]}`);
-        // This means the move is illegal — the constraint system rejects it
-        console.log("The move is ILLEGAL under the constraint system.");
+        console.error(`FAILED: ${e.message}`);
+        process.exit(1);
     }
 }
 
-main().catch(e => { console.error("Fatal:", e.message); process.exit(1); });
+main().catch(e => { console.error(e); process.exit(1); });

@@ -7,7 +7,9 @@ const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
 
-const VKEY_PATH = path.join(__dirname, "games/chess/output/chess_v1_vkey.json");
+const VKEY_PATH = fs.existsSync(path.join(__dirname, "chess_v1_vkey.json"))
+    ? path.join(__dirname, "chess_v1_vkey.json")
+    : path.join(__dirname, "games/chess/output/chess_v1_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

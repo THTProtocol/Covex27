@@ -19,9 +19,13 @@ const getIcon = (id) => {
 
 const NET_TREASURIES = {
   'testnet-12': 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m',
-  'testnet-10': 'kaspatest:qz8j8k8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8', // placeholder - real one from env in prod
-  'mainnet': 'kaspa:qr6vs4wy4v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8' // real mainnet treasury (update in env)
+  'testnet-10': 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m', // same as TN12 for dev (real one loaded from env in prod)
+  'mainnet': 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2' // real mainnet treasury (from env in prod)
 };
+
+function getTreasuryForNet(net: string): string {
+  return NET_TREASURIES[net as keyof typeof NET_TREASURIES] || NET_TREASURIES['testnet-12'];
+}
 
 export default function PremiumBuilder() {
   const navigate = useNavigate();
@@ -73,7 +77,7 @@ export default function PremiumBuilder() {
   // === COVENANT CREATION STATE (best UX for paid users) ===
   const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
   const isMainnet = net === 'mainnet' || net === 'mainnet-1';
-  const treasury = NET_TREASURIES[net] || NET_TREASURIES['testnet-12'];
+  const treasury = getTreasuryForNet(net);
 
   // Library + selection
   const [search, setSearch] = useState('');

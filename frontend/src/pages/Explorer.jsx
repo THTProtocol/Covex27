@@ -130,7 +130,14 @@ export default function Explorer() {
           <div>
             <div className="font-semibold text-white flex items-center gap-2">
               {c.name || (c.txid || '').slice(0, 12) + '...'}
-              {isPaid && <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">PAID VERIFIED • TOP</span>}
+              {isPaid && (
+                <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono flex items-center gap-1">
+                  {t === 'MAX' && <Crown size={10} />} 
+                  {t === 'PRO' && <Star size={10} />} 
+                  {t === 'BUILDER' && <Terminal size={10} />} 
+                  PAID VERIFIED • TOP
+                </span>
+              )}
             </div>
             <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{c.description || 'SilverScript covenant'}</div>
           </div>

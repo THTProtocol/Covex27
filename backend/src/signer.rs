@@ -82,9 +82,19 @@ pub struct SignAndBroadcastRequest {
     /// and used as tx.payload instead of script_hex.
     #[serde(default)]
     pub dsl_source: Option<String>,
-    /// Network to deploy on: "testnet-12" (default) or "testnet-10"
+    /// Network to deploy on: "testnet-12" (default) or "testnet-10" or "mainnet"
     #[serde(default = "default_network")]
     pub network: String,
+
+    // FIX: Accept free-tier visual + description fields that frontend sends.
+    // These are primarily handled by the separate /api/covenant-metadata endpoint,
+    // but accepting them here prevents silent drops and allows logging/forwarding.
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub accent: Option<String>,
+    #[serde(default)]
+    pub ui_preset: Option<String>,
 }
 
 fn default_network() -> String { "testnet-12".to_string() }

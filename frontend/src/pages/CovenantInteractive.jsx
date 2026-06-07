@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
 import CovexTerminal from '../components/CovexTerminal';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2 } from 'lucide-react';
+import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -57,6 +57,7 @@ export default function CovenantInteractive() {
     tierValue(covenant?.verified_tier || covenant?.tier || 'FREE'),
     tierValue(effectiveTierLabel)
   );
+  const TierIcon = effectiveTierLabel === 'MAX' ? Crown : effectiveTierLabel === 'PRO' ? Star : effectiveTierLabel === 'BUILDER' ? Terminal : Eye;
   const canCustomize = effectiveTierVal >= 1;  // BUILDER+
   const canBrand = effectiveTierVal >= 2;       // PRO+
   const canMaxLayout = effectiveTierVal >= 3;   // MAX

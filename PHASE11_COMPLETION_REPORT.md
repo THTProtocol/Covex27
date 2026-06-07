@@ -3,7 +3,7 @@
 **Date:** 2026-06-07  
 **Repo:** `https://github.com/THTProtocol/Covex27.git`  
 **Production:** `https://hightable.pro`  
-**HEAD (pre-commit):** `2f2a38d` — privacy mixer M0–M8
+**HEAD:** `deb1d19` — Phase 11 completion (deployed to hightable.pro)
 
 ---
 
@@ -48,7 +48,7 @@
 | connect4_v1 | ✅ | ✅ outcome=2 (ongoing) | Game status mapping correct |
 | timelock_absolute | ✅ | ✅ outcome=0 | DAA threshold |
 | hash_preimage | ✅ | ✅ outcome=0 | MiMC7 (not SHA256) |
-| range_proof | ✅ (fixed prove script) | Pending fresh proof | Dev ceremony |
+| range_proof | ✅ | ✅ outcome=0 | Dev ceremony; oracle mapping fixed |
 | privacy_mixer_v1 | ✅ | ✅ double-spend rejected | Nullifier guard works |
 | chess_v1 | N/A (no vkey) | N/A | Awaiting zkey |
 

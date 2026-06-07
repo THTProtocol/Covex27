@@ -1,7 +1,7 @@
 #!/bin/bash
-# Ceremonies harness for Covex 100% (dev PTAU; prod MPC needed)
-echo "Dev PTAU for new circuits (pot10_final etc. present)."
-echo "For prod: run full MPC ceremony per RANGE_PROOF_CEREMONY.md extended."
-echo "New circuits (utxo, vrf, etc.) use dev; flag for audit."
-ls pot*final.ptau 2>/dev/null | wc -l
-echo "PTAU ready for dev."
+# Ceremonies harness - dev PTAU ready; prod needs real MPC
+echo "Dev PTAU (pot10_final etc.) present for small circuits."
+echo "For production: follow RANGE_PROOF_CEREMONY.md + run full MPC for new circuits (utxo, vrf, script_constraint, etc.)."
+echo "Flag circuits with real audited zkeys in registry."
+ls -1 pot*final.ptau 2>/dev/null | wc -l
+echo "PTAU count above. Run 'circom2 ... && snarkjs groth16 setup ... pot10_final.ptau ...zkey' for new small ones."

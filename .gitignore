@@ -88,3 +88,11 @@ added-zk-to-gitignore
 # Additional security ignores
 *.env.production
 *.env.local
+# Audit hygiene
+*.bak
+debug/
+tmp*
+backend/target/
+frontend/dist/
+zk/node_modules/
+!zk/node_modules/.gitkeep

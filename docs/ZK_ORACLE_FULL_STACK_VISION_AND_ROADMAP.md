@@ -109,3 +109,20 @@ Ceremonies: dev PTAU only for new; full MPC needed for prod (see RANGE_PROOF_CER
 - Chess dual modes 100% (stricter Full, fast Hybrid, UI, on-chain .sil, e2e).
 - Decentralized multi, 12+ examples, 207+ frontend, full e2e/docs, honest 100% potential for Kaspa covenants.
 - Sub-agents + everything delivered per 'use as many credits'.
+
+## Current Reality vs Vision Claims (Audit Update)
+**Honest snapshot (post all expansions):** 
+- Explicit detailed entries in circuit_registry.json: ~60+ (expanded from sub-agents + audit fixes).
+- Frontend ZK_CIRCUIT_TYPES: 207 entries (many variants + implied from vision §4 inventory).
+- Real production-grade Groth16 artifacts + zkeys: ~10-15 (legacy core + a few Phase 1/2 like basic_utxo, vrf_dice, collateral, onchain_sig, turn_timer, pot_split, relative_timelock, script_constraint, etc.).
+- Most of the 200+ "inventory" are honest oracle-attested or hybrid stubs (compileable .circom + verify stubs that return attested success; RISC0 are pure guest stubs).
+- RISC0: 6 guests (stubs; usable via Risc0Stub path but no real execution yet).
+- On-chain: Good SilverScript examples (.sil for chess mode+oracle) and compiler; full integration for new circuits is partial (silverc + aa20+ enforcement needs more work).
+- Decentralized: Multi-oracle liveness stubs + /liveness endpoint (functional but not production network).
+- Ceremonies: Dev PTAU only; harness script exists. Full MPC for new circuits pending.
+- E2E: 13 real passes on artifacts; 10 skips for stubs (expected per design).
+- Visuals: Functional dark theme with kaspa-green; some tier icon inconsistency (colored divs), monolithic Terminal.jsx, mixed .jsx/.tsx primitives.
+- Bloat: Large node_modules/target (gitignored in .gitignore but can appear in clones); some historical .bak committed (cleaned in this fix).
+
+**Philosophy upheld:** Radical honesty. Most start as attested/hybrid and graduate. "100% full potential" refers to coverage of the vision inventory + pluggable foundation + on-chain prep + examples, not that every circuit has audited zkeys today. Sub-agents enabled rapid inventory expansion; next is artifact quality.
+

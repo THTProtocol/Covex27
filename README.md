@@ -483,3 +483,8 @@ Repo: This repository
 - See HERMES_MASTER_PROMPT.md for the full "TN10 FORK + DUAL NETWORK" task (includes running the Hetzner TN10 node after space confirmation).
 - Wallets/mnemonics/hex switch automatically based on selection (accurate TN10 values to be supplied by operator).
 
+
+## Current Status (Audit 2026)
+Covex has strong pluggable oracle, honest reality labeling, chess dual modes, 6 RISC0 stubs, ~60 detailed registry entries + 207 frontend variants covering the vision inventory, on-chain SilverScript examples, and expanded e2e/examples. 
+Most new circuits are compileable hybrid/oracle-attested stubs (real Groth16 artifacts limited to core ~10-15; RISC0 and ceremonies are dev/stub). 
+See docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md for "Current Reality vs Vision Claims" section. 100% refers to coverage and foundation, not every circuit having production zkeys today.

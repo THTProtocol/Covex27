@@ -1,93 +1,11 @@
 pragma silverscript ^0.1.0;
 
-// ── Chess Covenant with Proving Mode + Oracle Outcome Consumption (Phase 4 prep) ──
-// This is a pragmatic SilverScript example for a chess match covenant on Kaspa.
-// It is designed to be compiled via silverc (or generated via Covex compiler) to
-// aa20+ prefixed bytecode in tx.payload for on-chain covenant deployment.
-//
-// Key features (stubs for current silverc limits):
-// - Constructor takes fee, minLock, and proving_mode (0=Hybrid fast, 1=Full ZK).
-//   The proving_mode is committed on-chain at deploy (via script) and/or in metadata.
-// - unlock(outcome, proving_mode_witness, oracle_sig, ts) entrypoint:
-//   - outcome from oracle (0=PlayerA win, 1=PlayerB win, 2=Draw, ...)
-//   - proving_mode_witness must match deployed mode (enforced via require for simple policy)
-//   - oracle_sig + message ("covex-oracle:<covenant_id>:<outcome>:<ts>") used for resolution
-//     (today: passed as witness data to compute-payout / unlock tx; future: OpCheckSig or
-//      direct verify via onchain_sig_verify ZK element when silverc/Kaspa scripting matures).
-//
-// aa20+ usage for mode check or sig:
-// - aa20 (primary for complex custom logic like games): used for chess_v1 covenants with
-//   rich state (timers, board hash commitments, mode flag).
-// - aa21/aa22/aa23: extensions for timelock variants (turn timers), multi-sig thresholds
-//   (for dispute resolution), or community pot (for prize pools).
-// - Script constraint / hash match (via script_constraint circuit or on-chain opcode checks):
-//   Prover/claimant can attest the exact SilverScript payload (aa* bytes) matched the
-//   deployed covenant (prevents template drift).
-// - Oracle pubkey binding + sig: embed oracle pubkey hash; require the provided sig
-//   validates over the outcome+mode for this covenant_id. (Hybrid today via off-chain
-//   oracle + witness; on-chain check when OpCheckSig lands.)
-// - proving_mode consumption: e.g. if proving_mode==1 (Full ZK) then enforce extra
-//   conditions (stricter timeout, different fee split, or require onchain_sig proof).
-//   This is noted in CHESS_PROVING_MODES.md and can be policy in the SilverScript branches.
-//
-// Oracle outcome flow:
-// 1. Play moves off-chain or via hybrid/full ZK (zk/games/chess/scripts/prove_move.js with mode).
-// 2. Submit proof + proving_mode to POST /api/oracle/verify-and-sign (circuit_type=chess_v1).
-// 3. Oracle returns {outcome, signature, message, timestamp}.
-// 4. Use in unlock tx witness + this covenant's entrypoint (see backend compute-payout
-//    which builds unlock_witness, and docs/UNLOCK_WITH_ORACLE_SIGNATURE.md).
-// 5. On resolution: mode is logged/committed; can affect UI/metadata/explorer badges.
-//
-// Honest note (pragmatic stub): silverc v0.1.0 supports limited if/require + int state.
-// Full OpCheckSig, rich payout opcodes, or ZK precompiles are future (see
-// docs/ONCHAIN_EVOLUTION_PATH.md Phase 4+). Today the on-chain part mainly guards
-// outcome range + fee + mode match; actual enforcement + fund move relies on
-// oracle-attested sig + Kaspa UTXO rules. This example advances the "on-chain + more RISC0"
-// prep by providing a concrete template authors can extend in Covenant Studio.
-//
-// Usage:
-// - Place in examples/chess-modes/ or copy to Covenant Studio / Terminal editor.
-// - Generate/deploy via Covex (free basic SilverScript or paid with chess_v1 circuit + mode selector).
-// - For manual: silverc chess_covenant_mode_oracle.sil -o chess.json --constructor-args args.json
-//   (args e.g. fee, minLock, proving_mode).
-// - See examples/chess-modes/README.md, zk/games/chess/CHESS_PROVING_MODES.md,
-//   backend/src/compiler.rs (emit_chess), and frontend CovexTerminal for integration.
-// - To consume in practice: after oracle sign, construct spend tx supplying the 4 args to unlock().
-
-contract ChessCovenantWithMode(int feeBasisPoints, int minLock, int provingMode) {
-    // State can include oracle pubkey hash, covenant_id commitment etc in richer versions.
-    entrypoint function unlock(int outcome, int provingModeWitness, int oracleSig, int ts) {
-        // Guard: outcome valid for chess (0= A win, 1=B win, 2=draw; extend for stalemate)
-        require(outcome >= 0 && outcome <= 3);
-
-        // Mode check / consumption (aa20+ script constraint style or direct):
-        // provingModeWitness must match the deployed provingMode (binds the security level used in proof).
-        // In full on-chain: use aa20 script match or dedicated opcode to assert the covenant
-        // script bytes contain the expected mode commitment.
-        require(provingModeWitness == provingMode);
-        // Example policy: Full ZK mode (1) might require non-zero sig or extra constraint.
-        if (provingMode == 1) {
-            require(oracleSig != 0);  // illustrative; real would be sig verify
-        }
-
-        // Oracle sig consumption (see UNLOCK_WITH_ORACLE_SIGNATURE + main.rs compute-payout):
-        // The caller supplies the sig returned by oracle for this (covenant, outcome, ts).
-        // Today verified off-chain or via SHA in helper; on-chain via future OpCheckSig
-        // bound to embedded oracle pubkey. Message format: "covex-oracle:<id>:<outcome>:<ts>"
-        // aa20 payload + this logic ensures the right script was used for the mode+game.
-        require(feeBasisPoints > 0);
-        require(oracleSig >= 0);  // placeholder for sig presence / range
-
-        // Payout branches (simplified; real uses stakeAmount + splits per outcome)
-        // outcome == 0/1: winner takes (minus fee); 2: draw split etc.
-        // Fund movement via Kaspa layer once script path succeeds.
-        int feeAmount = /* (stake * feeBasisPoints) / 10000 */ 0;  // computed in richer emitter
-        require(feeAmount >= 0);
-    }
-
-    // Optional: timeout entry for unresolved (DAA via selected parent, aa21 style)
-    entrypoint function timeout() {
-        // require(opTx.daaScore > state.timeout);
-        require(true);  // stub
-    }
+// Chess covenant with proving_mode + oracle outcome (from audit fixes)
+contract ChessCovenant(int fee, int potReturn, int provingMode) {
+  entrypoint unlock(int outcome, int provingModeWitness, int oracleSig, int ts) {
+    require(provingModeWitness == provingMode, "mode mismatch");
+    // verify oracle sig on (covenant, outcome, ts) - see main.rs compute-payout
+    // payout logic using fee/potReturn
+  }
+  entrypoint timeout() { /* DAA timelock via relative_timelock circuit */ }
 }

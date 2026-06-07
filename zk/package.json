@@ -5,7 +5,22 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compile:chess": "cd games/chess && circom2 ../../games/chess/chess_v1.circom --r1cs --wasm -o output/chess_v1_build",
-    "verify:chess": "node verify_chess.js"
+    "verify:chess": "node verify_chess.js",
+    "compile:utxo": "circom2 basic_utxo_ownership.circom --r1cs --wasm -o .",
+    "compile:script": "circom2 script_constraint.circom --r1cs --wasm -o .",
+    "compile:vrf": "circom2 vrf_dice_roll.circom --r1cs --wasm -o . && circom2 vrf_random.circom --r1cs --wasm -o .",
+    "compile:timelock-rel": "circom2 relative_timelock.circom --r1cs --wasm -o .",
+    "compile:nullifier": "circom2 nullifier_set.circom --r1cs --wasm -o .",
+    "compile:pot-split": "circom2 pot_split_math.circom --r1cs --wasm -o .",
+    "compile:timer": "circom2 turn_timer.circom --r1cs --wasm -o .",
+    "compile:collateral": "circom2 collateral_liquidation.circom --r1cs --wasm -o .",
+    "compile:risc0-stub": "echo 'RISC0 guest compiled separately (see risc0_guests/)'",
+    "compile:onchain-sig": "circom2 onchain_sig_verify.circom --r1cs --wasm -o .",
+    "compile:bs-defi": "circom2 black_scholes_approx.circom --r1cs --wasm -o .",
+    "compile:all-phase1": "npm run compile:utxo && npm run compile:script && npm run compile:vrf && npm run compile:timelock-rel && npm run compile:nullifier && npm run compile:pot-split && npm run compile:timer",
+    "compile:phase2-defi": "npm run compile:collateral",
+    "compile:phase3-onchain": "npm run compile:onchain-sig",
+    "compile:all": "npm run compile:all-phase1 && npm run compile:phase2-defi && npm run compile:phase3-onchain && npm run compile:bs-defi && npm run compile:chess"
   },
   "keywords": [],
   "author": "",

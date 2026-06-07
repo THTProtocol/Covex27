@@ -1,0 +1,5 @@
+{
+  "zk_circuit": "chess_v1",
+  "proving_mode": 0,
+  "note": "Set to 1 for Full ZK. See CHESS_PROVING_MODES.md"
+}

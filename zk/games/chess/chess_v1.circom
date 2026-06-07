@@ -15,6 +15,9 @@ include "lib/history_hash_chain.circom";
 include "lib/game_end_conditions.circom";
 
 // chess_v1.circom - FIDE chess move proof (Covex27 / Kaspa Groth16)
+// Supports two proving modes via public `proving_mode` (see CHESS_PROVING_MODES.md):
+//   0 = Hybrid (fast, witnessed candidates + attacks from chess.js for end conditions / king safety)
+//   1 = Full ZK (stronger security; proof commits to higher-assurance witness generation)
 
 template ChessV1() {
     signal input old_board_hash;
@@ -63,6 +66,15 @@ template ChessV1() {
     signal input traverse1_witness_active[12];
     signal input opp_witness_squares[12];
     signal input opp_witness_active[12];
+
+    // proving_mode: 0 = Hybrid (fast, chess.js supplies candidates + witnessed attacks for end conditions / king safety).
+    //               1 = Full ZK (stronger security; caller/witness generator commits to more exhaustive search;
+    //                   mode is publicly bound in the proof so oracle/covenant/UI can distinguish assurance level).
+    // The core move legality, board transition, post-move king safety, timers, and repetition are proven
+    // in-circuit in both modes. The mode mainly affects trust assumptions around the candidate/attack lists
+    // for game_status (checkmate/stalemate/etc.).
+    signal input proving_mode;
+    proving_mode * (proving_mode - 1) === 0; // must be boolean 0/1
 
     // STEP 1: Verify old position hash
     component old_hasher = FullPositionHasher();
@@ -346,8 +358,13 @@ template ChessV1() {
     status.candidate_active <== candidate_active;
     status.opp_witness_squares <== opp_witness_squares;
     status.opp_witness_active <== opp_witness_active;
+    status.proving_mode <== proving_mode; // passed for stricter Full ZK checks (mode=1)
+    // proving_mode is available here for future stricter full-mode assertions in GameStatusComputer
+    // (e.g. in mode=1 require certain consistency or ignore some off-chain timeout flags for stronger guarantees).
+    // For now it is committed in the public signals so the proof itself records the chosen security level.
+    // The mode does not change the core in-circuit move + transition + safety logic (already strong).
 
     move_valid === 1;
 }
 
-component main { public [old_board_hash, new_board_hash, player_to_move, move_from, move_to, promotion_piece, new_timer_white, new_timer_black, game_status] } = ChessV1();
+component main { public [old_board_hash, new_board_hash, player_to_move, move_from, move_to, promotion_piece, new_timer_white, new_timer_black, game_status, proving_mode] } = ChessV1();

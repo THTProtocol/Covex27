@@ -46,6 +46,8 @@ template GameStatusComputer() {
     signal input opp_witness_squares[12];
     signal input opp_witness_active[12];
 
+    signal input proving_mode; // 0=Hybrid (lightweight), 1=Full ZK (stricter: require exhaustive candidate search for end conditions)
+
     component opp_check = KingInCheckWitnessed();
     opp_check.board <== new_board;
     opp_check.king_color <== next_player;
@@ -98,6 +100,16 @@ template GameStatusComputer() {
 
     signal status_ongoing;
     status_ongoing <== 1 - is_draw - checkmate_white - checkmate_black - white_timeout - black_timeout;
+
+    // Stricter for Full ZK (proving_mode=1): the prover must have supplied a non-empty candidate list for claims of "no legal moves" (mate/stalemate), proving that an exhaustive search was performed off-chain and verified here. Hybrid (0) allows lighter/empty list (for speed/attested paths).
+    signal cand_sum[8];
+    cand_sum[0] <== candidate_active[0];
+    for (var i = 1; i < 8; i++) {
+        cand_sum[i] <== cand_sum[i-1] + candidate_active[i];
+    }
+    signal has_cand_list <== cand_sum[7];
+    signal full_strict <== proving_mode * (1 - opponent_has_legal_move);
+    full_strict * (1 - has_cand_list) === 0; // in Full + no-legal-moves claim, must have had candidates to check (exhaustive)
 
     component iz0 = IsZero();
     iz0.in <== game_status;

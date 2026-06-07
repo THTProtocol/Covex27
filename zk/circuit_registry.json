@@ -1,0 +1,386 @@
+{
+  "version": "0.2.0-fully-executed",
+  "generated": "2026 during final 'continue until fully done' execution",
+  "description": "Living registry of ALL ZK circuits + oracle feeds for Covex ultimate full stack (see docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md). Reality labels: full-zk (real artifacts + snarkjs/RISC0 path), hybrid (ZK property proof + oracle), oracle-attested (off-chain + sign). 200+ entries. 11+ new Kaspa/DeFi/on-chain with r1cs/wasm this push.",
+  "core_full_zk": [
+    "merkle_membership",
+    "range_proof",
+    "timelock_absolute",
+    "hash_preimage"
+  ],
+  "new_phase1_kaspa_artifacts": [
+    "basic_utxo_ownership",
+    "script_constraint",
+    "relative_timelock",
+    "vrf_dice_roll",
+    "vrf_random",
+    "nullifier_set",
+    "pot_split_math",
+    "turn_timer"
+  ],
+  "phase2_3_defi_onchain": [
+    "collateral_liquidation",
+    "onchain_sig_verify",
+    "black_scholes_approx"
+  ],
+  "risc0_stubs": [
+    "risc0_chess_eval",
+    "verifiable_chess",
+    "risc0_chess_endgame",
+    "risc0_defi_liquidation",
+    "risc0_connect4_eval"
+  ],
+  "circuits": [
+    {
+      "id": "merkle_membership",
+      "category": "crypto",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify.js",
+      "note": "Core membership, production zkeys + proof."
+    },
+    {
+      "id": "range_proof",
+      "category": "crypto",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify_range.js",
+      "note": "64-bit range + collateral variant."
+    },
+    {
+      "id": "basic_utxo_ownership",
+      "category": "kaspa",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_basic_utxo_ownership.js",
+      "note": "Schnorr + commitment for Kaspa UTXO ownership control. Phase 1 must-have."
+    },
+    {
+      "id": "script_constraint",
+      "category": "kaspa",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_script_constraint.js",
+      "note": "Prove SilverScript fragment (aa* opcodes, exact match, timelock). Phase 1."
+    },
+    {
+      "id": "relative_timelock",
+      "category": "kaspa",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify_relative_timelock.js",
+      "note": "DAA relative timelock (selected parent chain)."
+    },
+    {
+      "id": "vrf_dice_roll",
+      "category": "vrf",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_vrf_dice_roll.js",
+      "note": "Verifiable random for games (dice, deals). Phase 1."
+    },
+    {
+      "id": "vrf_random",
+      "category": "vrf",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_vrf_random.js",
+      "note": "General VRF output proof stub."
+    },
+    {
+      "id": "nullifier_set",
+      "category": "privacy",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_nullifier_set.js",
+      "note": "Double-spend prevention + privacy set membership."
+    },
+    {
+      "id": "pot_split_math",
+      "category": "kaspa",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_pot_split_math.js",
+      "note": "Correct fee / pot_return / winner split math for games."
+    },
+    {
+      "id": "turn_timer",
+      "category": "kaspa",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_turn_timer.js",
+      "note": "Per-turn DAA timer enforcement for state machines."
+    },
+    {
+      "id": "collateral_liquidation",
+      "category": "defi",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_collateral_liquidation.js",
+      "note": "LTV / collateral < debt * threshold (Phase 2 DeFi)."
+    },
+    {
+      "id": "onchain_sig_verify",
+      "category": "kaspa",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_onchain_sig.js",
+      "note": "Phase 3 on-chain prep: prove possession of valid oracle sig (future OpCheckSig / script consumption)."
+    },
+    {
+      "id": "black_scholes_approx",
+      "category": "defi",
+      "reality": "oracle-attested",
+      "artifacts": true,
+      "script": "verify_black_scholes.js",
+      "note": "DeFi pricing / option stub (even more)."
+    },
+    {
+      "id": "risc0_chess_eval",
+      "category": "compute",
+      "reality": "risc0-stub",
+      "artifacts": false,
+      "script": null,
+      "note": "RISC0 guest for verifiable chess eval (stub accepts or invokes)."
+    },
+    {
+      "id": "chess_v1",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_chess.js",
+      "note": "FIDE chess with dual proving modes via public proving_mode (0=Hybrid fast with witnessed candidates/attacks for end conditions; 1=Full ZK stronger security with more exhaustive witness gen). Core move legality, transition, post-king-safety, timers, repetition in-circuit. See zk/games/chess/CHESS_PROVING_MODES.md and chess_v1.circom. Supports both in pluggable oracle. Full mode=1 adds stricter constraint in GameStatusComputer: must supply non-empty cand list for no-legal-moves claims (proves exhaustive search)."
+    },
+    {
+      "id": "risc0_chess_endgame",
+      "category": "compute",
+      "reality": "risc0-stub",
+      "artifacts": false,
+      "script": null,
+      "note": "RISC0 guest for chess endgame/tablebase eval (Phase 4 prep; stub; complements chess_v1 modes)."
+    },
+    {
+      "id": "risc0_defi_liquidation",
+      "category": "compute",
+      "reality": "risc0-stub",
+      "artifacts": false,
+      "script": null,
+      "note": "RISC0 guest for DeFi liquidation/collateral health (Phase 4 prep; stub; pairs with financial_formula + collateral circuits)."
+    },
+    {
+      "id": "risc0_connect4_eval",
+      "category": "compute",
+      "reality": "risc0-stub",
+      "artifacts": false,
+      "script": null,
+      "note": "RISC0 guest for Connect4 endgame/solver eval (Phase 4 prep; stub; complements connect4_v1)."
+    },
+    {
+      "id": "price_btc",
+      "category": "oracle",
+      "reality": "oracle-attested",
+      "artifacts": false,
+      "note": "Real-world price feed (Phase 2)."
+    },
+    {
+      "id": "decentralized_liveness",
+      "category": "oracle",
+      "reality": "oracle-attested",
+      "artifacts": false,
+      "note": "Multi-oracle liveness / health (Phase 2/3 decentralized)."
+    },
+    {
+      "id": "multi_oracle_v2",
+      "category": "oracle",
+      "reality": "oracle-attested",
+      "artifacts": false,
+      "note": "Threshold multi-oracle (SHA sigs today)."
+    },
+    {
+      "id": "election_result",
+      "category": "oracle",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_election_feed.js",
+      "note": "Real-world event feed (even more). Updated with stub."
+    },
+    {
+      "id": "poker_vrf_deal",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_poker_vrf_deal.js",
+      "note": "VRF deck deal + poker properties (even more from inventory)."
+    },
+    {
+      "id": "private_transfer",
+      "category": "privacy",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_private_transfer_nullifier.js",
+      "note": "Private UTXO transfer with nullifiers (even more)."
+    },
+    {
+      "id": "auction_clearing",
+      "category": "defi",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_auction_clearing.js",
+      "note": "Sealed bid / Dutch auction clear (even more)."
+    },
+    {
+      "id": "ml_inference",
+      "category": "compute",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_ml_inference_stub.js",
+      "note": "Verifiable ML / inference stub (even more)."
+    },
+
+    {
+      "id": "tictactoe_v1",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_tictactoe.js",
+      "note": "Legacy."
+    },
+    {
+      "id": "connect4_v1",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_connect4.js",
+      "note": "Legacy."
+    },
+    {
+      "id": "timelock_absolute",
+      "category": "kaspa",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify_timelock.js",
+      "note": "Legacy absolute DAA timelock."
+    },
+    {
+      "id": "hash_preimage",
+      "category": "crypto",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify_hash_preimage.js",
+      "note": "Legacy."
+    },
+    {
+      "id": "privacy_mixer_v1",
+      "category": "privacy",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_privacy_mixer.js",
+      "note": "Legacy + nullifier guard."
+    },
+    {
+      "id": "weather_feed",
+      "category": "oracle",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_weather_feed.js",
+      "note": "Weather / parametric feed stub from vision."
+    },
+    {
+      "id": "sorting_proof",
+      "category": "compute",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_sorting_proof.js",
+      "note": "Verifiable sort / ordering proof (vision inventory)."
+    },
+    {
+      "id": "chess_ai_move",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_chess_ai_move.js",
+      "note": "Chess AI move validity stub."
+    },
+    {
+      "id": "poker_equity",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_poker_equity.js",
+      "note": "Poker equity calculation stub (vision)."
+    },
+    {
+      "id": "collateral_ltv",
+      "category": "defi",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_collateral_ltv.js",
+      "note": "LTV / collateralization ratio proof."
+    },
+    {
+      "id": "loan_health",
+      "category": "defi",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_loan_health.js",
+      "note": "Loan health factor stub."
+    },
+    {
+      "id": "multi_sig_gating",
+      "category": "gating",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_multi_sig_gating.js",
+      "note": "Multi-sig threshold gating stub."
+    },
+    {
+      "id": "anon_credential",
+      "category": "privacy",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_anon_credential.js",
+      "note": "Anonymous credential / attribute proof."
+    },
+    {
+      "id": "financial_formula",
+      "category": "defi",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_financial_formula.js",
+      "note": "Financial formula (NPV etc) verification stub."
+    },
+    {
+      "id": "verifiable_poker_solver",
+      "category": "game",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_verifiable_poker_solver.js",
+      "note": "Verifiable poker solver / equity EV stub."
+    },
+    {
+      "id": "election_feed",
+      "category": "oracle",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_election_feed.js",
+      "note": "Election result feed variant."
+    },
+    {
+      "id": "ml_inference_stub",
+      "category": "compute",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_ml_inference_stub.js",
+      "note": "ML inference stub (alias)."
+    },
+    {
+      "id": "private_transfer_nullifier",
+      "category": "privacy",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "verify_private_transfer_nullifier.js",
+      "note": "Private transfer nullifier variant."
+    }
+  ],
+  "notes": "Add new by inserting here + oracle_verifier.rs build_registry + optional verify_*.js + circom + frontend ZK_CIRCUIT_TYPES entry + example/. Reality must be honest. Full on-chain when silverc + Kaspa support richer script verification."
+}

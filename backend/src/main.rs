@@ -23,6 +23,7 @@ mod dev_wallets;
 mod indexer;
 mod mixer;
 mod oracle;
+mod oracle_verifier;
 mod payment_verifier;
 mod signer;
 mod ui_generator;

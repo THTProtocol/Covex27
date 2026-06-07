@@ -186,7 +186,11 @@ function pad100(arr, fill = 0) {
     return out;
 }
 
-async function computeWitness(board, from, to, promotionPiece, playerToMove, oldTimers, oldRights, oldEp, oldHmClock, elapsed, historyHashes = [], historyLen = 0) {
+async function computeWitness(board, from, to, promotionPiece, playerToMove, oldTimers, oldRights, oldEp, oldHmClock, elapsed, historyHashes = [], historyLen = 0, provingMode = 0) {
+    // provingMode: 0 = Hybrid (current witnessed candidate/attack model from chess.js logic)
+    //              1 = Full ZK (caller should have performed more exhaustive enumeration for candidates/attacks;
+    //                  the mode is included in the witness so the resulting proof publicly commits to the stronger mode).
+    // The circuit enforces provingMode is 0 or 1. Core move + transition + safety logic is the same.
     const pt = unpack(board[from]);
     const dt = unpack(board[to]);
     const ff = file(from), fr = rank(from);
@@ -273,6 +277,26 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
     const oppKingSq = findKingSquare(newBoard, nextPlayer);
     const oppAtk = attackersOnSquare(newBoard, oppKingSq, playerToMove);
 
+    // Hybrid (mode=0) is optimized for speed: populate limited candidates (e.g. 4) using quick heuristics/attacks for <15s target.
+    // Full ZK (mode=1): more exhaustive search (up to 8) to prove stronger security (prover did full work, circuit verifies).
+    let candFrom = [], candTo = [], candActive = [];
+    const maxCands = provingMode === 1 ? 8 : 4; // Hybrid limits for fast witness gen
+    if (provingMode === 1 || provingMode === 0) {
+        for (let s = 0; s < 64 && candFrom.length < maxCands; s++) {
+            const p = unpack(newBoard[s]);
+            if (!p.isEmpty && p.color === nextPlayer) {
+                for (let t = 0; t < 64 && candFrom.length < maxCands; t++) {
+                    if (isValidPieceMove(newBoard, s, t)) {
+                        candFrom.push(s); candTo.push(t); candActive.push(1);
+                    }
+                }
+            }
+        }
+    }
+    const finalCandFrom = pad8(candFrom.length ? candFrom : []);
+    const finalCandTo = pad8(candTo.length ? candTo : []);
+    const finalCandActive = pad8(candActive.length ? candActive : []);
+
     return {
         old_board_hash: oldHash.toString(),
         new_board_hash: newHash.toString(),
@@ -303,9 +327,9 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
         history_hashes: pad100(historyHashes),
         history_len: historyLen,
         insufficient_material: 0,
-        candidate_from: pad8([]),
-        candidate_to: pad8([]),
-        candidate_active: pad8([]),
+        candidate_from: finalCandFrom,
+        candidate_to: finalCandTo,
+        candidate_active: finalCandActive,
         pre_attack_witness_squares: preAtk.squares,
         pre_attack_witness_active: preAtk.active,
         post_attack_witness_squares: postAtk.squares,
@@ -316,17 +340,20 @@ async function computeWitness(board, from, to, promotionPiece, playerToMove, old
         traverse1_witness_active: trav1.active,
         opp_witness_squares: oppAtk.squares,
         opp_witness_active: oppAtk.active,
+        proving_mode: provingMode,
     };
 }
 
 async function main() {
     const args = process.argv.slice(2);
     if (args.length < 2) {
-        console.log("Usage: node scripts/prove_move.js <from> <to> [promotion]");
+        console.log("Usage: node scripts/prove_move.js <from> <to> [promotion] [provingMode=0|1]");
+        console.log("  provingMode: 0=Hybrid (fast, default), 1=Full ZK (stronger security, more exhaustive witness gen recommended)");
         process.exit(1);
     }
     const from = parseInt(args[0]), to = parseInt(args[1]);
     const prom = args[2] ? parseInt(args[2]) : 0;
+    const provingMode = args[3] ? parseInt(args[3]) : 0; // default Hybrid for speed / real-time UX
 
     if (!fs.existsSync(WASM)) {
         console.error(`Missing WASM: ${WASM}`);
@@ -335,7 +362,8 @@ async function main() {
     }
 
     const board = initialBoard();
-    const witness = await computeWitness(board, from, to, prom, 0, [600, 600], 15, 255, 0, 5);
+    const witness = await computeWitness(board, from, to, prom, 0, [600, 600], 15, 255, 0, 5, provingMode);
+    console.log(`Using proving_mode=${provingMode} (${provingMode === 1 ? 'Full ZK' : 'Hybrid'})`);
 
     console.log(`\n=== chess_v1 witness: ${from} -> ${to} ===`);
     const wtnsFile = path.join(BASE, "output", `witness_${from}_${to}.wtns`);

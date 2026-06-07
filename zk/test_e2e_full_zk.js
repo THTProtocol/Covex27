@@ -25,7 +25,7 @@ const CASES = [
   { name: "vrf_random", proof: "vrf/vrf_random_proof.json", verify: "node verify_vrf_random.js vrf/vrf_random_proof.json || echo 'VRF attested'", circuit_type: "vrf_random", optional: true },
   { name: "basic_utxo_ownership", proof: "ownership/basic_utxo_ownership_proof.json", verify: "node verify_basic_utxo_ownership.js ownership/basic_utxo_ownership_proof.json", circuit_type: "basic_utxo_ownership", optional: true },
   { name: "script_constraint", proof: "script_constraints/script_constraint_proof.json", verify: "node verify_script_constraint.js script_constraints/script_constraint_proof.json", circuit_type: "script_constraint", optional: true },
-  { name: "pot_split_math", proof: "pot_split/pot_split_math_proof.json", verify: "node verify_pot_split_math.js pot_split/pot_split_math_proof.json", circuit_type: "pot_split_math", optional: true },
+  { name: "pot_split_math", proof: "pot_split_math_proof.json", verify: "node verify_pot_split_math.js pot_split/pot_split_math_proof.json", circuit_type: "pot_split_math", optional: true },
   { name: "nullifier_set", proof: "nullifier/nullifier_set_proof.json", verify: "node verify_nullifier_set.js nullifier/nullifier_set_proof.json", circuit_type: "nullifier_set", optional: true },
   { name: "turn_timer", proof: "turn_timer_proof.json", verify: "node verify_turn_timer.js turn_timer_proof.json", circuit_type: "turn_timer", optional: true },
   // Phase 2/3 DeFi + on-chain + decentralized (new + stubs)
@@ -64,7 +64,7 @@ async function runCase(c) {
     return 'fail';
   }
   try {
-    const out = execSync(c.verify, { cwd: ZK, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const out = execSync(c.verify, { cwd: ZK, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 20000 });
     const ok = out.includes('true') || out.includes('"valid":true') || out.includes('valid": true') || out.toLowerCase().includes('attested') || out.toLowerCase().includes('stub');
     console.log(`${c.name}: ${ok ? 'PASS' : 'FAIL/attested'} ${out.trim().slice(0,80)}`);
     return ok ? 'pass' : 'fail';

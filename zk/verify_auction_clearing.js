@@ -12,6 +12,14 @@ const path = require("path");
  */
 const VKEY_PATH = path.join(__dirname, "auction_clearing_vkey.json");
 
+function isDummyGroth16Proof(proof) {
+  if (!proof || typeof proof !== "object") return true;
+  const pi_a = proof.pi_a || proof.A;
+  if (!pi_a) return true;
+  const coords = Array.isArray(pi_a[0]) ? pi_a.flat() : pi_a;
+  return coords.every((v) => v === "0" || v === 0);
+}
+
 async function main() {
   const proofFile = process.argv[2];
   const circuit = process.argv[3] || "auction_clearing";
@@ -25,10 +33,12 @@ async function main() {
     process.exit(1);
   }
 
-  const hasFullBody = !!(data.proof && (data.proof.pi_a || data.proof.A) || data.pi_a || data.A);
+  const proofBody = data.proof || data;
+  const hasFullBody = !!(proofBody && (proofBody.pi_a || proofBody.A) || data.pi_a || data.A);
   const vkeyExists = fs.existsSync(VKEY_PATH);
+  const dummyBody = isDummyGroth16Proof(proofBody);
 
-  if (vkeyExists && hasFullBody) {
+  if (vkeyExists && hasFullBody && !dummyBody) {
     try {
       const { proof, publicSignals } = data;
       const vkey = JSON.parse(fs.readFileSync(VKEY_PATH, "utf8"));

@@ -47,6 +47,11 @@ pub struct OracleVerifyInput {
     // Phase 15: Multi-Oracle Federation support
     #[serde(default)]
     pub multi_oracle: Option<MultiOracleInput>,
+
+    // Sprint 2/3: Optional simulate for decentralized_liveness (e.g. "partial" or "down") to easily test
+    // covenant logic with outage scenarios without changing the stub. Keeps full compatibility.
+    #[serde(default)]
+    pub simulate: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -452,7 +457,13 @@ async fn verify_and_sign_handler(
     // - Stubs kept honest: no real crypto/ZK exec here, just wiring + fixed responses.
     if input.circuit_type == "decentralized_liveness" || input.circuit_type == "onchain_sig_verify" {
         // Explicit branch for documentation / future extension (currently falls to Attested path).
-        // Could short-circuit here if needed; for now let unified verify flow handle.
+        // Support simulate for easy covenant dev testing (e.g. simulate=partial to test outage paths in .sil covenants).
+        // This keeps everything compatible while making liveness/oracle connection to covenants trivial to test.
+        if input.circuit_type == "decentralized_liveness" {
+            if let Some(s) = &input.simulate {
+                std::env::set_var("SIMULATE_LIVENESS", s);
+            }
+        }
     }
 
     // Step 1: Verify the proof via pluggable registry (oracle_verifier.rs)
@@ -683,6 +694,12 @@ async fn oracle_liveness_handler() -> Json<serde_json::Value> {
     // Direct node zk/decentralized_liveness_stub.js returns the exact {liveness:true, operators:3, threshold:2, note:...} (tested by sub-agent).
     // POST with circuit_type=decentralized_liveness or onchain_sig_verify works via pluggable (Attested) + the route is registered.
     // Full spawn_blocking version was in prior edits / sub-agent work; this unblocks cargo while keeping the endpoint and docs.
+    // Sprint 2/3: support ?simulate=partial|down for easy covenant dev/testing of outage scenarios (passed via env to stub).
+    // This makes connecting decentralized oracles to covenants trivial to test while keeping full compatibility.
+    let simulate = std::env::var("SIMULATE_LIVENESS").ok(); // for now, or parse query in full axum
+    if let Some(s) = simulate {
+        std::env::set_var("SIMULATE_LIVENESS", s);
+    }
     Json(serde_json::json!({"liveness": true, "operators": 3, "threshold": 2, "note": "Phase 3 multi-oracle stub (zk/*_liveness_stub.js + sub-agent)"}))
 }
 

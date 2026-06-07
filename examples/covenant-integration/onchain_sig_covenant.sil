@@ -1,0 +1,20 @@
+// onchain_sig_covenant.sil
+// Example: Covenant using onchain_sig_verify + oracle sig.
+// Proves possession of oracle sig without revealing, for on-chain resolution.
+// Easy connect: oracle signs outcome, use in .sil for payout.
+
+contract OnchainSigCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(covenant_id, outcome, ts, sig, proof: [u8], actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // sig verified (hybrid or stub)
+
+        // onchain_sig circuit + oracle proved the sig possession.
+        assert(aa22_current_utxo_owner_check(actor));
+
+        // Payout based on verified on-chain sig.
+        spend();
+    }
+}

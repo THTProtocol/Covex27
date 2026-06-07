@@ -1,0 +1,22 @@
+// decentralized_liveness_covenant.sil
+// Example: Covenant that requires multi-oracle liveness check before resolution.
+// Uses decentralized_liveness circuit_type (attested via stub), oracle sig + liveness data.
+// Easy to test with simulate=partial|down via the stub for covenant dev.
+
+contract DecentralizedLivenessCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(covenant_id, outcome, ts, sig, liveness_operators: u32, liveness_threshold: u32, actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // liveness healthy per the (stub) circuit
+
+        // The oracle (via decentralized_liveness) attested the multi-oracle was live.
+        // In real: the liveness data + sig can be used with on-chain checks.
+        assert(liveness_operators >= liveness_threshold);
+        assert(aa22_current_utxo_owner_check(actor));
+
+        // Payout or state change...
+        spend();
+    }
+}

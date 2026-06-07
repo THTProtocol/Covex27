@@ -42,17 +42,51 @@
               "enum": [
                 "merkle_membership",
                 "range_proof",
+                "hash_preimage",
+                "timelock_absolute",
+                "relative_timelock",
+                "turn_timer",
+                "basic_utxo_ownership",
+                "script_constraint",
+                "pot_split_math",
+                "nullifier_set",
+                "privacy_mixer_v1",
+                "chess_v1",
+                "tictactoe_v1",
+                "connect4_v1",
+                "auction_clearing",
+                "onchain_sig_verify",
                 "age_verification",
                 "verifiable_compute",
-                "chess_v1",
                 "custom"
               ]
             },
             "verifierKey": { "type": "string", "description": "On-chain or oracle verifier identifier" },
+            "provingMode": {
+              "type": "string",
+              "enum": ["full-zk", "hybrid", "oracle-attested"],
+              "default": "hybrid",
+              "description": "full-zk = strict Groth16; hybrid = Groth16 when proof body present else oracle attestation; oracle-attested = trust requested_outcome"
+            },
             "publicInputs": {
               "type": "object",
               "additionalProperties": true,
               "description": "Public inputs schema for the circuit"
+            },
+            "timelock": {
+              "type": "object",
+              "description": "User-configurable clock limits (maps to circuit public signals)",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["absolute", "relative", "turn_timer"],
+                  "description": "absolute = timelock_absolute; relative = relative_timelock; turn_timer = per-turn DAA window"
+                },
+                "lock_threshold_daa": { "type": "integer", "minimum": 0, "description": "timelock_absolute: current_daa must be >= this" },
+                "reference_daa": { "type": "integer", "minimum": 0, "description": "relative_timelock: anchor DAA" },
+                "lock_duration_daa": { "type": "integer", "minimum": 0, "description": "relative_timelock: minimum blocks since reference" },
+                "max_delta_daa": { "type": "integer", "minimum": 1, "description": "turn_timer: max blocks since last_move_daa" }
+              }
             }
           }
         },
@@ -96,7 +130,18 @@
           "properties": {
             "minStake": { "type": "integer" },
             "maxStake": { "type": "integer" },
-            "deadline": { "type": "string", "format": "date-time" }
+            "deadline": { "type": "string", "format": "date-time" },
+            "timelock": {
+              "type": "object",
+              "description": "Alias of resolution.circuit.timelock for covenant scripts",
+              "properties": {
+                "mode": { "type": "string", "enum": ["absolute", "relative", "turn_timer"] },
+                "lock_threshold_daa": { "type": "integer", "minimum": 0 },
+                "reference_daa": { "type": "integer", "minimum": 0 },
+                "lock_duration_daa": { "type": "integer", "minimum": 0 },
+                "max_delta_daa": { "type": "integer", "minimum": 1 }
+              }
+            }
           }
         }
       }

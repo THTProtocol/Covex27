@@ -1,0 +1,20 @@
+// financial_formula_covenant.sil
+// Example: On-chain financial computation (black_scholes approx, loan health) with oracle or RISC0.
+// Uses financial_formula or verifiable_poker_solver style + oracle sig.
+// Connects compute ZK/oracle to DeFi covenants easily.
+
+contract FinancialFormulaCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(covenant_id, outcome, ts, sig, computed_value: u64, threshold: u64, actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // formula valid (RISC0 stub or hybrid)
+
+        assert(computed_value >= threshold);
+        assert(aa22_current_utxo_owner_check(actor));
+
+        // Execute payout based on verified computation
+        spend();
+    }
+}

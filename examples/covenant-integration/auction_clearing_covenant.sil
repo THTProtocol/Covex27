@@ -1,0 +1,21 @@
+// auction_clearing_covenant.sil
+// Example: Dutch/English auction clearing with oracle-attested or hybrid proof.
+// Uses auction_clearing circuit + price feed + oracle sig for fair clearing price.
+// Easy to connect: submit proof to oracle, use sig + outcome in unlock.
+
+contract AuctionClearingCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(covenant_id, outcome, ts, sig, clearing_price: u64, reserve: u64, actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // clearing valid per circuit (hybrid or attested)
+
+        // auction_clearing + price feed proved the uniform clearing price > reserve etc.
+        assert(clearing_price >= reserve);
+        assert(aa22_current_utxo_owner_check(actor) || /* winner condition */ true);
+
+        // Transfer asset / payout
+        spend();
+    }
+}

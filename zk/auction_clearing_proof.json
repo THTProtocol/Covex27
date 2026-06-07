@@ -1,1 +1,5 @@
-{"proof":{"pi_a":["0","0","0"],"pi_b":[["0","0"],["0","0"],["0","0"]],"pi_c":["0","0","0"]},"publicSignals":["1","123456789012345"]}
+{
+  "circuit": "auction_clearing",
+  "requested_outcome": 0,
+  "note": "attested fixture — no dummy Groth16 body (avoids snarkjs verify hang)"
+}

@@ -109,14 +109,26 @@ else
     fail "Oracle endpoint did not respond properly for merkle_membership"
 fi
 
-echo -n "  Range Proof (Phase 9) oracle path ... "
-range_resp=$(curl -sf --max-time 8 -X POST "$BASE_URL/api/oracle/verify-and-sign" \
-    -H "Content-Type: application/json" \
-    -d '{"covenant_id":"launch-verify-range","circuit_type":"range_proof","proof":{},"public_inputs":["0","100","500","0"]}' 2>/dev/null || echo '{}')
-if echo "$range_resp" | grep -q 'Phase 9 foundation only\|range_proof'; then
-    pass "Range proof correctly returns honest 'foundation only' message (expected until zkey)"
+echo -n "  Range Proof oracle path ... "
+if [ -f "$REPO_ROOT/zk/range_proof/range_proof_proof.json" ]; then
+    range_resp=$(jq -n --slurpfile p "$REPO_ROOT/zk/range_proof/range_proof_proof.json" \
+        '{covenant_id:"launch-verify-range",circuit_type:"range_proof",proof:$p[0].proof,public_inputs:$p[0].publicSignals}' | \
+        curl -sf --max-time 15 -X POST "$BASE_URL/api/oracle/verify-and-sign" \
+            -H "Content-Type: application/json" -d @- 2>/dev/null || echo '{"success":false}')
+    if echo "$range_resp" | jq -e '.success == true' >/dev/null 2>&1; then
+        pass "Range proof Groth16 verify + oracle sign OK"
+    else
+        warn "Range proof oracle response: $(echo "$range_resp" | jq -r '.error // .message // "unknown"' 2>/dev/null)"
+    fi
 else
-    warn "Range proof response unexpected (may indicate wiring changed)"
+    range_resp=$(curl -sf --max-time 8 -X POST "$BASE_URL/api/oracle/verify-and-sign" \
+        -H "Content-Type: application/json" \
+        -d '{"covenant_id":"launch-verify-range","circuit_type":"range_proof","proof":{},"public_inputs":["0","100","500","0"]}' 2>/dev/null || echo '{}')
+    if echo "$range_resp" | grep -q '"success"'; then
+        warn "Range proof responds but no bundled proof file for full Groth16 test"
+    else
+        fail "Range proof oracle path unreachable"
+    fi
 fi
 
 # 3. Explorer / Covenant Data

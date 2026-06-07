@@ -447,8 +447,8 @@ async fn verify_and_sign_handler(
             }
         },
         "range_proof" => {
-            // Phase 12: Wired to real snarkjs verifier (zk/verify_range.js).
-            // Full functionality requires range_proof_final.zkey + vkey (ceremony pending).
+            // Wired to snarkjs verifier (zk/verify_range.js + range_proof_vkey.json).
+            // Dev 2-step PTAU ceremony — not multi-party production.
             match verify_range_proof_async(input.proof.clone(), input.public_inputs.clone()).await {
                 Ok(true) => true,
                 Ok(false) => {
@@ -723,10 +723,9 @@ async fn verify_and_sign_handler(
     } else if input.circuit_type == "merkle_membership" {
         if input.public_inputs.len() >= 1 && input.public_inputs[0] == "1" { 0 } else { 1 }
     } else if input.circuit_type == "range_proof" {
-        // For range: publicSignals typically [commitment, min, max, valid]
-        if let Some(last) = input.public_inputs.last() {
-            if last == "1" { 0 } else { 1 }
-        } else { 1 }
+        // publicSignals from snarkjs: [valid, commitment, min, max]
+        let valid_ok = input.public_inputs.first().map(|s| s.as_str()) == Some("1");
+        if valid_ok { 0 } else { 1 }
     } else if input.circuit_type == "chess_v1" {
         // ZK public input game_status (index 8): 0=ongoing, 1=white wins, 2=black wins, 3=draw
         if proof_has_groth16_body(&input.proof) && input.public_inputs.len() >= 9 {

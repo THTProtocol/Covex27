@@ -24,9 +24,7 @@ async function main() {
     if (!fs.existsSync(VKEY_PATH)) {
         console.log(JSON.stringify({ 
             valid: false, 
-            error: "Range proof vkey not found at " + VKEY_PATH + 
-                   ". Full zkey generation is still pending (Phase 12). " +
-                   "This verifier is ready — just needs the vkey from ceremony." 
+            error: "Range proof vkey not found at " + VKEY_PATH 
         }));
         process.exit(0);
     }

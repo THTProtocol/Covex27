@@ -15,11 +15,11 @@
  *   1. node prove_range_proof.js   (will compute witness + attempt prove if zkey present)
  *   2. The resulting range_proof_proof.json can be fed to the oracle (circuit_type=range_proof)
  *
- * Public signals order for this circuit (MUST match component main public [...]):
- *   [0] commitment (MiMC7(value))
- *   [1] min
- *   [2] max
- *   [3] valid (1 or 0)
+ * Public signals order from snarkjs Groth16 prove:
+ *   [0] valid (1 or 0)
+ *   [1] commitment (MiMC7(value))
+ *   [2] min
+ *   [3] max
  *
  * Private witness: { value }
  */
@@ -27,7 +27,7 @@
 const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
+const mimcjs = require("circomlibjs");
 
 const ZK_DIR = __dirname;
 const RANGE_DIR = path.join(ZK_DIR, "range_proof");
@@ -66,29 +66,26 @@ async function main() {
     }
 
     // === Real path (when artifacts present) ===
-    process.stdout.write("STEP 1: Compute MiMC7(SECRET_VALUE) locally (for commitment)\n");
-    // We would normally use the hash helper or call into wasm, but for skeleton we document it.
-    // In real flow the witness calculator will run the MiMC inside the circuit.
-    process.stdout.write("   (MiMC computed inside circuit during witness calculation)\n\n");
+    process.stdout.write("STEP 1: Compute MiMC7(SECRET_VALUE) for commitment\n");
+    const m = await mimcjs.buildMimc7();
+    const commitment = m.F.toObject(m.hash(m.F.e(SECRET_VALUE), m.F.zero)).toString();
+    process.stdout.write("   commitment = " + commitment + "\n\n");
 
     process.stdout.write("STEP 2: Generate witness\n");
     const input = {
-        commitment: "0", // placeholder — real flow computes inside or pre-computes consistently
+        commitment,
         min: MIN.toString(),
         max: MAX.toString(),
         value: SECRET_VALUE.toString()
     };
-    // NOTE: In a real execution the commitment MUST be the correct MiMC of value.
-    // The circuit will enforce it. For this skeleton we proceed symbolically.
 
     const wtnsPath = path.join(RANGE_DIR, "range_witness.wtns");
     try {
         await snarkjs.wtns.calculate(input, WASM_PATH, wtnsPath);
         process.stdout.write("   Witness generated.\n");
     } catch (e) {
-        process.stdout.write("   Witness calculation failed (expected until real compiled wasm + correct commitment): " + e.message + "\n\n");
-        process.stdout.write("   This is normal for the Phase 9 foundation state.\n");
-        process.stdout.write("=== FOUNDATION DEMO COMPLETE (artifacts missing) ===\n");
+        process.stdout.write("   Witness calculation failed: " + e.message + "\n\n");
+        process.stdout.write("=== RANGE PROOF DEMO FAILED ===\n");
         return;
     }
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Terminal, Database, Search, ShieldCheck, Sparkles, Play,
-  Zap, Cpu, Coins, Clock, Filter, Layers, Eye, ArrowRight,
+  Zap, Cpu, Coins, Clock, Filter, Layers, Eye, ArrowRight, Crown, Star,
   ChevronRight, TrendingUp, Users
 } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
@@ -402,7 +402,11 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
           <p className="text-[11px] font-mono mt-0.5 text-gray-300 truncate">{truncate(c.tx_id, 8)}</p>
         </div>
         <div className="flex flex-col items-end gap-1 text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0 min-w-0">
-          {isPaidVerified && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">PAID VERIFIED</span>}
+          {isPaidVerified && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono flex items-center gap-1">
+            {tier === 'MAX' && <Crown size={10} />}
+            {tier === 'PRO' && <Star size={10} />}
+            {tier === 'BUILDER' && <Terminal size={10} />}
+            PAID VERIFIED</span>}
           {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
           <div className="flex items-center gap-1.5">
             {isOwner && (

@@ -23,8 +23,8 @@ const NET_TREASURIES = {
   'mainnet': 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2' // real mainnet treasury (from env in prod)
 };
 
-function getTreasuryForNet(net: string): string {
-  return NET_TREASURIES[net as keyof typeof NET_TREASURIES] || NET_TREASURIES['testnet-12'];
+function getTreasuryForNet(net) {
+  return NET_TREASURIES[net] || NET_TREASURIES['testnet-12'];
 }
 
 export default function PremiumBuilder() {

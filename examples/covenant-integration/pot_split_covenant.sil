@@ -1,0 +1,20 @@
+// pot_split_covenant.sil
+// Fair pot + fee + winner share split proven by pot_split_math (or attested).
+// Combine with poker_vrf_deal / auction_clearing for complete game covenants.
+
+contract PotSplitCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(covenant_id: [u8;32], outcome: u32, ts: i64, sig: [u8;64], pot: u64, winner_share: u64, fee: u64, actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // split is fair according to circuit
+
+        // The ZK (or oracle) already proved winner_share + fee == pot (modulo rounding rules)
+        // On-chain you can still assert basic arithmetic or rely on the attestation.
+
+        assert(aa22_current_utxo_owner_check(actor));
+        // distribute(pot, winner_share, fee);
+        spend();
+    }
+}

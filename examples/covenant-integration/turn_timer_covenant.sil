@@ -1,0 +1,51 @@
+// turn_timer_covenant.sil
+// Example: Only the current player can act before the turn timer expires.
+// Uses: turn_timer circuit (or attested), Covex oracle sig, DAA relative timelock (aa20+), current UTXO ownership.
+//
+// Flow:
+// 1. Off-chain: generate turn_timer proof or just request outcome=0 (your turn).
+// 2. POST to covex oracle with covenant_id + circuit_type=turn_timer + proof/requested_outcome.
+// 3. Receive signed message + sig.
+// 4. In unlock: provide the sig + public signals as witness. Script checks:
+//    - Oracle pubkey signed the (covenant_id, outcome=0, ts)
+//    - Current time (DAA) is before deadline encoded in public signals
+//    - The spender controls the current "actor" UTXO (schnorr / script_constraint match)
+//
+// This is the canonical pattern for all Covex circuits.
+
+opcode aa20_relative_timelock_check(deadline_daa: u64) { ... }  // or use native DAA height
+opcode aa21_oracle_sig_check(oracle_pubkey: [u8;32], msg: [u8], sig: [u8;64]) -> bool { ... }
+opcode aa22_current_utxo_owner_check(expected_pubkey: [u8;32]) { ... }
+
+contract TurnTimerCovenant {
+    oracle_pub: [u8; 32] = 0x...dev_oracle...;   // or decentralized set later
+
+    fn unlock(
+        covenant_id: [u8; 32],
+        outcome: u32,           // 0 = your turn is valid
+        ts: i64,
+        oracle_sig: [u8; 64],
+        turn_deadline_daa: u64,
+        actor_pubkey: [u8; 32],
+        // plus any ZK public signals / proof elements if doing on-chain verify later
+    ) {
+        // 1. Oracle attested the outcome for this covenant (easy drop-in)
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, oracle_sig));
+
+        // 2. Outcome must be the "success" value for this circuit (0 = timer allows action)
+        assert(outcome == 0);
+
+        // 3. Timelock not expired (relative DAA from some anchor or absolute)
+        assert(aa20_relative_timelock_check(turn_deadline_daa));
+
+        // 4. Spender is the current actor (UTXO ownership / script match)
+        assert(aa22_current_utxo_owner_check(actor_pubkey));
+
+        // 5. (Optional) If you have a real turn_timer Groth proof, verify it here too
+        //    (when partial ZK opcodes land).
+
+        // Payout / state transition happens...
+        spend();
+    }
+}

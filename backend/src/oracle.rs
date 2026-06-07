@@ -90,6 +90,11 @@ pub struct OracleVerifyOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     pub public_inputs: Vec<String>,
+    // Covenant-friendly extras (added for easy ZK+oracle integration into SilverScript covenants)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub circuit_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub covenant_hint: Option<String>,
 }
 
 /// Build the oracle routes.
@@ -425,6 +430,8 @@ async fn verify_and_sign_handler(
                     message: None,
                     error: Some("Nullifier already spent — double-withdraw rejected".to_string()),
                     public_inputs: input.public_inputs,
+                    circuit_type: None,
+                    covenant_hint: None,
                 });
             }
         }
@@ -473,6 +480,8 @@ async fn verify_and_sign_handler(
                 input.circuit_type
             )),
             public_inputs: input.public_inputs,
+            circuit_type: Some(input.circuit_type.clone()),
+            covenant_hint: None,
         });
     }
     let _valid = true;
@@ -535,6 +544,8 @@ async fn verify_and_sign_handler(
                     valid_weight, multi.signatures.len(), threshold
                 )),
                 public_inputs: input.public_inputs,
+                circuit_type: Some(input.circuit_type.clone()),
+                covenant_hint: None,
             });
         }
 
@@ -572,6 +583,12 @@ async fn verify_and_sign_handler(
         message: Some(message),
         error: None,
         public_inputs: input.public_inputs,
+        // Extra fields for easy covenant integration (ZK + oracle sig drop-in for SilverScript/aa20+)
+        circuit_type: Some(input.circuit_type.clone()),
+        covenant_hint: Some(format!(
+            "Use signature + outcome for covenant_id '{}'. Check against Covex oracle pubkey. circuit={}",
+            input.covenant_id, input.circuit_type
+        )),
     })
 }
 

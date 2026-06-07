@@ -42,3 +42,14 @@ export KASPA_NETWORK=testnet-12
 export KASPA_WRPC_URL=ws://127.0.0.1:17217
 ./target/release/covex27-backend
 ```
+
+## Covenant Integration (NEW — the whole point of Covex)
+See `covenant-integration/README.md` for the **5-minute guide** to dropping any ZK circuit + Covex oracle signature into a real Kaspa SilverScript covenant.
+
+Includes:
+- Standardized oracle response (now includes `circuit_type` + `covenant_hint`)
+- Ready-to-paste `.sil` templates (turn_timer, pot_split, collateral_auction, poker_vrf, plus the earlier chess + utxo ones)
+- `zk/covenant-helper.js` — feed it an oracle response and it prints witnesses + code snippets
+- How the pluggable verifier + uniform verify scripts keep everything compatible when you add new circuits
+
+All the pieces (oracle, E2E, frontend, artifacts, registry) are designed so that **new circuits just work** with the covenant flow.

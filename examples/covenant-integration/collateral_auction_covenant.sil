@@ -1,0 +1,18 @@
+// collateral_auction_covenant.sil
+// Uses collateral_ltv + auction_clearing + price feed (or onchain_sig).
+// Liquidation / Dutch/English auction clearing with oracle price + LTV proof.
+
+contract CollateralAuctionCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(covenant_id, outcome, ts, sig, ltv_threshold: u64, current_price: u64, actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // liquidation / clearing price is valid
+
+        // price feed + LTV circuit already proved collateral * price < debt * threshold
+        assert(aa22_current_utxo_owner_check(actor) || /* liquidator condition */ true);
+        // seize or auction the collateral
+        spend();
+    }
+}

@@ -354,3 +354,12 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Git: pushed 5ee7250 (or latest), Hetzner reset, no lock issues after clean.
 - Sense: all SHAs align, versions 1.1.0, counts good (9 .sil, 34 verify), stales only docs (historical), E2E 26p with expansion, oracles/mixer good, chess monitoring, RISC0 stubs.
 - P1 advanced: expansion + more oracles + full sync/push verified, everything makes sense and building.
+## P1 This Continue (sync round)
+- Hetzner synced to 2dda041 (latest after push).
+- E2E on Hetzner: re-confirms 26 pass /0 fail/10 skip (new circuits exercised).
+- Local E2E: expanded cases active (loan_health etc.).
+- Mixer: live 3/2, Hetzner roots consistent post-reset.
+- More oracles tested in prior.
+- Git: 2dda041 pushed, SHAs match, everything up-to-date.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales 3 in docs (ok), E2E 26p with real/hybrid for 3 + more oracles, mixer real, oracles good, chess monitoring, RISC0 stubs, triple-sync clean.
+- P1 advanced: expansion + sync verified, building continues.

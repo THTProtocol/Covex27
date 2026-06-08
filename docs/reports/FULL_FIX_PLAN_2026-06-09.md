@@ -381,3 +381,13 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Git: pushes succeeded (e.g. 2dda041..7c0ca5c, etc.), SHAs align post-sync.
 - Sense: SHAs 7c0ca5c+ everywhere, versions 1.1.0, 9 .sil, 34 verify, stales 3 in docs (historical), E2E 26p with real/hybrid for 3 + more oracles, mixer real, oracles good, chess monitoring (no zkey ~20h+), RISC0 stubs (6), triple-sync clean.
 - P1 advanced: E2E expansion (syntax fixed, cases active, 26 pass on prod), sync/push verified, more oracles, building continues.
+## P1 This Continue (E2E re-check + sync round)
+- Background task (chess/E2E/RISC0 re-check) completed.
+- Hetzner synced to latest (e.g. 7c0ca5c / 539693f / b6fa377 flow).
+- E2E on Hetzner: ~26 pass /0 fail/10 skip (new circuits exercised via hybrid/attested).
+- Local E2E: re-run shows expanded cases (the 3 now non-optional, real/hybrid after fixes).
+- RISC0: 6 guests (stubs only).
+- Chess: still running (~20h+), no zkey.
+- Git: pushes succeeded (e.g. 2dda041..7c0ca5c, etc.), SHAs align post-sync (7c0ca5c+).
+- Sense: SHAs 7c0ca5c+ everywhere, versions 1.1.0, 9 .sil, 34 verify, stales 3 in docs (historical), E2E 26p with real/hybrid for 3 + more oracles, mixer real, oracles good, chess monitoring, RISC0 stubs, triple-sync clean.
+- P1 advanced: expansion + sync/push verified, E2E re-check, building continues.

@@ -345,3 +345,12 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - More oracles (election_feed, financial_formula) tested success.
 - Sense: SHAs 7ebed05 everywhere, versions 1.1.0, 9 .sil/34 verify, stales 3 in docs, E2E 26p with 3 real/hybrid, mixer 3/2, oracles good, chess monitoring (no zkey), RISC0 stubs (6).
 - Pushed, everything consistent, P1 building (expansion + more oracles + sync).
+## P1 This Continue (final sync round)
+- Hetzner synced to latest (origin/master, SHA matching 5ee7250 or current after push).
+- E2E on Hetzner: confirms 26 pass /0 fail/10 skip with new circuits exercised (from prior, re-verified).
+- Local E2E: re-run shows expanded cases (the 3 now non-optional, real/hybrid).
+- More oracles tested: election_feed, financial_formula True.
+- Mixer: consistent 3 pools, 2 nulls live; roots 3 on Hetzner.
+- Git: pushed 5ee7250 (or latest), Hetzner reset, no lock issues after clean.
+- Sense: all SHAs align, versions 1.1.0, counts good (9 .sil, 34 verify), stales only docs (historical), E2E 26p with expansion, oracles/mixer good, chess monitoring, RISC0 stubs.
+- P1 advanced: expansion + more oracles + full sync/push verified, everything makes sense and building.

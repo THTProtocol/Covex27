@@ -872,6 +872,20 @@ export default function CovexTerminal({ covenant }) {
   const [showFullScreenChess, setShowFullScreenChess] = useState(false);
   // Chess proving mode (0=Hybrid fast <15s target with witnessed candidates/attacks; 1=Full ZK stronger, more exhaustive witness gen)
   const [chessProvingMode, setChessProvingMode] = useState(0);
+  // Covenant timelock / clock params (maps to resolution.circuit.timelock in covenant-config schema)
+  const [timelockMode, setTimelockMode] = useState('turn_timer'); // absolute | relative | turn_timer
+  const [maxDeltaDaa, setMaxDeltaDaa] = useState(300);
+  const [lockDurationDaa, setLockDurationDaa] = useState(1000);
+  const [lockThresholdDaa, setLockThresholdDaa] = useState(0);
+  const [referenceDaa, setReferenceDaa] = useState(0);
+
+  const buildTimelockConfig = useCallback(() => {
+    const base = { mode: timelockMode };
+    if (timelockMode === 'turn_timer') return { ...base, max_delta_daa: maxDeltaDaa };
+    if (timelockMode === 'relative') return { ...base, reference_daa: referenceDaa, lock_duration_daa: lockDurationDaa };
+    if (timelockMode === 'absolute') return { ...base, lock_threshold_daa: lockThresholdDaa };
+    return base;
+  }, [timelockMode, maxDeltaDaa, lockDurationDaa, lockThresholdDaa, referenceDaa]);
   // Claim payout state (implemented: real compute-payout endpoint)
   const [payoutResult, setPayoutResult] = useState(null);
   const [payoutLoading, setPayoutLoading] = useState(false);
@@ -1407,7 +1421,8 @@ ${gameMeta.outcomeBranches}
     const proofPayload = {
       covenant_id: covenantId,
       circuit_type: 'chess_v1',
-      proving_mode: chessProvingMode, // 0=Hybrid, 1=Full ZK (passed to oracle for metadata and proof context)
+      proving_mode: chessProvingMode,
+      timelock: buildTimelockConfig(),
       proof: {
         // For real ZK this would be the Groth16 {pi_a, pi_b, pi_c}
         // For now: the result + client proof that chess.js validated the full game
@@ -1547,6 +1562,11 @@ ${gameMeta.outcomeBranches}
           if (cfg.custom_oracle_key) setCustomOracleKey(cfg.custom_oracle_key);
           if (cfg.zk_circuit) setZkCircuit(cfg.zk_circuit);
           if (cfg.zk_circuit === 'chess_v1' && typeof cfg.proving_mode === 'number') setChessProvingMode(cfg.proving_mode);
+          if (cfg.timelock?.mode) setTimelockMode(cfg.timelock.mode);
+          if (cfg.timelock?.max_delta_daa != null) setMaxDeltaDaa(cfg.timelock.max_delta_daa);
+          if (cfg.timelock?.lock_duration_daa != null) setLockDurationDaa(cfg.timelock.lock_duration_daa);
+          if (cfg.timelock?.lock_threshold_daa != null) setLockThresholdDaa(cfg.timelock.lock_threshold_daa);
+          if (cfg.timelock?.reference_daa != null) setReferenceDaa(cfg.timelock.reference_daa);
           if (cfg.zk_verifier_key) setZkVerifierKey(cfg.zk_verifier_key);
           if (data.ui_html) setCustomUICode(data.ui_html);
         } else {
@@ -1655,7 +1675,8 @@ ${gameMeta.outcomeBranches}
         custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
         zk_circuit: zkCircuit,
         zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1_AUDITED' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_AUDITED_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1_AUDITED' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
-        ...(zkCircuit === 'chess_v1' ? { proving_mode: chessProvingMode } : {}), // persist chess proving mode (0 hybrid / 1 full) in terminal config
+        ...(zkCircuit === 'chess_v1' ? { proving_mode: chessProvingMode } : {}),
+        timelock: buildTimelockConfig(),
         oracle_proof: JSON.stringify(proofObj),
         oracle_public_inputs: JSON.stringify(publicInputs),
         network: kaspaNetwork, // tn12 / tn10 / mainnet - fully isolated data per network
@@ -1745,6 +1766,7 @@ ${gameMeta.outcomeBranches}
       custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
       zk_circuit: resolutionMode === 'zk' ? zkCircuit : null,
       zk_verifier_key: resolutionMode === 'zk' ? zkVerifierKey : null,
+      ...(resolutionMode === 'zk' ? { proving_mode: zkCircuit === 'chess_v1' ? chessProvingMode : undefined, timelock: buildTimelockConfig() } : {}),
       signer_address: addr || undefined,
       signature: sig || undefined,
       nonce: nonce || undefined,
@@ -1770,6 +1792,7 @@ ${gameMeta.outcomeBranches}
   }, [
     covenantId, gameType, name, description, feePercent, reusable, allowTopups,
     customUICode, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey,
+    chessProvingMode, buildTimelockConfig,
   ]);
 
   // ── Apply Custom UI (also triggers save) ──
@@ -2281,6 +2304,39 @@ ${gameMeta.outcomeBranches}
                 />
                 {!zkVerifierKey && zkCircuit === 'custom' && (
                   <p className="text-[10px] text-amber-400/80 mt-1">Custom circuits require a verifier key. Paste your audited key or select a known circuit above.</p>
+                )}
+              </div>
+              <div className="p-3 rounded-xl bg-black/30 border border-orange-500/20 space-y-2">
+                <p className="text-[11px] text-orange-200/90 font-semibold">Timelock / Clock (DAA)</p>
+                <p className="text-[10px] text-gray-400">Maps to covenant-config <code className="text-orange-300/80">resolution.circuit.timelock</code> and turn_timer / relative_timelock circuits.</p>
+                <select value={timelockMode} onChange={(e) => setTimelockMode(e.target.value)} className={`${INPUT} text-xs`}>
+                  <option value="turn_timer">Per-turn window (turn_timer)</option>
+                  <option value="relative">Relative DAA lock (relative_timelock)</option>
+                  <option value="absolute">Absolute DAA threshold (timelock_absolute)</option>
+                </select>
+                {timelockMode === 'turn_timer' && (
+                  <div>
+                    <p className={LABEL}>max_delta_daa (blocks since last move)</p>
+                    <input type="number" min={1} value={maxDeltaDaa} onChange={(e) => setMaxDeltaDaa(parseInt(e.target.value, 10) || 300)} className={`${INPUT} font-mono text-xs`} />
+                  </div>
+                )}
+                {timelockMode === 'relative' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className={LABEL}>reference_daa</p>
+                      <input type="number" min={0} value={referenceDaa} onChange={(e) => setReferenceDaa(parseInt(e.target.value, 10) || 0)} className={`${INPUT} font-mono text-xs`} />
+                    </div>
+                    <div>
+                      <p className={LABEL}>lock_duration_daa</p>
+                      <input type="number" min={0} value={lockDurationDaa} onChange={(e) => setLockDurationDaa(parseInt(e.target.value, 10) || 1000)} className={`${INPUT} font-mono text-xs`} />
+                    </div>
+                  </div>
+                )}
+                {timelockMode === 'absolute' && (
+                  <div>
+                    <p className={LABEL}>lock_threshold_daa</p>
+                    <input type="number" min={0} value={lockThresholdDaa} onChange={(e) => setLockThresholdDaa(parseInt(e.target.value, 10) || 0)} className={`${INPUT} font-mono text-xs`} />
+                  </div>
                 )}
               </div>
             </div>

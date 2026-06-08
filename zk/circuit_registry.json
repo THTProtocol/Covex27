@@ -96,6 +96,14 @@
       "note": "Double-spend prevention + privacy set membership."
     },
     {
+      "id": "nullifier_v1",
+      "category": "privacy",
+      "reality": "hybrid",
+      "artifacts": true,
+      "script": "prove_nullifier_v1.js",
+      "note": "Standalone MiMC nullifier bind (nullifier/nullifier_v1.circom). Dev zkey pot10."
+    },
+    {
       "id": "pot_split_math",
       "category": "kaspa",
       "reality": "hybrid",

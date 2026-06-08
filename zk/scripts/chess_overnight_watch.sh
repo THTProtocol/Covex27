@@ -47,10 +47,10 @@ log "Running finish_phase2.sh..."
 bash "$FINISH" >> "$LOG" 2>&1
 log "finish_phase2 complete"
 
-# Restart kaspad watchdog after chess done
-if [[ -x /home/kasparov/kaspa/watchdog.sh ]]; then
-  log "Restarting kaspad watchdog..."
-  nohup /home/kasparov/kaspa/watchdog.sh >> /home/kasparov/kaspa/logs/watchdog.log 2>&1 &
+POST="$ROOT/games/chess/scripts/post_chess_finish.sh"
+if [[ -x "$POST" ]]; then
+  log "Running post_chess_finish.sh..."
+  bash "$POST" >> "$LOG" 2>&1 || log "WARN: post_chess_finish failed (see log)"
 fi
 
 log "=== overnight watch done ==="

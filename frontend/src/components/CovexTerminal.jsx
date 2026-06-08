@@ -1465,7 +1465,7 @@ ${gameMeta.outcomeBranches}
       setChessProofHash(simulatedHash);
       setChessZkVerified(true);
     }
-  }, [chessResult, chessGame, covenantId]);
+  }, [chessResult, chessGame, covenantId, chessProvingMode, buildTimelockConfig]);
 
   // ── Real claimPayout - calls backend compute-payout endpoint ──
   const claimPayout = useCallback(async () => {

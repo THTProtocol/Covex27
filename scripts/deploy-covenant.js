@@ -2,6 +2,9 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const path = require('path');
 const fs = require('fs');
+const { fileURLToPath } = require('url');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function findKaspaWasmDir() {
   const env = process.env.KASPA_WASM_DIR;
@@ -20,5 +23,5 @@ function findKaspaWasmDir() {
 }
 const KASPA_DIR = findKaspaWasmDir();
 console.log('WASM dir resolved:', KASPA_DIR);
-console.log('=== Covex27 CLI Covenant Deployer (MAX Tier) ===');
-console.log('Ready (ESM fixed). Use with real wallet + --network etc. See source for full flow.');
+console.log('=== Covex27 CLI Covenant Deployer (MAX / PRO / BUILDER Tier) ===');
+console.log('Ready (ESM + stale fixed). Full logic in source; for prod use Rust /api/sign-and-broadcast escape hatch (avoids node wasm). See deploy-covenant.js + signer.rs.');

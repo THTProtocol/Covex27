@@ -490,7 +490,7 @@ export default function CovenantInteractive() {
             <div className="p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
               <Cpu size={32} />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {covenant.name || TRUNC(covenant.tx_id)}
               </h1>
@@ -501,6 +501,16 @@ export default function CovenantInteractive() {
                 <span className="text-sm text-gray-300 font-mono">{covenant.category || 'General'}</span>
               </div>
             </div>
+
+            {/* PROMINENT "FIX" BUTTON ON TOP — for creators only, right next to title. This is what user asked for. */}
+            {isCreator && (
+              <Link
+                to={`/covenant/${encodeURIComponent(id)}/fix`}
+                className="ml-auto px-6 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all border border-purple-400/30"
+              >
+                <Palette size={16} /> FIX LOOKS + STAKE
+              </Link>
+            )}
           </div>
 
           {/* Verification / Transparency badge - for chess always full transparent pro view, no paid nag, no limited text */}
@@ -660,23 +670,28 @@ export default function CovenantInteractive() {
                       </button>
                     </div>
 
-                    {/* Upgraded larger nicer chess.com style board preview - classic colors, better shadow, simplistic pro */}
-                    <div className="mt-2 mx-auto" style={{ maxWidth: 520 }}>
-                      <div className="text-[10px] text-emerald-300/70 mb-1.5 text-center tracking-widest">LIVE BOARD PREVIEW (CHESS.COM CLASSIC)</div>
-                      <div className="relative mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl" style={{ width: 'min(100%, 520px)' }}>
-                        <Chessboard
-                          position="start"
-                          boardWidth={520}
-                          customDarkSquareStyle={{ backgroundColor: '#b58863' }}
-                          customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
-                          customBoardStyle={{ 
-                            borderRadius: '8px', 
-                            boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.4), inset 0 0 0 1px rgba(255,255,255,0.08)' 
-                          }}
-                          customNotationStyle={{ color: '#3f2a1d', fontSize: '12px', fontWeight: 700 }}
-                        />
+                    {/* PRO FULL-PAGE-FEEL CHESS.COM STYLE PREVIEW: bigger 620px board, side pro clocks preview, more immersive + simplistic transparent */}
+                    <div className="mt-3">
+                      <div className="text-[10px] text-emerald-300/70 mb-2 text-center tracking-[2px] font-bold">LIVE PROFESSIONAL BOARD — CHESS.COM CLASSIC</div>
+                      <div className="flex flex-col lg:flex-row gap-5 items-center justify-center bg-black/40 rounded-3xl p-4 border border-emerald-500/20">
+                        <div className="relative rounded-2xl overflow-hidden border border-white/20 shadow-[0_30px_60px_-15px_rgb(0,0,0)]" style={{width:'min(100%, 620px)'}}>
+                          <Chessboard
+                            position="start"
+                            boardWidth={620}
+                            customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+                            customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+                            customBoardStyle={{ borderRadius: '4px' }}
+                            customNotationStyle={{ color: '#3f2a1d', fontSize: '13px', fontWeight: 700 }}
+                          />
+                        </div>
+                        <div className="text-center lg:text-left">
+                          <div className="text-xs tracking-widest text-emerald-400/70 mb-1">10 MIN CLOCKS • ACTIVE ONLY</div>
+                          <div className="font-mono text-4xl text-emerald-400">10:00</div>
+                          <div className="font-mono text-4xl text-emerald-400 mt-1">10:00</div>
+                          <div className="text-[10px] text-gray-400 mt-2">White (you) vs Black<br/>Red pulse when low time</div>
+                        </div>
                       </div>
-                      <div className="text-center text-[10px] text-gray-500 mt-2">Drag pieces feel • Classic squares • Full rules in the arena</div>
+                      <div className="text-center text-[10px] text-gray-500 mt-1">Coordinates • Last move highlight • Legal dots • Check glow • Full rules in arena</div>
                     </div>
 
                     <div className="mt-5 text-xs text-emerald-300/90 leading-relaxed bg-black/30 p-4 rounded-2xl">

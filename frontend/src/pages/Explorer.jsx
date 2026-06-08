@@ -354,6 +354,9 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const isHighTVL = (c.amount_kaspa || 0) >= 100;
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
+  // Strong signal for the "very easy creator-only nice custom UI + transparent viewer" feature:
+  // When a creator has published a custom transparent UI, we surface it prominently in the list
+  // so users know pressing the covenant will show the nice transparent "everything there is to know" view (no terminal for regular users).
 
   // Check for paid covenant metadata (from /api/covenant-metadata)
   let paidMetadata = null;
@@ -407,6 +410,9 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
             {tier === 'PRO' && <Star size={10} />}
             {tier === 'BUILDER' && <Terminal size={10} />}
             PAID VERIFIED</span>}
+          {customUI && <span className="text-[8px] px-1.5 py-0.5 rounded bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/30 font-mono flex items-center gap-1">
+            CREATOR TRANSPARENT UI
+          </span>}
           {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
           <div className="flex items-center gap-1.5">
             {isOwner && (

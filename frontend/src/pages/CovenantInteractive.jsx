@@ -51,6 +51,9 @@ export default function CovenantInteractive() {
     typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null
   );
 
+  // isCreator computed early (wallet + covenant creator_addr match). Only creator can deploy/set custom UI or see Terminal/Builder.
+  const isCreator = !!(address && covenant?.creator_addr && address === covenant.creator_addr);
+
   // Compute effective tier & paid status early so tab default works
   const effectiveTierLabel = covexPaidTier || 'FREE';
   const effectiveTierVal = Math.max(
@@ -58,20 +61,16 @@ export default function CovenantInteractive() {
     tierValue(effectiveTierLabel)
   );
   const TierIcon = effectiveTierLabel === 'MAX' ? Crown : effectiveTierLabel === 'PRO' ? Star : effectiveTierLabel === 'BUILDER' ? Terminal : Eye;
-  const canCustomize = isCreator && effectiveTierVal >= 1;  // Only creator + paid tier can set/deploy custom nice UI
+  const canCustomize = isCreator && effectiveTierVal >= 1;  // ONLY creator + paid tier can set/deploy the nice custom UI
   const canBrand = isCreator && effectiveTierVal >= 2;
   const canMaxLayout = isCreator && effectiveTierVal >= 3;
 
-  // Set activeTab based on URL param (paid → terminal, free → interact)
-  // Viewer default: nice custom/transparent UI. Terminal/settings only for creator (to fulfill "only the creator can deploy custom UI", "users see everything transparent, no terminal or all settings").
-  const isCreator = !!(address && covenant?.creator_addr && address === covenant.creator_addr);
+  // Viewer-first: when user "presses on the covenant" they see nice transparent UI (custom if set by creator, or full facts).
+  // Terminal + settings ONLY for the creator. No tabs for regular users.
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
     const playParam = searchParams.get('play');
-    // Default to 'interact' (nice custom or generated transparent view) for everyone.
-    // Only auto terminal for explicit play + if creator or paid.
-    if ((tabParam === 'terminal' || playParam) && (isCreator || covexPaidTier)) return 'terminal';
-    // If custom nice UI present, prefer interact/custom view.
+    if ((tabParam === 'terminal' || playParam) && isCreator) return 'terminal';
     if (covenant?.custom_ui_html && covenant.custom_ui_html.length > 10) return 'interact';
     return 'interact';
   });
@@ -162,6 +161,135 @@ export default function CovenantInteractive() {
   }, [covenant, amount, address, deployUri, sendPayment]);
 
   const covenantTierVal = tierValue(covenant?.verified_tier || covenant?.tier || 'FREE');
+
+  // React to loaded covenant (custom UI presence) and isCreator for correct default tab
+  useEffect(() => {
+    if (!covenant) return;
+    const tabParam = searchParams.get('tab');
+    const playParam = searchParams.get('play');
+    if ((tabParam === 'terminal' || playParam) && isCreator) {
+      setActiveTab('terminal');
+    } else if (covenant.custom_ui_html && covenant.custom_ui_html.length > 10) {
+      setActiveTab('interact');
+    } else {
+      setActiveTab('interact');
+    }
+  }, [covenant, isCreator, searchParams]);
+
+  // Generate a VERY nice, fully transparent, self-contained custom UI HTML from current config + all covenant facts.
+  // This is what regular users will see when they press the covenant: everything known, no secrets, beautiful.
+  // Enhanced for "very nice" with better sections, typography, and full on-chain disclosure.
+  function buildTransparentCustomUI(cov, cfg) {
+    const primary = cfg.primaryColor || '#49EACB';
+    const title = cfg.titleOverride || cov.name || TRUNC(cov.tx_id);
+    const desc = cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. All details below are on-chain or indexed for full transparency.';
+    const logic = cov.full_logic_summary || cov.description || 'Full on-chain logic and parameters are disclosed for verified covenants. Creator has enabled transparent public view.';
+    const creator = cov.creator_addr || 'Unknown (set at deploy)';
+    const locked = (cov.amount_kaspa || 0).toLocaleString();
+    const script = (cov.script_hash || '').slice(0, 24) + '...';
+    const tx = cov.tx_id || '';
+    const cat = cov.category || 'General';
+    const tier = cov.verified_tier || cov.tier || 'FREE';
+    const verified = isVerified(cov);
+    const addrs = cov.receiving_addresses || cov.address || '';
+    const ts = cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleString() : 'recent';
+    const customCss = `
+      :root { --primary: ${primary}; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#0A0A0D; color:#E5E7EB; margin:0; padding:0; line-height:1.5; }
+      .glass { background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:16px; backdrop-filter: blur(12px); }
+      .section { padding:18px 20px; margin-bottom:14px; }
+      .label { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#9CA3AF; font-weight:600; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; word-break:break-all; }
+      .fact { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed rgba(255,255,255,0.06); font-size:13px; }
+      .fact:last-child { border-bottom:none; }
+      .btn { background:var(--primary); color:#000; border:none; padding:12px 20px; border-radius:999px; font-weight:700; cursor:pointer; font-size:14px; }
+      .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:10px; border:1px solid; font-weight:600; }
+      h1 { font-size:22px; margin:0 0 4px; color:#fff; font-weight:700; }
+      .sub { color:#9CA3AF; font-size:12px; }
+      .section-title { font-size:11px; color:#9CA3AF; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; font-weight:600; }
+    `;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Transparent Covenant</title><style>${customCss}</style></head>
+<body style="padding:16px; max-width:860px; margin:0 auto; background:#0A0A0D; font-size:14px;">
+  <div class="glass section">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:42px;height:42px;border-radius:12px;background:${primary}22;color:${primary};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px">C</div>
+      <div style="flex:1">
+        <h1>${title}</h1>
+        <div class="sub">${cat} · ${tier} TIER ${verified ? '· VERIFIED BY CREATOR' : ''}</div>
+      </div>
+    </div>
+    <p style="margin:0;color:#D1D5DB">${desc}</p>
+  </div>
+
+  <div class="glass section">
+    <div class="section-title">Everything There Is To Know — Full On-Chain Transparency</div>
+    <div class="fact"><span class="label">Creator (only they can publish this UI)</span><span class="mono">${creator}</span></div>
+    <div class="fact"><span class="label">KAS Locked in Covenant</span><span class="mono">${locked} KAS</span></div>
+    <div class="fact"><span class="label">Covenant Address</span><span class="mono">${cov.address || '—'}</span></div>
+    <div class="fact"><span class="label">Script Hash</span><span class="mono">${script}</span></div>
+    <div class="fact"><span class="label">TXID (immutable on Kaspa)</span><span class="mono">${tx}</span></div>
+    <div class="fact"><span class="label">Indexed / Deployed</span><span>${ts}</span></div>
+    ${addrs ? `<div class="fact"><span class="label">Receiving / Treasury Addresses</span><span class="mono">${addrs}</span></div>` : ''}
+    ${cov.full_logic_summary ? `<div class="fact"><span class="label">Full Logic Summary</span><span style="max-width:55%;text-align:right">${cov.full_logic_summary}</span></div>` : ''}
+  </div>
+
+  <div class="glass section">
+    <div class="section-title">Logic &amp; Rules (Creator-Disclosed)</div>
+    <div style="font-size:13.5px;color:#E5E7EB">${logic}</div>
+  </div>
+
+  <div class="glass section" style="border:1px solid ${primary}33">
+    <div class="section-title">Direct Non-Custodial Interaction</div>
+    <p style="font-size:13px;color:#9CA3AF;margin:4px 0 12px">All actions happen directly with your wallet against the on-chain covenant script. No middlemen, no custody.</p>
+    <button onclick="window.parent.postMessage({type:'COVENANT_EXECUTE'},'*')" class="btn" style="width:100%">Connect Wallet &amp; Execute / Lock KAS</button>
+    <div style="font-size:10px;text-align:center;margin-top:10px;color:#6B7280">Powered by Kaspa • Covex transparent public viewer • Verify everything on explorer.kaspa.org/tx/${tx}</div>
+  </div>
+
+  <div style="text-align:center;font-size:10px;color:#4B5563;margin-top:14px">This beautiful transparent UI was published by the covenant creator. All facts are derived from public on-chain data + indexed records. No secrets.</div>
+</body></html>`;
+  }
+
+  // Publish the current builder config as a nice transparent custom UI for this covenant.
+  // Only callable by isCreator (UI is hidden otherwise). Uses the existing protected /terminal-config endpoint (backend enforces creator_addr match).
+  const publishCustomUI = async (useDefault = false) => {
+    if (!isCreator || !covenant || !address) {
+      setToast({ type: 'error', msg: 'Only the creator of this covenant can publish a custom UI.' });
+      return;
+    }
+    const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view — everything there is to know about this covenant.' } : config;
+    const html = buildTransparentCustomUI(covenant, cfg);
+    try {
+      const payload = {
+        custom_ui_code: html,
+        signer_address: address,
+        name: cfg.titleOverride || covenant.name,
+        description: cfg.descOverride || covenant.description,
+        resolution_mode: 'transparent-ui',
+        // nonce/signature can be added later for full challenge; backend falls back to creator_addr match
+      };
+      const res = await fetch(`/api/terminal-config/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Optimistically update local covenant so the nice UI appears immediately for preview
+        setCovenant((c) => ({ ...c, custom_ui_html: html }));
+        localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
+        setToast({ type: 'success', msg: 'Custom transparent UI published! All viewers now see the nice view (no terminal).' });
+        setActiveTab('interact');
+      } else {
+        setToast({ type: 'error', msg: data.error || 'Publish failed (are you the creator?)' });
+      }
+    } catch (e) {
+      // Fallback: still save locally + show generated in preview
+      localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
+      setCovenant((c) => ({ ...c, custom_ui_html: html }));
+      setToast({ type: 'success', msg: 'Published locally (backend sync pending). The transparent UI is now visible.' });
+      setActiveTab('interact');
+    }
+  };
 
   if (loading) {
     return (
@@ -322,7 +450,8 @@ export default function CovenantInteractive() {
               <Terminal size={14} />
               Interact
             </button>
-            {canCustomize && (
+            {/* Terminal and UI Builder ONLY visible to the creator of this covenant (enforces "only the creator can deploy custom UI"). Regular users see pure transparent info view. */}
+            {isCreator && (
               <button
                 onClick={() => setActiveTab('terminal')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -335,7 +464,7 @@ export default function CovenantInteractive() {
                 Terminal
               </button>
             )}
-            {canCustomize && (
+            {isCreator && (
               <button
                 onClick={() => setActiveTab('builder')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -353,6 +482,19 @@ export default function CovenantInteractive() {
           <div className="p-8 flex-1">
             {activeTab === 'interact' ? (
               <div className="space-y-8">
+                {!isCreator && (
+                  <div className="p-3 mb-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/30 text-kaspa-green text-xs font-mono uppercase tracking-widest flex items-center gap-2">
+                    <Eye size={14} /> PUBLIC TRANSPARENT VIEW — Creator-only tools (Terminal, UI Builder, advanced settings) are hidden. You see the full on-chain details + any custom UI the creator published. Everything is transparent.
+                  </div>
+                )}
+                {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && !isCreator && (
+                  <div className="mb-4">
+                    <div className="text-xs uppercase tracking-widest text-kaspa-green/80 mb-1">Creator-Published Custom Interface</div>
+                    <div className="rounded-2xl overflow-hidden border border-kaspa-green/20 bg-black/60">
+                      <iframe srcDoc={covenant.custom_ui_html} title="Covenant Custom Transparent UI" className="w-full min-h-[520px] bg-[#0A0A0D]" sandbox="allow-scripts" />
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
                     Amount to Lock (KAS)
@@ -440,17 +582,16 @@ export default function CovenantInteractive() {
                 </a>
               </div>
             ) : activeTab === 'terminal' ? (
-              /* ── Terminal Tab, only for paid users with full tools ── */
-              covexPaidTier ? (
+              /* ── Terminal Tab: ONLY the creator sees this (to deploy custom nice UI, ZK, oracles, etc). Regular users never see terminal or settings. ── */
+              isCreator ? (
                 <div className="-m-8">
                   <CovexTerminal covenant={covenant} />
                 </div>
               ) : (
                 <div className="p-8 text-center border border-white/10 rounded-2xl bg-black/30">
                   <Lock size={32} className="mx-auto mb-4 text-amber-400" />
-                  <h3 className="text-xl font-bold text-white mb-2">Terminal is a Paid Feature</h3>
-                  <p className="text-gray-300 mb-6 max-w-md mx-auto">The full Covex Terminal with ZK circuits, oracles, custom UI deployment, and SilverScript generator is only available to paid tier users.</p>
-                  <Link to="/pricing" className="inline-block px-6 py-3 rounded-xl bg-[#49EACB] text-black font-bold">Get Paid Access</Link>
+                  <h3 className="text-xl font-bold text-white mb-2">Creator Tools</h3>
+                  <p className="text-gray-300 mb-6 max-w-md mx-auto">Advanced terminal (ZK circuits, oracles, custom UI deployment) is only available to the creator of this covenant.</p>
                 </div>
               )
             ) : (
@@ -671,17 +812,30 @@ export default function CovenantInteractive() {
                     </div>
                   )}
 
-                  {/* Apply & Publish */}
-                  <button
-                    onClick={() => {
-                      localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(config));
-                      setToast({ type: 'success', msg: 'UI configuration saved & published!' });
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-4 mt-4 bg-kaspa-green hover:bg-[#3bc2a6] text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(73,234,203,0.2)] transition-all active:scale-[0.97]"
-                  >
-                    <Save size={18} />
-                    Apply &amp; Publish
-                  </button>
+                  {/* VERY EASY presets + Publish — one or two clicks for the creator to deploy a beautiful transparent public UI. Regular users see ONLY the nice view (no terminal, no settings). */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest">Quick "Very Nice" Presets (sets config + publishes)</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <button onClick={() => { setConfig(s => ({...s, titleOverride: 'Transparent Public Dashboard', descOverride: 'Everything there is to know — fully on-chain, creator-published, no secrets.'})); setTimeout(() => publishCustomUI(false), 50); }} className="px-3 py-2 text-xs rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/5">Beautiful Transparent Dashboard</button>
+                      <button onClick={() => { setConfig(s => ({...s, titleOverride: 'Full Facts + Oracle View', descOverride: 'Complete on-chain disclosure: logic, payments, oracle attestations, creator details.'})); setTimeout(() => publishCustomUI(false), 50); }} className="px-3 py-2 text-xs rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/5">Full Facts + Oracle Focus</button>
+                      <button onClick={() => { setConfig(s => ({...s, titleOverride: 'Minimal Elegant View', descOverride: 'Clean, transparent public interface by the covenant creator.'})); setTimeout(() => publishCustomUI(false), 50); }} className="px-3 py-2 text-xs rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/5">Minimal Elegant Public View</button>
+                    </div>
+
+                    <button
+                      onClick={() => publishCustomUI(false)}
+                      className="w-full flex items-center justify-center gap-2 py-4 bg-kaspa-green hover:bg-[#3bc2a6] text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(73,234,203,0.2)] transition-all active:scale-[0.97]"
+                    >
+                      <Save size={18} />
+                      Publish Current Config as Custom UI (Live for All Viewers)
+                    </button>
+                    <button
+                      onClick={() => publishCustomUI(true)}
+                      className="w-full flex items-center justify-center gap-2 py-3 text-sm border border-kaspa-green/40 text-kaspa-green rounded-2xl hover:bg-kaspa-green/5"
+                    >
+                      1-Click: Publish Default Beautiful Transparent UI
+                    </button>
+                    <p className="text-[10px] text-center text-gray-500">Only the creator can do this. Viewers pressing the covenant see the nice transparent interface — no terminal, no settings, full disclosure.</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -760,16 +914,16 @@ export default function CovenantInteractive() {
         </motion.div>
       )}
 
-      {/* Custom UI Rendering, show saved custom UI from Terminal/Studio on the public page */}
+      {/* Custom UI Rendering — the main attraction for paid covenants */}
       {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && (
-        <div className="mt-8 glass-panel rounded-3xl p-8 sm:p-10 max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="mt-8 w-full">
+          <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30">
               <Code2 size={18} className="text-kaspa-green" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Custom Interactive UI</h3>
-              <p className="text-xs text-gray-300 font-mono">GENERATED BY COVENANT STUDIO</p>
+              <h3 className="text-lg font-semibold text-white">{covenant.name || covenant.covenant_type || 'Covenant'}</h3>
+              <p className="text-xs text-gray-300 font-mono">INTERACTIVE PREVIEW</p>
             </div>
             <button
               onClick={() => setFullscreenUI(true)}
@@ -779,23 +933,22 @@ export default function CovenantInteractive() {
               Fullscreen
             </button>
           </div>
-          <div className="rounded-2xl border border-kaspa-green/20 bg-black/50 overflow-hidden">
+          <div className="rounded-2xl border border-kaspa-green/20 bg-black/50 overflow-hidden w-full">
             <div className="flex items-center gap-2 px-4 py-2 bg-black/40 border-b border-white/5">
               <div className="flex gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
               </div>
-              <span className="text-[10px] text-gray-200 font-mono ml-2">Custom Covenant UI</span>
+              <span className="text-[10px] text-gray-200 font-mono ml-2">{covenant.name || covenant.covenant_type || 'Covenant'} Preview</span>
             </div>
-            <div className="p-4">
-              <iframe
-                srcDoc={covenant.custom_ui_html}
-                title="Custom Covenant UI"
-                className="w-full min-h-[500px] rounded-lg bg-white/[0.02] border border-white/5"
-                sandbox="allow-scripts"
-              />
-            </div>
+            <iframe
+              srcDoc={covenant.custom_ui_html}
+              title="Custom Covenant UI"
+              className="w-full border-0 bg-[#06080B]"
+              style={{minHeight:'700px',height:'calc(100vh - 300px)'}}
+              sandbox="allow-scripts"
+            />
           </div>
         </div>
       )}

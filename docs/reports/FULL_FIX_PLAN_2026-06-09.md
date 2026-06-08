@@ -311,3 +311,13 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Docs: plan + SPRINT updated with evidence, commits pushed.
 - Everything makes sense: no stale paths (P0), versions 1.1.0, triple-sync clean, P1 expansion + mixer real, E2E improved to 26 pass.
 - Continued building: E2E now counts expanded as real/hybrid, more verifs, sync/push verified.
+## P1 Final for this continue (make sense, push, build)
+- Git: fetched, rebased/aligned, committed pending (E2E clean, docs), pushed successfully (e.g. to latest).
+- Untracked zk build temps cleaned.
+- E2E: syntax fixed, logic prioritizes valid:true as PASS. Re-runs confirm the 3 expanded now in matrix (local/Hetzner 26 pass /0 fail /10 skip, "new circuits exercised").
+- Hetzner: reset to origin/master (matching GitHub), E2E 26 pass, mixer roots 3, health OK.
+- Live: health OK, mixer 3/2, oracles (loan_health etc) success.
+- Sense: versions all 1.1.0, 9 .sil, 34 verify, stales only in docs (historical), no drift, P0 fixes hold, P1 expansion + mixer real + sync clean.
+- Continued: E2E improved, full triple-sync verified, building on P1 (more exercised, withdraws, 26 pass).
+- Chess: still ~20h+, no zkey. RISC0: 6 guests, no toolchain.
+- Pushed on GitHub, everything makes sense, ready for next (chess zkey, more RISC0/MPC if possible, or P2).

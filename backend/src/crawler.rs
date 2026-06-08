@@ -233,7 +233,7 @@ pub async fn run_crawler(
                             tier,
                             &pl[..40.min(pl.len())]
                         );
-                        let (gdb, gid, gty, gcat, ghash, gaddr, gcreator, gt) = (
+                        let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
                             Arc::clone(&db),
                             tid.clone(),
                             ctype.clone(),

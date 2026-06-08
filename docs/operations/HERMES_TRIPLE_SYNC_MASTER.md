@@ -92,7 +92,7 @@ All four locations confirmed:
 - **Created** `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` (canonical sync prompt)
 - **Moved** 4 reports to `docs/reports/`: PHASE11, PHASE3, AUDIT_REPORT_COMPREHENSIVE, AUDIT_CIRCUITS_TIERS_SUGGESTIONS
 - **Added** `docs/README.md` index of all documentation
-- **Fixed** all stale `/mnt/HC_Volume_105579109/Covex27` paths to `/root/Covex27` in MAINNET.md, DEPLOY_TO_HIGHTABLE.sh, deploy-covenant.js, deploy_cli.rs, deploy.rs
+- **Fixed** all stale `/root/Covex27` paths to `/root/Covex27` in MAINNET.md, DEPLOY_TO_HIGHTABLE.sh, deploy-covenant.js, deploy_cli.rs, deploy.rs
 - **Removed** zk/test_output.wtns, zk/tmp1.wtns junk files
 
 ### Compatibility & Covenant Wiring (confirmed working)

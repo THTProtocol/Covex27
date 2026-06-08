@@ -149,7 +149,7 @@ pub fn parse_dsl(source: &str) -> Result<CompileUnit> {
             Regex::new(r"VerifyPayout\([^,]+,\s*covenant_pot,\s*pot\s*\*\s*(\d+)\s*/\s*10000\)")
                 .ok()
                 .and_then(|re| re.captures(source))
-                .and_then(|c| c.get(1).map(|m| (m.as_str().parse::<f64>().unwrap_or(0.0) / 100.0)))
+                .and_then(|c| c.get(1).map(|m| m.as_str().parse::<f64>().unwrap_or(0.0) / 100.0))
         })
         .unwrap_or(2.0);
 

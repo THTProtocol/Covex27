@@ -183,3 +183,21 @@ ssh root@hightable.pro 'cd /root/Covex27 && git rev-parse --short HEAD && ... sq
 
 ---
 *Conducted with radical honesty per Covex philosophy. 2026-06-09.*
+
+---
+
+## P0 PHASE EXECUTED STEP-BY-STEP (per FULL_FIX_PLAN)
+See FULL_FIX_PLAN_2026-06-09.md for the full checklist with [x], commands run, and live evidence from this execution (Hetzner build, public mixer/oracle/deploy tests with your TN12 wallets, etc.).
+
+P0 items completed in this phase-by-phase run:
+- Mixer robust path + surface
+- Oracle public_inputs default
+- Basic protection (concurrency)
+- Deploy script
+- Cargo warnings (partial)
+- Stale paths
+- Nginx attempt
+- Full cross-sync + re-verify using test wallets + E2E
+
+The superior audit now has its P0 follow-through executed and documented.
+

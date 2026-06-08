@@ -34,7 +34,8 @@ pub struct OracleVerifyInput {
     #[serde(default = "default_circuit_type")]
     pub circuit_type: String, // "merkle_membership" | "range_proof" | "chess_v1" (oracle attestation for game results)
     pub proof: serde_json::Value,       // The Groth16 proof object
-    pub public_inputs: Vec<String>,     // Public signals (rootHash, etc.)
+    #[serde(default)]
+    pub public_inputs: Vec<String>,     // Public signals (rootHash, etc.) — default empty for attested/hybrid/simulate paths
     #[serde(default)]
     pub requested_outcome: Option<u32>, // Claimed outcome (0-1 for binary)
 
@@ -237,7 +238,7 @@ async fn run_zk_verifier_async(
 async fn verify_hybrid_game_async(
     script: PathBuf,
     prefix: &'static str,
-    label: &'static str,
+    _label: &'static str,
     proof: serde_json::Value,
     public_inputs: Vec<String>,
 ) -> Result<bool, String> {

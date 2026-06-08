@@ -30,7 +30,7 @@ fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
 }
 
 /// Determine tier from the script hex of a UTXO — checks if it's a treasury address
-fn tier_from_script(spk_hex: &str, _treasury_script: &str, amount: u64) -> (String, u64) {
+fn tier_from_script(_spk_hex: &str, _treasury_script: &str, amount: u64) -> (String, u64) {
     // For the indexer, we check individual UTXO amounts.
     // The live indexer polls seed addresses for covenant UTXOs — treasury matching
     // is less relevant here since we're already filtering by seed addresses.

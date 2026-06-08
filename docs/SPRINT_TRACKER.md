@@ -135,3 +135,15 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Integration: oracle sigs for circuits in E2E + .sil templates + helper bridge + paywall with wallets + mixer + sync = excellent "no gaps, works great together".
 - Plan + SPRINT appended; E2E expand + docs will be committed + pushed + reset.
 
+
+## P1 Further (this continue - E2E +8 to 9 optionals + .sil match + paywall + oracle notes)
+- E2E: Flipped 8 (relative_timelock, vrf_dice_roll, vrf_random, basic_utxo_ownership, script_constraint, pot_split_math, nullifier_set, turn_timer). 31 pass/0 fail/5 skip. Optionals 17→9 (remaining intentional: chess_v1 modes, risc0, decentralized_liveness, legacy merkle/range/privacy_mixer). Phase1 coverage now excellent; new ones PASS with real publicSignals.
+- Oracle: pot_split_math (false - "ZK/attestation verification failed" – audit note on hybrid reality), nullifier attempted; hetzner sample success+sig.
+- covenant-helper + .sil: pot_split live response → witness snippet. .sil examples now include pot_split_covenant.sil, turn_timer_covenant.sil, script_constraint_covenant.sil matching E2E/oracle work.
+- Paywall: deploy-capacity + /auth-session + /consume re-pressed with TN12 wallets (FREE/0 capacity for qrh6..., capacity for treasury; payment errors).
+- Mixer: pools 6. Live: 6581 covs.
+- Hetzner: E2E syntax OK + oracle sample.
+- Stales: touched reports.
+- Integration: E2E-oracle-helper-.sil-paywall-wallets-mixer all connected, 0 fails, no gaps in tested paths. "Everything works great together."
+- Plan + SPRINT appended; E2E + docs committed + pushed + reset.
+

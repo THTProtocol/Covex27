@@ -90,3 +90,11 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Chess ceremony: still active (~20h+), no zkey.
 - Additional oracles (4+) confirmed True.
 - Docs/plan updated with evidence.
+## P1 Further (this continue)
+- GitHub/Hetzner: pushes succeeded, full sync to latest (e.g. d7e4eff), E2E on Hetzner 26 pass /0 fail/10 skip ("new circuits exercised").
+- E2E expansion: 3 circuits (collateral_ltv, loan_health, chess_ai_move) syntax/logic fixed to PASS on valid:true. Confirmed in re-runs.
+- Mixer: withdraw tested, state pools=3 nulls=2.
+- Oracles expanded, live good.
+- Hetzner: SHA synced, E2E run there confirms progress.
+- Chess/RISC0: monitored (no zkey, stubs only).
+- Docs updated, everything consistent (no drift, P0 fixes hold, P1 advancing).

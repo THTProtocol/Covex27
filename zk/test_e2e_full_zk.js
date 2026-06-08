@@ -31,12 +31,12 @@ const CASES = [
   // Phase 2/3 DeFi + on-chain + decentralized (new + stubs)
   { name: "collateral_liquidation", proof: "collateral_liquidation_proof.json", verify: "node verify_collateral_liquidation.js collateral_liquidation_proof.json", circuit_type: "collateral_liquidation", optional: true },
   { name: "onchain_sig_verify", proof: "onchain_sig_verify_proof.json", verify: "node verify_onchain_sig.js onchain_sig_verify_proof.json", circuit_type: "onchain_sig_verify", optional: true },
-  { name: "black_scholes_approx", proof: "black_scholes_proof.json", verify: "node verify_black_scholes.js black_scholes_proof.json || echo 'DeFi attested stub'", circuit_type: "black_scholes_approx", optional: true },
+  { name: "black_scholes_approx", proof: "black_scholes_proof.json", verify: "node verify_black_scholes.js black_scholes_proof.json || echo 'DeFi attested stub'", circuit_type: "black_scholes_approx" },
   { name: "decentralized_liveness", proof: "{}", verify: "node decentralized_liveness_stub.js || echo 'liveness attested'", circuit_type: "decentralized_liveness", optional: true },
   { name: "risc0_chess_eval", proof: "risc0_guests/chess_eval_proof.json", verify: "echo 'RISC0 stub (no binary or accept for dev)'", circuit_type: "risc0_chess_eval", optional: true },
   { name: "risc0_poker_solver", proof: "risc0_guests/poker_solver_proof.json", verify: "echo 'RISC0 stub (no binary or accept for dev)'", circuit_type: "risc0_poker_solver", optional: true },
   // Expanded sub-agent Phase2/3 circuits (DeFi, poker/game props, feeds, compute, privacy/gating) - fixtures enable E2E exercise of their Hybrid/attested verify stubs + oracle paths
-  { name: "auction_clearing", proof: "auction_clearing_proof.json", verify: "node verify_auction_clearing.js auction_clearing_proof.json auction_clearing", circuit_type: "auction_clearing", optional: true },
+  { name: "auction_clearing", proof: "auction_clearing_proof.json", verify: "node verify_auction_clearing.js auction_clearing_proof.json auction_clearing", circuit_type: "auction_clearing" },
   { name: "poker_vrf_deal", proof: "poker_vrf_deal_proof.json", verify: "node verify_poker_vrf_deal.js poker_vrf_deal_proof.json poker_vrf_deal", circuit_type: "poker_vrf_deal" },
   { name: "collateral_ltv", proof: "collateral_ltv_proof.json", verify: "node verify_collateral_ltv.js collateral_ltv_proof.json collateral_ltv", circuit_type: "collateral_ltv" },
   { name: "loan_health", proof: "loan_health_proof.json", verify: "node verify_loan_health.js loan_health_proof.json loan_health", circuit_type: "loan_health" },

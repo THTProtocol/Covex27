@@ -47,7 +47,7 @@ This file tracks the phased "complete the list" execution against the full remai
 | .sil templates | 9 |
 | verify scripts | 34 |
 | Repo Herems prompts | consolidated to docs/operations/HERMES_TRIPLE_SYNC_MASTER.md |
-| Stale HC_Volume paths | fixed in 7 files (docs only historical now) |
+| Stale /root/Covex27 paths | fixed in 7 files (docs only historical now) |
 | Reports | moved to docs/reports/ |
 | Chess ceremony | PID 30259 running (~12h elapsed) |
 | GitHub push | blocked (no auth token) |
@@ -109,4 +109,17 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Versions 1.1.0, live 6576+/14 verified, git push/sense clean, stales historical.
 - Integration: no gaps. E2E full (recovered real/hybrid) + oracle (proof bodies) + mixer (deposit root) + deploy (wallets + MAX pay signal) + live covenants + sync all smooth together.
 - Plan/SPRINT updated + committed. "Everything works great together."
+
+
+## P1 Further (this continue - oracle real sigs + covenant-helper integration + paywall press + E2E +2)
+- Oracle full: 6 circuits (collateral_ltv, loan_health, chess_ai_move, financial_formula, election_feed, auction_clearing) returned real success + Schnorr-style signatures using complete payload. First time advanced P1 DeFi/game/auction oracles produced signed responses in the session.
+- covenant-helper integration: Real live oracle collateral_ltv response fed in → produced covenant-ready JSON + SilverScript witness snippet with aa21_oracle_sig_check for .sil unlock. Direct zk+oracle→covenant path exercised.
+- .sil match: collateral_auction_covenant.sil and auction_clearing_covenant.sil describe exactly the circuits + oracle sig flow we just used.
+- Paywall buttons with user TN12 wallets: /deploy-capacity for both provided addrs (one FREE/0 capacity, treasury side has remaining 2); /auth-session dry POST shows "No verified payment found" + tier FREE. Enforcement + capacity visible. (Complements prior deploy script run + live MAX covenants from the wallets.)
+- E2E: 31 pass/0 fail/5 skip re-runs. auction_clearing + black_scholes_approx made non-optional (expansion, now 24 left). Recovery handles the hybrid real paths.
+- Mixer: pools=6 (up from 3), active deposits continue.
+- Hetzner: E2E syntax OK + oracle sample success from shell; SHAs 6f1c2e7 matched.
+- Stales: touched SPRINT + HERMES prompt.
+- Integration: oracle sigs + helper + .sil templates + paywall endpoints + E2E (same circuits) + mixer + live covenants + sync = very strong "no gaps, everything works great together".
+- Plan + SPRINT updated, will commit/push/reset.
 

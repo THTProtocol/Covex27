@@ -85,7 +85,7 @@ Append COMPLETED BLOCK to this file with date, SHAs, E2E results, evidence.
 
 1. **Full-stack audit** — tested 15 oracle circuit types, 4 real testnet TXs deployed (PRO and MAX tiers), mixer API analyzed, security guards verified.
 2. **BUG-1 + BUG-2 fixed and deployed** — `verify_range.js` and `verify.js` (merkle_membership) were strict-only Groth16 verifiers. They had no attested fallback, so oracle calls with empty proofs returned `success:false`. Converted both to hybrid pattern matching the 30+ other verifiers. Now range_proof and merkle_membership return `success:true` with attested fallback, preserving real Groth16 when vkey+proof present.
-3. **Repo organization** — deleted 3 stale HERMES_*.md prompts, moved 4 reports to docs/reports/, fixed all `/mnt/HC_Volume_105579109/` paths to `/root/Covex27` in 5 files, created docs/README.md and docs/operations/HERMES_TRIPLE_SYNC_MASTER.md.
+3. **Repo organization** — deleted 3 stale HERMES_*.md prompts, moved 4 reports to docs/reports/, fixed all `/mnt//root/Covex27 paths to `/root/Covex27` in 5 files, created docs/README.md and docs/operations/HERMES_TRIPLE_SYNC_MASTER.md.
 4. **Triple-sync** — local commit → GitHub push (13 commits: `1324e07..d6354e2`) → Hetzner git reset --hard → frontend build + rsync → backend cargo build --release → systemctl restart.
 5. **Version 1.1.0 unified** — confirmed in frontend/package.json, backend/Cargo.toml, zk/package.json, zk/circuit_registry.json.
 
@@ -111,7 +111,7 @@ Append COMPLETED BLOCK to this file with date, SHAs, E2E results, evidence.
 | Mainnet dev guard | BLOCKED correctly |
 | 3 stale prompts deleted | yes |
 | 4 reports moved to docs/reports/ | yes |
-| Stale HC_Volume paths fixed | 5 files fixed |
+| Stale /root/Covex27 paths fixed | 5 files fixed |
 | GitHub auth | gh CLI authenticated |
 
 ### Honest Gaps
@@ -157,7 +157,7 @@ Append COMPLETED BLOCK to this file with date, SHAs, E2E results, evidence.
 | verify scripts | 34 hybrid |
 | Repo stale prompts | 3 deleted |
 | Reports | 4 moved to docs/reports/ |
-| Stale HC_Volume paths | 5 files fixed |
+| Stale /root/Covex27 paths | 5 files fixed |
 | Chess ceremony | PID 30259 alive (12.5h+) |
 
 ### Git History (today's session)

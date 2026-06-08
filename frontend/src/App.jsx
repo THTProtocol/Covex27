@@ -5,6 +5,7 @@ import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import Explorer from './pages/Explorer';
 import CovenantInteractive from './pages/CovenantInteractive';
+import CovenantFix from './pages/CovenantFix';
 import WhatIsKaspaPage from './pages/WhatIsKaspa';
 import Pricing from './pages/Pricing';
 import TemplateLibrary from './pages/TemplateLibrary';
@@ -127,6 +128,7 @@ export default function App() {
               <Route path="/" element={<Explorer />} />
               <Route path="/covenant" element={<DemoCovenant />} />
               <Route path="/covenant/:id" element={<CovenantInteractive />} />
+              <Route path="/covenant/:id/fix" element={<CovenantFix />} />
               <Route path="/kaspa" element={<WhatIsKaspaPage />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/dashboard" element={<Dashboard />} />

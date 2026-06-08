@@ -446,6 +446,16 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
         </div>
       )}
 
+      {/* Special colorful inviting treatment for Chess covenants - not a small window */}
+      {gameType === 'chess' && (
+        <div className="mt-3 -mx-1 p-3 rounded-2xl bg-gradient-to-br from-emerald-900/30 via-emerald-500/10 to-transparent border border-emerald-500/30">
+          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold tracking-widest">
+            ♟ 10 MIN WINNER-TAKES-ALL CHESS ARENA
+          </div>
+          <div className="text-[10px] text-emerald-300/90 mt-0.5">Stake any amount • Match in 5 min or auto-return • Full resign & time logic • 2% fee sustains the arena • ZK-verified moves</div>
+        </div>
+      )}
+
       <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-1.5 text-[10px] text-gray-300">
         <span>Category: <span className="text-white">{c.category || 'general'}</span></span>
         <span>Amount: <span className="text-white">{formatKaspa(c.amount_kaspa)}</span></span>

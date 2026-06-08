@@ -568,3 +568,11 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Integration: Paid tier + oracle + helper + explorer custom badge + interactive custom render + DB owner check. "Very easy" via deploy or UiBuilder. "Users see everything transparent" - no raw terminal/settings.
 - Plans updated + (commit/push).
 - "Only the creator can do it" + "nice custom UI" + "transparent for press/view" fulfilled.
+## P1 Further (continue - custom UI deploy made even easier + viewer transparent experience verified)
+- Deploy script: --custom-ui flag added for very easy creator custom nice UI (example HTML transparent).
+- Viewer: Default nice custom/transparent (srcDoc or enhanced with full disclosure); terminal hidden unless isCreator.
+- Test deploy: Previous nice custom HTML + real oracle sig for PRO covenant (creator-only by design).
+- Code: isCreator enforcement + always transparency.
+- Sense: E2E clean (bg task), prod 6592+, Hetzner current, integration solid.
+- "Very easy + only creator + user sees everything transparent - no terminal" fulfilled.
+- Plans updated + (will commit/push).

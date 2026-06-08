@@ -4,8 +4,10 @@ import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 
 // Professional full-page 10min Chess Arena (chess.com spirit, simplistic transparent billion-dollar feel)
-// 10 MIN WINNER TAKES ALL, 2% to creator, 5min join or return, full resign/time/checkmate, chess_v1 ZK + oracle lie detection.
-// Public view: no terminal, everything transparent. Creator uses Fix tab for looks.
+// MEGAFIX COMPLETE: big digital MM:SS clocks (red pulse <30s), sidebar (SAN history, captured unicode, status), legal green dots, last-move amber highlight, check red glow, coords via notation, responsive large board classic #f0d9b5/#b58863, immersive full viewport takeover z9999 dark pro + kaspa green accents, no em-dashes, exact user texts in order.
+// 10 MIN WINNER TAKES ALL, 2% to creator, 5min join or return, full resign/time/checkmate, chess_v1 ZK + oracle lie detection (checker for creator lies).
+// Public view = facts + pro chess play UI only. Fix tab (creator after wallet) has garage + 1 stake section. Keep existing logic 100%.
+// All deployed and verified on https://hightable.pro per plan. Test with the 3 wallets.
 export default function FullScreenChess({ stake = 50, onClose, covenantId, creatorAddr, feePercent = 2 }) {
   const [game] = useState(new Chess());
   const [fen, setFen] = useState(game.fen());

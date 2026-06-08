@@ -17,7 +17,7 @@ The single canonical prompt for continuing Covex27 (`THTProtocol/Covex27`) devel
 | Local repo | `/home/kasparov/Covex27` |
 | GitHub remote | `https://github.com/THTProtocol/Covex27.git` |
 | Branch | `master` |
-| Production host | `ssh root@hightable.pro` (also `178.105.76.81`) |
+| Production host | `ssh root@hightable.pro` (also `hightable.pro (historical)`) |
 | Hetzner repo | `/root/Covex27` |
 | Frontend nginx root | `/root/htp/public` |
 | Backend service | `systemctl restart covex-backend` |

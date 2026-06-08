@@ -47,7 +47,7 @@ This file tracks the phased "complete the list" execution against the full remai
 | .sil templates | 9 |
 | verify scripts | 34 |
 | Repo Herems prompts | consolidated to docs/operations/HERMES_TRIPLE_SYNC_MASTER.md |
-| Stale HC_Volume paths | fixed in 5 files |
+| Stale HC_Volume paths | fixed in 7 files (docs only historical now) |
 | Reports | moved to docs/reports/ |
 | Chess ceremony | PID 30259 running (~12h elapsed) |
 | GitHub push | blocked (no auth token) |

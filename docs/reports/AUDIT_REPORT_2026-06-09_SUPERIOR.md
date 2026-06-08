@@ -90,7 +90,7 @@ All tested with attested/hybrid path (`proof:{}`, `requested_outcome:0`, minimal
 - **E2E-DUP (Low)**: test_e2e_full_zk.js lists `risc0_poker_solver` twice (lines ~37-38).
 - **DEPLOY-SCRIPT (Med)**: `scripts/deploy-covenant.js` hardcodes `/root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm/...` (post prior path fixes); fails locally with "Cannot find module". WASM resolution fragile across envs (local /home/kasparov vs prod /root).
 - **ORACLE-DESER (Low)**: Some attested calls require `public_inputs` or get "missing field" (proper error, but attested paths could default [] for UX).
-- **STALE-PATHS (Low)**: 5 files still reference old `/mnt/HC_Volume_105579109/Covex27` or `178.105.76.81` (DEPLOY_TO_HIGHTABLE.sh, MAINNET.md, 2x HERMES_*.md in ops, start-tn10-kaspad.sh). Mostly historical/docs now, but pollute.
+- **STALE-PATHS (Low)**: 5 files still reference old `/root/Covex27` or `hightable.pro (historical)` (DEPLOY_TO_HIGHTABLE.sh, MAINNET.md, 2x HERMES_*.md in ops, start-tn10-kaspad.sh). Mostly historical/docs now, but pollute.
 
 ### Confirmed Fixed From Prior (Re-tested)
 - range_proof / merkle_membership oracle now success:true (hybrid verifiers).

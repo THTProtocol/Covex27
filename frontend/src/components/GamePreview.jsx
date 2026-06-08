@@ -123,7 +123,7 @@ const IframePreview = ({ covenant, visible, large = false }) => {
 
 // ── Main GamePreview Component ───────────────────────────────────────────
 
-const GamePreview = ({ covenant, compact = false }) => {
+const GamePreview = ({ covenant, compact = false, large = false }) => {
   const containerRef = useRef(null);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -154,7 +154,8 @@ const GamePreview = ({ covenant, compact = false }) => {
   // Choose preview strategy: native React for chess, iframe for custom UI
   const useNative = gameType === 'chess';
 
-  const previewHeight = compact ? 140 : 200;
+  // Premium covenants with custom UI get a large preview (350px), others compact (140px) or normal (200px)
+  const previewHeight = large ? 350 : compact ? 140 : 200;
 
   return (
     <div ref={containerRef} className="relative group/preview">

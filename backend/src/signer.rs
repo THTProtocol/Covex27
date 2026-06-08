@@ -95,6 +95,14 @@ pub struct SignAndBroadcastRequest {
     pub accent: Option<String>,
     #[serde(default)]
     pub ui_preset: Option<String>,
+
+    // Premium covenant metadata — category and custom_ui_config
+    #[serde(default)]
+    pub covenant_type: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub custom_ui_config: Option<serde_json::Value>,
 }
 
 fn default_network() -> String { "testnet-12".to_string() }
@@ -531,11 +539,18 @@ pub async fn sign_and_broadcast_handler(
             };
             let receiving_addrs =
                 serde_json::to_string(&vec![deployer_str.clone()]).unwrap_or_default();
-            let desc = if tier_fee > 0 {
-                format!("{} tier covenant deployed", tier_str)
-            } else {
-                "Covenant deployed via Covex Terminal".to_string()
-            };
+            // Use submitted description/category if provided, fall back to tier-default
+            let desc = payload.description.clone().unwrap_or_else(|| {
+                if tier_fee > 0 {
+                    format!("{} tier covenant deployed", tier_str)
+                } else {
+                    "Covenant deployed via Covex Terminal".to_string()
+                }
+            });
+            let covenant_type_val = payload.covenant_type.clone().unwrap_or_else(|| {
+                if tier_fee > 0 { tier_str.to_string() } else { "SilverScript Covenant".to_string() }
+            });
+            let category_val = payload.category.clone().unwrap_or_else(|| "general".to_string());
 
             // Compute script hash from hex
             let script_bytes = hex::decode(&script_hex_for_db).unwrap_or_default();
@@ -552,8 +567,8 @@ pub async fn sign_and_broadcast_handler(
                 COVENANT_AMOUNT,
                 &script_hash,
                 &script_hex_for_db,
-                &covenant_type,
-                "general",
+                &covenant_type_val,
+                &category_val,
                 &deployer_str,
                 &desc,
                 0, // block_daa_score (crawler updates this)

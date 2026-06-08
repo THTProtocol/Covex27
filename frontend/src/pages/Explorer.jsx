@@ -431,7 +431,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
         </div>
       )}
 
-      <GamePreview covenant={c} compact />
+      <GamePreview covenant={c} compact={!customUI} large={!!customUI} />
 
       {(gameType || customUI) && (
         <div className="mt-2.5 flex flex-wrap gap-1">

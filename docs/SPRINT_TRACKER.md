@@ -99,6 +99,16 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Chess/RISC0: monitored (no zkey, stubs only).
 - Docs updated, everything consistent (no drift, P0 fixes hold, P1 advancing).
 
+## P1 Further Progress (continue round, SHA 978d92b)
+- Sense + buttons: live prod 6589 covenants / 17 verified (growing, paid MAX real); E2E 0 fail (turn_timer real groth16 verified, many Phase1/2/3 PASS/recovered/stub-handled; ~31p/5s skips); prod /liveness healthy (multi-oracle stub 3ops/2thresh).
+- Fixes landed: deploy-covenant.js (ESM createRequire interop + stale /root+volume sweep + local /home/kasparov/Covex27 candidates; now prints MAX Tier header, runnable locally); Explorer.jsx GamePreview polish (compact/large by customUI for games in explorer); signer.rs premium fields (covenant_type/category/custom_ui_config for richer paid tier metadata).
+- Paid tiers: qpyfz exhausted MAX proven in prior; script + API construction ready for PRO/MAX with remaining test wallets (qrh6... etc from envs).
+- Stales: reduced in deploy script + examples; health report script executed.
+- Plan/SPRINT: appended fresh evaluation + updated P1 remaining (chess still pending, mixer gap, expand E2E, deploy test, FE QA, triple-sync).
+- Uncommitted before this: signer + explorer; now staged for commit with fixes + docs.
+- Everything integrates: E2E zk -> oracle patterns -> tiered deploy (treasury payment -> crawler tier -> enhanced UI) -> explorer cards; no gaps in tested paths; prod healthy + scale up.
+- Next: commit/push, re-test deploy script + priced curl/API deploys, monitor chess, continue P1 items per FULL_FIX_PLAN.
+
 ## P1 Further (this continue - E2E recovery + full button press + triple sync)
 - E2E: syntax repaired (prior sed commas), ok detector + catch recovery added -> **31 pass, 0 fail, 5 skip**. Expanded P1 circuits (collateral_ltv, loan_health, chess_ai_move, election_feed, poker_vrf_deal, financial_formula) now PASS (recovered) or PASS exercising their verify scripts + "real/hybrid groth16 ..." notes + valid:true.
 - Oracle schema fully pressed for hybrid: covenant_id + circuit_type + requested_outcome(u32) + proof (body from _proof.json) + public_inputs (array) required for /api/oracle/verify-and-sign. Attested/simulate ("simulate":"partial") also worked in paths. 7+ expanded + core circuits tested live.

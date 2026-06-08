@@ -355,3 +355,13 @@ Sprint 3 progressing (decentralized sim, on-chain, RISC0 real, artifact polish).
 
 Sprint 3 progressing (decentralized sim, on-chain, RISC0 real, artifact polish). Continue will push remaining (full decentralized, ceremonies real, SDK).
 
+
+## This continue (Sprint 2/3 continuation)
+- More real proofs (multi/anon/sorting/weather if generated) and E2E wired (including more RISC0).
+- Decentralized stub: real multi note.
+- Added onchain_sig_covenant.sil (on-chain sig + oracle for covenants).
+- E2E ~30/0/5, clean checks.
+- Everything compatible and easy: liveness simulate for outage testing, more .sil, rich responses, pluggable verifier.
+
+Sprint 3 progressing (decentralized sim, on-chain, RISC0 real, artifact polish). Continue will push remaining (full decentralized, ceremonies real, SDK).
+

@@ -454,3 +454,14 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Git: pushed e7ac9dc/7870b28, SHAs 7c0ca5c+.
 - Sense: versions 1.1.0, 9 .sil, 34 verify, stales 0-1/docs, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + clean.
 - P1 advanced: stales swept, E2E expansion, sync/push, building.
+## P1 This Continue (stales clean + try poker E2E + sync round)
+- Fixed last stales in HERMES docs (now 1 in SPRINT/docs historical).
+- Tried expand poker_vrf_deal in E2E (case updated, still optional in some? but participated).
+- Hetzner sync to e7ac9dc, E2E 26 pass, health OK.
+- Local E2E: 5+ expanded cases, re-runs.
+- Chess: ~21h+, no zkey.
+- RISC0: 6, no binary.
+- Live: OK, 3/2, oracles True.
+- Git: pushed b92bd5b, SHAs 7c0ca5c+.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales 1/docs, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + clean.
+- P1 advanced: stales swept, E2E expansion, sync/push, building.

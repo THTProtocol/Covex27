@@ -413,3 +413,13 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Git: pushes + syncs, SHAs aligning (e.g. 7c0ca5c+ flows).
 - Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with real/hybrid for 5+, mixer real, oracles good, triple-sync (with resets), P0 holds.
 - P1 advanced: more E2E expansion (5 total), git clean, stales swept, sync/push, building continues. Mainnet skipped (per note, RAM for chess). MPC/RISC0/browser still pending.
+## P1 This Continue (syntax fix + more expansion + stales clean round)
+- Fixed E2E syntax for election_feed/financial_formula (cleaned ,  }).
+- Re-ran E2E: 5 expanded now in matrix (real/hybrid), count progressing (26p on prod syncs).
+- Fixed last stales (sed tn10 sh, updated SPRINT mention to "fixed in 7 files (docs only)"); stales now 0-1 in docs.
+- Hetzner sync to cf0724d, E2E 26 pass, health OK, mixer roots 0 (source).
+- Local: E2E cases for 5, chess ~21h+ no zkey, RISC0 6 no binary.
+- Live: OK, 3/2, more oracles True.
+- Git: pushed, SHAs 7c0ca5c+ with resets.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with 5 real/hybrid, mixer real, oracles good, sync clean, mainnet skipped (RAM for chess), P1 5/8 expanded + clean.
+- P1 advanced: E2E expansion to 5, stales swept, git clean, sync/push, building.

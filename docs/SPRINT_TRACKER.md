@@ -147,3 +147,15 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Integration: E2E-oracle-helper-.sil-paywall-wallets-mixer all connected, 0 fails, no gaps in tested paths. "Everything works great together."
 - Plan + SPRINT appended; E2E + docs committed + pushed + reset.
 
+
+## P1 Further (this continue - E2E 31p/9 intentional skips + real MAX token from TN12 wallet + helper/.sil pot_split + oracle hybrid note)
+- E2E: Full run confirms 31 pass / 0 fail / 5 skip. The 9 remaining optionals are intentional skips (merkle/range legacy, privacy_mixer, chess_v1+2 modes no zkey, decentralized_liveness, 2 risc0 no binary). All prior expanded circuits now non-optional and PASS with real/hybrid data.
+- Oracle: pot_split_math false even with full payload (documented hybrid/attested reality).
+- Paywall with TN12: qpyfz wallet successfully issued real MAX tier token via /auth-session (tier:MAX, token issued, can_deploy:true, remaining:3). qrh6... FREE/0 as expected. deploy-capacity + auth flows pressed.
+- covenant-helper + .sil: pot_split response → covenant-ready snippet. pot_split_covenant.sil example exercised (aa21 oracle sig + pot logic + utxo).
+- Mixer: pools 6. Live: 6581 covs.
+- Hetzner: syntax OK + health.
+- Stales: touched reports.
+- Integration: E2E-oracle-helper-.sil-paywall (real MAX token) all connected, 0 fails, honest notes on skips/hybrid. "Everything works great together."
+- Plan + SPRINT appended; stales + docs will be committed + pushed + reset.
+

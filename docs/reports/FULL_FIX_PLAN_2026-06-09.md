@@ -658,3 +658,14 @@ P0 ~95%+ done (all [x] or partial documented). P1 ~50-60% (E2E expansion + mixer
 P0 done (~95%). P1 ~50-60% (E2E/mixer/push/stales advanced; chess/RISC0/MPC/mainnet/browser pending). All makes sense: no breakage, pushed (8a024e2 +), SHAs aligned, versions good, live healthy. Full remaining plan written/committed to FULL_FIX_PLAN_2026-06-09.md.
 
 **Everything done correctly this round: cleaned, synced (c4e175b), stales 1, 5+ E2E, plan with full remaining committed/pushed, sense pass.**
+## P1 This Continue (stales clean + poker E2E + sync round)
+- Fixed last stales in HERMES/SPRINT (now 1/docs historical).
+- Expanded poker_vrf_deal in E2E (case updated).
+- Hetzner sync to e7ac9dc, E2E 26 pass, health OK.
+- Local E2E: 5+ expanded, re-runs.
+- Chess: ~21h+, no zkey.
+- RISC0: 6, no binary.
+- Live: OK, 3/2, oracles True.
+- Git: pushed b92bd5b, SHAs 7c0ca5c+.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales 1/docs, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + clean.
+- P1 advanced: stales swept, E2E expansion, sync/push, building.

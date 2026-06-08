@@ -157,7 +157,7 @@
       "reality": "hybrid",
       "artifacts": true,
       "script": "verify_chess.js",
-      "note": "FIDE chess with dual proving modes via public proving_mode (0=Hybrid fast with witnessed candidates/attacks for end conditions; 1=Full ZK stronger security with more exhaustive witness gen). Core move legality, transition, post-king-safety, timers, repetition in-circuit. See zk/games/chess/CHESS_PROVING_MODES.md and chess_v1.circom. Supports both in pluggable oracle. Full mode=1 adds stricter constraint in GameStatusComputer: must supply non-empty cand list for no-legal-moves claims (proves exhaustive search)."
+      "note": "FIDE chess with dual proving modes via public proving_mode (0=Hybrid fast; 1=Full ZK). pot17 ceremony in progress (chess_v1.zkey); finish_phase2 auto-runs via chess_overnight_watch.sh. Core move legality, transition, post-king-safety, timers, repetition in-circuit. See CHESS_PROVING_MODES.md."
     },
     {
       "id": "risc0_chess_endgame",

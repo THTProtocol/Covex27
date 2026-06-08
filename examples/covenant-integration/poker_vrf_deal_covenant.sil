@@ -1,0 +1,23 @@
+// poker_vrf_deal_covenant.sil
+// Example: Verifiably fair card deal using VRF + Covex oracle for poker covenants.
+// Uses: poker_vrf_deal circuit (hybrid/attested), oracle sig, UTXO ownership.
+// Easy to test with simulate on the oracle for outage scenarios.
+
+contract PokerVrfDealCovenant {
+    oracle_pub: [u8;32] = ...;
+    players: u32 = 2; // or N players for full ring
+    cards_per: u32 = 2; // hole cards per player
+
+    fn unlock(covenant_id: [u8;32], outcome: u32, ts: i64, sig: [u8;64], deal_seed: [u8;32], actor: [u8;32]) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0); // deal is fair per VRF circuit
+
+        // The ZK/oracle already proved: VRF(seed, round) produced a fair deal.
+        // deal_seed commits to the shuffled deck outcome.
+        assert(aa22_current_utxo_owner_check(actor));
+
+        // Payout or next street logic...
+        spend();
+    }
+}

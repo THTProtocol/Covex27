@@ -1,0 +1,26 @@
+// script_constraint_covenant.sil
+// User picks constraint_id + value at deploy; public_root binds the SilverScript fragment.
+// Generate: node zk/prove_script_constraint.js <script_hash> <constraint_id> <value>
+// Oracle: circuit_type=script_constraint, public_inputs=[ok, constraint_id, value, public_root]
+
+contract ScriptConstraintCovenant {
+    oracle_pub: [u8;32] = ...;
+
+    fn unlock(
+        covenant_id: [u8;32],
+        outcome: u32,
+        ts: i64,
+        sig: [u8;64],
+        constraint_id: u32,   // user-chosen limit id (e.g. 2 = max_turn_daa)
+        value: u64,           // user-chosen limit value
+        public_root: [u8;32],
+        actor: [u8;32],
+    ) {
+        let msg = concat(b"covex-oracle:", covenant_id, b":", outcome, b":", ts);
+        assert(aa21_oracle_sig_check(oracle_pub, msg, sig));
+        assert(outcome == 0);
+        // ZK proved Poseidon(script_hash, constraint_id, value) == public_root
+        assert(aa22_current_utxo_owner_check(actor));
+        spend();
+    }
+}

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0-100pct-potential",
+  "version": "1.1.0",
   "generated": "2026 during final 'continue until fully done' execution",
   "description": "Living registry of ALL ZK circuits + oracle feeds for Covex ultimate full stack (see docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md). Reality labels: full-zk (real artifacts + snarkjs/RISC0 path), hybrid (ZK property proof + oracle), oracle-attested (off-chain + sign). 200+ entries. 11+ new Kaspa/DeFi/on-chain with r1cs/wasm this push.",
   "core_full_zk": [
@@ -53,7 +53,7 @@
       "reality": "hybrid",
       "artifacts": true,
       "script": "verify_basic_utxo_ownership.js",
-      "note": "Schnorr + commitment for Kaspa UTXO ownership control. Phase 1 must-have."
+      "note": "Poseidon commitment over pubkey+amount+sig binding. Real Groth16 verify. Phase 1."
     },
     {
       "id": "script_constraint",
@@ -61,7 +61,7 @@
       "reality": "hybrid",
       "artifacts": true,
       "script": "verify_script_constraint.js",
-      "note": "Prove SilverScript fragment (aa* opcodes, exact match, timelock). Phase 1."
+      "note": "Poseidon(script_hash, constraint_id, value)=public_root. User picks limits. Phase 1."
     },
     {
       "id": "relative_timelock",
@@ -85,7 +85,7 @@
       "reality": "hybrid",
       "artifacts": true,
       "script": "verify_vrf_random.js",
-      "note": "General VRF output proof stub."
+      "note": "Poseidon VRF output; pub_vrf_key public. Real Groth16 verify."
     },
     {
       "id": "nullifier_set",

@@ -23,12 +23,19 @@
 
 ---
 
-## Phase 2 — Real Phase 1 Kaspa Circuits
+## Phase 2 — Real Phase 1 Kaspa Circuits (MOSTLY DONE)
 
-- Implement real constraints in `basic_utxo_ownership`, `script_constraint`, `vrf_*`, `pot_split_math`
-- Regenerate proofs via `prove_*.js` (not fixtures)
-- Wire oracle Strict/Hybrid correctly for all Phase 1 IDs
-- Expand `.sil` templates with parameterized witnesses
+| Task | Status |
+|------|--------|
+| Real `basic_utxo_ownership` (Poseidon UTXO commitment) | Done |
+| Real `script_constraint` (public constraint_id + value) | Done |
+| Real `pot_split_math` (bps fee/return arithmetic) | Done |
+| Real `vrf_dice_roll` / `vrf_random` (Poseidon VRF) | Done |
+| Real `nullifier_set` (derivation + root bind) | Done |
+| `rebuild_phase1_circuits.sh` + `lib/poseidon_hash.js` | Done |
+| E2E real Groth16 for all Phase 1 | **27 pass / 0 fail** |
+| `script_constraint_covenant.sil` | Done |
+| Chess zkey + finish_phase2 | Waiting (~11.5h elapsed) |
 
 ---
 

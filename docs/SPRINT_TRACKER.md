@@ -65,3 +65,10 @@ This file tracks the phased "complete the list" execution against the full remai
 - Grade: A- (up). Mixer is primary remaining subsystem gap.
 
 See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
+
+## P1 Start — 2026-06-09 (Post P0 Execution)
+- [x] Triple-sync: push cf6202e succeeded, Hetzner git reset --hard origin/master (now cf6202e), cargo build --release, restart. Confirmed new SHA, mixer roots increased, P0 patches (robust compute, status note) live.
+- [x] Mixer real deposit: with decimal leaf "1" → success:true, real merkle_root returned on public https. (Previously only error paths; now functional with proper input.)
+- [ ] Chess: still no zkey (PID ~20h+); monitoring.
+- [x] Proof expansion started: verified collateral_ltv, loan_health, chess_ai_move directly (hybrid real when body present). E2E summary updated.
+- [x] Docs: SPRINT + FULL_FIX_PLAN updated with P1 start + P0 complete evidence. Push + Hetzner sync done.

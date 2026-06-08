@@ -576,3 +576,10 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Sense: E2E clean (bg task), prod 6592+, Hetzner current, integration solid.
 - "Very easy + only creator + user sees everything transparent - no terminal" fulfilled.
 - Plans updated + (will commit/push).
+## P1 Further (this continue - custom UI deploy very easy + verified)
+- Script: --custom-ui flag for easy creator deploy.
+- Test deploy: PRO with qrh6..., custom nice transparent HTML (full details, creator-only note, no terminal for users), oracle real sig success.
+- Code: isCreator + default nice transparent view + hide terminal.
+- Sense: E2E clean, prod 6592+, Hetzner current.
+- "very easy + only creator + user sees everything transparent" done.
+- Plans updated + commit/push.

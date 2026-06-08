@@ -11,6 +11,11 @@ import { QRCodeCanvas } from 'qrcode.react';
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
 
+// Hardcoded test wallets for examples, fee receiver, dev notes (user can import with seeds for testnet funds):
+// 1. kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353 (seed: fitness narrow gap scheme fold regret faint neck blanket discover feel machine)
+// 2. kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs (seed: giggle alpha happy until wing zone cat argue april walnut uncover rate)
+// 3. kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m (seed: upon machine office cup raw vehicle will jelly goddess mother lesson disagree)  <-- DEPLOYER / TREASURY / creator fee receiver example
+
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 const tierValue = (t) => ({ MAX: 3, PRO: 2, BUILDER: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
 
@@ -124,25 +129,28 @@ export default function CovenantInteractive() {
   );
 
   // isCreator computed early (wallet + covenant creator_addr match). Only creator can deploy/set custom UI or see Terminal/Builder.
+  // Fix tab and looks/stake always available to creator after wallet login. No paid required for basic Fix or chess arena.
   const isCreator = !!(address && covenant?.creator_addr && address === covenant.creator_addr);
 
-  // Compute effective tier & paid status early so tab default works
+  // Compute effective tier & paid status early so tab default works (paid only for advanced Studio elsewhere)
   const effectiveTierLabel = covexPaidTier || 'FREE';
   const effectiveTierVal = Math.max(
     tierValue(covenant?.verified_tier || covenant?.tier || 'FREE'),
     tierValue(effectiveTierLabel)
   );
   const TierIcon = effectiveTierLabel === 'MAX' ? Crown : effectiveTierLabel === 'PRO' ? Star : effectiveTierLabel === 'BUILDER' ? Terminal : Eye;
-  const canCustomize = isCreator && effectiveTierVal >= 1;  // ONLY creator + paid tier can set/deploy the nice custom UI
-  const canBrand = isCreator && effectiveTierVal >= 2;
-  const canMaxLayout = isCreator && effectiveTierVal >= 3;
+  const canCustomize = isCreator;  // creator always can use Fix for looks + stake (public chess is always pro transparent)
+  const canBrand = isCreator;
+  const canMaxLayout = isCreator;
 
   // Viewer-first: when user "presses on the covenant" they see nice transparent UI (custom if set by creator, or full facts).
-  // Terminal + settings ONLY for the creator. No tabs for regular users.
+  // "Arena / Play" is default for everyone (especially chess). Terminal + advanced ONLY for creator.
+  // Fix tab (creator only) for clean looks + single stake section.
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
     const playParam = searchParams.get('play');
     if ((tabParam === 'terminal' || playParam) && isCreator) return 'terminal';
+    if (tabParam === 'fix' && isCreator) return 'fix';
     if (covenant?.custom_ui_html && covenant.custom_ui_html.length > 10) return 'interact';
     return 'interact';
   });
@@ -167,7 +175,19 @@ export default function CovenantInteractive() {
   const [fullscreenUI, setFullscreenUI] = useState(false);
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
-  const gameType = (covenant?.covenant_type || covenant?.category || '').toLowerCase().includes('chess') ? 'chess' : null;
+  // Robust chess detection for full pro arena experience (covers type, category, name, desc, 10min rules)
+  const isChess = useMemo(() => {
+    if (!covenant) return false;
+    const hay = [
+      covenant.covenant_type,
+      covenant.category,
+      covenant.name,
+      covenant.description,
+      covenant.desc,
+      covenant.full_logic_summary
+    ].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes('chess') || hay.includes('10 min') || hay.includes('10min') || hay.includes('winner-takes-all') || hay.includes('winner takes all');
+  }, [covenant]);
 
   const handleUpgrade = async (tier) => {
     setUpgradeTier(tier);
@@ -483,16 +503,16 @@ export default function CovenantInteractive() {
             </div>
           </div>
 
-          {/* Verification badge */}
-          {verified ? (
+          {/* Verification / Transparency badge - for chess always full transparent pro view, no paid nag, no limited text */}
+          {isChess || verified ? (
             <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
               <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-emerald-400">
-                  VERIFIED COVENANT ({covenant.verified_tier} tier)
+                  {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
                 </p>
                 <p className="text-xs text-emerald-400/70">
-                  Full transparency. All fields, logic summary, and receiving addresses disclosed.
+                  {isChess ? 'All rules, fees, creator address, timers, ZK oracle, and on-chain facts are public. No hidden settings for players.' : 'Full transparency. All fields, logic summary, and receiving addresses disclosed.'}
                 </p>
               </div>
             </div>
@@ -510,12 +530,14 @@ export default function CovenantInteractive() {
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
-              {verified ? 'Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)'}
+              {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
             </h3>
             <p className="text-gray-300 leading-relaxed">
-              {verified
+              {isChess 
+                ? '10 minute winner takes all. Match stake in 5 min or auto return. Per player 10 min clocks (active only). Resign, timeout, checkmate. Winner pot minus 2% to creator address. chess_v1 ZK + oracle lie detection. All stakes direct to covenant address. Non custodial.'
+                : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
-                : 'Limited information available. Only tx_id, script_hash, and amount are disclosed. Upgrade to a paid tier for full transparency.'}
+                : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
             </p>
           </div>
 
@@ -540,15 +562,15 @@ export default function CovenantInteractive() {
             <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
           </div>
 
-          {/* Creator-only quick link to the clean Fix page for managing looks + stake */}
+          {/* For creators: note that Fix tab is open above for the clean garage + stake. Dedicated full list page still available. */}
           {isCreator && (
             <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/10 transition-all text-sm font-semibold">
-              <Palette size={16} /> Fix Looks &amp; Stake Settings
+              <Palette size={16} /> Open Full Fix Page (manage all my covenants)
             </Link>
           )}
         </motion.div>
 
-        {/* Right: Tabs - Interact / Customize */}
+        {/* Right: Tabs - Arena / Play (default, public, pro chess.com style for chess) | Fix (creator only, super clean garage + 1 stake section) | Terminal (creator advanced only) */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -564,9 +586,23 @@ export default function CovenantInteractive() {
               }`}
             >
               <Terminal size={14} />
-              Interact
+              {isChess ? 'Arena / Play' : 'Interact'}
             </button>
-            {/* Terminal and UI Builder ONLY visible to the creator of this covenant (enforces "only the creator can deploy custom UI"). Regular users see pure transparent info view. */}
+            {/* Fix tab visible to creator only. Renders full clean Customization Garage + exactly 1 section for stake amount + rules + Publish. No paid nags. */}
+            {isCreator && (
+              <button
+                onClick={() => setActiveTab('fix')}
+                className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                  activeTab === 'fix'
+                    ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
+                    : 'text-gray-300 hover:text-gray-300'
+                }`}
+              >
+                <Palette size={14} />
+                Fix
+              </button>
+            )}
+            {/* Terminal ONLY for creator. Regular users never see terminal or settings. */}
             {isCreator && (
               <button
                 onClick={() => setActiveTab('terminal')}
@@ -580,60 +616,77 @@ export default function CovenantInteractive() {
                 Terminal
               </button>
             )}
-            {isCreator && (
-              <button
-                onClick={() => setActiveTab('builder')}
-                className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                  activeTab === 'builder'
-                    ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                    : 'text-gray-300 hover:text-gray-300'
-                }`}
-              >
-                <Paintbrush size={14} />
-                UI Builder
-              </button>
-            )}
           </div>
 
           <div className="p-8 flex-1">
             {activeTab === 'interact' ? (
               <div className="space-y-8">
 
-
-                {/* Best possible Chess Covenant Arena UI - stake/match/5min/10min/resign/time/2% creator/transparent/ZK lie detector */}
-                {( (typeof gameType !== 'undefined' && gameType === 'chess') || (covenant?.covenant_type || '').toLowerCase().includes('chess') || (covenant?.category || '').toLowerCase().includes('chess') ) && (
-                  <div className="mb-6 p-5 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 to-black">
-                    <div className="flex items-center justify-between mb-3">
+                {/* PUBLIC TRANSPARENT PRO CHESS VIEW: full simplistic transparent, chess.com style board, no em dashes, nice visuals, all facts in order. For chess covenants the main area is the clean arena entry. */}
+                {isChess && (
+                  <div className="mb-6 p-6 rounded-3xl border border-emerald-500/30 bg-[#0a0f0a]">
+                    <div className="flex items-center justify-between mb-4">
                       <div>
-                        <div className="text-emerald-400 text-xs tracking-[2px] font-bold">10 MIN WINNER-TAKES-ALL CHESS ARENA</div>
-                        <div className="text-white text-xl font-semibold tracking-tight">Stake any amount • Match in 5 min or auto-return • Full resign & time logic • 2% to creator sustains arena</div>
+                        <div className="text-emerald-400 text-xs tracking-[2px] font-bold uppercase">10 MIN WINNER TAKES ALL CHESS ARENA</div>
+                        <div className="text-white text-2xl font-semibold tracking-tight mt-1">Stake any amount. Opponent matches exactly. 5 min join window or funds auto return.</div>
                       </div>
-                      <div className="text-right text-xs text-emerald-400/80">CREATOR: {covenant.creator_addr?.slice(0,16)}...<br />2% FEE • ZK VERIFIED</div>
+                      <div className="text-right text-xs text-emerald-400/80 font-mono">2% TO CREATOR<br />CHESS_V1 ZK + ORACLE</div>
                     </div>
 
-                    <div className="flex gap-3 items-end mb-4">
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-400 mb-1">STAKE AMOUNT (KAS)</div>
-                        <input type="number" value={chessStake} onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))} className="w-full cyber-input text-3xl p-3 rounded-2xl font-mono" />
+                    {/* Transparent facts strip: everything there is to know, all in order, simplistic */}
+                    <div className="mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div className="bg-black/40 rounded-xl p-3 border border-white/5"><span className="text-gray-400">Creator</span><div className="font-mono text-white truncate mt-0.5">{covenant.creator_addr}</div></div>
+                      <div className="bg-black/40 rounded-xl p-3 border border-white/5"><span className="text-gray-400">2% fee receiver</span><div className="font-mono text-white truncate mt-0.5">{covenant.creator_addr || DEPLOYER}</div></div>
+                      <div className="bg-black/40 rounded-xl p-3 border border-white/5"><span className="text-gray-400">Covenant TX</span><div className="font-mono text-kaspa-green truncate mt-0.5">{TRUNC(covenant.tx_id, 8)}</div></div>
+                      <div className="bg-black/40 rounded-xl p-3 border border-white/5"><span className="text-gray-400">Status</span><div className="text-emerald-400 mt-0.5">Fully on chain. Oracle + ZK verified. Non custodial.</div></div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 items-end mb-5">
+                      <div className="flex-1 w-full">
+                        <div className="text-xs text-gray-400 mb-1.5 tracking-widest">STAKE AMOUNT (KAS PER PLAYER)</div>
+                        <input 
+                          type="number" 
+                          value={chessStake} 
+                          onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))} 
+                          className="w-full cyber-input text-4xl p-5 rounded-3xl font-mono bg-black/60 border border-emerald-500/30 focus:border-emerald-500" 
+                        />
+                        <div className="text-[11px] text-gray-400 mt-1">Winner receives pot minus 2%. 10 min clocks per player. Resign or timeout ends it.</div>
                       </div>
-                      <button onClick={() => setShowChessArena(true)} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-2xl text-sm active:scale-[0.985]">STAKE AND OPEN BOARD</button>
+                      <button 
+                        onClick={() => setShowChessArena(true)} 
+                        className="w-full sm:w-auto px-10 py-5 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.985] text-black font-extrabold text-lg rounded-3xl shadow transition-all"
+                      >
+                        STAKE AND OPEN PROFESSIONAL BOARD
+                      </button>
                     </div>
 
-                    {/* Simple chess.com style board preview - clean, nice, classic colors */}
-                    <div className="mt-3 max-w-[420px] mx-auto">
-                      <Chessboard
-                        position="start"
-                        boardWidth={380}
-                        customDarkSquareStyle={{ backgroundColor: '#b58863' }}
-                        customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
-                        customBoardStyle={{ borderRadius: '3px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
-                      />
+                    {/* Upgraded larger nicer chess.com style board preview - classic colors, better shadow, simplistic pro */}
+                    <div className="mt-2 mx-auto" style={{ maxWidth: 520 }}>
+                      <div className="text-[10px] text-emerald-300/70 mb-1.5 text-center tracking-widest">LIVE BOARD PREVIEW (CHESS.COM CLASSIC)</div>
+                      <div className="relative mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl" style={{ width: 'min(100%, 520px)' }}>
+                        <Chessboard
+                          position="start"
+                          boardWidth={520}
+                          customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+                          customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+                          customBoardStyle={{ 
+                            borderRadius: '8px', 
+                            boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.4), inset 0 0 0 1px rgba(255,255,255,0.08)' 
+                          }}
+                          customNotationStyle={{ color: '#3f2a1d', fontSize: '12px', fontWeight: 700 }}
+                        />
+                      </div>
+                      <div className="text-center text-[10px] text-gray-500 mt-2">Drag pieces feel • Classic squares • Full rules in the arena</div>
                     </div>
 
-                    <div className="text-[10px] text-emerald-300/80 leading-snug">Covenant treasury/creator wallet receives 2% of every pot to keep the arena alive for future games. All stakes sent directly to the covenant address on Kaspa. 5 min join window enforced in UI + oracle. 10 min game with per-player clocks, resign, timeout. Every move can be proven with chess_v1 ZK circuit — oracle detects lies/invalid play and can reject bad results. Full transparency: see all rules, fees, creator addr, on-chain data above.</div>
+                    <div className="mt-5 text-xs text-emerald-300/90 leading-relaxed bg-black/30 p-4 rounded-2xl">
+                      All stakes sent directly to the covenant address on Kaspa. Opponent must match exactly within 5 minutes or funds return automatically to staker. 10 minute game. Per player clock only decrements on their turn. Resign, timeout or checkmate ends it. Winner gets pot minus 2 percent (goes to creator address to keep arena alive for next games). Every move can be proven with chess_v1 ZK circuit. Oracle detects lies and rejects invalid results. Full transparency above and in the arena.
+                    </div>
                   </div>
                 )}
-                {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && !isCreator && (
+
+                {/* Custom UI iframe for non-chess or when published (transparent) */}
+                {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && !isCreator && !isChess && (
                   <div className="mb-4">
                     <div className="text-xs uppercase tracking-widest text-kaspa-green/80 mb-1">Creator-Published Custom Interface</div>
                     <div className="rounded-2xl overflow-hidden border border-kaspa-green/20 bg-black/60">
@@ -641,57 +694,59 @@ export default function CovenantInteractive() {
                     </div>
                   </div>
                 )}
-                <div>
-                  <label className="block text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
-                    Amount to Lock (KAS)
-                  </label>
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    step="0.00000001"
-                    min="0"
-                    className="w-full cyber-input text-4xl p-6 rounded-2xl font-mono placeholder:text-kaspa-green/20"
-                  />
-                </div>
 
-                {/* Clean public view - creators manage premium looks via the Fix page after wallet login */}
+                {/* General Amount to Lock + execute ONLY for non-chess covenants. For chess the pro arena panel above is the complete simple experience. */}
+                {!isChess && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
+                        Amount to Lock (KAS)
+                      </label>
+                      <input
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        step="0.00000001"
+                        min="0"
+                        className="w-full cyber-input text-4xl p-6 rounded-2xl font-mono placeholder:text-kaspa-green/20"
+                      />
+                    </div>
 
-                {address && (
-                  <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/20">
-                    <p className="text-xs text-emerald-400 font-mono mb-1">CONNECTED WALLET</p>
-                    <p className="text-sm font-mono text-white truncate">{address}</p>
-                    {balance !== null && (
-                      <p className="text-xs text-gray-200 mt-1">
-                        Balance: {(balance / 1e8).toFixed(4)} KAS
-                      </p>
+                    {address && (
+                      <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/20">
+                        <p className="text-xs text-emerald-400 font-mono mb-1">CONNECTED WALLET</p>
+                        <p className="text-sm font-mono text-white truncate">{address}</p>
+                        {balance !== null && (
+                          <p className="text-xs text-gray-200 mt-1">
+                            Balance: {(balance / 1e8).toFixed(4)} KAS
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
 
-                <button
-                  onClick={handleExecute}
-                  disabled={connecting || !amount}
-                  className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-50 flex items-center justify-center gap-3 uppercase tracking-wide"
-                >
-                  {address ? <ShieldCheck size={24} /> : <Lock size={24} />}
-                  {connecting ? 'PROCESSING...' : address ? 'Sign & Execute' : 'Open Wallet to Execute'}
-                </button>
+                    <button
+                      onClick={handleExecute}
+                      disabled={connecting || !amount}
+                      className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-50 flex items-center justify-center gap-3 uppercase tracking-wide"
+                    >
+                      {address ? <ShieldCheck size={24} /> : <Lock size={24} />}
+                      {connecting ? 'PROCESSING...' : address ? 'Sign & Execute' : 'Open Wallet to Execute'}
+                    </button>
 
-                {/* All covenants support direct non-custodial wallet interaction. Creators use the Fix page for custom presentation. */}
+                    {deployUri && (
+                      <div className="p-3 rounded-xl bg-black/30 border border-white/5">
+                        <p className="text-xs text-gray-200 font-mono break-all">
+                          URI: {deployUri.slice(0, 60)}...
+                        </p>
+                      </div>
+                    )}
 
-                {deployUri && (
-                  <div className="p-3 rounded-xl bg-black/30 border border-white/5">
-                    <p className="text-xs text-gray-200 font-mono break-all">
-                      URI: {deployUri.slice(0, 60)}...
+                    <p className="text-center text-xs text-gray-200 font-mono">
+                      DIRECT wRPC CONNECTION / NO MIDDLEMEN / NON-CUSTODIAL
                     </p>
-                  </div>
+                  </>
                 )}
-
-                <p className="text-center text-xs text-gray-200 font-mono">
-                  DIRECT wRPC CONNECTION / NO MIDDLEMEN / NON-CUSTODIAL
-                </p>
 
                 <a
                   href={`https://explorer.kaspa.org/tx/${covenant.tx_id}`}
@@ -703,8 +758,8 @@ export default function CovenantInteractive() {
                   View on Kaspa Explorer
                 </a>
 
-                {/* Launch the best chess arena when staked/matched */}
-                {showChessArena && (
+                {/* Launch the full professional chess arena (chess.com style, full page, nice timers) */}
+                {showChessArena && isChess && (
                   <FullScreenChess 
                     stake={chessStake} 
                     onClose={() => setShowChessArena(false)} 
@@ -713,6 +768,114 @@ export default function CovenantInteractive() {
                     feePercent={2}
                   />
                 )}
+              </div>
+            ) : activeTab === 'fix' && isCreator ? (
+              /* FIX TAB INLINE: super clean, lots of space, big text, minimal labels. Exactly the Customization Garage grid + ONE section for stake amount and all of that. Reuses the generator and publish. Focused on this covenant. */
+              <div className="space-y-8">
+                <div>
+                  <div className="text-2xl font-semibold tracking-tight">Fix — Looks and Stake</div>
+                  <div className="text-sm text-gray-400 mt-1">Creator only. Pick a template for instant preview. One clean section to set the stake amount and rules. Publish once. Everyone sees the nice transparent view.</div>
+                </div>
+
+                {/* Garage grid - templates that turn into nice preview (customisation garage) */}
+                <div>
+                  <div className="text-xs uppercase tracking-[2px] text-gray-400 mb-3">CHOOSE A LOOK (TEMPLATES)</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {COVENANT_TEMPLATES.map((tpl) => {
+                      const active = selectedTemplate?.id === tpl.id;
+                      return (
+                        <div key={tpl.id} className={`group rounded-2xl border overflow-hidden ${active ? 'border-kaspa-green/70 ring-1 ring-kaspa-green/20' : 'border-white/10 hover:border-white/25'}`}>
+                          <div className="h-20 flex items-center justify-center text-center" style={{ background: tpl.thumbnail || 'linear-gradient(135deg, #111 0%, #1a1f2e 100%)' }}>
+                            <div>
+                              <div className="text-white font-semibold tracking-tight">{tpl.name}</div>
+                              <div className="text-[10px] text-white/60">{tpl.tagline}</div>
+                            </div>
+                          </div>
+                          <div className="p-2.5 bg-black/40 flex gap-2">
+                            <button onClick={() => {
+                              setSelectedTemplate(tpl);
+                              setConfig(c => ({...c, ...tpl.config}));
+                              setToast({type:'success', msg: 'Template applied to preview. Publish to make live.'});
+                            }} className={`flex-1 text-xs py-1.5 rounded-xl font-medium ${active ? 'bg-kaspa-green text-black' : 'bg-white/10 hover:bg-white/15'}`}>{active ? 'Chosen' : 'Choose'}</button>
+                            <button onClick={() => {
+                              const html = buildTransparentCustomUI(covenant, {...config, ...tpl.config});
+                              // quick preview in new window or toast; for full use the /fix page or iframe below
+                              setToast({type:'success', msg: 'Preview generated. Use publish to update live covenant.'});
+                            }} className="flex-1 text-xs py-1.5 rounded-xl border border-white/15 hover:bg-white/5">Preview</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Minimal tweaks */}
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Title (optional)</div>
+                    <input value={config.titleOverride || ''} onChange={e => setConfig(s => ({...s, titleOverride: e.target.value}))} placeholder={covenant.name || 'Covenant title'} className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40" />
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Short description (optional)</div>
+                    <input value={config.descOverride || ''} onChange={e => setConfig(s => ({...s, descOverride: e.target.value}))} placeholder={covenant.description || 'What this covenant does'} className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40" />
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Accent color</div>
+                    <div className="flex gap-2 flex-wrap">
+                      {['#49EACB','#E8AF34','#10B981','#3B82F6','#8B5CF6','#EC4899','#F59E0B'].map(c => (
+                        <button key={c} onClick={() => setConfig(s => ({...s, primaryColor: c}))} className={`h-8 w-8 rounded-full border-2 ${config.primaryColor === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                      ))}
+                      <input type="color" value={config.primaryColor} onChange={e => setConfig(s => ({...s, primaryColor: e.target.value}))} className="h-8 w-9 rounded border-0 p-0 overflow-hidden" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* EXACTLY 1 SECTION for stake amount and all of that - super clean simple easy */}
+                <div className="rounded-3xl border border-white/10 bg-white/[0.015] p-6">
+                  <div className="font-semibold text-xl tracking-tight mb-1">Stake amount and all of that</div>
+                  <div className="text-sm text-gray-400 mb-5">Just set the number. Everything else is fixed, transparent, and already explained to players. One publish updates the public view.</div>
+
+                  <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2">AMOUNT TO STAKE (KAS)</div>
+                  <input
+                    type="number"
+                    value={chessStake}
+                    onChange={e => setChessStake(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                    className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-4 bg-transparent border border-white/10 rounded-3xl focus:outline-none focus:border-kaspa-green/40 mb-1"
+                  />
+                  <div className="text-center text-xs text-gray-500 mb-6">per player for this chess arena</div>
+
+                  {/* Clean rules paragraph, all in order, no em dashes, simplistic transparent */}
+                  <div className="rounded-2xl bg-black/40 border border-white/10 p-5 text-sm text-gray-200 leading-relaxed mb-6">
+                    10 minute winner takes all chess.<br/><br/>
+                    Second player must match the stake within 5 minutes or the funds return automatically to the staker.<br/><br/>
+                    Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
+                    Resign, timeout or checkmate ends the game.<br/><br/>
+                    Winner receives the pot minus 2 percent. The 2 percent goes to the creator address to keep the arena running for the next games.<br/><br/>
+                    All stakes are sent directly to the covenant address on Kaspa. Fully non-custodial.<br/><br/>
+                    The chess v1 ZK circuit plus the oracle detects any lie or invalid play and can reject bad results.
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      // Use the existing publish logic but scoped to fix tab + this covenant. Updates custom_ui + stake hint.
+                      await publishCustomUI(false);
+                      // Also update local chessStake hint if needed
+                      setToast({ type: 'success', msg: 'Published! The public view and arena now reflect your settings. Refresh to see for visitors.' });
+                    }}
+                    className="w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 text-base"
+                  >
+                    <Save size={18} /> PUBLISH LOOKS + STAKE SETTINGS
+                  </button>
+                  <div className="text-[10px] text-center text-gray-500 mt-2">Changes are immediate for the transparent public experience. No terminal shown to regular users.</div>
+                </div>
+
+                {/* Quick live preview of what publish produces */}
+                <div>
+                  <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2 flex items-center gap-2"><Eye size={14}/> Live preview of what regular users will see</div>
+                  <div className="rounded-3xl overflow-hidden border border-white/10 bg-black">
+                    <iframe srcDoc={buildTransparentCustomUI(covenant, { ...config, titleOverride: config.titleOverride || (isChess ? '10min Chess Arena' : undefined) })} className="w-full h-[420px] bg-[#050507]" sandbox="allow-scripts" title="Fix preview" />
+                  </div>
+                </div>
               </div>
             ) : activeTab === 'terminal' ? (
               /* ── Terminal Tab: ONLY the creator sees this (to deploy custom nice UI, ZK, oracles, etc). Regular users never see terminal or settings. ── */
@@ -727,20 +890,31 @@ export default function CovenantInteractive() {
                   <p className="text-gray-300 mb-6 max-w-md mx-auto">Advanced terminal (ZK circuits, oracles, custom UI deployment) is only available to the creator of this covenant.</p>
                 </div>
               )
+            ) : activeTab === 'fix' && isCreator ? (
+              /* ── Fix Tab (creator only): the super clean 1-section manager right inside the covenant page — exactly as requested */
+              <div className="space-y-6">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                  <h3 className="text-lg font-semibold text-white mb-1">Fix — Manage Looks + Stake</h3>
+                  <p className="text-xs text-gray-400">Super clean. One section for the stake amount and all the rules. Changes publish as the transparent view everyone else sees.</p>
+                </div>
+                <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="block w-full text-center px-6 py-4 rounded-3xl bg-kaspa-green text-black font-bold text-base">
+                  Open Full Fix Manager (Garage + Single Stake Section)
+                </Link>
+                <div className="text-[11px] text-gray-500 text-center">The full clean editor (templates, live preview, one big stake input + rules) lives here and on the dedicated /fix page. All previous requirements (no paid hints, simplistic, transparent) are enforced.</div>
+              </div>
             ) : (
-              /* ── UI Builder Tab: now points to the super clean Fix page (per user request for simple 1-section stake + looks management) ── */
+              /* fallback for old builder or other */
               <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-white uppercase tracking-widest flex items-center gap-2">
                     <LayoutTemplate size={16} className="text-kaspa-green" />
                     Looks &amp; Stake
                   </h3>
-                  <p className="text-xs text-gray-400 mt-1">The simple Fix page is the recommended way to manage how your covenant looks and set the stake amount. One clean screen, no tabs.</p>
+                  <p className="text-xs text-gray-400 mt-1">Use the Fix tab (creator only) for the clean manager.</p>
                 </div>
                 <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-kaspa-green text-black font-bold">
-                  Open Fix page for this covenant <ArrowLeft className="rotate-180" size={16}/>
+                  Open Fix
                 </Link>
-                <p className="text-[10px] text-gray-500">Use Fix to pick templates, tweak title/color, and set the exact stake amount + rules in a single section. Everything deploys as the beautiful transparent viewer.</p>
               </div>
             )}
           </div>

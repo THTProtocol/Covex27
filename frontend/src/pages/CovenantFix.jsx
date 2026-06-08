@@ -50,20 +50,20 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
   if (isChess) {
     stakeBlock = `
       <div class="section">
-        <div class="label" style="margin-bottom:10px">Stake &amp; Play</div>
+        <div class="label" style="margin-bottom:10px">Stake and Play the Arena</div>
         <div class="glass" style="text-align:center">
-          <div style="font-size:13px;color:#94A3B8;margin-bottom:8px">10 MIN WINNER-TAKES-ALL</div>
+          <div style="font-size:13px;color:#94A3B8;margin-bottom:8px">10 MIN WINNER TAKES ALL</div>
           <div style="font-size:42px;font-weight:700;letter-spacing:-1px;margin:8px 0">${stake} KAS per player</div>
           <div class="rules" style="max-width:520px;margin:16px auto 0">
             Second player matches within 5 minutes or funds return automatically.<br/>
             10 minute clocks per player. Resign, timeout or checkmate ends it.<br/>
             Winner gets pot minus 2% (goes to creator address to sustain the arena).<br/>
-            Every move verifiable with chess_v1 ZK circuit — oracle detects lies.
+            Every move verifiable with chess_v1 ZK circuit. Oracle detects lies.
           </div>
           <div style="margin-top:20px">
-            <button onclick="window.parent.postMessage({type:'COVENANT_EXECUTE'},'*')" class="btn" style="font-size:16px;padding:16px 36px">Stake &amp; Open Board</button>
+            <button onclick="window.parent.postMessage({type:'COVENANT_EXECUTE'},'*')" class="btn" style="font-size:16px;padding:16px 36px">Play the 10min Arena (chess.com style)</button>
           </div>
-          <div style="margin-top:14px;font-size:11px;color:#475569">Direct to covenant address • Non-custodial • Fully transparent</div>
+          <div style="margin-top:14px;font-size:11px;color:#475569">Direct to covenant address. Non custodial. Fully transparent. Professional full page timers and board.</div>
         </div>
       </div>
     `;

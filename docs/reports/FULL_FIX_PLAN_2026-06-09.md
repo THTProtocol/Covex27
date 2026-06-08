@@ -825,3 +825,11 @@ P0 done (~95%). P1 ~50-60% (E2E/mixer/push/stales advanced; chess/RISC0/MPC/main
 P0 ~95%+ done (all [x] or partial documented). P1 ~50-60% (E2E expansion + mixer + push/sync + stales good; big items chess/RISC0/mainnet/MPC/browser pending). Everything makes sense: no breakage, live healthy (6565+ covenants, 12 verified, MAX tiers), pushed (recent 380e057..e7ac9dc etc.), SHAs 7c0ca5c+ with resets, versions consistent, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (per note). No gaps in tested paths. Full remaining plan written/committed to FULL_FIX_PLAN_2026-06-09.md.
 
 **No, not everything is done now.** Full plan of remaining written/committed above. Triple-sync verified. Ready for next (chess watch or specific P1).
+## P1 This Continue (integration + no gaps round)
+- Hetzner synced to 070f85b/2f131e4 etc., E2E 26 pass, health OK.
+- Local: 5+ expanded, full checks, oracles for all True.
+- Chess ~21h+ no zkey, RISC0 6 no binary.
+- Live 3/2, oracles consistent.
+- Stales 1 (docs), cleaned.
+- Everything works great together: E2E 26p, 5+ real/hybrid, oracles/mixer/live no gaps, sync/push, sense pass.
+- P1 5/8+ advanced.

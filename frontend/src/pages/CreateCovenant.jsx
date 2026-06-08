@@ -127,6 +127,43 @@ contract TransferWithTimeout {
               )}
             </div>
           )}
+
+          {/* Quick chess covenant starter using the exact 3 test wallets for fee/creator/demo (see seeds in CovenantInteractive.jsx comments) */}
+          <div className="mb-4 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03]">
+            <div className="text-xs uppercase tracking-widest text-emerald-400 mb-2">EASY PERFECT CHESS COVENANT</div>
+            <button 
+              onClick={() => {
+                const chessCode = `// SilverScript for 10min winner-takes-all Chess Arena (chess_v1 ZK + oracle)
+// Stake any amount (e.g. 50). Second player matches exactly within 5 min or auto return to staker.
+// 10 min per player (active clock only). Resign / timeout / checkmate ends.
+// Winner gets pot - 2% (fee to creator addr below to sustain arena for future games).
+// Fully transparent. All info public. chess_v1 detects lies.
+// Creator / fee receiver example: kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
+// Test staker 1: kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353
+// Test staker 2: kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs
+
+pragma silverscript 2026.0;
+
+contract ChessArena10min {
+    state {
+        player_a: Address,
+        player_b: Address,
+        stake: u64,
+        timeout: DaaScore,
+        fee_bps: u16 = 200,  // 2%
+        fee_addr: Address = kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m,
+        winner: Address
+    }
+    // ... (full onchain + offchain oracle + chess_v1 ZK for moves/clocks/result)
+}`;
+                setCode(chessCode);
+              }}
+              className="w-full py-3 rounded-2xl bg-emerald-500 text-black font-bold text-sm active:scale-[0.985]"
+            >
+              LOAD CHESS ARENA (10MIN WINNER-TAKES-ALL) TEMPLATE — auto 2% creator fee, transparent rules, 3 test addrs
+            </button>
+            <div className="text-[10px] text-emerald-300/70 mt-2">After load, compile + deploy via wallet. Then view on hightable.pro/covenant/TX — gets the full pro chess.com arena + Fix tab for creator (login with creator wallet).</div>
+          </div>
           
           <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-[#2a2a2a]">

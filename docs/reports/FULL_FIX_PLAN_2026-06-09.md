@@ -280,3 +280,17 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Chess: re-confirmed running, no zkey.
 - More oracles + mixer (pools 3, withdraws) re-verified.
 - Docs updated.
+## P1 Round Complete (this continue)
+- E2E syntax fixed post-sed (trailing commas cleaned).
+- Re-run E2E shows the expanded circuits now participating (hybrid/attested exercised).
+- From synced Hetzner run: 26 pass, 0 fail, 10 skip (significant improvement, new circuits via the expansion).
+- Push to origin succeeded (d7e4eff).
+- Hetzner fully synced to latest, E2E run there confirms 26 pass.
+- Mixer: pools 3, nulls 2, withdraws working.
+- Additional oracles tested successfully.
+- RISC0:  (from ls) multiple guests but no toolchain (stubs).
+- Chess: still running, no zkey (20h+).
+- Docs updated and committed.
+- P1-15 (expand real proofs) advanced with 3+ circuits now in E2E as real/hybrid, count to 26 pass.
+- P1-16 (mixer) advanced with withdraw test.
+- Overall P1 strong progress; chess ceremony is the main remaining blocker for full P1-10.

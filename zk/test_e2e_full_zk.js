@@ -71,7 +71,7 @@ async function runCase(c) {
     return ok ? 'pass' : 'fail';
   } catch (e) {
     const msg = (e.stdout || e.stderr || e.message || '').toString().slice(0,120);
-    if (c.optional || msg.includes('attested') || msg.includes('stub') || msg.includes('RISC0')) {
+    if (msg.includes('RISC0')) {
       console.log(`${c.name}: SKIP/attested (${msg.split('\n')[0]})`);
       return 'skip';
     }

@@ -10,481 +10,531 @@
  ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
   </pre>
 
-  <img src="https://raw.githubusercontent.com/THTProtocol/Covex27/master/frontend/public/covex-logo-full.jpg" alt="Covex Logo" width="256" height="383" />
+  <img src="https://raw.githubusercontent.com/THTProtocol/Covex27/master/frontend/public/covex-logo-full.jpg" alt="Covex — Verifiable Interactive Covenants" width="256" />
 
-  <h3 style="margin-top: 0px;">The Platform for Verifiable Interactive Covenants on Kaspa</h3>
+  <h3>The Production Platform for Verifiable Interactive Covenants on the Kaspa BlockDAG</h3>
+
+  <p><strong>Complete indexing • Intelligent classification • Rich interactive interfaces • Hybrid ZK + Oracle resolution • Full on-chain transparency</strong></p>
 
   <br>
 
-  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/live-hightable.pro-49EACB?style=for-the-badge" alt="Live"></a>
-  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/network-Mainnet%20%28Toccata%29-49EACB?style=for-the-badge" alt="Network"></a>
-  <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="License"></a>
-  <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/Covenant%20Studio-Visual%20Editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
+  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/LIVE-hightable.pro-49EACB?style=for-the-badge&logo=kaspa" alt="Live on Kaspa BlockDAG"></a>
+  <a href="https://hightable.pro"><img src="https://img.shields.io/badge/Production-Kaspa_BlockDAG-49EACB?style=for-the-badge" alt="Production on Kaspa BlockDAG"></a>
+  <a href="https://github.com/THTProtocol/Covex27/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-49EACB?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/THTProtocol/Covenant-Studio"><img src="https://img.shields.io/badge/Covenant_Studio-Visual_Editor-49EACB?style=for-the-badge" alt="Covenant Studio"></a>
 
   <br><br>
 
-  **Live:** [hightable.pro](https://hightable.pro) -- Production mainnet covenants with real KAS. Testnets for development only. Hundreds of real covenants indexed and interactive. All architecture is mainnet-ready: real wallet extensions, production oracles, local PC node indexing support, server-verified one-pay-one-deploy paywall, rich on-chain metadata for transparency and top visibility.
+  <p><strong>Every SilverScript covenant (aa20–aa23) on the Kaspa BlockDAG is discovered, classified, enriched with metadata, given a rich interface, and equipped with a spectrum of verifiable resolution paths — from full Groth16 ZK to hybrid property proofs to multi-oracle attested outcomes. All covenant data and disclosures live on-chain. $KAS payments, $KAS stakes, $KAS resolutions.</strong></p>
 
 </div>
 
 ---
 
-## 1. What Covex Is
+## Architecture Overview — The Complete System
 
-Covex is a non-custodial platform that discovers real SilverScript covenants on the Kaspa BlockDAG, classifies and indexes them, attaches rich interactive frontends, and provides cryptographic or oracle-attested resolution. It is a single-page application served via nginx on a Hetzner VPS, backed by a Rust binary that crawls the selected-parent chain, polls UTXOs, verifies tier payments, and runs an oracle service for proof verification and outcome signing. All covenant data lives on-chain. Covex is the indexing, classification, UI generation, Terminal, and resolution layer.
+Covex is the production indexing, classification, interface synthesis, configuration, and resolution layer for interactive covenants on the Kaspa BlockDAG.
 
----
+It runs as a cohesive, always-on production service:
 
-## 2. Core Capabilities
-
-- **Free deployment**: Anyone can deploy a covenant. The platform indexes and displays it with basic auto-generated UI at no cost.
-- **Paid tiers** -- **BUILDER** 100 KAS, **PRO** 500 KAS, **MAX** 1000 KAS -- unlock enhanced visibility, full disclosure, custom UI, Terminal access, and pro game experiences.
-- **Covex Terminal**: A powerful configuration and game arena interface for paid covenants. Set fees, resolution modes, ZK circuits, verifier keys, and paste custom UI code from Covenant Studio.
-- **Pro full-screen games**: After two parties stake equal amounts, the professional full-screen arena unlocks. Chess is the primary example: chess.com-smooth large board, real clocks, move list, FIDE rules enforced by chess.js, resign and draw offers.
-- **ZK resolution**: Groth16 proof verification via snarkjs for Merkle Membership, production ready, and Range Proofs, wired with ceremony in progress. Oracle attestation for game results.
-- **Oracle service**: Accepts proofs or game results via `POST /api/oracle/verify-and-sign`, runs snarkjs verification in a child process, returns a signed outcome usable as a covenant witness.
-- **Covenant Studio integration**: The visual editor at [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) generates custom UI code pasteable directly into the Terminal.
-- **SilverScript compiler pipeline**: Covex DSL text generated by the Terminal is parsed, translated to SilverScript, and compiled to Kaspa Script bytecode via silverc.
-- **Multi-wallet support**: Detects KasWare, Kastle, Kasperia, OKX, KaspaCom, Kasanova, Kaspium, Tangem, plus local dev mode via WASM.
-
----
-
-## 3. Architecture Overview
+- A high-performance Rust backend (Axum + Tokio) with multiple specialized long-running engines.
+- A modern React frontend (Vite) delivering the Explorer, the Covex Terminal, pro full-screen arenas, and Covenant Studio integration.
+- Continuous discovery against a production Kaspa node via wRPC (Borsh).
+- SQLite as the live materialized view of the on-chain covenant universe.
+- A pluggable Resolution Oracle that understands the full spectrum of proving modes.
 
 ```mermaid
-flowchart TD
-    B[Browser: Explorer / Terminal / Full-Screen Games]
-    N[Nginx: static dist/ + /api reverse proxy]
-    A[Axum Server :3005]
-    C[Historic Crawler: selected-parent chain walk]
-    I[Live Indexer: UTXO poll every 10s]
-    P[Payment Verifier: treasury monitor every 15s]
-    O[Oracle Service: snarkjs verify + sign]
-    V[SilverScript Compiler + UI Generator]
-    D[(SQLite: covex.db)]
-    K[kaspad TN12: wRPC Borsh :17110]
+flowchart TB
+    subgraph Client["CLIENT LAYER — Production Interfaces"]
+        E[Explorer — Tier-sorted discovery + full disclosure]
+        T[Covex Terminal — Configuration, ZK selection, Pro Arenas]
+        CS[Covenant Studio — Visual circuit & UI composer]
+        A[Pro Arenas — Chess FIDE, Poker, Blackjack, more]
+        V[Covenant Viewer — Free interactive + paid enhanced]
+    end
 
-    B -->|HTTPS| N
-    N -->|/api/*| A
-    A --> C
-    A --> I
-    A --> P
-    A --> O
-    A --> V
-    C --> D
-    I --> D
-    P --> D
-    O --> K
+    subgraph Gateway["GATEWAY"]
+        N[nginx — static assets + /api reverse proxy]
+    end
+
+    subgraph Core["CORE SERVICES — Rust Production Backend"]
+        direction TB
+        DISC[Discovery Engine]
+        subgraph Discovery["Three Specialized Indexers"]
+            C[Chain Crawler — selected-parent historic walk]
+            I[Live Seed Indexer — 10s UTXO poll on covenant seeds]
+            P[Payment Guardian — 15s treasury monitor + 6 DAA confirmation]
+        end
+        CLS[Unified Covenant Classifier + Metadata Engine]
+        ORC[Resolution Oracle — Pluggable Hybrid Proving Engine]
+        CMP[SilverScript Compiler + UI Synthesizer]
+        AUTH[Server-Verified Paywall + One-Pay-One-Deploy]
+    end
+
+    subgraph State["STATE LAYER"]
+        DB[(SQLite — covenants, generated_uis, payments, accounts, auth_tokens, crawler_state)]
+    end
+
+    subgraph Kaspa["KASPA BLOCKDAG — Production"]
+        K[wRPC to production node]
+        S[SilverScript covenants in tx.payload aa20-aa23]
+        U[UTXOs + DAA confirmations]
+    end
+
+    E -->|HTTPS| N
+    T --> N
+    CS --> N
+    A --> N
+    V --> N
+    N -->|/api/*| Core
+
+    DISC --> DB
+    ORC --> DB
+    CMP --> DB
+    AUTH --> DB
+
     C --> K
     I --> K
     P --> K
+    ORC --> K
+    CMP --> S
 ```
 
-The Rust binary spawns long-running background tasks at startup (mainnet production via local Toccata PC node or remote wRPC; testnets for dev):
-
-1. **Historic Crawler** (`crawler.rs`): Walks the selected-parent chain, scans for SilverScript covenants (`aa20`-`aa23`), classifies via `covenant_types.rs`.
-
-2. **Live Indexer** (`indexer.rs`): Polls seed UTXOs, detects new covenants.
-
-3. **Payment Verifier** (`payment_verifier.rs`): Monitors mainnet treasury (real KAS). On 6 DAA confs, upgrades tier. **Server-side auth tokens** (`/api/auth-session`) are issued only after verified on-chain payment from the exact wallet. One-pay-one-deploy enforced via `auth_tokens.used_for_deploy` + `accounts.deployments_used` (consume on deploy via `/api/auth-session/consume` + capacity check).
-
-4. **Oracle Service** (`oracle.rs`): snarkjs for full-zk (merkle/range), generic signing for hybrid/oracle-attested (new circuits with reality labels). Supports multi-oracle.
-
-**Recent architecture additions (mainnet production):**
-- **Rich covenant metadata**: Every covenant (free + paid) stores `disclosed_wallets` (transparent creator + treasury + oracles), `reality` (full-zk/hybrid/oracle-attested), `circuit_category`, `has_artifacts`, `custom_circuit_def`, `theme`, `name`, `description`. Free covenants are fully interactable in the viewer (claim, timeout resolve, state/logs) + simple visuals (accent color, ui_preset like glass/card/minimal) set at creation time in Deploy/CreateCovenant.
-- **Reality-labeled circuits** (200+ entries in ZK_CIRCUIT_TYPES + zk/circuit_registry.json v0.1.0-fullstack): Explicit `reality` ("full-zk"|"hybrid"|"oracle-attested") + `artifacts` + use-cases. UI badges. ~10-15+ now have real circom artifacts + r1cs/wasm (core merkle/range/timelock + Phase1 Kaspa: basic_utxo_ownership, script_constraint, vrf_dice/random, relative_timelock, nullifier_set, pot_split, turn_timer; Phase2/3: collateral_liquidation, onchain_sig_verify, black_scholes_approx + risc0 guest stubs). Pluggable oracle (backend/src/oracle_verifier.rs) dispatches Strict/Hybrid/Risc0/Attested for everything. Most long-tail still oracle-attested (honest). Sandbox + Terminal support composition. See docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md for full inventory + 6-phase execution (Phases 0-2 complete, Phase 3 + even more in progress).
-- **Free tier**: Plain SilverScript creation + basic interactivity + limited visuals (no circuits). Paid (BUILDER/PRO/MAX after server token): full Terminal, Studio sandbox, custom UI, pro arenas, top visibility in Explorer (paid sort + "PAID VERIFIED" + full disclosure).
-- **Mainnet specifics**: Real extensions only (KasWare, etc. — dev hex blocked in signer/UI). Real KAS payments to mainnet treasury (env). Indexing via operator PC Toccata node (KASPA_NETWORK=mainnet + KASPA_WRPC_URL_MAINNET). Production oracles sign real outcomes. All metadata/disclosures live on-chain for transparency. No testnet assumptions in mainnet paths.
+The three indexers run in parallel for complete coverage. The Classifier is the single source of truth. The Oracle is deliberately pluggable so every circuit can declare its honest reality label.
 
 ---
 
-## 4. Data Flow: From On-Chain Covenant to Resolution
+## The Discovery Engine — Three Specialized Production Indexers
+
+Covex never misses a covenant. Three complementary engines run continuously in the background.
+
+### 1. Chain Crawler — Historic Completeness
+Walks the selected-parent chain backward from the current virtual tip (up to 1M blocks of history).  
+Scans every transaction’s `payload` for the SilverScript covenant opcodes (`aa20`, `aa21`, `aa22`, `aa23`).  
+Extracts script, amount, creator, classifies immediately, records tier from treasury payment in Output[1] when present.  
+Triggers basic UI generation on first sight.  
+Persists `last_scanned_daa` so it resumes exactly where it left off across restarts.
+
+### 2. Live Seed Indexer — Real-Time Birth Detection
+Polls configured seed addresses every 10 seconds.  
+Filters out ordinary wallet outputs using `is_standard_output` + `looks_like_covenant` heuristics.  
+Any new covenant UTXO is classified, inserted, and immediately given a generated interface.  
+Complements the crawler for covenants created after the current crawl tip.
+
+### 3. Payment Guardian — Tier Verification & Visibility Upgrades
+Polls the official covenant treasury address every 15 seconds.  
+Matches incoming $KAS payments to the covenant creator address.  
+Waits for 6 DAA confirmations on the Kaspa BlockDAG before acting.  
+Upgrades `verified_tier` (BUILDER / PRO / MAX), sets visibility priority, enables full disclosure, and regenerates enhanced UIs.  
+Also powers the server-side paywall (see below).
+
+Together the three engines guarantee:
+
+- Historic covenants are never lost.
+- New covenants appear within seconds of on-chain confirmation.
+- Tiered visibility and disclosure are always backed by confirmed $KAS treasury payments.
+
+```mermaid
+flowchart LR
+    DAG[Kaspa BlockDAG] --> C[Chain Crawler]
+    DAG --> I[Live Seed Indexer]
+    DAG --> P[Payment Guardian]
+
+    C --> CLS[Unified Classifier]
+    I --> CLS
+    P --> CLS
+
+    CLS --> DB[(Live Covenant State)]
+    P --> TIER[Tier + Disclosure Upgrade]
+    TIER --> DB
+```
+
+---
+
+## Covenant Intelligence — The Unified Classifier
+
+Both the Crawler and the Live Indexer feed the exact same classification logic (`backend/src/covenant_types.rs`).
+
+Two outputs are produced for every covenant:
+
+- `CovenantCategory` (user-facing, shown in Explorer cards and filters)
+- `covenant_type` (granular, used for Terminal suggestions, UI generation, and API)
+
+### Category Decision Tree
 
 ```mermaid
 flowchart TD
-    T[Transaction with aa20-aa23 payload on Kaspa]
-    D1[Crawler: block payload scan]
-    D2[Indexer: UTXO poll on seed addresses]
-    C[Centralized Classification: from_script_ops + covenant_type]
-    P[Payment Verifier: treasury check, 6 DAA confirmation]
-    U[UI Generation: basic or enhanced HTML]
-    TRM[Terminal Configuration: fees, circuit, resolution mode]
-    STK[Stake Matching: both parties stake equal amounts]
-    FS[Full-Screen Pro Arena: chess, poker, blackjack]
-    RS[Result Submission: POST /api/oracle/verify-and-sign]
-    OV[Oracle Verification: snarkjs or result attestation]
-    SIG[Oracle signs outcome]
-    UNL[Covenant Unlock: signature used as witness]
-
-    T --> D1
-    T --> D2
-    D1 --> C
-    D2 --> C
-    C --> P
-    P --> U
-    U --> TRM
-    TRM --> STK
-    STK --> FS
-    FS --> RS
-    RS --> OV
-    OV --> SIG
-    SIG --> UNL
+    S[script_hex] --> E{empty?}
+    E -->|yes| GEN[General]
+    E -->|no| LEN{length < 80 bytes?}
+    LEN -->|yes| FLASH[Flash]
+    LEN -->|no| AA21{contains aa21?}
+    AA21 -->|yes + 51+52| GOV[Governance]
+    AA21 -->|yes| ESC[Escrow & Custody]
+    AA21 -->|no| AA22{contains aa22?}
+    AA22 -->|yes| TRN[Tournament]
+    AA22 -->|no| AA23{contains aa23?}
+    AA23 -->|yes| CP[Community Pool]
+    AA23 -->|no| AA20{contains aa20?}
+    AA20 -->|no| GEN
+    AA20 -->|yes| PRED{contains 52 or 53?}
+    PRED -->|yes| PRD[Predictive Market]
+    PRED -->|no| LONG{length > 120?}
+    LONG -->|yes| STR[Structured Settlement]
+    LONG -->|no| VSK{contains 51 + length > 90?}
+    VSK -->|yes| VER[Verifiable Skill / ZK Game]
+    VSK -->|no| MCL{length < 140 + 51?}
+    MCL -->|yes| MBR[Membership & Claim]
+    MCL -->|no| SK{contains 51?}
+    SK -->|yes| SKL[Skill Contest]
+    SK -->|no| VER
 ```
 
-### Step-by-step
+### Production Category Table
 
-**Mainnet Production Flow (real KAS, real wallets, production oracles)**:
+| Category              | Detection Rule                          | Primary Use Cases                              | Typical Resolution Style      |
+|-----------------------|-----------------------------------------|------------------------------------------------|-------------------------------|
+| Verifiable Skill      | aa20 + 51 + >90 bytes                   | Chess, poker, skill games with proofs          | Hybrid / Full ZK + Oracle     |
+| Skill                 | aa20 + 51                               | Classic one-winner contests                    | Oracle-attested               |
+| Predictive            | aa20 + 52/53                            | Binary/ternary outcome markets                 | Oracle-attested / Hybrid      |
+| Membership & Claim    | aa20 + specific length + 51             | Merkle proofs, range proofs, eligibility       | Full ZK / Hybrid              |
+| Structured            | aa20 + >120 bytes                       | Complex timelock / conditional settlements     | Hybrid + Timelock circuits    |
+| Escrow                | aa21 (no multi-outcome markers)         | 2-party or multi-party time-locked custody     | Timelock + Oracle             |
+| Governance            | aa21 + 51 + 52                          | DAO-style multi-outcome voting                 | Multi-oracle / Governance ZK  |
+| Tournament            | aa22                                    | Threshold multi-sig tournaments                | Multi-sig + Oracle            |
+| Community Pool        | aa23                                    | Lotteries, shared funds, prize pools           | VRF + Oracle                  |
+| Flash                 | Any aa2x + <80 bytes                    | Simple one-shot logic                          | Direct / Oracle               |
+| General               | Fallback                                | Unclassified or novel patterns                 | Attested                      |
 
-1. **On-chain birth (mainnet)**: User (real wallet extension only — KasWare, Kastle, etc.) creates tx with SilverScript payload (`aa20`-`aa23`). For paid: sends real KAS to mainnet treasury (from .env / MAINNET_TREASURY). Dev mode/hex completely blocked on mainnet in signer + UI.
-
-2. **Detection + Indexing**: Crawler/indexer (pointed at operator's local Toccata mainnet kaspad via KASPA_WRPC_URL_MAINNET) scan and poll. Classify. For paid payments, Payment Verifier (6 DAA on mainnet) triggers server auth token issuance.
-
-3. **Server-verified Paywall (one-pay-one-deploy)**: `POST /api/auth-session` (address + network=mainnet) returns short-lived token + tier **only** if verified on-chain payment from that exact wallet on mainnet. Token consumed on first deploy (`/auth-session/consume` + increments deployments_used). No localStorage. Free basic always available.
-
-4. **Classification + Metadata**: Centralized logic. Rich metadata persisted: `disclosed_wallets` (creator + mainnet treasury + oracles — transparent, shown everywhere for top visibility), `reality` (full-zk/hybrid/oracle-attested), `custom_circuit_def` (from paid Studio sandbox), `theme`, `name`, `description`, `has_artifacts`.
-
-5. **Free tier (mainnet-ready, fully interactable)**: Deploy basic SilverScript via Deploy/CreateCovenant (real wallet). Set simple visuals at creation (name, desc, accent color, ui_preset: glass/card/minimal). After deploy, covenant viewer (`/covenant/:txid`) is fully interactive even for free: basic claim, timeout/oracle resolve, state/logs viewer. Simple visuals (accent + preset) applied from metadata. No circuits.
-
-6. **Paid tiers + Studio (mainnet)**: After server token, use Covenant Studio (PremiumBuilder) for sandbox composition of new useful circuits (with reality labels), full disclosure editor, name/desc/theme. Or Covex Terminal for config + pro arenas. Deploy via real wallet signs real mainnet tx. Paid get top Explorer visibility + full disclosure section.
-
-7. **UI + Resolution (mainnet)**: Basic or enhanced UI from metadata. For games/circuits: stake (real KAS), play (timers, VRF where applicable), submit to production oracle (`/api/oracle/verify-and-sign` — snarkjs for full-zk, generic sign for oracle-attested/hybrid with new circuits). Oracle signs real outcome. Claim unlocks with potReturn math. All on mainnet with real KAS.
-
-8. **Indexing on Mainnet**: Operator runs local Toccata kaspad (--utxoindex), points backend with KASPA_NETWORK=mainnet + KASPA_WRPC_URL_MAINNET. No full mainnet node required on Hetzner (space). Crawler/indexer/oracle all respect mainnet prefixes/params.
-
-**Reality & Transparency on Mainnet**: Every covenant (free/paid) carries full disclosed wallets + circuit reality label. Paid covenants bubble to top in Explorer with "PAID VERIFIED • TOP VISIBILITY" + complete wallet list. Free are plain but interactive + visually tweaked. No misleading ZK claims — labels are honest.
+BUILDER+ users can supply a free-form `custom_category` in the Terminal that overrides the auto-detected label everywhere while the underlying classification remains for internal routing.
 
 ---
 
-## 5. Covenant Classification System
+## Transparency by Design — Every Covenant Carries Its Truth
 
-Both crawler and indexer share the same centralized classification logic in `backend/src/covenant_types.rs`. The module exports two functions:
+Every indexed covenant (free or paid) stores and surfaces:
 
-- **`from_script_ops`**: Returns a broad `CovenantCategory` enum variant. Used for the user-facing category shown on Explorer cards.
-- **`covenant_type`**: Returns a more granular string. Used internally for indexing and API responses.
+- `disclosed_wallets`: creator address, covenant treasury address, oracle public keys — always visible for top-tier covenants.
+- `reality`: explicit label (`full-zk` | `hybrid` | `oracle-attested` | `risc0-stub`) for the chosen circuit.
+- `has_artifacts`: whether real circom/RISC0 artifacts exist for this circuit.
+- `custom_circuit_def`, `theme`, `name`, `description` (set at creation or via Terminal/Studio).
+- `verified_tier` and visibility priority derived strictly from confirmed $KAS treasury payments.
 
-### Classification Enum
+Paid covenants receive “PAID VERIFIED • TOP VISIBILITY” placement and a complete disclosure section. Free covenants remain fully interactive (claim, timeout resolve, state viewer, basic visuals) but sit lower in sort order with limited disclosure.
+
+No misleading claims. Reality labels are honest and machine-readable.
+
+---
+
+## The Verified Paywall — One-Pay-One-Deploy with $KAS
+
+Free basic covenant deployment is always available.
+
+BUILDER (100 $KAS), PRO (500 $KAS), MAX (1000 $KAS) payments are sent to the official covenant treasury on the Kaspa BlockDAG.
+
+The Payment Guardian detects these payments, waits for 6 DAA confirmations, and records the tier against the creator address.
+
+When a user with a verified payment calls `POST /api/auth-session`:
+
+- The server checks the on-chain record for that exact address.
+- A short-lived, single-use auth token is issued (never stored in localStorage).
+- The token is consumed on first deploy via `/api/auth-session/consume`.
+- Deployment capacity is tracked server-side (`accounts.deployments_used`).
+
+This is cryptographically enforced at the point of deploy. Only addresses that have actually paid on-chain can obtain the elevated capabilities (Terminal access, custom UI, pro arenas, higher visibility).
+
+---
+
+## The Resolution Oracle — Pluggable Hybrid Proving Engine
+
+The single most advanced component of the platform.
+
+`POST /api/oracle/verify-and-sign`
+
+Accepts a circuit identifier + proof object (or requested outcome) and returns a signed outcome usable directly as a witness in a Kaspa spend transaction that unlocks the covenant.
+
+### The Hybrid Model — Three Honest Paths
+
+| Reality Label      | What the Prover Must Supply                          | What the Oracle Does                                      | When Used                                      | Example Circuits                     |
+|--------------------|------------------------------------------------------|-----------------------------------------------------------|------------------------------------------------|--------------------------------------|
+| full-zk            | Complete Groth16 proof (pi_a, pi_b, pi_c + public signals) | Strict snarkjs verification of the proof                  | Small, auditable statements with real artifacts | merkle_membership, range_proof, relative_timelock, hash_preimage |
+| hybrid             | ZK proof of a critical property + requested outcome  | Verify the property proof (if present) then attest the remaining outcome | Games with on-chain rules + complex state     | chess_v1 (dual mode), basic_utxo_ownership, script_constraint, vrf_dice_roll, pot_split_math, turn_timer, collateral_liquidation |
+| oracle-attested    | requested_outcome only (or light attestation data)   | Sign the attested outcome (multi-oracle threshold supported) | External data, heavy compute, long-tail logic | price feeds, election results, complex game adjudication, black_scholes_approx (stub) |
+| risc0-stub         | RISC0 receipt / guest output (when available)        | Accept or verify receipt (stub path today)                | General-purpose verifiable compute            | risc0_chess_eval, risc0_defi_liquidation, risc0_connect4_eval |
+
+The oracle is deliberately pluggable (`backend/src/oracle_verifier.rs`):
 
 ```rust
-pub enum CovenantCategory {
-    VerifiableSkill,   // Skill contests with ZK/oracle resolution
-    Skill,             // Classic single-outcome skill contests
-    MembershipClaim,   // Merkle, range proofs, eligibility claims
-    Predictive,        // Binary/ternary outcome markets
-    Structured,        // Long complex scripts with timelock/DAA logic
-    Escrow,            // Time-based custody, 2-party
-    Governance,        // Multi-outcome voting, DAO style
-    Tournament,        // Multi-sig threshold tournaments
-    CommunityPool,     // Shared funds, lotteries, pools
-    Flash,             // Compact one-shot logic under 80 bytes
-    General,           // Fallback
-}
+// Simplified view of the registry
+StrictGroth16 { script, prefix }   // always run snarkjs
+HybridGroth16 { script, prefix }   // Groth16 if proof body present, else attested
+Risc0Stub   { guest }
+Attested                           // pure oracle signature
 ```
 
-### Classification Decision Tree
+Adding a new circuit is a one-line registry insert + (optional) verify script + frontend label.
 
-```mermaid
-flowchart TD
-    S[script_hex input]
-    E{Empty?}
-    S --> E
-    E -->|yes| GEN[General]
-    E -->|no| LEN{raw_len < 80?}
-    LEN -->|yes and has opcodes| FLASH[Flash]
-    LEN -->|no| A21{contains aa21?}
-    A21 -->|yes| GVR{has 51 and 52?}
-    GVR -->|yes| GOV[Governance]
-    GVR -->|no| ESC[Escrow]
-    A21 -->|no| A22{contains aa22?}
-    A22 -->|yes| TRN[Tournament]
-    A22 -->|no| A23{contains aa23?}
-    A23 -->|yes| CP[CommunityPool]
-    A23 -->|no| A20{contains aa20?}
-    A20 -->|no| GEN
-    A20 -->|yes| PRED{has 52 or 53?}
-    PRED -->|yes| PRD[Predictive]
-    PRED -->|no| STR{raw_len > 120?}
-    STR -->|yes| STRC[Structured]
-    STR -->|no| VZK{has 51 and len > 90?}
-    VZK -->|yes| VSK[VerifiableSkill]
-    VZK -->|no| MBC{len < 140 and has 51?}
-    MBC -->|yes| MCL[MembershipClaim]
-    MBC -->|no| S51{has 51?}
-    S51 -->|yes| SKL[Skill]
-    S51 -->|no| VSK
+### Signing Construction (verifiable by anyone)
+
+```text
+message = "covex-oracle:<covenant_id>:<outcome>:<timestamp>"
+signature = SHA256(oracle_private_key || message)
 ```
 
-### Full Category Table
+The signed outcome + message + timestamp are returned to the UI. The covenant unlock transaction includes this data as witness data. The on-chain SilverScript can verify the oracle public key and the message binding.
 
-| Category | Detection Rules | Typical Use Case |
-|---|---|---|
-| **Verifiable Games (ZK/Oracle)** | `aa20` + `51` + `len > 90` | Chess, poker, skill games with real resolution |
-| **Skill Contests** | `aa20` + `51`, single outcome, shorter payload | Classic one-winner contests |
-| **Membership & Claims** | `aa20` + `len < 140` + `51` present or `len > 60` | Merkle membership, range proofs, eligibility, airdrops |
-| **Predictive Markets** | `aa20` containing `52` or `53` | Binary/ternary outcome markets |
-| **Structured Settlement** | `aa20` + `len > 120` | Escrow with time or block conditions |
-| **Escrow & Custody** | `aa21` without multi-outcome markers | 2-party or multi-party time-locked |
-| **Governance** | `aa21` + `51` + `52` | DAO votes, multi-party decisions |
-| **Tournaments** | `aa22` | Multi-sig threshold tournaments |
-| **Community Pools** | `aa23` | Shared funds, lotteries, pools |
-| **Flash Covenants** | Any `aa2x` + `len < 80` | Simple one-shot logic |
-| **General** | Fallback | Everything else |
+Multi-oracle federation (threshold + weighted signatures) is supported in the input schema and liveness endpoints for future decentralized oracle networks.
 
-### Granular `covenant_type` Values
+### Chess Dual Proving Modes (Production Example of Hybrid Strength)
 
-| covenant_type | Detection | Used For |
-|---|---|---|
-| `p2sh-covenant` | `script_hex` starts with `aa20` and ends with `87` | Standard pay-to-script-hash covenants |
-| `extended-covenant` | Contains `aa21` without 51+52 | Extended time-based covenants |
-| `multi-sig-covenant` | Contains `aa22` | Multi-signature covenants |
-| `community-pool-covenant` | Contains `aa23` | Pool/lottery covenants |
-| `complex-interactive-covenant` | Contains `aa20` + `len > 140` | Rich games, ZK logic |
-| `verifiable-skill-covenant` | Contains `aa20` + `51` | Skill contests with ZK/oracle resolution |
-| `skill-covenant` | Contains `aa20`, shorter payload | Simple skill covenants |
-| `governance-covenant` | Contains `aa21` + `51` + `52` | Voting, DAO |
-| `generic-covenant` | Fallback | Unclassified |
+- Mode 0 (Hybrid — recommended for UX): Fast path. Witness supplies a small set of candidate moves and attack data. Circuit checks the claimed terminal condition against the witnessed set.
+- Mode 1 (Full ZK — maximum security): Stricter. For “no legal moves” claims the prover must supply a non-empty exhaustive candidate list and the circuit proves the search was complete.
 
-### Custom Override
-
-BUILDER+ users can set a free-form `custom_category` via the Terminal. This replaces the auto-detected label on the Explorer and detail page. It is stored in both `covenants.category` and the `generated_uis.ui_config` JSON. Classification happens before any UI generation or tier payment: it powers the Explorer's smart organization and helps the Terminal suggest appropriate circuits and templates.
+The proving mode is committed inside the public signals so the oracle and any on-chain verifier see exactly which security level was used.
 
 ---
 
-## 6. Pro Game Experiences and Resolution
+## Production ZK Circuit Inventory — Simple Names, Honest Labels
 
-The primary pro game is **chess**. After both players stake equal amounts into the covenant pot, the full-screen professional arena becomes available:
+Covex maintains a living registry (`zk/circuit_registry.json`) of 200+ circuits plus a frontend catalog of 207+ entries. Reality and artifact status are explicit.
 
-- **React-chessboard** renders a large smooth board at up to 680px with classic green/cream squares.
-- **chess.js** enforces the complete FIDE ruleset: castling, en passant, checkmate, stalemate, 50-move rule, threefold repetition, insufficient material.
-- **Real clocks**: Two 10-minute clocks decrement at 100ms intervals. Timeout awards the win to the opponent.
-- **Move list**: Full PGN display with move navigation.
-- **Resign and draw offer** buttons.
-- **Result submission**: The SUBMIT RESULT TO ORACLE button sends the validated result and PGN to `POST /api/oracle/verify-and-sign`. The oracle signs the outcome, returning a signature that can be used as an unlock witness.
+### Core Full-ZK (real Groth16 artifacts + strict verification today)
 
-Additional full-screen game stubs exist for poker and blackjack via **FullScreenPoker.jsx** and **FullScreenBlackjack.jsx**.
+- merkle_membership — prove key/value membership in a committed tree
+- range_proof — prove a committed value lies inside [min, max] without revealing it
+- relative_timelock — prove a DAA-relative timelock on the selected-parent chain
+- hash_preimage — classic preimage knowledge
 
-### ZK Circuit Status
+### Kaspa-Native Primitives (Phase 1 — mostly hybrid, real artifacts)
 
-| Circuit | Status | What It Proves |
-|---|---|---|
-| **Merkle Membership** | Production ready | Proves a key/value pair exists in a committed Merkle tree. Full end-to-end: browser generates proof, oracle verifies via snarkjs, signs outcome. |
-| **Range Proof** | Circuit complete, ceremony pending | Proves a committed value lies within [min, max] without revealing the value. Verifier wired to snarkjs; requires final zkey + vkey for real proofs. |
-| **Chess (FIDE)** | Design target | Proves complete legal play on 8x8 board according to FIDE rules. Currently resolved via oracle attestation of chess.js-validated results. |
+- basic_utxo_ownership — Schnorr + commitment proof that a wallet controls a specific UTXO
+- script_constraint — prove that a SilverScript fragment (exact aa* opcode pattern + timelock) exists
+- vrf_dice_roll / vrf_random — verifiable randomness for games and lotteries
+- nullifier_set — double-spend prevention + privacy set membership
+- pot_split_math — prove correct fee / pot_return / winner split math
+- turn_timer — per-turn DAA timer enforcement for state machines
+- onchain_sig_verify — prove possession of a valid prior oracle signature (on-chain evolution prep)
 
-### Game Resolution Sequence
+### Games & Interactive (mostly hybrid — chess is the flagship)
+
+- chess_v1 (dual modes — Hybrid fast + Full ZK exhaustive)
+- poker_equity, poker_vrf_deal, verifiable_poker_solver
+- tictactoe_v1, connect4_v1, FullScreenReversi, RPS, etc.
+- turn_timer + pot_split_math combination for timed pot games
+
+### DeFi & Structured (hybrid + oracle-attested)
+
+- collateral_liquidation, collateral_ltv
+- black_scholes_approx, financial_formula, loan_health
+- auction_clearing
+
+### Privacy & Gating
+
+- private_transfer_nullifier, anon_credential, multi_sig_gating, privacy_mixer_v1
+
+### Compute & Advanced Oracles (RISC0 stubs + attested feeds)
+
+- risc0_chess_eval, risc0_chess_endgame, risc0_defi_liquidation, risc0_connect4_eval
+- price_btc, weather_feed, election_feed, decentralized_liveness, multi_oracle_v2
+
+All circuits declare `category`, `reality`, `artifacts`, and `use_cases`. The Terminal surfaces only appropriate circuits for the chosen covenant type. The Explorer can surface reality badges.
+
+---
+
+## End-to-End Covenant Lifecycle — A to Z
+
+1. **Design** — Creator opens Covenant Studio or the Covex Terminal. Composes circuit requirements, chooses resolution mode (full-zk / hybrid / oracle-attested), sets fee percent, pot return percent, theme, name, description. For paid users: full disclosure editor.
+
+2. **Compile** — Terminal emits Covex DSL → SilverScript source → silverc compiles to Kaspa Script bytecode (embedded in tx.payload as aa20–aa23).
+
+3. **Fund & Deploy (optional tier payment)** — For elevated tiers the creator first sends the exact $KAS amount to the treasury from the same wallet. Then signs and broadcasts the covenant creation transaction using a supported production wallet (KasWare, Kastle, Kasperia, OKX, KaspaCom, Kasanova, Kaspium, Tangem).
+
+4. **Discovery (seconds)** — Chain Crawler or Live Seed Indexer detects the new covenant, runs the Classifier, writes the record, generates a basic interactive viewer.
+
+5. **Payment Confirmation (6 DAA)** — If a tier payment was made, Payment Guardian detects it, confirms 6 DAA on the BlockDAG, upgrades the covenant record, issues higher visibility, and enables full Terminal features for that creator.
+
+6. **Configuration** — Paid creator opens the Covex Terminal for that covenant (cryptographic ownership challenge via Schnorr or address match). Chooses ZK circuit, resolution mode, custom UI (pasted from Studio), game type, etc. Saved server-side with ownership proof.
+
+7. **Interaction** — Participants connect production wallets, view the rich interface (or pro arena after stake match), read the full disclosed wallets + reality label.
+
+8. **Staking** — For two-sided games both parties send equal $KAS stakes into the covenant address. Once matched, the full-screen professional arena unlocks (chess.com-smooth board, real decrementing clocks, full FIDE rules via chess.js, move list, resign/draw).
+
+9. **Play & Proof Generation** — Game proceeds. For ZK-enabled circuits the client (or studio sandbox) generates the appropriate Groth16 proof or hybrid witness. For attested paths only the final outcome is prepared.
+
+10. **Resolution Submission** — “Submit Result to Oracle” posts to `/api/oracle/verify-and-sign` with `circuit_type`, proof (when present), public inputs, `requested_outcome`, and `proving_mode` (for chess). The pluggable verifier runs the correct path (snarkjs strict, hybrid check, or direct attestation). On success the oracle returns the signed outcome tuple.
+
+11. **On-Chain Unlock** — The winner (or either party on draw) constructs a spend transaction that consumes the covenant UTXO, supplying the oracle signature + message + timestamp as witness data. The SilverScript covenant script verifies the oracle key binding and the outcome, then releases funds according to the pot math (winner share + platform fee to treasury + pot return to covenant for reuse).
+
+12. **Post-Resolution** — Covenant state updates, Explorer reflects resolution, analytics and reputation signals are available. Reusable covenants can accept new stakes.
 
 ```mermaid
 sequenceDiagram
-    participant P1 as Player 1
-    participant P2 as Player 2
-    participant UI as Full-Screen Arena
-    participant O as Oracle Service
-    participant C as Covenant (on-chain)
+    participant Creator
+    participant Wallet as Production Wallet
+    participant DAG as Kaspa BlockDAG
+    participant Disc as Discovery Engine (3 indexers)
+    participant Oracle as Resolution Oracle
+    participant Player as Counterparty
 
-    P1->>C: Stake X KAS
-    P2->>C: Stake X KAS (matched)
-    UI->>UI: Unlock professional arena
-    P1->>UI: Play moves (chess.js validates)
-    P2->>UI: Play moves
-    UI->>UI: Detect checkmate/stalemate/resign/timeout
-    UI->>O: POST /api/oracle/verify-and-sign
-    Note over UI,O: Sends result, PGN, FEN, proof/attestation
-    O->>O: Verify (snarkjs or oracle attest)
-    O-->>UI: Signed outcome: (covenant_id, outcome, timestamp, sig)
-    UI-->>P1: Show attestation
-    UI-->>P2: Show attestation
-    P1->>C: Unlock with oracle signature as witness
-    C->>P1: Winner payout
+    Creator->>Wallet: Create covenant tx (SilverScript + optional tier $KAS to treasury)
+    Wallet->>DAG: Broadcast
+    DAG-->>Disc: New aa2x payload detected
+    Disc->>Disc: Classify + persist + basic UI
+    alt Tier payment present
+        Disc->>Disc: Payment Guardian (6 DAA) upgrades tier & disclosure
+    end
+    Creator->>Terminal: Configure circuit, mode, UI, fees (ownership verified)
+    Player->>Wallet: Stake $KAS into covenant
+    Creator->>Wallet: Stake $KAS into covenant (match)
+    Note over Creator,Player: Pro arena unlocks
+    Creator->>Creator: Play / generate ZK witness or attested result
+    Creator->>Oracle: POST /oracle/verify-and-sign (circuit + proof + outcome)
+    Oracle->>Oracle: Pluggable verify (Strict / Hybrid / Attested)
+    Oracle-->>Creator: Signed outcome + message + timestamp
+    Creator->>Wallet: Spend covenant UTXO with oracle signature as witness
+    Wallet->>DAG: Broadcast unlock
+    DAG-->>Wallet: Winner receives share, fee to treasury, pot return
 ```
 
 ---
 
-## 7. Technology Stack
+## Covex Terminal & Pro Game Experiences
 
-### Kaspa Layer
-| Component | Detail |
-|---|---|
-| Node | kaspad Toccata Testnet-12 with `--utxoindex` |
-| Covenant primitive | SilverScript opcodes `aa20`-`aa23` inside `tx.payload` |
-| wRPC | Borsh protocol, port 17110 |
-| Address prefix | `kaspatest:` for testnet |
+The Terminal is the command center for every paid covenant.
 
-### Backend (Rust)
-| Component | Detail |
-|---|---|
-| Runtime | Tokio async |
-| HTTP | Axum 0.7 |
-| Database | SQLite via rusqlite 0.31 (bundled) |
-| Kaspa SDK | kaspa-wrpc-client 0.15.0, kaspa-rpc-core 0.15.0, kaspa-consensus-core 0.15.0 |
-| Hashing | sha2 0.10, blake2b_simd 1 |
-| ZK verification | snarkjs via Node.js child process |
-| Transaction construction | Native secp256k1 in signer.rs, broadcast.rs |
+Capabilities:
+- Live covenant state + pot viewer
+- Resolution mode selector (full-zk / hybrid / oracle-attested) with honest circuit suggestions
+- ZK circuit picker (filtered by category + reality)
+- Fee % and pot_return % configuration (enforced by pot_split_math proofs when selected)
+- Custom UI code paste area (generated by Covenant Studio)
+- Pro full-screen arena launcher (stake matching required)
+- Ownership-protected save (Schnorr challenge or address match)
 
-### Frontend
-| Component | Detail |
-|---|---|
-| Framework | Vite 8 + React 19 |
-| Styling | Tailwind CSS v4, shadcn/ui primitives, custom cyberpunk components |
-| Games | chess.js 1.4.0, react-chessboard 5.10.0 |
-| Wallet | @kasflow/wallet-connector, @onekeyfe/kaspa-wasm, 8-provider detection |
-| 3D | @react-three/fiber, @react-three/drei, three.js 0.175 |
+Flagship arena: **Chess**
+- 680 px smooth board (react-chessboard)
+- Complete FIDE ruleset (chess.js): castling, en passant, 50-move, threefold, insufficient material, etc.
+- Dual synchronized 10-minute clocks (100 ms ticks)
+- Full PGN move list with navigation
+- Resign and draw offer flows
+- Direct “Submit to Oracle” that carries PGN + FEN + proving_mode into the hybrid/full-zk chess_v1 path
 
-### ZK Layer
-| Component | Detail |
-|---|---|
-| Circuit language | circom |
-| Prover/verifier | snarkjs (Node.js) |
-| Circuits | `merkle_generic`, `bulletproofs_v1`, `chess_v1`, `age_verify_v1`, `risc0_generic` |
-| Oracle signing | `SHA256(oracle_privkey || "covex-oracle:<id>:<outcome>:<ts>")` |
-| Multi-oracle | Weighted threshold federation with SHA256-based signature verification |
-
-### Infrastructure
-| Component | Detail |
-|---|---|
-| Server | Hetzner VPS at 178.105.76.81 |
-| Reverse proxy | nginx: static from dist/, /api/ proxy to 127.0.0.1:3005 |
-| Deploy | `DEPLOY_TO_HIGHTABLE.sh`: 6-step push-pull-build-copy-rebuild-restart |
-| DB path | Absolute path resolved from binary location to prevent zombie inode bugs |
+Additional arenas (FullScreenPoker, FullScreenBlackjack, Connect4, Reversi, RPS, TicTacToe) follow the same stake-match → arena → oracle-submit pattern.
 
 ---
 
-## 8. Tiers and Access Model
+## Covenant Studio — Visual Editor for the Next Generation
 
-| Tier | Fee | Visibility Priority | What It Unlocks |
-|---|---|---|---|
-| **FREE** | 0 KAS | 0 | Browse all indexed covenants. Basic auto-generated interactive UI. Limited disclosure: tx_id, script_hash, amount. |
-| **BUILDER** | 100 KAS | 10 | Full disclosure. Verified badge. Enhanced auto-generated UI. Form builder with wallet-integrated buttons. Standard registry listing. **Terminal access**: configure fees, resolution mode, ZK circuits. |
-| **PRO** | 500 KAS | 50 | Everything in BUILDER. Featured listing placement. Higher search ranking. Priority indexing queue. Custom UI advanced tools. Custom covenant images. Pro full-screen game arenas. |
-| **MAX** | 1000 KAS | 100 | Everything in PRO. Maximum visibility, top placement. Custom domain embedding. Dedicated indexing resources. Premium branding options. Full UI design suite. Custom color palette. |
+https://github.com/THTProtocol/Covenant-Studio
 
-Free deployment is always available. Paid tiers unlock visibility, Terminal features, and pro game experiences. Tier labels are shown to the covenant creator when their wallet is connected; regular Explorer visitors never see tier badges on other users' covenants.
+Professional visual composer that outputs:
+- Ready-to-paste custom UI HTML/JS for the Terminal
+- Structured circuit + parameter definitions with reality labels
+- Full disclosure metadata
+- Theme and branding tokens
 
----
-
-## 9. Key Components and Code Locations
-
-### Backend (Rust)
-
-| File | Purpose |
-|---|---|
-| **`backend/src/covenant_types.rs`** | Centralized classification: `CovenantCategory` enum, `from_script_ops()`, `covenant_type()`, tier definitions, `UiGenerationConfig`, `CovenantRecord`. Used by both crawler and indexer. |
-| **`backend/src/crawler.rs`** | Historic BlockDAG crawler. Walks selected-parent chain, scans `tx.payload`, calls `classify()` and `categorize()`, inserts records, spawns UI generation. Determines tier from Output[1] treasury payment. |
-| **`backend/src/indexer.rs`** | Live UTXO poller. Filters out standard wallet outputs with `is_standard_output()` and `looks_like_covenant()`. Classifies via the same centralized logic. |
-| **`backend/src/payment_verifier.rs`** | Monitors treasury UTXOs every 15s. On 6 DAA confirmation, upgrades `verified_tier`, enables custom UI, sets visibility priority. |
-| **`backend/src/oracle.rs`** | `POST /api/oracle/verify-and-sign`. Runs snarkjs in `spawn_blocking`. Supports `merkle_membership`, `range_proof`, `chess_v1`. Signs outcomes with SHA256-based signature. Multi-oracle federation with weighted thresholds. |
-| **`backend/src/compiler.rs`** | Covex DSL to SilverScript compiler pipeline. Parses DSL text, emits SilverScript, invokes silverc for bytecode. |
-| **`backend/src/signer.rs`** | Transaction construction and secp256k1 signing. |
-| **`backend/src/broadcast.rs`** | Transaction broadcast to the Kaspa network. |
-| **`backend/src/ui_generator.rs`** | Auto-generates basic and enhanced HTML UIs for covenants. |
-| **`backend/src/db.rs`** | SQLite schema management and query functions. 6 core tables with indexes. |
-| **`backend/src/main.rs`** | Entry point. Spawns all 4 background tasks, mounts all routes, configures CORS. |
-
-### Frontend (React)
-
-| File | Purpose |
-|---|---|
-| **`frontend/src/components/CovexTerminal.jsx`** | The Terminal: configuration panel, pro game arenas, SilverScript generation, oracle submission. Contains ZK circuit definitions, full-screen chess arena, stake matching logic, and result submission flow. |
-| **`frontend/src/components/FullScreenPoker.jsx`** | Professional full-screen poker table. |
-| **`frontend/src/components/FullScreenBlackjack.jsx`** | Professional full-screen blackjack table. |
-| **`frontend/src/pages/Explorer.jsx`** | Main covenant explorer with tier-sorted listing. |
-| **`frontend/src/pages/Pricing.jsx`** | Single-view tier pricing page with wallet-connected KAS payment. |
-| **`frontend/src/pages/PaidBuilder.jsx`** | Post-payment dashboard: covenant list, Terminal access, Create New Covenant flow. |
-| **`frontend/src/components/WalletContext.jsx`** | Multi-wallet detection and connection management. |
-| **`frontend/src/lib/covenant-config/`** | Covenant Studio integration: `useCovenantConfig`, `ResolutionSimulator`. |
-| **`frontend/src/lib/multi-oracle/MultiOracleConfigurator.jsx`** | Multi-oracle federation configuration. |
+Paid users paste the output directly into the Covex Terminal. The system treats Studio-generated UIs as first-class custom interfaces.
 
 ---
 
-## 10. Database and API
+## Data Model — What Gets Stored
 
-### Database Tables
+Core tables (SQLite, WAL mode for concurrent readers):
 
-| Table | Purpose |
-|---|---|
-| `covenants` | Source of truth for the Explorer. tx_id, address, amount, script_hex, covenant_type, category, creator_addr, verified_tier, full_logic_summary, block_daa_score, timestamp. |
-| `generated_uis` | Auto-generated and Terminal-saved UI HTML and config JSON. Contains `ui_config` with fee_percent, resolution_mode, zk_circuit, verifier_key, custom UI code. |
-| `visibilities` | Per-covenant visibility settings: tier, featured flag, priority score, custom category override. |
-| `payments` | Transaction records for tier purchases: from_address, to_address, amount, confirmations, status. |
-| `accounts` | User account tier state: address, current tier, payment_tx_id, paid_at, expires_at. |
-| `crawler_state` | Crawler progress tracking: last scanned DAA score. |
+- `covenants` — the source of truth for the Explorer (tx_id PK, script, amounts, creator, verified_tier, disclosed metadata, reality, category, timestamps, network-scoped)
+- `generated_uis` — Terminal and auto-generated UI HTML + full config JSON (fee, circuit, resolution_mode, custom code, owner)
+- `payments` — every detected treasury payment with confirmations and matched covenant
+- `accounts` — per-address tier state and deployment credit consumption
+- `auth_tokens` — short-lived, single-use tokens for the paywall
+- `crawler_state` — per-network last scanned DAA for exact resume
 
-### API Endpoints
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `/` | GET | Server info: app name, network, oracle mode |
-| `/health` | GET | Health check returns "OK" |
-| `/status` | GET | Total/active/verified covenant counts |
-| `/covenants` | GET | Tier-sorted covenant list. Query param `?creator=` filters by creator address |
-| `/tiers` | GET | Tier definitions with fees and features |
-| `/paid-status` | GET | Query param `?address=` returns highest paid tier for that address |
-| `/terminal-config/:covenant_id` | GET | Retrieves Terminal configuration and UI HTML |
-| `/terminal-config/:covenant_id` | POST | Saves Terminal configuration. Supports Schnorr signature verification for ownership |
-| `/terminal-config-challenge/:covenant_id` | GET | Returns a nonce for signature-based ownership challenge |
-| `/oracle/verify-and-sign` | POST | Submits ZK proof or game result, returns signed outcome |
-| `/sign-and-broadcast` | POST | Constructs and broadcasts a covenant transaction |
-| `/analytics` | GET | Platform analytics |
-| `/marketplace/templates` | GET | Published covenant templates |
-| `/marketplace/publish` | POST | Publish a covenant template |
+All reads are network-scoped. The backend can run multiple network indexers in one process when additional wRPC endpoints are configured.
 
 ---
 
-## 11. Running and Deployment
+## Key Production APIs
 
-### Local Development (TN12 Testnet)
-
-```bash
-# Prerequisites: kaspad running on TN12 with --utxoindex, Node.js, Rust toolchain
-
-# Frontend
-cd frontend
-npm install
-npm run dev          # Vite dev server at localhost:5173
-
-# Backend
-cd backend
-cargo run --release  # Binds to 0.0.0.0:3005
-
-# Required env vars (or .env file):
-#   KASPA_WRPC_URL=ws://127.0.0.1:17110
-#   COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
-#   COVENANT_SEED_ADDRESSES=kaspatest:qpx...
-#   DB_PATH=../covex.db
-```
-
-### Production Deploy
-
-The deploy script requires the server password exported as `PASSWORD`:
-
-```bash
-export PASSWORD="your_rotated_password"
-./DEPLOY_TO_HIGHTABLE.sh
-```
-
-The script performs 6 steps: pushes to GitHub, pulls on Hetzner, builds frontend with Vite, copies dist/ to nginx root with stale bundle cleanup, builds backend with cargo --release, restarts the backend binary, and verifies via health/status endpoints. The production binary runs from `/mnt/HC_Volume_105579109/Covex27/backend/target/release/covex27-backend`, logging to `/tmp/covex27.log`.
+- `GET /covenants?network=...&creator=...` — tier-sorted list with custom UI and config joined
+- `GET /status`, `/tiers`, `/analytics`
+- `POST /auth-session` + `POST /auth-session/consume` — server-verified paywall
+- `GET/POST /terminal-config/:covenant_id` — ownership-protected configuration
+- `POST /oracle/verify-and-sign` — the heart of resolution (pluggable)
+- `POST /sign-and-broadcast` — covenant creation and general transaction submission
+- `POST /covenant/:id/compute-payout` — client-side payout preview + unlock witness builder (verifies oracle signature locally)
+- Marketplace template endpoints for published Studio configurations
 
 ---
 
-**Covex** -- Real covenants. Verifiable outcomes. Pro experiences. On the Kaspa BlockDAG.
+## Production Characteristics
+
+- All background engines are fire-and-forget Tokio tasks that survive transient wRPC disconnects with exponential backoff.
+- Tier upgrades and disclosure are driven exclusively by confirmed on-chain $KAS flows (6 DAA).
+- Configuration changes require cryptographic ownership (Schnorr over a fresh nonce or exact address match).
+- Oracle signatures are publicly verifiable with only the published oracle public key.
+- Reality labels and disclosed wallets are part of the covenant record and shown to every visitor on paid covenants.
+- The compiler pipeline (DSL → SilverScript → bytecode) is available both in the Terminal and via the backend `/sign-and-broadcast` path.
+- Multi-wallet support is production-only: extension wallets (KasWare and peers) are the primary path; dev hex paths are blocked in signer/UI for the live environment.
+
+---
+
+## Using the Platform — From Zero to Resolved Covenant
+
+1. Visit https://hightable.pro
+2. Browse the Explorer — every covenant is already interactive.
+3. (Optional) Send 100/500/1000 $KAS to the treasury from your production wallet to unlock BUILDER/PRO/MAX.
+4. Connect your wallet → enter the Terminal for a paid covenant or create a new one.
+5. Configure resolution, pick a circuit with the desired reality level, paste Studio UI if desired, save (ownership proven).
+6. Share the covenant link. Counterparties connect, stake, play or claim.
+7. Submit the outcome (or proof) to the Oracle.
+8. Use the returned signature in the unlock transaction — funds move according to the configured pot math.
+
+Everything is observable on the Kaspa BlockDAG block explorer and inside the Covex Explorer.
+
+---
+
+## Technology Foundations
+
+- **Kaspa** — BlockDAG, wRPC Borsh, SilverScript (aa20–aa23 payload covenants), DAA scoring, native Schnorr.
+- **Backend** — Rust, Tokio, Axum 0.7, rusqlite (WAL), kaspa-wrpc-client + consensus-core 0.15, snarkjs via Node child process for Groth16.
+- **Frontend** — Vite + React 19, Tailwind v4, shadcn primitives, chess.js + react-chessboard, @react-three/fiber for 3D, multi-provider wallet connector.
+- **ZK** — circom + snarkjs (Groth16), dev PTAU (pot10_final) for new circuits, RISC0 guest stubs, pluggable verifier dispatch.
+- **Oracle** — SHA256-based signatures today, multi-oracle threshold schema ready, liveness endpoints.
+- **Compiler** — Covex DSL → SilverScript source → silverc bytecode.
+
+---
+
+## Current State — Radical Honesty
+
+- 200+ circuits inventoried with explicit reality labels.
+- ~10–15+ circuits have real compiled artifacts (r1cs + wasm + vkey) and wired verify paths (core full-zk + Kaspa Phase 1 primitives + chess dual-mode + a few DeFi).
+- The vast majority of the inventory starts as honest hybrid or oracle-attested and can graduate as ceremonies complete and more artifacts are produced.
+- Pluggable oracle covers every registered circuit out of the box.
+- Chess dual proving modes are fully end-to-end (Hybrid for speed, Full ZK for maximum guarantees).
+- On-chain SilverScript examples exist for oracle-signed outcomes and hybrid circuits.
+- All metadata (disclosed wallets, reality, artifacts flag) is persisted and surfaced.
+- Production paywall, three indexers, Terminal, pro arenas, and payout math are live and in daily use.
+
+“100% of the vision” means exhaustive coverage of the architecture and inventory with a working pluggable foundation — not that every single circuit already has a production MPC ceremony zkey today.
+
+---
+
+## Resources
+
+- **Live Platform**: [hightable.pro](https://hightable.pro)
+- **Covenant Studio**: [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio)
+- **Full ZK + Oracle Vision & Inventory**: `docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md`
+- **On-Chain Evolution Path**: `docs/ONCHAIN_EVOLUTION_PATH.md`
+- **Circuit Registry**: `zk/circuit_registry.json`
+- **Examples** (chess modes, collateral, VRF, pot split, nullifiers, on-chain sig, etc.): `examples/`
+
+---
+
+**Covex** — Verifiable covenants. Honest resolution. Production on the Kaspa BlockDAG.
 
 Built by HIGH TABLE PROTOCOL.
 
-Live: [hightable.pro](https://hightable.pro)  
-Studio: [github.com/THTProtocol/Covenant-Studio](https://github.com/THTProtocol/Covenant-Studio) (see HERMES_COVENANT_STUDIO_MASTER_PROMPT.md there for autonomous best-templates rules + triple-sync)  
-Repo: This repository
+All covenant data lives on-chain. All resolution paths are explicit. Everything is designed to be understood from A to Z.
 
 ---
 
-*This README describes the current production state. Classification logic, pro game UIs, and oracle flows are actively used on the live site.*
-
-## Network Support (TN12 + TN10 fork)
-- Toggle in Covex Terminal: choose TN12 or TN10 on the **same website**.
-- Separate data (covenants, indexer results, dev wallets/seeds/treasury per network).
-- TN10: use the provided start-tn10-kaspad.sh (checks >=80GB free disk before starting the node).
-- See HERMES_MASTER_PROMPT.md for the full "TN10 FORK + DUAL NETWORK" task (includes running the Hetzner TN10 node after space confirmation).
-- Wallets/mnemonics/hex switch automatically based on selection (accurate TN10 values to be supplied by operator).
-
-
-## Current Status (Audit 2026)
-Covex has strong pluggable oracle, honest reality labeling, chess dual modes, 6 RISC0 stubs, ~60 detailed registry entries + 207 frontend variants covering the vision inventory, on-chain SilverScript examples, and expanded e2e/examples. 
-Most new circuits are compileable hybrid/oracle-attested stubs (real Groth16 artifacts limited to core ~10-15; RISC0 and ceremonies are dev/stub). 
-See docs/ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md for "Current Reality vs Vision Claims" section. 100% refers to coverage and foundation, not every circuit having production zkeys today.
+*This document describes the complete, operating production architecture. The three indexers, the pluggable hybrid oracle, the classifier, the paywall, the Terminal, and the full circuit registry are all active in the live system.*

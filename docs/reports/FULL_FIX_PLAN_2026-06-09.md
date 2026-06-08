@@ -669,3 +669,13 @@ P0 done (~95%). P1 ~50-60% (E2E/mixer/push/stales advanced; chess/RISC0/MPC/main
 - Git: pushed b92bd5b, SHAs 7c0ca5c+.
 - Sense: versions 1.1.0, 9 .sil, 34 verify, stales 1/docs, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + clean.
 - P1 advanced: stales swept, E2E expansion, sync/push, building.
+## P1 This Continue (stales clean + sync + more oracles + E2E re-check round)
+- Fixed last stales in HERMES/SPRINT (now 1/docs historical).
+- Hetzner sync to 380e057/e7ac9dc/7870b28, E2E 26 pass, health OK.
+- Local E2E: 5+ expanded cases (syntax fixed), re-runs show progress.
+- Chess: ~21h+, no zkey.
+- RISC0: 6, no binary.
+- Live: OK, 3/2, more oracles True.
+- Git: pushed 380e057/e7ac9dc/b92bd5b, SHAs 7c0ca5c+.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales 1/docs, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + clean.
+- P1 advanced: stales swept, E2E expansion, sync/push, building.

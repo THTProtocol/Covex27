@@ -94,7 +94,7 @@ pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) ->
       <div class="field-row"><span>Creator (only they can set custom nice UI)</span><span class="mono-truncate">{creator}</span></div>
       <div class="field-row"><span>Receiving Addresses</span><span class="mono-truncate">{creator}</span></div>
       <div class="field-row"><span>Oracle Proof / Sig</span><span>Verified on-chain via Covex oracle (see covenant detail for sig + message)</span></div>
-      <div class="field-row"><span>Logic Summary</span><span>Verified {tier} covenant. Type: p2sh-covenant. All parameters, payments, and script public. {if custom}Custom nice UI deployed by creator.{/if}</span></div>
+      <div class="field-row"><span>Logic Summary</span><span>Verified {tier} covenant. Type: p2sh-covenant. All parameters, payments, and script public. {{if custom}}Custom nice UI deployed by creator.{{/if}}</span></div>
       <div class="field-row"><span>Transparency Note</span><span>All on-chain data (script, params, treasury payment, oracle attestation) disclosed. No hidden settings for regular users. Creator-only advanced/terminal.</span></div>
     </div>
     <form id="covenant-form">{form_html}

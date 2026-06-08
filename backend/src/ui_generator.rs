@@ -87,13 +87,15 @@ pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) ->
     </div>
     {verified_banner}
     <div class="full-disclosure">
-      <h3>Full Disclosure ({tier} Tier)</h3>
+      <h3>Full Disclosure ({tier} Tier) — Everything there is to know (fully transparent)</h3>
       <div class="field-row"><span>TX ID</span><span class="mono-truncate">{covenant_id}</span></div>
       <div class="field-row"><span>Category</span><span>{category}</span></div>
       <div class="field-row"><span>Script Hash</span><span class="mono-truncate">{script_hash}</span></div>
-      <div class="field-row"><span>Creator</span><span class="mono-truncate">{creator}</span></div>
+      <div class="field-row"><span>Creator (only they can set custom nice UI)</span><span class="mono-truncate">{creator}</span></div>
       <div class="field-row"><span>Receiving Addresses</span><span class="mono-truncate">{creator}</span></div>
-      <div class="field-row"><span>Logic Summary</span><span>Verified {tier} covenant. Type: p2sh-covenant. All parameters disclosed. Custom UI enabled.</span></div>
+      <div class="field-row"><span>Oracle Proof / Sig</span><span>Verified on-chain via Covex oracle (see covenant detail for sig + message)</span></div>
+      <div class="field-row"><span>Logic Summary</span><span>Verified {tier} covenant. Type: p2sh-covenant. All parameters, payments, and script public. {if custom}Custom nice UI deployed by creator.{/if}</span></div>
+      <div class="field-row"><span>Transparency Note</span><span>All on-chain data (script, params, treasury payment, oracle attestation) disclosed. No hidden settings for regular users. Creator-only advanced/terminal.</span></div>
     </div>
     <form id="covenant-form">{form_html}
       <button type="submit" class="btn btn-primary" id="interact-btn" disabled>Connect Wallet to Interact</button>

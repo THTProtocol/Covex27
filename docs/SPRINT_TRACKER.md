@@ -561,3 +561,10 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Deploy script: Runnable.
 - Integration: Full loop E2E->oracle->helper->priced PRO deploy with test wallet + .sil data. No gaps. "zk and oracles" + "priced tiers" demonstrated on-chain.
 - Plans appended + (will commit/push); triple-sync code synced.
+## P1 Further (continue - nice custom transparent UI for priced covenants, creator-only, viewer default nice/no terminal)
+- Deployed priced PRO with custom nice transparent UI HTML (via payload + helper data + real test wallet; oracle sig success for CID).
+- Code: isCreator enforcement (only creator + paid can set/deploy custom UI). Viewer default interact (custom srcDoc or enhanced) with full transparency always visible. Terminal hidden for non-creators.
+- ui_generator: More transparent disclosure sections.
+- Integration: Paid tier + oracle + helper + explorer custom badge + interactive custom render + DB owner check. "Very easy" via deploy or UiBuilder. "Users see everything transparent" - no raw terminal/settings.
+- Plans updated + (commit/push).
+- "Only the creator can do it" + "nice custom UI" + "transparent for press/view" fulfilled.

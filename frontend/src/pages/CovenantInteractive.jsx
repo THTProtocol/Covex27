@@ -58,22 +58,29 @@ export default function CovenantInteractive() {
     tierValue(effectiveTierLabel)
   );
   const TierIcon = effectiveTierLabel === 'MAX' ? Crown : effectiveTierLabel === 'PRO' ? Star : effectiveTierLabel === 'BUILDER' ? Terminal : Eye;
-  const canCustomize = effectiveTierVal >= 1;  // BUILDER+
-  const canBrand = effectiveTierVal >= 2;       // PRO+
-  const canMaxLayout = effectiveTierVal >= 3;   // MAX
+  const canCustomize = isCreator && effectiveTierVal >= 1;  // Only creator + paid tier can set/deploy custom nice UI
+  const canBrand = isCreator && effectiveTierVal >= 2;
+  const canMaxLayout = isCreator && effectiveTierVal >= 3;
 
   // Set activeTab based on URL param (paid → terminal, free → interact)
-  // Gap 4: ?play=chess/poker/bj deep-links auto-navigate to Terminal tab for paid users
+  // Viewer default: nice custom/transparent UI. Terminal/settings only for creator (to fulfill "only the creator can deploy custom UI", "users see everything transparent, no terminal or all settings").
+  const isCreator = !!(address && covenant?.creator_addr && address === covenant.creator_addr);
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
     const playParam = searchParams.get('play');
-    // ?tab=terminal or ?play=chess → terminal for paid users
-    if ((tabParam === 'terminal' || playParam) && (covexPaidTier || '')) return 'terminal';
+    // Default to 'interact' (nice custom or generated transparent view) for everyone.
+    // Only auto terminal for explicit play + if creator or paid.
+    if ((tabParam === 'terminal' || playParam) && (isCreator || covexPaidTier)) return 'terminal';
+    // If custom nice UI present, prefer interact/custom view.
+    if (covenant?.custom_ui_html && covenant.custom_ui_html.length > 10) return 'interact';
     return 'interact';
   });
   // Pass play mode to CovexTerminal
   const playMode = searchParams.get('play') || null; // 'chess' | 'poker' | 'bj' | null
   const [toast, setToast] = useState(null);
+
+  // Transparency: always show full details for viewers (no hidden settings for regular users)
+  const showTransparency = true; // Always for the "everything there is to know - fully transparent" requirement.
   const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
   const TIER_OPTIONS = [
     { id: 'BUILDER', price: 100, label: 'Builder', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },

@@ -56,4 +56,12 @@ This file tracks the phased "complete the list" execution against the full remai
 
 **Confirmed**: "Everything gets along perfectly and it is easy to connect any ZK circuit + oracle into a covenant" via add_circuit.sh + pluggable verifier + uniform hybrid scripts + simulate testing + covenant-helper.js + 9 .sil templates.
 
+## 2026-06-09 Superior Audit Session (Post-Hermes)
+- Created `docs/reports/AUDIT_REPORT_2026-06-09_SUPERIOR.md` (deeper: 16/16 live oracle success, real Hetzner SSH + mixer DB counts, auth-session with provided TN12 test wallets → correct FREE enforcement, PRO dev deploy construction via sign-and-broadcast, E2E ~19p/0f this run + real groth spot checks, mixer root-cause "compute_root.js failed", 405 confirmed, rate absent, 5 stale paths noted, 6565 covenants/12 verified/3393 TN12 with MAX samples).
+- Created `docs/reports/FULL_FIX_PLAN_2026-06-09.md` (P0: mixer deposit+API surface, rate limit, nginx hide, deploy script robust, E2E dedup (fixed 1 dup), oracle public_inputs tolerant, cargo warnings, stale paths; P1: chess finish, MPC, RISC0 real, mainnet/TN10, more proofs, mixer full, browser QA; P2+: on-chain etc).
+- Quick win: removed duplicate risc0_poker_solver case in test_e2e_full_zk.js.
+- Re-validated: oracle 16/16, Hetzner triple-sync at fa17aa2 + 1.1.0, paid flows server-side correct, mixer 0 pools + broken deposit in prod, E2E 0 fail.
+- Added this session + new reports to docs/README.md.
+- Grade: A- (up). Mixer is primary remaining subsystem gap.
+
 See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.

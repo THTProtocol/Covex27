@@ -30,6 +30,9 @@
 
 ## Reports
 
+- [AUDIT_REPORT_2026-06-09_SUPERIOR.md](reports/AUDIT_REPORT_2026-06-09_SUPERIOR.md) — Even deeper full-stack audit (16/16 oracle, prod SSH, mixer root-cause, paid wallet tests, 0-fail E2E, deploy with test TN12 wallets). Exceeds prior Hermes.
+- [FULL_FIX_PLAN_2026-06-09.md](reports/FULL_FIX_PLAN_2026-06-09.md) — Actionable P0-P3 fix plan with repros, verification commands, topo order.
+- [AUDIT_REPORT_2026-06-08.md](reports/AUDIT_REPORT_2026-06-08.md) — Prior Hermes audit (bugs fixed in that session: range/merkle verifiers).
 - [PHASE11_COMPLETION_REPORT.md](reports/PHASE11_COMPLETION_REPORT.md)
 - [PHASE3_COMPLETION_REPORT.md](reports/PHASE3_COMPLETION_REPORT.md)
 - [AUDIT_REPORT_COMPREHENSIVE.md](reports/AUDIT_REPORT_COMPREHENSIVE.md)

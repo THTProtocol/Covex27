@@ -433,3 +433,13 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Git: pushed c793a4d, SHAs 7c0ca5c+.
 - Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with 5 real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8 expanded + clean.
 - P1 advanced: stales swept (1), 5 expanded (syntax fixed), sync/push, building.
+## P1 This Continue (stales clean + sync + more oracles round)
+- Hetzner synced to c793a4d, E2E 26 pass, health OK, mixer roots 0 (source).
+- Local E2E: 5 expanded cases (syntax fixed), re-runs show progress.
+- Chess: ~21h+, no zkey.
+- RISC0: 6, no binary.
+- Live: OK, 3/2, more oracles True.
+- Stales: 1 (SPRINT mention, docs only).
+- Git: pushed 7870b28, SHAs 7c0ca5c+.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with 5 real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8 expanded + clean.
+- P1 advanced: stales swept (1), 5 expanded (syntax fixed), sync/push, building.

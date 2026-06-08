@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
 import CovexTerminal from '../components/CovexTerminal';
 import FullScreenChess from '../components/FullScreenChess';
+import { Chessboard } from 'react-chessboard';
 import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -166,6 +167,7 @@ export default function CovenantInteractive() {
   const [fullscreenUI, setFullscreenUI] = useState(false);
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
+  const gameType = (covenant?.covenant_type || covenant?.category || '').toLowerCase().includes('chess') ? 'chess' : null;
 
   const handleUpgrade = async (tier) => {
     setUpgradeTier(tier);
@@ -538,26 +540,11 @@ export default function CovenantInteractive() {
             <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
           </div>
 
-          {/* Upgrade this Covenant button for FREE/EXPLORER tier */}
-          {!verified && (
-            <button
-              onClick={() => handleUpgrade(TIER_OPTIONS[0])}
-              className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:shadow-[0_0_30px_rgba(73,234,203,0.4)] active:scale-[0.97] transition-all"
-            >
-              <ArrowUp size={18} />
-              Upgrade this Covenant
-            </button>
-          )}
-
-          {/* Customize UI button for paid tiers */}
-          {canCustomize && (
-            <button
-              onClick={() => setShowBuilder((s) => !s)}
-              className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/10 transition-all text-sm font-semibold"
-            >
-              <Palette size={16} />
-              {showBuilder ? 'Hide UI Builder' : 'Customize Interactive UI'}
-            </button>
+          {/* Creator-only quick link to the clean Fix page for managing looks + stake */}
+          {isCreator && (
+            <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/10 transition-all text-sm font-semibold">
+              <Palette size={16} /> Fix Looks &amp; Stake Settings
+            </Link>
           )}
         </motion.div>
 
@@ -611,11 +598,7 @@ export default function CovenantInteractive() {
           <div className="p-8 flex-1">
             {activeTab === 'interact' ? (
               <div className="space-y-8">
-                {!isCreator && (
-                  <div className="p-3 mb-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/30 text-kaspa-green text-xs font-mono uppercase tracking-widest flex items-center gap-2">
-                    <Eye size={14} /> PUBLIC TRANSPARENT VIEW — Creator-only tools (Terminal, UI Builder, advanced settings) are hidden. You see the full on-chain details + any custom UI the creator published. Everything is transparent.
-                  </div>
-                )}
+
 
                 {/* Best possible Chess Covenant Arena UI - stake/match/5min/10min/resign/time/2% creator/transparent/ZK lie detector */}
                 {( (typeof gameType !== 'undefined' && gameType === 'chess') || (covenant?.covenant_type || '').toLowerCase().includes('chess') || (covenant?.category || '').toLowerCase().includes('chess') ) && (
@@ -633,7 +616,18 @@ export default function CovenantInteractive() {
                         <div className="text-xs text-gray-400 mb-1">STAKE AMOUNT (KAS)</div>
                         <input type="number" value={chessStake} onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))} className="w-full cyber-input text-3xl p-3 rounded-2xl font-mono" />
                       </div>
-                      <button onClick={() => setShowChessArena(true)} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-2xl text-sm active:scale-[0.985]">STAKE &amp; LAUNCH ARENA</button>
+                      <button onClick={() => setShowChessArena(true)} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-2xl text-sm active:scale-[0.985]">STAKE AND OPEN BOARD</button>
+                    </div>
+
+                    {/* Simple chess.com style board preview - clean, nice, classic colors */}
+                    <div className="mt-3 max-w-[420px] mx-auto">
+                      <Chessboard
+                        position="start"
+                        boardWidth={380}
+                        customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+                        customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+                        customBoardStyle={{ borderRadius: '3px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                      />
                     </div>
 
                     <div className="text-[10px] text-emerald-300/80 leading-snug">Covenant treasury/creator wallet receives 2% of every pot to keep the arena alive for future games. All stakes sent directly to the covenant address on Kaspa. 5 min join window enforced in UI + oracle. 10 min game with per-player clocks, resign, timeout. Every move can be proven with chess_v1 ZK circuit — oracle detects lies/invalid play and can reject bad results. Full transparency: see all rules, fees, creator addr, on-chain data above.</div>
@@ -662,12 +656,7 @@ export default function CovenantInteractive() {
                   />
                 </div>
 
-                {!canCustomize && (
-                  <div className="p-4 rounded-2xl bg-white/[0.015] border border-white/5 text-sm">
-                    <div className="text-kaspa-green text-xs tracking-[1.5px] mb-1">FREE TIER PREVIEW</div>
-                    <div className="text-gray-400">Upgrade to BUILDER+ for the full Design Studio and custom premium templates. Paid creators can make their covenant page look and feel like a world-class product.</div>
-                  </div>
-                )}
+                {/* Clean public view - creators manage premium looks via the Fix page after wallet login */}
 
                 {address && (
                   <div className="p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/20">
@@ -690,20 +679,7 @@ export default function CovenantInteractive() {
                   {connecting ? 'PROCESSING...' : address ? 'Sign & Execute' : 'Open Wallet to Execute'}
                 </button>
 
-                {/* Free tier full interactivity: basic claim/resolve for any freshly created or existing free covenant */}
-                {!canCustomize && (
-                  <div className="mt-4 p-4 rounded-xl border border-white/10 bg-white/[0.015]">
-                    <div className="text-xs uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2">
-                      <Zap size={12} /> Basic Free Interactions (fully interactable)
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => alert('Claim submitted (basic free flow). In production this calls the covenant claim entrypoint or generic oracle for outcome.')} className="px-3 py-1.5 text-xs rounded bg-white/10 hover:bg-white/20">Claim as Winner</button>
-                      <button onClick={() => alert('Timeout resolve triggered. Oracle or on-chain timeout will compute payout per script.')} className="px-3 py-1.5 text-xs rounded bg-white/10 hover:bg-white/20">Resolve via Timeout</button>
-                      <button onClick={() => alert('View current on-chain state / logs (uses covenant metadata + explorer).')} className="px-3 py-1.5 text-xs rounded bg-white/10 hover:bg-white/20">View State / Logs</button>
-                    </div>
-                    <p className="text-[10px] text-gray-400 mt-2">Free covenants are fully interactable via claim, timeout, and basic oracle resolution. Paid tiers unlock ZK circuits, custom UIs, and advanced timers.</p>
-                  </div>
-                )}
+                {/* All covenants support direct non-custodial wallet interaction. Creators use the Fix page for custom presentation. */}
 
                 {deployUri && (
                   <div className="p-3 rounded-xl bg-black/30 border border-white/5">
@@ -726,6 +702,17 @@ export default function CovenantInteractive() {
                   <ExternalLink size={12} />
                   View on Kaspa Explorer
                 </a>
+
+                {/* Launch the best chess arena when staked/matched */}
+                {showChessArena && (
+                  <FullScreenChess 
+                    stake={chessStake} 
+                    onClose={() => setShowChessArena(false)} 
+                    covenantId={covenant.tx_id} 
+                    creatorAddr={covenant.creator_addr}
+                    feePercent={2}
+                  />
+                )}
               </div>
             ) : activeTab === 'terminal' ? (
               /* ── Terminal Tab: ONLY the creator sees this (to deploy custom nice UI, ZK, oracles, etc). Regular users never see terminal or settings. ── */
@@ -741,451 +728,26 @@ export default function CovenantInteractive() {
                 </div>
               )
             ) : (
-              /* ── UI Builder Tab: Customization Garage ── */
-              <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-1">
+              /* ── UI Builder Tab: now points to the super clean Fix page (per user request for simple 1-section stake + looks management) ── */
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-white uppercase tracking-widest flex items-center gap-2">
                     <LayoutTemplate size={16} className="text-kaspa-green" />
-                    Customization Garage
+                    Looks &amp; Stake
                   </h3>
-                  <p className="text-xs text-gray-400 mt-1">Browse beautiful, production-ready templates. Click to preview exactly what your users will see. Choose one, tweak, and publish a stunning transparent experience.</p>
+                  <p className="text-xs text-gray-400 mt-1">The simple Fix page is the recommended way to manage how your covenant looks and set the stake amount. One clean screen, no tabs.</p>
                 </div>
-
-                {/* The Garage - Template Gallery with easy previews */}
-                <div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {COVENANT_TEMPLATES.map((tpl) => {
-                      const isSelected = selectedTemplate?.id === tpl.id;
-                      return (
-                        <div 
-                          key={tpl.id} 
-                          className={`group relative rounded-2xl border overflow-hidden transition-all cursor-pointer ${isSelected ? 'border-kaspa-green ring-1 ring-kaspa-green/30' : 'border-white/10 hover:border-white/20'}`}
-                          onClick={() => {
-                            // Apply template automatically to live preview
-                            const newConfig = { ...DEFAULT_UI_CONFIG, ...tpl.config, heroImageUrl: config.heroImageUrl, vision: config.vision || '' };
-                            setConfig(newConfig);
-                            setSelectedTemplate(tpl);
-                            // Optional: auto-publish for instant gratification, but better to let them confirm
-                          }}
-                        >
-                          {/* Visual thumbnail preview - "automatic nice preview" */}
-                          <div 
-                            className="h-28 w-full relative flex items-center justify-center text-center p-4"
-                            style={{ background: tpl.thumbnail }}
-                          >
-                            <div>
-                              <div className="text-white font-semibold text-lg tracking-tight">{tpl.name}</div>
-                              <div className="text-xs text-white/70">{tpl.tagline}</div>
-                            </div>
-                            {/* Subtle premium overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/40" />
-                          </div>
-
-                          <div className="p-3 bg-black/40">
-                            <div className="text-sm font-medium text-white">{tpl.name}</div>
-                            <div className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{tpl.description}</div>
-
-                            <div className="flex gap-2 mt-3">
-                              <button 
-                                onClick={(e) => { 
-                                  e.stopPropagation(); 
-                                  // Show full beautiful preview in modal using the generator
-                                  const previewHTML = buildTransparentCustomUI(covenant, { ...DEFAULT_UI_CONFIG, ...tpl.config });
-                                  setShowTemplatePreview({ tpl, html: previewHTML }); 
-                                }} 
-                                className="flex-1 text-xs py-1.5 rounded-xl border border-white/20 hover:bg-white/5 active:bg-white/10"
-                              >
-                                Preview
-                              </button>
-                              <button 
-                                onClick={(e) => { 
-                                  e.stopPropagation(); 
-                                  const newConfig = { ...DEFAULT_UI_CONFIG, ...tpl.config, heroImageUrl: config.heroImageUrl, vision: config.vision || '' };
-                                  setConfig(newConfig);
-                                  setSelectedTemplate(tpl);
-                                  // Update live preview area (it will reflect the new config)
-                                }} 
-                                className={`flex-1 text-xs py-1.5 rounded-xl font-medium transition-all ${isSelected ? 'bg-kaspa-green text-black' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-                              >
-                                {isSelected ? 'Selected' : 'Choose'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[10px] text-center text-gray-500 mt-2">Click "Preview" for the exact page your users will see. "Choose" loads it into the live editor for tweaks.</p>
-                </div>
-
-                <div className="space-y-6 pt-2 border-t border-white/10">
-                  {/* Fine-tune after choosing from the Garage */}
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Fine-tune your chosen look</p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-300 mb-1.5">Headline</p>
-                        <input type="text" value={config.titleOverride || ''} onChange={e => setConfig(s => ({...s, titleOverride: e.target.value}))} placeholder={covenant.name || 'Covenant Title'} className="w-full px-4 py-2.5 rounded-2xl bg-black/40 border border-white/10 text-sm" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-300 mb-1.5">Signature Color</p>
-                        <div className="flex items-center gap-2">
-                          {['#49EACB', '#E8AF34', '#3B82F6', '#EC4899', '#10B981', '#8B5CF6'].map(c => (
-                            <ColorSwatch key={c} color={c} active={config.primaryColor === c} onClick={() => setConfig(s => ({...s, primaryColor: c}))} />
-                          ))}
-                          <input type="color" value={config.primaryColor} onChange={e => setConfig(s => ({...s, primaryColor: e.target.value}))} className="h-8 w-8 rounded border-0" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <p className="text-xs text-gray-300 mb-1.5">Creator Vision / Story (highly recommended – makes it human and inviting)</p>
-                      <textarea rows="2" value={config.vision || ''} onChange={e => setConfig(s => ({...s, vision: e.target.value}))} placeholder="Why this covenant exists and what it means for participants..." className="w-full px-4 py-2.5 rounded-2xl bg-black/40 border border-white/10 text-sm" />
-                    </div>
-
-                    {canMaxLayout && (
-                      <div className="mt-4">
-                        <p className="text-xs text-gray-300 mb-1.5">Hero Image URL (MAX – instantly makes it feel like a premium site)</p>
-                        <input type="text" value={config.heroImageUrl || ''} onChange={e => setConfig(s => ({...s, heroImageUrl: e.target.value}))} placeholder="https://images.unsplash.com/...beautiful.jpg" className="w-full px-4 py-2.5 rounded-2xl bg-black/40 border border-white/10 text-sm" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Publish controls */}
-                  <div className="pt-4 border-t border-white/10">
-                    <button onClick={() => publishCustomUI(false)} className="w-full flex items-center justify-center gap-2 py-4 bg-kaspa-green hover:bg-[#3bc2a6] text-black font-bold rounded-3xl text-base shadow-[0_0_20px_rgba(73,234,203,0.2)] active:scale-[0.985]">
-                      Publish This Design to Your Covenant
-                    </button>
-                    <p className="text-[10px] text-center text-gray-500 mt-2">Only you can do this. Regular users will see the beautiful transparent page you chose and customized — no terminal or settings.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-                  {/* Description Override */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Ruler size={12} /> Description Override
-                    </p>
-                    <textarea
-                      rows="3"
-                      value={config.descOverride || ''}
-                      onChange={(e) => setConfig((s) => ({ ...s, descOverride: e.target.value }))}
-                      placeholder={covenant.description || 'Covenant description...'}
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 transition-colors resize-none"
-                    />
-                  </div>
-
-                  {/* Color */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Primary Color</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {['#49EACB', '#E8AF34', '#3B82F6', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'].map((c) => (
-                        <ColorSwatch
-                          key={c}
-                          color={c}
-                          active={config.primaryColor === c}
-                          onClick={() => setConfig((s) => ({ ...s, primaryColor: c }))}
-                        />
-                      ))}
-                      <input
-                        type="color"
-                        value={config.primaryColor}
-                        onChange={(e) => setConfig((s) => ({ ...s, primaryColor: e.target.value }))}
-                        className="h-8 w-8 rounded-full border-0 p-0 overflow-hidden cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Background Color */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Background Color</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {['#0A0A0D', '#0D1117', '#111116', '#1a1a2e'].map((bg) => (
-                        <button
-                          key={bg}
-                          onClick={() => setConfig((s) => ({ ...s, bgColor: bg }))}
-                          className="h-10 rounded-lg border-2 transition-all"
-                          style={{
-                            backgroundColor: bg,
-                            borderColor: config.bgColor === bg ? '#49EACB' : 'rgba(255,255,255,0.08)'
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Background Style */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Background Style</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { val: 'glass', label: 'Glass', desc: 'Frosted' },
-                        { val: 'dark', label: 'Dark', desc: 'Solid' },
-                        { val: 'light', label: 'Light', desc: 'Contrast' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.val}
-                          onClick={() => setConfig((s) => ({ ...s, bgStyle: opt.val }))}
-                          className={`p-3 rounded-xl border text-left transition-all ${
-                            config.bgStyle === opt.val
-                              ? 'border-kaspa-green/50 bg-kaspa-green/[0.04]'
-                              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
-                          }`}
-                        >
-                          <p className="text-sm font-medium text-white">{opt.label}</p>
-                          <p className="text-[10px] text-gray-300">{opt.desc}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Layout Toggle: Compact / Expanded */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Card Layout</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['Compact', 'Expanded'].map((lyt) => (
-                        <button
-                          key={lyt}
-                          onClick={() => setConfig((s) => ({ ...s, cardLayout: lyt }))}
-                          className={`p-3 rounded-xl border text-left transition-all ${
-                            (config.cardLayout || 'Compact') === lyt
-                              ? 'border-kaspa-green/50 bg-kaspa-green/[0.04]'
-                              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
-                          }`}
-                        >
-                          <p className="text-sm font-medium text-white">{lyt}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Layout Style */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Layout Style</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { val: 'card', label: 'Card', lock: false },
-                        { val: 'terminal', label: 'Terminal', lock: false },
-                        { val: 'minimal', label: 'Minimal', lock: false },
-                        { val: 'editorial', label: 'Editorial', lock: !canMaxLayout },
-                      ].map((opt) => (
-                        <button
-                          key={opt.val}
-                          disabled={opt.lock}
-                          onClick={() => setConfig((s) => ({ ...s, layout: opt.val }))}
-                          className={`p-3 rounded-xl border text-left transition-all ${
-                            config.layout === opt.val
-                              ? 'border-kaspa-green/50 bg-kaspa-green/[0.04]'
-                              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
-                          } ${opt.lock ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        >
-                          <p className="text-sm font-medium text-white">{opt.label}</p>
-                          {opt.lock && <span className="text-[10px] text-kaspa-gold">MAX tier</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Button Styling */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Button Style</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['Solid', 'Outline', 'Ghost', 'Pill'].map((bs) => (
-                        <button
-                          key={bs}
-                          onClick={() => setConfig((s) => ({ ...s, buttonStyle: bs }))}
-                          className={`p-3 rounded-xl border text-left transition-all ${
-                            (config.buttonStyle || 'Solid') === bs
-                              ? 'border-kaspa-green/50 bg-kaspa-green/[0.04]'
-                              : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
-                          }`}
-                        >
-                          <p className="text-sm font-medium text-white">{bs}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Toggles */}
-                  <div className="space-y-3">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Components</p>
-                    {[
-                      { key: 'showWalletButton', label: 'Show Wallet Button', icon: Lock, tierReq: 1 },
-                      { key: 'showParamForm', label: 'Show Parameter Form', icon: Code, tierReq: 1 },
-                      { key: 'showFeaturedBanner', label: 'Featured Banner', icon: ImagePlus, tierReq: 2 },
-                    ].map((opt) => {
-                      const locked = effectiveTierVal < opt.tierReq;
-                      return (
-                        <button
-                          key={opt.key}
-                          disabled={locked}
-                          onClick={() =>
-                            setConfig((s) => ({ ...s, [opt.key]: !s[opt.key] }))
-                          }
-                          className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
-                            config[opt.key] && !locked
-                              ? 'border-kaspa-green/40 bg-kaspa-green/[0.04]'
-                              : 'border-white/5 bg-white/[0.02]'
-                          } ${locked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/[0.04]'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <opt.icon size={16} className={locked ? 'text-gray-200' : 'text-kaspa-green'} />
-                            <span className={`text-sm ${locked ? 'text-gray-200' : 'text-white'}`}>{opt.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {locked && <span className="text-[10px] text-kaspa-gold border border-kaspa-gold/30 px-1.5 py-0.5 rounded">PRO+</span>}
-                            {config[opt.key] && !locked ? <Check size={14} className="text-kaspa-green" /> : null}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Hero Image / Cover (MAX tier — makes the page feel like a real product site) */}
-                  {canMaxLayout && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-gray-300 uppercase tracking-wider">Hero / Cover Image URL</p>
-                      <input type="text" value={config.heroImageUrl || ''} onChange={e => setConfig(s => ({...s, heroImageUrl: e.target.value}))} placeholder="https://.../beautiful-cover.jpg" className="w-full px-4 py-3 rounded-2xl bg-black/50 border border-white/10 text-sm" />
-                      <p className="text-[10px] text-gray-500">High-quality imagery makes your covenant feel premium and trustworthy.</p>
-                    </div>
-                  )}
-
-                  {/* Creator Vision Statement — key for "inviting" */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-300 uppercase tracking-wider">Creator Vision / Story (appears beautifully on the public page)</p>
-                    <textarea rows={3} value={config.vision || ''} onChange={e => setConfig(s => ({...s, vision: e.target.value}))} placeholder="Why we created this covenant and what it means for the community..." className="w-full px-4 py-3 rounded-2xl bg-black/50 border border-white/10 text-sm placeholder:text-gray-500 focus:border-kaspa-green/50" />
-                  </div>
-
-                  {/* VERY EASY presets + Publish — one or two clicks for the creator to deploy a beautiful transparent public UI. Regular users see ONLY the nice view (no terminal, no settings). */}
-                  <div className="space-y-3">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-widest">Quick "Very Nice" Presets (sets config + publishes)</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <button onClick={() => { setConfig(s => ({...s, titleOverride: 'Transparent Public Dashboard', descOverride: 'Everything there is to know — fully on-chain, creator-published, no secrets.'})); setTimeout(() => publishCustomUI(false), 50); }} className="px-3 py-2 text-xs rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/5">Beautiful Transparent Dashboard</button>
-                      <button onClick={() => { setConfig(s => ({...s, titleOverride: 'Full Facts + Oracle View', descOverride: 'Complete on-chain disclosure: logic, payments, oracle attestations, creator details.'})); setTimeout(() => publishCustomUI(false), 50); }} className="px-3 py-2 text-xs rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/5">Full Facts + Oracle Focus</button>
-                      <button onClick={() => { setConfig(s => ({...s, titleOverride: 'Minimal Elegant View', descOverride: 'Clean, transparent public interface by the covenant creator.'})); setTimeout(() => publishCustomUI(false), 50); }} className="px-3 py-2 text-xs rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/5">Minimal Elegant Public View</button>
-                    </div>
-
-                    <button
-                      onClick={() => publishCustomUI(false)}
-                      className="w-full flex items-center justify-center gap-2 py-4 bg-kaspa-green hover:bg-[#3bc2a6] text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(73,234,203,0.2)] transition-all active:scale-[0.97]"
-                    >
-                      <Save size={18} />
-                      Publish Current Config as Custom UI (Live for All Viewers)
-                    </button>
-                    <button
-                      onClick={() => publishCustomUI(true)}
-                      className="w-full flex items-center justify-center gap-2 py-3 text-sm border border-kaspa-green/40 text-kaspa-green rounded-2xl hover:bg-kaspa-green/5"
-                    >
-                      1-Click: Publish Default Beautiful Transparent UI
-                    </button>
-                    <p className="text-[10px] text-center text-gray-500">Only the creator can do this. Viewers pressing the covenant see the nice transparent interface — no terminal, no settings, full disclosure.</p>
-                  </div>
-                </div>
+                <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-kaspa-green text-black font-bold">
+                  Open Fix page for this covenant <ArrowLeft className="rotate-180" size={16}/>
+                </Link>
+                <p className="text-[10px] text-gray-500">Use Fix to pick templates, tweak title/color, and set the exact stake amount + rules in a single section. Everything deploys as the beautiful transparent viewer.</p>
               </div>
             )}
           </div>
         </motion.div>
       </div>
 
-      {/* Live Preview — now a high-fidelity representation of the actual beautiful public page the creator is designing.
-         Paid creators can iterate until it looks like a billion-dollar brand site. */}
-      {activeTab === 'builder' && canCustomize && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-8 glass-panel rounded-3xl p-8 sm:p-10"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Monitor size={18} className="text-kaspa-green" />
-                Live Public Preview
-              </h3>
-              <p className="text-xs text-gray-400">This is exactly what regular users will see when they press your covenant.</p>
-            </div>
-            <button 
-              onClick={() => {
-                const html = buildTransparentCustomUI(covenant, config);
-                const w = window.open('', '_blank');
-                if (w) { w.document.write(html); w.document.close(); }
-              }}
-              className="px-4 py-2 text-xs rounded-2xl border border-white/20 hover:bg-white/5 flex items-center gap-2"
-            >
-              <ExternalLink size={14} /> Open Full Beautiful Page
-            </button>
-          </div>
-
-          {/* High quality preview that mirrors the premium generator output */}
-          <div className="rounded-3xl border border-white/10 overflow-hidden bg-[#050507] text-white" style={{ maxHeight: '520px', overflow: 'auto' }}>
-            <div className="p-8" style={{ background: previewStyle.background, borderColor: previewStyle.borderColor }}>
-              <div className="max-w-[820px] mx-auto">
-                <div className="text-center mb-8">
-                  <div className="inline-block px-3 py-1 rounded-full text-xs tracking-widest border border-white/10 mb-3" style={{color: config.primaryColor}}>ON-CHAIN • TRANSPARENT • { (covenant.verified_tier || 'FREE').toUpperCase() }</div>
-                  <div className="text-4xl font-semibold tracking-[-1.5px]">{config.titleOverride || covenant.name || TRUNC(covenant.tx_id)}</div>
-                  <p className="mt-3 text-lg text-gray-400 max-w-md mx-auto">{config.descOverride || covenant.description || 'A premium, fully transparent covenant experience.'}</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
-                  {['Creator', 'Locked Value', 'On Kaspa Since'].map((l,i) => (
-                    <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <div className="text-xs text-gray-500">{l}</div>
-                      <div className="font-medium mt-1 text-sm">{i===0 ? TRUNC(covenant.creator_addr||'',10) : i===1 ? (covenant.amount_kaspa||0).toLocaleString()+' KAS' : 'Recent'}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="text-center">
-                  <button className="px-8 py-3 rounded-3xl font-semibold text-sm" style={{background: config.primaryColor, color: '#000'}}>Connect Wallet &amp; Interact</button>
-                  <div className="text-[10px] mt-4 text-gray-500">This is a live preview of your published public page. Make it as inviting as you want — your paid tier gives you the tools.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Customization Garage Template Preview Modal - beautiful, automatic, easy to choose */}
-      {showTemplatePreview && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/95 p-4" onClick={() => setShowTemplatePreview(null)}>
-          <div className="w-full max-w-[1100px] bg-[#050507] rounded-3xl border border-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-black/40">
-              <div>
-                <div className="text-white font-semibold text-xl tracking-tight">{showTemplatePreview.tpl.name} — {showTemplatePreview.tpl.tagline}</div>
-                <div className="text-sm text-gray-400 mt-0.5">This is the exact beautiful, fully transparent page regular users will see when they press on your covenant.</div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => {
-                    const newConfig = { ...DEFAULT_UI_CONFIG, ...showTemplatePreview.tpl.config, heroImageUrl: config.heroImageUrl, vision: config.vision || '' };
-                    setConfig(newConfig);
-                    setSelectedTemplate(showTemplatePreview.tpl);
-                    setShowTemplatePreview(null);
-                  }} 
-                  className="px-6 py-2.5 bg-kaspa-green text-black rounded-2xl text-sm font-semibold active:scale-[0.985]"
-                >
-                  Choose this template
-                </button>
-                <button onClick={() => setShowTemplatePreview(null)} className="px-5 py-2.5 border border-white/20 rounded-2xl text-sm">Close</button>
-              </div>
-            </div>
-            <div className="p-3 bg-black">
-              <iframe 
-                srcDoc={showTemplatePreview.html} 
-                className="w-full h-[72vh] rounded-2xl border border-white/10" 
-                sandbox="allow-scripts allow-same-origin"
-                title="Template Preview"
-              />
-            </div>
-            <div className="p-4 text-xs text-center text-gray-500 border-t border-white/10 bg-black/40">
-              100% self-contained • Fully transparent on-chain facts • Creator-published • No terminal or settings for regular users
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom UI Rendering — the main attraction for paid covenants */}
+      {/* Custom UI Rendering — creator-published transparent view (via Fix page) */}
       {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && (
         <div className="mt-8 w-full">
           <div className="flex items-center gap-3 mb-4">

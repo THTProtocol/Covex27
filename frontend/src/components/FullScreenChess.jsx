@@ -157,8 +157,8 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
   if (!opponentJoined && joinTimeLeft > 0) {
     return (
       <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col items-center justify-center text-white" style={{ background: 'radial-gradient(circle at 50% 20%, #1a2a1a 0%, #050505 80%)' }}>
-        <div className="text-6xl font-bold tracking-tighter mb-4">CHESS ARENA</div>
-        <div className="text-2xl mb-8">10 MIN • WINNER TAKES ALL • 2% FEE TO CREATOR</div>
+        <div className="text-5xl font-semibold tracking-tight mb-2">Chess Arena</div>
+        <div className="text-lg mb-6 text-gray-400">10 minute games. Winner takes the pot minus 2% fee.</div>
 
         <div className="text-8xl font-mono tabular-nums mb-4 text-emerald-400">{formatTime(joinTimeLeft)}</div>
         <div className="mb-8 text-lg text-gray-400">Waiting for opponent to match your {stake} KAS stake...</div>
@@ -179,51 +179,52 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
     const isWin = result.outcome === 'w' && isMyTurn; // simplistic
     return (
       <div className="fixed inset-0 z-[999] bg-black flex flex-col items-center justify-center text-white">
-        <div className="text-6xl mb-4">{result.method === 'timeout' ? '⏱ TIME' : result.method === 'resign' ? '🏳 RESIGN' : result.method === 'checkmate' ? '♟ CHECKMATE' : '🤝 DRAW'}</div>
-        <div className="text-3xl mb-8">{result.outcome === 'draw' ? 'DRAW' : result.outcome === 'w' ? 'WHITE WINS' : 'BLACK WINS'}</div>
+        <div className="text-5xl mb-4">{result.method === 'timeout' ? 'Time' : result.method === 'resign' ? 'Resign' : result.method === 'checkmate' ? 'Checkmate' : 'Draw'}</div>
+        <div className="text-2xl mb-8">{result.outcome === 'draw' ? 'Draw' : result.outcome === 'w' ? 'White wins' : 'Black wins'}</div>
 
-        <div className="text-2xl mb-2">POT: {totalPot} KAS</div>
-        <div className="text-emerald-400 text-4xl font-bold mb-8">{winnerPot} KAS TO WINNER • {fee} KAS (2%) TO CREATOR {creatorAddr}</div>
+        <div className="text-xl mb-2">Pot: {totalPot} KAS</div>
+        <div className="text-emerald-400 text-3xl font-bold mb-8">{winnerPot} KAS to winner. {fee} KAS (2%) to creator {creatorAddr}</div>
 
-        <button onClick={submitToOracle} disabled={submitting} className="px-10 py-4 bg-emerald-500 text-black font-bold rounded-2xl text-xl disabled:opacity-50">
-          {submitting ? 'SUBMITTING TO ORACLE...' : 'SUBMIT RESULT TO ORACLE & CLAIM'}
+        <button onClick={submitToOracle} disabled={submitting} className="px-8 py-3 bg-emerald-500 text-black font-semibold rounded-xl text-lg disabled:opacity-50">
+          {submitting ? 'Submitting to oracle...' : 'Submit result to oracle and claim'}
         </button>
-        <button onClick={onClose} className="mt-4 text-sm underline">Close Arena</button>
+        <button onClick={onClose} className="mt-3 text-sm text-gray-400 hover:text-white">Close</button>
 
-        <div className="mt-8 text-xs text-gray-500">All moves were (or will be) verified by chess_v1 ZK circuit + Covex oracle. Invalid play = lie detected, result rejected.</div>
+        <div className="mt-6 text-xs text-gray-500 max-w-xs">All moves verified by chess v1 ZK circuit and Covex oracle. Invalid play is detected and result rejected.</div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 18%, #1a2a1a 0%, #050505 72%)' }}>
+    <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/60">
         <div className="flex items-center gap-4">
-          <div className="text-2xl font-bold tracking-tighter">CHESS ARENA — 10 MIN</div>
-          <div className="px-3 py-1 text-xs rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">{totalPot} KAS POT • 2% FEE TO CREATOR</div>
+          <div className="text-xl font-semibold">Chess Arena</div>
+          <div className="px-2 py-0.5 text-xs rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">{totalPot} KAS pot, 2% fee</div>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <div>WHITE: <span className="font-mono text-emerald-400">{formatTime(whiteTime)}</span></div>
-          <div>BLACK: <span className="font-mono text-emerald-400">{formatTime(blackTime)}</span></div>
-          <button onClick={resign} className="px-3 py-1 border border-red-500/40 text-red-400 rounded text-xs">RESIGN</button>
-          <button onClick={onClose} className="px-3 py-1 border border-white/20 rounded text-xs">EXIT ARENA</button>
+          <div>White: <span className="font-mono text-emerald-400">{formatTime(whiteTime)}</span></div>
+          <div>Black: <span className="font-mono text-emerald-400">{formatTime(blackTime)}</span></div>
+          <button onClick={resign} className="px-2 py-0.5 border border-red-500/40 text-red-400 rounded text-xs">Resign</button>
+          <button onClick={onClose} className="px-2 py-0.5 border border-white/20 rounded text-xs">Exit</button>
         </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-[720px]">
+        <div className="w-full max-w-[680px] mx-auto">
           <Chessboard
             position={fen}
             onPieceDrop={onDrop}
-            boardWidth={680}
-            customDarkSquareStyle={{ backgroundColor: '#3a2f1f' }}
-            customLightSquareStyle={{ backgroundColor: '#d4c5a9' }}
+            boardWidth={640}
+            customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+            customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+            customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
           />
         </div>
       </div>
 
       <div className="p-4 border-t border-white/10 bg-black/60 text-xs text-gray-400 flex justify-between items-center">
-        <div>Stake matched • ZK-verified moves via chess_v1 • Oracle will attest result for on-chain payout to winner minus 2% fee to covenant creator.</div>
+        <div>Stake matched. Moves verified via chess v1. Oracle attests result for payout to winner minus 2% fee to creator.</div>
         <div className="font-mono text-kaspa-green">COVENANT: {covenantId?.slice(0,12)}...</div>
       </div>
     </div>

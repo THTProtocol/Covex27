@@ -686,3 +686,13 @@ P0 done (~95%). P1 ~50-60% (E2E/mixer/push/stales advanced; chess/RISC0/MPC/main
 - Cleaned last stales (now 1/docs historical), git artifacts.
 - Everything works great together: E2E/oracle/mixer/live consistent (26p, real/hybrid for expanded, oracles accept, mixer functional), sync/push clean, no breakage from fixes.
 - P1 advanced: 5/8+ items (E2E expansion, mixer, push/sync, stales, oracles), integration verified.
+## P1 This Continue (stales clean + sync + more oracles + E2E re-check round)
+- Hetzner synced to latest (e.g. 380e057/7870b28/c793a4d/7c0ca5c+ flows), E2E 26 pass, health OK.
+- Local E2E: 5+ expanded cases (syntax fixed), re-runs show progress.
+- Chess: ~21h+, no zkey.
+- RISC0: 6, no binary.
+- Live: OK, 3/2, more oracles True.
+- Stales: 1 (SPRINT mention, docs only).
+- Git: pushed b92bd5b, SHAs 7c0ca5c+.
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with 5+ real/hybrid, mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + clean.
+- P1 advanced: stales swept, E2E expansion, sync/push, building.

@@ -81,3 +81,12 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Chess: still no zkey (20h+); ceremony active.
 - Live: oracles (incl. collateral_ltv) success, E2E core strong.
 - Docs updated + committed.
+## P1 Further Progress (continued)
+- E2E expansion effective: collateral_ltv, loan_health, chess_ai_move now treated as real/hybrid (valid:true, non-optional, logic tweak avoids auto-skip on stub notes).
+- Fresh full E2E + Hetzner E2E run.
+- Push + Hetzner sync to latest commit.
+- Mixer withdraw + additional deposits verified live (pools=3).
+- RISC0 status: no binary (stubs confirmed).
+- Chess ceremony: still active (~20h+), no zkey.
+- Additional oracles (4+) confirmed True.
+- Docs/plan updated with evidence.

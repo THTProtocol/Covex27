@@ -270,3 +270,13 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - RISC0: no binary/toolchain (stubs confirmed).
 - Hetzner: cf6202e confirmed.
 - Docs: committed bbe2be2.
+## P1 Continued Further (this round)
+- E2E backgrounds fetched (long runs confirmed tweaks applied in prior).
+- Fresh E2E run post all tweaks: syntax clean, logic updated (RISC0-only skip), 3 circuits expanded (collateral_ltv etc now non-optional).
+- Git push attempted for latest (bbe2be2 + any E2E).
+- Hetzner: full fetch/reset to latest, E2E run there too.
+- Evidence captured for more passes on expanded hybrid/real cases.
+- RISC0: explicitly no toolchain (stubs only).
+- Chess: re-confirmed running, no zkey.
+- More oracles + mixer (pools 3, withdraws) re-verified.
+- Docs updated.

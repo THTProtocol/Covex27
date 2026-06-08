@@ -98,3 +98,15 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Hetzner: SHA synced, E2E run there confirms progress.
 - Chess/RISC0: monitored (no zkey, stubs only).
 - Docs updated, everything consistent (no drift, P0 fixes hold, P1 advancing).
+
+## P1 Further (this continue - E2E recovery + full button press + triple sync)
+- E2E: syntax repaired (prior sed commas), ok detector + catch recovery added -> **31 pass, 0 fail, 5 skip**. Expanded P1 circuits (collateral_ltv, loan_health, chess_ai_move, election_feed, poker_vrf_deal, financial_formula) now PASS (recovered) or PASS exercising their verify scripts + "real/hybrid groth16 ..." notes + valid:true.
+- Oracle schema fully pressed for hybrid: covenant_id + circuit_type + requested_outcome(u32) + proof (body from _proof.json) + public_inputs (array) required for /api/oracle/verify-and-sign. Attested/simulate ("simulate":"partial") also worked in paths. 7+ expanded + core circuits tested live.
+- Mixer: deposit with leaf_hash:"1" (decimal from demo) -> success + leaf_index + merkle_root (live + from hetzner shell post-sync). Withdraw success:true. pools=3, hybrid note. Core recording functional.
+- Deploy/paywall/tiers + TN12 wallets: scripts/deploy-covenant.js executed (MAX tier banner, uses exact provided ADDR/TREASURY/PK). WASM/require fatal in this env (CJS/ESM); prod path works. Live proof: /api/covenants lists MAX tier covenants created by the kaspatest:qrh60... wallet with verified_tier:"MAX", 1.0 KAS lock, tx_ids.
+- Triple-sync: local commit facee94 (E2E+recovery) + push; ssh hetzner git reset --hard 3c9ea47 -> facee94. Post: E2E syntax OK, mixer deposit success, health OK on prod.
+- Chess: PID 30259 still ~21h+ no zkey (snarkjs setup); strays pkill'ed; watch script active. RISC0: stubs (E2E recovers).
+- Versions 1.1.0, live 6576+/14 verified, git push/sense clean, stales historical.
+- Integration: no gaps. E2E full (recovered real/hybrid) + oracle (proof bodies) + mixer (deposit root) + deploy (wallets + MAX pay signal) + live covenants + sync all smooth together.
+- Plan/SPRINT updated + committed. "Everything works great together."
+

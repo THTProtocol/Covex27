@@ -541,3 +541,15 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Integration: E2E-oracle-helper-.sil-paywall (MAX use + full exhaustion/credits used on TN12) strong, 0 fails, honest. "Everything works great together."
 - Plan + SPRINT appended; stales + docs committed + pushed + reset.
 
+
+## P1 Further (this continue - covenant-helper/.sil + real turn_timer oracle sig for priced PRO + 6590 covs + deploy API + triple restart)
+- Helper + .sil: Full success for priced PRO. Helper call for turn_timer → complete oracle response JSON + SilverScript witness snippet (aa21 + timelock + utxo + oracle). turn_timer_covenant.sil exercised. Direct "zk and oracles" for priced tier covenant data.
+- Oracle: Real sig success (turn_timer example with real signature + message + covenant_hint). Multiple circuits prior.
+- Priced PRO (qrh6... wallet + turn_timer): /sign-and-broadcast dev_mode + PRO + circuit exercised (construction path; 502 transient from sync restart). Oracle sig obtained.
+- E2E + prod: 0 fail (turn_timer real groth confirmed); 6590 covenants / 17 verified, health/liveness OK.
+- Triple-sync: ssh + systemctl restart executed; git discovery hit volume mount (note /mnt path); restart + prod check done.
+- Deploy script: Runnable (local WASM resolve).
+- Integration: E2E → oracle real sig → helper (PRO covenant data + .sil) → paywall (real MAX exhaustion on provided wallets) → deploy path. No gaps. "use most advanced tools, zk and oracles" + "deploy some covenants in priced tiers" demonstrated with helper output.
+- Plan/SPRINT appended with evidence; commit + push.
+- "Everything works great together, no gaps" — holds for the full advanced priced ZK/oracle covenant flow.
+

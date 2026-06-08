@@ -474,10 +474,26 @@ export default function CovenantInteractive() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
       <Link
         to="/"
-        className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors mb-8 font-mono text-sm uppercase tracking-wider"
+        className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors mb-4 font-mono text-sm uppercase tracking-wider"
       >
         <ArrowLeft size={16} /> Return to Registry
       </Link>
+
+      {/* PROMINENT CREATOR "FIX" BAR AT THE VERY TOP OF THE PAGE — this is the "Fix category on top" you asked for */}
+      {isCreator && (
+        <div className="mb-6 p-4 rounded-3xl bg-purple-500/10 border-2 border-purple-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="text-purple-400 font-bold text-lg tracking-tight">Creator Mode — You own this covenant</div>
+            <div className="text-sm text-purple-300/80">Use the Fix tools to change how it looks and set the stake amount (one clean section).</div>
+          </div>
+          <Link 
+            to={`/covenant/${encodeURIComponent(id)}/fix`} 
+            className="px-8 py-3 bg-purple-500 hover:bg-purple-600 text-white font-extrabold rounded-2xl text-base flex items-center gap-2 shadow-xl active:scale-[0.98] whitespace-nowrap border border-purple-300/30"
+          >
+            <Palette size={18} /> FIX LOOKS + STAKE SETTINGS
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left: Covenant metadata */}

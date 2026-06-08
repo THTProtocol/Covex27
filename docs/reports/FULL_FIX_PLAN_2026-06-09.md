@@ -401,3 +401,15 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Git: pushes succeeded (e.g. 2dda041..7c0ca5c, etc.), SHAs align post-sync (7c0ca5c+).
 - Sense: SHAs 7c0ca5c+ everywhere, versions 1.1.0, 9 .sil, 34 verify, stales 3 in docs (historical), E2E 26p with real/hybrid for 3 + more oracles, mixer real, oracles good, chess monitoring, RISC0 stubs, triple-sync clean.
 - P1 advanced: expansion + sync/push verified, E2E re-check, building continues.
+## P1 This Continue (clean + expand more round)
+- Cleaned untracked zk build temps (test artifacts), committed E2E/verify vkey/proof updates.
+- Fixed remaining stales (sed in docs/sh; now 0-3, all historical in docs).
+- Expanded 2 more in E2E: election_feed, financial_formula now non-optional (have proofs).
+- Hetzner full sync + E2E re-run: 26 pass /0 fail/10 skip ("new circuits exercised").
+- Local E2E: 5 expanded now (3 previous + 2), cases active.
+- Chess: still ~21h+, no zkey.
+- RISC0: 6 guests, no toolchain.
+- Live: health OK, mixer 3/2, additional oracles (poker_vrf, onchain) tested.
+- Git: pushes + syncs, SHAs aligning (e.g. 7c0ca5c+ flows).
+- Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with real/hybrid for 5+, mixer real, oracles good, triple-sync (with resets), P0 holds.
+- P1 advanced: more E2E expansion (5 total), git clean, stales swept, sync/push, building continues. Mainnet skipped (per note, RAM for chess). MPC/RISC0/browser still pending.

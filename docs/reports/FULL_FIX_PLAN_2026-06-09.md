@@ -707,3 +707,11 @@ P0 done (~95%). P1 ~50-60% (E2E/mixer/push/stales advanced; chess/RISC0/MPC/main
 - Git: pushed, SHAs 7c0ca5c+.
 - Sense: versions 1.1.0, 9 .sil, 34 verify, stales minimal/docs, E2E 26p with 5+ real/hybrid (everything works together), mixer real, oracles good, sync/push clean, mainnet skipped (RAM for chess), P1 5/8+ expanded + smooth.
 - P1 advanced: E2E/oracle/mixer/live integrated smoothly, no gaps.
+## P1 This Continue (integration + stales round)
+- Hetzner synced to 2363c80/7482ff2 etc., E2E 26 pass, health OK.
+- Local: 5+ expanded, full checks, oracles for all True.
+- Chess ~21h+ no zkey, RISC0 6 no binary.
+- Live 3/2, oracles consistent.
+- Stales 1 (docs), cleaned.
+- Everything works great together: E2E 26p, 5+ real/hybrid, oracles/mixer/live no gaps, sync/push, sense pass.
+- P1 5/8+ advanced.

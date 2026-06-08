@@ -11,7 +11,7 @@
 # After running, verify triple sync:
 #   git rev-parse HEAD
 #   git ls-remote origin HEAD | awk '{print $1}'
-#   ssh root@178.105.76.81 'cd /root/Covex27 && git rev-parse HEAD'
+#   ssh root@hightable.pro (historical) 'cd /root/Covex27 && git rev-parse HEAD'
 
 set -e
 
@@ -21,7 +21,7 @@ if [ -z "${PASSWORD:-}" ]; then
   exit 1
 fi
 
-SERVER="178.105.76.81"
+SERVER="hightable.pro (historical)"
 SSH_CMD="sshpass -p \"$PASSWORD\" ssh -o StrictHostKeyChecking=no root@$SERVER"
 
 echo "=== Covex27 Full Deploy ==="

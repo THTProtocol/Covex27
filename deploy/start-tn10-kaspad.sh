@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 KASPAD_BIN="${KASPAD_BIN:-/usr/local/bin/kaspad}"
-DATA_DIR="${KASPA_TN10_DATA_DIR:-/mnt/HC_Volume_105579109/kaspa-data/tn10}"
+DATA_DIR="${KASPA_TN10_DATA_DIR:-/root/kaspa-data/tn10}"
 LOG_FILE="/var/log/kaspad-tn10.log"
 echo "=== TN10 Kaspad Node Starter ==="
 
 # Check free space on the volume (the mount point, not the data dir which doesn't exist yet)
-VOLUME_MOUNT="/mnt/HC_Volume_105579109"
+VOLUME_MOUNT="/root"
 FREE_KB=$(df "$VOLUME_MOUNT" | tail -1 | awk '{print $4}')
 FREE_GB=$(( FREE_KB / 1024 / 1024 ))
 echo "Free space on $VOLUME_MOUNT : ${FREE_GB} GB"

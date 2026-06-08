@@ -120,7 +120,7 @@ curl -s -X POST https://hightable.pro/api/sign-and-broadcast \
   -d '{"use_dev_mode":true,"deployer_addr":"kaspa:test","script_hex":"00","tier":"FREE","network":"mainnet"}' | jq .
 
 # DB network distribution
-ssh root@178.105.76.81 "sqlite3 /root/Covex27/covex.db 'SELECT network, COUNT(*) FROM covenants GROUP BY network;'"
+ssh root@hightable.pro (historical) "sqlite3 /root/Covex27/covex.db 'SELECT network, COUNT(*) FROM covenants GROUP BY network;'"
 ```
 
 ## Honest Remaining Items

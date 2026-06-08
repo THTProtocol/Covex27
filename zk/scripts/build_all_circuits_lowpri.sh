@@ -176,7 +176,7 @@ for s in "${PROVE_SCRIPTS[@]}"; do
   [[ -f "$path" ]] || continue
   base=$(basename "$s" .js)
   base=${base#prove_}
-  # Map script → default proof path
+  skip_prove=0
   case "$s" in
     prove_basic_utxo_ownership.js) out="$ZK_ROOT/ownership/basic_utxo_ownership_proof.json" ;;
     prove_script_constraint.js) out="$ZK_ROOT/script_constraints/script_constraint_proof.json" ;;
@@ -192,19 +192,22 @@ for s in "${PROVE_SCRIPTS[@]}"; do
     games/tictactoe/scripts/prove_move.js)
       if ls "$ZK_ROOT/games/tictactoe/output/proofs/"*.json >/dev/null 2>&1; then
         log "  skip prove (tictactoe proofs exist)"
-        continue
+        skip_prove=1
+      else
+        out="$ZK_ROOT/games/tictactoe/output/proofs/tt_move_4.json"
       fi
-      out="$ZK_ROOT/games/tictactoe/output/proofs/tt_move_4.json"
       ;;
     games/connect4/scripts/prove_move.js)
       if ls "$ZK_ROOT/games/connect4/output/proofs/"*.json >/dev/null 2>&1; then
         log "  skip prove (connect4 proofs exist)"
-        continue
+        skip_prove=1
+      else
+        out="$ZK_ROOT/games/connect4/output/proofs/c4_col3.json"
       fi
-      out="$ZK_ROOT/games/connect4/output/proofs/c4_col3.json"
       ;;
     *) out="$ZK_ROOT/${base}_proof.json" ;;
   esac
+  [[ "$skip_prove" -eq 1 ]] && continue
   prove_if_needed "$path" "$out" || true
 done
 

@@ -23,4 +23,4 @@ async function main() {
     try { fs.unlinkSync(wtns); } catch (_) {}
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

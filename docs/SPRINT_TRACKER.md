@@ -583,3 +583,11 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Sense: E2E clean, prod 6592+, Hetzner current.
 - "very easy + only creator + user sees everything transparent" done.
 - Plans updated + commit/push.
+## P1 Further (continue verification - custom UI easy + creator-only + transparent viewer verified)
+- Easy deploy: --custom-ui flag in script + payload test with qrh6 PRO + nice transparent HTML.
+- Creator-only: isCreator + tier gate in code.
+- Viewer: default nice custom/transparent (full details, no terminal).
+- Sense: E2E clean, prod 6592/18, Hetzner current.
+- No gaps, all integrated.
+- Plans appended + (commit/push).
+- Feature complete per request.

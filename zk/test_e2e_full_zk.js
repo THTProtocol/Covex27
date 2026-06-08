@@ -38,10 +38,10 @@ const CASES = [
   // Expanded sub-agent Phase2/3 circuits (DeFi, poker/game props, feeds, compute, privacy/gating) - fixtures enable E2E exercise of their Hybrid/attested verify stubs + oracle paths
   { name: "auction_clearing", proof: "auction_clearing_proof.json", verify: "node verify_auction_clearing.js auction_clearing_proof.json auction_clearing", circuit_type: "auction_clearing", optional: true },
   { name: "poker_vrf_deal", proof: "poker_vrf_deal_proof.json", verify: "node verify_poker_vrf_deal.js poker_vrf_deal_proof.json poker_vrf_deal", circuit_type: "poker_vrf_deal", optional: true },
-  { name: "collateral_ltv", proof: "collateral_ltv_proof.json", verify: "node verify_collateral_ltv.js collateral_ltv_proof.json collateral_ltv", circuit_type: "collateral_ltv", optional: true },
-  { name: "loan_health", proof: "loan_health_proof.json", verify: "node verify_loan_health.js loan_health_proof.json loan_health", circuit_type: "loan_health", optional: true },
+  { name: "collateral_ltv", proof: "collateral_ltv_proof.json", verify: "node verify_collateral_ltv.js collateral_ltv_proof.json collateral_ltv", circuit_type: "collateral_ltv",  },
+  { name: "loan_health", proof: "loan_health_proof.json", verify: "node verify_loan_health.js loan_health_proof.json loan_health", circuit_type: "loan_health",  },
   { name: "financial_formula", proof: "financial_formula_proof.json", verify: "node verify_financial_formula.js financial_formula_proof.json financial_formula", circuit_type: "financial_formula", optional: true },
-  { name: "chess_ai_move", proof: "chess_ai_move_proof.json", verify: "node verify_chess_ai_move.js chess_ai_move_proof.json chess_ai_move", circuit_type: "chess_ai_move", optional: true },
+  { name: "chess_ai_move", proof: "chess_ai_move_proof.json", verify: "node verify_chess_ai_move.js chess_ai_move_proof.json chess_ai_move", circuit_type: "chess_ai_move",  },
   { name: "election_feed", proof: "election_feed_proof.json", verify: "node verify_election_feed.js election_feed_proof.json election_feed", circuit_type: "election_feed", optional: true },
   { name: "verifiable_poker_solver", proof: "verifiable_poker_solver_proof.json", verify: "node verify_verifiable_poker_solver.js verifiable_poker_solver_proof.json verifiable_poker_solver", circuit_type: "verifiable_poker_solver", optional: true },
   { name: "multi_sig_gating", proof: "multi_sig_gating_proof.json", verify: "node verify_multi_sig_gating.js multi_sig_gating_proof.json multi_sig_gating", circuit_type: "multi_sig_gating", optional: true },

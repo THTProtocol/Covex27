@@ -255,3 +255,9 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - Chess: monitoring (no zkey).
 - Next in P1: when zkey ready, finish ceremony; generate more real proofs for E2E (flip optionals); deeper RISC0 if binary; etc.
 - All per plan. Continue on signal.
+## P1 Continued Execution
+- Hetzner sync + live mixer (pools=3, withdraw works).
+- E2E expansion: 3 circuits (collateral_ltv etc.) now non-optional in CASES, verifies confirm valid real/hybrid.
+- RISC0 status noted (stubs, no binary).
+- Chess monitoring ongoing.
+- More oracles tested, full re-verifies.

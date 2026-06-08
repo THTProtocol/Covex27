@@ -72,3 +72,12 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - [ ] Chess: still no zkey (PID ~20h+); monitoring.
 - [x] Proof expansion started: verified collateral_ltv, loan_health, chess_ai_move directly (hybrid real when body present). E2E summary updated.
 - [x] Docs: SPRINT + FULL_FIX_PLAN updated with P1 start + P0 complete evidence. Push + Hetzner sync done.
+
+## P1 Progress Update — 2026-06-09 (continued)
+- [x] Triple-sync confirmed: Hetzner at cf6202e, pools=3 (deposits accumulating), withdraw stub success.
+- [x] Mixer: real deposits + withdraw tested successfully on prod (decimal leaves).
+- [x] Proof expansion: collateral_ltv, loan_health, chess_ai_move verifies return valid:true (hybrid real path); E2E CASES updated (optionals removed, syntax fixed); re-runs show progress on real/hybrid cases.
+- RISC0: no toolchain/binary; stubs only (as expected).
+- Chess: still no zkey (20h+); ceremony active.
+- Live: oracles (incl. collateral_ltv) success, E2E core strong.
+- Docs updated + committed.

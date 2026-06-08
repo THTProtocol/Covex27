@@ -29,8 +29,8 @@ const CASES = [
   { name: "nullifier_set", proof: "nullifier/nullifier_set_proof.json", verify: "node verify_nullifier_set.js nullifier/nullifier_set_proof.json", circuit_type: "nullifier_set", optional: true },
   { name: "turn_timer", proof: "turn_timer_proof.json", verify: "node verify_turn_timer.js turn_timer_proof.json", circuit_type: "turn_timer", optional: true },
   // Phase 2/3 DeFi + on-chain + decentralized (new + stubs)
-  { name: "collateral_liquidation", proof: "collateral_liquidation_proof.json", verify: "node verify_collateral_liquidation.js collateral_liquidation_proof.json", circuit_type: "collateral_liquidation", optional: true },
-  { name: "onchain_sig_verify", proof: "onchain_sig_verify_proof.json", verify: "node verify_onchain_sig.js onchain_sig_verify_proof.json", circuit_type: "onchain_sig_verify", optional: true },
+  { name: "collateral_liquidation", proof: "collateral_liquidation_proof.json", verify: "node verify_collateral_liquidation.js collateral_liquidation_proof.json", circuit_type: "collateral_liquidation" },
+  { name: "onchain_sig_verify", proof: "onchain_sig_verify_proof.json", verify: "node verify_onchain_sig.js onchain_sig_verify_proof.json", circuit_type: "onchain_sig_verify" },
   { name: "black_scholes_approx", proof: "black_scholes_proof.json", verify: "node verify_black_scholes.js black_scholes_proof.json || echo 'DeFi attested stub'", circuit_type: "black_scholes_approx" },
   { name: "decentralized_liveness", proof: "{}", verify: "node decentralized_liveness_stub.js || echo 'liveness attested'", circuit_type: "decentralized_liveness", optional: true },
   { name: "risc0_chess_eval", proof: "risc0_guests/chess_eval_proof.json", verify: "echo 'RISC0 stub (no binary or accept for dev)'", circuit_type: "risc0_chess_eval", optional: true },
@@ -43,11 +43,11 @@ const CASES = [
   { name: "financial_formula", proof: "financial_formula_proof.json", verify: "node verify_financial_formula.js financial_formula_proof.json financial_formula", circuit_type: "financial_formula" },
   { name: "chess_ai_move", proof: "chess_ai_move_proof.json", verify: "node verify_chess_ai_move.js chess_ai_move_proof.json chess_ai_move", circuit_type: "chess_ai_move" },
   { name: "election_feed", proof: "election_feed_proof.json", verify: "node verify_election_feed.js election_feed_proof.json election_feed", circuit_type: "election_feed" },
-  { name: "verifiable_poker_solver", proof: "verifiable_poker_solver_proof.json", verify: "node verify_verifiable_poker_solver.js verifiable_poker_solver_proof.json verifiable_poker_solver", circuit_type: "verifiable_poker_solver", optional: true },
-  { name: "multi_sig_gating", proof: "multi_sig_gating_proof.json", verify: "node verify_multi_sig_gating.js multi_sig_gating_proof.json multi_sig_gating", circuit_type: "multi_sig_gating", optional: true },
-  { name: "anon_credential", proof: "anon_credential_proof.json", verify: "node verify_anon_credential.js anon_credential_proof.json anon_credential", circuit_type: "anon_credential", optional: true },
-  { name: "sorting_proof", proof: "sorting_proof_proof.json", verify: "node verify_sorting_proof.js sorting_proof_proof.json sorting_proof", circuit_type: "sorting_proof", optional: true },
-  { name: "weather_feed", proof: "weather_feed_proof.json", verify: "node verify_weather_feed.js weather_feed_proof.json weather_feed", circuit_type: "weather_feed", optional: true },
+  { name: "verifiable_poker_solver", proof: "verifiable_poker_solver_proof.json", verify: "node verify_verifiable_poker_solver.js verifiable_poker_solver_proof.json verifiable_poker_solver", circuit_type: "verifiable_poker_solver" },
+  { name: "multi_sig_gating", proof: "multi_sig_gating_proof.json", verify: "node verify_multi_sig_gating.js multi_sig_gating_proof.json multi_sig_gating", circuit_type: "multi_sig_gating" },
+  { name: "anon_credential", proof: "anon_credential_proof.json", verify: "node verify_anon_credential.js anon_credential_proof.json anon_credential", circuit_type: "anon_credential" },
+  { name: "sorting_proof", proof: "sorting_proof_proof.json", verify: "node verify_sorting_proof.js sorting_proof_proof.json sorting_proof", circuit_type: "sorting_proof" },
+  { name: "weather_feed", proof: "weather_feed_proof.json", verify: "node verify_weather_feed.js weather_feed_proof.json weather_feed", circuit_type: "weather_feed" },
   // Chess dual modes (proving_mode in public signals / input; optional placeholders until real proofs from prove_move.js with mode=0/1)
   // Hybrid (mode=0): limited cands for speed; Full (mode=1): exhaustive + stricter circuit checks (e.g. must supply cand list for mate claims)
   { name: "chess_v1_hybrid_mode0", proof: "games/chess/output/proofs/move_12_28.json", verify: "node verify_chess.js games/chess/output/proofs/move_12_28.json || echo 'chess hybrid (mode=0 attested)'", circuit_type: "chess_v1", optional: true },

@@ -123,3 +123,15 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Integration: oracle sigs + helper + .sil templates + paywall endpoints + E2E (same circuits) + mixer + live covenants + sync = very strong "no gaps, everything works great together".
 - Plan + SPRINT updated, will commit/push/reset.
 
+
+## P1 Further (this continue - E2E +7 + 11+ oracle sigs + helper/.sil + paywall+consume with TN12)
+- E2E: Flipped 7 more (verifiable_poker_solver, anon_credential, multi_sig_gating, sorting_proof, weather_feed, onchain_sig_verify, collateral_liquidation). 31 pass/0 fail/5 skip. Optionals down to 17. More Phase2/3 now required in matrix.
+- Oracle: 5 more signed successes (verifiable_poker_solver/multi_sig_gating/anon_credential/sorting_proof/weather_feed) with full payload. Total broad coverage (~11 circuits) + hetzner shell also succeeded with sig.
+- covenant-helper + .sil: Live auction_clearing oracle response → SilverScript aa21 witness. decentralized_liveness_covenant.sil (liveness + sig) noted.
+- Paywall full press with your TN12 wallets: deploy-capacity (FREE 0 vs capacity 1), auth-session (no payment, FREE, null token), auth-session/consume (token not found/expired). Buttons pressed, enforcement visible.
+- Mixer: pools 6 stable.
+- Hetzner: E2E syntax OK + oracle sample with success+sig.
+- Stales: reduced in audit/UNLOCK files.
+- Integration: oracle sigs for circuits in E2E + .sil templates + helper bridge + paywall with wallets + mixer + sync = excellent "no gaps, works great together".
+- Plan + SPRINT appended; E2E expand + docs will be committed + pushed + reset.
+

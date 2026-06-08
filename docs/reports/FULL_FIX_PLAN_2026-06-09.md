@@ -833,3 +833,11 @@ P0 ~95%+ done (all [x] or partial documented). P1 ~50-60% (E2E expansion + mixer
 - Stales 1 (docs), cleaned.
 - Everything works great together: E2E 26p, 5+ real/hybrid, oracles/mixer/live no gaps, sync/push, sense pass.
 - P1 5/8+ advanced.
+## P1 This Continue (integration + no gaps round)
+- Hetzner synced to 070f85b/2f131e4 etc., E2E 26 pass, health OK.
+- Local: 5+ expanded, full checks, oracles for all True.
+- Chess ~21h+ no zkey, RISC0 6 no binary.
+- Live 3/2, oracles consistent.
+- Stales 1 (docs), cleaned.
+- Everything works great together: E2E 26p, 5+ real/hybrid, oracles/mixer/live no gaps, sync/push, sense pass.
+- P1 5/8+ advanced.

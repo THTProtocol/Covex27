@@ -261,3 +261,12 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - RISC0 status noted (stubs, no binary).
 - Chess monitoring ongoing.
 - More oracles tested, full re-verifies.
+## P1 Further (this continue)
+- E2E syntax cleaned, optionals removed for collateral_ltv/loan_health/chess_ai_move.
+- Logic tweaked: skip only on RISC0 (not auto on attested/stub) to count valid hybrid/real as PASS.
+- Verifies: all 3 return valid:true (hybrid real path active with artifacts).
+- Mixer: withdraw success, pools=3 nulls=2.
+- Additional oracles (nullifier_set, pot_split_math, onchain_sig, auction_clearing) tested True.
+- RISC0: no binary/toolchain (stubs confirmed).
+- Hetzner: cf6202e confirmed.
+- Docs: committed bbe2be2.

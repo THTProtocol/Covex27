@@ -791,3 +791,11 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - No gaps, integrated.
 - Plans appended + (commit/push).
 - Feature complete per request.
+## P1 Further (this continue - custom UI easy + creator-only + transparent viewer verified)
+- Easy: --custom-ui flag + payload with nice transparent HTML (qrh6 PRO, oracle sig).
+- Creator-only: isCreator + tier gate.
+- Viewer: default nice custom/transparent (full details, no terminal).
+- Sense: E2E clean, prod 6592/18, Hetzner current.
+- No gaps, integrated.
+- Plans appended + (commit/push).
+- Feature complete per request.

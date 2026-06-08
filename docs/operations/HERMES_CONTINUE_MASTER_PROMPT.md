@@ -129,3 +129,45 @@ Append COMPLETED BLOCK to this file with date, SHAs, E2E results, evidence.
 ### Confirmed
 
 "Everything gets along perfectly and it is easy to connect any ZK circuit + oracle into a covenant" via add_circuit.sh + pluggable verifier + 34 uniform hybrid scripts + simulate testing + covenant-helper.js + 9 .sil templates.
+
+---
+
+## COMPLETED BLOCK — 2026-06-08 (Final Session Summary)
+
+**Final SHA:** `4b47374e` — Local = GitHub = Hetzner (triple-match verified)
+
+### Version 1.1.0 — Unified in All 4 Locations
+- `frontend/package.json` → `"version": "1.1.0"`
+- `backend/Cargo.toml` → `version = "1.1.0"`
+- `zk/package.json` → `"version": "1.1.0"`
+- `zk/circuit_registry.json` → `"version": "1.1.0"`
+
+### Verification Matrix (live)
+| Check | Result |
+|-------|--------|
+| E2E | **26 pass / 0 fail / 11 skip** |
+| Cargo | Pass (warnings only) |
+| Frontend build | Clean |
+| Live health | OK |
+| Backend Hetzner | active, port 3006 |
+| Oracle range_proof | **success:true** (was FAIL) |
+| Oracle merkle_membership | **success:true** (was FAIL) |
+| Oracle 13 other circuits | success:true |
+| .sil templates | 9 |
+| verify scripts | 34 hybrid |
+| Repo stale prompts | 3 deleted |
+| Reports | 4 moved to docs/reports/ |
+| Stale HC_Volume paths | 5 files fixed |
+| Chess ceremony | PID 30259 alive (12.5h+) |
+
+### Git History (today's session)
+```
+4b47374 final v1.1.0 — everything unified, triple-synced, documented, BUG-1 and BUG-2 fixed
+d6354e2 docs: complete audit report with post-fix evidence
+16c6b5b fix: convert verify_range.js and verify.js to hybrid pattern (BUG-1, BUG-2)
+1752a57 finalize: triple-sync documentation + sprint tracker + all session artifacts
+e18d50e chore: repo organization — consolidate Hermes prompts, move reports, fix paths
+```
+
+### Session Verdict
+All P0 bugs fixed and deployed to production. Triple sync achieved. 100% oracle coverage for tested circuits. Project is in clean, unified, production-ready state for the next phase.

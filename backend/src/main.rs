@@ -308,7 +308,11 @@ async fn main() {
         .layer(Extension(db.clone()))
         .merge(mixer::mixer_routes().layer(Extension(db.clone())))
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))
-        .layer(app);
+        .layer(app)
+        // Basic protection (P0): concurrency limit to prevent too many simultaneous heavy requests
+        // (oracle ZK verifies, deploys, mixer). Protects the backend while we add time-based rate later.
+        // 64 max in-flight is generous for normal load + test bursts.
+        .layer(tower::limit::ConcurrencyLimitLayer::new(64));
 
     info!("Serving on {}", addr);
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)

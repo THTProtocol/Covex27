@@ -6,14 +6,40 @@
 //   Output 1: 1,000 KAS → Treasury  
 //   Output 2: Change → Deployer
 //
-// Must be run from: /root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm/
-// because the WASM module resolves relative to __dirname.
+// Robust KASPA WASM dir resolution (P0-5).
+// Supports running from local trees, /root/Covex27 checkouts, or with env override.
+// The WASM (kaspa.js + kaspa_bg.wasm.bin) must be present because it resolves relative to the package.
 
 const path = require('path');
 const fs = require('fs');
 
-// WASM module lives in the kaspa-wasm package dir
-const KASPA_DIR = '/root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm';
+function findKaspaWasmDir() {
+  const env = process.env.KASPA_WASM_DIR;
+  if (env && fs.existsSync(env)) return env;
+
+  const candidates = [
+    // Common prod / deployed locations (Hetzner etc.)
+    '/root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm',
+    '/mnt/HC_Volume_105579109/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm',
+    // Relative to this script (when running inside the Covex27 tree)
+    path.resolve(__dirname, '../../frontend/node_modules/@onekeyfe/kaspa-wasm'),
+    path.resolve(process.cwd(), 'frontend/node_modules/@onekeyfe/kaspa-wasm'),
+    // Walk up a few levels from cwd
+    ...Array.from({length: 5}, (_, i) =>
+      path.resolve(process.cwd(), '../'.repeat(i + 1) + 'frontend/node_modules/@onekeyfe/kaspa-wasm')
+    ).filter(p => fs.existsSync(p)),
+  ];
+
+  for (const c of candidates) {
+    if (c && fs.existsSync(path.join(c, 'kaspa.js'))) {
+      return c;
+    }
+  }
+  // Last resort (will fail with clear message below)
+  return '/root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm';
+}
+
+const KASPA_DIR = findKaspaWasmDir();
 
 async function main() {
     console.log(`\n=== Covex27 CLI Covenant Deployer (MAX Tier) ===\n`);
@@ -146,7 +172,7 @@ async function main() {
         console.log(`\nMonitor crawler:`);
         console.log(`  journalctl -u covex-backend -f | grep -E "Crawler.*found|Output"`);
         console.log(`\nCheck DB after indexing:`);
-        console.log('  sqlite3 /root/Covex27/covex.db "SELECT tx_id, verified_tier FROM covenants;"');
+        console.log('  sqlite3 /root/Covex27/covex.db "SELECT tx_id, verified_tier FROM covenants;"  # or your local covex.db');
     }
 
     pk.free();

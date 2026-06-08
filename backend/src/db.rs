@@ -322,7 +322,7 @@ pub fn get_all_covenants(
     network: Option<&str>,
 ) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
-    let sql = if let Some(net) = network {
+    let sql = if let Some(_net) = network {
         format!(
             "{} WHERE is_active = 1 AND network = ?1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC",
             COVENANT_SELECT
@@ -382,7 +382,7 @@ pub fn get_covenants_by_creator(
     network: Option<&str>,
 ) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
-    let sql = if let Some(net) = network {
+    let sql = if let Some(_net) = network {
         format!(
             "{} WHERE creator_addr = ?1 AND is_active = 1 AND network = ?2 ORDER BY timestamp DESC",
             COVENANT_SELECT
@@ -666,7 +666,7 @@ pub fn get_generated_uis(
     owner: Option<&str>,
 ) -> anyhow::Result<Vec<serde_json::Value>> {
     let conn = db.lock().unwrap();
-    let sql = if let Some(owner_addr) = owner {
+    let sql = if let Some(_owner_addr) = owner {
         format!(
             "SELECT covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at FROM generated_uis WHERE owner_address = ?1 ORDER BY ui_generated_at DESC"
         )
@@ -694,7 +694,7 @@ pub fn get_generated_uis(
             result.push(r?);
         }
     } else {
-        let rows = stmt.query_map([], |row| {
+        let _rows = stmt.query_map([], |row| {
             Ok(serde_json::json!({
                 "covenant_id": row.get::<_, String>(0)?,
                 "owner_address": row.get::<_, String>(1)?,
@@ -947,32 +947,96 @@ pub fn mixer_record_nullifier(
 
 fn compute_mixer_root(leaves: &[String]) -> anyhow::Result<String> {
     use std::process::Command;
+
+    // Robust multi-candidate path resolution for release/prod vs dev builds.
+    // CARGO_MANIFEST_DIR is baked at compile time and can be wrong for deployed binaries
+    // or when cwd != source tree. We try env, manifest, exe-relative walk, and prod fallbacks.
+    let mut candidates: Vec<std::path::PathBuf> = vec![];
+
+    if let Ok(p) = std::env::var("COVEX_MIXER_COMPUTE_ROOT") {
+        candidates.push(std::path::PathBuf::from(p));
+    }
+
+    // Baked at build (works for `cargo run` / build inside full source checkout)
     let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let script = manifest.join("../zk/privacy_mixer/lib/compute_root.js");
+    candidates.push(manifest.join("../zk/privacy_mixer/lib/compute_root.js"));
+
+    // Walk up from current executable (good for copied binaries or service deploys)
+    if let Ok(exe) = std::env::current_exe() {
+        let mut dir = exe.parent().map(|p| p.to_path_buf());
+        for _ in 0..6 {
+            if let Some(d) = &dir {
+                let cand = d.join("zk/privacy_mixer/lib/compute_root.js");
+                if !candidates.iter().any(|c| c == &cand) {
+                    candidates.push(cand);
+                }
+                dir = d.parent().map(|p| p.to_path_buf());
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Common prod locations (Hetzner /root checkout + legacy volume)
+    candidates.push(std::path::PathBuf::from("/root/Covex27/zk/privacy_mixer/lib/compute_root.js"));
+    candidates.push(std::path::PathBuf::from("/mnt/HC_Volume_105579109/Covex27/zk/privacy_mixer/lib/compute_root.js"));
+
     let node = if std::path::Path::new("/usr/bin/node").exists() {
         "/usr/bin/node"
     } else {
         "node"
     };
+
     let input = serde_json::to_string(leaves)?;
-    let output = Command::new(node)
-        .arg(script)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .and_then(|mut child| {
-            use std::io::Write;
-            if let Some(stdin) = child.stdin.as_mut() {
-                stdin.write_all(input.as_bytes())?;
+
+    let mut last_err = String::new();
+    for script in &candidates {
+        if !script.exists() {
+            last_err = format!("script not found at {}", script.display());
+            continue;
+        }
+        // Run with cwd set to the script's directory so sibling require("./tree") resolves reliably.
+        let script_dir = script.parent().unwrap_or(std::path::Path::new("."));
+        let output_res = Command::new(node)
+            .arg(script)
+            .current_dir(script_dir)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(stdin) = child.stdin.as_mut() {
+                    stdin.write_all(input.as_bytes())?;
+                }
+                child.wait_with_output()
+            });
+
+        match output_res {
+            Ok(output) => {
+                if output.status.success() {
+                    let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !root.is_empty() {
+                        return Ok(root);
+                    }
+                    last_err = "empty root output".to_string();
+                } else {
+                    last_err = format!(
+                        "exit {} stderr: {}",
+                        output.status,
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
             }
-            child.wait_with_output()
-        })
-        .map_err(|e| anyhow::anyhow!("Failed to run compute_root.js: {}", e))?;
-    if !output.status.success() {
-        anyhow::bail!(
-            "compute_root.js failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+            Err(e) => {
+                last_err = format!("spawn error for {}: {}", script.display(), e);
+            }
+        }
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+
+    anyhow::bail!(
+        "compute_root.js failed for all candidates (last: {}). Tried: {:?}",
+        last_err,
+        candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
+    )
 }

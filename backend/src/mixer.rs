@@ -34,6 +34,20 @@ pub struct MixerRootOutput {
 pub struct MixerStatusOutput {
     pub pools: usize,
     pub total_nullifiers: i64,
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct MixerWithdrawInput {
+    pub covenant_id: String,
+    pub nullifier: String,
+}
+
+#[derive(Serialize)]
+pub struct MixerWithdrawOutput {
+    pub success: bool,
+    pub error: Option<String>,
 }
 
 pub fn mixer_routes() -> Router {
@@ -41,6 +55,13 @@ pub fn mixer_routes() -> Router {
         .route("/mixer/deposit", post(deposit_handler))
         .route("/mixer/root/:covenant_id", get(root_handler))
         .route("/mixer/status", get(status_handler))
+        // P0 surface completion: previously these returned empty/404 in some clients.
+        // Withdraw records the nullifier (used with the privacy ZK nullifier circuit).
+        // Lists are basic for now; full privacy mixer on-chain evolution later.
+        .route("/mixer/withdraw", post(withdraw_handler))
+        .route("/mixer/pools", get(pools_handler))
+        .route("/mixer/deposits/:covenant_id", get(deposits_handler))
+        .route("/mixer/nullifiers/:covenant_id", get(nullifiers_handler))
 }
 
 async fn deposit_handler(
@@ -88,5 +109,63 @@ async fn status_handler(
     Json(MixerStatusOutput {
         pools: pools as usize,
         total_nullifiers: nullifiers,
+        note: Some("Mixer hybrid/oracle-attested stub. Deposit+root+nullifier recording active. Full on-chain privacy later (see vision).".to_string()),
     })
+}
+
+async fn withdraw_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(input): Json<MixerWithdrawInput>,
+) -> Json<MixerWithdrawOutput> {
+    match crate::db::mixer_record_nullifier(&db, &input.nullifier, &input.covenant_id) {
+        Ok(()) => Json(MixerWithdrawOutput { success: true, error: None }),
+        Err(e) => Json(MixerWithdrawOutput { success: false, error: Some(e.to_string()) }),
+    }
+}
+
+async fn pools_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+) -> Json<serde_json::Value> {
+    // Basic pools view (count of roots + note). Real per-covenant pools via /root/:id + deposit.
+    let conn = db.lock().unwrap();
+    let pools: i64 = conn.query_row("SELECT COUNT(*) FROM mixer_roots", [], |r| r.get(0)).unwrap_or(0);
+    Json(serde_json::json!({
+        "pools": pools,
+        "note": "Use /mixer/status and /mixer/root/:covenant_id for details. Deposit records leaves and updates merkle root."
+    }))
+}
+
+async fn deposits_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Path(covenant_id): Path<String>,
+) -> Json<serde_json::Value> {
+    // Return leaf count + sample for the covenant (lightweight, no full list for large pools).
+    let conn = db.lock().unwrap();
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM mixer_leaves WHERE covenant_id = ?1",
+        rusqlite::params![covenant_id],
+        |r| r.get(0),
+    ).unwrap_or(0);
+    Json(serde_json::json!({
+        "covenant_id": covenant_id,
+        "leaf_count": count,
+        "note": "Full leaf data via internal; for covenant use the merkle root from /root/ + ZK membership proof."
+    }))
+}
+
+async fn nullifiers_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Path(covenant_id): Path<String>,
+) -> Json<serde_json::Value> {
+    let conn = db.lock().unwrap();
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM mixer_nullifiers WHERE covenant_id = ?1",
+        rusqlite::params![covenant_id],
+        |r| r.get(0),
+    ).unwrap_or(0);
+    Json(serde_json::json!({
+        "covenant_id": covenant_id,
+        "nullifier_count": count,
+        "note": "Nullifiers recorded on withdraw for double-spend prevention in hybrid mixer covenants."
+    }))
 }

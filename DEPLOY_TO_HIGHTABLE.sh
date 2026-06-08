@@ -91,7 +91,7 @@ $SSH_CMD << 'RESTART_EOF'
   fi
   # Start new binary
   source /root/.cargo/env
-  nohup /mnt/HC_Volume_105579109/Covex27/backend/target/release/covex27-backend \
+  nohup /root/Covex27/backend/target/release/covex27-backend \
     > /tmp/covex27.log 2>&1 &
   sleep 4
   HEALTH=$(curl -s http://127.0.0.1:3005/health)

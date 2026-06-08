@@ -6,14 +6,14 @@
 //   Output 1: 1,000 KAS → Treasury  
 //   Output 2: Change → Deployer
 //
-// Must be run from: /mnt/HC_Volume_105579109/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm/
+// Must be run from: /root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm/
 // because the WASM module resolves relative to __dirname.
 
 const path = require('path');
 const fs = require('fs');
 
 // WASM module lives in the kaspa-wasm package dir
-const KASPA_DIR = '/mnt/HC_Volume_105579109/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm';
+const KASPA_DIR = '/root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm';
 
 async function main() {
     console.log(`\n=== Covex27 CLI Covenant Deployer (MAX Tier) ===\n`);
@@ -146,7 +146,7 @@ async function main() {
         console.log(`\nMonitor crawler:`);
         console.log(`  journalctl -u covex-backend -f | grep -E "Crawler.*found|Output"`);
         console.log(`\nCheck DB after indexing:`);
-        console.log(`  sqlite3 /mnt/HC_Volume_105579109/Covex27/covex.db "SELECT tx_id, verified_tier FROM covenants;"`);
+        console.log('  sqlite3 /root/Covex27/covex.db "SELECT tx_id, verified_tier FROM covenants;"');
     }
 
     pk.free();

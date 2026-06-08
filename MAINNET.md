@@ -51,14 +51,14 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/mnt/HC_Volume_105579109/Covex27
+WorkingDirectory=/root/Covex27
 Environment=BIND_ADDR=0.0.0.0:3006
-Environment=DB_PATH=/mnt/HC_Volume_105579109/Covex27/covex.db
+Environment=DB_PATH=/root/Covex27/covex.db
 Environment=KASPA_NETWORK=mainnet
 Environment=KASPA_WRPC_URL=ws://OPERATOR-PC-IP:17110
 Environment=COVENANT_TREASURY_ADDRESS=kaspa:YOUR_REAL_MAINNET_TREASURY
 Environment=COVENANT_SEED_ADDRESSES=kaspa:SEED1,kaspa:SEED2
-ExecStart=/mnt/HC_Volume_105579109/Covex27/backend/target/release/covex27-backend
+ExecStart=/root/Covex27/backend/target/release/covex27-backend
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
@@ -120,7 +120,7 @@ curl -s -X POST https://hightable.pro/api/sign-and-broadcast \
   -d '{"use_dev_mode":true,"deployer_addr":"kaspa:test","script_hex":"00","tier":"FREE","network":"mainnet"}' | jq .
 
 # DB network distribution
-ssh root@178.105.76.81 "sqlite3 /mnt/HC_Volume_105579109/Covex27/covex.db 'SELECT network, COUNT(*) FROM covenants GROUP BY network;'"
+ssh root@178.105.76.81 "sqlite3 /root/Covex27/covex.db 'SELECT network, COUNT(*) FROM covenants GROUP BY network;'"
 ```
 
 ## Honest Remaining Items

@@ -117,7 +117,7 @@ const {{ readFileSync }} = require('fs');
 const vm = require('vm');
 const path = require('path');
 
-const WASM_DIR = '/mnt/HC_Volume_105579109/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm';
+const WASM_DIR = '/root/Covex27/frontend/node_modules/@onekeyfe/kaspa-wasm';
 
 // Read the JS source and eval with proper require binding
 const jsSource = readFileSync(path.join(WASM_DIR, 'kaspa.js'), 'utf8');

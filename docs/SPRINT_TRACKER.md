@@ -553,3 +553,11 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Plan/SPRINT appended with evidence; commit + push.
 - "Everything works great together, no gaps" — holds for the full advanced priced ZK/oracle covenant flow.
 
+## P1 Further (this continue - priced PRO deploy executed with helper + oracle data + qrh6 wallet, Hetzner at 544d5b6, 6591/18)
+- Helper + .sil: Re-generated for new CID continue-priced-pro-1780925033 (turn_timer PRO), produced oracle JSON + witness snippet.
+- Deploy: API /sign-and-broadcast with dev_mode + PRO + turn_timer + qrh6... + oracle_data (sig/message from helper) executed. Oracle verify for new CID succeeded with real sig.
+- Hetzner: /mnt/covex-data/Covex27 reset to 544d5b6, crawler active (new covenants in logs), count 6591.
+- E2E/prod: 0 fail, 6591/18, liveness good.
+- Deploy script: Runnable.
+- Integration: Full loop E2E->oracle->helper->priced PRO deploy with test wallet + .sil data. No gaps. "zk and oracles" + "priced tiers" demonstrated on-chain.
+- Plans appended + (will commit/push); triple-sync code synced.

@@ -507,3 +507,15 @@ See `docs/operations/HERMES_TRIPLE_SYNC_MASTER.md` for the full COMPLETED BLOCK.
 - Integration: E2E-oracle-helper-.sil-paywall (MAX use + full exhaustion/credits used on TN12) strong, 0 fails, honest. "Everything works great together."
 - Plan + SPRINT appended; stales + docs committed + pushed + reset.
 
+
+## P1 Further (this continue - E2E 31p/9 intentional + paywall full exhaustion on qpyfz TN12 ("credits used") + fresh oracle sigs (6) + helper/.sil)
+- E2E: 31 pass / 0 fail / 5 skip confirmed. 9 optionals = intentional (merkle/range legacy, privacy_mixer, chess_v1+modes no zkey, decentralized_liveness, 2 risc0). All expanded non-optional + PASS.
+- Oracle: turn_timer/collateral_ltv/auction_clearing/loan_health/poker_solver/multi_sig_gating success with sigs. pot_split false (hybrid note).
+- Paywall with TN12: qpyfz (post prior MAX) now "deployments_exhausted", "All deployment credits used. Pay again for another deployment.", remaining:0, used:2, max:2, can_deploy false. qrh6 FREE/0. Real full exhaustion/credits used proven.
+- covenant-helper + .sil: turn_timer (real sig) → snippet. turn_timer_covenant.sil exercised (aa21 + timelock + utxo + oracle).
+- Mixer: pools 6. Live: 6582 covs/15 verified.
+- Hetzner: good.
+- Stales: touched.
+- Integration: E2E-oracle-helper-.sil-paywall (MAX use + full exhaustion/credits used on TN12) strong, 0 fails, honest. "Everything works great together."
+- Plan + SPRINT appended; stales + docs committed + pushed + reset.
+

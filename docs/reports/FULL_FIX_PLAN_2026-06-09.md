@@ -294,3 +294,9 @@ Next phase (P1) can begin on "continue" (chess monitoring, more real proofs, pus
 - P1-15 (expand real proofs) advanced with 3+ circuits now in E2E as real/hybrid, count to 26 pass.
 - P1-16 (mixer) advanced with withdraw test.
 - Overall P1 strong progress; chess ceremony is the main remaining blocker for full P1-10.
+## Final for this continue
+- E2E lines properly cleaned (trailing ",  }" removed for the 3 expanded).
+- Re-run shows the circuits now in the matrix without syntax issues.
+- Overall from production Hetzner sync E2E: 26 pass, 0 fail, 10 skip with note on new circuits exercised.
+- This completes significant P1-15 progress (expansion of real/hybrid proofs in E2E).
+- Plan updated.

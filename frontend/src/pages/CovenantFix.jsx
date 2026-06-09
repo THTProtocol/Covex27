@@ -223,7 +223,7 @@ export default function CovenantFix() {
       <div className="max-w-xl mx-auto px-6 py-16 text-center">
         <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5"><Wallet size={28} /></div>
         <h1 className="text-3xl font-semibold tracking-tight mb-2">Fix your covenants</h1>
-        <p className="text-gray-400 mb-8">Connect the wallet that created the covenant. Then manage how it looks and set the single stake amount — all in one clean place.</p>
+        <p className="text-gray-400 mb-8">Connect the wallet that created the covenant. Then manage how it looks and set the single stake amount. All in one clean place.</p>
         <div className="text-xs text-gray-500">Use the wallet button in the top bar.</div>
         <Link to="/" className="mt-8 inline-block text-sm text-kaspa-green hover:underline">Back to Explorer</Link>
       </div>
@@ -264,7 +264,7 @@ export default function CovenantFix() {
 
       {/* My Covenants - simple list to pick from */}
       <div className="mb-8">
-        <div className="text-xs uppercase tracking-[2px] text-gray-500 mb-3 px-1">YOUR COVENANTS ({myCovenants.length}) — click to manage</div>
+        <div className="text-xs uppercase tracking-[2px] text-gray-500 mb-3 px-1">YOUR COVENANTS ({myCovenants.length}): click to manage</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {myCovenants.map((c) => {
             const isSel = selected && selected.tx_id === c.tx_id;
@@ -308,7 +308,7 @@ export default function CovenantFix() {
           <div className="text-sm text-gray-400 mb-6">Creator only. Changes publish instantly for everyone who opens it.</div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            {/* LOOKS — change how they look */}
+            {/* LOOKS: change how they look */}
             <div className="lg:col-span-3 rounded-3xl border border-white/10 bg-white/[0.015] p-6">
               <div className="flex items-center gap-2 mb-3">
                 <Palette size={18} className="text-kaspa-green" />
@@ -359,7 +359,7 @@ export default function CovenantFix() {
               </div>
             </div>
 
-            {/* THE ONE SECTION: Stake amount + all of that — super clean */}
+            {/* THE ONE SECTION: Stake amount and all of that. Super clean. */}
             <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-white/[0.015] p-6 flex flex-col">
               <div className="font-semibold mb-1">Stake amount and all of that</div>
               <div className="text-xs text-gray-400 mb-4">Just set the number. Everything else is fixed, transparent, and already explained to players.</div>
@@ -427,7 +427,7 @@ export default function CovenantFix() {
         <div className="fixed inset-0 z-[90] bg-black/95 flex items-center justify-center p-4" onClick={() => setShowPreview(null)}>
           <div className="w-full max-w-[1080px] bg-[#050507] rounded-3xl border border-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-black/40">
-              <div className="font-semibold">{showPreview.tpl.name} preview — exactly what viewers see</div>
+              <div className="font-semibold">{showPreview.tpl.name} preview: exactly what viewers see</div>
               <div className="ml-auto flex gap-2">
                 {selected && (
                   <button onClick={() => { applyTemplate(showPreview.tpl); setShowPreview(null); }} className="px-5 py-2 rounded-2xl bg-kaspa-green text-black text-sm font-semibold">Choose this &amp; close</button>

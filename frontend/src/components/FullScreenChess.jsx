@@ -383,8 +383,8 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
           <div>
             <div className="uppercase tracking-[2px] text-xs text-gray-400 mb-1.5">CAPTURED PIECES</div>
             <div className="flex gap-4 text-2xl">
-              <div>WHITE: <span className="font-mono">{captured.w && captured.w.length ? captured.w.join(' ') : '—'}</span></div>
-              <div>BLACK: <span className="font-mono">{captured.b && captured.b.length ? captured.b.join(' ') : '—'}</span></div>
+              <div>WHITE: <span className="font-mono">{captured.w && captured.w.length ? captured.w.join(' ') : 'none'}</span></div>
+              <div>BLACK: <span className="font-mono">{captured.b && captured.b.length ? captured.b.join(' ') : 'none'}</span></div>
             </div>
           </div>
 

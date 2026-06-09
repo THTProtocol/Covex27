@@ -385,7 +385,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
         </div>
       </div>
 
-      <p className="text-xs text-gray-200 mb-3 line-clamp-2">{covenantDesc}</p>
+      <p className="text-xs text-gray-200 mb-4 leading-relaxed">{covenantDesc}</p>
 
       {/* Disclosed wallets section for paid verified covenants */}
       {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
@@ -410,11 +410,11 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
 
       {/* Special colorful inviting treatment for Chess covenants - not a small window */}
       {gameType === 'chess' && (
-        <div className="mt-3 -mx-1 p-3 rounded-2xl bg-gradient-to-br from-emerald-900/30 via-emerald-500/10 to-transparent border border-emerald-500/30">
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold tracking-widest">
-            ♟ 10 MIN WINNER-TAKES-ALL CHESS ARENA
+        <div className="mt-3 -mx-1 p-4 rounded-2xl bg-gradient-to-br from-emerald-900/40 via-emerald-500/10 to-transparent border border-emerald-500/40">
+          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold tracking-widest mb-2">
+            CHESS ARENA
           </div>
-          <div className="text-[10px] text-emerald-300/90 mt-0.5">Stake any amount • Match in 5 min or auto-return • Full resign & time logic • 2% fee sustains the arena • ZK-verified moves</div>
+          <div className="text-sm text-emerald-200 leading-snug">10 minute winner takes all chess. Stake any amount. The second player must match the stake within 5 minutes or the funds return automatically to the staker. Each player receives a 10 minute clock that runs only on their turn. The game ends by resign, timeout or checkmate. The winner takes the full pot minus 2 percent. That 2 percent goes to the creator address to keep the arena alive for future games. All stakes go directly to the covenant address on Kaspa. The experience is fully non custodial. Every move can be proven with the chess v1 zero knowledge circuit. The oracle detects lies and rejects invalid results. Everything is transparent and on chain.</div>
         </div>
       )}
 

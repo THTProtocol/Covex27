@@ -73,20 +73,20 @@ contract TransferWithTimeout {
           </div>
         </div>
 
-        {/* ONE-CLICK PERFECT CHESS COVENANT — using your exact 3 test wallets. This creates the full pro 10min 2% chess arena the way you want. */}
+        {/* ONE CLICK PERFECT CHESS COVENANT using your exact 3 test wallets. This creates the full pro 10min 2 percent chess arena the way you want. */}
         <div className="p-6 border-b border-[#1f1f1f] bg-emerald-950/30">
           <div className="flex items-center gap-3 mb-3">
-            <div className="px-3 py-1 text-xs font-bold bg-emerald-500 text-black rounded">NEW — PERFECT CHESS</div>
-            <div className="text-sm font-semibold text-emerald-400">10 MIN WINNER-TAKES-ALL • 2% TO CREATOR • FULL CHESS.COM UI + FIX TAB</div>
+            <div className="px-3 py-1 text-xs font-bold bg-emerald-500 text-black rounded">NEW: PERFECT CHESS</div>
+            <div className="text-sm font-semibold text-emerald-400">10 MINUTE WINNER TAKES ALL. 2 PERCENT TO CREATOR. FULL CHESS.COM UI PLUS FIX TAB.</div>
           </div>
           <button
             onClick={() => {
-              const chessCode = `// 10 MIN WINNER TAKES ALL CHESS ARENA
-// 2% fee to creator address keeps the arena alive for future games
-// Stake any amount — second player must match in 5 min or auto return
-// Full 10 min per player clocks (active only), resign, timeout, checkmate
-// chess_v1 ZK + oracle for lie detection (detects if creator lies about result)
-// All transparent on-chain. Non-custodial.`;
+              const chessCode = `// 10 MINUTE WINNER TAKES ALL CHESS ARENA
+// 2 percent fee to creator address keeps the arena alive for future games
+// Stake any amount. Second player must match in 5 minutes or funds auto return.
+// Full 10 minute per player clocks. Active only. Resign. Timeout. Checkmate.
+// chess_v1 ZK plus oracle for lie detection. Detects if creator lies about result.
+// All transparent on chain. Non custodial.`;
 
               setCode(chessCode);
               // Pre-fill for the 3 wallets you gave (fee/creator = #3)
@@ -94,9 +94,9 @@ contract TransferWithTimeout {
             }}
             className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-lg rounded-2xl flex items-center justify-center gap-3 active:scale-[0.985]"
           >
-            🚀 DEPLOY THE PERFECT CHESS COVENANT (uses your 3 wallets: qrh6..., qpw2..., qpyf...)
+            DEPLOY THE PERFECT CHESS COVENANT using your 3 wallets qrh6 qpw2 qpyf
           </button>
-          <div className="text-[10px] text-center text-emerald-300/70 mt-2">After deploy, connect the creator wallet (3rd one) on hightable.pro → big Fix button on top + pro chess.com arena. Hard refresh if needed.</div>
+          <div className="text-[10px] text-center text-emerald-300/70 mt-2">After deploy, connect the creator wallet (3rd one) on hightable.pro. Big Fix button on top plus pro chess.com arena. Hard refresh if needed.</div>
         </div>
 
         {/* Editor Area */}
@@ -188,7 +188,7 @@ contract ChessArena10min {
             >
               LOAD CHESS ARENA (10MIN WINNER-TAKES-ALL) TEMPLATE — auto 2% creator fee, transparent rules, 3 test addrs
             </button>
-            <div className="text-[10px] text-emerald-300/70 mt-2">After load, compile + deploy via wallet. Then view on hightable.pro/covenant/TX — gets the full pro chess.com arena + Fix tab for creator (login with creator wallet).</div>
+            <div className="text-[10px] text-emerald-300/70 mt-2">After load, compile and deploy via wallet. Then view on hightable.pro/covenant/TX. Gets the full pro chess.com arena plus Fix tab for creator (login with creator wallet).</div>
           </div>
           
           <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">

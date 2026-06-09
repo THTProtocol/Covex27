@@ -161,7 +161,7 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'recursive_verify', name: 'Recursive Proof Verification', description: 'Prove a Groth16/RISC0 proof inside another (aggregation). Reality: oracle-attested (future full). Use cases: batch 100 game outcomes in one Kaspa covenant. (vision §4.1, §4.9)', circuit: 'recursive_verify', accent: '#A855F7', category: 'crypto', variant: true, reality: 'oracle-attested' },
 
   // ═══════════════════════════════════════════
-  // KASPA & COVENANT-NATIVE (detailed §4.2, 20+ — highest priority)
+  // KASPA and COVENANT NATIVE (detailed section 4.2, 20 plus. Highest priority)
   // "the why Covex on Kaspa" layer. UTXO, script, timelock, state, replay, fees, silverc.
   // ═══════════════════════════════════════════
   { id: 'utxo_ownership', name: 'UTXO Ownership Proof', description: 'Oracle-path (no artifacts yet): prove control of a specific UTXO (address + amount) via Schnorr signature. Used for covenant spend authorization. High priority for artifacts. Reality: oracle-attested. Use cases: binding covenants to real Kaspa UTXOs. (vision §4.2)', circuit: 'utxo_ownership', accent: '#06B6D4', category: 'kaspa', reality: 'oracle-attested' },
@@ -323,7 +323,7 @@ export const ZK_CIRCUIT_TYPES = [
   // ═══════════════════════════════════════════
   // CUSTOM (always last; sandbox handles long tail)
   // ═══════════════════════════════════════════
-  { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and verifier key. Reality depends on your artifacts. Full flexibility for novel covenant types. Use cases: anything not covered — compose in Covenant Studio per vision. (vision §4 + §5)', circuit: 'custom', accent: '#E8AF34', category: 'custom', reality: 'oracle-attested' },
+  { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and verifier key. Reality depends on your artifacts. Full flexibility for novel covenant types. Use cases: anything not covered. Compose in Covenant Studio per vision (vision sections 4 plus 5).', circuit: 'custom', accent: '#E8AF34', category: 'custom', reality: 'oracle-attested' },
 ];
 
 // Backward-compat alias

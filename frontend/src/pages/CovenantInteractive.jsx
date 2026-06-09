@@ -31,7 +31,7 @@ const DEFAULT_UI_CONFIG = {
   vision: '',
 };
 
-// Premium "Customization Garage" templates – billion-dollar quality looks.
+// Premium Customization Garage templates: billion dollar quality looks.
 // Creators browse, see instant nice previews, choose, tweak, and publish.
 // Each produces a beautiful, fully transparent public page that feels like a high-end product site.
 const COVENANT_TEMPLATES = [
@@ -407,7 +407,7 @@ export default function CovenantInteractive() {
       setToast({ type: 'error', msg: 'Only the creator of this covenant can publish a custom UI.' });
       return;
     }
-    const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view — everything there is to know about this covenant.' } : config;
+    const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view. Everything there is to know about this covenant.' } : config;
     const html = buildTransparentCustomUI(covenant, cfg);
     try {
       const payload = {
@@ -479,12 +479,12 @@ export default function CovenantInteractive() {
         <ArrowLeft size={16} /> Return to Registry
       </Link>
 
-      {/* PROMINENT CREATOR "FIX" BAR AT THE VERY TOP OF THE PAGE — this is the "Fix category on top" you asked for */}
+      {/* PROMINENT CREATOR FIX BAR AT THE VERY TOP OF THE PAGE */}
       {isCreator && (
         <div className="mb-6 p-4 rounded-3xl bg-purple-500/10 border-2 border-purple-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <div className="text-purple-400 font-bold text-lg tracking-tight">Creator Mode — You own this covenant</div>
-            <div className="text-sm text-purple-300/80">Use the Fix tools to change how it looks and set the stake amount (one clean section).</div>
+            <div className="text-purple-400 font-bold text-lg tracking-tight">Creator Mode: You own this covenant</div>
+            <div className="text-sm text-purple-300/80">Use the Fix tools to change how it looks and set the stake amount in one clean section.</div>
           </div>
           <Link 
             to={`/covenant/${encodeURIComponent(id)}/fix`} 
@@ -518,7 +518,7 @@ export default function CovenantInteractive() {
               </div>
             </div>
 
-            {/* PROMINENT "FIX" BUTTON ON TOP — for creators only, right next to title. This is what user asked for. */}
+            {/* PROMINENT FIX BUTTON ON TOP for creators only, right next to title */}
             {isCreator && (
               <Link
                 to={`/covenant/${encodeURIComponent(id)}/fix`}
@@ -560,7 +560,7 @@ export default function CovenantInteractive() {
             </h3>
             <p className="text-gray-300 leading-relaxed">
               {isChess 
-                ? '10 minute winner takes all. Match stake in 5 min or auto return. Per player 10 min clocks (active only). Resign, timeout, checkmate. Winner pot minus 2% to creator address. chess_v1 ZK + oracle lie detection. All stakes direct to covenant address. Non custodial.'
+                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. The experience is fully non custodial. Every move can be proven using the chess v1 zero knowledge circuit. The oracle detects any lies or invalid results and can reject them. All information is transparent and recorded on chain.'
                 : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
@@ -688,7 +688,7 @@ export default function CovenantInteractive() {
 
                     {/* PRO FULL-PAGE-FEEL CHESS.COM STYLE PREVIEW: bigger 620px board, side pro clocks preview, more immersive + simplistic transparent */}
                     <div className="mt-3">
-                      <div className="text-[10px] text-emerald-300/70 mb-2 text-center tracking-[2px] font-bold">LIVE PROFESSIONAL BOARD — CHESS.COM CLASSIC</div>
+                      <div className="text-[10px] text-emerald-300/70 mb-2 text-center tracking-[2px] font-bold">LIVE PROFESSIONAL BOARD: CHESS.COM CLASSIC</div>
                       <div className="flex flex-col lg:flex-row gap-5 items-center justify-center bg-black/40 rounded-3xl p-4 border border-emerald-500/20">
                         <div className="relative rounded-2xl overflow-hidden border border-white/20 shadow-[0_30px_60px_-15px_rgb(0,0,0)]" style={{width:'min(100%, 620px)'}}>
                           <Chessboard
@@ -710,8 +710,8 @@ export default function CovenantInteractive() {
                       <div className="text-center text-[10px] text-gray-500 mt-1">Coordinates • Last move highlight • Legal dots • Check glow • Full rules in arena</div>
                     </div>
 
-                    <div className="mt-5 text-xs text-emerald-300/90 leading-relaxed bg-black/30 p-4 rounded-2xl">
-                      All stakes sent directly to the covenant address on Kaspa. Opponent must match exactly within 5 minutes or funds return automatically to staker. 10 minute game. Per player clock only decrements on their turn. Resign, timeout or checkmate ends it. Winner gets pot minus 2 percent (goes to creator address to keep arena alive for next games). Every move can be proven with chess_v1 ZK circuit. Oracle detects lies and rejects invalid results. Full transparency above and in the arena.
+                    <div className="mt-5 text-sm text-emerald-200 leading-relaxed bg-black/30 p-5 rounded-2xl">
+                      All stakes are sent directly to the covenant address on the Kaspa blockchain. The opponent must match the stake exactly within 5 minutes or the funds return automatically to the original staker. This is a 10 minute game. The per player clock only decrements on their own turn. The game ends by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. That portion goes to the creator address to keep the arena alive for future games. Every move can be proven with the chess v1 zero knowledge circuit. The oracle detects lies and rejects invalid results. Full transparency is provided above and inside the arena.
                     </div>
                   </div>
                 )}
@@ -804,7 +804,7 @@ export default function CovenantInteractive() {
               /* FIX TAB INLINE: super clean, lots of space, big text, minimal labels. Exactly the Customization Garage grid + ONE section for stake amount and all of that. Reuses the generator and publish. Focused on this covenant. */
               <div className="space-y-8">
                 <div>
-                  <div className="text-2xl font-semibold tracking-tight">Fix — Looks and Stake</div>
+                  <div className="text-2xl font-semibold tracking-tight">Fix: Looks and Stake</div>
                   <div className="text-sm text-gray-400 mt-1">Creator only. Pick a template for instant preview. One clean section to set the stake amount and rules. Publish once. Everyone sees the nice transparent view.</div>
                 </div>
 
@@ -922,10 +922,10 @@ export default function CovenantInteractive() {
                 </div>
               )
             ) : activeTab === 'fix' && isCreator ? (
-              /* ── Fix Tab (creator only): the super clean 1-section manager right inside the covenant page — exactly as requested */
+              /* Fix Tab (creator only): the super clean 1 section manager right inside the covenant page exactly as requested */
               <div className="space-y-6">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-1">Fix — Manage Looks + Stake</h3>
+                  <h3 className="text-lg font-semibold text-white mb-1">Fix: Manage Looks + Stake</h3>
                   <p className="text-xs text-gray-400">Super clean. One section for the stake amount and all the rules. Changes publish as the transparent view everyone else sees.</p>
                 </div>
                 <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="block w-full text-center px-6 py-4 rounded-3xl bg-kaspa-green text-black font-bold text-base">
@@ -952,7 +952,7 @@ export default function CovenantInteractive() {
         </motion.div>
       </div>
 
-      {/* Custom UI Rendering — creator-published transparent view (via Fix page) */}
+      {/* Custom UI Rendering: creator published transparent view (via Fix page) */}
       {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && (
         <div className="mt-8 w-full">
           <div className="flex items-center gap-3 mb-4">
@@ -1008,7 +1008,7 @@ export default function CovenantInteractive() {
                   <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
                   <span className="h-3 w-3 rounded-full bg-green-500/70" />
                 </div>
-                <span className="text-sm font-bold text-white">{covenant.name || covenant.covenant_type || 'Covenant'} — Fullscreen</span>
+                <span className="text-sm font-bold text-white">{covenant.name || covenant.covenant_type || 'Covenant'}: Fullscreen</span>
               </div>
               <button
                 onClick={() => setFullscreenUI(false)}

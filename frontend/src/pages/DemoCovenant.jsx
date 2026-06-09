@@ -1,4 +1,5 @@
-import { useSearchParams, useState } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import FullScreenChess from '../components/FullScreenChess';
 import CovexTerminal from '../components/CovexTerminal';

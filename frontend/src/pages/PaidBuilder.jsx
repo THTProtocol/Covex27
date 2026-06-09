@@ -22,11 +22,15 @@ export default function PaidBuilder() {
   const tierAccent = { BUILDER: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#6B7280';
   const tierBadge = { BUILDER: 'BUILDER', PRO: 'PRO', MAX: 'MAX' }[paidTier] || 'UNKNOWN';
 
-  // Step 1: Check for fresh payment confirmation from Pricing flow (sessionStorage only, no localStorage)
+  // Step 1: Check for fresh payment FROM Pricing flow (sessionStorage only, no localStorage)
   useEffect(() => {
-    const raw = sessionStorage.getItem('payment_just_confirmed');
+    const raw = sessionStorage.getItem('payment_broadcast_tx');
     if (raw) {
-      try { setJustPaid(JSON.parse(raw)); sessionStorage.removeItem('payment_just_confirmed'); } catch (_) {}
+      try { setJustPaid(JSON.parse(raw)); } catch (_) {}
+    }
+    const confirmedRaw = sessionStorage.getItem('payment_just_confirmed');
+    if (confirmedRaw) {
+      try { setJustPaid(JSON.parse(confirmedRaw)); sessionStorage.removeItem('payment_just_confirmed'); } catch (_) {}
     }
   }, []);
 
@@ -57,16 +61,44 @@ export default function PaidBuilder() {
       });
   }, [address]);
 
-  // Step 3: Redirect FREE/no-token users to pricing
+  // Step 3: Redirect FREE/no-token users to pricing (but ONLY if no payment was just broadcast)
   useEffect(() => {
     if (!auth.loading && !auth.token && !address) {
       // No wallet connected - show connect prompt, don't redirect
       return;
     }
     if (!auth.loading && (!auth.token || auth.tier === 'FREE')) {
+      // If payment was just broadcast, poll instead of redirecting
+      if (justPaid?.txid) {
+        setAuth(prev => ({ ...prev, loading: true }));
+        const poll = setInterval(() => {
+          const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+          fetch('/api/auth-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address, network: net })
+          })
+            .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+            .then(data => {
+              if (data?.token && data?.tier && data.tier !== 'FREE') {
+                clearInterval(poll);
+                setAuth({ token: data.token, tier: data.tier, address, loading: false, error: null });
+                sessionStorage.removeItem('payment_broadcast_tx');
+                sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ 
+                  tier: data.tier, id: data.tier, address 
+                }));
+                setJustPaid({ tier: data.tier, id: data.tier, address });
+              }
+            })
+            .catch(() => {});
+        }, 5000); // poll every 5s
+        // Cleanup interval after 2 minutes max
+        setTimeout(() => clearInterval(poll), 120000);
+        return () => clearInterval(poll);
+      }
       navigate('/pricing', { replace: true });
     }
-  }, [auth.loading, auth.token, auth.tier, address, navigate]);
+  }, [auth.loading, auth.token, auth.tier, address, navigate, justPaid]);
 
   const fetchMyCovenants = useCallback(() => {
     if (!address) return;
@@ -79,8 +111,28 @@ export default function PaidBuilder() {
 
   useEffect(() => { if (address) fetchMyCovenants(); }, [address, fetchMyCovenants]);
 
-  // Loading state
+  // Loading state — but if payment was just broadcast, show pending confirmation instead
   if (auth.loading) {
+    if (justPaid?.txid) {
+      return (
+        <div className="p-20 text-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
+            <Loader2 className="animate-spin text-amber-400" size={32} />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">Payment Broadcast - Awaiting Confirmation</h3>
+          <p className="text-gray-300 mb-2 max-w-lg mx-auto text-sm">
+            Your {justPaid.tier} tier payment of <span className="text-white font-mono">{justPaid.id === 'BUILDER' ? '100' : justPaid.id === 'PRO' ? '500' : '1000'} KAS</span> was broadcast to the treasury.
+          </p>
+          <p className="text-gray-200 max-w-lg mx-auto text-sm mb-4">
+            TX: <span className="font-mono text-[10px] text-[#49EACB]">{justPaid.txid.slice(0, 30)}...</span>
+          </p>
+          <p className="text-xs text-gray-300">
+            The server detects and verifies payments automatically (6+ block confirmations). This page will update once confirmed.
+          </p>
+          <Loader2 className="animate-spin text-kaspa-green mx-auto mt-6" size={24} />
+        </div>
+      );
+    }
     return (
       <div className="p-20 text-center">
         <Loader2 className="animate-spin text-[#49EACB] mx-auto mb-4" size={32} />

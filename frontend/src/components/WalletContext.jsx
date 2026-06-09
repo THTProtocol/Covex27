@@ -643,7 +643,34 @@ function WalletBridge({ children }) {
 
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
     if (devMode && activeAddress) {
-      return await devSendTransaction(recipient, amountKas);
+      const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+      // Map amount to tier for backend signer — the backend constructs real TXs
+      // with actual UTXOs from kaspad, schnorr signs, and broadcasts via wRPC.
+      const tier = amountKas >= 1000 ? 'MAX' : amountKas >= 500 ? 'PRO' : amountKas >= 100 ? 'BUILDER' : null;
+      const tierLabel = tier || 'FREE';
+      try {
+        const resp = await fetch('/api/sign-and-broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            private_key_hex: devMode.privateKeyHex,
+            deployer_addr: activeAddress,
+            script_hex: 'aa20',          // minimal payload — the real covenant deploy happens in PremiumBuilder
+            tier: tierLabel,
+            covenant_name: tier ? `Covex ${tier} Tier Payment` : 'Covex Payment',
+            description: meta.memo || `Tier payment: ${tierLabel}`,
+            use_dev_mode: false,         // we provide the real private key from dev wallet
+            network: net,
+          }),
+        });
+        const data = await resp.json();
+        if (data.success && data.tx_id) {
+          return { success: true, method: 'dev-mode-backend', txid: data.tx_id };
+        }
+        return { success: false, error: data.error || 'Backend signer rejected payment' };
+      } catch (err) {
+        return { success: false, error: err.message || 'Network error during payment broadcast' };
+      }
     }
     const provider = getActiveProvider();
     if (provider && activeAddress) {

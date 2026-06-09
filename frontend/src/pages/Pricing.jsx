@@ -140,7 +140,14 @@ const Pricing = () => {
       if (result.success) {
         // Payment broadcast. Server-side payment verifier will detect it.
         // The server auth-session endpoint confirms real on-chain payment.
-        sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: payingTier.name, id: payingTier.id, address }));
+        // Save txid so PaidBuilder knows to poll for confirmation (not instant).
+        sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
+          tier: payingTier.name, 
+          id: payingTier.id, 
+          address,
+          txid: result.txid,
+          broadcastAt: Date.now()
+        }));
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);

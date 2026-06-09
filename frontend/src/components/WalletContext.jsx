@@ -147,7 +147,13 @@ export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   const derived = xprv.derivePath("m/44'/111111'/0'/0/0");
   const privateKeyHex = derived.toPrivateKey().toString();
   const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'kaspatest';
-  const address = derived.toPrivateKey().toAddress(addrNetwork);
+  let address;
+  try {
+    address = derived.toPrivateKey().toAddress(addrNetwork);
+  } catch (e) {
+    // fallback for TN12 / older calls that might pass 'testnet-12' etc.
+    address = derived.toPrivateKey().toAddress('kaspatest');
+  }
   const addressStr = address.toString();
   mnemonic.free();
   xprv.free();
@@ -166,7 +172,12 @@ export async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
   }
   const pk = new PrivateKey(cleanHex);
   const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'kaspatest';
-  const address = pk.toAddress(addrNetwork);
+  let address;
+  try {
+    address = pk.toAddress(addrNetwork);
+  } catch (e) {
+    address = pk.toAddress('kaspatest');
+  }
   const addressStr = address.toString();
   pk.free();
   return { privateKeyHex: cleanHex, address: addressStr };
@@ -187,19 +198,21 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
     setError(null);
     try {
       let result;
-      const netPrefix = network === 'mainnet' || network === 'mainnet-1' ? 'kaspa' : 'kaspatest';
       if (mode === 'hex') {
         const cleanHex = hexKey.trim().replace(/^0x/i, '');
         if (!cleanHex) throw new Error('Enter a 64-character hex private key');
-        result = await deriveFromPrivateKey(cleanHex, netPrefix);
+        result = await deriveFromPrivateKey(cleanHex, network);
         onConnect({ type: 'hex', privateKeyHex: result.privateKeyHex, address: result.address });
       } else {
         const trimmed = phrase.trim();
         if (!trimmed) throw new Error('Enter a 12 or 24 word mnemonic phrase');
-        result = await deriveFromMnemonic(trimmed, netPrefix);
+        const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+        if (wordCount !== 12 && wordCount !== 24) throw new Error('Mnemonic must be 12 or 24 words');
+        result = await deriveFromMnemonic(trimmed, network);
         onConnect({ type: 'mnemonic', phrase: trimmed, privateKeyHex: result.privateKeyHex, address: result.address });
       }
     } catch (err) {
+      console.error('Dev derivation error (panel):', err);
       setError(err.message || 'Derivation failed');
     } finally {
       setDeriving(false);

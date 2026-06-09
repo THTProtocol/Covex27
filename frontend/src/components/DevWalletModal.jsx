@@ -66,6 +66,8 @@ export default function DevWalletModal({ isOpen, onClose }) {
       if (tab === 'mnemonic') {
         const trimmed = mnemonic.trim();
         if (!trimmed) throw new Error('Enter a 12 or 24-word mnemonic phrase');
+        const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+        if (wordCount !== 12 && wordCount !== 24) throw new Error('Mnemonic must be exactly 12 or 24 words');
         result = await deriveFromMnemonic(trimmed, network);  // pass 'testnet-12' etc, normalized inside
       } else {
         const trimmed = hexKey.trim();

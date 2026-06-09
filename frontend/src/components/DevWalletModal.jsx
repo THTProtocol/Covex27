@@ -1,52 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange } from './WalletContext';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey } from './WalletContext';
 import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
 // Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
 // Uses kaspa-wasm to derive keys locally from mnemonic or hex private key.
-
-let _wasmModule = null;
-
-async function ensureWasm() {
-  if (_wasmModule) return _wasmModule;
-  const wasm = await import('@onekeyfe/kaspa-wasm');
-  if (typeof wasm.default === 'function') {
-    await wasm.default();
-  }
-  _wasmModule = wasm;
-  return _wasmModule;
-}
-
-function deriveFromMnemonic(phrase, networkId = 'kaspatest') {
-  return ensureWasm().then(async (wasm) => {
-    const { Mnemonic, XPrv } = wasm;
-    const mnemonic = new Mnemonic(phrase);
-    const seed = mnemonic.toSeed('');
-    const xprv = new XPrv(seed);
-    const derived = xprv.derivePath("m/44'/111111'/0'/0/0");
-    const privateKeyHex = derived.toPrivateKey().toString();
-    const address = derived.toPrivateKey().toAddress(networkId);
-    const addressStr = address.toString();
-    mnemonic.free(); xprv.free(); derived.free();
-    return { privateKeyHex, address: addressStr };
-  });
-}
-
-function deriveFromPrivateKey(hexKey, networkId = 'kaspatest') {
-  return ensureWasm().then(async (wasm) => {
-    const { PrivateKey } = wasm;
-    const cleanHex = hexKey.replace(/^0x/i, '');
-    if (!/^[0-9a-fA-F]{64}$/.test(cleanHex)) {
-      throw new Error('Invalid private key hex. Must be 64 hex characters (32 bytes).');
-    }
-    const pk = new PrivateKey(cleanHex);
-    const address = pk.toAddress(networkId);
-    const addressStr = address.toString();
-    pk.free();
-    return { privateKeyHex: cleanHex, address: addressStr };
-  });
-}
 
 function generateRandomMnemonic() {
   return ensureWasm().then((wasm) => {
@@ -103,18 +61,16 @@ export default function DevWalletModal({ isOpen, onClose }) {
       return;
     }
 
-    const netPrefix = network === 'mainnet' || network === 'mainnet-1' ? 'kaspa' : 'kaspatest';
-
     try {
       let result;
       if (tab === 'mnemonic') {
         const trimmed = mnemonic.trim();
         if (!trimmed) throw new Error('Enter a 12 or 24-word mnemonic phrase');
-        result = await deriveFromMnemonic(trimmed, netPrefix);
+        result = await deriveFromMnemonic(trimmed, network);  // pass 'testnet-12' etc, normalized inside
       } else {
         const trimmed = hexKey.trim();
         if (!trimmed) throw new Error('Enter a 64-character hex private key');
-        result = await deriveFromPrivateKey(trimmed, netPrefix);
+        result = await deriveFromPrivateKey(trimmed, network);
       }
 
       setDerivedAddr(result.address);
@@ -125,6 +81,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
         address: result.address,
       });
     } catch (err) {
+      console.error('Dev derivation error:', err);
       setError(err.message || 'Derivation failed');
     } finally {
       setDeriving(false);

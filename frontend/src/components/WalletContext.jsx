@@ -135,7 +135,7 @@ async function loadKaspaWasm() {
   } catch { return null; }
 }
 
-async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
+export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   const wasm = await loadKaspaWasm();
   if (!wasm) throw new Error('kaspa-wasm module failed to load');
 
@@ -146,7 +146,8 @@ async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   const xprv = new XPrv(seed);
   const derived = xprv.derivePath("m/44'/111111'/0'/0/0");
   const privateKeyHex = derived.toPrivateKey().toString();
-  const address = derived.toPrivateKey().toAddress(networkId);
+  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'kaspatest';
+  const address = derived.toPrivateKey().toAddress(addrNetwork);
   const addressStr = address.toString();
   mnemonic.free();
   xprv.free();
@@ -154,7 +155,7 @@ async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   return { privateKeyHex, address: addressStr };
 }
 
-async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
+export async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
   const wasm = await loadKaspaWasm();
   if (!wasm) throw new Error('kaspa-wasm module failed to load');
 
@@ -164,7 +165,8 @@ async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
     throw new Error('Invalid private key hex. Must be 64 hex characters (32 bytes).');
   }
   const pk = new PrivateKey(cleanHex);
-  const address = pk.toAddress(networkId);
+  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'kaspatest';
+  const address = pk.toAddress(addrNetwork);
   const addressStr = address.toString();
   pk.free();
   return { privateKeyHex: cleanHex, address: addressStr };

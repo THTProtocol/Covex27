@@ -143,7 +143,8 @@ export async function loadKaspaWasm() {
           if (resp.ok) {
             const bytes = await resp.arrayBuffer();
             const compiled = await WebAssembly.compile(bytes);
-            _wasmModuleCtx = mod.initSync(compiled);
+            mod.initSync(compiled);
+            _wasmModuleCtx = mod;
             return _wasmModuleCtx;
           }
         } catch (_) { /* fall through to default() */ }

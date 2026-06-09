@@ -123,16 +123,19 @@ const ALL_WALLETS = [
 ];
 
 let _wasmModuleCtx = null;
-async function loadKaspaWasm() {
+export async function loadKaspaWasm() {
   if (_wasmModuleCtx) return _wasmModuleCtx;
   try {
-    const wasm = await import('@onekeyfe/kaspa-wasm');
+    let wasm = await import('@onekeyfe/kaspa-wasm');
     if (typeof wasm.default === 'function') {
-      await wasm.default();
+      wasm = await wasm.default();
     }
     _wasmModuleCtx = wasm;
     return wasm;
-  } catch { return null; }
+  } catch (e) {
+    console.error('Failed to load kaspa-wasm:', e);
+    return null;
+  }
 }
 
 export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {

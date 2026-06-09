@@ -1,10 +1,19 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey } from './WalletContext';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm } from './WalletContext';
 import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
 // Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
 // Uses kaspa-wasm to derive keys locally from mnemonic or hex private key.
+
+let _wasmModule = null;
+
+async function ensureWasm() {
+  if (_wasmModule) return _wasmModule;
+  const wasm = await loadKaspaWasm();
+  _wasmModule = wasm;
+  return _wasmModule;
+}
 
 function generateRandomMnemonic() {
   return ensureWasm().then((wasm) => {

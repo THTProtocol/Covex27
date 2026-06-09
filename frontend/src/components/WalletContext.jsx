@@ -1,4 +1,5 @@
 import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
+import wasmBinaryUrl from '@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin?url';
 import {
   KaspaWalletProvider as KasFlowProvider,
   kaswareAdapter,
@@ -123,19 +124,45 @@ const ALL_WALLETS = [
 ];
 
 let _wasmModuleCtx = null;
+let _wasmInitPromise = null;
+
 export async function loadKaspaWasm() {
   if (_wasmModuleCtx) return _wasmModuleCtx;
-  try {
-    let wasm = await import('@onekeyfe/kaspa-wasm');
-    if (typeof wasm.default === 'function') {
-      wasm = await wasm.default();
+  if (_wasmInitPromise) return _wasmInitPromise;
+
+  _wasmInitPromise = (async () => {
+    try {
+      const mod = await import('@onekeyfe/kaspa-wasm');
+      // initSync needs a compiled WebAssembly module directly
+      // default() calls __wbg_init which internally does require("./kaspa_bg.wasm.js")
+      // That CJS require fails in Vite's browser bundle
+      // Instead: use the imported wasm URL, fetch+compile it, then call initSync
+      if (typeof mod.initSync === 'function' && wasmBinaryUrl) {
+        try {
+          const resp = await fetch(wasmBinaryUrl);
+          if (resp.ok) {
+            const bytes = await resp.arrayBuffer();
+            const compiled = await WebAssembly.compile(bytes);
+            _wasmModuleCtx = mod.initSync(compiled);
+            return _wasmModuleCtx;
+          }
+        } catch (_) { /* fall through to default() */ }
+      }
+      // Fallback if initSync not available or fetch failed
+      if (typeof mod.default === 'function') {
+        _wasmModuleCtx = await mod.default();
+      } else {
+        throw new Error('kaspa-wasm: no initSync and no default()');
+      }
+      return _wasmModuleCtx;
+    } catch (e) {
+      console.error('Failed to load kaspa-wasm:', e);
+      _wasmInitPromise = null;
+      return null;
     }
-    _wasmModuleCtx = wasm;
-    return wasm;
-  } catch (e) {
-    console.error('Failed to load kaspa-wasm:', e);
-    return null;
-  }
+  })();
+
+  return _wasmInitPromise;
 }
 
 export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {

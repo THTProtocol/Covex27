@@ -113,6 +113,7 @@ export default function App() {
               </Link>
               <div className="flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
+                <NavLink to="/fix" className={NL}>Fix</NavLink>
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
@@ -126,6 +127,7 @@ export default function App() {
           <div className="relative z-10 pt-14">
             <Routes>
               <Route path="/" element={<Explorer />} />
+              <Route path="/fix" element={<CovenantFix />} />
               <Route path="/covenant" element={<DemoCovenant />} />
               <Route path="/covenant/:id" element={<CovenantInteractive />} />
               <Route path="/covenant/:id/fix" element={<CovenantFix />} />

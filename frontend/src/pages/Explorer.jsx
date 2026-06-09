@@ -110,54 +110,31 @@ export default function Explorer() {
     displayCovenants = covenants.filter(c => c.creator_addr?.toLowerCase() === address.toLowerCase());
   }
 
-  const paidCovenants = displayCovenants
-    .filter(c => { const t = (c.verified_tier || c.tier || 'FREE').toUpperCase(); return t === 'MAX' || t === 'PRO' || t === 'BUILDER'; })
-    .sort((a, b) => {
-      const aT = tierRank[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || 0;
-      const bT = tierRank[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || 0;
-      if (bT !== aT) return bT - aT;
-      return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
-    });
+  // Simple list for interactors - no heavy paid bubbling or my-covenants in main view (use /fix for creators)
+  const chessCovenants = displayCovenants.filter(c => (c.covenant_type || c.category || '').toLowerCase().includes('chess') || (c.name || '').toLowerCase().includes('chess'));
+  const otherCovenants = displayCovenants.filter(c => !((c.covenant_type || c.category || '').toLowerCase().includes('chess') || (c.name || '').toLowerCase().includes('chess')));
 
-  // Top visibility: paid covenants (those with verified tier or created via auth token) bubble up with badge + disclosure hint
-  const renderCovenantCard = (c, isPaid) => {
-    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-    const accent = t === 'MAX' ? '#A855F7' : t === 'PRO' ? '#E8AF34' : t === 'BUILDER' ? '#3B82F6' : '#49EACB';
-    const hasDisclosure = c.disclosed_wallets || c.creator_addr;
+  const renderSimpleCard = (c) => {
+    const isChess = (c.covenant_type || c.category || '').toLowerCase().includes('chess') || (c.name || '').toLowerCase().includes('chess');
     return (
-      <div key={c.id || c.txid} className={`group rounded-2xl border p-4 transition ${isPaid ? 'border-white/20 bg-white/[0.015] hover:border-white/30' : 'border-white/5 bg-white/[0.005] hover:border-white/10'}`}>
-        <div className="flex items-start justify-between gap-3">
+      <Link key={c.tx_id} to={`/covenant/${encodeURIComponent(c.tx_id)}`} className="group block rounded-2xl border border-white/10 bg-white/[0.01] p-5 hover:border-kaspa-green/30 hover:bg-white/[0.02] transition-all">
+        <div className="flex justify-between items-start">
           <div>
-            <div className="font-semibold text-white flex items-center gap-2">
-              {c.name || (c.txid || '').slice(0, 12) + '...'}
-              {isPaid && (
-                <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono flex items-center gap-1">
-                  {t === 'MAX' && <Crown size={10} />} 
-                  {t === 'PRO' && <Star size={10} />} 
-                  {t === 'BUILDER' && <Terminal size={10} />} 
-                  PAID VERIFIED • TOP
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{c.description || 'SilverScript covenant'}</div>
+            <div className="font-semibold text-lg text-white group-hover:text-kaspa-green transition-colors">{c.name || truncate(c.tx_id)}</div>
+            <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{c.description || 'On-chain covenant ready for interaction.'}</div>
           </div>
-          <div className="text-right text-[10px] font-mono" style={{ color: accent }}>{t}</div>
+          {isChess && <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">CHESS</span>}
         </div>
-        {hasDisclosure && (
-          <div className="mt-2 text-[10px] text-gray-500 font-mono">Wallets disclosed • creator {TRUNC(c.creator_addr)} • treasury verified on-chain</div>
-        )}
-        <div className="mt-3 flex items-center gap-2 text-xs">
-          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">{(c.amount_kaspa || 0).toFixed(2)} KAS</span>
-          <span className="text-gray-500">• {c.network || 'tn12'}</span>
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="text-gray-400 font-mono text-xs">{formatKaspa(c.amount_kaspa)} locked</div>
+          <div className="px-4 py-1.5 rounded-xl bg-kaspa-green text-black text-xs font-bold group-hover:bg-white transition-all">
+            {isChess ? 'Stake & Play' : 'View & Interact'}
+          </div>
         </div>
-      </div>
+        <div className="mt-1 text-[10px] text-gray-500 font-mono truncate">TX: {truncate(c.tx_id)}</div>
+      </Link>
     );
   };
-
-  const freeCovenants = displayCovenants.filter(c => {
-    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-    return t === 'FREE';
-  });
 
   return (
     <>
@@ -186,7 +163,7 @@ export default function Explorer() {
         </div>
       </section>
 
-      {/* ═══ CONTROLS ═══ */}
+      {/* ═══ CONTROLS - simple for interactors (no edit clutter) ═══ */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
@@ -203,20 +180,39 @@ export default function Explorer() {
               </button>
             ))}
           </div>
-          {address && activeTab === 'explore' && (
-            <button onClick={() => setShowMyCovenants(!showMyCovenants)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 border ${
-                showMyCovenants ? 'bg-kaspa-green/10 text-kaspa-green border-kaspa-green/30' : 'border-white/5 text-gray-300 hover:text-white hover:border-white/15'
-              }`}
-            >
-              <ShieldCheck size={12} /><span className="hidden sm:inline">My Covenants</span>
-            </button>
-          )}
+          <Link to="/fix" className="text-xs px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 flex items-center gap-1.5">
+            <ShieldCheck size={12} /> Creators: Fix / Manage
+          </Link>
         </div>
+        <div className="text-[10px] text-gray-500 mt-1.5">Explore to discover and play. Creators log in and use /fix to edit looks or stake settings for their covenants.</div>
       </div>
 
-      {/* ═══ MAIN CONTENT ═══ */}
+      {/* ═══ MAIN CONTENT - Organized for easy interaction (play/stake) not editing ═══ */}
       <div className="relative z-10 px-4 sm:px-6 pb-8 max-w-6xl mx-auto">
+        {/* FEATURED: Easy to find and play the Chess Arena (for interactors) */}
+        {activeTab === 'explore' && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Play size={16} className="text-emerald-400" />
+              <div className="text-sm font-semibold tracking-wider text-emerald-400">FEATURED FOR PLAY</div>
+            </div>
+            <div className="glass-panel rounded-3xl p-6 border border-emerald-500/20 bg-gradient-to-br from-emerald-950/20 to-black">
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+                <div className="flex-1">
+                  <div className="uppercase text-xs tracking-[2px] text-emerald-400 font-bold mb-1">10 MIN WINNER-TAKES-ALL CHESS</div>
+                  <div className="text-3xl font-bold tracking-tight text-white mb-2">Stake. Match in 5 min. Play.</div>
+                  <div className="text-gray-300 mb-4">Full professional chess.com-style board • 10min clocks • Resign • Oracle + ZK lie detection • 2% to creator keeps it alive. Transparent on-chain.</div>
+                  <div className="flex gap-3">
+                    <Link to="/covenant" className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-2xl text-sm">Find Chess Covenants &amp; Play</Link>
+                    <Link to="/fix" className="px-6 py-3 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 rounded-2xl text-sm">Creators: Manage via Fix</Link>
+                  </div>
+                </div>
+                <div className="text-[10px] text-emerald-300/70 font-mono">All stakes direct to covenant • Auto return if no match • Fully verifiable</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* SEARCH TAB */}
         {activeTab === 'search' && (
           <div className="space-y-6">
@@ -296,35 +292,16 @@ export default function Explorer() {
               </div>
             )}
 
-            {!loading && paidCovenants.length > 0 && (
-              <>
-                <SectionLabel icon={Sparkles} label="Featured Covenants" accent />
-                <p className="text-xs text-gray-400 -mt-2 mb-4">Featured covenants are prioritized here with stronger visual presence.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
-                  {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
-                </div>
-              </>
-            )}
-
+            {/* Clean, organized grid for easy interaction - focused on play/view for regular users */}
             {!loading && (
-              <>
-                <SectionLabel icon={Play} label="Interactive & Demos" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                  <DemoCard icon={Cpu} title="ZK Chess Arena" desc="Pro full-screen chess.com-smooth after equal stakes. Clocks, move list, large board, oracle attested. Real ZK circuit path ready." tags={['Pro UI','Chess','Oracle+ZK']} path="/covenant?demo=chess" />
-                  <DemoCard icon={Users} title="Poker Pro Table" desc="Texas Hold'em full-screen pro table after matched stakes. Hole cards, community, betting actions. Oracle attested + ZK hand ranking coming." tags={['Pro UI','Poker','Oracle']} path="/covenant?demo=poker" />
-                  <DemoCard icon={TrendingUp} title="Blackjack Pro Table" desc="Full-screen felt table with hit/stand, dealer reveal, oracle attested result. Stake match gate for equal risk." tags={['Pro UI','Blackjack','Oracle']} path="/covenant?demo=blackjack" />
-                  <DemoCard icon={TrendingUp} title="Range Proof Verifier" desc="Prove a value is within bounds without revealing it. Groth16 ceremony artifacts ready, witness generation fix pending." tags={['ZK Proof','Privacy','Groth16']} path="/covenant?demo=range" />
+              <div className="mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[...chessCovenants, ...otherCovenants].slice(0, 12).map(c => renderSimpleCard(c))}
                 </div>
-              </>
-            )}
-
-            {!loading && freeCovenants.length > 0 && (
-              <>
-                <SectionLabel icon={Layers} label={paidCovenants.length > 0 ? 'All Covenants' : 'Covenants'} />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                  {freeCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />)}
-                </div>
-              </>
+                {[...chessCovenants, ...otherCovenants].length === 0 && (
+                  <div className="text-center py-10 text-gray-400">No covenants found yet. Deploy one to get started.</div>
+                )}
+              </div>
             )}
           </>
         )}

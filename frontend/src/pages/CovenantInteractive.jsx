@@ -656,48 +656,53 @@ export default function CovenantInteractive() {
                       <div className="text-3xl font-semibold text-white mt-1">Full Screen Chess</div>
                     </div>
 
-                    {/* Timers */}
-                    <div className="flex gap-8 mb-4">
-                      <div className="text-center">
-                        <div className="text-xs text-gray-400">WHITE</div>
-                        <div className="font-mono text-5xl text-emerald-400">10:00</div>
+                    {/* Timers + board side by side to fill space like full screen */}
+                    <div className="flex flex-col lg:flex-row gap-6 items-start w-full max-w-[1100px]">
+                      {/* Large board fills main space */}
+                      <div className="flex-1">
+                        <Chessboard
+                          position="start"
+                          boardWidth={580}
+                          customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+                          customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+                          customBoardStyle={{ borderRadius: '6px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                          customNotationStyle={{ color: '#3f2a1d', fontSize: '14px', fontWeight: 600 }}
+                        />
                       </div>
-                      <div className="text-center">
-                        <div className="text-xs text-gray-400">BLACK</div>
-                        <div className="font-mono text-5xl text-emerald-400">10:00</div>
+
+                      {/* Timers and rules table on side, filling space */}
+                      <div className="w-full lg:w-80 flex-shrink-0">
+                        {/* Timers */}
+                        <div className="flex gap-4 mb-4">
+                          <div className="flex-1 text-center p-3 rounded-2xl bg-black/60 border border-emerald-500/30">
+                            <div className="text-xs text-gray-400">WHITE</div>
+                            <div className="font-mono text-4xl text-emerald-400">10:00</div>
+                          </div>
+                          <div className="flex-1 text-center p-3 rounded-2xl bg-black/60 border border-emerald-500/30">
+                            <div className="text-xs text-gray-400">BLACK</div>
+                            <div className="font-mono text-4xl text-emerald-400">10:00</div>
+                          </div>
+                        </div>
+
+                        {/* Rules table filling the side space */}
+                        <div>
+                          <div className="text-xs font-bold text-emerald-400 mb-1 tracking-widest">RULES</div>
+                          <table className="w-full text-xs border border-emerald-500/30 rounded-xl overflow-hidden bg-black/40 text-emerald-100">
+                            <tbody>
+                              <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Game</td><td className="p-2">10 min per player (clock only on your turn)</td></tr>
+                              <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Stake</td><td className="p-2">Any amount. Match exactly or auto return in 5 min</td></tr>
+                              <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">End</td><td className="p-2">Resign, timeout or checkmate</td></tr>
+                              <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Payout</td><td className="p-2">Winner gets pot minus 2% to creator (sustains arena)</td></tr>
+                              <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">chess_v1 ZK + oracle lie detection</td></tr>
+                            </tbody>
+                          </table>
+                          <div className="text-[10px] text-emerald-300/70 mt-1 text-center">Transparent • Non-custodial • Direct to covenant on Kaspa</div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* ONE large chess.com style board - fills the space */}
-                    <div className="mb-6">
-                      <Chessboard
-                        position="start"
-                        boardWidth={620}
-                        customDarkSquareStyle={{ backgroundColor: '#b58863' }}
-                        customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
-                        customBoardStyle={{ borderRadius: '6px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                        customNotationStyle={{ color: '#3f2a1d', fontSize: '14px', fontWeight: 600 }}
-                      />
-                    </div>
-
-                    {/* Rules table - clean, all rules, no em dashes */}
-                    <div className="w-full max-w-2xl mb-6">
-                      <div className="text-sm font-bold text-emerald-400 mb-2 tracking-widest text-center">RULES</div>
-                      <table className="w-full text-sm border border-emerald-500/30 rounded-xl overflow-hidden bg-black/40">
-                        <tbody className="text-emerald-100">
-                          <tr className="border-b border-emerald-500/20"><td className="p-3 font-semibold">Game Length</td><td className="p-3">10 minutes per player. Clock runs only on your turn.</td></tr>
-                          <tr className="border-b border-emerald-500/20"><td className="p-3 font-semibold">Staking</td><td className="p-3">Stake any amount to start. Opponent must match exactly.</td></tr>
-                          <tr className="border-b border-emerald-500/20"><td className="p-3 font-semibold">Join Window</td><td className="p-3">5 minutes to match or your stake returns automatically.</td></tr>
-                          <tr className="border-b border-emerald-500/20"><td className="p-3 font-semibold">How Game Ends</td><td className="p-3">Resign, timeout, or checkmate.</td></tr>
-                          <tr className="border-b border-emerald-500/20"><td className="p-3 font-semibold">Payout</td><td className="p-3">Winner takes full pot minus 2% fee to creator address (sustains arena for next games).</td></tr>
-                          <tr><td className="p-3 font-semibold">Verification</td><td className="p-3">All moves proven with chess_v1 ZK circuit. Oracle detects lies and rejects invalid results.</td></tr>
-                        </tbody>
-                      </table>
-                      <div className="text-center text-xs text-emerald-300/70 mt-2">Fully transparent. Non-custodial. All stakes direct to covenant address on Kaspa.</div>
-                    </div>
-
-                    {/* Single straightforward stake input */}
-                    <div className="w-full max-w-sm">
+                    {/* Single stake input at bottom, straightforward */}
+                    <div className="w-full max-w-md mt-6">
                       <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
                       <input 
                         type="number" 
@@ -711,7 +716,7 @@ export default function CovenantInteractive() {
                       >
                         STAKE AND PLAY
                       </button>
-                      <div className="text-center text-xs text-gray-500 mt-2">Opens the full interactive arena with real timers and play.</div>
+                      <div className="text-center text-xs text-gray-500 mt-2">Launches the full interactive pro arena with real timers, moves, resign and oracle.</div>
                     </div>
                   </div>
                 )}

@@ -149,11 +149,17 @@ export async function loadKaspaWasm() {
           }
         } catch (_) { /* fall through to default() */ }
       }
-      // Fallback if initSync not available or fetch failed
+      // initSync path may have silently failed (catch{} above suppresses the error).
+      // Fallback: use default() to initialize the internal wasm global, but return
+      // the MODULE (which has Mnemonic/XPrv/PrivateKey classes), NOT default()'s
+      // return value (which is raw WASM exports — no class constructors on it).
       if (typeof mod.default === 'function') {
-        _wasmModuleCtx = await mod.default();
+        await mod.default();         // initializes wasm global, side-effect only
+        _wasmModuleCtx = mod;        // return the module with the classes
       } else {
-        throw new Error('kaspa-wasm: no initSync and no default()');
+        // Last resort: if initSync worked earlier but we somehow returned, store mod
+        // (Mnemonic et al. are present on mod regardless of init path)
+        _wasmModuleCtx = mod;
       }
       return _wasmModuleCtx;
     } catch (e) {

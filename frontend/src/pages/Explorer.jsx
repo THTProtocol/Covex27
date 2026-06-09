@@ -8,6 +8,7 @@ import {
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import { Chessboard } from 'react-chessboard';
+import FullScreenChess from '../components/FullScreenChess';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
@@ -39,6 +40,10 @@ export default function Explorer() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
+
+  // For demo "live waiting" games - shows the arena in waiting state when clicked
+  const [showLiveWaiting, setShowLiveWaiting] = useState(false);
+  const [liveWaitingStake, setLiveWaitingStake] = useState(50);
 
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
 
@@ -307,6 +312,60 @@ export default function Explorer() {
                   </div>
                 </div>
 
+                {/* LIVE GAMES WAITING FOR PLAYERS - prominent nice visual place right after featured, easy to spot and join. Organised for quick interaction. */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock size={16} className="text-amber-400" />
+                    <div className="text-sm font-semibold tracking-wider text-amber-400">LIVE - WAITING FOR OPPONENT (JOIN NOW)</div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Demo waiting card 1 - nice urgent visual, fills space, clear CTA to arena in waiting state */}
+                    <div className="glass-panel rounded-3xl p-6 border border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-black hover:border-amber-500/60 transition-all">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="text-amber-400 text-xs font-bold tracking-[2px]">10 MIN CHESS ARENA</div>
+                          <div className="text-2xl font-bold text-white mt-1">50 KAS Staked</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-amber-300">1 / 2 PLAYERS</div>
+                          <div className="font-mono text-3xl text-amber-400 tabular-nums">3:42</div>
+                          <div className="text-[10px] text-amber-300/70 -mt-1">left to join</div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-300 mb-4">Match the stake to play immediately. Full pro board, real timers, ZK verified. Auto return if no join.</div>
+                      <button 
+                        onClick={() => { setLiveWaitingStake(50); setShowLiveWaiting(true); }}
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
+                      >
+                        <Play size={16} /> JOIN & MATCH 50 KAS
+                      </button>
+                    </div>
+
+                    {/* Demo waiting card 2 */}
+                    <div className="glass-panel rounded-3xl p-6 border border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-black hover:border-amber-500/60 transition-all">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="text-amber-400 text-xs font-bold tracking-[2px]">10 MIN CHESS ARENA</div>
+                          <div className="text-2xl font-bold text-white mt-1">25 KAS Staked</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-amber-300">1 / 2 PLAYERS</div>
+                          <div className="font-mono text-3xl text-amber-400 tabular-nums">1:19</div>
+                          <div className="text-[10px] text-amber-300/70 -mt-1">left to join</div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-300 mb-4">Quick entry available. 10 min clocks, resign, oracle result. Easy to join and play.</div>
+                      <button 
+                        onClick={() => { setLiveWaitingStake(25); setShowLiveWaiting(true); }}
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
+                      >
+                        <Play size={16} /> JOIN & MATCH 25 KAS
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-amber-400/60 mt-2 text-center">Live staked games waiting for a match. Click to enter the arena and play instantly.</div>
+                </div>
+
                 {/* PAID / VERIFIED COVENANTS - PRIORITISED AT THE VERY TOP, amazingly represented with premium cards */}
                 {paidCovenants.length > 0 && (
                   <>
@@ -328,6 +387,17 @@ export default function Explorer() {
           </>
         )}
       </div>
+
+      {/* Demo overlay for live waiting games - launches the arena in waiting state (needs opponent to join) */}
+      {showLiveWaiting && (
+        <FullScreenChess 
+          stake={liveWaitingStake} 
+          onClose={() => setShowLiveWaiting(false)} 
+          covenantId="live-demo" 
+          creatorAddr="kaspatest:demo" 
+          feePercent={2} 
+        />
+      )}
     </>
   );
 }

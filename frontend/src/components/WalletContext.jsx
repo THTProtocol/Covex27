@@ -176,14 +176,9 @@ export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   const xprv = new XPrv(seed);
   const derived = xprv.derivePath("m/44'/111111'/0'/0/0");
   const privateKeyHex = derived.toPrivateKey().toString();
-  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'kaspatest';
-  let address;
-  try {
-    address = derived.toPrivateKey().toAddress(addrNetwork);
-  } catch (e) {
-    // fallback for TN12 / older calls that might pass 'testnet-12' etc.
-    address = derived.toPrivateKey().toAddress('kaspatest');
-  }
+  // The wasm module expects 'kaspa' or 'testnet' strings, NOT 'kaspatest'
+  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'testnet';
+  let address = derived.toPrivateKey().toAddress(addrNetwork);
   const addressStr = address.toString();
   mnemonic.free();
   xprv.free();
@@ -201,13 +196,9 @@ export async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
     throw new Error('Invalid private key hex. Must be 64 hex characters (32 bytes).');
   }
   const pk = new PrivateKey(cleanHex);
-  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'kaspatest';
-  let address;
-  try {
-    address = pk.toAddress(addrNetwork);
-  } catch (e) {
-    address = pk.toAddress('kaspatest');
-  }
+  // The wasm module expects 'kaspa' or 'testnet' strings, NOT 'kaspatest'
+  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'testnet';
+  let address = pk.toAddress(addrNetwork);
   const addressStr = address.toString();
   pk.free();
   return { privateKeyHex: cleanHex, address: addressStr };

@@ -33,7 +33,6 @@ export default function Explorer() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('explore');
-  const [showMyCovenants, setShowMyCovenants] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -105,36 +104,22 @@ export default function Explorer() {
 
   const tierRank = { MAX: 3, PRO: 2, BUILDER: 1, FREE: 0 };
 
-  let displayCovenants = covenants;
-  if (showMyCovenants && address) {
-    displayCovenants = covenants.filter(c => c.creator_addr?.toLowerCase() === address.toLowerCase());
-  }
+  // Always full list for "all covenants on Kaspa". Paid prioritised at top. No my-covenants clutter in main interact view.
+  const displayCovenants = covenants; // full list
 
-  // Simple list for interactors - no heavy paid bubbling or my-covenants in main view (use /fix for creators)
-  const chessCovenants = displayCovenants.filter(c => (c.covenant_type || c.category || '').toLowerCase().includes('chess') || (c.name || '').toLowerCase().includes('chess'));
-  const otherCovenants = displayCovenants.filter(c => !((c.covenant_type || c.category || '').toLowerCase().includes('chess') || (c.name || '').toLowerCase().includes('chess')));
+  const paidCovenants = displayCovenants
+    .filter(c => { const t = (c.verified_tier || c.tier || 'FREE').toUpperCase(); return t === 'MAX' || t === 'PRO' || t === 'BUILDER'; })
+    .sort((a, b) => {
+      const aT = tierRank[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || 0;
+      const bT = tierRank[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || 0;
+      if (bT !== aT) return bT - aT;
+      return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
+    });
 
-  const renderSimpleCard = (c) => {
-    const isChess = (c.covenant_type || c.category || '').toLowerCase().includes('chess') || (c.name || '').toLowerCase().includes('chess');
-    return (
-      <Link key={c.tx_id} to={`/covenant/${encodeURIComponent(c.tx_id)}`} className="group block rounded-2xl border border-white/10 bg-white/[0.01] p-5 hover:border-kaspa-green/30 hover:bg-white/[0.02] transition-all">
-        <div className="flex justify-between items-start">
-          <div>
-            <div className="font-semibold text-lg text-white group-hover:text-kaspa-green transition-colors">{c.name || truncate(c.tx_id)}</div>
-            <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{c.description || 'On-chain covenant ready for interaction.'}</div>
-          </div>
-          {isChess && <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">CHESS</span>}
-        </div>
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <div className="text-gray-400 font-mono text-xs">{formatKaspa(c.amount_kaspa)} locked</div>
-          <div className="px-4 py-1.5 rounded-xl bg-kaspa-green text-black text-xs font-bold group-hover:bg-white transition-all">
-            {isChess ? 'Stake & Play' : 'View & Interact'}
-          </div>
-        </div>
-        <div className="mt-1 text-[10px] text-gray-500 font-mono truncate">TX: {truncate(c.tx_id)}</div>
-      </Link>
-    );
-  };
+  const freeCovenants = displayCovenants.filter(c => {
+    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+    return t === 'FREE';
+  });
 
   return (
     <>
@@ -283,25 +268,25 @@ export default function Explorer() {
               </div>
             )}
 
-            {!loading && showMyCovenants && covenants.length > 0 && displayCovenants.length === 0 && (
-              <div className="glass-panel rounded-2xl p-10 text-center">
-                <ShieldCheck size={40} className="mx-auto text-kaspa-green mb-3" />
-                <p className="text-lg font-semibold text-white mb-1">No covenants from this wallet</p>
-                <p className="text-sm text-gray-300 mb-4">You haven't deployed any covenants with the connected wallet.</p>
-                <Button onClick={() => navigate('/premium')}><Terminal size={14} />Deploy Your First Covenant</Button>
-              </div>
-            )}
-
-            {/* Clean, organized grid for easy interaction - focused on play/view for regular users */}
-            {!loading && (
-              <div className="mt-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[...chessCovenants, ...otherCovenants].slice(0, 12).map(c => renderSimpleCard(c))}
-                </div>
-                {[...chessCovenants, ...otherCovenants].length === 0 && (
-                  <div className="text-center py-10 text-gray-400">No covenants found yet. Deploy one to get started.</div>
+            {!loading && covenants.length > 0 && (
+              <>
+                {/* PAID / VERIFIED COVENANTS - PRIORITISED AT THE VERY TOP, nicely represented */}
+                {paidCovenants.length > 0 && (
+                  <>
+                    <SectionLabel icon={Sparkles} label="Paid & Verified Covenants (Prioritised)" accent />
+                    <p className="text-xs text-gray-400 -mt-2 mb-4">These appear first with enhanced visuals, disclosed details, and creator-published transparent UIs for easy interaction.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
+                      {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
+                    </div>
+                  </>
                 )}
-              </div>
+
+                {/* ALL REMAINING COVENANTS - complete list nicely represented */}
+                <SectionLabel icon={Layers} label={paidCovenants.length > 0 ? 'All Other Covenants' : 'All Covenants on Kaspa'} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {(paidCovenants.length > 0 ? freeCovenants : displayCovenants).map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />)}
+                </div>
+              </>
             )}
           </>
         )}

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
+import { Chessboard } from 'react-chessboard';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
@@ -270,12 +271,48 @@ export default function Explorer() {
 
             {!loading && covenants.length > 0 && (
               <>
-                {/* PAID / VERIFIED COVENANTS - PRIORITISED AT THE VERY TOP, nicely represented */}
+                {/* STUNNING FEATURED CHESS ARENA - jaw dropping, uses space, amazing pro look, chess.com board preview */}
+                <div className="mb-10 relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-[#0a1f14] via-black to-[#0a0f0a] p-8 sm:p-12">
+                  <div className="absolute inset-0 bg-[radial-gradient(#10b981_0.5px,transparent_1px)] bg-[length:4px_4px] opacity-10"></div>
+                  <div className="relative z-10 flex flex-col lg:flex-row gap-8 items-center">
+                    <div className="flex-1">
+                      <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-[3px] mb-4">
+                        FEATURED • LIVE ON KASPA
+                      </div>
+                      <h2 className="text-5xl sm:text-6xl font-black tracking-tighter text-white mb-3">10 MIN<br/>WINNER-TAKES-ALL<br/>CHESS ARENA</h2>
+                      <p className="text-xl text-emerald-200 max-w-md mb-6">Stake any amount. Match in 5 minutes or funds return. 10 minute clocks. Full resign and time logic. 2% sustains the arena forever. Every move ZK-verified by chess_v1. Oracle enforces truth. Pure, transparent, on-chain chess.</p>
+                      <div className="flex gap-4">
+                        <Link to="/covenant?demo=chess" className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-2xl text-lg shadow-xl active:scale-[0.985] flex items-center gap-2">
+                          <Play size={20} /> STAKE AND PLAY NOW
+                        </Link>
+                        <Link to="/fix" className="px-8 py-4 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 rounded-2xl text-lg flex items-center gap-2">
+                          Creators: Fix
+                        </Link>
+                      </div>
+                      <div className="mt-4 text-xs text-emerald-400/70">All stakes direct to covenant • Fully non-custodial • No secrets</div>
+                    </div>
+                    <div className="flex-1 max-w-[420px] w-full">
+                      <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-2xl bg-black">
+                        <Chessboard
+                          position="start"
+                          boardWidth={380}
+                          customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+                          customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+                          customBoardStyle={{ borderRadius: '0' }}
+                          customNotationStyle={{ color: '#3f2a1d', fontSize: '11px', fontWeight: 700 }}
+                        />
+                      </div>
+                      <div className="text-center text-[10px] text-emerald-400/60 mt-2 tracking-widest">CHESS.COM CLASSIC • PRO TIMERS • ZK VERIFIED</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PAID / VERIFIED COVENANTS - PRIORITISED AT THE VERY TOP, amazingly represented with premium cards */}
                 {paidCovenants.length > 0 && (
                   <>
                     <SectionLabel icon={Sparkles} label="Paid & Verified Covenants (Prioritised)" accent />
-                    <p className="text-xs text-gray-400 -mt-2 mb-4">These appear first with enhanced visuals, disclosed details, and creator-published transparent UIs for easy interaction.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
+                    <p className="text-xs text-gray-400 -mt-2 mb-4">Premium experiences with creator-published transparent UIs, full on-chain disclosure, and top visibility. The best look and interact here first.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-10">
                       {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
                     </div>
                   </>
@@ -355,37 +392,37 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`block rounded-2xl border p-4 sm:p-5 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase}`}
+      className={`block rounded-3xl border p-6 sm:p-7 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase} min-h-[280px] flex flex-col hover:scale-[1.01]`}
     >
       {isPaidVerified && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-emerald-400/60 via-emerald-400/20 to-transparent" />}
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
-      <div className="flex items-start justify-between mb-2.5">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0 pr-2">
-          <h3 className={`font-bold text-sm sm:text-base truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`} style={{ color: isPaidVerified ? themeAccent : undefined }}>
+          <h3 className={`font-bold text-lg sm:text-xl truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`} style={{ color: isPaidVerified ? themeAccent : undefined }}>
             {covenantName}
           </h3>
-          <p className="text-[11px] font-mono mt-0.5 text-gray-300 truncate">{truncate(c.tx_id, 8)}</p>
+          <p className="text-xs font-mono mt-1 text-gray-400 truncate">{truncate(c.tx_id, 8)}</p>
         </div>
         <div className="flex flex-col items-end gap-1 text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0 min-w-0">
-          {isPaidVerified && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono flex items-center gap-1">
-            {tier === 'MAX' && <Crown size={10} />}
-            {tier === 'PRO' && <Star size={10} />}
-            {tier === 'BUILDER' && <Terminal size={10} />}
+          {isPaidVerified && <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono flex items-center gap-1">
+            {tier === 'MAX' && <Crown size={11} />}
+            {tier === 'PRO' && <Star size={11} />}
+            {tier === 'BUILDER' && <Terminal size={11} />}
             PAID VERIFIED</span>}
-          {customUI && <span className="text-[8px] px-1.5 py-0.5 rounded bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/30 font-mono flex items-center gap-1">
+          {customUI && <span className="text-[9px] px-2 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/30 font-mono flex items-center gap-1">
             CREATOR TRANSPARENT UI
           </span>}
           {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 text-sm">
             {isOwner && (
-              <Badge tier={tier} className="text-[9px] py-0 px-1.5">{style.label}</Badge>
+              <Badge tier={tier} className="text-[10px] py-0 px-2">{style.label}</Badge>
             )}
-            <span className="truncate">{formatKaspa(c.amount_kaspa)}</span>
+            <span className="font-mono text-white truncate">{formatKaspa(c.amount_kaspa)}</span>
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-gray-200 mb-4 leading-relaxed">{covenantDesc}</p>
+      <p className="text-sm text-gray-200 mb-4 leading-relaxed flex-1">{covenantDesc}</p>
 
       {/* Disclosed wallets section for paid verified covenants */}
       {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (

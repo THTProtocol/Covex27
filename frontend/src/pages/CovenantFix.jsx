@@ -18,6 +18,9 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
   const primary = cfg.primaryColor || '#49EACB';
   const title = cfg.titleOverride || cov.name || TRUNC(cov.tx_id);
   const desc = cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.';
+  const publicAbout = cfg.publicAbout || cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.';
+  const publicRules = cfg.publicRules || cov.full_logic_summary || 'All logic, fees, timers, resolution and payouts are public and on-chain.';
+  const publicHowTo = cfg.publicHowTo || 'Stake to the covenant address. All addresses, rules and verification are visible by default.';
   const creator = cov.creator_addr || 'Unknown';
   const locked = (cov.amount_kaspa || 0).toLocaleString();
   const tx = cov.tx_id || '';
@@ -26,6 +29,11 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
   const ts = cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent';
   const isChess = (cov.covenant_type || cov.category || '').toLowerCase().includes('chess');
   const stake = stakeAmount || 50;
+
+  const showFullFacts = cfg.showFullFacts !== false;
+  const showLogic = cfg.showLogic !== false;
+  const showAddresses = cfg.showAddresses !== false;
+  const extraBlocks = cfg.extraBlocks || [];
 
   const css = `
     :root{--primary:${primary}}
@@ -45,6 +53,37 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
     .label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#64748B}
     .rules{font-size:15px;line-height:1.7;color:#CBD5E1}
   `;
+
+  let factsHTML = '';
+  if (showFullFacts) {
+    factsHTML = `
+      <div class="section">
+        <div class="label" style="margin-bottom:10px">On-Chain Facts &amp; Receiving Addresses (Public by Default)</div>
+        <div class="facts">
+          <div class="fact"><div class="fact-label">Creator</div><div class="fact-value mono">${creator}</div></div>
+          <div class="fact"><div class="fact-label">Locked</div><div class="fact-value">${locked} KAS</div></div>
+          <div class="fact"><div class="fact-label">Category</div><div class="fact-value">${cat}</div></div>
+          <div class="fact"><div class="fact-label">TXID</div><div class="fact-value mono" style="font-size:12px">${tx}</div></div>
+          <div class="fact"><div class="fact-label">Deployed</div><div class="fact-value">${ts}</div></div>
+          ${showAddresses ? `
+          <div class="fact"><div class="fact-label">Covenant / Pot Address</div><div class="fact-value mono" style="font-size:11px">${cov.address || cov.receiving_addresses || 'on-chain'}</div></div>
+          <div class="fact"><div class="fact-label">Platform Treasury</div><div class="fact-value mono" style="font-size:11px">See covenant details</div></div>
+          <div class="fact"><div class="fact-label">Creator Cut</div><div class="fact-value mono" style="font-size:11px">${creator}</div></div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  let logicHTML = '';
+  if (showLogic) {
+    logicHTML = `
+      <div class="section">
+        <div class="label" style="margin-bottom:6px">Full Covenant Logic (Public by Default)</div>
+        <div class="rules">${publicRules}</div>
+      </div>
+    `;
+  }
 
   let stakeBlock = '';
   if (isChess) {
@@ -69,6 +108,16 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
     `;
   }
 
+  let customBlocksHTML = '';
+  if (extraBlocks && extraBlocks.length > 0) {
+    customBlocksHTML = extraBlocks.map(block => `
+      <div class="section">
+        <div class="label" style="margin-bottom:6px">${block.title || 'Custom Section'}</div>
+        <div class="rules">${block.text || ''}</div>
+      </div>
+    `).join('');
+  }
+
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style></head>
 <body style="background:#050507">
   <div class="container">
@@ -85,18 +134,20 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
       </div>
     </div>
 
+    ${factsHTML}
+    ${logicHTML}
     <div class="section">
-      <div class="label" style="margin-bottom:10px">On-Chain Facts</div>
-      <div class="facts">
-        <div class="fact"><div class="fact-label">Creator</div><div class="fact-value mono">${creator}</div></div>
-        <div class="fact"><div class="fact-label">Locked</div><div class="fact-value">${locked} KAS</div></div>
-        <div class="fact"><div class="fact-label">Category</div><div class="fact-value">${cat}</div></div>
-        <div class="fact"><div class="fact-label">TXID</div><div class="fact-value mono" style="font-size:12px">${tx}</div></div>
-        <div class="fact"><div class="fact-label">Deployed</div><div class="fact-value">${ts}</div></div>
-      </div>
+      <div class="label" style="margin-bottom:6px">About this Covenant</div>
+      <div class="rules">${publicAbout}</div>
+    </div>
+    <div class="section">
+      <div class="label" style="margin-bottom:6px">How to Participate</div>
+      <div class="rules">${publicHowTo}</div>
     </div>
 
     ${stakeBlock}
+
+    ${customBlocksHTML}
 
     <div id="interact" class="section">
       <div class="label" style="margin-bottom:10px">Direct Interaction</div>
@@ -120,7 +171,18 @@ export default function CovenantFix() {
   const [myCovenants, setMyCovenants] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState({ primaryColor: '#49EACB', titleOverride: '', descOverride: '' });
+  const [config, setConfig] = useState({ 
+    primaryColor: '#49EACB', 
+    titleOverride: '', 
+    descOverride: '', 
+    publicAbout: '', 
+    publicRules: '', 
+    publicHowTo: '',
+    showFullFacts: true,
+    showLogic: true,
+    showAddresses: true,
+    extraBlocks: []
+  });
   const [stakeAmount, setStakeAmount] = useState(50);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showPreview, setShowPreview] = useState(null);
@@ -143,14 +205,36 @@ export default function CovenantFix() {
           if (match) {
             setSelected(match);
             setStakeAmount(match.default_stake || 50);
-            setConfig({ primaryColor: '#49EACB', titleOverride: match.name || '', descOverride: match.description || '' });
+            setConfig({ 
+              primaryColor: '#49EACB', 
+              titleOverride: match.name || '', 
+              descOverride: match.description || '', 
+              publicAbout: match.public_about || match.description || '', 
+              publicRules: match.public_rules || '', 
+              publicHowTo: match.public_howto || '',
+              showFullFacts: true,
+              showLogic: true,
+              showAddresses: true,
+              extraBlocks: []
+            });
           }
         } else if (mine.length > 0) {
           // default select first
           const first = mine[0];
           setSelected(first);
           setStakeAmount(first.default_stake || 50);
-          setConfig({ primaryColor: '#49EACB', titleOverride: first.name || '', descOverride: first.description || '' });
+          setConfig({ 
+            primaryColor: '#49EACB', 
+            titleOverride: first.name || '', 
+            descOverride: first.description || '', 
+            publicAbout: first.public_about || first.description || '', 
+            publicRules: first.public_rules || '', 
+            publicHowTo: first.public_howto || '',
+            showFullFacts: true,
+            showLogic: true,
+            showAddresses: true,
+            extraBlocks: []
+          });
         }
       })
       .finally(() => setLoading(false));
@@ -275,7 +359,18 @@ export default function CovenantFix() {
                 onClick={() => {
                   setSelected(c);
                   setStakeAmount(c.default_stake || (isChess ? 50 : 10));
-                  setConfig({ primaryColor: '#49EACB', titleOverride: c.name || '', descOverride: c.description || '' });
+                  setConfig({ 
+                    primaryColor: '#49EACB', 
+                    titleOverride: c.name || '', 
+                    descOverride: c.description || '', 
+                    publicAbout: c.public_about || c.description || '', 
+                    publicRules: c.public_rules || '', 
+                    publicHowTo: c.public_howto || '',
+                    showFullFacts: true,
+                    showLogic: true,
+                    showAddresses: true,
+                    extraBlocks: []
+                  });
                   setSelectedTemplate(null);
                 }}
                 className={`text-left rounded-2xl border p-4 transition ${isSel ? 'border-kaspa-green/60 bg-kaspa-green/[0.03]' : 'border-white/10 hover:border-white/20 bg-white/[0.01]'}`}
@@ -308,117 +403,129 @@ export default function CovenantFix() {
           <div className="text-sm text-gray-400 mb-6">Creator only. Changes publish instantly for everyone who opens it.</div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            {/* LOOKS: change how they look */}
-            <div className="lg:col-span-3 rounded-3xl border border-white/10 bg-white/[0.015] p-6">
-              <div className="flex items-center gap-2 mb-3">
+            {/* WIX-STYLE TOOLSET - clicks of a button, fully for this covenant */}
+            <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-white/[0.015] p-6">
+              <div className="flex items-center gap-2 mb-2">
                 <Palette size={18} className="text-kaspa-green" />
-                <div className="font-semibold">Change how it looks</div>
+                <div className="font-semibold">Public Page Designer</div>
               </div>
-              <div className="text-xs text-gray-400 mb-4">Pick a template. Preview exactly what regular users will see. Super clean and inviting.</div>
+              <div className="text-xs text-gray-400 mb-4">Click buttons to instantly see how this specific covenant will look to the public. All on-chain facts, addresses, logic and game UI are included by default.</div>
 
-              {/* Garage grid - simple and easy */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {COVENANT_TEMPLATES.map((tpl) => {
-                  const active = selectedTemplate?.id === tpl.id;
-                  return (
-                    <div key={tpl.id} className={`group rounded-2xl border overflow-hidden ${active ? 'border-kaspa-green/70 ring-1 ring-kaspa-green/20' : 'border-white/10 hover:border-white/25'}`}>
-                      <div className="h-20 flex items-center justify-center text-center" style={{ background: `linear-gradient(135deg, #111 0%, #1a1f2e 100%)` }}>
-                        <div>
-                          <div className="text-white font-semibold tracking-tight">{tpl.name}</div>
-                          <div className="text-[10px] text-white/60">{tpl.tagline}</div>
-                        </div>
-                      </div>
-                      <div className="p-2.5 bg-black/40 flex gap-2">
-                        <button onClick={() => openPreview(tpl)} className="flex-1 text-xs py-1.5 rounded-xl border border-white/15 hover:bg-white/5">Preview</button>
-                        <button onClick={() => applyTemplate(tpl)} className={`flex-1 text-xs py-1.5 rounded-xl font-medium ${active ? 'bg-kaspa-green text-black' : 'bg-white/10 hover:bg-white/15'}`}>{active ? 'Chosen' : 'Choose'}</button>
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Quick clicks - Wix style actions */}
+              <div className="mb-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">QUICK STYLES (click to apply)</div>
+                <div className="flex flex-wrap gap-2">
+                  {COVENANT_TEMPLATES.map((tpl) => (
+                    <button 
+                      key={tpl.id} 
+                      onClick={() => applyTemplate(tpl)} 
+                      className={`text-xs px-3 py-1.5 rounded-2xl border transition ${selectedTemplate?.id === tpl.id ? 'bg-kaspa-green text-black border-kaspa-green' : 'border-white/15 hover:bg-white/5'}`}
+                    >
+                      {tpl.name}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Minimal fine tune - 1 section feel */}
-              <div className="mt-6 pt-5 border-t border-white/10 space-y-4">
+              <div className="mb-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">TOGGLE VISIBILITY (click)</div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setConfig(s => ({...s, showFullFacts: !s.showFullFacts}))} className="text-xs px-3 py-1.5 rounded-2xl border border-white/15 hover:bg-white/5">
+                    {config.showFullFacts ? 'Hide' : 'Show'} On-Chain Facts &amp; Addresses
+                  </button>
+                  <button onClick={() => setConfig(s => ({...s, showLogic: !s.showLogic}))} className="text-xs px-3 py-1.5 rounded-2xl border border-white/15 hover:bg-white/5">
+                    {config.showLogic ? 'Hide' : 'Show'} Full Logic
+                  </button>
+                  <button onClick={() => setConfig(s => ({...s, showAddresses: !s.showAddresses}))} className="text-xs px-3 py-1.5 rounded-2xl border border-white/15 hover:bg-white/5">
+                    {config.showAddresses ? 'Hide' : 'Show'} Specific Addresses
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">ACCENT (click swatch or pick)</div>
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {['#49EACB','#E8AF34','#10B981','#3B82F6','#8B5CF6','#EC4899','#F59E0B'].map(c => (
+                    <button key={c} onClick={() => setConfig(s => ({...s, primaryColor: c}))} className={`h-7 w-7 rounded-full border ${config.primaryColor === c ? 'border-white ring-1 ring-white/50' : 'border-white/20'}`} style={{ background: c }} />
+                  ))}
+                </div>
+                <input type="color" value={config.primaryColor} onChange={e => setConfig(s => ({...s, primaryColor: e.target.value}))} className="h-8 w-full rounded border border-white/20 p-0 overflow-hidden" />
+              </div>
+
+              {/* Covenant-specific text - prefilled with this covenant's logic */}
+              <div className="space-y-3">
                 <div>
-                  <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Title</div>
-                  <input value={config.titleOverride} onChange={e => setConfig(s => ({...s, titleOverride: e.target.value}))} placeholder={selected.name || 'Covenant title'} className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40" />
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Title for public</div>
+                  <input value={config.titleOverride} onChange={e => setConfig(s => ({...s, titleOverride: e.target.value}))} placeholder={selected.name} className="w-full rounded-2xl bg-black/40 border border-white/10 px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Short description</div>
-                  <input value={config.descOverride} onChange={e => setConfig(s => ({...s, descOverride: e.target.value}))} placeholder={selected.description || 'What this covenant does'} className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40" />
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">About this Covenant (your words + this covenant's details)</div>
+                  <textarea value={config.publicAbout || ''} onChange={e => setConfig(s => ({...s, publicAbout: e.target.value}))} placeholder="Everything visitors need to know..." rows={3} className="w-full rounded-2xl bg-black/40 border border-white/10 px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Accent color</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {['#49EACB','#E8AF34','#10B981','#3B82F6','#8B5CF6','#EC4899','#F59E0B'].map(c => (
-                      <button key={c} onClick={() => setConfig(s => ({...s, primaryColor: c}))} className={`h-8 w-8 rounded-full border-2 ${config.primaryColor === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />
-                    ))}
-                    <input type="color" value={config.primaryColor} onChange={e => setConfig(s => ({...s, primaryColor: e.target.value}))} className="h-8 w-9 rounded border-0 p-0 overflow-hidden" />
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Rules &amp; Payouts (auto includes this covenant's full logic)</div>
+                  <textarea value={config.publicRules || ''} onChange={e => setConfig(s => ({...s, publicRules: e.target.value}))} placeholder="Fees, timers, verification..." rows={2} className="w-full rounded-2xl bg-black/40 border border-white/10 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">How to Participate</div>
+                  <textarea value={config.publicHowTo || ''} onChange={e => setConfig(s => ({...s, publicHowTo: e.target.value}))} placeholder="Simple steps for players..." rows={2} className="w-full rounded-2xl bg-black/40 border border-white/10 px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              {/* Covenant-specific quick tools */}
+              { (selected.covenant_type || selected.category || '').toLowerCase().includes('chess') && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">CHESS-SPECIFIC TOOLS (click)</div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setStakeAmount(50)} className="text-xs px-3 py-1 rounded-2xl border border-white/15 hover:bg-white/5">Set 50 KAS stake</button>
+                    <button onClick={() => setStakeAmount(100)} className="text-xs px-3 py-1 rounded-2xl border border-white/15 hover:bg-white/5">Set 100 KAS stake</button>
                   </div>
                 </div>
+              )}
+
+              <div className="mt-4">
+                <button 
+                  onClick={() => {
+                    const newBlock = { title: 'Custom Note', text: 'Add your extra explanation here...' };
+                    setConfig(s => ({...s, extraBlocks: [...(s.extraBlocks || []), newBlock]}));
+                  }} 
+                  className="w-full text-xs py-2 rounded-2xl border border-dashed border-white/30 hover:bg-white/5"
+                >
+                  + Add Custom Section (click to add)
+                </button>
               </div>
-            </div>
 
-            {/* THE ONE SECTION: Stake amount and all of that. Super clean. */}
-            <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-white/[0.015] p-6 flex flex-col">
-              <div className="font-semibold mb-1">Stake amount and all of that</div>
-              <div className="text-xs text-gray-400 mb-4">Just set the number. Everything else is fixed, transparent, and already explained to players.</div>
-
-              <div className="mb-2 text-[10px] tracking-[1.5px] text-gray-500">AMOUNT TO STAKE (KAS)</div>
-              <input
-                type="number"
-                value={stakeAmount}
-                onChange={e => setStakeAmount(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-3 bg-transparent border border-white/10 rounded-3xl focus:outline-none focus:border-kaspa-green/40"
-              />
-              <div className="text-center text-xs text-gray-500 mt-1 mb-5">per player • winner takes all minus 2%</div>
-
-              {/* All rules, clean and in order, no em dashes, super easy to read */}
-              <div className="flex-1 rounded-2xl bg-black/40 border border-white/10 p-5 text-sm text-gray-200 leading-relaxed">
-                { (selected.covenant_type || selected.category || '').toLowerCase().includes('chess') ? (
-                  <>
-                    10 minute winner takes all chess.<br/><br/>
-                    Second player must match the stake within 5 minutes or the funds return automatically to you.<br/><br/>
-                    Each player gets a 10 minute clock.<br/><br/>
-                    Resign, timeout or checkmate ends the game.<br/><br/>
-                    Winner receives the pot minus 2 percent. The 2 percent goes to your creator address to keep the arena running for the next games.<br/><br/>
-                    All stakes are sent directly to the covenant address on Kaspa. Fully non-custodial.<br/><br/>
-                    The chess v1 ZK circuit plus the oracle detects any lie or invalid play and can reject bad results.
-                  </>
-                ) : (
-                  <>
-                    Set the stake amount players use for this covenant.<br/><br/>
-                    All logic, timers and payouts are defined in the on-chain covenant and the published transparent view.<br/><br/>
-                    2 percent of resolved pots goes to the creator address to sustain the covenant.<br/><br/>
-                    Everything is fully transparent. Players see the exact rules and on-chain facts.
-                  </>
-                )}
-              </div>
+              <div className="mt-3 text-[10px] text-gray-500">All receiving addresses, full logic, and game UI for <span className="font-mono text-kaspa-green">{selected.tx_id?.slice(0,8)}...</span> are automatically included in the public view.</div>
 
               <button
                 onClick={publish}
                 disabled={publishing || !isCreatorOfSelected}
-                className="mt-5 w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 disabled:opacity-60"
+                className="mt-4 w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <Save size={18} /> {publishing ? 'PUBLISHING...' : 'PUBLISH LOOKS + STAKE SETTINGS'}
+                <Save size={18} /> {publishing ? 'PUBLISHING TO PUBLIC...' : 'PUBLISH — Viewers see this exact look for this covenant instantly'}
               </button>
-              <div className="text-[10px] text-center text-gray-500 mt-2">One click. Viewers see the clean result immediately.</div>
+              <div className="text-[10px] text-center text-gray-500 mt-1.5">One click. The public page updates everywhere. No terminal for visitors.</div>
             </div>
-          </div>
 
-          {/* Live preview of exactly what will be shown */}
-          {selected && previewHtml && (
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div className="text-xs uppercase tracking-[1.5px] text-gray-500 flex items-center gap-2"><Eye size={14}/> What regular users will see (live preview)</div>
-                <button onClick={() => setShowPreview({ tpl: { name: 'Current' }, html: previewHtml })} className="text-xs px-3 py-1 rounded border border-white/15 hover:bg-white/5">Open fullscreen preview</button>
+            {/* LIVE PREVIEW - exactly what the public sees, updates with every click */}
+            <div className="lg:col-span-3">
+              <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2 flex items-center gap-2">
+                <Eye size={14}/> LIVE PUBLIC PREVIEW — Exactly what visitors see for this covenant
               </div>
-              <div className="rounded-3xl overflow-hidden border border-white/10 bg-black">
-                <iframe srcDoc={previewHtml} className="w-full h-[520px] bg-[#050507]" sandbox="allow-scripts" title="Published viewer preview" />
+              <div className="rounded-3xl overflow-hidden border border-white/10 bg-black" style={{height: '520px'}}>
+                {previewHtml ? (
+                  <iframe srcDoc={previewHtml} className="w-full h-full" sandbox="allow-scripts" title="Live public covenant preview" />
+                ) : (
+                  <div className="p-8 text-center text-gray-500">Select a covenant to see the live public view.</div>
+                )}
               </div>
-              <div className="text-[10px] text-center text-gray-500 mt-2">This is the exact page people land on when they click your covenant. No terminal, no complexity.</div>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => selected && window.open(`/covenant/${encodeURIComponent(selected.tx_id)}`, '_blank')} className="flex-1 text-xs py-2 rounded-2xl border border-white/15 hover:bg-white/5">Open real public page in new tab</button>
+                <button onClick={() => setShowPreview({ tpl: {name:'Current'}, html: previewHtml })} className="flex-1 text-xs py-2 rounded-2xl border border-white/15 hover:bg-white/5">Fullscreen preview</button>
+              </div>
             </div>
-          )}
+
+          </div>
         </div>
       )}
 

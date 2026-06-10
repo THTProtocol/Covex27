@@ -11,7 +11,6 @@ import Pricing from './pages/Pricing';
 import TemplateLibrary from './pages/TemplateLibrary';
 import AdvancedComposer from './pages/AdvancedComposer';
 import Analytics from './pages/Analytics';
-import SilverScriptSandbox from './pages/SilverScriptSandbox';
 
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
@@ -47,8 +46,29 @@ function SmartDeployLink() {
       .catch(() => setIsPaid(false));
   }, [address]);
 
-  const to = isPaid ? '/paid-builder' : '/deploy';
+  const to = isPaid ? '/premium' : '/deploy';
   return <NavLink to={to} className={NL}>Deploy</NavLink>;
+}
+
+function SmartTerminalLink() {
+  const { address } = useWallet();
+  const [isPaid, setIsPaid] = useState(false);
+
+  useEffect(() => {
+    if (!address) { setIsPaid(false); return; }
+    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    fetch('/api/auth-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, network: net })
+    })
+      .then(r => r.ok ? r.json() : { tier: 'FREE' })
+      .then(data => setIsPaid(data.tier && data.tier !== 'FREE'))
+      .catch(() => setIsPaid(false));
+  }, [address]);
+
+  if (!isPaid) return null;
+  return <NavLink to="/premium" className={NL}>Terminal</NavLink>;
 }
 
 function NetworkSwitcher() {
@@ -114,8 +134,9 @@ export default function App() {
               </Link>
               <div className="flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
-                <NavLink to="/sandbox" className={NL}>Sandbox</NavLink>
-                <NavLink to="/fix" className={NL}>Fix</NavLink>
+                <SmartTerminalLink />
+                <NavLink to="/fix" className={NL}>Fix</NavLink> 
+                {/* Full visual editor, covenant composer, and best-covenant tools are in paid Terminal only. */}
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
@@ -144,7 +165,6 @@ export default function App() {
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/analytics" element={<Analytics />} />
-              <Route path="/sandbox" element={<SilverScriptSandbox />} />
             </Routes>
           </div>
 

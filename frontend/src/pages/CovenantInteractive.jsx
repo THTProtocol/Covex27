@@ -290,6 +290,9 @@ export default function CovenantInteractive() {
 
     const heroImage = cfg.heroImageUrl || '';
     const vision = cfg.vision || '';
+    const publicAbout = cfg.publicAbout || cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.';
+    const publicRules = cfg.publicRules || cov.full_logic_summary || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.';
+    const publicHowTo = cfg.publicHowTo || 'Connect a wallet, choose your stake amount, and execute directly to the covenant address. All details, addresses, and resolution logic are public.';
 
     // Premium, modern, billion-dollar aesthetic
     const customCss = `
@@ -346,26 +349,36 @@ export default function CovenantInteractive() {
       </div>
     `;
 
-    // Facts - beautiful cards
+    // Facts - beautiful cards (all receiving addresses and core facts visible by default)
     blocksHTML += `
       <div class="section">
-        <div class="section-header">On-Chain Facts</div>
+        <div class="section-header">On-Chain Facts &amp; Receiving Addresses (Public by Default)</div>
         <div class="facts-grid">
           <div class="fact-card"><div class="fact-label">Creator</div><div class="fact-value mono">${creator}</div></div>
           <div class="fact-card"><div class="fact-label">KAS Locked</div><div class="fact-value">${locked} KAS</div></div>
           <div class="fact-card"><div class="fact-label">Category</div><div class="fact-value">${cat}</div></div>
           <div class="fact-card"><div class="fact-label">TXID</div><div class="fact-value mono" style="font-size:12px;">${tx}</div></div>
           <div class="fact-card"><div class="fact-label">Deployed</div><div class="fact-value">${ts}</div></div>
-          ${addrs ? `<div class="fact-card"><div class="fact-label">Treasury / Receiving</div><div class="fact-value mono" style="font-size:12px;">${addrs}</div></div>` : ''}
+          ${addrs ? `<div class="fact-card"><div class="fact-label">Covenant / Pot Address</div><div class="fact-value mono" style="font-size:12px;">${addrs}</div></div>` : ''}
+          <div class="fact-card"><div class="fact-label">Platform Fee Treasury</div><div class="fact-value mono" style="font-size:12px;">${TREASURY || 'On-chain treasury'}</div></div>
+          <div class="fact-card"><div class="fact-label">Creator Cut Address</div><div class="fact-value mono" style="font-size:12px;">${creator}</div></div>
         </div>
       </div>
     `;
 
-    // Logic / Vision
+    // Full logic + creator written content (visible by default, creator can write more)
     blocksHTML += `
       <div class="section">
-        <div class="section-header">Creator's Vision &amp; Logic</div>
-        <div class="glass prose">${logic}</div>
+        <div class="section-header">Full Covenant Logic (Public by Default)</div>
+        <div class="glass prose">${publicRules}</div>
+      </div>
+      <div class="section">
+        <div class="section-header">About this Covenant</div>
+        <div class="glass prose">${publicAbout}</div>
+      </div>
+      <div class="section">
+        <div class="section-header">How to Participate</div>
+        <div class="glass prose">${publicHowTo}</div>
       </div>
     `;
 
@@ -407,7 +420,7 @@ export default function CovenantInteractive() {
       setToast({ type: 'error', msg: 'Only the creator of this covenant can publish a custom UI.' });
       return;
     }
-    const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view. Everything there is to know about this covenant.' } : config;
+    const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view. Everything there is to know about this covenant.', publicAbout: 'Creator published details and full on-chain logic visible to all.', publicRules: 'All fees, timers, addresses, verification and payouts are public by default.', publicHowTo: 'Stake directly to the covenant. All information is transparent.' } : config;
     const html = buildTransparentCustomUI(covenant, cfg);
     try {
       const payload = {
@@ -538,7 +551,7 @@ export default function CovenantInteractive() {
                   {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
                 </p>
                 <p className="text-xs text-emerald-400/70">
-                  {isChess ? 'All rules, fees, creator address, timers, ZK oracle, and on-chain facts are public. No hidden settings for players.' : 'Full transparency. All fields, logic summary, and receiving addresses disclosed.'}
+                  {isChess ? 'All receiving addresses, fees, timers, ZK circuit, oracle, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
                 </p>
               </div>
             </div>
@@ -556,7 +569,7 @@ export default function CovenantInteractive() {
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
-              {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
+              {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Covenant Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
             </h3>
             <p className="text-gray-300 leading-relaxed">
               {isChess 
@@ -565,6 +578,47 @@ export default function CovenantInteractive() {
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
             </p>
+          </div>
+
+          {/* Always-visible full transparency: receiving addresses + logic (public on default) */}
+          <div className="mb-6">
+            <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Receiving Addresses (all flows public)</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <div className="text-gray-400">Covenant / Pot Address</div>
+                <div className="font-mono text-white break-all mt-0.5">{covenant.address || covenant.receiving_addresses || 'On-chain covenant address'}</div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <div className="text-gray-400">Platform Fee Treasury</div>
+                <div className="font-mono text-white break-all mt-0.5">{TREASURY}</div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <div className="text-gray-400">Creator Address (fee cut / sustain)</div>
+                <div className="font-mono text-white break-all mt-0.5">{covenant.creator_addr || 'See covenant deployer'}</div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <div className="text-gray-400">TX / Script</div>
+                <div className="font-mono text-white break-all mt-0.5 text-[10px]">{covenant.tx_id} / {covenant.script_hash || 'on-chain'}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Full Game / Event / Covenant Logic (public by default)</div>
+            <div className="text-sm text-gray-200 bg-black/30 p-4 rounded-xl border border-white/5 leading-relaxed">
+              {isChess ? (
+                <>
+                  <strong>Game:</strong> 10min per player winner-takes-all chess (FIDE rules).<br/>
+                  <strong>Stake:</strong> Any equal amount (min/max per config). Second player matches or auto-refund in 5 min.<br/>
+                  <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends game.<br/>
+                  <strong>Payout:</strong> Winner takes full pot minus 2% fee (fee to creator address to sustain future games).<br/>
+                  <strong>Verification:</strong> chess_v1 ZK circuit (legal moves, terminal conditions) + oracle attestation with lie detection.<br/>
+                  <strong>Non-custodial:</strong> All stakes and payouts direct to covenant addresses on Kaspa. Fully on-chain and verifiable.
+                </>
+              ) : (
+                covenant.full_logic_summary || covenant.description || 'All parameters, fees, resolution method, circuits, oracles, and payout rules are fully disclosed on-chain and in the published view.'
+              )}
+            </div>
           </div>
 
           {/* Details grid */}
@@ -909,7 +963,7 @@ export default function CovenantInteractive() {
                 <div>
                   <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2 flex items-center gap-2"><Eye size={14}/> Live preview of what regular users will see</div>
                   <div className="rounded-3xl overflow-hidden border border-white/10 bg-black">
-                    <iframe srcDoc={buildTransparentCustomUI(covenant, { ...config, titleOverride: config.titleOverride || (isChess ? '10min Chess Arena' : undefined) })} className="w-full h-[420px] bg-[#050507]" sandbox="allow-scripts" title="Fix preview" />
+                    <iframe srcDoc={buildTransparentCustomUI(covenant, { ...config, titleOverride: config.titleOverride || (isChess ? '10min Chess Arena' : undefined), publicAbout: config.publicAbout, publicRules: config.publicRules, publicHowTo: config.publicHowTo })} className="w-full h-[420px] bg-[#050507]" sandbox="allow-scripts" title="Fix preview" />
                   </div>
                 </div>
               </div>

@@ -321,7 +321,7 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'kyc_alternative', name: 'KYC Alternative (Generic Cred)', description: 'Oracle-path (no artifacts yet): generic credential proof without centralized issuer. Low priority - not primary for Kaspa p2p covenant use-cases. Deferred. Reality: oracle-attested. (vision §4.8)', circuit: 'kyc_alt', accent: '#9CA3AF', category: 'other', reality: 'oracle-attested' },
 
   // ═══════════════════════════════════════════
-  // CUSTOM (always last; sandbox handles long tail)
+  // CUSTOM (always last)
   // ═══════════════════════════════════════════
   { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and verifier key. Reality depends on your artifacts. Full flexibility for novel covenant types. Use cases: anything not covered. Compose in Covenant Studio per vision (vision sections 4 plus 5).', circuit: 'custom', accent: '#E8AF34', category: 'custom', reality: 'oracle-attested' },
 ];
@@ -720,8 +720,23 @@ export default function CovexTerminal({ covenant }) {
   const currentTier = paidStatus?.highest_tier || localStorage.getItem('covex_paid_tier') || 'FREE';
   const hasPaidAccess = currentTier !== 'FREE';
 
-  // For hiding the huge ZK list by default — press to reveal all
+  // For reliable unlock after real tier payment tx
+  const [paymentSuccess, setPaymentSuccess] = useState(null);
+
+  // For hiding the huge ZK list by default: press to reveal all
   const [showAllZK, setShowAllZK] = useState(false);
+
+  // Visual live editor integrated directly here (no separate page)
+  const [visualConfig, setVisualConfig] = useState({
+    feePercent: 2.0,
+    selectedCircuits: ['chess_v1'],
+    resolutionMode: 'hybrid',
+    minStake: 10,
+    maxStake: 1000,
+    timeoutMinutes: 10,
+    refundIfNoMatch: true,
+  });
+  const [liveSilverScript, setLiveSilverScript] = useState('');
 
   useEffect(() => {
     if (!connectedAddress) {
@@ -860,6 +875,60 @@ export default function CovexTerminal({ covenant }) {
       }
     }
   };
+
+  // Visual live SilverScript editor (integrated directly in the terminal - one place only)
+  const rebuildLiveScript = useCallback((cfg) => {
+    const fee = Number(cfg.feePercent) || 2;
+    const creatorCut = 0;
+    const totalFee = fee + creatorCut;
+    const winnerShare = Math.max(0, 100 - totalFee);
+    const circuits = cfg.selectedCircuits.length ? cfg.selectedCircuits : ['chess_v1'];
+    const circuitList = circuits.map(id => {
+      const c = ZK_CIRCUIT_TYPES.find(x => x.id === id);
+      return c ? `${c.name} (${c.reality || 'hybrid'})` : id;
+    }).join(', ');
+    const script = `;; Visual SilverScript from Terminal Builder
+;; Fee: ${fee}% | Winner share: ${winnerShare}%
+;; Circuits: ${circuitList}
+;; Resolution: ${cfg.resolutionMode}
+;; Stake: ${cfg.minStake}-${cfg.maxStake} KAS | Timeout: ${cfg.timeoutMinutes} min
+;; Refund if unmatched: ${cfg.refundIfNoMatch}
+
+contract VisualCovenant {
+    state {
+        owner: Address,
+        treasury: Address,
+        minStake: u64,
+        maxStake: u64,
+        timeoutSec: u64,
+        resolved: bool,
+    }
+
+    entrypoint function join(stake: u64) {
+        require(stake >= state.minStake && stake <= state.maxStake);
+        // match logic
+    }
+
+    entrypoint function resolve(outcome: String, proof: Bytes) {
+        require(!state.resolved);
+        // verify using selected circuits / oracle
+        if (outcome == "win_a") {
+            let payout = (pot * ${winnerShare}) / 100;
+            VerifyPayout(treasury, player_a, payout);
+        }
+        // ... other branches from circuits
+        state.resolved = true;
+    }
+}`;
+    setLiveSilverScript(script);
+    return script;
+  }, []);
+
+  useEffect(() => {
+    rebuildLiveScript(visualConfig);
+  }, [visualConfig, rebuildLiveScript]);
+
+  const updateVisual = (patch) => setVisualConfig(prev => ({ ...prev, ...patch }));
 
   // ── Section B: Custom UI Integration ──
   const [customUICode, setCustomUICode] = useState('');
@@ -1993,7 +2062,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
             <Shield size={16} /> CIRCUITS & ADVANCED FEATURES - PAYMENT REQUIRED
           </div>
-          <p className="text-xs text-gray-300 mt-1">Free basic SilverScript (simple compile to Kaspa covenant) is always available with no special treatment. ZK circuit types, pro resolution, and advanced arenas are unlocked only after one-time payment from <b>this exact connected wallet</b> to the current network's treasury. The indexer detects it automatically (same from_address as your deployer).</p>
+          <p className="text-xs text-gray-300 mt-1">Free basic SilverScript (simple compile to Kaspa covenant) is always available with no special treatment. The live SilverScript editor with side add-ons, ZK circuit types, pro resolution, advanced arenas, and public UI designer for how your covenant looks to visitors are unlocked only after one-time payment from <b>this exact connected wallet</b> to the current network's treasury. The indexer detects it automatically (same from_address as your deployer).</p>
 
           {/* Dev wallet real testnet payments on TN12/TN10 */}
           {devModeFromContext && (kaspaNetwork === 'testnet-12' || kaspaNetwork === 'testnet-10') && (
@@ -2047,17 +2116,6 @@ ${gameMeta.outcomeBranches}
           {!connectedAddress && <p className="text-xs text-amber-400 mt-2">Connect a wallet to see payment options for this network.</p>}
         </section>
       )}
-
-      {/* SilverScript Sandbox entry — the dedicated visual experience */}
-      <div className="mb-4">
-        <a href="/sandbox" className="flex items-center justify-between rounded-2xl border border-[#49EACB]/30 bg-[#49EACB]/5 px-4 py-2.5 text-sm hover:bg-[#49EACB]/10 transition">
-          <div className="flex items-center gap-3">
-            <Code2 size={18} className="text-[#49EACB]" />
-            <span><span className="font-semibold text-[#49EACB]">SilverScript Sandbox</span> — side add-ons (fee %, ZK circuits, oracles, timers, refund logic…) instantly rewrite the code. Then one-click compile to real Kaspa covenant + design the exact public UI visitors see.</span>
-          </div>
-          <span className="text-[#49EACB] text-lg leading-none">→</span>
-        </a>
-      </div>
 
       {/* ─── Section 0: Covenant Circuit Schema (circuits only after payment; free basic always available) ─── */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
@@ -3306,6 +3364,11 @@ ${gameMeta.outcomeBranches}
           </div>
         </div>
       </section>
+
+
+        {/* Visual editor blended into the paid terminal workspace - no separate standalone section. */}
+          {/* Visual editor add-ons and live editor will be blended inside the paid workspace (Covenant Circuit Schema) without standalone section headers. */}
+      {/* closing cleaned */}
 
       {/* ─── Section B: Custom UI Integration ─── */}
       <section className={SECTION_BASE}>

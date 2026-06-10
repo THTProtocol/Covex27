@@ -93,15 +93,15 @@ export default function PremiumBuilder() {
 
   const activeCircuit = ZK_CIRCUIT_TYPES.find(c => c.id === selectedCircuitId) || ZK_CIRCUIT_TYPES[0];
 
-  // === SANDBOX: Create Custom Circuit (paid users compose real Kaspa covenant logic) ===
-  const [sandboxBases, setSandboxBases] = useState(['merkle_membership', 'range_proof']);
+  // === Custom Circuit Composition (paid users compose real Kaspa covenant logic) ===
+  const [customBases, setCustomBases] = useState(['merkle_membership', 'range_proof']);
   const [customCircuitName, setCustomCircuitName] = useState('My DAO Collateral Arena');
   const [customDesc, setCustomDesc] = useState('Players prove collateral range + merkle membership. Real per-turn timer. VRF + oracle hybrid resolution.');
   const [params, setParams] = useState({ players: 4, turnTimerSec: 60, collateralMin: 10, resolution: 'hybrid', winnerPct: 92, treasuryPct: 3 });
-  const [sandboxTheme, setSandboxTheme] = useState('#22C55E');
+  const [customTheme, setCustomTheme] = useState('#22C55E');
 
-  const addBase = (id) => { if (!sandboxBases.includes(id)) setSandboxBases([...sandboxBases, id]); };
-  const removeBase = (id) => setSandboxBases(sandboxBases.filter(b => b !== id));
+  const addBase = (id) => { if (!customBases.includes(id)) setCustomBases([...customBases, id]); };
+  const removeBase = (id) => setCustomBases(customBases.filter(b => b !== id));
 
   // === FULL COVENANT DESIGN (name it, make it look however you want, disclose everything) ===
   const [covenantName, setCovenantName] = useState('Kaspa Chess Club - Season 3');
@@ -118,12 +118,12 @@ export default function PremiumBuilder() {
 
   // Live preview data
   const previewName = covenantName || customCircuitName;
-  const previewAccent = themeAccent || sandboxTheme;
+  const previewAccent = themeAccent || customTheme;
 
   // Generate rich covenant definition (used for display + future deploy payload)
   const generateCovenantDef = useCallback(() => {
-    const isSandbox = sandboxBases.length > 0;
-    const circuit = isSandbox ? { custom: true, bases: sandboxBases, params } : { id: activeCircuit.id, name: activeCircuit.name, circuit: activeCircuit.circuit };
+    const isCustomCircuit = customBases.length > 0;
+    const circuit = isCustomCircuit ? { custom: true, bases: customBases, params } : { id: activeCircuit.id, name: activeCircuit.name, circuit: activeCircuit.circuit };
     return {
       name: previewName,
       description: covenantDesc || customDesc,
@@ -136,7 +136,7 @@ export default function PremiumBuilder() {
       paidWithToken: auth.token, // proof it was paid
       requiresDeploymentCredit: true
     };
-  }, [previewName, covenantDesc, customDesc, net, activeCircuit, sandboxBases, params, previewAccent, lookPreset, disclosedWallets, auth.token]);
+  }, [previewName, covenantDesc, customDesc, net, activeCircuit, customBases, params, previewAccent, lookPreset, disclosedWallets, auth.token]);
 
   const [generatedDef, setGeneratedDef] = useState(null);
   const [deploying, setDeploying] = useState(false);
@@ -214,7 +214,7 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
           theme: def.theme,
           disclosedWallets: def.disclosedWallets,
           resolution: def.resolution,
-          sandboxBases,
+          customBases,
           params,
           lookPreset,
         },
@@ -350,7 +350,7 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <Award className="mx-auto mb-4" size={48} />
         <h1 className="text-3xl font-black mb-3">Paid Covenant Studio</h1>
-        <p className="text-gray-400 mb-6">Server-verified payment required. Only the wallet that paid can create personalized covenants with full customization, sandbox circuits, and top visibility.</p>
+        <p className="text-gray-400 mb-6">Server-verified payment required. Only the wallet that paid can create personalized covenants with full customization, advanced circuits, and top visibility.</p>
         <button onClick={() => navigate('/pricing')} className="px-8 py-3 rounded-xl bg-white text-black font-semibold">Go to Pricing & Pay</button>
       </div>
     );
@@ -395,7 +395,7 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
         <div className="text-[10px] text-gray-500 mt-2">Paid covenants created here appear with priority + badge in Explorer and Terminal. Transparency is permanent.</div>
       </div>
 
-      {/* LIBRARY - wide selection (hundreds via variants + sandbox) */}
+      {/* LIBRARY - wide selection (hundreds via variants) */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-sm text-gray-300"><Cpu size={15} /> Circuit Library (77+ entries, 6 resolution modes - hundreds of combinations)</div>
@@ -432,9 +432,9 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
         <div className="text-[10px] text-gray-500 mt-2">KYC/identity circuits de-prioritized (only 2 in "other"). Focus: real Kaspa covenant needs - games with timers, ownership/script/timelock proofs, DAO/collateral, verifiable compute.</div>
       </section>
 
-      {/* SANDBOX - the killer feature for "best possible interactive covenant" */}
+      {/* Custom Circuit Composition - design the best possible interactive covenant */}
       <section className="mb-10 rounded-3xl border border-white/10 bg-black/50 p-6">
-        <div className="flex items-center gap-2 mb-4"><Sparkles size={16} className="text-amber-400" /><div className="uppercase text-xs tracking-[2px] text-amber-400 font-mono">Sandbox - Compose Your Own Circuit (paid only)</div></div>
+        <div className="flex items-center gap-2 mb-4"><Sparkles size={16} className="text-amber-400" /><div className="uppercase text-xs tracking-[2px] text-amber-400 font-mono">Compose Your Own Circuit (paid only)</div></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Bases */}
@@ -446,7 +446,7 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              {sandboxBases.map(b => <span key={b} onClick={() => removeBase(b)} className="cursor-pointer text-xs bg-white/10 px-2 py-0.5 rounded flex items-center gap-1">{b} <span className="text-red-400">×</span></span>)}
+              {customBases.map(b => <span key={b} onClick={() => removeBase(b)} className="cursor-pointer text-xs bg-white/10 px-2 py-0.5 rounded flex items-center gap-1">{b} <span className="text-red-400">×</span></span>)}
             </div>
           </div>
 
@@ -544,7 +544,7 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
         </div>
       )}
 
-      <div className="mt-10 text-[10px] text-gray-500">Free basic SilverScript creation is always available with no special treatment in Deploy / CreateCovenant. All advanced circuits, sandbox, customization, and top visibility require server-verified same-wallet payment.</div>
+      <div className="mt-10 text-[10px] text-gray-500">Free basic SilverScript creation is always available with no special treatment in Deploy / CreateCovenant. All advanced circuits, customization, and top visibility require server-verified same-wallet payment.</div>
     </div>
   );
 }

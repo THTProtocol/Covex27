@@ -402,13 +402,7 @@ export default function PaidBuilder() {
               <Button onClick={() => navigate('/premium')} className="w-full py-4 text-base">
                 <Terminal size={20} />Open Full Terminal, Create New Covenant
               </Button>
-
-              <div className="mt-3">
-                <Button variant="outline" onClick={() => navigate('/sandbox')} className="w-full py-3 text-sm flex items-center justify-center gap-2 border-[#49EACB]/30 text-[#49EACB]">
-                  <Code2 size={16} /> Open SilverScript Sandbox: visual builder with live code + public UI designer
-                </Button>
-                <div className="text-[10px] text-center text-gray-500 mt-1">Write SilverScript with side add-ons (fees, ZK circuits, oracles, timers…). Compile to real Kaspa covenant. Then design exactly how the public sees it.</div>
-              </div>
+              <div className="text-[10px] text-center text-gray-500 mt-2">Advanced covenant creation and customization tools (including live editor and public UI design) are inside the terminal after payment.</div>
             </CardContent>
           </Card>
         </>

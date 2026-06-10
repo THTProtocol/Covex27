@@ -469,7 +469,7 @@ pub fn insert_payment(
     let conn = db.lock().unwrap();
     let amount = amount_sompi as f64 / 100_000_000.0;
     conn.execute(
-        "INSERT OR REPLACE INTO payments (tx_id, from_address, to_address, amount_sompi, amount_kaspa, tier, status, covenant_id, network, timestamp)
+        "INSERT OR IGNORE INTO payments (tx_id, from_address, to_address, amount_sompi, amount_kaspa, tier, status, covenant_id, network, timestamp)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, unixepoch())",
         params![tx_id, from_addr, to_addr, amount_sompi, amount, tier, covenant_id, network],
     )?;
@@ -491,12 +491,28 @@ pub fn confirm_payment(
 
 /// Returns the highest tier this address has ever successfully paid for (by amount),
 /// filtered to a specific network so TN10 payments don't leak into TN12 and vice versa.
+/// Checks the accounts table (directly credited by signer on broadcast) first,
+/// then falls back to the payments table for externally-detected payments.
 pub fn get_highest_paid_tier_for_address(
     db: &Mutex<Connection>,
     address: &str,
     network: &str,
 ) -> anyhow::Result<Option<String>> {
     let conn = db.lock().unwrap();
+    // Check accounts table first (signer credits this immediately on broadcast)
+    let account_tier: Option<String> = conn
+        .query_row(
+            "SELECT tier FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
+            params![address, network],
+            |r| r.get(0),
+        )
+        .ok();
+    if let Some(ref tier) = account_tier {
+        if tier != "FREE" {
+            return Ok(account_tier);
+        }
+    }
+    // Fall back to payments table
     let mut stmt = conn.prepare(
         "SELECT tier FROM payments 
          WHERE from_address = ?1 AND status = 'confirmed' AND network = ?2

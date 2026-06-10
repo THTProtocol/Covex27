@@ -519,6 +519,9 @@ pub async fn sign_and_broadcast_handler(
                 tx_id_str, tier, tier_fee
             );
 
+            let deployer_str = payload.deployer_addr.clone();
+            let tier_str = tier.unwrap_or("FREE");
+
             // ── IMMEDIATE PAYER CREDIT: The signer knows exactly who paid.
             // The payment verifier reads treasury UTXOs but entry.address is the treasury
             // itself (UTXO owner), not the sender. So credit the payer directly here:
@@ -553,13 +556,11 @@ pub async fn sign_and_broadcast_handler(
             }
 
             // ── IMMEDIATE DB WRITE: save covenant so user sees it right away ──
-            let deployer_str = payload.deployer_addr.clone();
             // Capture the actual hex payload for DB storage (compiled or raw)
             let script_hex_for_db: String = covenant_payload
                 .iter()
                 .map(|b| format!("{:02x}", b))
                 .collect();
-            let tier_str = tier.unwrap_or("FREE");
             let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 {
                 tier_str
             } else {

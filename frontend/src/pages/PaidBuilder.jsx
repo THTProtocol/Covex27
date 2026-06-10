@@ -155,7 +155,7 @@ export default function PaidBuilder() {
 
   useEffect(() => { if (address) fetchMyCovenants(); }, [address, fetchMyCovenants]);
 
-  // Loading state — if we have a broadcast marker on testnet, show awaiting + prominent force-unlock button
+  // Loading state: if we have a broadcast marker on testnet, show awaiting + prominent force-unlock button
   if (auth.loading) {
     const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
     const onTestnet = isTestnetNetwork(net);
@@ -188,7 +188,7 @@ export default function PaidBuilder() {
           <p className="text-[10px] text-gray-500 mt-3">Click if the page stays on this screen after your dev wallet broadcast a real tx.</p>
 
           {onTestnet && (
-            <div className="mt-4 text-xs text-emerald-400">Testnet detected — dev payments grant access immediately via the button above.</div>
+            <div className="mt-4 text-xs text-emerald-400">Testnet detected. Dev payments grant access immediately via the button above.</div>
           )}
         </div>
       );
@@ -201,7 +201,7 @@ export default function PaidBuilder() {
     );
   }
 
-  // Not paid according to server — but on testnet with marker we should have been granted by the effects above.
+  // Not paid according to server, but on testnet with marker we should have been granted by the effects above.
   // Still render a gate with a big force-unlock button so user is never stuck.
   if (!auth.token || auth.tier === 'FREE') {
     const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
@@ -225,7 +225,7 @@ export default function PaidBuilder() {
               size="lg"
               className="mx-auto flex items-center gap-2"
             >
-              <Unlock size={18} /> UNLOCK NOW — I just paid with dev wallet on testnet
+              <Unlock size={18} /> UNLOCK NOW: I just paid with dev wallet on testnet
             </Button>
             <p className="text-xs text-emerald-400 mt-2">Real tx was broadcast from your mnemonic private key. This bypasses server confirmation for TN12/TN10 dev.</p>
           </div>
@@ -405,7 +405,7 @@ export default function PaidBuilder() {
 
               <div className="mt-3">
                 <Button variant="outline" onClick={() => navigate('/sandbox')} className="w-full py-3 text-sm flex items-center justify-center gap-2 border-[#49EACB]/30 text-[#49EACB]">
-                  <Code2 size={16} /> Open SilverScript Sandbox — visual builder + live code + public UI designer
+                  <Code2 size={16} /> Open SilverScript Sandbox: visual builder with live code + public UI designer
                 </Button>
                 <div className="text-[10px] text-center text-gray-500 mt-1">Write SilverScript with side add-ons (fees, ZK circuits, oracles, timers…). Compile to real Kaspa covenant. Then design exactly how the public sees it.</div>
               </div>

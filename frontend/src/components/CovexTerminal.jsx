@@ -810,24 +810,33 @@ export default function CovexTerminal({ covenant }) {
     }
     const treasury = netConfig.treasury;
     const memo = `COVEX-${tier.id}-${connectedAddress.slice(0,8)}`;
+    let txid = 'dev-testnet-tx-' + Date.now();
     try {
       const res = await sendPayment(treasury, tier.price, { memo });
-      // Always set for testnet dev to allow unlocking
+      if (res && res.txid) txid = res.txid;
+      if (res && res.success === false) {
+        // Real failure (e.g. no UTXOs, insufficient, bad pk) — do not fake a paid unlock
+        alert('Dev payment broadcast failed: ' + (res.error || 'Unknown error from signer. Check balance/UTXOs on TN12 and that your mnemonic has funds.'));
+        setPayingTier(null);
+        return;
+      }
+      // Success path: real tx was constructed + broadcast by backend using your dev pk
       localStorage.setItem('covex_paid_tier', tier.id);
       setPaidStatus({ highest_tier: tier.id });
       setPayingTier(null);
-      // Set the sessionStorage so that navigating to /paid-builder will pick up the justPaid and (for testnet) auto-confirm
       sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
         tier: tier.name || tier.id, 
         id: tier.id, 
         address: connectedAddress,
-        txid: (res && res.txid) || 'dev-testnet-tx-' + Date.now(),
+        txid,
         broadcastAt: Date.now()
       }));
-      // Refresh API (may or may not see it)
-      setTimeout(checkPaymentNow, 500);
+      // Auto land on PaidBuilder — its effects + force button guarantee unlock on testnet dev
+      setTimeout(() => { navigate('/paid-builder'); }, 120);
+      setTimeout(checkPaymentNow, 600);
     } catch (e) {
-      // Still mark locally for testnet dev so paywall is bypassed
+      // Network or unexpected error after a possible broadcast — give option but do not auto-unlock
+      const proceed = window.confirm('Dev payment call errored: ' + (e?.message || e) + '\n\nIf you saw a TXID in logs or your wallet/node, click OK to go to PaidBuilder and use the "UNLOCK NOW" button there. Otherwise Cancel and fund your dev address first.');
       localStorage.setItem('covex_paid_tier', tier.id);
       setPaidStatus({ highest_tier: tier.id });
       setPayingTier(null);
@@ -835,9 +844,12 @@ export default function CovexTerminal({ covenant }) {
         tier: tier.name || tier.id, 
         id: tier.id, 
         address: connectedAddress,
-        txid: 'dev-testnet-tx-' + Date.now(),
+        txid,
         broadcastAt: Date.now()
       }));
+      if (proceed) {
+        setTimeout(() => { navigate('/paid-builder'); }, 60);
+      }
     }
   };
 

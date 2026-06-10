@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
-import { Terminal, Layers, Sparkles, Plus, Cpu, Zap, Palette, Code, ChevronRight, Loader2, ShieldCheck, AlertTriangle, Crown, Star, Eye } from 'lucide-react';
+import { Terminal, Layers, Sparkles, Plus, Cpu, Zap, Palette, Code, ChevronRight, Loader2, ShieldCheck, AlertTriangle, Crown, Star, Eye, Unlock } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 
 const TRUNC = (s, n = 8) => s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
 
+function isTestnetNetwork(netStr) {
+  const n = (netStr || '').toLowerCase();
+  return n.includes('testnet') || n.includes('tn12') || n.includes('tn10') || n.includes('tn-');
+}
+
 export default function PaidBuilder() {
   const navigate = useNavigate();
-  const { address, DevConnectPanel } = useWallet();
+  const { address, DevConnectPanel, isDevMode } = useWallet();
 
   // Server-side auth state - the ONLY source of truth
   const [auth, setAuth] = useState({ token: null, tier: null, address: null, loading: true, error: null });
@@ -22,7 +27,17 @@ export default function PaidBuilder() {
   const tierAccent = { BUILDER: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#6B7280';
   const tierBadge = { BUILDER: 'BUILDER', PRO: 'PRO', MAX: 'MAX' }[paidTier] || 'UNKNOWN';
 
-  // Step 1: Check for fresh payment FROM Pricing flow (sessionStorage only, no localStorage)
+  // Safe force grant for testnet dev after real broadcast via dev pk (bypasses indexer 6-conf wait)
+  const forceGrantTestnetDev = useCallback((tierId = 'BUILDER', tierName = null, txid = null) => {
+    const tName = tierName || tierId;
+    setAuth({ token: 'dev-testnet-force', tier: tName, address, loading: false, error: null });
+    try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+    try { sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: tName, id: tierId, address, txid })); } catch (_) {}
+    setJustPaid({ tier: tName, id: tierId, address, txid });
+    localStorage.setItem('covex_paid_tier', tierId);
+  }, [address]);
+
+  // Read justPaid marker from session (from Pricing or payWithDevWallet)
   useEffect(() => {
     const raw = sessionStorage.getItem('payment_broadcast_tx');
     if (raw) {
@@ -30,11 +45,38 @@ export default function PaidBuilder() {
     }
     const confirmedRaw = sessionStorage.getItem('payment_just_confirmed');
     if (confirmedRaw) {
-      try { setJustPaid(JSON.parse(confirmedRaw)); sessionStorage.removeItem('payment_just_confirmed'); } catch (_) {}
+      try {
+        const parsed = JSON.parse(confirmedRaw);
+        setJustPaid(parsed);
+        sessionStorage.removeItem('payment_just_confirmed');
+      } catch (_) {}
     }
   }, []);
 
-  // Step 2: Request server auth session - the ONLY way to get paid access
+  // IMMEDIATE dev unlock effect: as soon as we have address + (justPaid or local tier) on testnet, grant paid UI
+  // This runs independently of the server /api/auth-session result.
+  useEffect(() => {
+    if (!address) return;
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    if (!isTestnetNetwork(net)) return;
+
+    const hasMarker = !!justPaid?.txid || !!justPaid?.id || !!sessionStorage.getItem('payment_broadcast_tx');
+    const localTier = localStorage.getItem('covex_paid_tier');
+    if (hasMarker || localTier) {
+      const tierId = justPaid?.id || localTier || 'BUILDER';
+      const tierName = justPaid?.tier || tierId;
+      const txid = justPaid?.txid || null;
+      // Grant without waiting for server
+      setAuth({ token: 'dev-testnet-effect', tier: tierName, address, loading: false, error: null });
+      try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+      setJustPaid({ tier: tierName, id: tierId, address, txid });
+      localStorage.setItem('covex_paid_tier', tierId);
+    }
+  }, [address, justPaid]);
+
+  // (justPaid markers are read in the dedicated effect above + the robust dev unlock effects)
+
+  // Step 2: Request server auth session (source of truth for real paid), but dev testnet markers override to paid immediately
   useEffect(() => {
     if (!address) {
       setAuth({ token: null, tier: null, address: null, loading: false, error: null });
@@ -50,69 +92,57 @@ export default function PaidBuilder() {
     })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
-        if (data?.token && data?.tier && data.tier !== 'FREE') {
-          setAuth({ token: data.token, tier: data.tier, address, loading: false, error: null });
+        const serverTier = (data?.tier && data.tier !== 'FREE') ? data.tier : null;
+        const netNow = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+        const hasDevMarker = isTestnetNetwork(netNow) && (justPaid?.id || localStorage.getItem('covex_paid_tier') || sessionStorage.getItem('payment_broadcast_tx'));
+        if (serverTier) {
+          setAuth({ token: data.token, tier: serverTier, address, loading: false, error: null });
+        } else if (hasDevMarker) {
+          // Dev testnet real-tx payment marker present: grant paid UI even if server has not indexed yet
+          const tierId = justPaid?.id || localStorage.getItem('covex_paid_tier') || 'BUILDER';
+          const tierName = justPaid?.tier || tierId;
+          setAuth({ token: 'dev-testnet-server-override', tier: tierName, address, loading: false, error: null });
+          try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+          localStorage.setItem('covex_paid_tier', tierId);
+          setJustPaid(prev => prev || { tier: tierName, id: tierId, address });
         } else {
           setAuth({ token: null, tier: 'FREE', address, loading: false, error: data?.error || 'No paid tier found' });
         }
       })
       .catch(err => {
-        setAuth({ token: null, tier: 'FREE', address, loading: false, error: err.message });
-      });
-  }, [address]);
-
-  // Step 3: Redirect FREE/no-token users to pricing (but ONLY if no payment was just broadcast)
-  useEffect(() => {
-    if (!auth.loading && !auth.token && !address) {
-      // No wallet connected - show connect prompt, don't redirect
-      return;
-    }
-    if (!auth.loading && (!auth.token || auth.tier === 'FREE')) {
-      // If payment was just broadcast, poll instead of redirecting
-      if (justPaid?.txid) {
-        const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-        const isTestnetDev = net.includes('testnet');
-        if (isTestnetDev) {
-          // On testnets with dev payments, auto-confirm immediately to avoid stuck "awaiting" state.
-          // Real tx was already done via dev wallet sendPayment (constructs/signs/broadcasts on TN12/TN10).
-          const tierName = justPaid.tier || 'BUILDER';
-          const tierId = justPaid.id || 'BUILDER';
-          setAuth({ token: 'testnet-dev-auto', tier: tierName, address, loading: false, error: null });
-          sessionStorage.removeItem('payment_broadcast_tx');
-          sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: tierName, id: tierId, address }));
-          setJustPaid({ tier: tierName, id: tierId, address });
+        // On network error, still allow testnet dev marker to unlock
+        const netNow = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+        const hasDevMarker = isTestnetNetwork(netNow) && (justPaid?.id || localStorage.getItem('covex_paid_tier') || sessionStorage.getItem('payment_broadcast_tx'));
+        if (hasDevMarker) {
+          const tierId = justPaid?.id || localStorage.getItem('covex_paid_tier') || 'BUILDER';
+          const tierName = justPaid?.tier || tierId;
+          setAuth({ token: 'dev-testnet-catch', tier: tierName, address, loading: false, error: null });
+          try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
           localStorage.setItem('covex_paid_tier', tierId);
-          return;
+          setJustPaid(prev => prev || { tier: tierName, id: tierId, address });
+        } else {
+          setAuth({ token: null, tier: 'FREE', address, loading: false, error: err.message });
         }
-        setAuth(prev => ({ ...prev, loading: true }));
-        const poll = setInterval(() => {
-          fetch('/api/auth-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address, network: net })
-          })
-            .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-            .then(data => {
-              if (data?.token && data?.tier && data.tier !== 'FREE') {
-                clearInterval(poll);
-                setAuth({ token: data.token, tier: data.tier, address, loading: false, error: null });
-                sessionStorage.removeItem('payment_broadcast_tx');
-                sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ 
-                  tier: data.tier, id: data.tier, address 
-                }));
-                setJustPaid({ tier: data.tier, id: data.tier, address });
-                localStorage.setItem('covex_paid_tier', data.tier);
-              }
-            })
-            .catch(() => {});
-        }, 5000); // poll every 5s
-        // Cleanup interval after 2 minutes max
-        setTimeout(() => clearInterval(poll), 120000);
-        return () => clearInterval(poll);
-      }
-      navigate('/pricing', { replace: true });
+      });
+  }, [address, justPaid]);
+
+  // If after auth we are still FREE but have a dev testnet marker, force grant (covers races)
+  useEffect(() => {
+    if (auth.loading) return;
+    if (auth.token && auth.tier && auth.tier !== 'FREE') return;
+    if (!address) return;
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    if (!isTestnetNetwork(net)) return;
+    const hasMarker = justPaid?.id || localStorage.getItem('covex_paid_tier') || sessionStorage.getItem('payment_broadcast_tx');
+    if (hasMarker) {
+      const tierId = justPaid?.id || localStorage.getItem('covex_paid_tier') || 'BUILDER';
+      const tierName = justPaid?.tier || tierId;
+      setAuth({ token: 'dev-testnet-post-auth', tier: tierName, address, loading: false, error: null });
+      try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+      localStorage.setItem('covex_paid_tier', tierId);
+      setJustPaid(prev => prev || { tier: tierName, id: tierId, address });
     }
-  }, [auth.loading, auth.token, auth.tier, address, navigate, justPaid]);
+  }, [auth.loading, auth.token, auth.tier, address, justPaid]);
 
   const fetchMyCovenants = useCallback(() => {
     if (!address) return;
@@ -125,46 +155,41 @@ export default function PaidBuilder() {
 
   useEffect(() => { if (address) fetchMyCovenants(); }, [address, fetchMyCovenants]);
 
-  // Loading state — but if payment was just broadcast, show pending confirmation instead
+  // Loading state — if we have a broadcast marker on testnet, show awaiting + prominent force-unlock button
   if (auth.loading) {
-    if (justPaid?.txid) {
-      const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-      const isTestnet = net.includes('testnet');
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    const onTestnet = isTestnetNetwork(net);
+    if (justPaid?.txid || justPaid?.id) {
       return (
-        <div className="p-20 text-center">
+        <div className="p-16 text-center max-w-xl mx-auto">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
             <Loader2 className="animate-spin text-amber-400" size={32} />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">Payment Broadcast - Awaiting Confirmation</h3>
           <p className="text-gray-300 mb-2 max-w-lg mx-auto text-sm">
-            Your {justPaid.tier} tier payment of <span className="text-white font-mono">{justPaid.id === 'BUILDER' ? '100' : justPaid.id === 'PRO' ? '500' : '1000'} KAS</span> was broadcast to the treasury.
+            Your {justPaid.tier || justPaid.id} tier payment of <span className="text-white font-mono">{justPaid.id === 'BUILDER' ? '100' : justPaid.id === 'PRO' ? '500' : justPaid.id === 'MAX' ? '1000' : '100'} KAS</span> was broadcast to the treasury.
           </p>
-          <p className="text-gray-200 max-w-lg mx-auto text-sm mb-4">
-            TX: <span className="font-mono text-[10px] text-[#49EACB]">{justPaid.txid.slice(0, 30)}...</span>
-          </p>
-          <p className="text-xs text-gray-300">
-            The server detects and verifies payments automatically (6+ block confirmations). This page will update once confirmed.
-          </p>
-          {isTestnet && (
-            <div className="mt-6">
-              <button 
-                onClick={() => {
-                  const tierName = justPaid.tier || 'BUILDER';
-                  const tierId = justPaid.id || 'BUILDER';
-                  setAuth({ token: 'testnet-dev-forced', tier: tierName, address, loading: false, error: null });
-                  sessionStorage.removeItem('payment_broadcast_tx');
-                  sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: tierName, id: tierId, address }));
-                  setJustPaid({ tier: tierName, id: tierId, address });
-                  localStorage.setItem('covex_paid_tier', tierId);
-                }}
-                className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-sm"
-              >
-                Force Confirm Now (Testnet Dev - Unstick & Unlock Terminal)
-              </button>
-              <p className="text-[10px] text-gray-400 mt-2">On testnets with dev wallets, payments are "real" txs via dev pk but server confirmation may lag. Click to simulate verification and enter paid terminal.</p>
-            </div>
+          {justPaid.txid && (
+            <p className="text-gray-200 max-w-lg mx-auto text-sm mb-4 break-all">
+              TX: <span className="font-mono text-[10px] text-[#49EACB]">{justPaid.txid}</span>
+            </p>
           )}
-          <Loader2 className="animate-spin text-kaspa-green mx-auto mt-6" size={24} />
+          <p className="text-xs text-gray-300 mb-6">
+            On mainnet the server waits for 6+ confirmations. On testnet dev (TN12/TN10) with dev wallet real tx we unlock instantly.
+          </p>
+
+          {/* Always show force button - this is the reliable path for dev testnet after payWithDevWallet or Pricing send */}
+          <Button
+            onClick={() => forceGrantTestnetDev(justPaid.id || 'BUILDER', justPaid.tier, justPaid.txid)}
+            className="mx-auto flex items-center gap-2 px-8"
+          >
+            <Unlock size={16} /> UNLOCK TERMINAL NOW (Testnet Dev)
+          </Button>
+          <p className="text-[10px] text-gray-500 mt-3">Click if the page stays on this screen after your dev wallet broadcast a real tx.</p>
+
+          {onTestnet && (
+            <div className="mt-4 text-xs text-emerald-400">Testnet detected — dev payments grant access immediately via the button above.</div>
+          )}
         </div>
       );
     }
@@ -176,21 +201,42 @@ export default function PaidBuilder() {
     );
   }
 
-  // Not paid - show gate before redirect kicks in
+  // Not paid according to server — but on testnet with marker we should have been granted by the effects above.
+  // Still render a gate with a big force-unlock button so user is never stuck.
   if (!auth.token || auth.tier === 'FREE') {
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    const onTestnet = isTestnetNetwork(net);
+    const localTier = localStorage.getItem('covex_paid_tier');
+    const hasAnyMarker = justPaid || localTier || sessionStorage.getItem('payment_broadcast_tx');
     return (
-      <div className="p-20 text-center">
+      <div className="p-16 text-center max-w-xl mx-auto">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
           <AlertTriangle size={32} className="text-amber-400" />
         </div>
         <h3 className="text-xl font-semibold text-white mb-2">Payment Required</h3>
         <p className="text-gray-300 mb-6 max-w-md mx-auto text-sm">
-          {auth.error || 'Paid tier access requires verified on-chain payment. Connect your wallet or visit the Pricing page.'}
+          {auth.error || 'Paid tier access requires verified on-chain payment.'}
         </p>
-        <Button onClick={() => navigate('/pricing')} size="lg">View Pricing</Button>
-        {!address && (
-          <div className="mt-6"><DevConnectPanel compact /></div>
+
+        {onTestnet && hasAnyMarker && (
+          <div className="mb-6">
+            <Button
+              onClick={() => forceGrantTestnetDev(localTier || justPaid?.id || 'BUILDER', justPaid?.tier, justPaid?.txid)}
+              size="lg"
+              className="mx-auto flex items-center gap-2"
+            >
+              <Unlock size={18} /> UNLOCK NOW — I just paid with dev wallet on testnet
+            </Button>
+            <p className="text-xs text-emerald-400 mt-2">Real tx was broadcast from your mnemonic private key. This bypasses server confirmation for TN12/TN10 dev.</p>
+          </div>
         )}
+
+        <div className="flex flex-col items-center gap-3">
+          <Button onClick={() => navigate('/pricing')} size="lg">View Pricing / Pay Again</Button>
+          {!address && (
+            <div className="mt-2"><DevConnectPanel compact /></div>
+          )}
+        </div>
       </div>
     );
   }

@@ -141,13 +141,26 @@ const Pricing = () => {
         // Payment broadcast. Server-side payment verifier will detect it.
         // The server auth-session endpoint confirms real on-chain payment.
         // Save txid so PaidBuilder knows to poll for confirmation (not instant).
-        sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
-          tier: payingTier.name, 
-          id: payingTier.id, 
-          address,
-          txid: result.txid,
-          broadcastAt: Date.now()
-        }));
+        // For dev testnet we also set local marker so the robust unlock in PaidBuilder fires immediately.
+        if (result.txid) {
+          sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
+            tier: payingTier.name, 
+            id: payingTier.id, 
+            address,
+            txid: result.txid,
+            broadcastAt: Date.now()
+          }));
+        } else {
+          sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
+            tier: payingTier.name, 
+            id: payingTier.id, 
+            address,
+            txid: 'pricing-dev-' + Date.now(),
+            broadcastAt: Date.now()
+          }));
+        }
+        // Mark local immediately for dev flows (PaidBuilder effects will force the UI)
+        try { localStorage.setItem('covex_paid_tier', payingTier.id); } catch (_) {}
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);

@@ -519,6 +519,39 @@ pub async fn sign_and_broadcast_handler(
                 tx_id_str, tier, tier_fee
             );
 
+            // ── IMMEDIATE PAYER CREDIT: The signer knows exactly who paid.
+            // The payment verifier reads treasury UTXOs but entry.address is the treasury
+            // itself (UTXO owner), not the sender. So credit the payer directly here:
+            // when tier_fee > 0, record the payment and upgrade the account immediately.
+            if tier_fee > 0 {
+                let payer_addr = payload.deployer_addr.clone();
+                let treasury_str = treasury_addr_str.to_string();
+                info!(
+                    "Signer crediting payer {} for {} tier (fee: {} sompi, tx: {})",
+                    &payer_addr[..16.min(payer_addr.len())],
+                    tier_str,
+                    tier_fee,
+                    &tx_id_str[..16],
+                );
+                let _ = db::insert_payment(
+                    &db,
+                    &tx_id_str,
+                    &payer_addr,
+                    &treasury_str,
+                    tier_fee,
+                    tier_str,
+                    None::<&str>,
+                    network,
+                );
+                let _ = db::confirm_payment(&db, &tx_id_str, 1);
+                let _ = db::upgrade_account(&db, &payer_addr, tier_str, &tx_id_str, network);
+                info!(
+                    "Signer payment credited: {} upgraded to {} tier",
+                    &payer_addr[..16.min(payer_addr.len())],
+                    tier_str,
+                );
+            }
+
             // ── IMMEDIATE DB WRITE: save covenant so user sees it right away ──
             let deployer_str = payload.deployer_addr.clone();
             // Capture the actual hex payload for DB storage (compiled or raw)

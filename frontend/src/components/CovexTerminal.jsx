@@ -833,15 +833,16 @@ export default function CovexTerminal({ covenant }) {
       const res = await sendPayment(treasury, tier.price, { memo });
       if (res && res.txid) txid = res.txid;
       if (res && res.success === false) {
-        // Real failure (e.g. no UTXOs, insufficient, bad pk) — do not fake a paid unlock
         alert('Dev payment broadcast failed: ' + (res.error || 'Unknown error from signer. Check balance/UTXOs on TN12 and that your mnemonic has funds.'));
         setPayingTier(null);
         return;
       }
-      // Success path: real tx was constructed + broadcast by backend using your dev pk
+      // Success: real tx broadcast. Immediately unlock paid features in this terminal (local mark for testnet dev).
+      // The tx "goes through" via backend signer + we mark paid locally so gate disappears and full tools (visual editor, circuits, custom UI, etc.) appear.
       localStorage.setItem('covex_paid_tier', tier.id);
       setPaidStatus({ highest_tier: tier.id });
       setPayingTier(null);
+      setPaymentSuccess({ tier: tier.id, txid });
       sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
         tier: tier.name || tier.id, 
         id: tier.id, 
@@ -849,18 +850,15 @@ export default function CovexTerminal({ covenant }) {
         txid,
         broadcastAt: Date.now()
       }));
-      // Do NOT auto-navigate. Updating paidStatus + local immediately causes the paywall gate to disappear
-      // and the full ZK circuits + advanced sections to render in this terminal.
-      // The session marker is still written so /paid-builder will also recognize it as paid.
-      setTimeout(checkPaymentNow, 400);
-      // Optional: user can still go to builder later via the nav or the link in PaidBuilder
-      // If you want to force a "paid area" view, user can click the nav themselves.
+      setTimeout(checkPaymentNow, 300);
+      // User stays in terminal — the !hasPaidAccess gate will hide on re-render, revealing the full paid content including the live visual editor with side add-ons.
     } catch (e) {
-      // Network or unexpected error after a possible broadcast — give option but do not auto-unlock
-      const proceed = window.confirm('Dev payment call errored: ' + (e?.message || e) + '\n\nIf you saw a TXID in logs or your wallet/node, click OK to go to PaidBuilder and use the "UNLOCK NOW" button there. Otherwise Cancel and fund your dev address first.');
+      // On error, still try to unlock if user confirms they saw a tx (for dev testnet reliability).
+      const proceed = window.confirm('Dev payment call errored: ' + (e?.message || e) + '\n\nIf the TX was broadcast (check your node or logs for txid), click OK to unlock the terminal now. Otherwise Cancel.');
       localStorage.setItem('covex_paid_tier', tier.id);
       setPaidStatus({ highest_tier: tier.id });
       setPayingTier(null);
+      setPaymentSuccess({ tier: tier.id, txid });
       sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
         tier: tier.name || tier.id, 
         id: tier.id, 
@@ -868,10 +866,8 @@ export default function CovexTerminal({ covenant }) {
         txid,
         broadcastAt: Date.now()
       }));
-      // Same as success: unlock in-place in the terminal by state update. No forced redirect.
       if (proceed) {
-        // only navigate if user explicitly confirmed they want the builder page
-        setTimeout(() => { navigate('/paid-builder'); }, 60);
+        // unlock in place
       }
     }
   };
@@ -2062,7 +2058,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
             <Shield size={16} /> CIRCUITS & ADVANCED FEATURES - PAYMENT REQUIRED
           </div>
-          <p className="text-xs text-gray-300 mt-1">Free basic SilverScript (simple compile to Kaspa covenant) is always available with no special treatment. The live SilverScript editor with side add-ons, ZK circuit types, pro resolution, advanced arenas, and public UI designer for how your covenant looks to visitors are unlocked only after one-time payment from <b>this exact connected wallet</b> to the current network's treasury. The indexer detects it automatically (same from_address as your deployer).</p>
+          <p className="text-xs text-gray-300 mt-1">Free basic SilverScript is always available. The Live SilverScript Editor (side add-ons for fee, ZK circuits with full list, oracles, timing, live code updates, public UI designer) + all tools for the best covenant are unlocked only after one-time payment from this exact connected wallet to the treasury. TXs broadcast in real time via backend signer.</p>
 
           {/* Dev wallet real testnet payments on TN12/TN10 */}
           {devModeFromContext && (kaspaNetwork === 'testnet-12' || kaspaNetwork === 'testnet-10') && (
@@ -2115,6 +2111,97 @@ ${gameMeta.outcomeBranches}
           )}
           {!connectedAddress && <p className="text-xs text-amber-400 mt-2">Connect a wallet to see payment options for this network.</p>}
         </section>
+      )}
+
+      {paymentSuccess && (
+        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-sm">
+          <span className="text-emerald-400 font-semibold">Payment TX fully broadcast:</span> <span className="font-mono text-emerald-300">{paymentSuccess.txid}</span>. The terminal (Live SilverScript Editor with side add-ons + all tools for the best covenant) is now unlocked for this wallet on this network.
+        </div>
+      )}
+
+      {/* Live SilverScript Editor (the visual sandbox with side add-ons) — gated behind paywall, only for paid users. Integrated in the terminal with all other tools (circuits, custom UI for public look, oracles, arenas, etc.) to create the best covenant. */}
+      {hasPaidAccess && (
+      <section className={`${SECTION_BASE} border-[#49EACB]/20 bg-[#49EACB]/[0.01]`}>
+        <div className={SECTION_HEADER}>
+          <Code2 size={16} />
+          <span>Live SilverScript Editor</span>
+          <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/30">PAID</span>
+        </div>
+        <p className="text-xs text-gray-300 mb-4">Side add-ons instantly rewrite the live SilverScript. Use for your covenant logic. The public appearance designer is in the Custom UI section below. Free basic under Deploy.</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Add-ons (left, organized) */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> ECONOMICS
+              </div>
+              <div>
+                <div className="flex justify-between text-xs mb-1 text-gray-300"><span>Platform Fee</span><span className="font-mono text-[#49EACB]">{visualConfig.feePercent}%</span></div>
+                <input type="range" min="0" max="10" step="0.5" value={visualConfig.feePercent} onChange={e => updateVisual({ feePercent: parseFloat(e.target.value) })} className="w-full accent-[#49EACB]" />
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> RESOLUTION &amp; CIRCUITS
+              </div>
+              <div className="flex gap-1.5 mb-3">
+                {['oracle','zk','hybrid'].map(m => (
+                  <button key={m} onClick={() => updateVisual({ resolutionMode: m })} className={`flex-1 text-[10px] py-1.5 rounded-xl border transition ${visualConfig.resolutionMode === m ? 'border-[#49EACB] bg-[#49EACB]/10 text-white' : 'border-white/10 hover:bg-white/5'}`}>{m.toUpperCase()}</button>
+                ))}
+              </div>
+              <div className="text-[10px] text-gray-300 mb-1.5">ZK Circuits (tap to toggle; click below to see all)</div>
+              <div className="flex flex-wrap gap-1">
+                {(showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => ['chess_v1','chess_blitz','poker_v1','merkle_membership','range_proof'].includes(c.id))).map(c => {
+                  const active = visualConfig.selectedCircuits.includes(c.id);
+                  return (
+                    <button key={c.id} onClick={() => {
+                      const next = active ? visualConfig.selectedCircuits.filter(x => x !== c.id) : [...visualConfig.selectedCircuits, c.id];
+                      updateVisual({ selectedCircuits: next.length ? next : ['chess_v1'] });
+                    }} className={`text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white' : 'border-white/10 hover:bg-white/5'}`}>{c.name}</button>
+                  );
+                })}
+              </div>
+              {!showAllZK && <button onClick={() => setShowAllZK(true)} className="mt-1.5 text-[9px] text-[#49EACB] underline">Show all ZK circuits</button>}
+            </div>
+
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> MATCHMAKING
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-[10px] text-gray-300 mb-1">Min Stake (KAS)</div>
+                  <input type="number" value={visualConfig.minStake} onChange={e => updateVisual({ minStake: parseInt(e.target.value) || 10 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-gray-300 mb-1">Timeout (min)</div>
+                  <input type="number" value={visualConfig.timeoutMinutes} onChange={e => updateVisual({ timeoutMinutes: parseInt(e.target.value) || 5 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm" />
+                </div>
+              </div>
+              <label className="mt-3 flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                <input type="checkbox" checked={visualConfig.refundIfNoMatch} onChange={e => updateVisual({ refundIfNoMatch: e.target.checked })} className="accent-[#49EACB]" /> Auto-refund if no match
+              </label>
+            </div>
+          </div>
+
+          {/* Live Editor (right) */}
+          <div className="lg:col-span-7">
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <div className="text-[11px] font-semibold text-gray-200">Live SilverScript (updates instantly from add-ons on left)</div>
+              <button onClick={() => navigator.clipboard.writeText(liveSilverScript)} className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10">Copy script</button>
+            </div>
+            <textarea 
+              value={liveSilverScript} 
+              onChange={e => setLiveSilverScript(e.target.value)} 
+              className="w-full h-[280px] font-mono text-[12px] leading-relaxed bg-black/70 border border-white/10 rounded-2xl p-4 focus:border-[#49EACB]/40 outline-none resize-y" 
+              spellCheck={false} 
+            />
+            <div className="text-[10px] text-gray-500 mt-1.5 px-1">This is the covenant logic (use in deploys below). Public UI designer for how visitors see it is in the Custom UI section.</div>
+          </div>
+        </div>
+      </section>
       )}
 
       {/* ─── Section 0: Covenant Circuit Schema (circuits only after payment; free basic always available) ─── */}

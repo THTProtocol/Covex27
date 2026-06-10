@@ -6,7 +6,9 @@
     "merkle_membership",
     "range_proof",
     "timelock_absolute",
-    "hash_preimage"
+    "hash_preimage",
+    "age_verification",
+    "escrow_2party"
   ],
   "new_phase1_kaspa_artifacts": [
     "basic_utxo_ownership",
@@ -46,6 +48,22 @@
       "artifacts": true,
       "script": "verify_range.js",
       "note": "64-bit range + collateral variant."
+    },
+    {
+      "id": "age_verification",
+      "category": "crypto",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify_age_verification.js",
+      "note": "MiMC birth-year commitment + min_age check (KYC-free qualification)."
+    },
+    {
+      "id": "escrow_2party",
+      "category": "defi",
+      "reality": "full-zk",
+      "artifacts": true,
+      "script": "verify_escrow_2party.js",
+      "note": "2-party escrow timeout refund vs claim paths on DAA timelock."
     },
     {
       "id": "basic_utxo_ownership",

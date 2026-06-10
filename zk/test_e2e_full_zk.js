@@ -13,6 +13,8 @@ const BASE_URL = process.env.BASE_URL || "";
 const CASES = [
   { name: "merkle_membership", proof: "merkle_proof.json", verify: "node verify.js merkle_proof.json", circuit_type: "merkle_membership", optional: true }, // legacy; current proof is negative test case (valid:false); core functionality covered by other passes + oracle hybrid
   { name: "range_proof", proof: "range_proof/range_proof_proof.json", verify: "node verify_range.js range_proof/range_proof_proof.json", circuit_type: "range_proof", optional: true },
+  { name: "age_verification", proof: "age_verification_proof.json", verify: "node verify_age_verification.js age_verification_proof.json", circuit_type: "age_verification" },
+  { name: "escrow_2party", proof: "escrow_2party_proof.json", verify: "node verify_escrow_2party.js escrow_2party_proof.json", circuit_type: "escrow_2party" },
   { name: "hash_preimage", proof: "hash_preimage/hash_preimage_proof.json", verify: "node verify_hash_preimage.js hash_preimage/hash_preimage_proof.json", circuit_type: "hash_preimage" },
   { name: "timelock_absolute", proof: "timelock/timelock_proof.json", verify: "node verify_timelock.js timelock/timelock_proof.json", circuit_type: "timelock_absolute" },
   { name: "tictactoe_v1", proof: "games/tictactoe/output/proofs/tt_move_4.json", verify: "node verify_tictactoe.js games/tictactoe/output/proofs/tt_move_4.json", circuit_type: "tictactoe_v1" },
@@ -25,7 +27,7 @@ const CASES = [
   { name: "vrf_random", proof: "vrf/vrf_random_proof.json", verify: "node verify_vrf_random.js vrf/vrf_random_proof.json || echo 'VRF attested'", circuit_type: "vrf_random" },
   { name: "basic_utxo_ownership", proof: "ownership/basic_utxo_ownership_proof.json", verify: "node verify_basic_utxo_ownership.js ownership/basic_utxo_ownership_proof.json", circuit_type: "basic_utxo_ownership" },
   { name: "script_constraint", proof: "script_constraints/script_constraint_proof.json", verify: "node verify_script_constraint.js script_constraints/script_constraint_proof.json", circuit_type: "script_constraint" },
-  { name: "pot_split_math", proof: "pot_split_math_proof.json", verify: "node verify_pot_split_math.js pot_split/pot_split_math_proof.json", circuit_type: "pot_split_math" },
+  { name: "pot_split_math", proof: "pot_split/pot_split_math_proof.json", verify: "node verify_pot_split_math.js pot_split/pot_split_math_proof.json", circuit_type: "pot_split_math" },
   { name: "nullifier_set", proof: "nullifier/nullifier_set_proof.json", verify: "node verify_nullifier_set.js nullifier/nullifier_set_proof.json", circuit_type: "nullifier_set" },
   { name: "turn_timer", proof: "turn_timer_proof.json", verify: "node verify_turn_timer.js turn_timer_proof.json", circuit_type: "turn_timer" },
   // Phase 2/3 DeFi + on-chain + decentralized (new + stubs)

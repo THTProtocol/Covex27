@@ -124,6 +124,14 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "hash_preimage",
         VerifierSpec::StrictGroth16 { script: "verify_hash_preimage.js", prefix: "covex_hp" },
     );
+    m.insert(
+        "age_verification",
+        VerifierSpec::StrictGroth16 { script: "verify_age_verification.js", prefix: "covex_age" },
+    );
+    m.insert(
+        "escrow_2party",
+        VerifierSpec::StrictGroth16 { script: "verify_escrow_2party.js", prefix: "covex_escrow" },
+    );
 
     // === Hybrids: Groth16 when supplied, else oracle-attested (current behavior) ===
     m.insert(

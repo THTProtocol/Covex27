@@ -110,7 +110,7 @@ ROOT_CIRCUITS=(
   black_scholes_approx poker_equity ml_inference_stub private_transfer_nullifier
   auction_clearing poker_vrf_deal collateral_ltv loan_health financial_formula
   chess_ai_move election_feed verifiable_poker_solver multi_sig_gating anon_credential
-  sorting_proof weather_feed merkle_membership
+  sorting_proof weather_feed merkle_membership age_verification escrow_2party
 )
 
 # Nested main circuits
@@ -166,6 +166,13 @@ PROVE_SCRIPTS=(
   prove_collateral_liquidation.js
   prove_onchain_sig_verify.js
   prove_nullifier_v1.js
+  prove_age_verification.js
+  prove_escrow_2party.js
+  prove_financial_formula.js
+  prove_loan_health.js
+  prove_collateral_ltv.js
+  prove_auction_clearing.js
+  prove_poker_vrf_deal.js
   privacy_mixer/scripts/prove_withdraw.js
   games/tictactoe/scripts/prove_move.js
   games/connect4/scripts/prove_move.js

@@ -1,0 +1,221 @@
+{
+  "circuits": [
+    {
+      "id": "age_verification",
+      "vkey": "/zk/age_verification/age_verification_vkey.json",
+      "demo_proof": "/zk/age_verification/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "anon_credential",
+      "vkey": "/zk/anon_credential/anon_credential_vkey.json",
+      "demo_proof": "/zk/anon_credential/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "auction_clearing",
+      "vkey": "/zk/auction_clearing/auction_clearing_vkey.json",
+      "demo_proof": "/zk/auction_clearing/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "basic_utxo_ownership",
+      "vkey": "/zk/basic_utxo_ownership/basic_utxo_ownership_vkey.json",
+      "demo_proof": "/zk/basic_utxo_ownership/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "black_scholes_approx",
+      "vkey": "/zk/black_scholes_approx/black_scholes_approx_vkey.json",
+      "demo_proof": "/zk/black_scholes_approx/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "chess_ai_move",
+      "vkey": "/zk/chess_ai_move/chess_ai_move_vkey.json",
+      "demo_proof": "/zk/chess_ai_move/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "collateral_liquidation",
+      "vkey": "/zk/collateral_liquidation/collateral_liquidation_vkey.json",
+      "demo_proof": "/zk/collateral_liquidation/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "collateral_ltv",
+      "vkey": "/zk/collateral_ltv/collateral_ltv_vkey.json",
+      "demo_proof": "/zk/collateral_ltv/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "connect4_v1",
+      "vkey": "/zk/connect4_v1/connect4_v1_vkey.json",
+      "demo_proof": "/zk/connect4_v1/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "election_feed",
+      "vkey": "/zk/election_feed/election_feed_vkey.json",
+      "demo_proof": "/zk/election_feed/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "escrow_2party",
+      "vkey": "/zk/escrow_2party/escrow_2party_vkey.json",
+      "demo_proof": "/zk/escrow_2party/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "financial_formula",
+      "vkey": "/zk/financial_formula/financial_formula_vkey.json",
+      "demo_proof": "/zk/financial_formula/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "hash_preimage",
+      "vkey": "/zk/hash_preimage/hash_preimage_vkey.json",
+      "demo_proof": "/zk/hash_preimage/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "loan_health",
+      "vkey": "/zk/loan_health/loan_health_vkey.json",
+      "demo_proof": "/zk/loan_health/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "merkle_membership",
+      "vkey": "/zk/merkle_membership/merkle_membership_vkey.json",
+      "demo_proof": null,
+      "artifacts": true
+    },
+    {
+      "id": "ml_inference_stub",
+      "vkey": "/zk/ml_inference_stub/ml_inference_stub_vkey.json",
+      "demo_proof": "/zk/ml_inference_stub/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "multi_sig_gating",
+      "vkey": "/zk/multi_sig_gating/multi_sig_gating_vkey.json",
+      "demo_proof": "/zk/multi_sig_gating/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "nullifier_set",
+      "vkey": "/zk/nullifier_set/nullifier_set_vkey.json",
+      "demo_proof": "/zk/nullifier_set/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "nullifier_v1",
+      "vkey": "/zk/nullifier_v1/nullifier_v1_vkey.json",
+      "demo_proof": "/zk/nullifier_v1/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "onchain_sig_verify",
+      "vkey": "/zk/onchain_sig_verify/onchain_sig_verify_vkey.json",
+      "demo_proof": "/zk/onchain_sig_verify/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "poker_equity",
+      "vkey": "/zk/poker_equity/poker_equity_vkey.json",
+      "demo_proof": "/zk/poker_equity/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "poker_vrf_deal",
+      "vkey": "/zk/poker_vrf_deal/poker_vrf_deal_vkey.json",
+      "demo_proof": "/zk/poker_vrf_deal/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "pot_split_math",
+      "vkey": "/zk/pot_split_math/pot_split_math_vkey.json",
+      "demo_proof": "/zk/pot_split_math/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "privacy_mixer_v1",
+      "vkey": "/zk/privacy_mixer_v1/privacy_mixer_v1_vkey.json",
+      "demo_proof": "/zk/privacy_mixer_v1/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "private_transfer_nullifier",
+      "vkey": "/zk/private_transfer_nullifier/private_transfer_nullifier_vkey.json",
+      "demo_proof": "/zk/private_transfer_nullifier/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "range_proof",
+      "vkey": "/zk/range_proof/range_proof_vkey.json",
+      "demo_proof": "/zk/range_proof/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "relative_timelock",
+      "vkey": "/zk/relative_timelock/relative_timelock_vkey.json",
+      "demo_proof": "/zk/relative_timelock/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "script_constraint",
+      "vkey": "/zk/script_constraint/script_constraint_vkey.json",
+      "demo_proof": "/zk/script_constraint/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "sorting_proof",
+      "vkey": "/zk/sorting_proof/sorting_proof_vkey.json",
+      "demo_proof": "/zk/sorting_proof/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "tictactoe_v1",
+      "vkey": "/zk/tictactoe_v1/tictactoe_v1_vkey.json",
+      "demo_proof": "/zk/tictactoe_v1/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "timelock_absolute",
+      "vkey": "/zk/timelock_absolute/timelock_absolute_vkey.json",
+      "demo_proof": "/zk/timelock_absolute/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "turn_timer",
+      "vkey": "/zk/turn_timer/turn_timer_vkey.json",
+      "demo_proof": "/zk/turn_timer/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "verifiable_poker_solver",
+      "vkey": "/zk/verifiable_poker_solver/verifiable_poker_solver_vkey.json",
+      "demo_proof": "/zk/verifiable_poker_solver/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "vrf_dice_roll",
+      "vkey": "/zk/vrf_dice_roll/vrf_dice_roll_vkey.json",
+      "demo_proof": "/zk/vrf_dice_roll/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "vrf_random",
+      "vkey": "/zk/vrf_random/vrf_random_vkey.json",
+      "demo_proof": "/zk/vrf_random/demo_proof.json",
+      "artifacts": true
+    },
+    {
+      "id": "weather_feed",
+      "vkey": "/zk/weather_feed/weather_feed_vkey.json",
+      "demo_proof": "/zk/weather_feed/demo_proof.json",
+      "artifacts": true
+    }
+  ],
+  "count": 36
+}

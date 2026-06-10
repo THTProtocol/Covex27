@@ -29,6 +29,9 @@ logs/
 *.key
 id_rsa*
 
+# Public Groth16 verification keys (not secrets — safe to commit)
+!**/*_vkey.json
+
 # ZK ceremony artifacts — committed (public verifier data, not secrets)
 !frontend/public/zk/merkle_membership/merkle_membership_final.zkey
 !frontend/public/zk/merkle_membership/merkle_membership_vkey.json

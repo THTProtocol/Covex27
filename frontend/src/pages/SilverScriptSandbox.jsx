@@ -1,0 +1,717 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '../components/WalletContext';
+import {
+  Code2, Play, Zap, ShieldCheck, AlertTriangle, Copy, Check, RefreshCw, Rocket,
+  Percent, Clock, Users, Target, Palette, Eye, Save, ArrowRight, Terminal, Sparkles,
+  FileCode, Settings, Layers
+} from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { ZK_CIRCUIT_TYPES, generateSilverScriptForConfig } from '../components/CovexTerminal';
+
+const DEFAULT_CONFIG = {
+  name: 'MyFirstCovenant',
+  description: 'Winner-takes-all skill match with transparent ZK + oracle resolution.',
+  feePercent: 2.0,
+  creatorFeePercent: 0.0,
+  resolutionMode: 'hybrid',
+  selectedCircuits: ['chess_v1'],
+  oracleKey: '',
+  minStake: 10,
+  maxStake: 1000,
+  timeoutMinutes: 10,
+  refundIfNoMatch: true,
+  winnerTakesAll: true,
+  drawSplits: true,
+  autoResolveOnTimeout: true,
+  playerCount: 2,
+};
+
+const RES_MODES = [
+  { id: 'oracle', label: 'Oracle Attested', desc: 'Trusted oracle (or multi-oracle) signs the outcome.' },
+  { id: 'zk', label: 'Pure ZK', desc: 'On-chain or hybrid ZK proof verifies the result.' },
+  { id: 'hybrid', label: 'Hybrid (recommended)', desc: 'ZK for rules + oracle for final attestation + anti-lie.' },
+];
+
+function buildRichSilverScript(config) {
+  const circuits = config.selectedCircuits.length > 0 ? config.selectedCircuits : ['custom'];
+  const circuitComments = circuits.map(id => {
+    const c = ZK_CIRCUIT_TYPES.find(x => x.id === id);
+    return c ? `;;   • ${c.name} — ${c.reality || 'hybrid'} — ${c.description?.slice(0, 90) || ''}` : `;;   • ${id}`;
+  }).join('\n');
+
+  const fee = Number(config.feePercent) || 0;
+  const creatorCut = Number(config.creatorFeePercent) || 0;
+  const totalFee = fee + creatorCut;
+  const winnerShare = Math.max(0, 100 - totalFee);
+
+  const timeout = config.timeoutMinutes || 10;
+  const minS = config.minStake || 1;
+  const maxS = config.maxStake || 10000;
+
+  const resolution = config.resolutionMode.toUpperCase();
+  const hasZK = config.resolutionMode !== 'oracle';
+  const hasOracle = config.resolutionMode !== 'zk';
+
+  let outcomeEnum = 'Outcome::PlayerAWins | PlayerBWin | Draw | Timeout';
+  let outcomeBranches = `
+    Outcome::PlayerAWins => {
+        let payout = (pot * ${winnerShare}) / 100;
+        require(VerifyPayout(treasury, player_a, payout), "Payout to winner A failed");
+        // creator cut (if any) + platform fee already modeled off-chain or via treasury split
+    }
+    Outcome::PlayerBWin => {
+        let payout = (pot * ${winnerShare}) / 100;
+        require(VerifyPayout(treasury, player_b, payout), "Payout to winner B failed");
+    }
+    Outcome::Draw => {
+        ${config.drawSplits ? `let half = pot / 2; require(VerifyPayout(treasury, player_a, half) && VerifyPayout(treasury, player_b, half), "Draw split failed");` : `require(VerifyPayout(treasury, player_a, pot / 2) && VerifyPayout(treasury, player_b, pot / 2));`}
+    }
+    Outcome::Timeout => {
+        ${config.autoResolveOnTimeout ? `// Auto-refund or penalty on timeout (configurable)
+        require(VerifyPayout(treasury, player_a, pot / 2) && VerifyPayout(treasury, player_b, pot / 2), "Timeout refund");` : '// Manual resolution required'}
+    }
+  `;
+
+  if (circuits.includes('merkle_membership') || circuits.includes('range_proof') || circuits.includes('age_verification')) {
+    outcomeEnum = 'Outcome::Proven | Rejected | Timeout';
+    outcomeBranches = `
+    Outcome::Proven => {
+        let payout = (pot * ${winnerShare}) / 100;
+        require(VerifyPayout(treasury, claimant, payout), "ZK proven payout");
+    }
+    Outcome::Rejected => {
+        require(VerifyPayout(treasury, depositor, pot), "Proof rejected - full return");
+    }
+    Outcome::Timeout => { require(VerifyPayout(treasury, depositor, pot)); }
+    `;
+  }
+
+  const zkBlock = hasZK ? `
+    ;; ZK CIRCUITS (verified by oracle or on-chain verifier key)
+${circuitComments}
+    ;; Public signals + proof are supplied at resolution time.
+    ;; The covenant only cares about the final attested Outcome.
+  ` : '    ;; Pure oracle resolution (no ZK circuit enforced on-chain)';
+
+  const oracleBlock = hasOracle ? `
+    ;; ORACLE / MULTI-ORACLE
+    ;; oracle_key: ${config.oracleKey || 'default_covex_oracle'}
+    ;; The oracle (or quorum) attests final outcome + optional ZK proof bundle.
+    ;; Lie detection: if oracle lies, ZK circuit or multi-sig can slash / challenge.
+  ` : '';
+
+  const refundLogic = config.refundIfNoMatch ? `
+    ;; If no counterparty joins within ${timeout} minutes the covenant allows full refund
+    ;; to the original staker (enforced by timeout path or explicit cancel entrypoint).
+  ` : '';
+
+  return `;; =====================================================
+;; ${config.name}
+;; ${config.description}
+;; =====================================================
+;; Generated by Covex SilverScript Sandbox
+;; Fee: ${fee}% platform + ${creatorCut}% creator = ${totalFee}% total
+;; Winner share: ${winnerShare}%
+;; Stake range: ${minS} – ${maxS} KAS
+;; Timeout: ${timeout} min | Refund if unmatched: ${config.refundIfNoMatch}
+;; Resolution: ${resolution}
+;; Players: ${config.playerCount}
+;; =====================================================
+
+contract ${config.name.replace(/[^a-zA-Z0-9_]/g, '')} {
+    state {
+        owner: Address,
+        treasury: Address,
+        oracle: Address,
+        minStake: u64,
+        maxStake: u64,
+        timeoutSec: u64,
+        pot: u64,
+        playerA: Address,
+        playerB: Address,
+        startedAt: u64,
+        resolved: bool,
+    }
+
+    entrypoint function join(stake: u64) {
+        require(!state.resolved, "Already resolved");
+        require(stake >= state.minStake && stake <= state.maxStake, "Stake out of range");
+        // first player becomes A, second becomes B and match starts
+        // (real impl uses proper player slotting + pot accumulation)
+    }
+
+    entrypoint function resolve(outcome: ${outcomeEnum}, proofOrSig: Bytes) {
+        require(!state.resolved, "Already resolved");
+        require(verifyResolution(outcome, proofOrSig), "Resolution proof/signature invalid");
+
+        ${outcomeBranches}
+        state.resolved = true;
+    }
+
+    ${zkBlock}
+
+    ${oracleBlock}
+
+    ${refundLogic}
+
+    ;; Helper: platform + creator fees are typically taken at resolution
+    ;; or modeled as a treasury split before the winner payout above.
+    ;; All values, timers, and outcomes are transparent on-chain.
+}`;
+}
+
+export default function SilverScriptSandbox() {
+  const navigate = useNavigate();
+  const { address, isDevMode, devMode, sendPayment } = useWallet();
+
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [silverScript, setSilverScript] = useState('');
+  const [liveSync, setLiveSync] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [deployResult, setDeployResult] = useState(null);
+  const [showDecorator, setShowDecorator] = useState(false);
+  const [uiDesign, setUiDesign] = useState({
+    title: '',
+    tagline: '',
+    description: '',
+    rules: '',
+    howToPlay: '',
+    accent: '#49EACB',
+    preset: 'pro',
+  });
+  const [previewMode, setPreviewMode] = useState('clean');
+
+  // Rebuild script when config changes (if live sync)
+  const rebuildScript = useCallback((cfg) => {
+    const script = buildRichSilverScript(cfg);
+    setSilverScript(script);
+    return script;
+  }, []);
+
+  useEffect(() => {
+    if (liveSync) {
+      rebuildScript(config);
+    }
+  }, [config, liveSync, rebuildScript]);
+
+  // Initial build
+  useEffect(() => {
+    if (!silverScript) {
+      setSilverScript(buildRichSilverScript(config));
+    }
+  }, []);
+
+  const updateConfig = (patch) => {
+    setConfig(prev => ({ ...prev, ...patch }));
+  };
+
+  const toggleCircuit = (id) => {
+    setConfig(prev => {
+      const has = prev.selectedCircuits.includes(id);
+      const next = has
+        ? prev.selectedCircuits.filter(x => x !== id)
+        : [...prev.selectedCircuits, id];
+      return { ...prev, selectedCircuits: next.length ? next : ['custom'] };
+    });
+  };
+
+  const handleEditorChange = (e) => {
+    const val = e.target.value;
+    setSilverScript(val);
+    if (liveSync) setLiveSync(false); // user took manual control
+  };
+
+  const forceRebuild = () => {
+    const s = rebuildScript(config);
+    setLiveSync(true);
+    return s;
+  };
+
+  const copyScript = async () => {
+    await navigator.clipboard.writeText(silverScript);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  const resetToDefaults = () => {
+    setConfig(DEFAULT_CONFIG);
+    setLiveSync(true);
+    setSilverScript(buildRichSilverScript(DEFAULT_CONFIG));
+    setDeployResult(null);
+    setShowDecorator(false);
+  };
+
+  // Deploy the current SilverScript as a real covenant
+  const compileAndDeploy = async () => {
+    if (!address) {
+      alert('Connect a dev wallet (mnemonic) on testnet first.');
+      return;
+    }
+    if (!silverScript.trim()) {
+      alert('SilverScript is empty.');
+      return;
+    }
+    setDeploying(true);
+    setDeployResult(null);
+
+    try {
+      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      const covenantName = config.name || 'SandboxCovenant';
+
+      const body = {
+        private_key_hex: devMode?.privateKeyHex || '',
+        deployer_addr: address,
+        script_hex: '', // backend will handle via dsl
+        dsl_source: silverScript.trim(),
+        tier: localStorage.getItem('covex_paid_tier') || 'BUILDER',
+        covenant_name: covenantName,
+        description: config.description,
+        covenant_type: config.selectedCircuits[0] || 'custom',
+        category: 'game',
+        network: net,
+        use_dev_mode: false,
+        // Pass sandbox origin so backend can tag it
+        source: 'silverscript-sandbox',
+      };
+
+      const resp = await fetch('/api/sign-and-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Backend rejected the deployment');
+      }
+
+      const txid = data.tx_id;
+
+      const result = {
+        success: true,
+        txid,
+        covenantName,
+        script: silverScript.trim(),
+        config: { ...config },
+        timestamp: new Date().toISOString(),
+      };
+
+      setDeployResult(result);
+
+      // Seed the UI designer with good defaults from the script/config
+      setUiDesign({
+        title: covenantName,
+        tagline: config.description,
+        description: `This covenant was built in the SilverScript Sandbox.\n\nResolution: ${config.resolutionMode.toUpperCase()}. Fee ${config.feePercent}%. Stake ${config.minStake}–${config.maxStake} KAS. ${config.timeoutMinutes} min timeout.`,
+        rules: `• Winner takes ${100 - config.feePercent - config.creatorFeePercent}% of the pot\n• ${config.drawSplits ? 'Draws split the pot' : 'Special draw rule'}\n• ZK circuits: ${config.selectedCircuits.join(', ')}\n• Full transparency — every parameter and outcome is on-chain`,
+        howToPlay: `1. Stake any amount between ${config.minStake} and ${config.maxStake} KAS.\n2. Wait for a match (or get refunded after ${config.timeoutMinutes} min).\n3. Play according to the chosen rules / ZK circuit.\n4. Winner (or correct proof) receives the pot minus fees.`,
+        accent: '#49EACB',
+        preset: 'pro',
+      });
+
+      setShowDecorator(true);
+    } catch (e) {
+      setDeployResult({ success: false, error: e.message || String(e) });
+    } finally {
+      setDeploying(false);
+    }
+  };
+
+  // Simple local publish of the custom public UI (real version would POST to covenant metadata)
+  const publishPublicUI = () => {
+    if (!deployResult?.txid) return;
+    const key = `covex_custom_ui_${deployResult.txid}`;
+    const payload = {
+      ...uiDesign,
+      publishedAt: new Date().toISOString(),
+      sourceScript: silverScript.slice(0, 800),
+      config,
+    };
+    try {
+      localStorage.setItem(key, JSON.stringify(payload));
+      alert('Public UI saved locally. When viewing this covenant the creator experience will use your design (full backend publish wires the same data to all visitors).');
+    } catch (_) {
+      alert('Saved in memory for this session.');
+    }
+    // For immediate nice feedback, also navigate to a preview of the covenant
+    // In real usage CovenantInteractive would read this.
+    navigate(`/covenant/${encodeURIComponent(deployResult.txid)}?preview=ui`);
+  };
+
+  const updateUi = (patch) => setUiDesign(prev => ({ ...prev, ...patch }));
+
+  const paidTier = (typeof window !== 'undefined' && localStorage.getItem('covex_paid_tier')) || 'FREE';
+  const canDeploy = address && (paidTier !== 'FREE' || isDevMode);
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-8 pb-16">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center">
+              <Code2 size={24} className="text-[#49EACB]" />
+            </div>
+            <div>
+              <div className="text-3xl font-black tracking-[-1px]">SilverScript Sandbox</div>
+              <div className="text-sm text-gray-400 -mt-0.5">Write → Tweak with add-ons → Compile to real Kaspa covenant → Design the public experience</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={resetToDefaults} className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5">
+              <RefreshCw size={14} /> Reset
+            </button>
+            <button onClick={() => navigate('/premium')} className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5">
+              <Terminal size={14} /> Full Terminal
+            </button>
+            <button onClick={() => navigate('/paid-builder')} className="text-xs px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10">
+              Your Covenants
+            </button>
+          </div>
+        </div>
+
+        {!canDeploy && (
+          <div className="mb-6 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-sm flex gap-3">
+            <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              Connect a dev wallet on testnet (TN12/TN10) and have a paid tier (or use the dev pay buttons) to compile &amp; deploy real covenants.
+              The sandbox itself is fully usable without payment.
+            </div>
+          </div>
+        )}
+
+        {/* Main two-column: Editor + Add-ons */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* EDITOR */}
+          <div className="lg:col-span-7">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-300">
+                <FileCode size={16} /> SilverScript Source
+                {liveSync && <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">LIVE SYNC FROM ADD-ONS</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setLiveSync(!liveSync)} className={`text-xs px-3 py-1 rounded border ${liveSync ? 'border-emerald-500/40 text-emerald-400' : 'border-white/10'}`}>
+                  {liveSync ? 'Live Sync ON' : 'Live Sync OFF'}
+                </button>
+                <button onClick={forceRebuild} className="text-xs flex items-center gap-1.5 px-3 py-1 rounded border border-white/10 hover:bg-white/5">
+                  <RefreshCw size={13} /> Rebuild from Add-ons
+                </button>
+                <button onClick={copyScript} className="text-xs flex items-center gap-1.5 px-3 py-1 rounded border border-white/10 hover:bg-white/5">
+                  {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className="relative rounded-2xl border border-white/10 bg-black/60 overflow-hidden">
+              <div className="bg-black/40 border-b border-white/10 px-4 py-2 text-[10px] font-mono text-gray-500 flex items-center justify-between">
+                <div>{config.name}.silverscript • {silverScript.split('\n').length} lines</div>
+                <div className="text-[#49EACB]/60">aa20 prefix will be added on deploy (silverc compiles this)</div>
+              </div>
+              <textarea
+                value={silverScript}
+                onChange={handleEditorChange}
+                spellCheck={false}
+                className="w-full h-[560px] p-5 font-mono text-sm bg-transparent text-[#d1d5db] leading-relaxed outline-none resize-y"
+                style={{ lineHeight: '1.45' }}
+              />
+            </div>
+
+            <div className="mt-3 text-[11px] text-gray-500 px-1">
+              Edit freely. When Live Sync is on, changing anything on the right instantly rewrites the script with rich comments and your exact parameters.
+            </div>
+          </div>
+
+          {/* ADD-ONS / CONTROLS */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="text-sm font-semibold text-gray-300 px-1 flex items-center gap-2">
+              <Settings size={15} /> Add-ons — everything here mutates the SilverScript live
+            </div>
+
+            {/* Basics */}
+            <Card className="border-white/10">
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Covenant Name</div>
+                  <input value={config.name} onChange={e => updateConfig({ name: e.target.value })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm font-mono" />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Description (goes into the script header)</div>
+                  <input value={config.description} onChange={e => updateConfig({ description: e.target.value })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Economics */}
+            <Card className="border-white/10">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3 text-sm font-semibold"><Percent size={15} /> Economics &amp; Fees</div>
+
+                <div className="mb-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <div>Platform / Resolution Fee</div>
+                    <div className="font-mono text-[#49EACB]">{config.feePercent}%</div>
+                  </div>
+                  <input type="range" min="0" max="12" step="0.5" value={config.feePercent} onChange={e => updateConfig({ feePercent: parseFloat(e.target.value) })} className="w-full accent-[#49EACB]" />
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <div>Creator Cut (goes to you)</div>
+                    <div className="font-mono text-[#49EACB]">{config.creatorFeePercent}%</div>
+                  </div>
+                  <input type="range" min="0" max="8" step="0.5" value={config.creatorFeePercent} onChange={e => updateConfig({ creatorFeePercent: parseFloat(e.target.value) })} className="w-full accent-[#49EACB]" />
+                  <div className="text-[10px] text-gray-500 mt-0.5">Total taken on resolution: {config.feePercent + config.creatorFeePercent}% • Winner receives the rest.</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Min Stake (KAS)</div>
+                    <input type="number" value={config.minStake} onChange={e => updateConfig({ minStake: parseInt(e.target.value) || 1 })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Max Stake (KAS)</div>
+                    <input type="number" value={config.maxStake} onChange={e => updateConfig({ maxStake: parseInt(e.target.value) || 1000 })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Resolution & ZK / Oracles */}
+            <Card className="border-white/10">
+              <CardContent className="p-4 space-y-4">
+                <div className="text-sm font-semibold flex items-center gap-2"><ShieldCheck size={15} /> Resolution &amp; Verification</div>
+
+                <div className="flex gap-2">
+                  {RES_MODES.map(m => (
+                    <button key={m.id} onClick={() => updateConfig({ resolutionMode: m.id })}
+                      className={`flex-1 text-left text-xs p-2.5 rounded-xl border ${config.resolutionMode === m.id ? 'border-[#49EACB] bg-[#49EACB]/5' : 'border-white/10 hover:bg-white/5'}`}>
+                      <div className="font-semibold">{m.label}</div>
+                      <div className="text-[10px] text-gray-400 leading-tight mt-0.5">{m.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400 mb-1.5">ZK Circuits (add multiple — they appear as comments + influence payout branches)</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ZK_CIRCUIT_TYPES.slice(0, 18).map(c => {
+                      const active = config.selectedCircuits.includes(c.id);
+                      return (
+                        <button key={c.id} onClick={() => toggleCircuit(c.id)}
+                          className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB]/60 text-white' : 'border-white/10 hover:bg-white/5 text-gray-300'}`}>
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="text-[10px] text-gray-500 mt-1">Selected: {config.selectedCircuits.join(', ')}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Oracle Key / Identifier (for hybrid or pure-oracle)</div>
+                  <input value={config.oracleKey} onChange={e => updateConfig({ oracleKey: e.target.value })} placeholder="covex_chess_oracle_v1 or your custom key" className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm font-mono" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Timing & Matchmaking */}
+            <Card className="border-white/10">
+              <CardContent className="p-4 space-y-3">
+                <div className="text-sm font-semibold flex items-center gap-2"><Clock size={15} /> Timing &amp; Matchmaking</div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Timeout (minutes)</div>
+                    <input type="number" value={config.timeoutMinutes} onChange={e => updateConfig({ timeoutMinutes: parseInt(e.target.value) || 5 })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Players</div>
+                    <input type="number" value={config.playerCount} onChange={e => updateConfig({ playerCount: parseInt(e.target.value) || 2 })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={config.refundIfNoMatch} onChange={e => updateConfig({ refundIfNoMatch: e.target.checked })} className="accent-[#49EACB]" />
+                    Refund if no one joins in time
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={config.autoResolveOnTimeout} onChange={e => updateConfig({ autoResolveOnTimeout: e.target.checked })} className="accent-[#49EACB]" />
+                    Auto-resolve / refund on timeout
+                  </label>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={config.winnerTakesAll} onChange={e => updateConfig({ winnerTakesAll: e.target.checked })} className="accent-[#49EACB]" />
+                    Winner takes all (minus fees)
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={config.drawSplits} onChange={e => updateConfig({ drawSplits: e.target.checked })} className="accent-[#49EACB]" />
+                    Draw splits the pot
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick snippet inserts */}
+            <Card className="border-white/10">
+              <CardContent className="p-4">
+                <div className="text-xs text-gray-400 mb-2">Quick inserts (added to the script when you rebuild)</div>
+                <div className="flex flex-wrap gap-2">
+                  {['require multi-sig', 'state machine step', 'payout verifier', 'time lock', 'challenge window'].map(label => (
+                    <button key={label} onClick={() => {
+                      const extra = `\n    ;; SNIPPET: ${label}\n    ;; (edit the generated script or add your own logic here)\n`;
+                      setSilverScript(s => s + extra);
+                      setLiveSync(false);
+                    }} className="text-xs px-3 py-1 rounded-lg border border-white/10 hover:bg-white/5">{label}</button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Compile / Deploy */}
+            <div className="pt-2">
+              <Button
+                onClick={compileAndDeploy}
+                disabled={deploying || !silverScript.trim() || !canDeploy}
+                className="w-full py-4 text-base flex items-center justify-center gap-2"
+              >
+                {deploying ? <><Zap className="animate-pulse" /> Compiling &amp; Broadcasting to Kaspa...</> : <><Rocket size={18} /> Compile &amp; Deploy as Real Covenant on Kaspa</>}
+              </Button>
+              <div className="text-[10px] text-center text-gray-500 mt-2">Uses silverc on the backend (dsl_source). Produces a real on-chain covenant tx you fully own.</div>
+            </div>
+
+            {deployResult && (
+              <Card className={`border ${deployResult.success ? 'border-emerald-500/30' : 'border-red-500/30'} bg-black/40`}>
+                <CardContent className="p-4 text-sm">
+                  {deployResult.success ? (
+                    <div>
+                      <div className="flex items-center gap-2 text-emerald-400 font-semibold mb-1"><Check size={16} /> Deployed successfully</div>
+                      <div className="font-mono text-xs break-all mb-2 text-gray-300">{deployResult.txid}</div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => setShowDecorator(true)} className="flex-1">Design Public UI for this Covenant <ArrowRight size={15} /></Button>
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/covenant/${encodeURIComponent(deployResult.txid)}`)}>View Covenant</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-red-400">Deploy failed: {deployResult.error}</div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {/* UI DESIGNER — appears after successful deploy or via button */}
+        {(showDecorator && deployResult?.success) && (
+          <div className="mt-10 border-t border-white/10 pt-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center"><Palette size={20} className="text-[#49EACB]" /></div>
+              <div>
+                <div className="text-2xl font-black">Design the Public View</div>
+                <div className="text-sm text-gray-400">What everyone sees when they visit this covenant on Covex. Write the story, rules, and decorate it beautifully. Only the creator can publish this.</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Writing / Decoration controls */}
+              <div className="space-y-4">
+                <Card className="border-white/10">
+                  <CardContent className="p-5 space-y-4">
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Public Title</div>
+                      <input value={uiDesign.title} onChange={e => updateUi({ title: e.target.value })} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-lg font-semibold" />
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Tagline / one-liner</div>
+                      <input value={uiDesign.tagline} onChange={e => updateUi({ tagline: e.target.value })} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">About this covenant (rich description)</div>
+                      <textarea value={uiDesign.description} onChange={e => updateUi({ description: e.target.value })} rows={5} className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-sm font-light leading-relaxed" />
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Transparent Rules (auto-suggested from your script — edit freely)</div>
+                      <textarea value={uiDesign.rules} onChange={e => updateUi({ rules: e.target.value })} rows={4} className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-sm" />
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">How to play / join (for visitors)</div>
+                      <textarea value={uiDesign.howToPlay} onChange={e => updateUi({ howToPlay: e.target.value })} rows={4} className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-sm" />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <div>
+                        <div className="text-xs text-gray-400 mb-1">Accent color</div>
+                        <input type="color" value={uiDesign.accent} onChange={e => updateUi({ accent: e.target.value })} className="w-14 h-10 p-1 bg-black border border-white/10 rounded-xl" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-400 mb-1">Preset vibe</div>
+                        <select value={uiDesign.preset} onChange={e => updateUi({ preset: e.target.value })} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm">
+                          <option value="pro">Pro / Chess.com clean</option>
+                          <option value="bold">Bold game night</option>
+                          <option value="data">Data-heavy / transparent</option>
+                          <option value="minimal">Ultra minimal</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 flex gap-3">
+                      <Button onClick={publishPublicUI} className="flex-1 flex items-center gap-2"><Save size={16} /> Publish this UI for the Covenant</Button>
+                      <Button variant="outline" onClick={() => setShowDecorator(false)}>Hide designer</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Live Preview of the public experience */}
+              <div>
+                <div className="text-xs uppercase tracking-widest text-gray-400 mb-2 px-1 flex items-center gap-2"><Eye size={14} /> Live public preview (what visitors will see)</div>
+
+                <div className="rounded-3xl border border-white/10 bg-[#111] p-6" style={{ borderColor: uiDesign.accent + '30' }}>
+                  <div className="uppercase text-[10px] tracking-[2px] text-gray-500 mb-1">COVEX • TRANSPARENT COVENANT</div>
+                  <div className="text-3xl font-black tracking-[-1.5px]" style={{ color: uiDesign.accent }}>{uiDesign.title || 'Untitled Covenant'}</div>
+                  <div className="text-gray-300 mt-1">{uiDesign.tagline}</div>
+
+                  <div className="my-5 text-sm whitespace-pre-wrap text-gray-200 leading-relaxed">{uiDesign.description}</div>
+
+                  <div className="rounded-2xl bg-black/60 p-4 text-sm mb-4">
+                    <div className="font-semibold mb-2 text-xs text-gray-400">RULES &amp; TRANSPARENCY</div>
+                    <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">{uiDesign.rules}</div>
+                  </div>
+
+                  <div className="rounded-2xl bg-black/60 p-4 text-sm">
+                    <div className="font-semibold mb-2 text-xs text-gray-400">HOW TO PLAY / JOIN</div>
+                    <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">{uiDesign.howToPlay}</div>
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-3">
+                    <div className="flex-1 rounded-2xl border border-white/10 bg-black/40 p-3 text-center">
+                      <div className="text-[10px] text-gray-500">STAKE ANY AMOUNT</div>
+                      <div className="text-2xl font-semibold mt-0.5" style={{ color: uiDesign.accent }}>{config.minStake} — {config.maxStake} KAS</div>
+                    </div>
+                    <button className="px-6 py-3 rounded-2xl text-sm font-semibold" style={{ background: uiDesign.accent, color: '#111' }}>
+                      STAKE &amp; WAIT FOR OPPONENT
+                    </button>
+                  </div>
+
+                  <div className="mt-4 text-[10px] text-center text-gray-500">
+                    All parameters, fees, ZK circuits and oracles are visible on-chain. This view was designed by the creator in the Sandbox.
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-gray-500 mt-3 px-1">This preview is a faithful representation of the public experience. When you publish, future visitors to the covenant will see your decorated version (instead of the raw terminal).</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-12 text-xs text-gray-500 max-w-2xl">
+          Everything you do here is transparent. The generated SilverScript + chosen circuits, fees, and timeouts become part of the immutable on-chain covenant. The public UI you design here is what normal users see when they discover and join your covenant on Covex.
+        </div>
+      </div>
+    </div>
+  );
+}

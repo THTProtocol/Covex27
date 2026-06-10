@@ -11,6 +11,7 @@ import Pricing from './pages/Pricing';
 import TemplateLibrary from './pages/TemplateLibrary';
 import AdvancedComposer from './pages/AdvancedComposer';
 import Analytics from './pages/Analytics';
+import SilverScriptSandbox from './pages/SilverScriptSandbox';
 
 import Dashboard from './pages/Dashboard';
 import Terms from './pages/Terms';
@@ -113,6 +114,7 @@ export default function App() {
               </Link>
               <div className="flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
+                <NavLink to="/sandbox" className={NL}>Sandbox</NavLink>
                 <NavLink to="/fix" className={NL}>Fix</NavLink>
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
@@ -142,6 +144,7 @@ export default function App() {
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/sandbox" element={<SilverScriptSandbox />} />
             </Routes>
           </div>
 

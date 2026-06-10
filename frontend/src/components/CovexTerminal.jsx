@@ -2040,6 +2040,17 @@ ${gameMeta.outcomeBranches}
         </section>
       )}
 
+      {/* SilverScript Sandbox entry — the dedicated visual experience */}
+      <div className="mb-4">
+        <a href="/sandbox" className="flex items-center justify-between rounded-2xl border border-[#49EACB]/30 bg-[#49EACB]/5 px-4 py-2.5 text-sm hover:bg-[#49EACB]/10 transition">
+          <div className="flex items-center gap-3">
+            <Code2 size={18} className="text-[#49EACB]" />
+            <span><span className="font-semibold text-[#49EACB]">SilverScript Sandbox</span> — side add-ons (fee %, ZK circuits, oracles, timers, refund logic…) instantly rewrite the code. Then one-click compile to real Kaspa covenant + design the exact public UI visitors see.</span>
+          </div>
+          <span className="text-[#49EACB] text-lg leading-none">→</span>
+        </a>
+      </div>
+
       {/* ─── Section 0: Covenant Circuit Schema (circuits only after payment; free basic always available) ─── */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
         <div className={SECTION_HEADER}>

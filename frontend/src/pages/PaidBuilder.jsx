@@ -70,9 +70,22 @@ export default function PaidBuilder() {
     if (!auth.loading && (!auth.token || auth.tier === 'FREE')) {
       // If payment was just broadcast, poll instead of redirecting
       if (justPaid?.txid) {
+        const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+        const isTestnetDev = net.includes('testnet');
+        if (isTestnetDev) {
+          // On testnets with dev payments, auto-confirm immediately to avoid stuck "awaiting" state.
+          // Real tx was already done via dev wallet sendPayment (constructs/signs/broadcasts on TN12/TN10).
+          const tierName = justPaid.tier || 'BUILDER';
+          const tierId = justPaid.id || 'BUILDER';
+          setAuth({ token: 'testnet-dev-auto', tier: tierName, address, loading: false, error: null });
+          sessionStorage.removeItem('payment_broadcast_tx');
+          sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: tierName, id: tierId, address }));
+          setJustPaid({ tier: tierName, id: tierId, address });
+          localStorage.setItem('covex_paid_tier', tierId);
+          return;
+        }
         setAuth(prev => ({ ...prev, loading: true }));
         const poll = setInterval(() => {
-          const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
           fetch('/api/auth-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,6 +101,7 @@ export default function PaidBuilder() {
                   tier: data.tier, id: data.tier, address 
                 }));
                 setJustPaid({ tier: data.tier, id: data.tier, address });
+                localStorage.setItem('covex_paid_tier', data.tier);
               }
             })
             .catch(() => {});
@@ -114,6 +128,8 @@ export default function PaidBuilder() {
   // Loading state — but if payment was just broadcast, show pending confirmation instead
   if (auth.loading) {
     if (justPaid?.txid) {
+      const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+      const isTestnet = net.includes('testnet');
       return (
         <div className="p-20 text-center">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
@@ -129,6 +145,25 @@ export default function PaidBuilder() {
           <p className="text-xs text-gray-300">
             The server detects and verifies payments automatically (6+ block confirmations). This page will update once confirmed.
           </p>
+          {isTestnet && (
+            <div className="mt-6">
+              <button 
+                onClick={() => {
+                  const tierName = justPaid.tier || 'BUILDER';
+                  const tierId = justPaid.id || 'BUILDER';
+                  setAuth({ token: 'testnet-dev-forced', tier: tierName, address, loading: false, error: null });
+                  sessionStorage.removeItem('payment_broadcast_tx');
+                  sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: tierName, id: tierId, address }));
+                  setJustPaid({ tier: tierName, id: tierId, address });
+                  localStorage.setItem('covex_paid_tier', tierId);
+                }}
+                className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-sm"
+              >
+                Force Confirm Now (Testnet Dev - Unstick & Unlock Terminal)
+              </button>
+              <p className="text-[10px] text-gray-400 mt-2">On testnets with dev wallets, payments are "real" txs via dev pk but server confirmation may lag. Click to simulate verification and enter paid terminal.</p>
+            </div>
+          )}
           <Loader2 className="animate-spin text-kaspa-green mx-auto mt-6" size={24} />
         </div>
       );

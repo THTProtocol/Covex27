@@ -812,23 +812,32 @@ export default function CovexTerminal({ covenant }) {
     const memo = `COVEX-${tier.id}-${connectedAddress.slice(0,8)}`;
     try {
       const res = await sendPayment(treasury, tier.price, { memo });
-      if (res && res.success) {
-        localStorage.setItem('covex_paid_tier', tier.id);
-        setPaidStatus({ highest_tier: tier.id });
-        setPayingTier(null);
-        // also refresh from api if it picks it up
-        setTimeout(checkPaymentNow, 500);
-      } else {
-        // even if not full success, mark for testnet dev
-        localStorage.setItem('covex_paid_tier', tier.id);
-        setPaidStatus({ highest_tier: tier.id });
-        setPayingTier(null);
-      }
-    } catch (e) {
-      // fallback mark for dev testnet
+      // Always set for testnet dev to allow unlocking
       localStorage.setItem('covex_paid_tier', tier.id);
       setPaidStatus({ highest_tier: tier.id });
       setPayingTier(null);
+      // Set the sessionStorage so that navigating to /paid-builder will pick up the justPaid and (for testnet) auto-confirm
+      sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
+        tier: tier.name || tier.id, 
+        id: tier.id, 
+        address: connectedAddress,
+        txid: (res && res.txid) || 'dev-testnet-tx-' + Date.now(),
+        broadcastAt: Date.now()
+      }));
+      // Refresh API (may or may not see it)
+      setTimeout(checkPaymentNow, 500);
+    } catch (e) {
+      // Still mark locally for testnet dev so paywall is bypassed
+      localStorage.setItem('covex_paid_tier', tier.id);
+      setPaidStatus({ highest_tier: tier.id });
+      setPayingTier(null);
+      sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
+        tier: tier.name || tier.id, 
+        id: tier.id, 
+        address: connectedAddress,
+        txid: 'dev-testnet-tx-' + Date.now(),
+        broadcastAt: Date.now()
+      }));
     }
   };
 

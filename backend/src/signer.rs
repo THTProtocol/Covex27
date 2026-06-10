@@ -235,24 +235,42 @@ pub async fn sign_and_broadcast_handler(
         }));
     }
 
-    let private_key_hex: String = if payload.use_dev_mode {
+    let private_key_hex: String;
+    let deployer_addr_str: String;
+    if payload.use_dev_mode {
         if payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12
             || payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10
         {
             if network == "testnet-10" {
-                dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10.to_string()
+                private_key_hex = dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10.to_string();
+                deployer_addr_str = dev_wallets::DEV_WALLET_2_ADDRESS_TN10.to_string();
             } else {
-                dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12.to_string()
+                private_key_hex = dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12.to_string();
+                deployer_addr_str = dev_wallets::DEV_WALLET_2_ADDRESS_TN12.to_string();
+            }
+        } else if payload.deployer_addr == dev_wallets::DEV_WALLET_1_ADDRESS_TN12
+            || payload.deployer_addr == dev_wallets::DEV_WALLET_1_ADDRESS_TN10
+        {
+            if network == "testnet-10" {
+                private_key_hex = dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10.to_string();
+                deployer_addr_str = dev_wallets::DEV_WALLET_1_ADDRESS_TN10.to_string();
+            } else {
+                private_key_hex = dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12.to_string();
+                deployer_addr_str = dev_wallets::DEV_WALLET_1_ADDRESS_TN12.to_string();
             }
         } else {
-            if network == "testnet-10" {
-                dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10.to_string()
-            } else {
-                dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12.to_string()
-            }
+            // Browser-derived address doesn't match any known dev wallet.
+            // Use the key from the request but the address won't have UTXOs.
+            private_key_hex = payload.private_key_hex.clone();
+            deployer_addr_str = payload.deployer_addr.clone();
+            warn!(
+                "use_dev_mode=true but deployer_addr {} doesn't match known dev wallets. Using browser-derived key (UTXO lookup may fail).",
+                payload.deployer_addr
+            );
         }
     } else {
-        payload.private_key_hex.clone()
+        private_key_hex = payload.private_key_hex.clone();
+        deployer_addr_str = payload.deployer_addr.clone();
     };
 
     // Network-aware treasury address
@@ -290,7 +308,7 @@ pub async fn sign_and_broadcast_handler(
     };
 
     // ── Step 2: Fetch deployer UTXOs ──────────────────────────
-    let deployer_addr = match Address::try_from(payload.deployer_addr.as_str()) {
+    let deployer_addr = match Address::try_from(deployer_addr_str.as_str()) {
         Ok(a) => a,
         Err(e) => {
             return Json(serde_json::json!(SignAndBroadcastResponse {
@@ -519,15 +537,12 @@ pub async fn sign_and_broadcast_handler(
                 tx_id_str, tier, tier_fee
             );
 
-            let deployer_str = payload.deployer_addr.clone();
+            let deployer_str = deployer_addr_str.clone();
             let tier_str = tier.unwrap_or("FREE");
 
             // ── IMMEDIATE PAYER CREDIT: The signer knows exactly who paid.
-            // The payment verifier reads treasury UTXOs but entry.address is the treasury
-            // itself (UTXO owner), not the sender. So credit the payer directly here:
-            // when tier_fee > 0, record the payment and upgrade the account immediately.
             if tier_fee > 0 {
-                let payer_addr = payload.deployer_addr.clone();
+                let payer_addr = deployer_addr_str.clone();
                 let treasury_str = treasury_addr_str.to_string();
                 info!(
                     "Signer crediting payer {} for {} tier (fee: {} sompi, tx: {})",

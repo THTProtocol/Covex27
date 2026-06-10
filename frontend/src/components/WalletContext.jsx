@@ -655,11 +655,11 @@ function WalletBridge({ children }) {
           body: JSON.stringify({
             private_key_hex: devMode.privateKeyHex,
             deployer_addr: activeAddress,
-            script_hex: 'aa20',          // minimal payload — the real covenant deploy happens in PremiumBuilder
+            script_hex: 'aa20',
             tier: tierLabel,
             covenant_name: tier ? `Covex ${tier} Tier Payment` : 'Covex Payment',
             description: meta.memo || `Tier payment: ${tierLabel}`,
-            use_dev_mode: false,         // we provide the real private key from dev wallet
+            use_dev_mode: true,          // signer resolves correct key from dev_wallets.rs
             network: net,
           }),
         });

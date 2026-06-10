@@ -720,6 +720,9 @@ export default function CovexTerminal({ covenant }) {
   const currentTier = paidStatus?.highest_tier || localStorage.getItem('covex_paid_tier') || 'FREE';
   const hasPaidAccess = currentTier !== 'FREE';
 
+  // For hiding the huge ZK list by default — press to reveal all
+  const [showAllZK, setShowAllZK] = useState(false);
+
   useEffect(() => {
     if (!connectedAddress) {
       setPaidStatus({ highest_tier: 'FREE' });
@@ -831,9 +834,12 @@ export default function CovexTerminal({ covenant }) {
         txid,
         broadcastAt: Date.now()
       }));
-      // Auto land on PaidBuilder — its effects + force button guarantee unlock on testnet dev
-      setTimeout(() => { navigate('/paid-builder'); }, 120);
-      setTimeout(checkPaymentNow, 600);
+      // Do NOT auto-navigate. Updating paidStatus + local immediately causes the paywall gate to disappear
+      // and the full ZK circuits + advanced sections to render in this terminal.
+      // The session marker is still written so /paid-builder will also recognize it as paid.
+      setTimeout(checkPaymentNow, 400);
+      // Optional: user can still go to builder later via the nav or the link in PaidBuilder
+      // If you want to force a "paid area" view, user can click the nav themselves.
     } catch (e) {
       // Network or unexpected error after a possible broadcast — give option but do not auto-unlock
       const proceed = window.confirm('Dev payment call errored: ' + (e?.message || e) + '\n\nIf you saw a TXID in logs or your wallet/node, click OK to go to PaidBuilder and use the "UNLOCK NOW" button there. Otherwise Cancel and fund your dev address first.');
@@ -847,7 +853,9 @@ export default function CovexTerminal({ covenant }) {
         txid,
         broadcastAt: Date.now()
       }));
+      // Same as success: unlock in-place in the terminal by state update. No forced redirect.
       if (proceed) {
+        // only navigate if user explicitly confirmed they want the builder page
         setTimeout(() => { navigate('/paid-builder'); }, 60);
       }
     }
@@ -1998,7 +2006,7 @@ ${gameMeta.outcomeBranches}
                   </button>
                 ))}
               </div>
-              <p className="text-[9px] text-emerald-300/70 mt-1">This will send a real testnet tx from your dev pk to treasury (with COVEX- memo). Then auto-marks paid tier locally + refreshes. Unlocks terminal/circuits immediately after.</p>
+              <p className="text-[9px] text-emerald-300/70 mt-1">Real testnet tx via your dev private key. Marks local + paidStatus immediately. The paywall disappears and full ZK circuits + advanced features unlock right here in the terminal (no page change needed).</p>
             </div>
           )}
 
@@ -2086,55 +2094,77 @@ ${gameMeta.outcomeBranches}
             Each circuit proves a specific verifiable statement. The covenant lock script contains the verifier key for the selected circuit. Only the proof output (or oracle signature) is submitted on-chain.
           </p>
 
-          {/* Circuit Grid - compact, professional (disabled until paid from this wallet) */}
+          {/* Circuit Grid - hidden by default to keep the UI clean.
+              User presses "Show all ZK circuits" to reveal the full list. */}
           <div className="grid grid-cols-3 gap-2">
-            {ZK_CIRCUIT_TYPES.map((gt) => {
-              const disabled = !hasPaidAccess;
-              const selected = gameType === gt.id;
-              const circuitDescriptions = {
-                chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
-                merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
-                range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
-                age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
-                verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
-                custom: 'Supply any audited circuit definition and its corresponding verifier key.',
-              };
-              return (
-                <button
-                  key={gt.id}
-                  onClick={() => !disabled && handleGameTypeChange(gt.id)}
-                  disabled={disabled}
-                  className={`text-left p-3 rounded-lg border transition-all duration-200 ${
-                    selected
-                      ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_20px_rgba(73,234,203,0.15)]'
-                      : 'border-white/[0.05] bg-black/30 hover:border-white/[0.10] hover:bg-white/[0.03]'
-                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-bold ${selected ? 'text-kaspa-green' : 'text-white'}`}>
-                      {gt.name}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-gray-200 leading-snug">
-                    {circuitDescriptions[gt.id] || gt.description}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+            {(() => {
+              const popular = ['chess_v1', 'chess_blitz', 'chess_bullet', 'poker_v1', 'poker_6max', 'blackjack_v1', 'merkle_membership', 'range_proof', 'connect4_v1', 'tictactoe_v1', 'checkers_v1', 'reversi_v1'];
+              const list = showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => popular.includes(c.id));
+              return list.map((gt) => {
+                const disabled = !hasPaidAccess;
+                const selected = gameType === gt.id;
+                const circuitDescriptions = {
+                  chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
+                  merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
+                  range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
+                  age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
+                  verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
+                  custom: 'Supply any audited circuit definition and its corresponding verifier key.',
+                };
+                return (
+                  <button
+                    key={gt.id}
+                    onClick={() => !disabled && handleGameTypeChange(gt.id)}
+                    disabled={disabled}
+                    className={`text-left p-3 rounded-lg border transition-all duration-200 ${
                       selected
-                        ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
-                        : 'border-white/[0.06] bg-white/[0.03] text-gray-200'
-                    }`}>
-                      {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
-                    </code>
-                    {gt.reality === 'full-zk' && <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">ZK</span>}
-                    {gt.reality === 'hybrid' && <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-semibold">HY</span>}
-                    {gt.reality === 'oracle-attested' && <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold">OR</span>}
-                    {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0" />}
-                  </div>
-                </button>
-              );
-            })}
+                        ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_20px_rgba(73,234,203,0.15)]'
+                        : 'border-white/[0.05] bg-black/30 hover:border-white/[0.10] hover:bg-white/[0.03]'
+                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-bold ${selected ? 'text-kaspa-green' : 'text-white'}`}>
+                        {gt.name}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-200 leading-snug">
+                      {circuitDescriptions[gt.id] || gt.description}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                        selected
+                          ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
+                          : 'border-white/[0.06] bg-white/[0.03] text-gray-200'
+                      }`}>
+                        {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
+                      </code>
+                      {gt.reality === 'full-zk' && <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">ZK</span>}
+                      {gt.reality === 'hybrid' && <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-semibold">HY</span>}
+                      {gt.reality === 'oracle-attested' && <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold">OR</span>}
+                      {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0" />}
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
+
+          {!showAllZK && (
+            <button
+              onClick={() => setShowAllZK(true)}
+              className="mt-2 w-full text-center text-xs py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-kaspa-green"
+            >
+              Press to see all {ZK_CIRCUIT_TYPES.length} ZK circuits (showing popular ones now)
+            </button>
+          )}
+          {showAllZK && (
+            <button
+              onClick={() => setShowAllZK(false)}
+              className="mt-1 w-full text-center text-xs py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-400"
+            >
+              Collapse full list
+            </button>
+          )}
 
           {/* Auto-suggested Verifier Key */}
           {(() => {

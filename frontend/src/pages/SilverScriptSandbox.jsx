@@ -169,6 +169,7 @@ export default function SilverScriptSandbox() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [silverScript, setSilverScript] = useState('');
   const [liveSync, setLiveSync] = useState(true);
+  const [showAllCircuitsInSandbox, setShowAllCircuitsInSandbox] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState(null);
@@ -497,16 +498,24 @@ export default function SilverScriptSandbox() {
                 <div>
                   <div className="text-xs text-gray-400 mb-1.5">ZK Circuits (add multiple — they appear as comments + influence payout branches)</div>
                   <div className="flex flex-wrap gap-1.5">
-                    {ZK_CIRCUIT_TYPES.slice(0, 18).map(c => {
-                      const active = config.selectedCircuits.includes(c.id);
-                      return (
-                        <button key={c.id} onClick={() => toggleCircuit(c.id)}
-                          className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB]/60 text-white' : 'border-white/10 hover:bg-white/5 text-gray-300'}`}>
-                          {c.name}
-                        </button>
-                      );
-                    })}
+                    {(() => {
+                      const list = showAllCircuitsInSandbox ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.slice(0, 12);
+                      return list.map(c => {
+                        const active = config.selectedCircuits.includes(c.id);
+                        return (
+                          <button key={c.id} onClick={() => toggleCircuit(c.id)}
+                            className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB]/60 text-white' : 'border-white/10 hover:bg-white/5 text-gray-300'}`}>
+                            {c.name}
+                          </button>
+                        );
+                      });
+                    })()}
                   </div>
+                  {!showAllCircuitsInSandbox && ZK_CIRCUIT_TYPES.length > 12 && (
+                    <button onClick={() => setShowAllCircuitsInSandbox(true)} className="text-[10px] mt-1 text-kaspa-green underline">
+                      Press to see all {ZK_CIRCUIT_TYPES.length} ZK circuits
+                    </button>
+                  )}
                   <div className="text-[10px] text-gray-500 mt-1">Selected: {config.selectedCircuits.join(', ')}</div>
                 </div>
 

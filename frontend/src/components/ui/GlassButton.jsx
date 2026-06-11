@@ -24,8 +24,8 @@ const glassButtonVariants = cva(
 const GlassButton = React.forwardRef(({ className, children, size, contentClassName, glassColor, ...props }, ref) => {
   // Generate a unique ID so multiple buttons don't conflict with each other's SVG filters
   const filterId = React.useId().replace(/:/g, "")
-  // Default glass tint: subtle green accent
-  const resolvedGlassColor = glassColor || "rgba(0, 138, 125, 0.10)"
+  // Milky frosted glass: translucent white
+  const resolvedGlassColor = glassColor || "rgba(255, 255, 255, 0.04)"
 
   return (
     <>
@@ -59,7 +59,7 @@ const GlassButton = React.forwardRef(({ className, children, size, contentClassN
       <style>{`
         .btn-liquid {
           appearance: none;
-          border: none;
+          border: 1px solid rgba(0, 201, 184, 0.25);
           background: transparent;
           color: oklch(from var(--foreground) l c h / 95%);
           --glass-reflex-light: 1;
@@ -68,19 +68,22 @@ const GlassButton = React.forwardRef(({ className, children, size, contentClassN
 
         .btn-liquid-lens {
           background-color: ${resolvedGlassColor};
-          backdrop-filter: blur(8px) url(#liquid-glass-${filterId}) saturate(150%);
-          -webkit-backdrop-filter: blur(8px) saturate(150%);
+          backdrop-filter: blur(14px) url(#liquid-glass-${filterId}) saturate(180%);
+          -webkit-backdrop-filter: blur(14px) saturate(180%);
           box-shadow:
-            inset 0 0 0 1px color-mix(in srgb, white calc(var(--glass-reflex-light) * 10%), transparent),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.08),
             inset 1.8px 3px 0px -2px color-mix(in srgb, white calc(var(--glass-reflex-light) * 90%), transparent),
             inset -2px -2px 0px -2px color-mix(in srgb, white calc(var(--glass-reflex-light) * 80%), transparent),
             inset -3px -8px 1px -6px color-mix(in srgb, white calc(var(--glass-reflex-light) * 60%), transparent),
-            inset -0.3px -1px 4px 0px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 12%), transparent),
-            inset -1.5px 2.5px 0px -2px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 20%), transparent),
-            inset 0px 3px 4px -2px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 20%), transparent),
-            inset 2px -6.5px 1px -4px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 10%), transparent),
-            0px 1px 5px 0px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 10%), transparent),
-            0px 6px 16px 0px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 8%), transparent);
+            inset -0.3px -1px 4px 0px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 30%), transparent),
+            inset -1.5px 2.5px 0px -2px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 45%), transparent),
+            inset 0px 3px 4px -2px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 45%), transparent),
+            inset 2px -6.5px 1px -4px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 28%), transparent),
+            inset 0 0 36px 8px rgba(0, 0, 0, 0.48),
+            inset 0 0 72px 20px rgba(0, 0, 0, 0.32),
+            0px 1px 5px 0px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 12%), transparent),
+            0px 6px 16px 0px color-mix(in srgb, black calc(var(--glass-reflex-dark) * 10%), transparent),
+            0px 8px 32px rgba(0, 0, 0, 0.40);
           transition: background-color 400ms cubic-bezier(1, 0.0, 0.4, 1), box-shadow 400ms cubic-bezier(1, 0.0, 0.4, 1);
         }
 

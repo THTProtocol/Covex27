@@ -172,7 +172,35 @@ Your vision: paid users design an entire beautiful page for their interactive co
 
 ---
 
-## 9. Key Risks
+## 9. Live Browser Click-Through Findings (added 2026-06-12, Chrome session)
+
+Full interactive pass over hightable.pro: every nav link, tab, filter, the deploy wizard (all 3 steps), dev-wallet flow, payment flow, network switcher, theme toggle, templates, dashboard. Zero JavaScript console errors across the whole session — the breakage is in wiring and UX states, not crashes.
+
+### New bugs found by clicking (not visible in code/API audit)
+
+| # | Severity | Bug | Detail |
+|---|----------|-----|--------|
+| B1 | **P0 — trust** | **Fake "Covenant Created!" success on mainnet with no wallet.** | Deploy wizard (MAIN network, wallet disconnected) → fill Basics → Configure → Visual Design → "Create Covenant" → full-screen green-check **"Covenant Created!"** with **zero network requests fired** and nothing on-chain; "View in Explorer" then shows 0 covenants. Directly violates the project's own "everything real, no fake success" rule. The button must hard-require a connected wallet and fail loudly. |
+| B2 | P1 | **Money CTAs fail silently.** | Covenant detail "OPEN WALLET TO EXECUTE" (no wallet, empty amount) → no toast, no validation, nothing. Pricing "Send 100 KAS Now" with 0-balance dev wallet → nothing. Both need explicit error states ("no wallet detected → install KasWare", "insufficient balance"). |
+| B3 | P1 | **Category filter returns silent empty grid.** | Explorer → type filter → "Chess" → entire covenant list disappears with **no "no results" message**, while the header still claims "6,939 total". Either filter values don't match indexed categories, or results render nothing. Same missing-empty-state risk for all 33 filter chips. |
+| B4 | P1 | **Templates "Preview" button does nothing.** | /templates → Chess "Preview" → card highlights, no preview modal/render. "Use Template" untested past click-through. |
+| B5 | P1 | **Marketplace still not wired.** | /templates has no "Community Published" section; `/api/marketplace/templates` is never fetched (the c3d5c22 commit message says this work was started — it isn't live). |
+| B6 | P2 | **Two different deploy experiences per network.** | On TN12, /deploy = SilverScript editor + dev-wallet gate; on MAIN, /deploy = 3-step "Create Your Covenant" wizard. Confusing product split — unify into one flow with network-conditional signing. |
+| B7 | P2 | **Light-mode contrast failures.** | "CONNECT WALLET" button renders dark-on-dark (nearly invisible); Connect Wallet drawer shows wallet names as dark text on dark cards inside a white drawer (unreadable). Theme toggle otherwise works. |
+| B8 | P2 | **Navbar inconsistency.** | On /kaspa the network switcher (TN12/TN10/MAIN) and "Fix" link disappear from the header; page title also changes. One global navbar everywhere. |
+| B9 | P2 | **Z-index/overlay glitches.** | Deploy wizard step indicator (1-2-3 circles) renders *behind* the fixed navbar; /templates large card titles ("Predict", "Vote", "Revenue") bleed through the navbar when scrolling. |
+| B10 | P2 | **Footer ignores selected network.** | With MAIN selected, footer still reads "testnet-12 • 10.1k covenants". Also `/status` `git_commit` reports the server repo's HEAD, not the running binary's build commit (a docs-only `git reset` on the server changed the footer commit without any rebuild). |
+| B11 | P2 | **Duplicate explorer rows.** | Same covenant (id `b261d39f5d…`, script `fc5c7959…`) listed twice with different names ("skill-covenant" and "BUILDER") — looks like two DB rows for one on-chain covenant (metadata overwrite vs insert). |
+| B12 | P3 | /advanced silently redirects to /pricing with no explanation banner. Search tab needed a pixel-precise click (small hit area). "View covenant --" cards show a broken arrow glyph. |
+
+### Confirmed live (already in §2)
+- Explorer fires `/api/covenants?limit=20000` on every homepage load; covenant detail pages spend **8–15 s on "INITIALIZING PROTOCOL SEQUENCE..."** downloading the full 15 MB list to show one covenant.
+- Dev-wallet modal pulls an additional ~11 MB kaspa-wasm module on demand.
+
+### What works well (verified by interaction)
+Type-filter panel UI · search with helpful "No Results" guidance · Arena honest empty state · dev wallet generate/connect (TN12) with balance display · free deploy with honest "DEPLOYMENT FAILED — No UTXOs found" error · payment screen (tier/amount/treasury/QR) · network switcher correctly disconnects wallet on switch · **mainnet correctly hard-blocks dev wallets** ("REAL WALLET ONLY" banner) · mainnet explorer honest "node still syncing" empty state · /kaspa education page · templates gallery rendering · dashboard/fix wallet-gated states · wallet detection (KasWare, Kastle, Kasperia, OKX detected) · zero console errors.
+
+## 10. Key Risks
 
 - **SilverScript instability:** officially experimental, TN12-only, breaking changes without notice. Pin compiler versions; regression-test every covenant template against new releases; expect a migration when mainnet opcode semantics finalize.
 - **Toccata timing:** mainnet window is June 5–20, 2026 — if activation slips or differs from TN12 semantics, the vendored sighash fix and compiled scripts may need rework.

@@ -121,18 +121,13 @@ export default function App() {
           {/* Shader vignette — darkens edges for readability */}
           <div className="shader-vignette" />
 
-          {/* Nav — full-width glass bar, three-zone layout */}
+          {/* Nav — full-width liquid glass bar, three-zone layout */}
           <nav
-            className="fixed top-4 left-4 right-4 z-50"
+            className="fixed top-4 left-4 right-4 z-50 nav-glass"
             style={{
-              maxWidth: '1400px',
+              maxWidth: '1438px',
               margin: '0 auto',
-              background: 'rgba(255, 255, 255, 0.03)',
-              backdropFilter: 'blur(40px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-              border: '1px solid rgba(0, 201, 184, 0.25)',
               borderRadius: '20px',
-              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 120px 30px rgba(0,0,0,0.48), inset 0 0 200px 60px rgba(0,0,0,0.26), 0 16px 48px rgba(0,0,0,0.45)'
             }}
           >
             <div className="flex items-center justify-between w-full px-8 h-14">

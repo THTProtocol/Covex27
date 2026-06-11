@@ -110,6 +110,41 @@ function NetworkSwitcher() {
   );
 }
 
+function LiveStatus() {
+  const [info, setInfo] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = () => {
+      const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+      Promise.resolve()
+        .then(() => tryFetch('/status'))
+        .then(d => d || tryFetch('/api/status'))
+        .then(d => {
+          if (!mounted || !d) return;
+          const git = (d.git_commit || 'dev').slice(0, 7);
+          const net = d.network || 'testnet-12';
+          const total = d.total_covenants || 0;
+          const totalStr = total > 1000 ? `${(total / 1000).toFixed(1)}k` : total.toString();
+          const ready = d.mainnet_ready ? ' • mainnet-ready' : '';
+          setInfo(`${git} • ${net} • ${totalStr} covenants${ready}`);
+        })
+        .catch(() => { /* silent, keep footer clean */ });
+    };
+    load();
+    const id = setInterval(load, 90000); // light poll
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
+  if (!info) return null;
+
+  return (
+    <div className="text-[10px] opacity-50 tracking-widest">
+      Covex {info}
+    </div>
+  );
+}
+
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -216,8 +251,9 @@ export default function App() {
           </div>
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
-            <div className="max-w-6xl mx-auto text-center">
-              Non-custodial. Keys stay in your wallet.
+            <div className="max-w-6xl mx-auto text-center space-y-1">
+              <div>Non-custodial. Keys stay in your wallet.</div>
+              <LiveStatus />
             </div>
           </footer>
         </BrowserRouter>

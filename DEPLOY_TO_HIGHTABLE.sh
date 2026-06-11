@@ -57,14 +57,21 @@ FE_EOF
 echo "[4/6] Deploying frontend to nginx..."
 $SSH_CMD << CP_EOF
   cp -r $HETZNER_SRC/frontend/dist/* /root/htp/public/
-  ACTIVE=$(grep -o 'index-[^.]*\.js' /root/htp/public/index.html)
-  cd /root/htp/public/assets
-  for f in index-*.js; do
-    if [ "\$f" != "\$ACTIVE" ]; then
-      rm -v "\$f"
-    fi
-  done
-  echo "  Active bundle: \$ACTIVE"
+  # Robust active bundle detection + perms (prevents "Permission denied" and blank "Active bundle:" in logs)
+  chmod -R a+r /root/htp/public/ 2>/dev/null || true
+  ACTIVE=$(grep -oE 'index-[A-Za-z0-9_-]+\.js' /root/htp/public/index.html 2>/dev/null | head -1 || true)
+  if [ -z "\$ACTIVE" ]; then
+    ACTIVE=$(ls -1 /root/htp/public/assets/index-*.js 2>/dev/null | sort -V | tail -1 | xargs -r basename 2>/dev/null || true)
+  fi
+  if [ -d /root/htp/public/assets ] && [ -n "\$ACTIVE" ]; then
+    cd /root/htp/public/assets
+    for f in index-*.js; do
+      if [ "\$f" != "\$ACTIVE" ]; then
+        rm -v "\$f" 2>/dev/null || true
+      fi
+    done
+  fi
+  echo "  Active bundle: \${ACTIVE:-unknown}"
 CP_EOF
 
 # ─── STEP 5: Build backend (Rust release) ───

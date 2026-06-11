@@ -89,7 +89,7 @@ export class CovexClient {
   // === Marketplace (Phase 18) ===
   async publishTemplate(template: Partial<MarketplaceTemplate>): Promise<{ id: string; success: boolean }> {
     // In production this would hit a real marketplace API
-    console.log('[CovexSDK] Publishing template to marketplace (mock)');
+    // console.log('[CovexSDK] Publishing template to marketplace (mock)'); // cleaned for prod
     return { id: 'tmpl_' + Date.now(), success: true };
   }
 
@@ -110,7 +110,7 @@ export class CovexClient {
   }
 
   async voteOnProposal(proposalId: string, vote: 'yes' | 'no'): Promise<any> {
-    console.log(`[CovexSDK] Voting ${vote} on ${proposalId} (mock)`);
+    // console.log(`[CovexSDK] Voting ${vote} on ${proposalId} (mock)`); // cleaned for prod
     return { success: true };
   }
 }

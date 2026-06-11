@@ -658,7 +658,7 @@ export default function CovexTerminal({ covenant }) {
         loadFromJson(jsonStr);
         window.history.replaceState({}, '', window.location.pathname);
       } catch (e) {
-        console.warn('Failed to load config from URL');
+        // console.warn('Failed to load config from URL'); // cleaned for prod
       }
     } else if (templateId) {
       // Template was selected
@@ -1575,7 +1575,7 @@ ${gameMeta.outcomeBranches}
         setChessOracleResult(data); // store full oracle response for claim
         setChessZkVerified(true);
         // Store for claim / unlock flow
-        console.log('[Chess Oracle] Result attested:', data);
+        // console.log('[Chess Oracle] Result attested:', data); // cleaned for prod
       } else {
         // Fallback to local for robustness in demo
         const simulatedHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
@@ -4041,7 +4041,7 @@ ${gameMeta.outcomeBranches}
             value={{}} 
             onChange={(cfg) => {
               // Merge into current config
-              console.log("Multi-oracle config updated:", cfg);
+              // console.log("Multi-oracle config updated:", cfg); // cleaned for prod
             }} 
           />
         </div>

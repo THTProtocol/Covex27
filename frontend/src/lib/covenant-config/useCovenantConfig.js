@@ -18,7 +18,7 @@ export function useCovenantConfig(initialCreatorAddress = '') {
         setConfig(validated);
         return validated;
       } catch (e) {
-        console.warn('Failed to load saved config');
+        // console.warn('Failed to load saved config'); // cleaned for prod
       }
     }
 

@@ -175,7 +175,7 @@ export default function PaidDeploy() {
         try {
           const resp = await window.kasware.sendTransaction({ to: address, amount: (100_000_000).toString(), data: code.trim() });
           txid = typeof resp === 'string' ? resp : resp?.txid || resp?.transactionId;
-        } catch (kasErr) { console.warn('KasWare sendTransaction failed:', kasErr.message); }
+        } catch (kasErr) { /* console.warn('KasWare sendTransaction failed:', kasErr.message); */ } // cleaned for prod
       } else {
         throw new Error('No deployment-capable wallet. Use the "Connect Dev Wallet" button below to derive a test wallet from a mnemonic (testnets only). For mainnet, use your real wallet extension.');
       }

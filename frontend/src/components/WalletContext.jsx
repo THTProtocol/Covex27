@@ -163,7 +163,7 @@ export async function loadKaspaWasm() {
       }
       return _wasmModuleCtx;
     } catch (e) {
-      console.error('Failed to load kaspa-wasm:', e);
+      // console.error('Failed to load kaspa-wasm:', e); // cleaned for prod
       _wasmInitPromise = null;
       return null;
     }
@@ -240,7 +240,7 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
         onConnect({ type: 'mnemonic', phrase: trimmed, privateKeyHex: result.privateKeyHex, address: result.address });
       }
     } catch (err) {
-      console.error('Dev derivation error (panel):', err);
+      // console.error('Dev derivation error (panel):', err); // cleaned for prod
       setError(err.message || 'Derivation failed');
     } finally {
       setDeriving(false);
@@ -452,7 +452,7 @@ function WalletBridge({ children }) {
         }
         setActiveWalletNetwork(net || null);
         if (net && net !== appNetwork) {
-          console.warn(`[Covex] Wallet network ${net} does not match app network ${appNetwork}`);
+          // console.warn(`[Covex] Wallet network ${net} does not match app network ${appNetwork}`); // cleaned for prod
         }
       } catch (_) {}
 

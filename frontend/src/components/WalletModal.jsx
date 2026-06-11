@@ -11,11 +11,11 @@ const WalletModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 light:bg-slate-900/70 backdrop-blur-sm p-4">
       <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl w-full max-w-sm shadow-2xl flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-[#1f1f1f]">
-          <h2 className="text-lg font-semibold text-white">Connect Wallet</h2>
-          <button onClick={onClose} className="text-gray-200 hover:text-white transition-colors">
+          <h2 className="text-lg font-semibold text-white light:text-slate-900">Connect Wallet</h2>
+          <button onClick={onClose} className="text-gray-200 hover:text-white light:text-slate-600 light:hover:text-slate-900 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -31,7 +31,7 @@ const WalletModal = ({ isOpen, onClose }) => {
                   <Icon size={20} />
                 </div>
                 <div className="text-left flex-1">
-                  <div className="text-white font-medium flex items-center gap-2">
+                  <div className="text-white light:text-slate-900 font-medium flex items-center gap-2">
                     {wallet.name}
                     {wallet.tag && (
                       <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/10 text-[#49EACB] px-1.5 py-0.5 rounded-sm">

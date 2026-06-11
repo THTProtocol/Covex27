@@ -131,20 +131,20 @@ export default function Explorer() {
     <>
       {/* ═══ HERO ═══ */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-6 px-4 sm:px-6 text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-[-0.04em] leading-[0.95] mb-4 max-w-3xl">
-          <span className="text-gradient">Interactive Covenants</span> for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
+        <h1 className="font-['Raleway'] italic font-light text-[94px] leading-[0.76] text-[#f0fefd] mb-4 max-w-3xl">
+          <span className="text-gradient">Interactive Covenants</span> for <span className="text-[#00c9b8]">The Kaspa BlockDAG</span>
         </h1>
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-8">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="w-full max-w-2xl mx-auto glass-section-3 rounded-2xl p-4 sm:p-5 grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="w-full max-w-2xl mx-auto glass-section-3 rounded-none p-4 sm:p-5 grid grid-cols-3 gap-2 sm:gap-4">
           {[
             { icon: Layers, label: 'Covenants', value: stats.total },
             { icon: Sparkles, label: 'Paid Tiers', value: stats.paidCount },
             { icon: Coins, label: 'Total TVL', value: `${Math.round(stats.totalTVL).toLocaleString()} KAS` },
           ].map((s, i) => (
             <div key={i} className="flex items-center gap-2 sm:gap-3 justify-center">
-              <s.icon size={16} className="text-kaspa-green shrink-0" />
+              <s.icon size={16} className="text-[#00c9b8] shrink-0" />
               <div className="text-left">
                 <p className="label-caps">{s.label}</p>
                 <p className="text-sm font-bold text-white">{s.value}</p>
@@ -164,7 +164,7 @@ export default function Explorer() {
             ].map(tab => (
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); }}
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === tab.id ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
+                  activeTab === tab.id ? 'bg-[#008a7d]/10 text-[#00c9b8] border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
               >
                 <tab.icon size={12} /><span className="hidden sm:inline">{tab.label}</span>
@@ -208,8 +208,8 @@ export default function Explorer() {
         {activeTab === 'search' && (
           <div className="space-y-6">
             <form onSubmit={handleSearch} className="relative">
-              <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-2xl glass-panel focus-within:border-kaspa-green/40 focus-within:shadow-[0_0_30px_rgba(73,234,203,0.15)] transition-all">
-                <Search size={18} className="text-kaspa-green shrink-0" />
+              <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-none glass-panel focus-within:border-kaspa-green/40 focus-within:shadow-[0_0_30px_rgba(0,201,184,0.15)] transition-all">
+                <Search size={18} className="text-[#00c9b8] shrink-0" />
                 <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="kaspatest:qr... or covenant txid (hash:0)"
@@ -217,7 +217,7 @@ export default function Explorer() {
                   autoFocus spellCheck={false} autoComplete="off"
                 />
                 <button type="submit" disabled={searchLoading || !searchQuery.trim()}
-                  className="px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:shadow-[0_0_20px_rgba(73,234,203,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                  className="px-4 py-2 rounded-none bg-[#008a7d] text-black font-bold text-xs hover:shadow-[0_0_20px_rgba(0,201,184,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
                   {searchLoading ? <span className="inline-block w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><Search size={12} /> Search</>}
                 </button>
@@ -225,8 +225,8 @@ export default function Explorer() {
             </form>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-200">
               <span>Try:</span>
-              <button onClick={() => setSearchQuery('kaspatest:')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspatest:...</button>
-              <button onClick={() => setSearchQuery(':')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
+              <button onClick={() => setSearchQuery('kaspatest:')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-[#00c9b8] transition-colors font-mono">kaspatest:...</button>
+              <button onClick={() => setSearchQuery(':')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-[#00c9b8] transition-colors font-mono">txid:0</button>
             </div>
             {searchLoading && (
               <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
@@ -243,7 +243,7 @@ export default function Explorer() {
             {searchResults && !searchLoading && searchResults.data.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-kaspa-green">
+                  <span className="text-xs font-mono text-[#00c9b8]">
                     {searchResults.type === 'wallet' ? `Found ${searchResults.data.length} covenant${searchResults.data.length !== 1 ? 's' : ''}` : 'Found covenant'}
                   </span>
                 </div>
@@ -407,7 +407,7 @@ function SectionLabel({ icon: Icon, label, accent }) {
   return (
     <div className="flex items-center gap-3 mb-4">
       <div className={`h-px flex-1 ${accent ? 'bg-gradient-to-r from-kaspa-green/30 to-transparent' : 'bg-gradient-to-r from-white/5 to-transparent'}`} />
-      <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${accent ? 'text-kaspa-green' : 'text-gray-300'}`}>
+      <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${accent ? 'text-[#00c9b8]' : 'text-gray-300'}`}>
         <Icon size={12} />{label}
       </span>
       <div className={`h-px flex-1 ${accent ? 'bg-gradient-to-l from-kaspa-green/30 to-transparent' : 'bg-gradient-to-l from-white/5 to-transparent'}`} />
@@ -443,7 +443,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const disclosedWallets = paidMetadata?.disclosed_wallets;
   const covenantName = paidMetadata?.name || c.name || c.covenant_type || 'Unnamed Covenant';
   const covenantDesc = paidMetadata?.description || c.description || 'No description provided.';
-  const themeAccent = paidMetadata?.theme?.accent || '#49EACB';
+  const themeAccent = paidMetadata?.theme?.accent || '#00c9b8';
 
   // Only the creator sees their own tier badge.
   const isOwner = ownerAddress && c.creator_addr?.toLowerCase() === ownerAddress.toLowerCase();
@@ -462,13 +462,13 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`block rounded-3xl border p-6 sm:p-7 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase} min-h-[280px] flex flex-col hover:scale-[1.01]`}
+      className={`block rounded-none border p-6 sm:p-7 transition-all duration-300 group cursor-pointer relative overflow-hidden mercury-flow ${tierGlow} ${tierCardClass} ${cardBase} min-h-[280px] flex flex-col hover:scale-[1.01]`}
     >
       {isPaidVerified && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-emerald-400/60 via-emerald-400/20 to-transparent" />}
       {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0 pr-2">
-          <h3 className={`font-bold text-lg sm:text-xl truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`} style={{ color: isPaidVerified ? themeAccent : undefined }}>
+          <h3 className={`font-bold text-lg sm:text-xl truncate ${highlighted ? 'text-[#00c9b8]' : 'text-white'}`} style={{ color: isPaidVerified ? themeAccent : undefined }}>
             {covenantName}
           </h3>
           <p className="text-xs font-mono mt-1 text-gray-400 truncate">{truncate(c.tx_id, 8)}</p>
@@ -479,7 +479,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
             {tier === 'PRO' && <Star size={11} />}
             {tier === 'BUILDER' && <Terminal size={11} />}
             PAID VERIFIED</span>}
-          {customUI && <span className="text-[9px] px-2 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/30 font-mono flex items-center gap-1">
+          {customUI && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#008a7d]/10 text-[#00c9b8] border border-kaspa-green/30 font-mono flex items-center gap-1">
             CREATOR TRANSPARENT UI
           </span>}
           {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
@@ -510,7 +510,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
 
       {(gameType || customUI) && (
         <div className="mt-2.5 flex flex-wrap gap-1">
-          {gameType && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider"><Play size={9} />{gameType} game</span>}
+          {gameType && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-[#008a7d]/10 border border-kaspa-green/20 text-[#00c9b8] uppercase tracking-wider"><Play size={9} />{gameType} game</span>}
           {customUI && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300"><Sparkles size={9} />Custom UI</span>}
         </div>
       )}
@@ -535,7 +535,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
       <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:flex gap-1.5">
         <Link
           to={`/covenant/${encodeURIComponent(c.tx_id)}?play=${gameType || 'chess'}`}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green text-[10px] font-bold uppercase tracking-wider"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#008a7d]/10 border border-kaspa-green/20 text-[#00c9b8] text-[10px] font-bold uppercase tracking-wider"
           onClick={(e) => e.stopPropagation()}
         >
           <Play size={11} />Play Now
@@ -551,14 +551,14 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
 /* ── Demo Card ── */
 function DemoCard({ icon: Icon, title, desc, tags, path }) {
   return (
-    <Link to={path} className="block rounded-2xl border border-kaspa-green/10 bg-kaspa-green/[0.015] p-5 hover:border-kaspa-green/25 hover:bg-kaspa-green/[0.03] transition-all duration-300 group">
-      <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 flex items-center justify-center mb-3 group-hover:shadow-[0_0_15px_rgba(73,234,203,0.2)] transition-all">
-        <Icon size={20} className="text-kaspa-green" />
+    <Link to={path} className="block rounded-2xl border border-kaspa-green/10 bg-[#008a7d]/[0.015] p-5 hover:border-kaspa-green/25 hover:bg-[#008a7d]/[0.03] transition-all duration-300 group">
+      <div className="w-10 h-10 rounded-xl bg-[#008a7d]/10 border border-kaspa-green/20 flex items-center justify-center mb-3 group-hover:shadow-[0_0_15px_rgba(73,234,203,0.2)] transition-all">
+        <Icon size={20} className="text-[#00c9b8]" />
       </div>
-      <h3 className="font-bold text-sm text-white mb-1.5 group-hover:text-kaspa-green transition-colors">{title}</h3>
+      <h3 className="font-bold text-sm text-white mb-1.5 group-hover:text-[#00c9b8] transition-colors">{title}</h3>
       <p className="text-xs text-gray-300 mb-3 line-clamp-2">{desc}</p>
       <div className="flex flex-wrap gap-1">
-        {tags.map(tag => <span key={tag} className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-kaspa-green/8 border border-kaspa-green/15 text-kaspa-green">{tag}</span>)}
+        {tags.map(tag => <span key={tag} className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-[#008a7d]/8 border border-kaspa-green/15 text-[#00c9b8]">{tag}</span>)}
       </div>
     </Link>
   );

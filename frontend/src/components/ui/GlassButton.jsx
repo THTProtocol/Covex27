@@ -25,7 +25,7 @@ const GlassButton = React.forwardRef(({ className, children, size, contentClassN
   // Generate a unique ID so multiple buttons don't conflict with each other's SVG filters
   const filterId = React.useId().replace(/:/g, "")
   // Default glass tint: subtle green accent
-  const resolvedGlassColor = glassColor || "oklch(0.55 0.18 150 / 15%)"
+  const resolvedGlassColor = glassColor || "rgba(0, 138, 125, 0.10)"
 
   return (
     <>

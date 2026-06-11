@@ -47,14 +47,11 @@ export default function WebGLBackground() {
         float gx = p.x;
         float bx = p.x * (1.0 - d);
 
-        // Deep green-black base with iridescent green/teal shimmer
-        // R channel: subtle warm undertone
-        // G channel: primary green wave (brightest)
-        // B channel: teal/cyan undertone
+        // Teal iridescent shimmer — organic fluid motion in deep navy-teal
         float speed = time * 0.5;
-        float r = 0.03 / abs(p.y + sin((rx + speed) * xScale) * yScale);
-        float g = 0.06 / abs(p.y + sin((gx + speed) * xScale) * yScale);
-        float b = 0.035 / abs(p.y + sin((bx + speed) * xScale) * yScale);
+        float r = 0.02 / abs(p.y + sin((rx + speed) * xScale) * yScale);
+        float g = 0.08 / abs(p.y + sin((gx + speed) * xScale) * yScale);
+        float b = 0.07 / abs(p.y + sin((bx + speed) * xScale) * yScale);
         
         // Clamp values to prevent fireflies
         r = min(r, 0.6);
@@ -69,7 +66,7 @@ export default function WebGLBackground() {
       r.scene = new THREE.Scene()
       r.renderer = new THREE.WebGLRenderer({ canvas, alpha: false, antialias: false })
       r.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-      r.renderer.setClearColor(new THREE.Color(0x020805), 1.0)
+      r.renderer.setClearColor(new THREE.Color(0x001f1d), 1.0)
 
       r.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, -1)
 

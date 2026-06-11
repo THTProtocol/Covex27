@@ -3,118 +3,122 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ═══════════════════════════════════════════════════════════════
-   TAILWIND THEME EXTENSION
+   TAILWIND THEME EXTENSION — Teal Liquid Glass (monopo saigon)
    ═══════════════════════════════════════════════════════════════ */
 @theme {
-  --color-kaspa-green: oklch(0.65 0.20 150);
+  --color-kaspa-green: #00c9b8;
+  --color-teal-root: #008a7d;
+  --color-teal-deep: #001f1d;
+  --color-teal-void: #00100f;
+  --color-teal-paper: #f0fefd;
   --color-kaspa-gold: oklch(0.78 0.18 80);
-  --color-surface-base: oklch(0.06 0.02 150);
+  --color-surface-base: #00100f;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-raleway: 'Raleway', sans-serif;
   --animate-fade-in: fade-in 0.5s ease-out;
   --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-spring-in: spring-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CSS CUSTOM PROPERTIES — Green Accented Glass Design System
+   CSS CUSTOM PROPERTIES — Teal Liquid Glass Design System
    ═══════════════════════════════════════════════════════════════ */
 :root {
-  --background: oklch(0.06 0.02 150);
-  --foreground: oklch(0.97 0.005 150);
-  --surface-1: oklch(0.10 0.02 150);
-  --surface-2: oklch(0.14 0.02 150);
-  --accent-primary: oklch(0.65 0.20 150);
-  --accent-deep: oklch(0.55 0.18 155);
-  --accent-mint: oklch(0.72 0.14 165);
-  --glass-border: oklch(1 0 0 / 0.08);
-  --glass-bg: oklch(1 0 0 / 0.05);
-  --glass-highlight: oklch(1 0 0 / 0.12);
-  --text-secondary: oklch(1 0 0 / 0.65);
-  --text-tertiary: oklch(1 0 0 / 0.40);
+  --background: #00100f;
+  --foreground: #f0fefd;
+  --surface-1: #001f1d;
+  --surface-2: #002926;
+  --accent-primary: #00c9b8;
+  --accent-deep: #008a7d;
+  --accent-mint: #00c9b8;
+  --glass-border: rgba(0, 201, 184, 0.15);
+  --glass-bg: rgba(0, 138, 125, 0.08);
+  --glass-highlight: rgba(0, 201, 184, 0.25);
+  --text-secondary: rgba(240, 254, 253, 0.65);
+  --text-tertiary: rgba(240, 254, 253, 0.40);
 
   /* Legacy compatibility */
-  --card: 0.10 0.02 150;
-  --card-foreground: 0.97 0.005 150;
-  --primary: 0.65 0.20 150;
-  --primary-foreground: 0 0 0;
-  --border: 1 0 0 / 0.08;
-  --muted: 1 0 0 / 0.06;
-  --accent: 0.65 0.20 150;
-  --input-bg: 0 0 0 / 0.4;
-  --kaspa-green: oklch(0.65 0.20 150);
+  --card: #001f1d;
+  --card-foreground: #f0fefd;
+  --primary: #00c9b8;
+  --primary-foreground: #00100f;
+  --border: rgba(0, 201, 184, 0.15);
+  --muted: rgba(0, 138, 125, 0.08);
+  --accent: #00c9b8;
+  --input-bg: rgba(0, 0, 0, 0.4);
+  --kaspa-green: #00c9b8;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK MODE (default) — Obsidian + Liquid Glass + Green Accent
+   DARK MODE (default) — Teal Liquid Glass
    ═══════════════════════════════════════════════════════════════ */
 body {
-  background: oklch(0.06 0.02 150);
-  color: oklch(0.97 0.005 150);
+  background: #00100f;
+  color: #f0fefd;
   font-family: var(--font-sans);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   GLASS PANEL — Frosted Glass Surface Base Class
+   GLASS PANEL — Teal-Tinted Frosted Glass (0px radius, no shadow)
    ═══════════════════════════════════════════════════════════════ */
 .glass-panel {
-  background: oklch(0.06 0.01 280 / 85%);
+  background: rgba(0, 31, 29, 0.85);
   backdrop-filter: blur(28px) saturate(130%);
   -webkit-backdrop-filter: blur(20px) saturate(120%);
-  border: 1px solid oklch(1 0 0 / 8%);
-  border-radius: 16px;
-  box-shadow: 0 0 0 1px oklch(1 0 0 / 8%);
+  border: 1px solid rgba(0, 201, 184, 0.15);
+  border-radius: 0px;
+  box-shadow: none;
 }
 
-/* Top edge glass rim highlight */
-/* glass-panel rim: disabled */
+/* Top edge glass rim highlight — disabled */
 .glass-panel::before {
   display: none;
 }
 
 /* Glass panel heavy — for modals/overlays */
 .glass-heavy {
-  background: oklch(0.04 0.01 280 / 92%);
+  background: rgba(0, 16, 15, 0.92);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid oklch(1 0 0 / 10%);
-  border-radius: 20px;
-  box-shadow: 0 0 0 1px oklch(1 0 0 / 10%);
+  border: 1px solid rgba(0, 201, 184, 0.20);
+  border-radius: 0px;
+  box-shadow: none;
 }
 
 /* Glass panel subtle — for nested or low-emphasis panels */
 .glass-subtle {
-  background: oklch(1 0 0 / 3%);
+  background: rgba(0, 138, 125, 0.04);
   backdrop-filter: blur(12px) saturate(110%);
   -webkit-backdrop-filter: blur(12px) saturate(110%);
-  border: 1px solid oklch(1 0 0 / 5%);
-  border-radius: 12px;
+  border: 1px solid rgba(0, 201, 184, 0.08);
+  border-radius: 0px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PASS 2 — THREE-TIER GLASS SECTION SYSTEM
+   PASS 2 — THREE-TIER GLASS SECTION SYSTEM (teal, 0px radius)
    ═══════════════════════════════════════════════════════════════ */
 
 /* Tier 1 — Hero / Primary sections */
 .glass-section-1 {
   position: relative;
-  background: oklch(0.05 0.01 280 / 88%);
+  background: rgba(0, 20, 18, 0.88);
   backdrop-filter: blur(32px) saturate(130%);
   -webkit-backdrop-filter: blur(24px) saturate(130%);
-  border: 1px solid oklch(1 0 0 / 10%);
-  border-radius: 24px;
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 10%);
+  border: 1px solid rgba(0, 201, 184, 0.18);
+  border-radius: 0px;
+  box-shadow: none;
   padding: 48px;
 }
 
 /* Tier 2 — Cards / Feature blocks / Info panels */
 .glass-section-2 {
   position: relative;
-  background: oklch(0.06 0.01 280 / 82%);
+  background: rgba(0, 26, 24, 0.82);
   backdrop-filter: blur(24px) saturate(120%);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid oklch(1 0 0 / 8%);
-  border-radius: 16px;
+  border: 1px solid rgba(0, 201, 184, 0.15);
+  border-radius: 0px;
   box-shadow: none;
   padding: 32px;
 }
@@ -122,16 +126,15 @@ body {
 /* Tier 3 — Subtle containers / list items */
 .glass-section-3 {
   position: relative;
-  background: oklch(0.07 0.01 280 / 78%);
+  background: rgba(0, 31, 29, 0.78);
   backdrop-filter: blur(16px);
-  border: 1px solid oklch(1 0 0 / 6%);
-  border-radius: 12px;
+  border: 1px solid rgba(0, 201, 184, 0.12);
+  border-radius: 0px;
   box-shadow: none;
   padding: 16px 20px;
 }
 
-/* Top-edge rim for all three tiers */
-/* Top-rim gradients: disabled — no visible edges */
+/* Top-edge rim for all three tiers — disabled */
 .glass-section-1::before,
 .glass-section-2::before,
 .glass-section-3::before {
@@ -139,46 +142,46 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PASS 2 — MODAL / DROPDOWN / TOOLTIP GLASS
+   PASS 2 — MODAL / DROPDOWN / TOOLTIP GLASS (teal, 0px radius)
    ═══════════════════════════════════════════════════════════════ */
 
 /* Modal / Dialog */
 .glass-modal {
-  background: oklch(0.09 0.015 280 / 90%);
+  background: rgba(0, 22, 20, 0.90);
   backdrop-filter: blur(40px) saturate(160%);
   -webkit-backdrop-filter: blur(40px) saturate(160%);
-  border: 1px solid oklch(1 0 0 / 12%);
-  border-radius: 20px;
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 10%);
+  border: 1px solid rgba(0, 201, 184, 0.20);
+  border-radius: 0px;
+  box-shadow: none;
 }
 
 /* Modal backdrop/scrim */
 .glass-modal-backdrop {
-  background: oklch(0 0 0 / 60%);
+  background: rgba(0, 0, 0, 0.60);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
 /* Dropdown / Select menu */
 .glass-dropdown {
-  background: oklch(0.10 0.015 280 / 92%);
+  background: rgba(0, 24, 22, 0.92);
   backdrop-filter: blur(32px) saturate(150%);
   -webkit-backdrop-filter: blur(32px) saturate(150%);
-  border: 1px solid oklch(1 0 0 / 10%);
-  border-radius: 14px;
+  border: 1px solid rgba(0, 201, 184, 0.18);
+  border-radius: 0px;
   box-shadow: none;
 }
 
 /* Tooltip */
 .glass-tooltip {
-  background: oklch(0.15 0.015 280 / 95%);
+  background: rgba(0, 28, 26, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid oklch(1 0 0 / 12%);
-  border-radius: 8px;
+  border: 1px solid rgba(0, 201, 184, 0.20);
+  border-radius: 0px;
   box-shadow: none;
   font-size: 0.75rem;
-  color: oklch(1 0 0 / 80%);
+  color: rgba(240, 254, 253, 0.80);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -190,8 +193,8 @@ body {
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, oklch(0 0 0 / 35%) 100%),
-    linear-gradient(180deg, oklch(0 0 0 / 20%) 0%, transparent 20%, transparent 80%, oklch(0 0 0 / 20%) 100%);
+    radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, rgba(0, 0, 0, 0.35) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.20) 0%, transparent 20%, transparent 80%, rgba(0, 0, 0, 0.20) 100%);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -206,9 +209,16 @@ body {
   font-size: clamp(3rem, 10vw, 8rem);
 }
 
+/* Raleway italic — editorial display headings */
+.raleway-italic {
+  font-family: 'Raleway', sans-serif;
+  font-style: italic;
+  font-weight: 300;
+}
+
 /* Gradient text for key headings */
 .text-gradient {
-  background: linear-gradient(135deg, #fff 0%, oklch(0.85 0.08 155) 50%, oklch(0.80 0.14 165) 100%);
+  background: linear-gradient(135deg, #f0fefd 0%, #00c9b8 50%, #008a7d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -220,7 +230,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: oklch(1 0 0 / 40%);
+  color: rgba(240, 254, 253, 0.40);
 }
 
 /* Section heading */
@@ -228,14 +238,25 @@ body {
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
-  color: oklch(0.97 0.005 150);
+  color: #f0fefd;
 }
 
 /* Body text */
 .body-text {
   font-weight: 400;
-  color: oklch(1 0 0 / 65%);
+  color: rgba(240, 254, 253, 0.65);
   line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MERCURY FLOW — liquid hover shimmer on cards
+   ═══════════════════════════════════════════════════════════════ */
+.mercury-flow {
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+.mercury-flow:hover {
+  background: linear-gradient(135deg, rgba(160, 224, 171, 0.07), rgba(255, 172, 46, 0.05), rgba(165, 45, 37, 0.06));
+  border-color: rgba(0, 201, 184, 0.25);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -288,20 +309,20 @@ body {
   }
 }
 
-/* Hover glow — ambient accent glow on hover */
+/* Hover glow — ambient teal glow on hover */
 .hover-glow {
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .hover-glow:hover {
-  border-color: oklch(0.65 0.20 150 / 30%);
-  box-shadow: 0 0 20px oklch(0.65 0.20 150 / 10%);
+  border-color: rgba(0, 201, 184, 0.30);
+  box-shadow: 0 0 20px rgba(0, 201, 184, 0.10);
 }
 
 /* Focus ring */
 :focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 3px;
-  box-shadow: 0 0 0 4px oklch(0.65 0.20 150 / 20%);
+  box-shadow: 0 0 0 4px rgba(0, 201, 184, 0.20);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -318,7 +339,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: oklch(0.72 0.14 165);
+  background: #00c9b8;
   animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 .status-dot::after {
@@ -327,7 +348,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: oklch(0.72 0.14 165);
+  background: #00c9b8;
   margin: 2px;
 }
 
@@ -339,13 +360,13 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   INPUTS & FORM ELEMENTS (dark mode)
+   INPUTS & FORM ELEMENTS — 0px radius, teal liquid glass
    ═══════════════════════════════════════════════════════════════ */
 .glass-input {
-  background: oklch(1 0 0 / 4%);
-  border: 1px solid oklch(1 0 0 / 10%);
-  border-radius: 12px;
-  color: oklch(1 0 0 / 90%);
+  background: rgba(0, 138, 125, 0.06);
+  border: 1px solid rgba(0, 201, 184, 0.15);
+  border-radius: 0px;
+  color: rgba(240, 254, 253, 0.90);
   padding: 12px 16px;
   font-size: 0.875rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -353,15 +374,15 @@ body {
 .glass-input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px oklch(0.65 0.20 150 / 15%);
-  background: oklch(1 0 0 / 6%);
+  box-shadow: 0 0 0 3px rgba(0, 201, 184, 0.15);
+  background: rgba(0, 138, 125, 0.10);
 }
 .glass-input::placeholder {
-  color: oklch(1 0 0 / 30%);
+  color: rgba(240, 254, 253, 0.30);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SCROLLBARS
+   SCROLLBARS — teal-tinted
    ═══════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 4px;
@@ -371,18 +392,18 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(1 0 0 / 15%);
+  background: rgba(0, 201, 184, 0.15);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(1 0 0 / 22%);
+  background: rgba(0, 201, 184, 0.25);
 }
 
 /* ═══════════════════════════════════════════════════════════════
    SELECTION
    ═══════════════════════════════════════════════════════════════ */
 ::selection {
-  background: oklch(1 0 0 / 15%);
+  background: rgba(0, 201, 184, 0.18);
   color: inherit;
 }
 
@@ -396,11 +417,11 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TIER GLOWS (dark mode)
+   TIER GLOWS — 0px radius, no elevation, hairline teal borders
    ═══════════════════════════════════════════════════════════════ */
-.tier-glow-max    { box-shadow: 0 0 28px rgba(168, 85, 247, 0.18), 0 0 60px rgba(168, 85, 247, 0.06); }
-.tier-glow-pro    { box-shadow: 0 0 20px rgba(232, 175, 52, 0.15), 0 0 50px rgba(232, 175, 52, 0.05); }
-.tier-glow-builder { box-shadow: 0 0 14px rgba(59, 130, 246, 0.12); }
+.tier-glow-max    { box-shadow: none; border: 1px solid rgba(168, 85, 247, 0.15); }
+.tier-glow-pro    { box-shadow: none; border: 1px solid rgba(232, 175, 52, 0.15); }
+.tier-glow-builder { box-shadow: none; border: 1px solid rgba(59, 130, 246, 0.12); }
 
 /* ═══════════════════════════════════════════════════════════════
    FEATURED COVENANT CARDS
@@ -413,45 +434,62 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PRICING TIER CARDS
+   PRICING TIER CARDS — teal glass, 0px radius, Mercury Flow
    ═══════════════════════════════════════════════════════════════ */
 .pricing-tier-card {
-  background: oklch(1 0 0 / 3%);
-  border-color: oklch(1 0 0 / 8%);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  background: rgba(0, 138, 125, 0.06);
+  border-color: rgba(0, 201, 184, 0.15);
+  border-radius: 0px;
+  box-shadow: none;
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 .pricing-tier-card:hover {
   transform: translateY(-2px);
-  border-color: oklch(0.65 0.20 150 / 30%);
-  box-shadow: 0 20px 40px -15px oklch(0 0 0 / 60%);
+  border-color: rgba(0, 201, 184, 0.30);
+  box-shadow: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   NAVIGATION
+   NAVIGATION — teal-tinted glass
    ═══════════════════════════════════════════════════════════════ */
 .nav-glass {
-  background: oklch(0.10 0.02 150 / 80%);
+  background: rgba(0, 24, 22, 0.80);
   backdrop-filter: blur(16px) saturate(120%);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid oklch(1 0 0 / 8%);
+  border: 1px solid rgba(0, 201, 184, 0.15);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   COVEX BRAND (dark mode)
+   COVEX BRAND — teal accent
    ═══════════════════════════════════════════════════════════════ */
 .covex-brand span:first-child {
-  color: oklch(1 0 0 / 95%);
+  color: rgba(240, 254, 253, 0.95);
   transition: color 300ms ease;
 }
 .group:hover .covex-brand span:first-child {
-  color: oklch(0.65 0.20 150);
+  color: #00c9b8;
 }
 .covex-brand span:last-child {
-  color: oklch(0.65 0.20 150);
+  color: #00c9b8;
   transition: color 300ms ease;
 }
 .group:hover .covex-brand span:last-child {
-  color: oklch(1 0 0 / 95%);
+  color: rgba(240, 254, 253, 0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PILLS / BADGES — 75px border-radius
+   ═══════════════════════════════════════════════════════════════ */
+.pill {
+  border-radius: 75px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COVEX PAPER — light editorial section background
+   ═══════════════════════════════════════════════════════════════ */
+.covex-paper {
+  background: #f0fefd;
+  color: #003330;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -473,18 +511,15 @@ body {
 /* ═══════════════════════════════════════════════════════════════
    DARK MODE ACCENT OVERRIDES
    ═══════════════════════════════════════════════════════════════ */
-.dark .text-kaspa-green { color: oklch(0.65 0.20 150); }
-.dark a.text-kaspa-green:hover { color: oklch(0.72 0.14 165); }
+.dark .text-kaspa-green { color: #00c9b8; }
+.dark a.text-kaspa-green:hover { color: #008a7d; }
 
 .dark nav,
 .dark header {
-  background: oklch(0.10 0.02 150 / 85%) !important;
-  border-bottom-color: oklch(1 0 0 / 5%) !important;
+  background: rgba(0, 24, 22, 0.85) !important;
+  border-bottom-color: rgba(0, 201, 184, 0.08) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE — Full Override System
-   (All existing light mode rules preserved from original)
+   LIGHT MODE — permanently disabled. Dark only.
    ═══════════════════════════════════════════════════════════════ */
-
-/* Light mode: permanently disabled. Dark only. */

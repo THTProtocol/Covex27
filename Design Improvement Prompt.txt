@@ -1,173 +1,82 @@
-COVEX UI/UX REDESIGN — STYLE OVERHAUL PROMPT
-MISSION: Redesign Covex's visual identity from the ground up. Every pixel must feel intentional. Zero "AI slop" aesthetics. All existing functionality stays 100% intact — only the look, feel, and branding change.
+Covex × Liquid Glass — Redesign System Prompt
 
-DESIGN PHILOSOPHY
-You are implementing a dark, premium, glass-morphic design system inspired by Apple Tahoe / visionOS aesthetics. The guiding principle: everything should feel like it belongs in 2027.
-Mood: Obsidian dark backgrounds. Liquid glass surfaces. Iridescent refractions. Subtle depth and light physics. Think Apple Intelligence meets brutalist clarity.
-
-REQUIRED VISUAL SYSTEM
-1. BACKGROUND — WebGL Shader (Full Page)
-Implement an animated WebGL shader as the full-viewport background. Use this pattern:
-jsx// WebGLShader fills the entire viewport as a fixed background layer
-// Shader should animate slowly — fluid, organic motion
-// Colors: deep navy/black with subtle iridescent shifts (purple, teal, amber undertones)
-// Think: northern lights at midnight, or oil on obsidian
-
-const fragmentShader = `
-  // Animated noise-based fluid shader
-  // Slow movement (speed ~0.3), subtle color shifts
-  // Primary: #0a0a0f (near-black), Secondary: iridescent #1a0a2e / #0a1a2e
-  // Occasional shimmer: oklch(0.6 0.15 280) through oklch(0.6 0.12 200)
-`;
-The shader must:
-
-Be position: fixed, z-index: 0, covering 100vw × 100vh
-Animate continuously but subtly (not distracting)
-React slightly to mouse position (parallax displacement, max ~5% shift)
-Use primitiveUnits="objectBoundingBox" SVG displacement maps for edge refractions
+A cinematic material redesign of the monopo saigon system for Covex. The achromatic editorial discipline is preserved entirely — no functional changes, no layout breaks, no new components — but every surface becomes a teal-tinted glass membrane. The darkness behind the glass deepens. The type gains italic force. The logo is reborn.
 
 
-2. BUTTONS — Apple Tahoe Liquid Glass
-Replace ALL buttons with the liquid glass implementation. Reference the GlassButton component below, which uses a WebP displacement map for physically-accurate refraction:
-Key properties of every button:
+Brand Identity Anchor
+The root colour is #008a7d — a darkened, saturated teal derived from #00c1af, shifted toward depth and weight. All other colours in the system are derived monochromatically from this root: desaturated toward near-black for dark surfaces, lightened toward pale aqua-white for highlights. No external palette is introduced. The Mercury Flow gradient (rgb(160, 224, 171) → rgb(255, 172, 46) → rgb(165, 45, 37)) is retained exclusively as an iridescent ghost at ≤7% opacity on glass hover states — it is atmosphere, not identity.
 
-backdrop-filter: blur(8px) url(#liquid-glass-{id}) saturate(150%)
-Rounded pill shape (border-radius: 9999px)
-The intricate 10-layer box-shadow stack (inset highlights + outer depth):
+Colour Palette (Derived from #008a7d)
+NameValueRoleCovex Deep#001f1dPrimary dark surface, hero frames, immersive backgroundsCovex Void#00100fDeepest black, behind-glass backing membraneCovex Ink#003330Secondary dark, footer, nav glass tintCovex Core#008a7dRoot brand teal — used only in glass edge highlights and the logo markCovex Mist#00c9b8Bright teal highlight, leading edge of glass caustic, icon strokes on darkCovex Smoke#4d8c86Muted teal, secondary text on dark, hairline bordersCovex Ash#2a5c57Mid-tone teal, de-emphasised metadata, disabled statesCovex Paper#f0fefdNear-white canvas for editorial light sections — teal-tinted white, not pure #ffffffCovex Ghostrgba(0, 138, 125, 0.08)Glass tint layer, replaces all neutral glass fills
 
-cssbox-shadow: 
-  inset 0 0 0 1px color-mix(in srgb, white 10%, transparent),
-  inset 1.8px 3px 0px -2px color-mix(in srgb, white 90%, transparent), 
-  inset -2px -2px 0px -2px color-mix(in srgb, white 80%, transparent), 
-  inset -3px -8px 1px -6px color-mix(in srgb, white 60%, transparent), 
-  inset -0.3px -1px 4px 0px color-mix(in srgb, black 12%, transparent), 
-  inset -1.5px 2.5px 0px -2px color-mix(in srgb, black 20%, transparent), 
-  inset 0px 3px 4px -2px color-mix(in srgb, black 20%, transparent), 
-  inset 2px -6.5px 1px -4px color-mix(in srgb, black 10%, transparent), 
-  0px 1px 5px 0px color-mix(in srgb, black 10%, transparent), 
-  0px 6px 16px 0px color-mix(in srgb, black 8%, transparent);
+Typography
+All rules from the original system are preserved without modification. No size, weight, line-height, or letter-spacing values change. No functional errors are introduced.
+What changes:
 
-Text: white at 95% opacity, text-shadow: 0 1px 2px for lift
-Hover: scale(1.03), Active: scale(0.96), transition: 300ms ease-out
-The lens layer (-z-10) must be EMPTY — prevents text ghosting in backdrop-filter
-The WebP displacement map (provided in the GlassButton component code I shared) must be embedded as a base64 <feImage> in an invisible SVG <filter>
-
-Button variants:
-
-Primary: glassColor: "oklch(from var(--foreground) l c h / 8%)" — near-invisible glass
-Accent: glassColor: "oklch(0.55 0.18 280 / 15%)" — subtle violet tint
-Danger: glassColor: "oklch(0.55 0.2 25 / 12%)" — subtle red tint
+Headlines and hero text may be set in italic at the designer's discretion. Italic is not mandatory but is now an expressive tool. Roobert italic (or Inter italic as fallback) at weight 300 carries a forward-lean tension that complements the liquid material language — as if the type itself is in motion through the glass.
+Italic is permitted on: hero statements, editorial pull-quotes, section titles, and the scroll indicator label.
+Italic is not applied to: navigation links, body text, utility labels, or any functional UI text. Functionality is never compromised.
+The Raleway 54px secondary tier is now preferentially italic — this is its primary expression in the Covex system.
 
 
-3. CARDS & PANELS — Frosted Glass Surfaces
-All panels, cards, modals, sidebars:
-cssbackground: oklch(from var(--background) l c h / 40%);
-backdrop-filter: blur(20px) saturate(120%);
-border: 1px solid oklch(from var(--foreground) l c h / 8%);
-border-radius: 16px; /* or 24px for larger panels */
-box-shadow: 
-  0 0 0 1px oklch(1 0 0 / 5%),
-  0 8px 32px oklch(0 0 0 / 30%),
-  0 2px 8px oklch(0 0 0 / 20%);
-Top edge highlight (the "glass rim"):
-css/* Pseudo-element ::before */
-background: linear-gradient(180deg, oklch(1 0 0 / 12%) 0%, transparent 100%);
-height: 1px;
-border-radius: inherit;
+Logo Redesign Direction
+The Covex logo is redesigned from the ground up. It does not inherit the original wordmark. Instead it draws from the visual language of the Kaspa visual campaign by The Visual Aye: material weight, chiaroscuro, and a single origin of light.
+Concept: The logo is a monogram or wordmark built from geometry that implies a network — distributed nodes, flowing paths, or a coin-like circular form with internal structure. Like the Kaspa coins, it has slender profile, polished surface, and is lit from a single point (Genesis light, top-right). It feels minted rather than designed.
+Construction:
 
-4. TYPOGRAPHY
+The letterform C (or CV monogram) is extruded into a shallow 3D disc or bevelled plate — the same formal language as Kaspa's coin renders
+Surface finish: polished teal-to-void gradient (#00c9b8 at highlight → #001f1d at shadow), with a hairline caustic ring at the bevel edge in rgba(0, 201, 184, 0.6)
+Background: #00100f — the deepest Covex Void, so the mark floats in pure darkness
+No drop-shadow. Depth is from the internal light model, not elevation
+Wordmark 'COVEX' set in Inter weight 300, italic, letter-spacing 0.12em, in #f0fefd — floats to the right of the mark at 18px in editorial contexts, 12px in nav
 
-Display / Hero: font-weight: 800, letter-spacing: -0.04em, line-height: 0.95
-Size scale: Hero text up to clamp(3rem, 10vw, 8rem), tracked tightly
-Body: font-weight: 400, color: oklch(1 0 0 / 65%) on dark backgrounds
-Labels/Caps: font-size: 0.7rem, letter-spacing: 0.12em, text-transform: uppercase, color: oklch(1 0 0 / 40%)
-Gradient text for key headings:
+Logo variations:
 
-cssbackground: linear-gradient(135deg, #fff 0%, oklch(0.85 0.08 280) 50%, oklch(0.8 0.12 200) 100%);
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-
-5. COLOR TOKENS
-css:root {
-  --background: oklch(0.06 0.01 280);   /* Near-black with purple undertone */
-  --foreground: oklch(0.97 0.005 280);  /* Near-white */
-  --surface-1: oklch(0.10 0.015 280);   /* Elevated surface */
-  --surface-2: oklch(0.14 0.015 280);   /* Higher elevation */
-  --accent-violet: oklch(0.65 0.22 280);
-  --accent-teal: oklch(0.70 0.15 200);
-  --accent-amber: oklch(0.78 0.18 80);
-  --glass-border: oklch(1 0 0 / 0.08);
-  --glass-bg: oklch(1 0 0 / 0.05);
-}
-
-6. MICRO-INTERACTIONS & MOTION
-All interactive elements must have:
-
-Spring physics on enter/exit (not linear easing): cubic-bezier(0.34, 1.56, 0.64, 1) for pop-in
-Stagger animations on lists/grids: 40ms delay per item
-Hover glow: Elements gain a subtle ambient glow matching their accent color
-Focus rings: outline: 2px solid var(--accent-violet), outline-offset: 3px, with a box-shadow: 0 0 0 4px oklch(0.65 0.22 280 / 20%)
-Scroll-triggered reveals: Sections fade+slide up with translateY(20px) → translateY(0), opacity 0→1, 600ms
+Icon only — the C disc, used as favicon, app icon, and scroll indicator centre
+Horizontal lockup — disc + wordmark, used in nav
+Hero display — wordmark only at 94px Inter weight 300 italic, #f0fefd, line-height 0.76
 
 
-7. INPUTS & FORM ELEMENTS
-css/* Text inputs */
-background: oklch(1 0 0 / 4%);
-border: 1px solid oklch(1 0 0 / 10%);
-border-radius: 12px;
-color: oklch(1 0 0 / 90%);
-padding: 12px 16px;
+Liquid Glass Material Rules
+All glass surfaces are teal-tinted, not neutral white. Replace every rgba(255,255,255,X) fill in the original glass system with rgba(0, 138, 125, X) at equivalent opacity. The refraction and blur values are unchanged.
+Surface Material
+backdrop-filter: blur(24–40px) saturate(200%), background: rgba(0, 138, 125, 0.06–0.12), inner border 1px solid rgba(0, 201, 184, 0.15–0.25).
+Refraction Layer
+Top-edge highlight: linear-gradient(180deg, rgba(0, 201, 184, 0.18) 0%, transparent 40%) — the caustic of teal glass catching the Genesis light.
+Iridescent Shimmer (hover only)
+Mercury Flow gradient at 6–8% opacity: linear-gradient(135deg, rgba(160, 224, 171, 0.07), rgba(255, 172, 46, 0.05), rgba(165, 45, 37, 0.06)). Appears on hover only. Never static, never structural.
+Depth
+Backing membrane: rgba(0, 16, 15, 0.4) (Covex Void). Front glass: rgba(0, 138, 125, 0.08). Layered for optical thickness.
 
-/* Focus state */
-border-color: var(--accent-violet);
-box-shadow: 0 0 0 3px oklch(0.65 0.22 280 / 15%);
-background: oklch(1 0 0 / 6%);
-Placeholders: oklch(1 0 0 / 30%)
+Component Prompts
+1. Liquid Glass Navigation Bar — Covex
+Full-width. backdrop-filter: blur(32px) saturate(180%), background: rgba(0, 27, 25, 0.5), border-bottom: 1px solid rgba(0, 201, 184, 0.1). Logo lockup left: C disc icon + 'COVEX' in 12px Inter weight 300 italic #f0fefd. Nav links at 12px uppercase rgba(240, 254, 253, 0.7). On scroll: background deepens to rgba(0, 16, 15, 0.7), teal border brightens to rgba(0, 201, 184, 0.2). No functional changes from original nav behaviour.
+2. Liquid Glass Pill Button — Covex
+Border-radius 75px. backdrop-filter: blur(20px), background: rgba(0, 138, 125, 0.1), border: 1px solid rgba(0, 201, 184, 0.22). Top-edge teal caustic via pseudo-element. Text 12px Inter weight 400 #f0fefd. Hover: Mercury Flow shimmer at 7% + border brightens to rgba(0, 201, 184, 0.4). All padding, sizing, and interaction behaviour preserved.
+3. Liquid Glass C-Shape Scroll Indicator — Covex
+Arc stroke rgba(0, 201, 184, 0.2) hairline. Leading dot rgba(0, 201, 184, 0.8). Enclosed glass panel: backdrop-filter: blur(12px), background: rgba(0, 138, 125, 0.05), border: 0.5px solid rgba(0, 201, 184, 0.15). Centre: the C logo disc at 20px — single point of teal light. 'SCROLL TO EXPLORE' in 9px system-ui italic rgba(240, 254, 253, 0.6) tracing the arc. Rotates 18s linear infinite. Gap faces right.
+4. Liquid Glass Cookie Banner — Covex
+Fixed bottom-right. backdrop-filter: blur(40px) saturate(200%), background: rgba(0, 16, 15, 0.6), border: 1px solid rgba(0, 201, 184, 0.1), border-radius 0px. Teal top-edge caustic. Body text 12px Inter weight 400 rgba(240, 254, 253, 0.8). Accept pill: glass variant per above. Dismiss ×: rgba(0, 201, 184, 0.4). No layout or functional changes.
+5. Cinematic Hero Frame — Covex
+Full-viewport #001f1d (Covex Deep) background. 3D organic renders retain the dark green / amber / copper palette of the original system but now lean into deep teal-to-void transitions at scene edges. Hero title: 94px Inter weight 300 italic, #f0fefd, line-height 0.76, centered. Bottom-left: C-shape glass scroll indicator. Bottom-right: location label 9px system-ui rgba(0, 201, 184, 0.35). No glass on the hero frame itself — only the scroll indicator and nav bar are glass surfaces.
+6. Editorial Content Section — Covex
+Background #f0fefd (Covex Paper), not pure white. Headlines 78–94px Inter weight 300 italic optional, #001f1d. Body 18px weight 400 #003330. All spacing, padding, and grid structure preserved identically. No functional changes.
 
-8. NAVIGATION / HEADER
+What Is Absolutely Preserved (No Exceptions)
 
-Floating pill nav, centered, with glass treatment
-position: sticky, slight blur backdrop
-Active link: glass pill highlight with accent underline
-Logo: wordmark with gradient treatment (violet → teal)
+All type sizes, weights, and line-heights
+All spacing tokens, grid, max-width (1440px), and section gaps (80–120px)
+All border-radius values: 75px for pills/badges only, 0px for all cards and inputs — no intermediate radii
+All component behaviours, interactions, and functional states
+No shadows, no elevation, no decorative chrome beyond glass
+The hero frame is always full-bleed dark — no glass in the hero field itself
+The pill shape is still the only curved element; its rarity still carries all the weight
 
+What Changes
 
-9. STATUS INDICATORS
-For any "active" / "online" / "live" indicators — use the animated ping pattern:
-jsx<span className="relative flex h-3 w-3">
-  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-</span>
-
-10. SCROLLBARS
-css::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { 
-  background: oklch(1 0 0 / 15%); 
-  border-radius: 9999px; 
-}
-
-ABSOLUTE CONSTRAINTS
-
-Zero functionality breakage. Every click handler, form submission, route, API call stays wired. Only className and style attributes change.
-No lorem ipsum. All existing copy, labels, and content stays verbatim.
-Accessibility: All ARIA labels preserved. Contrast ratios maintained (WCAG AA minimum). Glass effects must not obscure text legibility.
-Performance: WebGL shader must cancelAnimationFrame on unmount. Backdrop-filters only on elements that need them (not every div).
-The GlassButton component (provided separately in full) must be imported and used wholesale — do not rewrite the displacement map or SVG filter logic.
-
-
-DELIVERABLE STRUCTURE
-For each file you touch, output the complete modified file. Do not output diffs. Prioritize in this order:
-
-Global CSS / design tokens
-Layout / shell components
-The most visible page/route
-Shared UI primitives (Button, Card, Input, etc.)
-Remaining pages
-
-
-"Make it feel like software from a company that has won design awards three years in a row."
-
-
-Coloring:
-Should remain Green and any related monochrome of it. 
+Every flat neutral surface becomes a teal-tinted glass membrane
+The palette root shifts from achromatic to monochromatic teal (#008a7d as origin)
+Editorial light sections use #f0fefd (teal-tinted paper) instead of pure #ffffff
+Headlines and pull-quotes may be italic — functional UI text never is
+The logo is redesigned: material coin form, single Genesis light, teal-to-void gradient
+The scroll indicator centre carries the C logo disc instead of a plain arrow

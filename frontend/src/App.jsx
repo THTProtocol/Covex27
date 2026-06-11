@@ -20,6 +20,7 @@ import PaidBuilder from './pages/PaidBuilder';
 import PremiumBuilder from './pages/PremiumBuilder';
 import DemoCovenant from './pages/DemoCovenant';
 import { ThemeProvider } from './components/ThemeProvider';
+import CovexLogo from './components/CovexLogo';
 
 // Nav link active state
 const NL = ({ isActive }) =>
@@ -122,27 +123,21 @@ export default function App() {
 
           {/* Nav — full-width glass bar, three-zone layout */}
           <nav
-            className="fixed top-4 left-4 right-4 z-50 rounded-2xl backdrop-blur-xl saturate-[140%] border border-white/10"
+            className="fixed top-4 left-4 right-4 z-50 border border-[rgba(0,201,184,0.15)]"
             style={{
               maxWidth: '1400px',
               margin: '0 auto',
-              background: 'oklch(1 0 0 / 5%)',
-              boxShadow: 'inset 0 1px 0 oklch(1 0 0 / 18%), inset 0 -1px 0 oklch(0 0 0 / 15%), 0 8px 32px oklch(0 0 0 / 25%), 0 2px 8px oklch(0 0 0 / 15%)'
+              background: 'rgba(0, 31, 29, 0.85)',
+              backdropFilter: 'blur(24px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(180%)'
             }}
           >
             <div className="flex items-center justify-between w-full px-8 h-14">
               {/* ZONE 1 — Logo (far left) */}
-              <Link to="/" className="group flex items-center gap-2 shrink-0">
-                <img
-                  src="/covex-logo-48.png"
-                  alt="Covex"
-                  width="24"
-                  height="24"
-                  className="shrink-0 drop-shadow-[0_0_8px_rgba(0,255,157,0.45)] group-hover:drop-shadow-[0_0_16px_rgba(0,229,255,0.6)] transition-all duration-300 rounded"
-                />
-                <span className="covex-brand font-extrabold text-[20px] tracking-[-0.04em] leading-none select-none">
-                  <span>COV</span>
-                  <span>EX</span>
+              <Link to="/" className="group flex items-center gap-3 shrink-0">
+                <CovexLogo size={32} className="transition-transform duration-300 group-hover:scale-105" />
+                <span className="text-[14px] font-light italic tracking-[0.08em] text-[#f0fefd] select-none leading-none">
+                  COVEX
                 </span>
               </Link>
 

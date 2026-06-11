@@ -186,7 +186,7 @@ const Pricing = () => {
     const needWallet = p.needWallet && !address;
     return (
       <div className="relative z-10 max-w-3xl mx-auto px-6 py-16 text-center">
-        <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
+        <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#00c9b8] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
           <ArrowLeft size={16} /> Cancel
         </button>
         <div className="mb-8">
@@ -249,20 +249,20 @@ const Pricing = () => {
     <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
       <div className="glass-section-1 relative">
       <div className="text-center max-w-2xl mx-auto mb-12">
-        <h1 className="text-3xl md:text-4xl font-black tracking-[-0.03em] leading-[1.1] mb-4">
+        <h1 className="font-['Raleway'] italic font-light text-5xl md:text-6xl text-[#f0fefd] leading-[0.85] mb-4">
           <span className="text-gradient">Deploy Interactive Covenants</span>
         </h1>
         <p className="text-base md:text-lg text-gray-300 leading-relaxed">
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
         </p>
-        <p className="mt-3 text-sm"><Link to="/kaspa" className="text-kaspa-green underline">Learn about Kaspa</Link></p>
+        <p className="mt-3 text-sm"><Link to="/kaspa" className="text-[#00c9b8] underline">Learn about Kaspa</Link></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <Card key={tier.id} className={`flex flex-col pricing-tier-card glass-panel hover-glow ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
+            <Card key={tier.id} className={`flex flex-col pricing-tier-card glass-panel mercury-flow ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -272,7 +272,7 @@ const Pricing = () => {
                     {tier.id === 'MAX' && <Crown size={22} style={{ color: tier.accent }} />}
                     <CardTitle>{tier.name}</CardTitle>
                   </div>
-                  <Badge variant={tier.variant}>{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
+                  <Badge variant={tier.variant} className="pill">{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
                 </div>
                 <p className="text-sm text-gray-400 mt-1">{tier.desc}</p>
               </CardHeader>
@@ -280,7 +280,7 @@ const Pricing = () => {
                 <div className="space-y-2.5 mb-6">
                   {tier.features.map((feature, i) => (
                     <div key={i} className="flex gap-2.5 text-sm text-gray-300">
-                      <Check size={16} className="shrink-0 mt-0.5 text-[#49EACB]" />
+                      <Check size={16} className="shrink-0 mt-0.5 text-[#00c9b8]" />
                       <span>{feature}</span>
                     </div>
                   ))}

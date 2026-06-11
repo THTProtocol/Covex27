@@ -31,7 +31,7 @@ export default function Deploy() {
   const [code, setCode] = useState(SILVERSCRIPT_TEMPLATE);
   const [covenantName, setCovenantName] = useState('My Basic Covenant');
   const [covenantDesc, setCovenantDesc] = useState('A simple free SilverScript covenant. Fully interactable claim and basic resolution supported.');
-  const [accentColor, setAccentColor] = useState('#49EACB');
+  const [accentColor, setAccentColor] = useState('#00c9b8');
   const [uiPreset, setUiPreset] = useState('glass');
   const [status, setStatus] = useState('idle');
   const [result, setResult] = useState(null);
@@ -133,22 +133,22 @@ export default function Deploy() {
     <div className="relative z-10 max-w-4xl mx-auto px-6 py-12 animate-in fade-in duration-300">
       <button
         onClick={() => window.history.back()}
-        className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium"
+        className="flex items-center gap-2 text-gray-300 hover:text-[#00c9b8] transition-colors mb-8 text-sm font-medium"
       >
         <ArrowLeft size={16} />
         Back
       </button>
 
       <div className="glass-section-1 relative">
-      <div className="glass-panel rounded-2xl shadow-2xl overflow-hidden">
+      <div className="glass-panel rounded-none overflow-hidden">
         {/* Free deploy explanation */}
-        <div className="px-8 py-5 bg-gradient-to-r from-[#49EACB]/[0.06] via-[#49EACB]/[0.03] to-transparent border-b border-[#49EACB]/15">
+        <div className="px-8 py-5 bg-gradient-to-r from-[#00c9b8]/[0.06] via-[#00c9b8]/[0.03] to-transparent border-b border-[#00c9b8]/15">
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[#49EACB]/10 border border-[#49EACB]/25 flex items-center justify-center shrink-0 mt-0.5">
-              <Terminal size={20} className="text-[#49EACB]" />
+            <div className="w-10 h-10 rounded-xl bg-[#00c9b8]/10 border border-[#00c9b8]/25 flex items-center justify-center shrink-0 mt-0.5">
+              <Terminal size={20} className="text-[#00c9b8]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-[#49EACB] mb-1">Free Covenant Deployment - Open to Everyone</h3>
+              <h3 className="text-sm font-bold text-[#00c9b8] mb-1">Free Covenant Deployment - Open to Everyone</h3>
               <p className="text-xs text-gray-300 leading-relaxed mb-2">
                 This is the <strong>free entry point</strong> for deploying a basic covenant. No payment is required.
                 Anyone - including users who already have a paid tier - can create simple on-chain covenants here.
@@ -163,9 +163,9 @@ export default function Deploy() {
           </div>
         </div>
 
-        <div className="p-8 border-b border-[#1f1f1f] flex items-center gap-5 bg-[#0a0a0a]">
-          <div className="w-14 h-14 rounded-xl bg-[#49EACB]/10 flex items-center justify-center border border-[#49EACB]/30 shrink-0">
-            <Terminal size={28} className="text-[#49EACB]" />
+        <div className="p-8 border-b border-white/10 flex items-center gap-5 bg-[#0a0a0a]">
+          <div className="w-14 h-14 rounded-xl bg-[#00c9b8]/10 flex items-center justify-center border border-[#00c9b8]/30 shrink-0">
+            <Terminal size={28} className="text-[#00c9b8]" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide">Deploy Free Covenant</h1>
@@ -173,7 +173,7 @@ export default function Deploy() {
               Write SilverScript, sign with your wallet, deploy to Kaspa BlockDAG. Free tier only.
             </p>
           </div>
-          <span className="ml-auto px-3 py-1 rounded-full bg-[#49EACB]/10 border border-[#49EACB]/20 text-[#49EACB] text-xs font-mono">
+          <span className="ml-auto px-3 py-1 rounded-full bg-[#00c9b8]/10 border border-[#00c9b8]/20 text-[#00c9b8] text-xs font-mono">
             {(() => { const n = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12'; return n === 'mainnet' ? 'MAINNET' : n === 'testnet-10' ? 'TESTNET-10' : 'TESTNET-12'; })()}
           </span>
         </div>
@@ -226,12 +226,12 @@ export default function Deploy() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] overflow-hidden flex flex-col shadow-inner">
-              <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-[#2a2a2a]">
+            <div className="rounded-none border border-white/10 bg-[#0d0d0d] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-[#141414] border-b border-white/10">
                 <div className="flex items-center gap-2 text-gray-300 text-xs font-mono tracking-wider">
-                  <Terminal size={14} className="text-[#49EACB]" /> <span>covenant.ss</span>
+                  <Terminal size={14} className="text-[#00c9b8]" /> <span>covenant.ss</span>
                 </div>
-                <button onClick={() => setCode(SILVERSCRIPT_TEMPLATE)} className="text-[10px] text-gray-300 hover:text-[#49EACB] transition-colors">RESET</button>
+                <button onClick={() => setCode(SILVERSCRIPT_TEMPLATE)} className="text-[10px] text-gray-300 hover:text-[#00c9b8] transition-colors">RESET</button>
               </div>
               <textarea value={code} onChange={(e) => setCode(e.target.value)} spellCheck="false"
                 className="w-full h-[400px] bg-transparent text-[#e6e6e6] font-mono text-sm p-5 focus:outline-none resize-none custom-scrollbar leading-relaxed"
@@ -265,14 +265,14 @@ export default function Deploy() {
                 </div>
                 {result.success ? (
                   <div className="space-y-2 text-xs font-mono">
-                    <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">TXID</span><span className="text-[#49EACB]">{result.txid.length > 30 ? result.txid.slice(0, 30) + '...' : result.txid}</span></div>
+                    <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">TXID</span><span className="text-[#00c9b8]">{result.txid.length > 30 ? result.txid.slice(0, 30) + '...' : result.txid}</span></div>
                     <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">Tier</span><span className="text-gray-300">FREE</span></div>
                     <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">Deployer</span><span className="text-gray-300">{result.deployer.slice(0, 22)}...</span></div>
                   </div>
                 ) : <p className="text-xs text-red-400/80 whitespace-pre-wrap">{result.error}</p>}
                 {result.success && result.txid && (
                   <div className="mt-4 pt-3 border-t border-emerald-500/10 flex gap-4">
-                    <a href={`https://explorer.kaspa.org/tx/${result.txid}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />View on Explorer</a>
+                    <a href={`https://explorer.kaspa.org/tx/${result.txid}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#00c9b8] hover:underline"><ExternalLink size={12} />View on Explorer</a>
                   </div>
                 )}
               </div>

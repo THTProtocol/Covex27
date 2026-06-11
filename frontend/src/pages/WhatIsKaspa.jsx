@@ -12,10 +12,10 @@ export default function WhatIsKaspaPage() {
         <section className="mb-12">
           <div className="glass-panel rounded-2xl p-6 border border-white/10">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center">
-                <Zap size={26} className="text-[#49EACB]" />
+              <div className="w-12 h-12 rounded-2xl bg-[#00c9b8]/10 border border-[#00c9b8]/30 flex items-center justify-center">
+                <Zap size={26} className="text-[#00c9b8]" />
               </div>
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
+              <h1 className="font-['Raleway'] italic font-light text-5xl sm:text-6xl text-[#f0fefd] leading-[0.85]">
                 <span className="text-gradient">Understanding the Kaspa BlockDAG</span>
               </h1>
             </div>
@@ -23,9 +23,9 @@ export default function WhatIsKaspaPage() {
               The fastest, most secure Proof-of-Work Layer-1. A true BlockDAG that achieves 10+ blocks per second today and targets 100+ BPS with DAGKNIGHT, while preserving Bitcoin's exact security model. This is the foundation that makes native covenants and Covex possible.
             </p>
             <div className="flex flex-wrap gap-2 mb-6">
-              <a href="https://kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> kaspa.org</a>
-              <a href="https://github.com/kaspanet/rusty-kaspa" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><GitBranch size={12} /> rusty-kaspa</a>
-              <a href="https://explorer.kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> Mainnet Explorer</a>
+              <a href="https://kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#00c9b8]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> kaspa.org</a>
+              <a href="https://github.com/kaspanet/rusty-kaspa" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#00c9b8]/40 text-gray-300 hover:text-white transition-colors"><GitBranch size={12} /> rusty-kaspa</a>
+              <a href="https://explorer.kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#00c9b8]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> Mainnet Explorer</a>
             </div>
             <div className="border-t border-white/10 pt-6 space-y-4 text-gray-300 leading-relaxed">
             <p>
@@ -36,7 +36,7 @@ export default function WhatIsKaspaPage() {
             <p>
               The protocol was designed by Yonatan Sompolinsky and collaborators. The key innovation is replacing the "longest chain" rule with a mathematically sound ordering of a directed acyclic graph (DAG) of blocks: GHOSTDAG (and its successor DAGKNIGHT).
             </p>
-            <p className="text-[#49EACB] font-medium">
+            <p className="text-[#00c9b8] font-medium">
               This removes the orphan rate problem that limits traditional blockchains. Kaspa can safely run at block rates that would destroy Bitcoin or any chain-based PoW system.
             </p>
             </div>
@@ -55,7 +55,7 @@ export default function WhatIsKaspaPage() {
             ].map((item, i) => (
               <Card key={i} className="border-white/5 hover:border-white/10 transition-colors">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg"><item.icon size={18} className="text-[#49EACB]" />{item.title}</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-lg"><item.icon size={18} className="text-[#00c9b8]" />{item.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-300 text-sm leading-relaxed">{item.body}</p>
@@ -75,15 +75,15 @@ export default function WhatIsKaspaPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <div className="p-3 rounded-xl bg-white/[0.015] border border-white/5">
-                <div className="font-mono text-[#49EACB] text-xs mb-1">K PARAMETER</div>
+                <div className="font-mono text-[#00c9b8] text-xs mb-1">K PARAMETER</div>
                 <div className="text-white">Controls the "width" of the blue set. Higher k = more parallelism tolerated.</div>
               </div>
               <div className="p-3 rounded-xl bg-white/[0.015] border border-white/5">
-                <div className="font-mono text-[#49EACB] text-xs mb-1">BLUE / RED SETS</div>
+                <div className="font-mono text-[#00c9b8] text-xs mb-1">BLUE / RED SETS</div>
                 <div className="text-white">Blue blocks contribute to the ordering and rewards. Red blocks are still valid but have less influence.</div>
               </div>
               <div className="p-3 rounded-xl bg-white/[0.015] border border-white/5">
-                <div className="font-mono text-[#49EACB] text-xs mb-1">CONFIRMATION</div>
+                <div className="font-mono text-[#00c9b8] text-xs mb-1">CONFIRMATION</div>
                 <div className="text-white">A transaction is confirmed when it is buried deep enough in the GHOSTDAG ordering that reordering it would require an infeasible attack.</div>
               </div>
             </div>
@@ -104,7 +104,7 @@ export default function WhatIsKaspaPage() {
               <li>Enables the safe jump from 10 BPS to 100+ BPS without manual retuning or risk of liveness attacks.</li>
               <li>Paper proves it generalizes both PHANTOM and GHOSTDAG as special cases.</li>
             </ul>
-            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="inline-block mt-4 text-[#49EACB] hover:underline text-sm font-medium">Read the DAGKNIGHT paper (IACR ePrint 2022/1494)</a>
+            <a href="https://eprint.iacr.org/2022/1494.pdf" target="_blank" rel="noreferrer" className="inline-block mt-4 text-[#00c9b8] hover:underline text-sm font-medium">Read the DAGKNIGHT paper (IACR ePrint 2022/1494)</a>
           </div>
         </section>
 
@@ -117,7 +117,7 @@ export default function WhatIsKaspaPage() {
               <CardContent className="text-sm text-gray-300 space-y-3 leading-relaxed">
                 <p>Custom PoW designed specifically for Kaspa. It is a hybrid of heavy hash + matrix multiplication that is friendly to optical mining (photonic ASICs) while remaining reasonably ASIC-resistant in the traditional sense.</p>
                 <p>Goal: Prevent the extreme centralization seen in Bitcoin and Ethereum mining. Optical miners can be extremely efficient and potentially more decentralized in manufacturing.</p>
-                <p className="text-[#49EACB] text-xs font-mono">This is one of the few PoW coins with a deliberate hardware philosophy beyond "ASIC or nothing".</p>
+                <p className="text-[#00c9b8] text-xs font-mono">This is one of the few PoW coins with a deliberate hardware philosophy beyond "ASIC or nothing".</p>
               </CardContent>
             </Card>
             <Card className="border-white/5">
@@ -140,21 +140,21 @@ export default function WhatIsKaspaPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="uppercase tracking-widest text-[10px] text-[#49EACB] mb-1">Core Primitive</div>
+                <div className="uppercase tracking-widest text-[10px] text-[#00c9b8] mb-1">Core Primitive</div>
                 <p className="text-gray-200">UTXOs can carry small scripts (aa20-aa23 opcodes in Toccata) that control spending conditions, including time locks, hash locks, public key checks, and arbitrary state machines.</p>
               </div>
               <div>
-                <div className="uppercase tracking-widest text-[10px] text-[#49EACB] mb-1">Covex Use Case</div>
+                <div className="uppercase tracking-widest text-[10px] text-[#00c9b8] mb-1">Covex Use Case</div>
                 <p className="text-gray-200">One-time tier payments (0 / 100 / 500 / 1000 KAS) to a treasury address upgrade a covenant's visibility and grant the owner access to the full Covex Terminal + custom UI deployment via Covenant Studio.</p>
               </div>
             </div>
           </div>
-          <a href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md" target="_blank" rel="noreferrer" className="text-[#49EACB] hover:underline font-medium text-sm">Read the official SilverScript / Toccata Covenant Design Document</a>
+          <a href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md" target="_blank" rel="noreferrer" className="text-[#00c9b8] hover:underline font-medium text-sm">Read the official SilverScript / Toccata Covenant Design Document</a>
         </section>
 
         {/* Research Library - Comprehensive */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Award size={20} className="text-[#49EACB]" /> Research Library: All Essential Papers</h2>
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Award size={20} className="text-[#00c9b8]" /> Research Library: All Essential Papers</h2>
           <div className="space-y-3">
             {[
               { title: "PHANTOM: A Scalable BlockDAG Protocol", subtitle: "Sompolinsky, Wyborski & Zohar (2018). The foundational BlockDAG paper (PHANTOM + GHOSTDAG). The mathematical basis for Kaspa. IACR ePrint 2018/104.", href: "https://eprint.iacr.org/2018/104.pdf" },
@@ -169,13 +169,13 @@ export default function WhatIsKaspaPage() {
               { title: "Kaspa Rust Node Architecture (rusty-kaspa)", subtitle: "The reference implementation. Covers consensus core, UTXO set, mempool, RPC, and how covenants are indexed.", href: "https://github.com/kaspanet/rusty-kaspa" },
             ].map((p, i) => (
               <a key={i} href={p.href} target="_blank" rel="noreferrer"
-                 className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition-all group">
+                 className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#00c9b8]/30 hover:bg-white/[0.02] transition-all group">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h4 className="font-semibold text-white group-hover:text-[#49EACB] transition-colors">{p.title}</h4>
+                    <h4 className="font-semibold text-white group-hover:text-[#00c9b8] transition-colors">{p.title}</h4>
                     <p className="text-sm text-gray-400 mt-1 pr-4">{p.subtitle}</p>
                   </div>
-                  <ExternalLink size={14} className="text-gray-500 group-hover:text-[#49EACB] mt-1 shrink-0" />
+                  <ExternalLink size={14} className="text-gray-500 group-hover:text-[#00c9b8] mt-1 shrink-0" />
                 </div>
               </a>
             ))}
@@ -187,10 +187,10 @@ export default function WhatIsKaspaPage() {
         <section className="mb-12">
           <div className="flex items-center gap-3 mb-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <CheckCircle2 size={20} className="text-[#49EACB]" />
+              <CheckCircle2 size={20} className="text-[#00c9b8]" />
               Network Specifications
             </h2>
-            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono">LIVE MAINNET 2026</span>
+            <span className="text-[10px] px-3 py-0.5 rounded-full bg-[#008a7d]/10 text-[#00c9b8] border border-kaspa-green/20 tracking-wider font-mono">LIVE MAINNET 2026</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -208,14 +208,14 @@ export default function WhatIsKaspaPage() {
               { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
               { icon: FlaskConical, label: 'Active Testnet', value: 'Toccata TN12', sub: 'SilverScript development and covenant testing network', badge: 'ACTIVE' },
             ].map((s, i) => (
-              <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.005] p-5 hover:border-[#49EACB]/40 hover:bg-white/[0.02] hover:shadow-[0_0_25px_rgba(73,234,203,0.08)] transition-all duration-300 group">
+              <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.005] p-5 hover:border-[#00c9b8]/40 hover:bg-white/[0.02] hover:shadow-[0_0_25px_rgba(73,234,203,0.08)] transition-all duration-300 group">
                 <div className="flex items-start justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#49EACB]/10 border border-[#49EACB]/20 flex items-center justify-center shrink-0 group-hover:bg-[#49EACB]/20 transition-colors">
-                    <s.icon size={15} className="text-[#49EACB]" />
+                  <div className="w-8 h-8 rounded-lg bg-[#00c9b8]/10 border border-[#00c9b8]/20 flex items-center justify-center shrink-0 group-hover:bg-[#00c9b8]/20 transition-colors">
+                    <s.icon size={15} className="text-[#00c9b8]" />
                   </div>
                   {s.badge && (
                     <span className={`text-[8px] px-2 py-0.5 rounded-full font-mono tracking-wider shrink-0 ${
-                      s.badge === 'VERIFIED' ? 'bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/25' :
+                      s.badge === 'VERIFIED' ? 'bg-[#00c9b8]/10 text-[#00c9b8] border border-[#00c9b8]/25' :
                       s.badge === 'TARGET' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25' :
                       s.badge === 'TN12' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/25' :
                       'bg-blue-500/10 text-blue-400 border border-blue-500/25'
@@ -223,7 +223,7 @@ export default function WhatIsKaspaPage() {
                   )}
                 </div>
                 <div className="text-[10px] text-gray-400 uppercase tracking-[1.5px] font-mono mb-1">{s.label}</div>
-                <div className="text-xl font-bold text-white tabular-nums group-hover:text-[#49EACB] transition-colors leading-tight">{s.value}</div>
+                <div className="text-xl font-bold text-white tabular-nums group-hover:text-[#00c9b8] transition-colors leading-tight">{s.value}</div>
                 <div className="text-[11px] text-gray-300 mt-1.5 leading-relaxed">{s.sub}</div>
               </div>
             ))}
@@ -231,7 +231,7 @@ export default function WhatIsKaspaPage() {
 
           <div className="mt-5 p-4 rounded-2xl border border-white/5 bg-white/[0.005]">
             <p className="text-[11px] text-gray-400 leading-relaxed">
-              <span className="text-[#49EACB] font-mono text-[10px] uppercase tracking-wider">Sources:</span> kaspa.org, explorer.kaspa.org, rusty-kaspa GitHub, official Crescendo/DAGKNIGHT/Toccata hard-fork announcements, and developer updates (mid-2026).
+              <span className="text-[#00c9b8] font-mono text-[10px] uppercase tracking-wider">Sources:</span> kaspa.org, explorer.kaspa.org, rusty-kaspa GitHub, official Crescendo/DAGKNIGHT/Toccata hard-fork announcements, and developer updates (mid-2026).
               Finality is probabilistic; practical spendability is near-instant for most use cases.
               SilverScript covenants are experimental on Toccata TN12; mainnet support arrives with the Toccata covenant-centric hard fork.
             </p>
@@ -257,13 +257,13 @@ export default function WhatIsKaspaPage() {
               { title: "Core Team & Research Blog", desc: "Updates from the researchers and protocol engineers", href: "https://research.kaspa.org" },
             ].map((r, i) => (
               <a key={i} href={r.href} target="_blank" rel="noreferrer"
-                 className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/25 hover:bg-white/[0.015] transition-all group">
+                 className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#00c9b8]/25 hover:bg-white/[0.015] transition-all group">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-semibold text-white group-hover:text-[#49EACB] transition-colors">{r.title}</h4>
+                    <h4 className="font-semibold text-white group-hover:text-[#00c9b8] transition-colors">{r.title}</h4>
                     <p className="text-xs text-gray-400 mt-0.5">{r.desc}</p>
                   </div>
-                  <ExternalLink size={13} className="text-gray-500 group-hover:text-[#49EACB] mt-0.5 shrink-0" />
+                  <ExternalLink size={13} className="text-gray-500 group-hover:text-[#00c9b8] mt-0.5 shrink-0" />
                 </div>
               </a>
             ))}
@@ -272,8 +272,8 @@ export default function WhatIsKaspaPage() {
 
         {/* How Covex Uses This */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-4">How Covex Uses the Kaspa BlockDAG</h2>
-          <div className="glass-panel rounded-2xl p-6 border border-white/10 text-sm text-gray-300 leading-relaxed">
+          <h2 className="font-['Raleway'] italic font-light text-3xl text-[#f0fefd] mb-4">How Covex Uses the Kaspa BlockDAG</h2>
+          <div className="covex-paper rounded-none p-6 text-sm leading-relaxed">
             Covex is a covenant-first application layer on top of SilverScript. Every covenant you deploy through Covex is a real UTXO on Toccata (Testnet-12) or eventually mainnet. 
             The one-time tier payment (BUILDER 100 KAS, PRO 500 KAS, MAX 1000 KAS) is a simple P2SH-style spend to a known treasury address. 
             The indexer watches for these payments, upgrades the covenant's visibility tier, and grants the owner Terminal + custom UI capabilities. 
@@ -282,7 +282,7 @@ export default function WhatIsKaspaPage() {
         </section>
 
         <div className="pt-8 border-t border-white/10 text-center">
-          <Link to="/deploy" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#49EACB] text-black font-bold hover:bg-[#3cd8b6] transition-all hover:scale-[1.03] active:scale-[0.96]">
+          <Link to="/deploy" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#008a7d] text-[#f0fefd] font-bold hover:bg-[#00c9b8] hover:text-black transition-all hover:scale-[1.03] active:scale-[0.96]">
             Deploy Your First Free Covenant <Terminal size={18} />
           </Link>
           <p className="text-[10px] text-gray-500 mt-3">No payment required. Upgrade that specific covenant later if you want rich UI + Terminal.</p>

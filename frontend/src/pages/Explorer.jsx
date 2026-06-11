@@ -2,13 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Terminal, Database, Search, ShieldCheck, Sparkles, Play,
-  Zap, Cpu, Coins, Clock, Filter, Layers, Eye, ArrowRight, Crown, Star,
-  ChevronRight, TrendingUp, Users
+  Coins, Layers, Eye, Crown, Star, Users
 } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
-import { Chessboard } from 'react-chessboard';
-import FullScreenChess from '../components/FullScreenChess';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
@@ -40,10 +37,6 @@ export default function Explorer() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
-
-  // For demo "live waiting" games - shows the arena in waiting state when clicked
-  const [showLiveWaiting, setShowLiveWaiting] = useState(false);
-  const [liveWaitingStake, setLiveWaitingStake] = useState(50);
 
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
 
@@ -154,7 +147,7 @@ export default function Explorer() {
         </div>
       </section>
 
-      {/* ═══ CONTROLS - simple for interactors (no edit clutter) ═══ */}
+      {/* ═══ CONTROLS - Explore & Search ═══ */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
@@ -171,38 +164,11 @@ export default function Explorer() {
               </button>
             ))}
           </div>
-          <Link to="/fix" className="text-xs px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 flex items-center gap-1.5">
-            <ShieldCheck size={12} /> Creators: Fix / Manage
-          </Link>
         </div>
-        <div className="text-[10px] text-gray-500 mt-1.5">Explore to discover and play. Creators log in and use /fix to edit looks or stake settings for their covenants.</div>
       </div>
 
-      {/* ═══ MAIN CONTENT - Organized for easy interaction (play/stake) not editing ═══ */}
+      {/* ═══ MAIN CONTENT - All real covenants on Kaspa ═══ */}
       <div className="relative z-10 px-4 sm:px-6 pb-8 max-w-6xl mx-auto">
-        {/* FEATURED: Easy to find and play the Chess Arena (for interactors) */}
-        {activeTab === 'explore' && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-3">
-              <Play size={16} className="text-emerald-400" />
-              <div className="text-sm font-semibold tracking-wider text-emerald-400">FEATURED FOR PLAY</div>
-            </div>
-            <div className="glass-panel rounded-3xl p-6 border border-emerald-500/20 bg-gradient-to-br from-emerald-950/20 to-black">
-              <div className="flex flex-col md:flex-row gap-6 items-center">
-                <div className="flex-1">
-                  <div className="uppercase text-xs tracking-[2px] text-emerald-400 font-bold mb-1">10 MIN WINNER-TAKES-ALL CHESS</div>
-                  <div className="text-3xl font-bold tracking-tight text-white mb-2">Stake. Match in 5 min. Play.</div>
-                  <div className="text-gray-300 mb-4">Full professional chess.com-style board • 10min clocks • Resign • Oracle + ZK lie detection • 2% to creator keeps it alive. Transparent on-chain.</div>
-                  <div className="flex gap-3">
-                    <Link to="/covenant" className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-2xl text-sm">Find Chess Covenants &amp; Play</Link>
-                    <Link to="/fix" className="px-6 py-3 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 rounded-2xl text-sm">Creators: Manage via Fix</Link>
-                  </div>
-                </div>
-                <div className="text-[10px] text-emerald-300/70 font-mono">All stakes direct to covenant • Auto return if no match • Fully verifiable</div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* SEARCH TAB */}
         {activeTab === 'search' && (
@@ -276,94 +242,61 @@ export default function Explorer() {
 
             {!loading && covenants.length > 0 && (
               <>
-                {/* STUNNING FEATURED CHESS ARENA - jaw dropping, uses space, amazing pro look, chess.com board preview */}
-                <div className="mb-10 relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-[#0a1f14] via-black to-[#0a0f0a] p-8 sm:p-12">
-                  <div className="absolute inset-0 bg-[radial-gradient(#10b981_0.5px,transparent_1px)] bg-[length:4px_4px] opacity-10"></div>
-                  <div className="relative z-10 flex flex-col lg:flex-row gap-8 items-center">
-                    <div className="flex-1">
-                      <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-[3px] mb-4">
-                        FEATURED • LIVE ON KASPA
-                      </div>
-                      <h2 className="text-5xl sm:text-6xl font-black tracking-tighter text-white mb-3">10 MIN<br/>WINNER-TAKES-ALL<br/>CHESS ARENA</h2>
-                      <p className="text-xl text-emerald-200 max-w-md mb-6">Stake any amount. Match in 5 minutes or funds return. 10 minute clocks. Full resign and time logic. 2% sustains the arena forever. Every move ZK-verified by chess_v1. Oracle enforces truth. Pure, transparent, on-chain chess.</p>
-                      <div className="flex gap-4">
-                        <Link to="/covenant?demo=chess" className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-2xl text-lg shadow-xl active:scale-[0.985] flex items-center gap-2">
-                          <Play size={20} /> STAKE AND PLAY NOW
-                        </Link>
-                        <Link to="/fix" className="px-8 py-4 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 rounded-2xl text-lg flex items-center gap-2">
-                          Creators: Fix
-                        </Link>
-                      </div>
-                      <div className="mt-4 text-xs text-emerald-400/70">All stakes direct to covenant • Fully non-custodial • No secrets</div>
-                    </div>
-                    <div className="flex-1 max-w-[420px] w-full">
-                      <div className="rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-2xl bg-black">
-                        <Chessboard
-                          position="start"
-                          boardWidth={380}
-                          customDarkSquareStyle={{ backgroundColor: '#b58863' }}
-                          customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
-                          customBoardStyle={{ borderRadius: '0' }}
-                          customNotationStyle={{ color: '#3f2a1d', fontSize: '11px', fontWeight: 700 }}
-                        />
-                      </div>
-                      <div className="text-center text-[10px] text-emerald-400/60 mt-2 tracking-widest">CHESS.COM CLASSIC • PRO TIMERS • ZK VERIFIED</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* LIVE GAMES WAITING FOR PLAYERS - prominent nice visual place right after featured, easy to spot and join. Organised for quick interaction. */}
+                {/* REAL GAME ARENA: Only real on-chain covenants with players waiting to join by staking */}
                 <div className="mb-8">
                   <div className="flex items-center gap-2 mb-3">
-                    <Clock size={16} className="text-amber-400" />
-                    <div className="text-sm font-semibold tracking-wider text-amber-400">LIVE - WAITING FOR OPPONENT (JOIN NOW)</div>
+                    <Users size={16} className="text-amber-400" />
+                    <div className="text-sm font-semibold tracking-wider text-amber-400">ARENA - Open Matches (Real On-Chain)</div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Demo waiting card 1 - nice urgent visual, fills space, clear CTA to arena in waiting state */}
-                    <div className="glass-panel rounded-3xl p-6 border border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-black hover:border-amber-500/60 transition-all">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="text-amber-400 text-xs font-bold tracking-[2px]">10 MIN CHESS ARENA</div>
-                          <div className="text-2xl font-bold text-white mt-1">50 KAS Staked</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(() => {
+                      const waiting = covenants.filter(c => {
+                        const t = (c.covenant_type || '').toLowerCase();
+                        const isGameType = /skill|game|tournament|match|flip|chess|poker|bracket/i.test(t);
+                        const isActive = c.is_active !== false;
+                        const participants = c.participant_count || 1;
+                        const isWaiting = participants < 2 && isActive;
+                        const hasStake = (c.amount_kaspa || 0) > 0;
+                        return isGameType && isWaiting && hasStake && c.tx_id && c.tx_id.length > 20;
+                      });
+                      const tierRank = (c) => {
+                        const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+                        return { 'MAX': 100, 'PRO': 80, 'BUILDER': 60 }[t] || 0;
+                      };
+                      const sorted = [...waiting].sort((a,b) => tierRank(b) - tierRank(a) || (b.amount_kaspa||0) - (a.amount_kaspa||0));
+                      return sorted.length > 0 ? sorted.map((g, i) => {
+                        const stakeAmt = g.amount_kaspa || 1;
+                        const isPremium = (g.verified_tier || g.tier || '').toUpperCase() === 'MAX' || (g.verified_tier || g.tier || '').toUpperCase() === 'PRO';
+                        return (
+                          <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${isPremium ? 'border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-black' : 'border-white/10 bg-[#0a0a0f]'} min-h-[178px] flex flex-col`}>
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <div className="text-amber-400 text-xs font-bold tracking-[2px]">{(g.covenant_type || 'Game').toUpperCase()}</div>
+                                <div className="text-xl font-bold text-white mt-1">{g.name || g.covenant_type || 'Unknown'}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xs text-amber-300">{g.participant_count || 1} / 2 PLAYERS</div>
+                                <div className="font-mono text-lg text-amber-400">{stakeAmt} KAS</div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-300 mb-4 flex-1">Match the stake to join. Real on-chain covenant with transparent resolution.</div>
+                            <Link
+                              to={`/covenant/${encodeURIComponent(g.tx_id)}`}
+                              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
+                            >
+                              <Play size={16} /> JOIN BY STAKING ({stakeAmt} KAS)
+                            </Link>
+                          </div>
+                        );
+                      }) : (
+                        <div className="col-span-full text-center py-8 glass-panel rounded-2xl text-gray-400 text-sm">
+                          No real on-chain events with players waiting for stake right now.<br/>
+                          <Link to="/deploy" className="text-kaspa-green underline">Create a real SkillGame or Tournament on-chain</Link> to populate the Arena.
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs text-amber-300">1 / 2 PLAYERS</div>
-                          <div className="font-mono text-3xl text-amber-400 tabular-nums">3:42</div>
-                          <div className="text-[10px] text-amber-300/70 -mt-1">left to join</div>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-300 mb-4">Match the stake to play immediately. Full pro board, real timers, ZK verified. Auto return if no join.</div>
-                      <button 
-                        onClick={() => { setLiveWaitingStake(50); setShowLiveWaiting(true); }}
-                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
-                      >
-                        <Play size={16} /> JOIN & MATCH 50 KAS
-                      </button>
-                    </div>
-
-                    {/* Demo waiting card 2 */}
-                    <div className="glass-panel rounded-3xl p-6 border border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-black hover:border-amber-500/60 transition-all">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="text-amber-400 text-xs font-bold tracking-[2px]">10 MIN CHESS ARENA</div>
-                          <div className="text-2xl font-bold text-white mt-1">25 KAS Staked</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-amber-300">1 / 2 PLAYERS</div>
-                          <div className="font-mono text-3xl text-amber-400 tabular-nums">1:19</div>
-                          <div className="text-[10px] text-amber-300/70 -mt-1">left to join</div>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-300 mb-4">Quick entry available. 10 min clocks, resign, oracle result. Easy to join and play.</div>
-                      <button 
-                        onClick={() => { setLiveWaitingStake(25); setShowLiveWaiting(true); }}
-                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
-                      >
-                        <Play size={16} /> JOIN & MATCH 25 KAS
-                      </button>
-                    </div>
+                      );
+                    })()}
                   </div>
-                  <div className="text-[10px] text-amber-400/60 mt-2 text-center">Live staked games waiting for a match. Click to enter the arena and play instantly.</div>
+                  <div className="text-[10px] text-amber-400/60 mt-2 text-center">All waiting events appear here automatically. Premium (MAX/PRO) always pinned to the top.</div>
                 </div>
 
                 {/* PAID / VERIFIED COVENANTS - PRIORITISED AT THE VERY TOP, amazingly represented with premium cards */}
@@ -387,17 +320,6 @@ export default function Explorer() {
           </>
         )}
       </div>
-
-      {/* Demo overlay for live waiting games - launches the arena in waiting state (needs opponent to join) */}
-      {showLiveWaiting && (
-        <FullScreenChess 
-          stake={liveWaitingStake} 
-          onClose={() => setShowLiveWaiting(false)} 
-          covenantId="live-demo" 
-          creatorAddr="kaspatest:demo" 
-          feePercent={2} 
-        />
-      )}
     </>
   );
 }

@@ -1,33 +1,68 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { 
-  Terminal, Database, Search, Sparkles, Play,
-  Coins, Layers, Crown, Star, Users, Swords
+  Database, Search, Sparkles, Play,
+  Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
+  ShieldCheck, Zap
 } from 'lucide-react';
-import { Gamepad2 } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
-
-const ArenaIcon = Gamepad2;
-
-const TIER_STYLES = {
-  MAX: { card: 'border-purple-500/20 bg-purple-500/[0.03]', badge: 'tier-MAX', label: 'MAX' },
-  PRO: { card: 'border-amber-500/15 bg-amber-500/[0.02]', badge: 'tier-PRO', label: 'PRO' },
-  BUILDER: { card: 'border-blue-500/10 bg-blue-500/[0.015]', badge: 'tier-BUILDER', label: 'BUILDER' },
-  FREE: { card: 'border-white/5 bg-white/[0.005]', badge: 'tier-FREE', label: 'FREE' },
-};
 
 const formatKaspa = (kas) => {
   if (kas == null) return 'N/A';
-  return `${kas.toLocaleString(undefined, { maximumFractionDigits: 3 })} KAS`;
+  const num = Number(kas);
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M KAS`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K KAS`;
+  return `${num.toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS`;
 };
 
 const truncate = (s, n = 8) =>
   s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
 
-// Only skill-game type covenants created on Covex
+const TIER_CONFIG = {
+  MAX: {
+    label: 'MAX',
+    gradient: 'from-amber-500/20 via-amber-600/10 to-transparent',
+    border: 'border-amber-500/30',
+    text: 'text-amber-400',
+    badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    glow: 'shadow-[0_0_24px_rgba(245,158,11,0.12)]',
+    rank: 4,
+    icon: Crown,
+  },
+  PRO: {
+    label: 'PRO',
+    gradient: 'from-emerald-500/20 via-emerald-600/10 to-transparent',
+    border: 'border-emerald-500/25',
+    text: 'text-emerald-400',
+    badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+    glow: 'shadow-[0_0_16px_rgba(16,185,129,0.10)]',
+    rank: 3,
+    icon: Star,
+  },
+  BUILDER: {
+    label: 'BUILDER',
+    gradient: 'from-blue-500/15 via-blue-600/8 to-transparent',
+    border: 'border-blue-500/20',
+    text: 'text-blue-400',
+    badge: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+    glow: 'shadow-[0_0_8px_rgba(59,130,246,0.08)]',
+    rank: 2,
+    icon: ShieldCheck,
+  },
+  FREE: {
+    label: 'FREE',
+    gradient: 'from-white/5 to-transparent',
+    border: 'border-white/8',
+    text: 'text-gray-400',
+    badge: 'bg-white/5 text-gray-500 border-white/10',
+    glow: '',
+    rank: 0,
+    icon: Layers,
+  },
+};
+
 const isSkillGame = (c) => {
   const t = (c.covenant_type || '').toLowerCase();
   return /chess|connect.?4|poker|blackjack|checkers|tic.?tac|reversi|rps|rock.?paper|skill.?game|game|tournament|flip/i.test(t);
@@ -45,15 +80,12 @@ export default function Explorer() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
-
-  const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
-
   const [showArena, setShowArena] = useState(false);
+  const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
 
   useEffect(() => {
     const handler = (e) => {
-      const net = typeof e.detail === 'string' ? e.detail : localStorage.getItem('kaspaNetwork') || 'testnet-12';
-      setKaspaNetwork(net);
+      setKaspaNetwork(typeof e.detail === 'string' ? e.detail : localStorage.getItem('kaspaNetwork') || 'testnet-12');
     };
     window.addEventListener('kaspa-network-change', handler);
     return () => window.removeEventListener('kaspa-network-change', handler);
@@ -62,7 +94,7 @@ export default function Explorer() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/covenants?network=${kaspaNetwork}`)
+    fetch(`/api/covenants?network=${kaspaNetwork}&limit=5000`)
       .then(res => res.json())
       .then(data => {
         const list = (Array.isArray(data.covenants) ? data.covenants : []);
@@ -84,7 +116,6 @@ export default function Explorer() {
     setSearchLoading(true); setSearchError(null); setSearchResults(null);
     const isTxId = q.includes(':');
     const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:') || q.length >= 40;
-
     if (isTxId) {
       fetch(`/api/covenants/${encodeURIComponent(q)}?network=${kaspaNetwork}`)
         .then(r => r.json())
@@ -95,7 +126,7 @@ export default function Explorer() {
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     } else if (isWalletAddr) {
-      fetch(`/api/covenants?network=${kaspaNetwork}`)
+      fetch(`/api/covenants?network=${kaspaNetwork}&limit=5000`)
         .then(r => r.json())
         .then(d => {
           const all = Array.isArray(d.covenants) ? d.covenants : [];
@@ -109,19 +140,19 @@ export default function Explorer() {
       setSearchError('Enter a Kaspa wallet address (kaspatest:...) or covenant TXID (hash:index)');
       setSearchLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, kaspaNetwork]);
 
-  const tierRank = { MAX: 3, PRO: 2, BUILDER: 1, FREE: 0 };
-
-  // All real covenants sorted: paid (highest amount first) at top, then free by amount
+  // MAIN SORT: MAX first, then PRO, then BUILDER, then FREE. Within each tier: highest TVL at top.
   const allCovenantsSorted = [...covenants].sort((a, b) => {
-    const aT = tierRank[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || 0;
-    const bT = tierRank[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || 0;
-    if (bT !== aT) return bT - aT;
+    const aTier = (a.verified_tier || a.tier || 'FREE').toUpperCase();
+    const bTier = (b.verified_tier || b.tier || 'FREE').toUpperCase();
+    const aRank = (TIER_CONFIG[aTier] || TIER_CONFIG.FREE).rank;
+    const bRank = (TIER_CONFIG[bTier] || TIER_CONFIG.FREE).rank;
+    if (bRank !== aRank) return bRank - aRank;
     return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
 
-  // Arena: only skill games created on Covex where someone is waiting for another player
+  // ARENA: only skill games created on Covex where someone is waiting
   const arenaWaiting = covenants.filter(c => {
     const hasTx = c.tx_id && c.tx_id.length > 20;
     const isGame = isSkillGame(c);
@@ -129,37 +160,38 @@ export default function Explorer() {
     const participants = c.participant_count || 1;
     const isWaiting = participants < 2 && isActive;
     const hasStake = (c.amount_kaspa || 0) > 0;
-    // Must be a Covex-created covenant (has custom_ui_config or verified tier)
-    const isCovex = (c.verified_tier && c.verified_tier !== 'FREE') || c.custom_ui_config;
+    const isCovex = (c.verified_tier && c.verified_tier !== 'FREE') || (c.custom_ui_config && Object.keys(c.custom_ui_config).length > 0);
     return hasTx && isGame && isWaiting && hasStake && isCovex;
   });
+  const arenaSorted = [...arenaWaiting].sort((a, b) => {
+    const aRank = (TIER_CONFIG[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || TIER_CONFIG.FREE).rank;
+    const bRank = (TIER_CONFIG[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || TIER_CONFIG.FREE).rank;
+    if (bRank !== aRank) return bRank - aRank;
+    return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
+  });
 
-  const arenaTierRank = (c) => {
-    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-    return { 'MAX': 100, 'PRO': 80, 'BUILDER': 60 }[t] || 0;
-  };
-  const arenaSorted = [...arenaWaiting].sort((a, b) => arenaTierRank(b) - arenaTierRank(a) || (b.amount_kaspa || 0) - (a.amount_kaspa || 0));
+  const netLabel = { 'testnet-12': 'TN12', 'testnet-10': 'TN10', 'mainnet': 'MAINNET' }[kaspaNetwork] || kaspaNetwork;
 
   return (
     <>
-      {/* ═══ HERO ═══ */}
-      <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-6 px-4 sm:px-6 text-center">
+      {/* HERO */}
+      <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-4 px-4 sm:px-6 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
-        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-8">
+        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="w-full max-w-2xl mx-auto glass-panel rounded-2xl p-4 sm:p-5 grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="w-full max-w-2xl mx-auto glass-panel rounded-2xl p-3 sm:p-4 grid grid-cols-3 gap-2 sm:gap-4 mb-2">
           {[
-            { icon: Layers, label: 'Covenants', value: stats.total },
-            { icon: Sparkles, label: 'Paid Tiers', value: stats.paidCount },
-            { icon: Coins, label: 'Total TVL', value: `${Math.round(stats.totalTVL).toLocaleString()} KAS` },
+            { icon: Layers, label: `${netLabel} Covenants`, value: stats.total.toLocaleString() },
+            { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount },
+            { icon: Coins, label: 'Total TVL', value: formatKaspa(stats.totalTVL) },
           ].map((s, i) => (
             <div key={i} className="flex items-center gap-2 sm:gap-3 justify-center">
               <s.icon size={16} className="text-kaspa-green shrink-0" />
               <div className="text-left">
-                <p className="text-[10px] text-gray-300 font-mono uppercase tracking-wider">{s.label}</p>
+                <p className="text-[9px] sm:text-[10px] text-gray-300 font-mono uppercase tracking-wider">{s.label}</p>
                 <p className="text-sm font-bold text-white">{s.value}</p>
               </div>
             </div>
@@ -167,12 +199,12 @@ export default function Explorer() {
         </div>
       </section>
 
-      {/* ═══ CONTROLS ═══ */}
+      {/* CONTROLS - Explore / Search / Arena */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
             {[
-              { id: 'explore', icon: Database, label: 'Explore' },
+              { id: 'explore', icon: Database, label: 'All Covenants' },
               { id: 'search', icon: Search, label: 'Search' },
             ].map(tab => (
               <button
@@ -186,14 +218,13 @@ export default function Explorer() {
               </button>
             ))}
           </div>
-          {/* ARENA BUTTON — shows only actively waiting skill games */}
           <button
             onClick={() => { setShowArena(!showArena); setActiveTab('explore'); }}
             className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              showArena ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
+              showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
             }`}
           >
-            <ArenaIcon size={12} />
+            <Gamepad2 size={12} />
             <span className="hidden sm:inline">Arena</span>
             {arenaWaiting.length > 0 && (
               <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 text-amber-400'}`}>
@@ -204,14 +235,14 @@ export default function Explorer() {
         </div>
       </div>
 
-      {/* ═══ MAIN CONTENT ═══ */}
+      {/* MAIN CONTENT */}
       <div className="relative z-10 px-4 sm:px-6 pb-8 max-w-6xl mx-auto">
 
         {/* SEARCH TAB */}
         {activeTab === 'search' && (
           <div className="space-y-6">
             <form onSubmit={handleSearch} className="relative">
-              <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-2xl glass-panel focus-within:border-kaspa-green/40 focus-within:shadow-[0_0_30px_rgba(73,234,203,0.15)] transition-all">
+              <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-2xl glass-panel focus-within:border-kaspa-green/40 transition-all">
                 <Search size={18} className="text-kaspa-green shrink-0" />
                 <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
@@ -220,7 +251,7 @@ export default function Explorer() {
                   autoFocus spellCheck={false} autoComplete="off"
                 />
                 <button type="submit" disabled={searchLoading || !searchQuery.trim()}
-                  className="px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:shadow-[0_0_20px_rgba(73,234,203,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                  className="px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
                   {searchLoading ? <span className="inline-block w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><Search size={12} /> Search</>}
                 </button>
@@ -251,71 +282,62 @@ export default function Explorer() {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {searchResults.data.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />)}
+                  {searchResults.data.map((c, i) => (
+                    <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
+                  ))}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ARENA VIEW — only skill games waiting for players */}
+        {/* ARENA VIEW */}
         {showArena && (
           <div>
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-lg font-black text-white tracking-tight">
-                <span className="text-amber-400">Arena</span> — Open Matches
+                <span className="text-amber-400">Arena</span> - Open Matches
               </h2>
               <span className="text-xs text-amber-400/60 font-mono">
-                Only skill games with someone waiting to match. Games created on Covex only.
+                Skill games with someone waiting to match. Covex-created only.
               </span>
             </div>
-
             {loading ? (
               <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
                 <div className="w-10 h-10 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
                 <p className="text-sm font-mono">Scanning for active matches...</p>
               </div>
             ) : arenaSorted.length === 0 ? (
-              <div className="col-span-full text-center py-12 glass-panel rounded-2xl text-gray-400 text-sm">
-                <ArenaIcon size={32} className="mx-auto mb-3 text-amber-400/30" />
+              <div className="text-center py-12 glass-panel rounded-2xl text-gray-400 text-sm">
+                <Gamepad2 size={32} className="mx-auto mb-3 text-amber-400/30" />
                 <p className="text-base text-amber-400/70 mb-2">No active matches right now</p>
-                <p className="text-gray-500">
-                  When a game creator is waiting for an opponent, their match appears here.
-                </p>
+                <p className="text-xs">When a game creator is waiting for an opponent, their match appears here.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {arenaSorted.map((g, i) => {
+                  const tierKey = (g.verified_tier || g.tier || 'FREE').toUpperCase();
+                  const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
                   const stakeAmt = g.amount_kaspa || 1;
-                  const isPremium = (g.verified_tier || g.tier || '').toUpperCase() === 'MAX' || (g.verified_tier || g.tier || '').toUpperCase() === 'PRO';
                   return (
-                    <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${
-                      isPremium ? 'border-amber-500/40 bg-gradient-to-br from-amber-950/30 to-black shadow-[0_0_20px_rgba(245,158,11,0.10)]' : 'border-white/10 bg-[#0a0a0f]'
-                    } min-h-[178px] flex flex-col`}>
+                    <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[178px] flex flex-col`}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <div className="text-amber-400 text-xs font-bold tracking-[2px]">{(g.covenant_type || g.name || 'Game').toUpperCase()}</div>
-                          <div className="text-xl font-bold text-white mt-1 truncate">{g.name || g.covenant_type || 'Unknown'}</div>
+                          <div className={`text-xs font-bold tracking-[2px] ${cfg.text}`}>{(g.covenant_type || g.name || 'Game').toUpperCase()}</div>
+                          <div className="text-lg font-bold text-white mt-1 truncate">{g.name || g.covenant_type || 'Unknown'}</div>
                         </div>
                         <div className="text-right shrink-0 ml-2">
-                          <div className="text-xs text-amber-300">{g.participant_count || 1} / 2 PLAYERS</div>
-                          <div className="font-mono text-lg text-amber-400 tabular-nums">{stakeAmt} KAS</div>
-                          {isPremium && (
-                            <div className="text-[9px] mt-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono inline-block">PREMIUM</div>
-                          )}
+                          <div className={`text-xs ${cfg.text} font-mono`}>{g.participant_count || 1} / 2</div>
+                          <div className="font-mono text-lg text-white font-bold">{formatKaspa(stakeAmt)}</div>
+                          {cfg.rank > 1 && <span className={`text-[9px] mt-1 px-1.5 py-0.5 rounded ${cfg.badge} inline-block font-mono`}>{cfg.label}</span>}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-300 mb-4 flex-1">
-                        {(g.covenant_type || '').toLowerCase().includes('chess') ? 'Chess match waiting. Equal stakes, ZK-verified board, oracle resolution.' :
-                         (g.covenant_type || '').toLowerCase().includes('connect') ? 'Connect 4 match waiting. Equal stakes for the pot.' :
-                         (g.covenant_type || '').toLowerCase().includes('poker') ? 'Poker table waiting. Match the stake to sit down.' :
-                         'Match the stake to join. Real on-chain covenant with transparent resolution.'}
-                      </div>
+                      <div className="text-xs text-gray-300 mb-4 flex-1">Match the stake to join. On-chain covenant with transparent resolution.</div>
                       <Link
                         to={`/covenant/${encodeURIComponent(g.tx_id)}`}
-                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2 transition-all"
                       >
-                        <Play size={16} /> JOIN BY STAKING ({stakeAmt} KAS)
+                        <Play size={14} /> JOIN BY STAKING ({formatKaspa(stakeAmt)})
                       </Link>
                     </div>
                   );
@@ -325,7 +347,7 @@ export default function Explorer() {
           </div>
         )}
 
-        {/* EXPLORE TAB — all covenants, paid (highest KAS) at top */}
+        {/* EXPLORE TAB - all covenants, premium at top */}
         {activeTab === 'explore' && !showArena && (
           <>
             {loading && (
@@ -335,7 +357,6 @@ export default function Explorer() {
               </div>
             )}
             {error && <p className="text-red-500 text-center py-10">{error}</p>}
-
             {!loading && covenants.length === 0 && (
               <div className="glass-panel rounded-2xl p-10 text-center">
                 <Layers size={40} className="mx-auto text-gray-200 mb-3" />
@@ -343,17 +364,19 @@ export default function Explorer() {
                 <p className="text-sm text-gray-300">The Kaspa node is still syncing. Covenants will appear automatically.</p>
               </div>
             )}
-
             {!loading && covenants.length > 0 && (
               <>
-                {/* ALL COVENANTS — paid at the very top (most KAS), then free */}
-                <SectionLabel icon={Layers} label="All Covenants on Kaspa" />
-                <p className="text-xs text-gray-400 -mt-2 mb-4">
-                  Paid covenants ranked at the top by tier and total KAS. Discover, play, and interact with real on-chain covenants.
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-kaspa-green flex items-center gap-1.5">
+                      <Layers size={12} />All Covenants
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-mono">{stats.total.toLocaleString()} total - PAID at top</span>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {allCovenantsSorted.map((c, i) => (
-                    <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} highlighted={(c.verified_tier || c.tier || 'FREE').toUpperCase() !== 'FREE'} />
+                    <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
                   ))}
                 </div>
               </>
@@ -365,123 +388,101 @@ export default function Explorer() {
   );
 }
 
-/* ── Section Label ── */
-function SectionLabel({ icon: Icon, label, accent }) {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className={`h-px flex-1 ${accent ? 'bg-gradient-to-r from-kaspa-green/30 to-transparent' : 'bg-gradient-to-r from-white/5 to-transparent'}`} />
-      <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-1.5 ${accent ? 'text-kaspa-green' : 'text-gray-300'}`}>
-        <Icon size={12} />{label}
-      </span>
-      <div className={`h-px flex-1 ${accent ? 'bg-gradient-to-l from-kaspa-green/30 to-transparent' : 'bg-gradient-to-l from-white/5 to-transparent'}`} />
-    </div>
-  );
-}
-
-/* ── Covenant Card ── */
-function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
-  const tier = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-  const style = TIER_STYLES[tier] || TIER_STYLES.FREE;
-  const isPremium = tier === 'MAX' || tier === 'PRO';
-  const isHighTVL = (c.amount_kaspa || 0) >= 100;
+/* PREMIUM COVENANT CARD */
+function CovenantCard({ covenant: c, index, ownerAddress }) {
+  const tierKey = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+  const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
+  const IconComponent = cfg.icon;
+  const isPaid = cfg.rank > 0;
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
 
   let paidMetadata = null;
   try {
-    const cfg = c.custom_ui_config;
-    if (cfg && typeof cfg === 'object' && cfg.paid_token_hash) {
-      paidMetadata = cfg;
-    } else if (cfg && typeof cfg === 'string') {
-      const parsed = JSON.parse(cfg);
-      if (parsed.paid_token_hash) paidMetadata = parsed;
-    }
+    const meta = c.custom_ui_config;
+    if (meta && typeof meta === 'object' && meta.paid_token_hash) paidMetadata = meta;
+    else if (meta && typeof meta === 'string') { const p = JSON.parse(meta); if (p.paid_token_hash) paidMetadata = p; }
   } catch (_) {}
 
-  const isPaidVerified = !!paidMetadata;
-  const disclosedWallets = paidMetadata?.disclosed_wallets;
   const covenantName = paidMetadata?.name || c.name || c.covenant_type || 'Unnamed Covenant';
-  const covenantDesc = paidMetadata?.description || c.description || 'No description provided.';
+  const covenantDesc = paidMetadata?.description || c.description || 'On-chain Kaspa covenant. Transparent, verifiable, non-custodial.';
   const themeAccent = paidMetadata?.theme?.accent || '#49EACB';
-
-  const isOwner = ownerAddress && c.creator_addr?.toLowerCase() === ownerAddress.toLowerCase();
-
-  const tierCardClass = highlighted
-    ? `${style.card} hover:border-kaspa-green/30 hover:-translate-y-0.5`
-    : `${style.card} hover:border-white/10 hover:bg-white/[0.03]`;
-  const cardBase = 'bg-[#0a0a0f]';
-
-  const tierGlow = isPaidVerified
-    ? 'shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20'
-    : tier === 'MAX' ? 'shadow-[0_0_16px_rgba(168,85,247,0.12)] ring-1 ring-purple-500/10' 
-    : tier === 'PRO' ? 'shadow-[0_0_12px_rgba(232,175,52,0.10)] ring-1 ring-amber-500/10'
-    : tier === 'BUILDER' ? 'shadow-[0_0_8px_rgba(59,130,246,0.08)] ring-1 ring-blue-500/10'
-    : 'ring-1 ring-white/5';
+  const disclosedWallets = paidMetadata?.disclosed_wallets;
+  const isPaidVerified = !!paidMetadata;
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`block rounded-3xl border p-6 sm:p-7 transition-all duration-300 group cursor-pointer relative overflow-hidden ${tierGlow} ${tierCardClass} ${cardBase} min-h-[280px] flex flex-col hover:scale-[1.01]`}
+      className={`group block rounded-2xl border transition-all duration-300 overflow-hidden ${
+        isPaid ? `${cfg.border} ${cfg.glow} hover:-translate-y-0.5 hover:shadow-lg` : 'border-white/8 hover:border-white/15'
+      } bg-[#0a0a0f] min-h-[280px] flex flex-col`}
     >
-      {isPaidVerified && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-emerald-400/60 via-emerald-400/20 to-transparent" />}
-      {isPremium && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-kaspa-green/40 via-kaspa-green/10 to-transparent" />}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0 pr-2">
-          <h3 className={`font-bold text-lg sm:text-xl truncate ${highlighted ? 'text-kaspa-green' : 'text-white'}`} style={{ color: isPaidVerified ? themeAccent : undefined }}>
-            {covenantName}
-          </h3>
-          <p className="text-xs font-mono mt-1 text-gray-400 truncate">{truncate(c.tx_id, 8)}</p>
-        </div>
-        <div className="flex flex-col items-end gap-1 text-right text-xs text-gray-400 tabular-nums ml-2 shrink-0 min-w-0">
-          {isPaidVerified && <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono flex items-center gap-1">
-            {tier === 'MAX' && <Crown size={11} />}
-            {tier === 'PRO' && <Star size={11} />}
-            {tier === 'BUILDER' && <Terminal size={11} />}
-            PAID VERIFIED</span>}
-          {customUI && <span className="text-[9px] px-2 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/30 font-mono flex items-center gap-1">
-            CREATOR TRANSPARENT UI
-          </span>}
-          {isHighTVL && <Badge variant="default">HIGH TVL</Badge>}
-          <div className="flex items-center gap-1.5 text-sm">
-            {isOwner && (
-              <Badge tier={tier} className="text-[10px] py-0 px-2">{style.label}</Badge>
+      {/* TIER HEADER GRADIENT */}
+      <div className={`h-2 bg-gradient-to-r ${cfg.gradient}`}>
+        {isPaidVerified && <div className="h-full bg-gradient-to-r from-emerald-400/40 via-emerald-400/10 to-transparent" />}
+      </div>
+
+      <div className="p-5 flex flex-col flex-1">
+        {/* Top: name + tier badge + amount */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0 pr-2">
+            <h3 className={`font-bold text-sm sm:text-base truncate ${isPaid ? cfg.text : 'text-gray-200'}`}
+              style={isPaidVerified ? { color: themeAccent } : undefined}>
+              {covenantName}
+            </h3>
+            <p className="text-[10px] font-mono mt-0.5 text-gray-500 truncate">{truncate(c.tx_id, 8)}</p>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+            {isPaid && (
+              <span className={`text-[9px] px-2 py-0.5 rounded-full border ${cfg.badge} font-mono flex items-center gap-1`}>
+                <IconComponent size={10} />{cfg.label}
+              </span>
             )}
-            <span className="font-mono text-white truncate">{formatKaspa(c.amount_kaspa)}</span>
+            {isPaidVerified && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                VERIFIED
+              </span>
+            )}
+            <span className="font-mono text-sm font-bold text-white">{formatKaspa(c.amount_kaspa)}</span>
           </div>
         </div>
-      </div>
 
-      <p className="text-sm text-gray-200 mb-4 leading-relaxed flex-1">{covenantDesc}</p>
+        {/* Description */}
+        <p className="text-xs text-gray-400 mb-3 leading-relaxed flex-1 line-clamp-3">{covenantDesc}</p>
 
-      {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
-        <div className="mb-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2.5">
-          <div className="text-[10px] text-emerald-400 font-mono uppercase tracking-wide mb-1">All Wallets Disclosed</div>
-          <div className="flex flex-wrap gap-1.5">
-            {disclosedWallets.slice(0, 3).map((w, i) => (
-              <span key={i} className="text-[9px] text-gray-300 bg-white/5 px-1.5 py-0.5 rounded">{w.role}</span>
-            ))}
+        {/* Game preview / custom UI badges */}
+        {(gameType || customUI) && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {gameType && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider">
+                <Play size={9} />{gameType}
+              </span>
+            )}
+            {customUI && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
+                <Sparkles size={9} />Custom UI
+              </span>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {!gameType && <GamePreview covenant={c} compact={!customUI} large={!!customUI} />}
+        {/* Disclosed wallets for verified */}
+        {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
+          <div className="mb-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2">
+            <div className="text-[9px] text-emerald-400 font-mono uppercase tracking-wide mb-1">Wallets Disclosed</div>
+            <div className="flex flex-wrap gap-1">
+              {disclosedWallets.slice(0, 3).map((w, i) => (
+                <span key={i} className="text-[8px] text-gray-400 bg-white/5 px-1.5 py-0.5 rounded font-mono">{w.role}</span>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {(gameType || customUI) && (
-        <div className="mt-2.5 flex flex-wrap gap-1">
-          {gameType && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider"><Play size={9} />{gameType} game</span>}
-          {customUI && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300"><Sparkles size={9} />Custom UI</span>}
-        </div>
-      )}
-
-      <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-1.5 text-[10px] text-gray-300">
-        <span>Category: <span className="text-white">{c.category || 'general'}</span></span>
-        <span>Amount: <span className="text-white">{formatKaspa(c.amount_kaspa)}</span></span>
-        <span>Type: <span className="text-white truncate block">{c.covenant_type || 'N/A'}</span></span>
-        <span>DAA: <span className="text-white">{c.block_daa_score?.toLocaleString() || 'Unknown'}</span></span>
-      </div>
-
-      <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:flex gap-1.5">
-        <div className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/5 border border-white/8 text-gray-300 text-[10px] font-bold uppercase tracking-wider">
-          <Database size={11} />View Covenant
+        {/* Footer data */}
+        <div className="mt-auto pt-3 border-t border-white/5 grid grid-cols-2 gap-1 text-[10px] text-gray-500 font-mono">
+          <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
+          <span>DAA: <span className="text-gray-300">{(c.block_daa_score || 0).toLocaleString()}</span></span>
+          <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
+          <span className="text-kaspa-green group-hover:translate-x-0.5 transition-transform text-right">View</span>
         </div>
       </div>
     </Link>

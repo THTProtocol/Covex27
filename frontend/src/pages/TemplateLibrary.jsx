@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   COVENANT_TEMPLATES, 
@@ -18,10 +18,22 @@ export default function TemplateLibrary() {
   const { address } = useWallet();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [communityTemplates, setCommunityTemplates] = useState([]);
 
   const filteredTemplates = selectedCategory === 'All' 
     ? COVENANT_TEMPLATES 
     : getTemplatesByCategory(selectedCategory);
+
+  // Load real published custom UIs from creators (activates the backend marketplace)
+  useEffect(() => {
+    fetch('/marketplace/templates')
+      .then(r => r.ok ? r.json() : { templates: [] })
+      .then(data => {
+        const list = (data.templates || []).slice(0, 12);
+        setCommunityTemplates(list);
+      })
+      .catch(() => setCommunityTemplates([]));
+  }, []);
 
   const handleUseTemplate = (template) => {
     if (!address) {
@@ -175,6 +187,46 @@ export default function TemplateLibrary() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Real community published custom UIs from the backend marketplace (paid creators publish via Fix/Terminal) */}
+      {communityTemplates.length > 0 && (
+        <div className="mt-12">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COMMUNITY PUBLISHED</div>
+              <h2 className="text-2xl font-bold text-white">Custom UIs from Real Creators</h2>
+            </div>
+            <div className="text-xs text-gray-500">Pulled live from published covenants</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {communityTemplates.map((t, idx) => (
+              <div key={idx} className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-5 flex flex-col">
+                <div className="text-xs text-emerald-400 mb-1">PUBLISHED CUSTOM UI</div>
+                <div className="font-bold text-white mb-1 truncate">{t.name || t.id || 'Untitled Published'}</div>
+                <div className="text-xs text-gray-400 mb-3">by {t.author || 'creator'}</div>
+                <div className="mt-auto flex gap-2">
+                  <a 
+                    href={t.id && t.id.length > 20 ? `/covenant/${encodeURIComponent(t.id)}` : '#'} 
+                    className="flex-1 text-center py-2 rounded-xl border border-white/20 text-sm hover:bg-white/5"
+                  >
+                    View Covenant
+                  </a>
+                  <button 
+                    onClick={() => {
+                      if (t.id) sessionStorage.setItem('highlight_covenant', t.id);
+                      window.location.href = t.id && t.id.length > 20 ? `/covenant/${encodeURIComponent(t.id)}` : '/templates';
+                    }}
+                    className="flex-1 py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold"
+                  >
+                    Open
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-center text-gray-500 mt-3">These are real custom interfaces published by paid-tier creators using the advanced builder.</p>
         </div>
       )}
 

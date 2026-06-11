@@ -392,7 +392,7 @@ export default function Explorer() {
                   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
                   const stakeAmt = g.amount_kaspa || 1;
                   return (
-                    <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[178px] flex flex-col`}>
+                    <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className={`text-xs font-bold tracking-[2px] ${cfg.text}`}>{(g.covenant_type || g.name || 'Game').toUpperCase()}</div>

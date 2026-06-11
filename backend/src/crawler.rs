@@ -120,7 +120,15 @@ pub async fn run_crawler(
         treasury_address, start_daa, network
     );
 
-    let mut scan_daa = db::get_last_scanned_daa(&db, &network).unwrap_or(start_daa);
+    // Support CRAWL_FULL_RESCAN=1 env to force start from DAA=0.
+    // This guarantees full historic coverage of *all* on-chain covenants from TN10/TN12
+    // (opcode scan in tx payload and output scripts). Use on restart if gaps vs official explorers.
+    let mut scan_daa = if std::env::var("CRAWL_FULL_RESCAN").is_ok() {
+        info!("CRAWL_FULL_RESCAN=1 for {} - forcing full scan from DAA 0", network);
+        0u64
+    } else {
+        db::get_last_scanned_daa(&db, &network).unwrap_or(start_daa)
+    };
     let mut total_found: u64 = 0;
 
     loop {

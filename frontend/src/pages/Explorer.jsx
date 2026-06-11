@@ -388,7 +388,7 @@ export default function Explorer() {
   );
 }
 
-/* PREMIUM COVENANT CARD */
+/* PREMIUM COVENANT CARD - rich data, all info, premium visuals */
 function CovenantCard({ covenant: c, index, ownerAddress }) {
   const tierKey = (c.verified_tier || c.tier || 'FREE').toUpperCase();
   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
@@ -396,6 +396,15 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
   const isPaid = cfg.rank > 0;
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
+  const isActive = c.is_active !== false;
+  const creatorName = c.creator_addr || c.address || '';
+  const blockDAA = c.block_daa_score || 0;
+  const scriptShort = (c.script_hash || '').slice(0, 8);
+  const categoryLabel = c.category || 'general';
+  const txShort = (c.tx_id || '').slice(0, 10);
+  const timestamp = c.timestamp ? new Date(c.timestamp * 1000).toLocaleDateString() : (c.block_daa_score ? `DAA ${blockDAA.toLocaleString()}` : 'Unknown');
+  const statusColor = isActive ? 'text-emerald-400' : 'text-gray-500';
+  const statusLabel = isActive ? 'ACTIVE' : 'SETTLED';
 
   let paidMetadata = null;
   try {
@@ -405,51 +414,88 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
   } catch (_) {}
 
   const covenantName = paidMetadata?.name || c.name || c.covenant_type || 'Unnamed Covenant';
-  const covenantDesc = paidMetadata?.description || c.description || 'On-chain Kaspa covenant. Transparent, verifiable, non-custodial.';
+  const covenantDesc = paidMetadata?.description || c.description || c.full_logic_summary || 'On-chain Kaspa covenant. Transparent, verifiable, non-custodial.';
   const themeAccent = paidMetadata?.theme?.accent || '#49EACB';
   const disclosedWallets = paidMetadata?.disclosed_wallets;
   const isPaidVerified = !!paidMetadata;
+  const amount = c.amount_kaspa || 0;
+
+  // Visual category detection
+  const catColors = {
+    'games': 'from-purple-500/30 via-purple-600/10 to-transparent',
+    'game': 'from-purple-500/30 via-purple-600/10 to-transparent',
+    'general': 'from-gray-500/20 via-gray-600/10 to-transparent',
+    'oracle': 'from-cyan-500/30 via-cyan-600/10 to-transparent',
+    'predictive': 'from-pink-500/30 via-pink-600/10 to-transparent',
+    'escrow': 'from-blue-500/30 via-blue-600/10 to-transparent',
+    'tournament': 'from-emerald-500/30 via-emerald-600/10 to-transparent',
+    'structured': 'from-teal-500/30 via-teal-600/10 to-transparent',
+    'community': 'from-orange-500/30 via-orange-600/10 to-transparent',
+    'flash': 'from-yellow-500/30 via-yellow-600/10 to-transparent',
+    'governance': 'from-red-500/30 via-red-600/10 to-transparent',
+  };
+  const catGradient = catColors[categoryLabel.toLowerCase()] || catColors.general;
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
       className={`group block rounded-2xl border transition-all duration-300 overflow-hidden ${
-        isPaid ? `${cfg.border} ${cfg.glow} hover:-translate-y-0.5 hover:shadow-lg` : 'border-white/8 hover:border-white/15'
-      } bg-[#0a0a0f] min-h-[280px] flex flex-col`}
+        isPaid ? `${cfg.border} ${cfg.glow} hover:-translate-y-0.5 hover:shadow-xl` : 'border-white/8 hover:border-white/15'
+      } bg-[#0c0c12] min-h-[300px] flex flex-col`}
     >
-      {/* TIER HEADER GRADIENT */}
-      <div className={`h-2 bg-gradient-to-r ${cfg.gradient}`}>
-        {isPaidVerified && <div className="h-full bg-gradient-to-r from-emerald-400/40 via-emerald-400/10 to-transparent" />}
+      {/* VISUAL HEADER - tier + category gradient stripe */}
+      <div className="relative h-16 overflow-hidden">
+        <div className={`absolute inset-0 bg-gradient-to-r ${cfg.gradient}`} />
+        <div className={`absolute inset-0 bg-gradient-to-r ${catGradient} opacity-60`} />
+        {/* Decorative dots pattern */}
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
+          backgroundSize: '16px 16px'
+        }} />
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c12] to-transparent" />
+        <div className="absolute top-2 left-3 flex items-center gap-2">
+          {isPaid && (
+            <span className={`text-[9px] px-2 py-0.5 rounded-full border ${cfg.badge} font-mono font-bold flex items-center gap-1 backdrop-blur-sm`}>
+              <IconComponent size={10} />{cfg.label}
+            </span>
+          )}
+          {isPaidVerified && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono backdrop-blur-sm">
+              VERIFIED
+            </span>
+          )}
+        </div>
+        <div className="absolute bottom-1 right-3 text-[10px] font-mono text-white/60">
+          {categoryLabel}
+        </div>
       </div>
 
-      <div className="p-5 flex flex-col flex-1">
-        {/* Top: name + tier badge + amount */}
-        <div className="flex items-start justify-between mb-3">
+      <div className="p-4 sm:p-5 flex flex-col flex-1">
+        {/* Name + Status + Amount */}
+        <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0 pr-2">
             <h3 className={`font-bold text-sm sm:text-base truncate ${isPaid ? cfg.text : 'text-gray-200'}`}
               style={isPaidVerified ? { color: themeAccent } : undefined}>
               {covenantName}
             </h3>
-            <p className="text-[10px] font-mono mt-0.5 text-gray-500 truncate">{truncate(c.tx_id, 8)}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] font-mono text-gray-500">{txShort}...</span>
+              <span className={`text-[9px] font-mono font-bold ${statusColor}`}>{statusLabel}</span>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+          <div className="text-right shrink-0 ml-2">
+            <div className="font-mono text-base font-bold text-white">{formatKaspa(amount)}</div>
             {isPaid && (
-              <span className={`text-[9px] px-2 py-0.5 rounded-full border ${cfg.badge} font-mono flex items-center gap-1`}>
-                <IconComponent size={10} />{cfg.label}
-              </span>
+              <div className={`text-[10px] font-mono mt-0.5 ${cfg.text}`}>{cfg.label} TIER</div>
             )}
-            {isPaidVerified && (
-              <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                VERIFIED
-              </span>
-            )}
-            <span className="font-mono text-sm font-bold text-white">{formatKaspa(c.amount_kaspa)}</span>
           </div>
         </div>
 
         {/* Description */}
-        <p className="text-xs text-gray-400 mb-3 leading-relaxed flex-1 line-clamp-3">{covenantDesc}</p>
+        <p className="text-xs text-gray-400 mb-3 leading-relaxed line-clamp-2 flex-1">
+          {covenantDesc}
+        </p>
 
-        {/* Game preview / custom UI badges */}
+        {/* Game preview + Custom UI badges */}
         {(gameType || customUI) && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {gameType && (
@@ -477,12 +523,15 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           </div>
         )}
 
-        {/* Footer data */}
-        <div className="mt-auto pt-3 border-t border-white/5 grid grid-cols-2 gap-1 text-[10px] text-gray-500 font-mono">
-          <span>Type: <span className="text-gray-300">{c.covenant_type || 'N/A'}</span></span>
-          <span>DAA: <span className="text-gray-300">{(c.block_daa_score || 0).toLocaleString()}</span></span>
-          <span>Category: <span className="text-gray-300">{c.category || 'general'}</span></span>
-          <span className="text-kaspa-green group-hover:translate-x-0.5 transition-transform text-right">View</span>
+        {/* Data grid - all available covenant info */}
+        <div className="mt-auto pt-3 border-t border-white/5 grid grid-cols-2 gap-y-1 gap-x-2 text-[10px] text-gray-500 font-mono">
+          <span>Creator: <span className="text-gray-400">{creatorName.slice(0, 12)}...</span></span>
+          <span>Script: <span className="text-gray-400">{scriptShort}...</span></span>
+          <span>Type: <span className="text-gray-400">{c.covenant_type || 'N/A'}</span></span>
+          <span className="text-right">{timestamp}</span>
+          <span className={`col-span-2 ${isPaid ? cfg.text : 'text-gray-500'} group-hover:translate-x-0.5 transition-transform text-right`}>
+            View covenant --
+          </span>
         </div>
       </div>
     </Link>

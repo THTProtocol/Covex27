@@ -164,7 +164,15 @@ const Pricing = () => {
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);
-        navigate('/paid-builder');
+        // Auto-redirect directly to the full PremiumBuilder terminal (the magic place)
+        sessionStorage.setItem('payment_just_confirmed', JSON.stringify({
+          tier: payingTier.name,
+          id: payingTier.id,
+          address,
+          txid: result.txid || 'tx-pending-' + Date.now(),
+          timestamp: Date.now()
+        }));
+        navigate('/premium');
       } else {
         setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (result.error || 'Unknown error') });
       }

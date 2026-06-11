@@ -68,6 +68,12 @@ const isSkillGame = (c) => {
   return /chess|connect.?4|poker|blackjack|checkers|tic.?tac|reversi|rps|rock.?paper|skill.?game|game|tournament|flip/i.test(t);
 };
 
+const ALL_CATEGORIES = [
+  'All', 'Predictive Markets', 'Flash Covenants', 'Tournaments', 'Games & Matches',
+  'Community Pools', 'ZK Oracle Tools', 'Escrow & Custody', 'Structured Settlement',
+  'Governance & DAO', 'Skill', 'VerifiableSkill', 'DeFi', 'Oracle', 'ZK', 'General'
+];
+
 export default function Explorer() {
   const { address } = useWallet();
   const [covenants, setCovenants] = useState([]);
@@ -82,6 +88,7 @@ export default function Explorer() {
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
+  const [activeCategory, setActiveCategory] = useState('All');
 
   useEffect(() => {
     const handler = (e) => {
@@ -94,7 +101,7 @@ export default function Explorer() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/covenants?network=${kaspaNetwork}&limit=5000`)
+    fetch(`/api/covenants?network=${kaspaNetwork}&limit=20000`)  // High limit to surface ALL covenants discovered by crawlers on TN10/TN12
       .then(res => res.json())
       .then(data => {
         const list = (Array.isArray(data.covenants) ? data.covenants : []);
@@ -152,6 +159,19 @@ export default function Explorer() {
     return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
 
+  // Category filter (more categories for better discovery, matching backend + kaspa.com style)
+  const filteredCovenants = activeCategory === 'All' 
+    ? allCovenantsSorted 
+    : allCovenantsSorted.filter(c => {
+        const cat = (c.category || c.covenant_type || '').toLowerCase();
+        const label = activeCategory.toLowerCase();
+        return cat.includes(label.replace(/ & | /g, '')) || 
+               cat.includes(label.split(' ')[0]) ||
+               (activeCategory === 'Games & Matches' && isSkillGame(c)) ||
+               (activeCategory === 'ZK Oracle Tools' && /zk|oracle|verifiable/i.test(cat)) ||
+               (activeCategory === 'DeFi' && /yield|pot|compound|defi/i.test(cat));
+      });
+
   // ARENA: only skill games created on Covex where someone is waiting
   const arenaWaiting = covenants.filter(c => {
     const hasTx = c.tx_id && c.tx_id.length > 20;
@@ -195,6 +215,19 @@ export default function Explorer() {
                 <p className="text-sm font-bold text-white">{s.value}</p>
               </div>
             </div>
+          ))}
+        </div>
+
+        {/* More categories filter - matches backend + kaspa.com explorer style for better discovery */}
+        <div className="flex flex-wrap gap-1 justify-center mb-4 text-xs">
+          {ALL_CATEGORIES.map(cat => (
+            <button 
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-2 py-0.5 rounded border transition ${activeCategory === cat ? 'bg-white/10 border-white/30 text-white' : 'border-white/10 text-white/60 hover:text-white/90'}`}
+            >
+              {cat}
+            </button>
           ))}
         </div>
       </section>
@@ -375,7 +408,7 @@ export default function Explorer() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {allCovenantsSorted.map((c, i) => (
+                  {filteredCovenants.map((c, i) => (
                     <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
                   ))}
                 </div>

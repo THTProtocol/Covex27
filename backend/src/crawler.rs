@@ -236,6 +236,9 @@ pub async fn run_crawler(
 
                 let nlabel = if network == "testnet-10" { "TN-10" } else { "TN-12" };
                 let summary = auto_summary(&ctype, &cat, amt, nlabel);
+                if total_found % 100 == 0 {
+                    info!("[CRAWLER-{}] discovered {} covenants so far (latest DAA {})", network, total_found, daa);
+                }
                 let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
                 // Store the best script (output script preferred over payload for raw detection)
                 let stored_script = &covenant_script;

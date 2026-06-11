@@ -22,6 +22,12 @@ pub enum CovenantCategory {
     Governance,
     #[serde(rename = "membership-claim")]
     MembershipClaim,   // Merkle / range / eligibility claims
+    #[serde(rename = "defi")]
+    DeFi,              // Yield, compounding, lending, pot splits
+    #[serde(rename = "oracle")]
+    Oracle,            // Oracle-attested, VRF, external data
+    #[serde(rename = "zk")]
+    ZK,                // Pure ZK proofs, range, membership without oracle
     #[serde(rename = "general")]
     General,
 }

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:3005}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:3006}"
 
 echo "=== Covex System Status ==="
 echo "Time: $(date)"
@@ -13,6 +13,9 @@ echo
 
 echo "Backend Health:"
 curl -s --max-time 5 "$BASE_URL/health" | jq . 2>/dev/null || echo "  (health endpoint not responding or jq not available)"
+
+echo "Backend Status (rich):"
+curl -s --max-time 5 "$BASE_URL/status" | jq '.git_commit, .crawl_full_rescan, .networks_configured, .mainnet_ready, .total_covenants' 2>/dev/null || echo "  (status endpoint not responding or jq not available)"
 
 echo
 echo "Recent Backend Logs (last 15 lines):"

@@ -34,7 +34,7 @@ passes=0
 banner() {
     echo
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║          COVEX LAUNCH VERIFICATION — PHASE 10 FINAL                        ║${NC}"
+    echo -e "${BLUE}║          COVEX LAUNCH VERIFICATION - PHASE 10 FINAL                        ║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     echo "Time:        $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
@@ -91,7 +91,7 @@ echo -e "${GREEN}OK${NC} (network: $network)"
 if [[ "$network" == "mainnet" ]]; then
     pass "Running on MAINNET (production)"
 elif [[ "$network" == "testnet-12" || "$network" == "testnet-10" ]]; then
-    warn "Still on $network — ready for mainnet flip via switch-to-mainnet.sh"
+    warn "Still on $network - ready for mainnet flip via switch-to-mainnet.sh"
 else
     warn "Network reported as: $network"
 fi
@@ -199,13 +199,13 @@ fi
 if [ -f "$REPO_ROOT/zk/range_proof/range_proof.circom" ] || [ -f "/root/Covex27/zk/range_proof/range_proof.circom" ]; then
     pass "Range Proof circuit source present (Phase 9 foundation)"
 else
-    fail "Range Proof circuit source missing — Phase 9 deliverable not present"
+    fail "Range Proof circuit source missing - Phase 9 deliverable not present"
 fi
 
 # 7. Phase 9/10 Evidence
 section "7. Phase 9–10 Concrete Evidence"
-if grep -q "RangeProof — Phase 9 Foundation Circuit" "$REPO_ROOT/zk/range_proof/range_proof.circom" 2>/dev/null || \
-   grep -q "RangeProof — Phase 9 Foundation Circuit" "/root/Covex27/zk/range_proof/range_proof.circom" 2>/dev/null; then
+if grep -q "RangeProof - Phase 9 Foundation Circuit" "$REPO_ROOT/zk/range_proof/range_proof.circom" 2>/dev/null || \
+   grep -q "RangeProof - Phase 9 Foundation Circuit" "/root/Covex27/zk/range_proof/range_proof.circom" 2>/dev/null; then
     pass "Phase 9 Range Proof circuit has proper foundation content"
 else
     warn "Range Proof circuit does not contain expected Phase 9 markers"
@@ -227,7 +227,7 @@ echo
 
 if [ $critical_failures -eq 0 ] && [ $warnings -eq 0 ]; then
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║  LAUNCH VERIFICATION: PASS — ALL SYSTEMS GO                                ║${NC}"
+    echo -e "${GREEN}║  LAUNCH VERIFICATION: PASS - ALL SYSTEMS GO                                ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     echo "Covex is ready for mainnet launch."
@@ -241,7 +241,7 @@ elif [ $critical_failures -eq 0 ]; then
     exit 2
 else
     echo -e "${RED}╔════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${RED}║  LAUNCH VERIFICATION: FAIL — DO NOT LAUNCH                                 ║${NC}"
+    echo -e "${RED}║  LAUNCH VERIFICATION: FAIL - DO NOT LAUNCH                                 ║${NC}"
     echo -e "${RED}╚════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     echo "Critical failures detected. Fix before proceeding to mainnet."

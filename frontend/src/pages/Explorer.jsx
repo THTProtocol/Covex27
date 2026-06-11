@@ -252,7 +252,7 @@ export default function Explorer() {
 
         {showCategoryPanel && (
           <div className="max-w-4xl mx-auto mb-6 p-4 rounded-2xl glass-panel border border-white/10">
-            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3 text-center">Filter by Covenant Type — click any to apply</div>
+            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3 text-center">Filter by Covenant Type - click any to apply</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 text-xs">
               {ALL_CATEGORIES.map(cat => (
                 <button

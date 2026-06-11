@@ -140,7 +140,7 @@ export default function Deploy() {
   // Live preview card that changes with each cycle / info - user presses and sees different design instantly
   const LiveDesignPreview = () => (
     <div className="mt-4 p-4 rounded-2xl border" style={{ background: currentTemplate.bg, borderColor: currentTemplate.border, color: currentTemplate.text }}>
-      <div className="text-[10px] opacity-70 mb-1">LIVE PREVIEW — changes with every press (based on your covenant info)</div>
+      <div className="text-[10px] opacity-70 mb-1">LIVE PREVIEW - changes with every press (based on your covenant info)</div>
       <div className="font-bold text-lg" style={{ color: currentTemplate.accent }}>{name || 'Your Covenant Name'}</div>
       <div className="text-xs opacity-80 mt-1 line-clamp-2">{description || 'Your rules and stakes go here. Transparent on-chain.'}</div>
       <div className="mt-3 flex gap-2">
@@ -743,7 +743,7 @@ export default function Deploy() {
                           <span onClick={(e)=>{e.stopPropagation(); deleteLayer(l.id);}} className="text-red-400/70 hover:text-red-400">×</span>
                         </div>
                       ))}
-                      {layers.length === 0 && <div className="text-white/40 px-2 py-1">No layers yet — use toolbar above</div>}
+                      {layers.length === 0 && <div className="text-white/40 px-2 py-1">No layers yet - use toolbar above</div>}
                     </div>
                   </div>
                   <div>

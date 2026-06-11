@@ -10,7 +10,7 @@ REPORT="$HOME/Desktop/Covex_Health_Report.md"
 COVEX_DIR="$HOME/Covex27"
 KASPAD_BIN="$HOME/.cargo/bin/kaspad"
 KASPA_DATA="$HOME/kaspa-data"
-BACKEND_PORT=3001
+BACKEND_PORT=3005
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
 check_pass() { echo "| $1 | PASS | $2 |"; }
@@ -36,8 +36,8 @@ COVEX_NGINX_ENABLED=false
 [ -f "/etc/nginx/sites-enabled/covex" ] || [ -f "/etc/nginx/conf.d/covex.conf" ] && COVEX_NGINX_ENABLED=true
 
 BACKEND_HEALTHY=false
-curl -sf --max-time 5 "http://127.0.0.1:$BACKEND_PORT/api/health" >/dev/null 2>&1 && BACKEND_HEALTHY=true
-BACKEND_RESPONSE=$(curl -sf --max-time 5 "http://127.0.0.1:$BACKEND_PORT/api/status" 2>/dev/null || echo '{"connected":false,"network":"unknown"}')
+curl -sf --max-time 5 "http://127.0.0.1:$BACKEND_PORT/health" >/dev/null 2>&1 && BACKEND_HEALTHY=true
+BACKEND_RESPONSE=$(curl -sf --max-time 5 "http://127.0.0.1:$BACKEND_PORT/status" 2>/dev/null || echo '{"connected":false,"network":"unknown"}')
 BACKEND_NETWORK=$(echo "$BACKEND_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('network','unknown'))" 2>/dev/null || echo "unknown")
 
 PM2_COVEX=false; command -v pm2 &>/dev/null && pm2 list 2>/dev/null | grep -q "covex" && PM2_COVEX=true

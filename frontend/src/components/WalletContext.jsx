@@ -786,7 +786,7 @@ function WalletBridge({ children }) {
 
       candidates.forEach((prov: any) => {
         if (prov && typeof prov.setMaxListeners === 'function') {
-          prov.setMaxListeners(0); // 0 = unlimited — stops the MaxListeners warning
+          prov.setMaxListeners(0); // 0 = unlimited - stops the MaxListeners warning
         }
         const mux = prov?._events || prov?.provider?._events || prov?._mux || prov;
         if (mux && typeof mux.setMaxListeners === 'function') {

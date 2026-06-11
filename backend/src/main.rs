@@ -270,7 +270,7 @@ async fn main() {
     let app = tower_http::cors::CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root_handler))
-        .route("/health", get(|| async { "OK" }))
+        .route("/health", get(health_handler))
         .route("/covenants", get(covenants_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
@@ -322,17 +322,49 @@ async fn main() {
 
 // ─── Handlers ────────────────────────────────────────────────
 
+async fn health_handler() -> Json<serde_json::Value> {
+    let network = std::env::var("KASPA_NETWORK")
+        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
+    let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
+    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string());
+    let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
+    Json(json!({
+        "status": "ok",
+        "app": "Covex v1.0.0",
+        "network": network,
+        "oracle_key_mode": oracle_mode,
+        "git_commit": git_commit,
+        "bind_addr": bind_addr,
+        "crawl_full_rescan": crawl_full_rescan,
+        "networks_configured": {
+            "testnet_12": true,
+            "testnet_10": has_tn10_wrpc,
+            "mainnet": has_mainnet_wrpc
+        },
+        "mainnet_ready": has_mainnet_wrpc
+    }))
+}
+
 async fn root_handler() -> Json<serde_json::Value> {
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
+    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string());
+    let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     Json(json!({
         "status": "ok",
         "app": "Covex v1.0.0",
         "network": network,
         "oracle_key_mode": oracle_mode,
+        "git_commit": git_commit,
+        "bind_addr": bind_addr,
+        "crawl_full_rescan": crawl_full_rescan,
         "networks_configured": {
             "testnet_12": true,
             "testnet_10": has_tn10_wrpc,
@@ -352,6 +384,9 @@ async fn status_handler(
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
+    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string());
+    let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     Json(json!({
         "status": "ok",
         "network": network,
@@ -360,6 +395,9 @@ async fn status_handler(
         "total_covenants": total,
         "active_covenants": active,
         "verified_covenants": verified,
+        "git_commit": git_commit,
+        "bind_addr": bind_addr,
+        "crawl_full_rescan": crawl_full_rescan,
         "networks_configured": {
             "testnet_12": true,
             "testnet_10": std::env::var("KASPA_WRPC_URL_TN10").is_ok(),

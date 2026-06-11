@@ -90,7 +90,7 @@ function NetworkSwitcher() {
   ];
 
   return (
-    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5" title={networks.find(n => n.value === network)?.title}>
+    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 light:bg-white light:border-slate-200" title={networks.find(n => n.value === network)?.title}>
       {networks.map(n => (
         <button
           key={n.value}

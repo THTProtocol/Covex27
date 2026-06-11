@@ -303,6 +303,55 @@ body {
   background: #f1f5f9 !important;
 }
 
+/* Explorer tier cards & badges in light - make the colorful ones pop nicely without looking broken */
+.light .from-amber-500\/20,
+.light .border-amber-500\/30 {
+  background: linear-gradient(to bottom right, #fef3c7, transparent) !important;
+  border-color: #fcd34d !important;
+}
+.light .text-amber-400 { color: #b45309 !important; }
+.light .text-emerald-400 { color: #166534 !important; }
+.light .text-blue-400 { color: #1e40af !important; }
+
+.light .border-emerald-500\/25 { border-color: #86efac !important; }
+.light .border-blue-500\/20 { border-color: #93c5fd !important; }
+
+.light .shadow-\[0_0_24px_rgba\(245,158,11,0\.12\)\] {
+  box-shadow: 0 0 0 1px #b45309, 0 10px 15px -3px rgba(180, 83, 9, 0.1) !important;
+}
+.light .shadow-\[0_0_16px_rgba\(16,185,129,0\.10\)\] {
+  box-shadow: 0 0 0 1px #166534, 0 10px 15px -3px rgba(22, 101, 52, 0.1) !important;
+}
+.light .shadow-\[0_0_8px_rgba\(59,130,246,0\.08\)\] {
+  box-shadow: 0 0 0 1px #1e40af, 0 10px 15px -3px rgba(30, 64, 175, 0.1) !important;
+}
+
+/* More Explorer light polish - filters, glass cards, search */
+.light .glass-panel.rounded-2xl {
+  background: #fff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 10px 15px -3px rgba(15,23,42,.03) !important;
+}
+.light .bg-white\/\[0\.03\],
+.light .bg-white\/\[0\.015\] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+.light .text-white\/70,
+.light .text-white\/40,
+.light .text-white\/80 {
+  color: #475569 !important;
+}
+.light .text-white\/50 {
+  color: #64748b !important;
+}
+.light .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+.light .focus-within\:border-kaspa-green\/40:focus-within {
+  border-color: #0f766e !important;
+}
+
 /* Dag background container in light */
 .light .dag-background {
   background: #f8fafc !important;

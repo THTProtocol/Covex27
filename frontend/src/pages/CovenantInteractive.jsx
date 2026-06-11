@@ -1063,6 +1063,66 @@ export default function CovenantInteractive() {
         </div>
       )}
 
+      {/* New advanced builder layers rendered as interactive UI for all covenant types */}
+      {covenant?.custom_ui_config?.layers && covenant.custom_ui_config.layers.length > 0 && (
+        <div className="mt-8 w-full">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30">
+              <Layers size={18} className="text-kaspa-green" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Custom Interactive Design (from Advanced Builder)</h3>
+              <p className="text-xs text-gray-300 font-mono">LIVE - buttons trigger real wallet actions where possible</p>
+            </div>
+          </div>
+          <div className="relative border border-kaspa-green/20 bg-black/50 rounded-2xl overflow-hidden" style={{width: 420, height: 260, margin: '0 auto'}}>
+            {covenant.custom_ui_config.layers.map((layer, idx) => {
+              const style = {
+                position: 'absolute',
+                left: layer.x,
+                top: layer.y,
+                width: layer.w,
+                height: layer.h,
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: layer.props.bg || 'rgba(255,255,255,0.08)',
+                color: layer.props.color || '#fff',
+                fontSize: layer.props.fontSize || 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                cursor: layer.type === 'button' ? 'pointer' : 'default'
+              };
+              const handleAction = async () => {
+                if (layer.type === 'button' && layer.props.action) {
+                  if (layer.props.action.includes('stake') || layer.props.action.includes('join')) {
+                    try {
+                      await sendPayment(covenant.address || covenant.creator_addr, 10, {memo: `stake:${id}`});
+                      alert('Stake sent (real tx on testnet)!');
+                    } catch(e) { alert('Stake failed: ' + e.message); }
+                  } else {
+                    alert(`Action triggered: ${layer.props.action} (would call real covenant logic)`);
+                  }
+                }
+              };
+              return (
+                <div key={idx} style={style} onClick={handleAction}>
+                  {layer.type === 'text' && layer.props.text}
+                  {layer.type === 'button' && (
+                    <button className="px-3 py-0.5 rounded text-xs font-bold" style={{background: layer.props.bg, color: layer.props.color || '#000'}}>
+                      {layer.props.text || 'ACTION'}
+                    </button>
+                  )}
+                  {layer.type === 'image' && layer.props.src && <img src={layer.props.src} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} />}
+                  {layer.type === 'game' && <div>🎮 {layer.props.game || 'game'}</div>}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-center text-gray-500 mt-2">This custom design from the Advanced Builder is now live and interactive for this covenant.</p>
+        </div>
+      )}
+
       {/* Fullscreen Modal for Custom UI */}
       {fullscreenUI && covenant?.custom_ui_html && (
         <div

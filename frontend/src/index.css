@@ -407,6 +407,8 @@ body {
   .grid-cols-2, .grid-cols-3 { grid-template-columns: 1fr !important; }
   /* Make form-heavy sections breathe and stack */
   [class*="space-y-4"] > * { margin-bottom: 0.75rem !important; }
+  /* Kill horizontal scroll everywhere on mobile */
+  html, body, #root { overflow-x: hidden !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

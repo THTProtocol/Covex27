@@ -117,7 +117,7 @@ contract TransferWithTimeout {
                   <p className={`text-xs font-mono ${isDevMode ? 'text-yellow-400' : 'text-emerald-400'}`}>
                     {isDevMode ? 'DEV MODE (LOCAL KEY)' : 'CONNECTED'}
                   </p>
-                  <p className="text-sm font-mono text-white truncate max-w-[300px]">{address}</p>
+                  <p className="text-sm font-mono text-white truncate max-w-[300px] sm:max-w-none">{address}</p>
                 </div>
               </div>
               <span className={`text-[10px] font-mono ${isDevMode ? 'text-yellow-400/70' : 'text-emerald-400/70'}`}>{netLabel}</span>

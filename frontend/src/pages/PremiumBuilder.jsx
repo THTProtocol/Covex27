@@ -154,52 +154,11 @@ export default function PremiumBuilder() {
     setDeploying(true);
     try {
       const def = generateCovenantDef();
-
-      // 1. Generate SilverScript from circuit config
-      const silverScript = `;; ${def.name}
-;; ${def.description}
-;; Circuit: ${def.circuit?.id || def.circuit?.name || 'custom'} — ${def.circuit?.circuit || 'composed'}
-;; Resolution: ${def.resolution} | Network: ${def.network}
-;; Theme: ${def.theme.accent} | Preset: ${def.theme.preset}
-;; Creator: ${address} | Disclosed wallets: ${def.disclosedWallets.map(w => w.role).join(', ')}
-;; PAID VERIFIED — Top visibility covenant
-
-contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
-    state {
-        owner: Address,
-        oracle: Address,
-        playerCount: u8,
-        turnTimerSec: u64,
-        collateralMin: u64,
-        resolution: String,
-    }
-    entrypoint function claim(winner: Address) {
-        let total = opTx.inputs[0].amount;
-        require(opTx.outputs[0].address == winner);
-        require(opTx.outputs[0].amount >= total * 92 / 100);
-    }
-    entrypoint function resolve(withOracleSig: Bytes) {
-        // Oracle-verified resolution for on-chain finality
-        require(verifyOracleSig(withOracleSig, state.oracle));
-    }
-}`;
-
-      // 2. Consume the auth token (one-time use)
-      const consumeRes = await fetch('/api/auth-session/consume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: auth.token })
-      });
-      const consumeJson = await consumeRes.json();
-      if (!consumeJson.consumed) throw new Error(consumeJson.error || 'Token already used or invalid');
-
-      // 3. Deploy on-chain via sign-and-broadcast
       const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+
+      // Deploy on-chain via sign-and-broadcast (no SilverScript - backend generates valid covenant)
       const deployBody = {
-        private_key_hex: '',           // will use dev mode below
         deployer_addr: address,
-        script_hex: '',                // not needed — we send dsl_source
-        dsl_source: silverScript,      // backend compiles via silverc
         tier: auth.tier || 'BUILDER',
         covenant_name: def.name,
         description: def.description,
@@ -207,7 +166,7 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
         category: def.circuit?.category || 'game',
         accent: def.theme.accent,
         ui_preset: def.theme.preset,
-        use_dev_mode: true,            // backend resolves dev wallet key from deployer_addr
+        use_dev_mode: true,
         network: net,
         custom_ui_config: {
           circuit: def.circuit,
@@ -370,8 +329,8 @@ contract ${def.name.replace(/[^a-zA-Z0-9]/g, '')} {
           {paidTier === 'PRO' && <Star size={16} style={{ color: tierAccent }} />}
           {paidTier === 'MAX' && <Crown size={16} style={{ color: tierAccent }} />}
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Covenant Studio <span className="text-xs align-super text-emerald-400">PAID</span></h1>
-            <p className="text-xs text-gray-400 font-mono">Name it • Make it look however you want • Full wallet transparency • Top visibility</p>
+            <h1 className="text-3xl font-black tracking-tight">Sandbox <span className="text-xs align-super text-emerald-400">PAID</span></h1>
+            <p className="text-xs text-gray-400 font-mono">Full customization terminal - ZK circuits, oracles, Canva-like design tools, deploy to Kaspa</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

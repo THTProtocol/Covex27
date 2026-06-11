@@ -511,8 +511,6 @@ body {
 }
 .light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
-}  border-color: rgba(15, 23, 42, 0.1) !important;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06) !important;
 }
 
 /* ── Light Mode Game Arenas ── */

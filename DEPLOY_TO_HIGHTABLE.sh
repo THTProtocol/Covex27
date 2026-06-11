@@ -59,12 +59,13 @@ $SSH_CMD << CP_EOF
   cp -r $HETZNER_SRC/frontend/dist/* /root/htp/public/
   # Robust active bundle detection + perms (prevents "Permission denied" and blank "Active bundle:" in logs)
   chmod -R a+r /root/htp/public/ 2>/dev/null || true
-  ACTIVE=$(grep -oE 'index-[A-Za-z0-9_-]+\.js' /root/htp/public/index.html 2>/dev/null | head -1 || true)
+  # Try html first (script src="/assets/index-xxx.js" or similar), then latest in assets/
+  ACTIVE=$(grep -oE 'index-[A-Za-z0-9_.-]+\.js' /root/htp/public/index.html 2>/dev/null | head -1 || true)
   if [ -z "\$ACTIVE" ]; then
-    ACTIVE=$(ls -1 /root/htp/public/assets/index-*.js 2>/dev/null | sort -V | tail -1 | xargs -r basename 2>/dev/null || true)
+    ACTIVE=$(ls -1t /root/htp/public/assets/index-*.js 2>/dev/null | head -1 | xargs -r basename 2>/dev/null || true)
   fi
   if [ -d /root/htp/public/assets ] && [ -n "\$ACTIVE" ]; then
-    cd /root/htp/public/assets
+    cd /root/htp/public/assets 2>/dev/null || true
     for f in index-*.js; do
       if [ "\$f" != "\$ACTIVE" ]; then
         rm -v "\$f" 2>/dev/null || true

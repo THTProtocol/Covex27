@@ -320,6 +320,33 @@ async fn main() {
         .unwrap();
 }
 
+fn get_git_commit() -> String {
+    if let Ok(c) = std::env::var("GIT_COMMIT") {
+        if !c.is_empty() && c != "unknown" {
+            return c;
+        }
+    }
+    // Robust fallback: spawn git from likely working trees (local dev, Hetzner volume, cwd)
+    // This ensures /health and /status always report real deployed commit-ish even if env inject missed.
+    for base in [".", "/root/Covex27", "/mnt/HC_Volume_105579109/Covex27", "..", "../.."] {
+        if let Ok(out) = std::process::Command::new("git")
+            .current_dir(base)
+            .args(["rev-parse", "--short", "HEAD"])
+            .output()
+        {
+            if out.status.success() {
+                if let Ok(s) = String::from_utf8(out.stdout) {
+                    let t = s.trim().to_string();
+                    if !t.is_empty() {
+                        return t;
+                    }
+                }
+            }
+        }
+    }
+    "unknown".to_string()
+}
+
 // ─── Handlers ────────────────────────────────────────────────
 
 async fn health_handler() -> Json<serde_json::Value> {
@@ -328,7 +355,7 @@ async fn health_handler() -> Json<serde_json::Value> {
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
-    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string());
+    let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     Json(json!({
@@ -354,7 +381,7 @@ async fn root_handler() -> Json<serde_json::Value> {
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
-    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string());
+    let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     Json(json!({
@@ -384,7 +411,7 @@ async fn status_handler(
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
-    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string());
+    let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
     Json(json!({

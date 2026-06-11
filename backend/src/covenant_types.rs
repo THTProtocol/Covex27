@@ -166,6 +166,9 @@ impl CovenantCategory {
             CovenantCategory::Structured => "Structured Settlement",
             CovenantCategory::Governance => "Governance",
             CovenantCategory::MembershipClaim => "Membership & Claims",
+            CovenantCategory::DeFi => "DeFi & Yield",
+            CovenantCategory::Oracle => "Oracle & Attestation",
+            CovenantCategory::ZK => "ZK Proofs & Claims",
             CovenantCategory::General => "General",
         }
     }

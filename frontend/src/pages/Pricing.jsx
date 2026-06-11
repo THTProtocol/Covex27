@@ -262,7 +262,7 @@ const Pricing = () => {
         <p className="mt-3 text-sm"><Link to="/kaspa" className="text-kaspa-green underline">Learn about Kaspa</Link></p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (

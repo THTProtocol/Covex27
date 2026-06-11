@@ -353,6 +353,53 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   MOBILE-FIRST RESPONSIVE & PERFECT MOBILE COMPATIBILITY
+   (applies to both dark + light; light mode gets extra polish below)
+   - Touch targets >= 44px
+   - No horizontal scroll
+   - Stacked layouts on small screens
+   - Readable text, proper spacing
+   - Game boards and fullscreens scale beautifully
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .max-w-6xl { max-width: 100%; padding-left: 1rem; padding-right: 1rem; }
+  
+  /* Nav already handled in JSX with hamburger, but tighten */
+  nav .h-16 { height: 3.5rem; }
+  
+  /* Cards and grids stack */
+  .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr !important; }
+  
+  /* Text scaling for mobile */
+  h1 { font-size: 1.75rem !important; line-height: 1.1 !important; }
+  h2 { font-size: 1.35rem !important; }
+  .text-sm { font-size: 0.875rem !important; }
+  .text-xs { font-size: 0.75rem !important; }
+  
+  /* Touch friendly */
+  button, .btn, a[role="button"] { min-height: 44px; min-width: 44px; padding: 10px 14px; }
+  input, textarea, select { min-height: 44px; font-size: 16px; } /* prevent iOS zoom */
+  
+  /* Explorer / filters */
+  .glass-panel.rounded-2xl.p-3 { padding: 0.75rem !important; }
+  .grid-cols-2.sm\\:grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  
+  /* Full game arenas: scale boards, stack clocks */
+  .fixed.inset-0.z-\\[100\\] { padding-bottom: env(safe-area-inset-bottom, 0); }
+  [class*="min\\(94vw,420px\\)"] { width: min(96vw, 380px) !important; }
+}
+
+/* Light mode mobile refinements – even nicer on small bright screens */
+.light @media (max-width: 640px) {
+  body { background: #f8fafc; }
+  .glass-panel { box-shadow: 0 1px 2px rgba(15,23,42,.04) !important; }
+  .text-sm, .text-xs { line-height: 1.4 !important; }
+  /* Slightly larger tap areas and softer cards for light mobile */
+  .card, .glass-panel { border-radius: 14px !important; }
+  button { font-weight: 600; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    FULL GAME ARENAS (FullScreen*) - Make them look fantastic in light mode
    All the pot/turn/timer/modals/resign UI that were pure dark glass
    ═══════════════════════════════════════════════════════════════ */

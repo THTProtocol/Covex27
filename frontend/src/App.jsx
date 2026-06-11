@@ -21,6 +21,7 @@ import PremiumBuilder from './pages/PremiumBuilder';
 import DemoCovenant from './pages/DemoCovenant';
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
+import { Menu, X } from 'lucide-react';
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
@@ -110,6 +111,20 @@ function NetworkSwitcher() {
 }
 
 export default function App() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change or escape
+  useEffect(() => {
+    const close = () => setMobileMenuOpen(false);
+    window.addEventListener('popstate', close);
+    const onKey = (e) => { if (e.key === 'Escape') setMobileMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('popstate', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
   return (
     <ThemeProvider>
       <WalletProvider>
@@ -132,7 +147,9 @@ export default function App() {
                   <span className="text-[#49EACB] group-hover:text-white dark:group-hover:text-white light:text-[#0f766e] light:group-hover:text-slate-900 transition-colors duration-300">EX</span>
                 </span>
               </Link>
-              <div className="flex items-center gap-6">
+
+              {/* Desktop Nav */}
+              <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
                 <SmartTerminalLink />
                 <NavLink to="/fix" className={NL}>Fix</NavLink> 
@@ -144,7 +161,37 @@ export default function App() {
                 <WalletButton />
                 <ThemeToggle />
               </div>
+
+              {/* Mobile controls: Wallet + Theme + Hamburger */}
+              <div className="md:hidden flex items-center gap-2">
+                <WalletButton />
+                <ThemeToggle />
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="p-2 rounded-lg border border-white/10 text-gray-300 hover:text-white light:text-slate-700 light:hover:text-slate-900 light:border-slate-300"
+                  aria-label="Toggle menu"
+                >
+                  {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+              </div>
             </div>
+
+            {/* Mobile Menu Drawer */}
+            {mobileMenuOpen && (
+              <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
+                <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 text-sm">
+                  <NavLink to="/" end className={NL} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
+                  <SmartTerminalLink />
+                  <NavLink to="/fix" className={NL} onClick={() => setMobileMenuOpen(false)}>Fix</NavLink>
+                  <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>Kaspa</NavLink>
+                  <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
+                  <SmartDeployLink />
+                  <div className="pt-2 border-t border-white/10 light:border-slate-200">
+                    <NetworkSwitcher />
+                  </div>
+                </div>
+              </div>
+            )}
           </nav>
 
           <div className="relative z-10 pt-14">

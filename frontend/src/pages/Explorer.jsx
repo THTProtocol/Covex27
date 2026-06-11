@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Terminal, Database, Search, ShieldCheck, Sparkles, Play,
-  Coins, Layers, Eye, Crown, Star, Users
+  Terminal, Database, Search, Sparkles, Play,
+  Coins, Layers, Crown, Star, Users, Swords
 } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+
+const ArenaIcon = Gamepad2;
 
 const TIER_STYLES = {
   MAX: { card: 'border-purple-500/20 bg-purple-500/[0.03]', badge: 'tier-MAX', label: 'MAX' },
@@ -24,12 +27,17 @@ const formatKaspa = (kas) => {
 const truncate = (s, n = 8) =>
   s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
 
+// Only skill-game type covenants created on Covex
+const isSkillGame = (c) => {
+  const t = (c.covenant_type || '').toLowerCase();
+  return /chess|connect.?4|poker|blackjack|checkers|tic.?tac|reversi|rps|rock.?paper|skill.?game|game|tournament|flip/i.test(t);
+};
+
 export default function Explorer() {
   const { address } = useWallet();
   const [covenants, setCovenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +47,8 @@ export default function Explorer() {
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
 
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
+
+  const [showArena, setShowArena] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -103,22 +113,32 @@ export default function Explorer() {
 
   const tierRank = { MAX: 3, PRO: 2, BUILDER: 1, FREE: 0 };
 
-  // Always full list for "all covenants on Kaspa". Paid prioritised at top. No my-covenants clutter in main interact view.
-  const displayCovenants = covenants; // full list
-
-  const paidCovenants = displayCovenants
-    .filter(c => { const t = (c.verified_tier || c.tier || 'FREE').toUpperCase(); return t === 'MAX' || t === 'PRO' || t === 'BUILDER'; })
-    .sort((a, b) => {
-      const aT = tierRank[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || 0;
-      const bT = tierRank[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || 0;
-      if (bT !== aT) return bT - aT;
-      return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
-    });
-
-  const freeCovenants = displayCovenants.filter(c => {
-    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-    return t === 'FREE';
+  // All real covenants sorted: paid (highest amount first) at top, then free by amount
+  const allCovenantsSorted = [...covenants].sort((a, b) => {
+    const aT = tierRank[(a.verified_tier || a.tier || 'FREE').toUpperCase()] || 0;
+    const bT = tierRank[(b.verified_tier || b.tier || 'FREE').toUpperCase()] || 0;
+    if (bT !== aT) return bT - aT;
+    return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
+
+  // Arena: only skill games created on Covex where someone is waiting for another player
+  const arenaWaiting = covenants.filter(c => {
+    const hasTx = c.tx_id && c.tx_id.length > 20;
+    const isGame = isSkillGame(c);
+    const isActive = c.is_active !== false;
+    const participants = c.participant_count || 1;
+    const isWaiting = participants < 2 && isActive;
+    const hasStake = (c.amount_kaspa || 0) > 0;
+    // Must be a Covex-created covenant (has custom_ui_config or verified tier)
+    const isCovex = (c.verified_tier && c.verified_tier !== 'FREE') || c.custom_ui_config;
+    return hasTx && isGame && isWaiting && hasStake && isCovex;
+  });
+
+  const arenaTierRank = (c) => {
+    const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
+    return { 'MAX': 100, 'PRO': 80, 'BUILDER': 60 }[t] || 0;
+  };
+  const arenaSorted = [...arenaWaiting].sort((a, b) => arenaTierRank(b) - arenaTierRank(a) || (b.amount_kaspa || 0) - (a.amount_kaspa || 0));
 
   return (
     <>
@@ -147,7 +167,7 @@ export default function Explorer() {
         </div>
       </section>
 
-      {/* ═══ CONTROLS - Explore & Search ═══ */}
+      {/* ═══ CONTROLS ═══ */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
@@ -155,19 +175,36 @@ export default function Explorer() {
               { id: 'explore', icon: Database, label: 'Explore' },
               { id: 'search', icon: Search, label: 'Search' },
             ].map(tab => (
-              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); }}
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); setShowArena(false); }}
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === tab.id ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
+                  activeTab === tab.id && !showArena ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
               >
                 <tab.icon size={12} /><span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </div>
+          {/* ARENA BUTTON — shows only actively waiting skill games */}
+          <button
+            onClick={() => { setShowArena(!showArena); setActiveTab('explore'); }}
+            className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              showArena ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
+            }`}
+          >
+            <ArenaIcon size={12} />
+            <span className="hidden sm:inline">Arena</span>
+            {arenaWaiting.length > 0 && (
+              <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 text-amber-400'}`}>
+                {arenaWaiting.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* ═══ MAIN CONTENT - All real covenants on Kaspa ═══ */}
+      {/* ═══ MAIN CONTENT ═══ */}
       <div className="relative z-10 px-4 sm:px-6 pb-8 max-w-6xl mx-auto">
 
         {/* SEARCH TAB */}
@@ -221,8 +258,75 @@ export default function Explorer() {
           </div>
         )}
 
-        {/* EXPLORE TAB */}
-        {activeTab === 'explore' && (
+        {/* ARENA VIEW — only skill games waiting for players */}
+        {showArena && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-lg font-black text-white tracking-tight">
+                <span className="text-amber-400">Arena</span> — Open Matches
+              </h2>
+              <span className="text-xs text-amber-400/60 font-mono">
+                Only skill games with someone waiting to match. Games created on Covex only.
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
+                <div className="w-10 h-10 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
+                <p className="text-sm font-mono">Scanning for active matches...</p>
+              </div>
+            ) : arenaSorted.length === 0 ? (
+              <div className="col-span-full text-center py-12 glass-panel rounded-2xl text-gray-400 text-sm">
+                <ArenaIcon size={32} className="mx-auto mb-3 text-amber-400/30" />
+                <p className="text-base text-amber-400/70 mb-2">No active matches right now</p>
+                <p className="text-gray-500">
+                  When a game creator is waiting for an opponent, their match appears here.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {arenaSorted.map((g, i) => {
+                  const stakeAmt = g.amount_kaspa || 1;
+                  const isPremium = (g.verified_tier || g.tier || '').toUpperCase() === 'MAX' || (g.verified_tier || g.tier || '').toUpperCase() === 'PRO';
+                  return (
+                    <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${
+                      isPremium ? 'border-amber-500/40 bg-gradient-to-br from-amber-950/30 to-black shadow-[0_0_20px_rgba(245,158,11,0.10)]' : 'border-white/10 bg-[#0a0a0f]'
+                    } min-h-[178px] flex flex-col`}>
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="text-amber-400 text-xs font-bold tracking-[2px]">{(g.covenant_type || g.name || 'Game').toUpperCase()}</div>
+                          <div className="text-xl font-bold text-white mt-1 truncate">{g.name || g.covenant_type || 'Unknown'}</div>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <div className="text-xs text-amber-300">{g.participant_count || 1} / 2 PLAYERS</div>
+                          <div className="font-mono text-lg text-amber-400 tabular-nums">{stakeAmt} KAS</div>
+                          {isPremium && (
+                            <div className="text-[9px] mt-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono inline-block">PREMIUM</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-300 mb-4 flex-1">
+                        {(g.covenant_type || '').toLowerCase().includes('chess') ? 'Chess match waiting. Equal stakes, ZK-verified board, oracle resolution.' :
+                         (g.covenant_type || '').toLowerCase().includes('connect') ? 'Connect 4 match waiting. Equal stakes for the pot.' :
+                         (g.covenant_type || '').toLowerCase().includes('poker') ? 'Poker table waiting. Match the stake to sit down.' :
+                         'Match the stake to join. Real on-chain covenant with transparent resolution.'}
+                      </div>
+                      <Link
+                        to={`/covenant/${encodeURIComponent(g.tx_id)}`}
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
+                      >
+                        <Play size={16} /> JOIN BY STAKING ({stakeAmt} KAS)
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* EXPLORE TAB — all covenants, paid (highest KAS) at top */}
+        {activeTab === 'explore' && !showArena && (
           <>
             {loading && (
               <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
@@ -242,78 +346,15 @@ export default function Explorer() {
 
             {!loading && covenants.length > 0 && (
               <>
-                {/* REAL GAME ARENA: Only real on-chain covenants with players waiting to join by staking */}
-                <div className="mb-8">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users size={16} className="text-amber-400" />
-                    <div className="text-sm font-semibold tracking-wider text-amber-400">ARENA - Open Matches (Real On-Chain)</div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(() => {
-                      const waiting = covenants.filter(c => {
-                        const t = (c.covenant_type || '').toLowerCase();
-                        const isGameType = /skill|game|tournament|match|flip|chess|poker|bracket/i.test(t);
-                        const isActive = c.is_active !== false;
-                        const participants = c.participant_count || 1;
-                        const isWaiting = participants < 2 && isActive;
-                        const hasStake = (c.amount_kaspa || 0) > 0;
-                        return isGameType && isWaiting && hasStake && c.tx_id && c.tx_id.length > 20;
-                      });
-                      const tierRank = (c) => {
-                        const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-                        return { 'MAX': 100, 'PRO': 80, 'BUILDER': 60 }[t] || 0;
-                      };
-                      const sorted = [...waiting].sort((a,b) => tierRank(b) - tierRank(a) || (b.amount_kaspa||0) - (a.amount_kaspa||0));
-                      return sorted.length > 0 ? sorted.map((g, i) => {
-                        const stakeAmt = g.amount_kaspa || 1;
-                        const isPremium = (g.verified_tier || g.tier || '').toUpperCase() === 'MAX' || (g.verified_tier || g.tier || '').toUpperCase() === 'PRO';
-                        return (
-                          <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${isPremium ? 'border-amber-500/40 bg-gradient-to-br from-amber-950/20 to-black' : 'border-white/10 bg-[#0a0a0f]'} min-h-[178px] flex flex-col`}>
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <div className="text-amber-400 text-xs font-bold tracking-[2px]">{(g.covenant_type || 'Game').toUpperCase()}</div>
-                                <div className="text-xl font-bold text-white mt-1">{g.name || g.covenant_type || 'Unknown'}</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-xs text-amber-300">{g.participant_count || 1} / 2 PLAYERS</div>
-                                <div className="font-mono text-lg text-amber-400">{stakeAmt} KAS</div>
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-300 mb-4 flex-1">Match the stake to join. Real on-chain covenant with transparent resolution.</div>
-                            <Link
-                              to={`/covenant/${encodeURIComponent(g.tx_id)}`}
-                              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2"
-                            >
-                              <Play size={16} /> JOIN BY STAKING ({stakeAmt} KAS)
-                            </Link>
-                          </div>
-                        );
-                      }) : (
-                        <div className="col-span-full text-center py-8 glass-panel rounded-2xl text-gray-400 text-sm">
-                          No real on-chain events with players waiting for stake right now.<br/>
-                          <Link to="/deploy" className="text-kaspa-green underline">Create a real SkillGame or Tournament on-chain</Link> to populate the Arena.
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="text-[10px] text-amber-400/60 mt-2 text-center">All waiting events appear here automatically. Premium (MAX/PRO) always pinned to the top.</div>
-                </div>
-
-                {/* PAID / VERIFIED COVENANTS - PRIORITISED AT THE VERY TOP, amazingly represented with premium cards */}
-                {paidCovenants.length > 0 && (
-                  <>
-                    <SectionLabel icon={Sparkles} label="Paid & Verified Covenants (Prioritised)" accent />
-                    <p className="text-xs text-gray-400 -mt-2 mb-4">Premium experiences with creator-published transparent UIs, full on-chain disclosure, and top visibility. The best look and interact here first.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-10">
-                      {paidCovenants.map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} highlighted ownerAddress={address} />)}
-                    </div>
-                  </>
-                )}
-
-                {/* ALL REMAINING COVENANTS - complete list nicely represented */}
-                <SectionLabel icon={Layers} label={paidCovenants.length > 0 ? 'All Other Covenants' : 'All Covenants on Kaspa'} />
+                {/* ALL COVENANTS — paid at the very top (most KAS), then free */}
+                <SectionLabel icon={Layers} label="All Covenants on Kaspa" />
+                <p className="text-xs text-gray-400 -mt-2 mb-4">
+                  Paid covenants ranked at the top by tier and total KAS. Discover, play, and interact with real on-chain covenants.
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {(paidCovenants.length > 0 ? freeCovenants : displayCovenants).map((c, i) => <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />)}
+                  {allCovenantsSorted.map((c, i) => (
+                    <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} highlighted={(c.verified_tier || c.tier || 'FREE').toUpperCase() !== 'FREE'} />
+                  ))}
                 </div>
               </>
             )}
@@ -345,11 +386,7 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const isHighTVL = (c.amount_kaspa || 0) >= 100;
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
-  // Strong signal for the "very easy creator-only nice custom UI + transparent viewer" feature:
-  // When a creator has published a custom transparent UI, we surface it prominently in the list
-  // so users know pressing the covenant will show the nice transparent "everything there is to know" view (no terminal for regular users).
 
-  // Check for paid covenant metadata (from /api/covenant-metadata)
   let paidMetadata = null;
   try {
     const cfg = c.custom_ui_config;
@@ -367,7 +404,6 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
   const covenantDesc = paidMetadata?.description || c.description || 'No description provided.';
   const themeAccent = paidMetadata?.theme?.accent || '#49EACB';
 
-  // Only the creator sees their own tier badge.
   const isOwner = ownerAddress && c.creator_addr?.toLowerCase() === ownerAddress.toLowerCase();
 
   const tierCardClass = highlighted
@@ -416,7 +452,6 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
 
       <p className="text-sm text-gray-200 mb-4 leading-relaxed flex-1">{covenantDesc}</p>
 
-      {/* Disclosed wallets section for paid verified covenants */}
       {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
         <div className="mb-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2.5">
           <div className="text-[10px] text-emerald-400 font-mono uppercase tracking-wide mb-1">All Wallets Disclosed</div>
@@ -437,16 +472,6 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
         </div>
       )}
 
-      {/* Special colorful inviting treatment for Chess covenants - not a small window */}
-      {gameType === 'chess' && (
-        <div className="mt-3 -mx-1 p-4 rounded-2xl bg-gradient-to-br from-emerald-900/40 via-emerald-500/10 to-transparent border border-emerald-500/40">
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold tracking-widest mb-2">
-            CHESS ARENA
-          </div>
-          <div className="text-sm text-emerald-200 leading-snug">10 minute winner takes all chess. Stake any amount. The second player must match the stake within 5 minutes or the funds return automatically to the staker. Each player receives a 10 minute clock that runs only on their turn. The game ends by resign, timeout or checkmate. The winner takes the full pot minus 2 percent. That 2 percent goes to the creator address to keep the arena alive for future games. All stakes go directly to the covenant address on Kaspa. The experience is fully non custodial. Every move can be proven with the chess v1 zero knowledge circuit. The oracle detects lies and rejects invalid results. Everything is transparent and on chain.</div>
-        </div>
-      )}
-
       <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-1.5 text-[10px] text-gray-300">
         <span>Category: <span className="text-white">{c.category || 'general'}</span></span>
         <span>Amount: <span className="text-white">{formatKaspa(c.amount_kaspa)}</span></span>
@@ -455,32 +480,9 @@ function CovenantCard({ covenant: c, index, highlighted, ownerAddress }) {
       </div>
 
       <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden sm:flex gap-1.5">
-        <Link
-          to={`/covenant/${encodeURIComponent(c.tx_id)}?play=${gameType || 'chess'}`}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green text-[10px] font-bold uppercase tracking-wider"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Play size={11} />Play Now
-        </Link>
         <div className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/5 border border-white/8 text-gray-300 text-[10px] font-bold uppercase tracking-wider">
-          <Eye size={11} />View
+          <Database size={11} />View Covenant
         </div>
-      </div>
-    </Link>
-  );
-}
-
-/* ── Demo Card ── */
-function DemoCard({ icon: Icon, title, desc, tags, path }) {
-  return (
-    <Link to={path} className="block rounded-2xl border border-kaspa-green/10 bg-kaspa-green/[0.015] p-5 hover:border-kaspa-green/25 hover:bg-kaspa-green/[0.03] transition-all duration-300 group">
-      <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/20 flex items-center justify-center mb-3 group-hover:shadow-[0_0_15px_rgba(73,234,203,0.2)] transition-all">
-        <Icon size={20} className="text-kaspa-green" />
-      </div>
-      <h3 className="font-bold text-sm text-white mb-1.5 group-hover:text-kaspa-green transition-colors">{title}</h3>
-      <p className="text-xs text-gray-300 mb-3 line-clamp-2">{desc}</p>
-      <div className="flex flex-wrap gap-1">
-        {tags.map(tag => <span key={tag} className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-kaspa-green/8 border border-kaspa-green/15 text-kaspa-green">{tag}</span>)}
       </div>
     </Link>
   );

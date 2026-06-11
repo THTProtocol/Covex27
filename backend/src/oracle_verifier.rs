@@ -758,7 +758,6 @@ pub(crate) fn determine_outcome_for_circuit(
         }
     } else if proof_has_groth16_body(proof) {
         0
-        }
     } else if circuit_type == "tictactoe_v1" || circuit_type == "connect4_v1" {
         if proof_has_groth16_body(proof) && public_inputs.len() >= 5 {
             match public_inputs[4].as_str() {

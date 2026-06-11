@@ -11,12 +11,18 @@ use tracing::{debug, error, info, warn};
 
 /// Historic BlockDAG Crawler — walks the selected-parent chain backward from tip.
 ///
-/// Covenant opcodes (aa20/aa21/aa22/aa23) are in tx.payload, NOT output scripts.
-/// Tier determined by Output[1] → treasury P2PKH address.
+/// Detects *ALL* possible covenants (to match/exceed the official Kaspa TN12 explorer)
+/// by scanning BOTH tx.payload AND every output's script_public_key for the
+/// Toccata covenant opcodes (aa20/aa21/aa22/aa23).
+///
+/// Raw/non-Covex covenants get "EXPLORER" tier + basic auto UI.
+/// Covex-enhanced ones (treasury payment) get full tiered treatment + rich UIs.
+///
+/// Tier determined by Output[1] → treasury P2PKH address (Covex-specific).
 ///
 /// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
-const MAX_WALK_DISTANCE: u64 = 1_000_000;
+const MAX_WALK_DISTANCE: u64 = 5_000_000;  // Increased to catch more historic covenants on TN10/TN12 (full DAG coverage)
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
 const BUILDER_THRESHOLD: u64 = 10_000_000_000;
@@ -50,7 +56,7 @@ fn address_from_p2pk_script(spk_hex: &str) -> Option<String> {
 
 fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (String, u64) {
     if tx.outputs.len() < 2 {
-        return ("FREE".to_string(), 0);
+        return ("EXPLORER".to_string(), 0);
     }
     let o1 = &tx.outputs[1];
     let spk_hex = hex::encode(o1.script_public_key.script());
@@ -68,7 +74,7 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
             && spk_hex.ends_with("ac")
             && &spk_hex[2..66] == &treasury_script[2..66]);
     if !is_treasury {
-        return ("FREE".to_string(), 0);
+        return ("EXPLORER".to_string(), 0); // Raw / unverified covenant visible to all
     }
     let tier = if amount >= MAX_THRESHOLD {
         "MAX"
@@ -77,7 +83,7 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
     } else if amount >= BUILDER_THRESHOLD {
         "BUILDER"
     } else {
-        return ("FREE".to_string(), 0);
+        return ("EXPLORER".to_string(), 0);
     };
     (tier.to_string(), amount)
 }
@@ -175,17 +181,43 @@ pub async fn run_crawler(
             let daa = block.header.daa_score;
             lowest = daa.min(lowest);
 
-            // Scan tx.payload for covenant opcodes
+            // Broad scan for *ALL* covenants: check payload + every output script for opcodes.
+            // This captures raw covenants (manual deploys, other tools, experiments) in addition
+            // to Covex-structured ones. Matches the volume seen on the official Kaspa explorer.
             for tx in &block.transactions {
                 let pl = hex::encode(&tx.payload);
-                if !pl.contains("aa20")
-                    && !pl.contains("aa21")
-                    && !pl.contains("aa22")
-                    && !pl.contains("aa23")
-                {
+                let mut covenant_script = pl.clone();
+                let mut has_covenant_opcode = pl.contains("aa20")
+                    || pl.contains("aa21")
+                    || pl.contains("aa22")
+                    || pl.contains("aa23");
+
+                // Also scan output scripts (many real covenants put the logic in script_public_key)
+                for out in &tx.outputs {
+                    let sh = hex::encode(out.script_public_key.script());
+                    if sh.contains("aa20")
+                        || sh.contains("aa21")
+                        || sh.contains("aa22")
+                        || sh.contains("aa23")
+                    {
+                        has_covenant_opcode = true;
+                        // Prefer the first output script that carries the opcode for classification
+                        if covenant_script == pl {
+                            covenant_script = sh;
+                        }
+                        break;
+                    }
+                }
+
+                if !has_covenant_opcode {
                     continue;
                 }
-                let (tier, _) = determine_tier_from_outputs(tx, &treasury_script);
+
+                let (mut tier, _) = determine_tier_from_outputs(tx, &treasury_script);
+                if tier == "FREE" {
+                    tier = "EXPLORER".to_string(); // Default for raw / unverified covenants
+                }
+
                 let amt = tx.outputs[0].value;
                 let txh = tx
                     .verbose_data
@@ -193,25 +225,27 @@ pub async fn run_crawler(
                     .map(|v| v.transaction_id.to_string())
                     .unwrap_or_else(|| format!("{}-tx", block.header.hash));
                 let tid = format!("{}:{}", txh, 0);
-                let ctype = classify(&pl);
-                let cat = categorize(&pl);
+                let ctype = classify(&covenant_script);
+                let cat = categorize(&covenant_script);
                 let addr = format!("kaspatest:{}", &txh[..32]);
                 // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
                 let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
                 let creator =
                     address_from_p2pk_script(&deployer_script_hex).unwrap_or_else(|| addr.clone());
-                let shash = crate::compute_script_hash(&pl);
+                let shash = crate::compute_script_hash(&covenant_script);
 
                 let nlabel = if network == "testnet-10" { "TN-10" } else { "TN-12" };
                 let summary = auto_summary(&ctype, &cat, amt, nlabel);
                 let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
+                // Store the best script (output script preferred over payload for raw detection)
+                let stored_script = &covenant_script;
                 match db::insert_covenant(
                     &db,
                     &tid,
                     &addr,
                     amt,
                     &shash,
-                    &pl,
+                    stored_script,
                     &ctype,
                     &cat,
                     &creator,
@@ -225,13 +259,13 @@ pub async fn run_crawler(
                     Ok(_) => {
                         batch += 1;
                         info!(
-                            "Crawler: FOUND {} {} DAA={} amt={}K tier={} pl={}",
+                            "Crawler: FOUND {} {} DAA={} amt={}K tier={} script={}",
                             ctype,
                             &tid[..16],
                             daa,
                             amt as f64 / 1e8,
                             tier,
-                            &pl[..40.min(pl.len())]
+                            &stored_script[..40.min(stored_script.len())]
                         );
                         let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
                             Arc::clone(&db),
@@ -251,8 +285,8 @@ pub async fn run_crawler(
                                 category: gcat,
                                 script_hash: ghash,
                                 parameters: p,
-                                is_enhanced: gt != "FREE",
-                                disclosure_level: if gt == "FREE" {
+                                is_enhanced: gt != "FREE" && gt != "EXPLORER",
+                                disclosure_level: if gt == "FREE" || gt == "EXPLORER" {
                                     "limited".into()
                                 } else {
                                     "full".into()
@@ -266,6 +300,7 @@ pub async fn run_crawler(
                                 "MAX" => 100,
                                 "PRO" => 50,
                                 "BUILDER" => 10,
+                                "EXPLORER" => 0, // raw but visible
                                 _ => 0,
                             };
                             let _ = db::save_generated_ui(

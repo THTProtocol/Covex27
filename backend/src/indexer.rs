@@ -43,7 +43,7 @@ fn tier_from_script(_spk_hex: &str, _treasury_script: &str, amount: u64) -> (Str
     } else if amount >= BUILDER_THRESHOLD {
         ("BUILDER".to_string(), amount)
     } else {
-        ("FREE".to_string(), 0)
+        ("EXPLORER".to_string(), 0) // Raw covenant from full scan / seeds without tier payment
     }
 }
 
@@ -138,6 +138,7 @@ pub async fn run_indexer(
                         // (the indexer looks at seed addresses, not treasury addresses)
                         let (tier, _) =
                             tier_from_script(&script_hex, &treasury_script, amount_sompi);
+                        let tier = if tier == "FREE" { "EXPLORER".to_string() } else { tier };
 
                         if let Err(e) = db::insert_covenant(
                             &db,
@@ -183,8 +184,8 @@ pub async fn run_indexer(
                                     category: gen_cat,
                                     script_hash: gen_hash,
                                     parameters: params,
-                                    is_enhanced: gen_tier != "FREE",
-                                    disclosure_level: if gen_tier == "FREE" {
+                                    is_enhanced: gen_tier != "FREE" && gen_tier != "EXPLORER",
+                                    disclosure_level: if gen_tier == "FREE" || gen_tier == "EXPLORER" {
                                         "limited".into()
                                     } else {
                                         "full".into()

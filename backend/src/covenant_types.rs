@@ -105,6 +105,12 @@ impl CovenantCategory {
         CovenantCategory::General
     }
 
+    /// Quick check if this looks like a raw covenant (any aa2x but no strong category match).
+    pub fn is_raw_covenant(script_hex: &str) -> bool {
+        let has_op = script_hex.contains("aa20") || script_hex.contains("aa21") || script_hex.contains("aa22") || script_hex.contains("aa23");
+        has_op && matches!(Self::from_script_ops(script_hex), CovenantCategory::General | CovenantCategory::Flash)
+    }
+
     /// More granular covenant_type used for indexing and API (beyond broad category).
     pub fn covenant_type(script_hex: &str) -> String {
         if script_hex.is_empty() {
@@ -135,6 +141,10 @@ impl CovenantCategory {
             }
             return "skill-covenant".into();
         }
+        // Best-effort for raw / any opcode presence (to surface EVERY covenant from the chain)
+        if script_hex.contains("aa20") || script_hex.contains("aa21") || script_hex.contains("aa22") || script_hex.contains("aa23") {
+            return "raw-covenant".into();
+        }
         "generic-covenant".into()
     }
 
@@ -152,6 +162,10 @@ impl CovenantCategory {
             CovenantCategory::MembershipClaim => "Membership & Claims",
             CovenantCategory::General => "General",
         }
+    }
+
+    pub fn raw_label() -> &'static str {
+        "Raw / On-chain Covenant (unverified)"
     }
 }
 

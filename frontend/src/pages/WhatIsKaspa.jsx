@@ -1,36 +1,33 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Link } from 'react-router-dom';
 import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award, Timer, TrendingUp, Coins, Fingerprint, Calendar, CheckCircle2, Code2, FileCode, Scissors, FlaskConical } from 'lucide-react';
 
 export default function WhatIsKaspaPage() {
   return (
     <div className="min-h-screen pt-16 pb-20">
       <div className="max-w-5xl mx-auto px-5 sm:px-6">
+        <div className="glass-section-1 relative">
 
-        <header className="mb-12">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center">
-              <Zap size={26} className="text-[#49EACB]" />
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-              Understanding the <span className="text-[#49EACB]">Kaspa</span> BlockDAG
-            </h1>
-          </div>
-          <p className="text-lg text-gray-300 leading-relaxed max-w-4xl">
-            The fastest, most secure Proof-of-Work Layer-1. A true BlockDAG that achieves 10+ blocks per second today
-            and targets 100+ BPS with DAGKNIGHT, while preserving Bitcoin's exact security model. This is the
-            foundation that makes native covenants and Covex possible.
-          </p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <a href="https://kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> kaspa.org</a>
-            <a href="https://github.com/kaspanet/rusty-kaspa" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><GitBranch size={12} /> rusty-kaspa</a>
-            <a href="https://explorer.kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> Mainnet Explorer</a>
-          </div>
-        </header>
-
-        {/* What is Kaspa - Core Thesis */}
+        {/* What is Kaspa - Unified Header + Core Thesis */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2"><BookOpen size={20} className="text-[#49EACB]" /> What is Kaspa?</h2>
-          <div className="glass-panel rounded-2xl p-6 text-gray-300 leading-relaxed space-y-4 border border-white/10">
+          <div className="glass-panel rounded-2xl p-6 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center">
+                <Zap size={26} className="text-[#49EACB]" />
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
+                <span className="text-gradient">Understanding the Kaspa BlockDAG</span>
+              </h1>
+            </div>
+            <p className="text-sm text-white/65 leading-relaxed max-w-4xl mb-4">
+              The fastest, most secure Proof-of-Work Layer-1. A true BlockDAG that achieves 10+ blocks per second today and targets 100+ BPS with DAGKNIGHT, while preserving Bitcoin's exact security model. This is the foundation that makes native covenants and Covex possible.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-6">
+              <a href="https://kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> kaspa.org</a>
+              <a href="https://github.com/kaspanet/rusty-kaspa" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><GitBranch size={12} /> rusty-kaspa</a>
+              <a href="https://explorer.kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> Mainnet Explorer</a>
+            </div>
+            <div className="border-t border-white/10 pt-6 space-y-4 text-gray-300 leading-relaxed">
             <p>
               Kaspa is a proof-of-work cryptocurrency built on a <strong>BlockDAG architecture</strong> rather than a linear blockchain.
               Multiple blocks are produced and confirmed in parallel every second (currently 10 BPS on mainnet, with a target of 100+ BPS).
@@ -42,6 +39,7 @@ export default function WhatIsKaspaPage() {
             <p className="text-[#49EACB] font-medium">
               This removes the orphan rate problem that limits traditional blockchains. Kaspa can safely run at block rates that would destroy Bitcoin or any chain-based PoW system.
             </p>
+            </div>
           </div>
         </section>
 
@@ -284,12 +282,13 @@ export default function WhatIsKaspaPage() {
         </section>
 
         <div className="pt-8 border-t border-white/10 text-center">
-          <a href="/deploy" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#49EACB] text-black font-bold hover:bg-[#3cd8b6] transition-colors">
+          <Link to="/deploy" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#49EACB] text-black font-bold hover:bg-[#3cd8b6] transition-all hover:scale-[1.03] active:scale-[0.96]">
             Deploy Your First Free Covenant <Terminal size={18} />
-          </a>
+          </Link>
           <p className="text-[10px] text-gray-500 mt-3">No payment required. Upgrade that specific covenant later if you want rich UI + Terminal.</p>
         </div>
 
+        </div>{/* close glass-section-1 */}
       </div>
     </div>
   );

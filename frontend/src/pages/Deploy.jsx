@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send, CheckCircle2, ExternalLink, Key, Wallet, TrendingUp, ArrowUpCircle } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
+import { GlassButton } from '../components/ui/GlassButton';
 
 const SILVERSCRIPT_TEMPLATE = `contract SimpleWinnerTakesAll {
     state {
@@ -138,7 +139,8 @@ export default function Deploy() {
         Back
       </button>
 
-      <div className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-[#1f1f1f] rounded-2xl shadow-2xl overflow-hidden">
+      <div className="glass-section-1 relative">
+      <div className="glass-panel rounded-2xl shadow-2xl overflow-hidden">
         {/* Free deploy explanation */}
         <div className="px-8 py-5 bg-gradient-to-r from-[#49EACB]/[0.06] via-[#49EACB]/[0.03] to-transparent border-b border-[#49EACB]/15">
           <div className="flex items-start gap-4">
@@ -242,15 +244,16 @@ export default function Deploy() {
               <Code size={12} /> Free covenants are indexed and visible on the Explorer. No Terminal or custom UI access.
             </p>
 
-            <button onClick={handleDeploy} disabled={!canDeploy}
-              className="w-full px-6 py-4 bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold rounded-xl transition-all duration-200 shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.6)] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-none text-lg"
+            <GlassButton onClick={handleDeploy} disabled={!canDeploy}
+              className="w-full py-4 text-lg"
+              glassColor="oklch(0.65 0.20 150 / 18%)"
             >
               {status === 'deploying' ? (
-                <span className="flex items-center gap-2"><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />Building TX and Broadcasting...</span>
+                <span className="flex items-center gap-2"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Building TX and Broadcasting...</span>
               ) : (
                 <span className="flex items-center gap-2"><Send size={20} /> Deploy Covenant</span>
               )}
-            </button>
+            </GlassButton>
 
             {result && (
               <div className={`mt-4 p-5 rounded-xl border ${result.success ? 'bg-emerald-500/[0.04] border-emerald-500/20' : 'bg-red-500/[0.04] border-red-500/20'}`}>
@@ -288,6 +291,8 @@ export default function Deploy() {
           </div>
         )}
       </div>
+
+      </div>{/* close glass-section-1 */}
 
       <DevWalletModal isOpen={devWalletOpen} onClose={() => setDevWalletOpen(false)} />
     </div>

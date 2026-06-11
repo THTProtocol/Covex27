@@ -5,6 +5,7 @@ import { useWallet } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { GlassButton } from '../components/ui/GlassButton';
 
 const TIERS = [
   {
@@ -235,9 +236,9 @@ const Pricing = () => {
           />
         </div>
         <div className="space-y-4 max-w-md mx-auto">
-          <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">
+          <GlassButton onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">
             {paymentStatus?.type === 'sending' ? 'Sending...' : `Send ${p.price.toLocaleString()} KAS Now`}
-          </Button>
+          </GlassButton>
           <button onClick={cancelPayment} className="w-full py-3 text-sm text-gray-200 hover:text-white transition">Cancel</button>
         </div>
       </div>
@@ -246,8 +247,11 @@ const Pricing = () => {
 
   return (
     <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+      <div className="glass-section-1 relative">
       <div className="text-center max-w-2xl mx-auto mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Deploy Interactive Covenants</h1>
+        <h1 className="text-3xl md:text-4xl font-black tracking-[-0.03em] leading-[1.1] mb-4">
+          <span className="text-gradient">Deploy Interactive Covenants</span>
+        </h1>
         <p className="text-base md:text-lg text-gray-300 leading-relaxed">
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
         </p>
@@ -258,7 +262,7 @@ const Pricing = () => {
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <Card key={tier.id} className={`flex flex-col pricing-tier-card ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
+            <Card key={tier.id} className={`flex flex-col pricing-tier-card glass-panel hover-glow ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -289,13 +293,13 @@ const Pricing = () => {
                 </div>
               </CardContent>
               <div className="p-6 pt-0">
-                <Button 
+                <GlassButton 
                   onClick={() => handlePay(tier)} 
-                  variant={isFree ? 'outline' : 'default'}
                   className="w-full"
+                  glassColor={isFree ? 'oklch(0.55 0.02 150 / 12%)' : undefined}
                 >
                   {tier.cta}
-                </Button>
+                </GlassButton>
               </div>
             </Card>
           );
@@ -305,6 +309,7 @@ const Pricing = () => {
       <div className="text-center mt-10 text-sm text-gray-400 max-w-xl mx-auto">
         All paid tiers include the full Covex Terminal for deploying custom interactive UIs. The only difference is your covenant's visibility ranking on the Explorer.
       </div>
+      </div>{/* close glass-section-1 */}
     </div>
   );
 };

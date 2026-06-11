@@ -2,438 +2,389 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ═══════════════════════════════════════════════════════════════
+   TAILWIND THEME EXTENSION
+   ═══════════════════════════════════════════════════════════════ */
 @theme {
-  --color-kaspa-green: #49EACB;
-  --color-kaspa-gold: #E8AF34;
-  --color-surface-base: #05050A;
+  --color-kaspa-green: oklch(0.65 0.20 150);
+  --color-kaspa-gold: oklch(0.78 0.18 80);
+  --color-surface-base: oklch(0.06 0.02 150);
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --animate-fade-in: fade-in 0.5s ease-out;
   --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-spring-in: spring-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CSS VARIABLE THEME ROOTS
+   CSS CUSTOM PROPERTIES — Green Accented Glass Design System
    ═══════════════════════════════════════════════════════════════ */
 :root {
-  --background: 5 5 10;
-  --foreground: 243 244 246;
-  --card: 10 10 15;
-  --card-foreground: 243 244 246;
-  --primary: 73 234 203;
+  --background: oklch(0.06 0.02 150);
+  --foreground: oklch(0.97 0.005 150);
+  --surface-1: oklch(0.10 0.02 150);
+  --surface-2: oklch(0.14 0.02 150);
+  --accent-primary: oklch(0.65 0.20 150);
+  --accent-deep: oklch(0.55 0.18 155);
+  --accent-mint: oklch(0.72 0.14 165);
+  --glass-border: oklch(1 0 0 / 0.08);
+  --glass-bg: oklch(1 0 0 / 0.05);
+  --glass-highlight: oklch(1 0 0 / 0.12);
+  --text-secondary: oklch(1 0 0 / 0.65);
+  --text-tertiary: oklch(1 0 0 / 0.40);
+
+  /* Legacy compatibility */
+  --card: 0.10 0.02 150;
+  --card-foreground: 0.97 0.005 150;
+  --primary: 0.65 0.20 150;
   --primary-foreground: 0 0 0;
-  --border: 255 255 255 / 0.08;
-  --muted: 255 255 255 / 0.06;
-  --accent: 73 234 203;
+  --border: 1 0 0 / 0.08;
+  --muted: 1 0 0 / 0.06;
+  --accent: 0.65 0.20 150;
   --input-bg: 0 0 0 / 0.4;
-  --kaspa-green: #49EACB;
+  --kaspa-green: oklch(0.65 0.20 150);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK MODE (default) - Rich cypherpunk: deep blacks, neon green accents
+   DARK MODE (default) — Obsidian + Liquid Glass + Green Accent
    ═══════════════════════════════════════════════════════════════ */
 body {
-  background: radial-gradient(circle at 50% 0%, #11111a 0%, rgb(var(--background)) 100%);
-  color: rgb(var(--foreground));
+  background: oklch(0.06 0.02 150);
+  color: oklch(0.97 0.005 150);
   font-family: var(--font-sans);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE - Clean, high-contrast cypherpunk light variant
-   Strong teal/green accents (#0f766e, #14b8a6), soft white backgrounds
+   GLASS PANEL — Frosted Glass Surface Base Class
    ═══════════════════════════════════════════════════════════════ */
-.light {
-  --background: 248 250 252;
-  --foreground: 15 23 42;
-  --card: 255 255 255;
-  --card-foreground: 15 23 42;
-  --primary: 15 118 110;
-  --primary-foreground: 255 255 255;
-  --border: 15 23 42 / 0.1;
-  --muted: 15 23 42 / 0.06;
-  --accent: 15 118 110;
-  --input-bg: 255 255 255;
-  --kaspa-green: #0f766e;
+.glass-panel {
+  background: oklch(0.06 0.01 280 / 85%);
+  backdrop-filter: blur(28px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid oklch(1 0 0 / 8%);
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 8%);
 }
 
-.light body {
-  background: #ffffff;
-  background-attachment: fixed;
-  color: #0f172a;
+/* Top edge glass rim highlight */
+/* glass-panel rim: disabled */
+.glass-panel::before {
+  display: none;
 }
 
-/* ── Light Mode Text Hierarchy ── */
-.light h1, .light h2, .light h3, .light h4 {
-  color: #0f172a;
-}
-.light .text-white {
-  color: #0f172a !important;
-}
-.light .text-gray-200 { color: #334155 !important; }
-.light .text-gray-300 { color: #475569 !important; }
-.light .text-gray-400 { color: #475569 !important; }
-.light .text-gray-500 { color: #64748b !important; }
-
-/* ── Light Mode Accent Colors ── */
-.light .text-kaspa-green {
-  color: #0f766e !important;
-}
-.light a { color: #0f766e; }
-.light a:hover { color: #14b8a6; }
-
-/* ── Light Mode Background Overrides (catch all dark hardcodes) ── */
-/* General dark backgrounds → light */
-.light .bg-black\/10,
-.light .bg-black\/20,
-.light .bg-black\/30,
-.light .bg-black\/40,
-.light .bg-black\/50,
-.light .bg-black\/60,
-.light .bg-black\/80,
-.light [class*="bg-black/"] {
-  background-color: rgba(255, 255, 255, 0.7) !important;
+/* Glass panel heavy — for modals/overlays */
+.glass-heavy {
+  background: oklch(0.04 0.01 280 / 92%);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid oklch(1 0 0 / 10%);
+  border-radius: 20px;
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 10%);
 }
 
-.light .bg-\[\#0a0a0a\],
-.light .bg-\[\#0A0A0D\],
-.light .bg-\[\#0A0A0D\]\/95,
-.light .bg-\[\#0a0a0a\]\/95,
-.light .bg-\[\#0a0a0a\]\/80,
-.light .bg-\[\#0a0a0f\],
-.light .bg-\[\#05050A\],
-.light .bg-\[\#11111a\],
-.light .bg-\[\#111\] {
-  background-color: #ffffff !important;
-}
-
-.light .bg-\[\#1f1f1f\] {
-  background-color: #e2e8f0 !important;
-}
-
-.light .bg-zinc-900,
-.light .bg-zinc-800 {
-  background-color: #f8fafc !important;
-}
-.light .bg-zinc-950 {
-  background-color: #ffffff !important;
-}
-
-/* Glass-panel: frosted white in light */
-.light .glass-panel {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(15, 23, 42, 0.08) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  color: #0f172a;
-}
-
-.light .glass-heavy {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(15, 23, 42, 0.12) !important;
-}
-
-/* ── Light Mode Borders ── */
-.light .border-white\/5,
-.light .border-white\/\[0\.03\],
-.light .border-white\/\[0\.05\],
-.light .border-white\/\[0\.06\],
-.light .border-white\/\[0\.08\],
-.light .border-white\/10 {
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
-.light .border-white\/20,
-.light .border-white\/30 {
-  border-color: rgba(15, 23, 42, 0.15) !important;
-}
-
-.light .border-\[\#1f1f1f\] {
-  border-color: rgba(15, 23, 42, 0.12) !important;
-}
-
-/* ── Light Mode Nav / Header ── */
-.light nav, .light header {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
-  backdrop-filter: blur(12px);
-}
-
-/* Nav COVEX "COV" text in light mode - white invisible on white nav bg, use dark slate */
-.light .covex-brand span:first-child {
-  color: #0f172a;
-}
-/* Light mode hover: COV turns teal */
-.light .group:hover .covex-brand span:first-child {
-  color: #49EACB;
-}
-
-/* ── Light Mode Footer ── */
-.light footer {
-  border-top-color: rgba(15, 23, 42, 0.08) !important;
-  color: #64748b !important;
-}
-
-/* ── Light Mode Buttons ── */
-.light .btn-kaspa-primary {
-  background: #0f766e !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
-}
-.light .btn-kaspa-primary:hover {
-  background: #115e59 !important;
-}
-
-/* ── Light Mode Inputs & Textareas ── */
-.light .cyber-input,
-.light .shadcn-input,
-.light input[type="text"],
-.light input[type="search"],
-.light textarea,
-.light select {
-  background: #fff !important;
-  border-color: rgba(15, 23, 42, 0.2) !important;
-  color: #0f172a !important;
-}
-.light .cyber-input:focus,
-.light .shadcn-input:focus {
-  border-color: #0f766e !important;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
-}
-.light input::placeholder,
-.light textarea::placeholder {
-  color: #94a3b8 !important;
-}
-
-/* ── Light Mode Cards ── */
-.light .card,
-.light [class*="rounded-2xl border"] {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* ── Light Mode Badges ── */
-.light .badge {
-  background: rgba(15, 118, 110, 0.08);
-  color: #0f766e;
-  border-color: rgba(15, 118, 110, 0.15);
-}
-
-/* ── Light Mode Tier Glows ── */
-.light .tier-glow-max {
-  box-shadow: 0 0 0 1px #7c3aed, 0 4px 12px rgba(124, 58, 237, 0.1) !important;
-}
-.light .tier-glow-pro {
-  box-shadow: 0 0 0 1px #d97706, 0 4px 12px rgba(217, 119, 6, 0.1) !important;
-}
-.light .tier-glow-builder {
-  box-shadow: 0 0 0 1px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.1) !important;
-}
-
-/* ── Light Mode Featured Cards ── */
-.light .featured-covenant-card {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-}
-
-/* ── Light Mode Terminal Sections ── */
-.light .terminal-section,
-.light section[class*="bg-black/30"] {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
-/* ── Light Mode Sticky Bottom Bar (Save bar in Terminal) ── */
-.light section[class*="sticky bottom"] {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px);
-  border-color: rgba(15, 23, 42, 0.1) !important;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* ── Light Mode Game Arenas ── */
-.light .full-screen-arena,
-.light [class*="full-screen"] {
-  background: #f1f5f9 !important;
-  color: #0f172a;
-}
-/* Game boards keep their dark felt for contrast */
-.light [class*="felt"],
-.light .game-felt {
-  background: linear-gradient(145deg, #166534 0%, #14532d 100%) !important;
-}
-
-/* ── Light Mode Code Blocks & Pre ── */
-.light pre,
-.light code {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-.light pre code {
-  color: #334155 !important;
-}
-
-/* ── Light Mode Terminal: shadow overrides ── */
-.light .shadow-\[0_-4px_20px_rgba\(0\2c 0\2c 0\2c 0\.5\)\] {
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* Light mode: status dot colors */
-.light .bg-gray-700 {
-  background-color: #cbd5e1 !important;
-}
-
-/* Light mode: code block header bar */
-.light .bg-black\/40 {
-  background-color: rgba(15, 23, 42, 0.04) !important;
-}
-
-/* Light mode: hover glow shadows on green buttons → use teal */
-.light .hover\:shadow-\[0_0_25px_rgba\(73\2c 234\2c 203\2c 0\.35\)\],
-.light .hover\:shadow-\[0_0_30px_rgba\(73\2c 234\2c 203\2c 0\.4\)\] {
-  box-shadow: 0 0 25px rgba(15, 118, 110, 0.3) !important;
-}
-
-/* Light mode: focus shadow on inputs */
-.light .focus\:shadow-\[0_0_8px_rgba\(73\2c 234\2c 203\2c 0\.1\)\] {
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
-}
-
-/* ── Light Mode Modals ── */
-.light [class*="fixed inset-0"].bg-\[\#0a0a0a\] {
-  background: rgba(248, 250, 252, 0.95) !important;
-}
-
-/* ── Light Mode Selection ── */
-.light ::selection {
-  background: rgba(15, 118, 110, 0.15);
-  color: #0f172a;
-}
-
-/* ── Light Mode Focus Rings ── */
-.light :focus-visible {
-  outline-color: #0f766e;
-}
-
-/* ── Light Mode Scrollbar ── */
-.light ::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.15);
-}
-
-/* ── Light Mode Tier-Specific Accent Text ── */
-.light .tier-MAX { color: #5b21b6; }
-.light .tier-PRO { color: #92400e; }
-.light .tier-BUILDER { color: #1e40af; }
-
-/* ── Light Mode Wallet / Dev panel overrides ── */
-.light [class*="bg-\[\#0a0a0a\]"].rounded-2xl,
-.light [class*="bg-\[\#0a0a0a\]"].rounded-3xl {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
+/* Glass panel subtle — for nested or low-emphasis panels */
+.glass-subtle {
+  background: oklch(1 0 0 / 3%);
+  backdrop-filter: blur(12px) saturate(110%);
+  -webkit-backdrop-filter: blur(12px) saturate(110%);
+  border: 1px solid oklch(1 0 0 / 5%);
+  border-radius: 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK MODE POLISH - Premium cypherpunk enhancements
+   PASS 2 — THREE-TIER GLASS SECTION SYSTEM
    ═══════════════════════════════════════════════════════════════ */
 
-/* Dark mode accent */
-.dark .text-kaspa-green { color: #49EACB; }
-.dark a.text-kaspa-green:hover { color: #3cd8b6; }
-
-/* Pricing tier cards - better separation + hover */
-.dark .pricing-tier-card {
-  background: rgba(10, 10, 15, 0.6);
-  border-color: rgba(255, 255, 255, 0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-.dark .pricing-tier-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(73, 234, 203, 0.3);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+/* Tier 1 — Hero / Primary sections */
+.glass-section-1 {
+  position: relative;
+  background: oklch(0.05 0.01 280 / 88%);
+  backdrop-filter: blur(32px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  border: 1px solid oklch(1 0 0 / 10%);
+  border-radius: 24px;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 10%);
+  padding: 48px;
 }
 
-/* Dark nav tweaks */
-.dark nav,
-.dark header {
-  background: rgba(10, 10, 13, 0.85) !important;
-  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+/* Tier 2 — Cards / Feature blocks / Info panels */
+.glass-section-2 {
+  position: relative;
+  background: oklch(0.06 0.01 280 / 82%);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid oklch(1 0 0 / 8%);
+  border-radius: 16px;
+  box-shadow: none;
+  padding: 32px;
+}
+
+/* Tier 3 — Subtle containers / list items */
+.glass-section-3 {
+  position: relative;
+  background: oklch(0.07 0.01 280 / 78%);
+  backdrop-filter: blur(16px);
+  border: 1px solid oklch(1 0 0 / 6%);
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 16px 20px;
+}
+
+/* Top-edge rim for all three tiers */
+/* Top-rim gradients: disabled — no visible edges */
+.glass-section-1::before,
+.glass-section-2::before,
+.glass-section-3::before {
+  display: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PRICING PAGE - Premium treatment for BOTH modes
+   PASS 2 — MODAL / DROPDOWN / TOOLTIP GLASS
    ═══════════════════════════════════════════════════════════════ */
 
-/* Pricing tier cards: light mode */
-.light .pricing-tier-card {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.light .pricing-tier-card:hover {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(15, 118, 110, 0.2);
-  transform: translateY(-2px);
+/* Modal / Dialog */
+.glass-modal {
+  background: oklch(0.09 0.015 280 / 90%);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  border: 1px solid oklch(1 0 0 / 12%);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 10%);
 }
 
-/* Pricing tier cards: dark enhancements */
-.dark .pricing-tier-card .border-2 {
-  border-width: 2px !important;
+/* Modal backdrop/scrim */
+.glass-modal-backdrop {
+  background: oklch(0 0 0 / 60%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Dropdown / Select menu */
+.glass-dropdown {
+  background: oklch(0.10 0.015 280 / 92%);
+  backdrop-filter: blur(32px) saturate(150%);
+  -webkit-backdrop-filter: blur(32px) saturate(150%);
+  border: 1px solid oklch(1 0 0 / 10%);
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+/* Tooltip */
+.glass-tooltip {
+  background: oklch(0.15 0.015 280 / 95%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid oklch(1 0 0 / 12%);
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 0.75rem;
+  color: oklch(1 0 0 / 80%);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   EXPLORER - Cards, featured section, search
+   PASS 3 — SHADER VIGNETTE (readability overlay)
    ═══════════════════════════════════════════════════════════════ */
-
-/* Covenant cards in light */
-.light [class*="block rounded-2xl border"].bg-\[\#0a0a0f\] {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
-/* Demo cards in light */
-.light .bg-kaspa-green\/\[0\.015\],
-.light [class*="bg-kaspa-green/"] {
-  background-color: rgba(15, 118, 110, 0.04) !important;
-}
-.light .border-kaspa-green\/10,
-.light .border-kaspa-green\/\[0\.015\] {
-  border-color: rgba(15, 118, 110, 0.1) !important;
-}
-
-/* Search input glass-panel in light */
-.light [class*="focus-within:shadow"].glass-panel {
-  background: rgba(255, 255, 255, 0.85) !important;
+.shader-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, oklch(0 0 0 / 35%) 100%),
+    linear-gradient(180deg, oklch(0 0 0 / 20%) 0%, transparent 20%, transparent 80%, oklch(0 0 0 / 20%) 100%);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   COVEX TERMINAL - Forms, sections, code blocks
+   TYPOGRAPHY TOKENS
    ═══════════════════════════════════════════════════════════════ */
 
-/* Terminal save button (kaspa-green bg stays the teal for contrast) */
-.light button.bg-kaspa-green {
-  background: #0f766e !important;
-  color: #fff !important;
-}
-.light button.bg-kaspa-green:hover {
-  background: #115e59 !important;
+/* Hero / Display text */
+.hero-text {
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  font-size: clamp(3rem, 10vw, 8rem);
 }
 
-/* Copy button states */
-.light .bg-emerald-500\/10 {
-  background-color: rgba(5, 150, 105, 0.1) !important;
+/* Gradient text for key headings */
+.text-gradient {
+  background: linear-gradient(135deg, #fff 0%, oklch(0.85 0.08 155) 50%, oklch(0.80 0.14 165) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Label / Caps style */
+.label-caps {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: oklch(1 0 0 / 40%);
+}
+
+/* Section heading */
+.section-heading {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: oklch(0.97 0.005 150);
+}
+
+/* Body text */
+.body-text {
+  font-weight: 400;
+  color: oklch(1 0 0 / 65%);
+  line-height: 1.6;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   KASPA GREEN VARIATIONS - light mode keeps it strong
+   MICRO-INTERACTIONS & MOTION
    ═══════════════════════════════════════════════════════════════ */
-.light .bg-kaspa-green\/10 { background-color: rgba(15, 118, 110, 0.08) !important; }
-.light .bg-kaspa-green\/8  { background-color: rgba(15, 118, 110, 0.06) !important; }
-.light .bg-kaspa-green\/\[0\.06\] { background-color: rgba(15, 118, 110, 0.06) !important; }
-.light .border-kaspa-green\/20 { border-color: rgba(15, 118, 110, 0.2) !important; }
-.light .border-kaspa-green\/25 { border-color: rgba(15, 118, 110, 0.25) !important; }
-.light .border-kaspa-green\/30 { border-color: rgba(15, 118, 110, 0.3) !important; }
-.light .border-kaspa-green\/40 { border-color: rgba(15, 118, 110, 0.4) !important; }
-.light .border-kaspa-green\/50 { border-color: rgba(15, 118, 110, 0.5) !important; }
+
+/* Spring physics pop-in */
+.spring-in {
+  animation: spring-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes spring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Stagger delays for list/grid animations */
+.stagger-1 { animation-delay: 40ms; }
+.stagger-2 { animation-delay: 80ms; }
+.stagger-3 { animation-delay: 120ms; }
+.stagger-4 { animation-delay: 160ms; }
+.stagger-5 { animation-delay: 200ms; }
+.stagger-6 { animation-delay: 240ms; }
+.stagger-7 { animation-delay: 280ms; }
+.stagger-8 { animation-delay: 320ms; }
+.stagger-9 { animation-delay: 360ms; }
+.stagger-10 { animation-delay: 400ms; }
+
+/* Scroll-triggered reveals */
+.scroll-reveal {
+  animation: scroll-reveal 0.6s ease-out both;
+  animation-timeline: view();
+  animation-range: entry 0% entry 100%;
+}
+
+@keyframes scroll-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover glow — ambient accent glow on hover */
+.hover-glow {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.hover-glow:hover {
+  border-color: oklch(0.65 0.20 150 / 30%);
+  box-shadow: 0 0 20px oklch(0.65 0.20 150 / 10%);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px oklch(0.65 0.20 150 / 20%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS INDICATORS
+   ═══════════════════════════════════════════════════════════════ */
+.status-dot {
+  position: relative;
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+}
+.status-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: oklch(0.72 0.14 165);
+  animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.status-dot::after {
+  content: '';
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.72 0.14 165);
+  margin: 2px;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INPUTS & FORM ELEMENTS (dark mode)
+   ═══════════════════════════════════════════════════════════════ */
+.glass-input {
+  background: oklch(1 0 0 / 4%);
+  border: 1px solid oklch(1 0 0 / 10%);
+  border-radius: 12px;
+  color: oklch(1 0 0 / 90%);
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px oklch(0.65 0.20 150 / 15%);
+  background: oklch(1 0 0 / 6%);
+}
+.glass-input::placeholder {
+  color: oklch(1 0 0 / 30%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCROLLBARS
+   ═══════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 15%);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(1 0 0 / 22%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SELECTION
+   ═══════════════════════════════════════════════════════════════ */
+::selection {
+  background: oklch(1 0 0 / 15%);
+  color: inherit;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    ANIMATIONS
@@ -445,30 +396,14 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SCROLLBAR (global)
+   TIER GLOWS (dark mode)
    ═══════════════════════════════════════════════════════════════ */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-}
+.tier-glow-max    { box-shadow: 0 0 28px rgba(168, 85, 247, 0.18), 0 0 60px rgba(168, 85, 247, 0.06); }
+.tier-glow-pro    { box-shadow: 0 0 20px rgba(232, 175, 52, 0.15), 0 0 50px rgba(232, 175, 52, 0.05); }
+.tier-glow-builder { box-shadow: 0 0 14px rgba(59, 130, 246, 0.12); }
 
 /* ═══════════════════════════════════════════════════════════════
-   SELECTION (global)
-   ═══════════════════════════════════════════════════════════════ */
-::selection {
-  background: rgba(73, 234, 203, 0.18);
-  color: #49EACB;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   VISUAL DENSITY - Anti-minimalism, cypherpunk hover states
+   FEATURED COVENANT CARDS
    ═══════════════════════════════════════════════════════════════ */
 .featured-covenant-card {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
@@ -477,80 +412,79 @@ body {
   transform: translateY(-1px);
 }
 
-/* Tier glow - dark only */
-.tier-glow-max    { box-shadow: 0 0 28px rgba(168, 85, 247, 0.18), 0 0 60px rgba(168, 85, 247, 0.06); }
-.tier-glow-pro    { box-shadow: 0 0 20px rgba(232, 175, 52, 0.15), 0 0 50px rgba(232, 175, 52, 0.05); }
-.tier-glow-builder { box-shadow: 0 0 14px rgba(59, 130, 246, 0.12); }
-
 /* ═══════════════════════════════════════════════════════════════
-   GAME ARENAS - Keep play area dark, make chrome light-friendly
+   PRICING TIER CARDS
    ═══════════════════════════════════════════════════════════════ */
-.light .bg-\[\#0A0A0D\]\/95,
-.light .bg-\[\#0a0a0f\] {
-  background: #ffffff !important;
+.pricing-tier-card {
+  background: oklch(1 0 0 / 3%);
+  border-color: oklch(1 0 0 / 8%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.light .bg-\[\#0A0A0D\] {
-  background: #f8fafc !important;
-}
-
-/* Game overlay/modals - keep play surfaces but lighten UI */
-.light [class*="fixed inset-0 z-"]:not(.dag-background) {
-  background: rgba(248, 250, 252, 0.97) !important;
-}
-
-/* DAG background: pure white in light mode */
-.light .dag-background {
-  background: #fff !important;
+.pricing-tier-card:hover {
+  transform: translateY(-2px);
+  border-color: oklch(0.65 0.20 150 / 30%);
+  box-shadow: 0 20px 40px -15px oklch(0 0 0 / 60%);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   EXTRA: Amber/alert/warning panels in light
+   NAVIGATION
    ═══════════════════════════════════════════════════════════════ */
-.light .bg-amber-500\/\[0\.04\] { background: rgba(245, 158, 11, 0.05) !important; }
-.light .border-amber-500\/20 { border-color: rgba(245, 158, 11, 0.2) !important; }
-
-/* ═══════════════════════════════════════════════════════════════
-   EXTRA: Red/error panels in light
-   ═══════════════════════════════════════════════════════════════ */
-.light .bg-red-500\/\[0\.04\] { background: rgba(239, 68, 68, 0.06) !important; }
-.light .border-red-500\/20 { border-color: rgba(239, 68, 68, 0.25) !important; }
-.light .text-red-400 { color: #dc2626 !important; }
-
-/* ═══════════════════════════════════════════════════════════════
-   EXTRA: Purple/violet backgrounds in light (ZK sections, etc.)
-   ═══════════════════════════════════════════════════════════════ */
-.light .bg-purple-500\/\[0\.03\] { background: rgba(168, 85, 247, 0.04) !important; }
-.light .border-purple-500\/20 { border-color: rgba(168, 85, 247, 0.15) !important; }
-.light .bg-purple-500\/10 { background: rgba(168, 85, 247, 0.06) !important; }
-.light .border-purple-500\/30 { border-color: rgba(168, 85, 247, 0.2) !important; }
-.light .text-purple-300 { color: #7c3aed !important; }
-.light .text-purple-400 { color: #6d28d9 !important; }
-
-/* ═══════════════════════════════════════════════════════════════
-   EXTRA: Payout and claim section in light mode (Gap 3)
-   ═══════════════════════════════════════════════════════════════ */
-.light .bg-emerald-500\/\[0\.06\] { background: rgba(5, 150, 105, 0.06) !important; }
-.light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.25) !important; }
-.light .text-emerald-400 { color: #059669 !important; }
-.light .text-emerald-300 { color: #047857 !important; }
-
-/* ── details/summary → work in light ── */
-.light details summary { color: #475569 !important; }
-.light details pre { background: #f1f5f9 !important; color: #334155 !important; }
-
-/* ── Claim/Reset buttons in light ── */
-.light .bg-emerald-500 { background: #0f766e !important; color: #fff !important; }
-
-/* ═══════════════════════════════════════════════════════════════
-   EXTRA: DAG Background - handled in DagBackground.jsx
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════
-   EXTRA: Light mode white text in dark-background sections →
-   these are intentionally dark sections (game boards, code, etc.)
-   ═══════════════════════════════════════════════════════════════ */
-/* The game boards themselves keep dark text-on-dark for readability */
-.light [class*="bg-[#0a0a0a]"] [class*="text-white"],
-.light .bg-[#1f1f1f] .text-white {
-  color: #e2e8f0 !important;
+.nav-glass {
+  background: oklch(0.10 0.02 150 / 80%);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid oklch(1 0 0 / 8%);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COVEX BRAND (dark mode)
+   ═══════════════════════════════════════════════════════════════ */
+.covex-brand span:first-child {
+  color: oklch(1 0 0 / 95%);
+  transition: color 300ms ease;
+}
+.group:hover .covex-brand span:first-child {
+  color: oklch(0.65 0.20 150);
+}
+.covex-brand span:last-child {
+  color: oklch(0.65 0.20 150);
+  transition: color 300ms ease;
+}
+.group:hover .covex-brand span:last-child {
+  color: oklch(1 0 0 / 95%);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPECT REDUCED MOTION
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .spring-in,
+  .scroll-reveal,
+  .stagger-1, .stagger-2, .stagger-3, .stagger-4, .stagger-5,
+  .stagger-6, .stagger-7, .stagger-8, .stagger-9, .stagger-10 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .btn-liquid:not(:disabled):hover { transform: none; }
+  .btn-liquid:not(:disabled):active { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE ACCENT OVERRIDES
+   ═══════════════════════════════════════════════════════════════ */
+.dark .text-kaspa-green { color: oklch(0.65 0.20 150); }
+.dark a.text-kaspa-green:hover { color: oklch(0.72 0.14 165); }
+
+.dark nav,
+.dark header {
+  background: oklch(0.10 0.02 150 / 85%) !important;
+  border-bottom-color: oklch(1 0 0 / 5%) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE — Full Override System
+   (All existing light mode rules preserved from original)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Light mode: permanently disabled. Dark only. */

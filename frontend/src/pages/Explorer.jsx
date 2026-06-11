@@ -131,13 +131,13 @@ export default function Explorer() {
     <>
       {/* ═══ HERO ═══ */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-6 px-4 sm:px-6 text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15]">
-          Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-[-0.04em] leading-[0.95] mb-4 max-w-3xl">
+          <span className="text-gradient">Interactive Covenants</span> for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-8">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="w-full max-w-2xl mx-auto glass-panel rounded-2xl p-4 sm:p-5 grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="w-full max-w-2xl mx-auto glass-section-3 rounded-2xl p-4 sm:p-5 grid grid-cols-3 gap-2 sm:gap-4">
           {[
             { icon: Layers, label: 'Covenants', value: stats.total },
             { icon: Sparkles, label: 'Paid Tiers', value: stats.paidCount },
@@ -146,7 +146,7 @@ export default function Explorer() {
             <div key={i} className="flex items-center gap-2 sm:gap-3 justify-center">
               <s.icon size={16} className="text-kaspa-green shrink-0" />
               <div className="text-left">
-                <p className="text-[10px] text-gray-300 font-mono uppercase tracking-wider">{s.label}</p>
+                <p className="label-caps">{s.label}</p>
                 <p className="text-sm font-bold text-white">{s.value}</p>
               </div>
             </div>
@@ -154,9 +154,9 @@ export default function Explorer() {
         </div>
       </section>
 
-      {/* ═══ CONTROLS - simple for interactors (no edit clutter) ═══ */}
+      {/* ═══ CONTROLS ═══ */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="glass-section-3 flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
             {[
               { id: 'explore', icon: Database, label: 'Explore' },

@@ -1,0 +1,173 @@
+COVEX UI/UX REDESIGN — STYLE OVERHAUL PROMPT
+MISSION: Redesign Covex's visual identity from the ground up. Every pixel must feel intentional. Zero "AI slop" aesthetics. All existing functionality stays 100% intact — only the look, feel, and branding change.
+
+DESIGN PHILOSOPHY
+You are implementing a dark, premium, glass-morphic design system inspired by Apple Tahoe / visionOS aesthetics. The guiding principle: everything should feel like it belongs in 2027.
+Mood: Obsidian dark backgrounds. Liquid glass surfaces. Iridescent refractions. Subtle depth and light physics. Think Apple Intelligence meets brutalist clarity.
+
+REQUIRED VISUAL SYSTEM
+1. BACKGROUND — WebGL Shader (Full Page)
+Implement an animated WebGL shader as the full-viewport background. Use this pattern:
+jsx// WebGLShader fills the entire viewport as a fixed background layer
+// Shader should animate slowly — fluid, organic motion
+// Colors: deep navy/black with subtle iridescent shifts (purple, teal, amber undertones)
+// Think: northern lights at midnight, or oil on obsidian
+
+const fragmentShader = `
+  // Animated noise-based fluid shader
+  // Slow movement (speed ~0.3), subtle color shifts
+  // Primary: #0a0a0f (near-black), Secondary: iridescent #1a0a2e / #0a1a2e
+  // Occasional shimmer: oklch(0.6 0.15 280) through oklch(0.6 0.12 200)
+`;
+The shader must:
+
+Be position: fixed, z-index: 0, covering 100vw × 100vh
+Animate continuously but subtly (not distracting)
+React slightly to mouse position (parallax displacement, max ~5% shift)
+Use primitiveUnits="objectBoundingBox" SVG displacement maps for edge refractions
+
+
+2. BUTTONS — Apple Tahoe Liquid Glass
+Replace ALL buttons with the liquid glass implementation. Reference the GlassButton component below, which uses a WebP displacement map for physically-accurate refraction:
+Key properties of every button:
+
+backdrop-filter: blur(8px) url(#liquid-glass-{id}) saturate(150%)
+Rounded pill shape (border-radius: 9999px)
+The intricate 10-layer box-shadow stack (inset highlights + outer depth):
+
+cssbox-shadow: 
+  inset 0 0 0 1px color-mix(in srgb, white 10%, transparent),
+  inset 1.8px 3px 0px -2px color-mix(in srgb, white 90%, transparent), 
+  inset -2px -2px 0px -2px color-mix(in srgb, white 80%, transparent), 
+  inset -3px -8px 1px -6px color-mix(in srgb, white 60%, transparent), 
+  inset -0.3px -1px 4px 0px color-mix(in srgb, black 12%, transparent), 
+  inset -1.5px 2.5px 0px -2px color-mix(in srgb, black 20%, transparent), 
+  inset 0px 3px 4px -2px color-mix(in srgb, black 20%, transparent), 
+  inset 2px -6.5px 1px -4px color-mix(in srgb, black 10%, transparent), 
+  0px 1px 5px 0px color-mix(in srgb, black 10%, transparent), 
+  0px 6px 16px 0px color-mix(in srgb, black 8%, transparent);
+
+Text: white at 95% opacity, text-shadow: 0 1px 2px for lift
+Hover: scale(1.03), Active: scale(0.96), transition: 300ms ease-out
+The lens layer (-z-10) must be EMPTY — prevents text ghosting in backdrop-filter
+The WebP displacement map (provided in the GlassButton component code I shared) must be embedded as a base64 <feImage> in an invisible SVG <filter>
+
+Button variants:
+
+Primary: glassColor: "oklch(from var(--foreground) l c h / 8%)" — near-invisible glass
+Accent: glassColor: "oklch(0.55 0.18 280 / 15%)" — subtle violet tint
+Danger: glassColor: "oklch(0.55 0.2 25 / 12%)" — subtle red tint
+
+
+3. CARDS & PANELS — Frosted Glass Surfaces
+All panels, cards, modals, sidebars:
+cssbackground: oklch(from var(--background) l c h / 40%);
+backdrop-filter: blur(20px) saturate(120%);
+border: 1px solid oklch(from var(--foreground) l c h / 8%);
+border-radius: 16px; /* or 24px for larger panels */
+box-shadow: 
+  0 0 0 1px oklch(1 0 0 / 5%),
+  0 8px 32px oklch(0 0 0 / 30%),
+  0 2px 8px oklch(0 0 0 / 20%);
+Top edge highlight (the "glass rim"):
+css/* Pseudo-element ::before */
+background: linear-gradient(180deg, oklch(1 0 0 / 12%) 0%, transparent 100%);
+height: 1px;
+border-radius: inherit;
+
+4. TYPOGRAPHY
+
+Display / Hero: font-weight: 800, letter-spacing: -0.04em, line-height: 0.95
+Size scale: Hero text up to clamp(3rem, 10vw, 8rem), tracked tightly
+Body: font-weight: 400, color: oklch(1 0 0 / 65%) on dark backgrounds
+Labels/Caps: font-size: 0.7rem, letter-spacing: 0.12em, text-transform: uppercase, color: oklch(1 0 0 / 40%)
+Gradient text for key headings:
+
+cssbackground: linear-gradient(135deg, #fff 0%, oklch(0.85 0.08 280) 50%, oklch(0.8 0.12 200) 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+
+5. COLOR TOKENS
+css:root {
+  --background: oklch(0.06 0.01 280);   /* Near-black with purple undertone */
+  --foreground: oklch(0.97 0.005 280);  /* Near-white */
+  --surface-1: oklch(0.10 0.015 280);   /* Elevated surface */
+  --surface-2: oklch(0.14 0.015 280);   /* Higher elevation */
+  --accent-violet: oklch(0.65 0.22 280);
+  --accent-teal: oklch(0.70 0.15 200);
+  --accent-amber: oklch(0.78 0.18 80);
+  --glass-border: oklch(1 0 0 / 0.08);
+  --glass-bg: oklch(1 0 0 / 0.05);
+}
+
+6. MICRO-INTERACTIONS & MOTION
+All interactive elements must have:
+
+Spring physics on enter/exit (not linear easing): cubic-bezier(0.34, 1.56, 0.64, 1) for pop-in
+Stagger animations on lists/grids: 40ms delay per item
+Hover glow: Elements gain a subtle ambient glow matching their accent color
+Focus rings: outline: 2px solid var(--accent-violet), outline-offset: 3px, with a box-shadow: 0 0 0 4px oklch(0.65 0.22 280 / 20%)
+Scroll-triggered reveals: Sections fade+slide up with translateY(20px) → translateY(0), opacity 0→1, 600ms
+
+
+7. INPUTS & FORM ELEMENTS
+css/* Text inputs */
+background: oklch(1 0 0 / 4%);
+border: 1px solid oklch(1 0 0 / 10%);
+border-radius: 12px;
+color: oklch(1 0 0 / 90%);
+padding: 12px 16px;
+
+/* Focus state */
+border-color: var(--accent-violet);
+box-shadow: 0 0 0 3px oklch(0.65 0.22 280 / 15%);
+background: oklch(1 0 0 / 6%);
+Placeholders: oklch(1 0 0 / 30%)
+
+8. NAVIGATION / HEADER
+
+Floating pill nav, centered, with glass treatment
+position: sticky, slight blur backdrop
+Active link: glass pill highlight with accent underline
+Logo: wordmark with gradient treatment (violet → teal)
+
+
+9. STATUS INDICATORS
+For any "active" / "online" / "live" indicators — use the animated ping pattern:
+jsx<span className="relative flex h-3 w-3">
+  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+</span>
+
+10. SCROLLBARS
+css::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { 
+  background: oklch(1 0 0 / 15%); 
+  border-radius: 9999px; 
+}
+
+ABSOLUTE CONSTRAINTS
+
+Zero functionality breakage. Every click handler, form submission, route, API call stays wired. Only className and style attributes change.
+No lorem ipsum. All existing copy, labels, and content stays verbatim.
+Accessibility: All ARIA labels preserved. Contrast ratios maintained (WCAG AA minimum). Glass effects must not obscure text legibility.
+Performance: WebGL shader must cancelAnimationFrame on unmount. Backdrop-filters only on elements that need them (not every div).
+The GlassButton component (provided separately in full) must be imported and used wholesale — do not rewrite the displacement map or SVG filter logic.
+
+
+DELIVERABLE STRUCTURE
+For each file you touch, output the complete modified file. Do not output diffs. Prioritize in this order:
+
+Global CSS / design tokens
+Layout / shell components
+The most visible page/route
+Shared UI primitives (Button, Card, Input, etc.)
+Remaining pages
+
+
+"Make it feel like software from a company that has won design awards three years in a row."
+
+
+Coloring:
+Should remain Green and any related monochrome of it. 

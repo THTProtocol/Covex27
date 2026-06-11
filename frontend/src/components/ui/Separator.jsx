@@ -5,8 +5,10 @@ const Separator = ({ className, orientation = 'horizontal', decorative = true, .
     role={decorative ? 'none' : 'separator'}
     aria-orientation={decorative ? undefined : orientation}
     className={cn(
-      'shrink-0 bg-white/5',
-      orientation === 'horizontal' ? 'h-px w-full' : 'h-full w-px',
+      'shrink-0 border-none',
+      orientation === 'horizontal'
+        ? 'h-[1px] w-full bg-gradient-to-r from-transparent via-white/[0.10] to-transparent'
+        : 'w-[1px] h-full bg-gradient-to-b from-transparent via-white/[0.10] to-transparent',
       className
     )}
     {...props}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
-import DagBackground from './components/DagBackground';
+import WebGLBackground from './components/WebGLBackground';
 import Explorer from './pages/Explorer';
 import CovenantInteractive from './pages/CovenantInteractive';
 import CovenantFix from './pages/CovenantFix';
@@ -20,13 +20,13 @@ import PaidBuilder from './pages/PaidBuilder';
 import PremiumBuilder from './pages/PremiumBuilder';
 import DemoCovenant from './pages/DemoCovenant';
 import { ThemeProvider } from './components/ThemeProvider';
-import ThemeToggle from './components/ThemeToggle';
 
+// Nav link active state
 const NL = ({ isActive }) =>
-  `text-sm font-medium transition-colors ${
+  `text-[0.9rem] font-medium tracking-[0.01em] rounded-full px-5 py-2 transition-all duration-200 whitespace-nowrap ${
     isActive
-      ? 'text-kaspa-green'
-      : 'text-gray-200 hover:text-white dark:text-gray-200 dark:hover:text-white'
+      ? 'bg-white/[0.08] text-white/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+      : 'text-white/60 hover:text-white/95 hover:bg-white/[0.06]'
   }`;
 
 function SmartDeployLink() {
@@ -79,7 +79,6 @@ function NetworkSwitcher() {
 
   useEffect(() => {
     localStorage.setItem('kaspaNetwork', network);
-    // Dispatch event so CovexTerminal and other components sync
     window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: network }));
   }, [network]);
 
@@ -90,15 +89,18 @@ function NetworkSwitcher() {
   ];
 
   return (
-    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5" title={networks.find(n => n.value === network)?.title}>
+    <div
+      className="flex items-center gap-0.5 rounded-full border border-[oklch(0.65_0.18_145_/_20%)] bg-[oklch(0.65_0.18_145_/_10%)] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+      title={networks.find(n => n.value === network)?.title}
+    >
       {networks.map(n => (
         <button
           key={n.value}
           onClick={() => setNetwork(n.value)}
-          className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
+          className={`px-2 py-0.5 text-[0.72rem] font-semibold tracking-[0.06em] rounded-full transition-all ${
             network === n.value
               ? 'text-black'
-              : 'text-gray-400 hover:text-white'
+              : 'text-[oklch(0.75_0.18_145)] hover:text-white'
           }`}
           style={network === n.value ? { backgroundColor: n.color } : {}}
         >
@@ -114,40 +116,55 @@ export default function App() {
     <ThemeProvider>
       <WalletProvider>
         <BrowserRouter>
-          <DagBackground />
-          <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85">
-            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-              <Link to="/" className="group flex items-center gap-2.5">
-                {/* New user-provided glowing network C logo */}
-                <img 
-                  src="/covex-logo-48.png" 
-                  alt="Covex" 
-                  width="28" 
-                  height="28" 
+          <WebGLBackground />
+          {/* Shader vignette — darkens edges for readability */}
+          <div className="shader-vignette" />
+
+          {/* Nav — full-width glass bar, three-zone layout */}
+          <nav
+            className="fixed top-4 left-4 right-4 z-50 rounded-2xl backdrop-blur-xl saturate-[140%] border border-white/10"
+            style={{
+              maxWidth: '1400px',
+              margin: '0 auto',
+              background: 'oklch(1 0 0 / 5%)',
+              boxShadow: 'inset 0 1px 0 oklch(1 0 0 / 18%), inset 0 -1px 0 oklch(0 0 0 / 15%), 0 8px 32px oklch(0 0 0 / 25%), 0 2px 8px oklch(0 0 0 / 15%)'
+            }}
+          >
+            <div className="flex items-center justify-between w-full px-8 h-14">
+              {/* ZONE 1 — Logo (far left) */}
+              <Link to="/" className="group flex items-center gap-2 shrink-0">
+                <img
+                  src="/covex-logo-48.png"
+                  alt="Covex"
+                  width="24"
+                  height="24"
                   className="shrink-0 drop-shadow-[0_0_8px_rgba(0,255,157,0.45)] group-hover:drop-shadow-[0_0_16px_rgba(0,229,255,0.6)] transition-all duration-300 rounded"
                 />
-                {/* COVEX wordmark */}
-                <span className="covex-brand font-extrabold text-[23px] tracking-[4px] leading-none select-none">
-                  <span className="text-white dark:text-white group-hover:text-[#49EACB] transition-colors duration-300">COV</span>
-                  <span className="text-[#49EACB] group-hover:text-white dark:group-hover:text-white transition-colors duration-300">EX</span>
+                <span className="covex-brand font-extrabold text-[20px] tracking-[-0.04em] leading-none select-none">
+                  <span>COV</span>
+                  <span>EX</span>
                 </span>
               </Link>
-              <div className="flex items-center gap-6">
+
+              {/* ZONE 2 — Center nav links (absolutely centered) */}
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
                 <SmartTerminalLink />
-                <NavLink to="/fix" className={NL}>Fix</NavLink> 
-                {/* Full visual editor, covenant composer, and best-covenant tools are in paid Terminal only. */}
+                <NavLink to="/fix" className={NL}>Fix</NavLink>
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
+              </div>
+
+              {/* ZONE 3 — Wallet + Network (far right) */}
+              <div className="flex items-center gap-2 shrink-0">
                 <NetworkSwitcher />
                 <WalletButton />
-                <ThemeToggle />
               </div>
             </div>
           </nav>
 
-          <div className="relative z-10 pt-14">
+          <div className="relative z-10 pt-20">
             <Routes>
               <Route path="/" element={<Explorer />} />
               <Route path="/fix" element={<CovenantFix />} />

@@ -5,15 +5,19 @@ import { cn } from "@/lib/utils"
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-2xl border border-white/10 bg-zinc-900/80 text-white shadow-sm backdrop-blur-sm",
+      "relative rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_32px_rgba(0,0,0,0.3),0_2px_8px_rgba(0,0,0,0.2)]",
       className
     )}
     {...props}
-  />
+  >
+    {/* Top glass rim: 1px gradient from white/12% to transparent */}
+    <span className="absolute inset-x-0 top-0 h-px rounded-t-2xl bg-gradient-to-r from-transparent via-white/[0.12] to-transparent pointer-events-none" />
+    {children}
+  </div>
 ))
 Card.displayName = "Card"
 

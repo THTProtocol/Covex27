@@ -60,7 +60,7 @@ export default function Dashboard() {
         <div className="glass-panel p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <LayoutDashboard size={20} className="text-kaspa-green" />
-            <h2 className="font-semibold text-white">Creator Insights</h2>
+            <h2 className="label-caps font-semibold text-white">Creator Insights</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div className="bg-black/30 p-4 rounded-xl">
@@ -78,8 +78,8 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-kaspa-green mt-1">{accountTier}</div>
             </div>
             <div className="bg-black/30 p-4 rounded-xl">
-              <div className="text-gray-400 text-xs">Status</div>
-              <div className="text-sm text-emerald-400 mt-2">Production Ready</div>
+              <div className="text-xs text-gray-400">Status</div>
+              <div className="text-sm text-emerald-400 mt-2 flex items-center gap-1.5"><span className="status-dot" />Production Ready</div>
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function Dashboard() {
               <ShieldCheck size={24} className="text-kaspa-green" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-white tracking-tight">Dashboard</h1>
+              <h1 className="label-caps text-2xl font-semibold text-white tracking-tight">Dashboard</h1>
               <p className="text-sm text-gray-300 font-mono">{address}</p>
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
       {/* Generated UIs */}
       <div className="glass-panel overflow-hidden">
         <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Your Generated UIs</h2>
+          <h2 className="label-caps text-lg font-semibold text-white">Your Generated UIs</h2>
           <Link
             to="/create"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/30 text-xs font-semibold hover:bg-kaspa-green/20 transition-colors"

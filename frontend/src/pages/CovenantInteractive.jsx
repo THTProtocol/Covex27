@@ -568,7 +568,7 @@ export default function CovenantInteractive() {
           )}
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
-            <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
+            <h3 className="label-caps text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
               {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Covenant Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
             </h3>
             <p className="text-gray-300 leading-relaxed">
@@ -582,7 +582,7 @@ export default function CovenantInteractive() {
 
           {/* Always-visible full transparency: receiving addresses + logic (public on default) */}
           <div className="mb-6">
-            <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Receiving Addresses (all flows public)</div>
+            <div className="label-caps text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Receiving Addresses (all flows public)</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
                 <div className="text-gray-400">Covenant / Pot Address</div>
@@ -604,7 +604,7 @@ export default function CovenantInteractive() {
           </div>
 
           <div className="mb-6">
-            <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Full Game / Event / Covenant Logic (public by default)</div>
+            <div className="label-caps text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Full Game / Event / Covenant Logic (public by default)</div>
             <div className="text-sm text-gray-200 bg-black/30 p-4 rounded-xl border border-white/5 leading-relaxed">
               {isChess ? (
                 <>
@@ -630,7 +630,7 @@ export default function CovenantInteractive() {
               ['Category', covenant.category || 'General'],
             ].map(([label, value]) => (
               <div key={label} className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-xs text-gray-300 mb-1">{label}</p>
+                <p className="label-caps text-xs text-gray-300 mb-1">{label}</p>
                 <p className="text-sm font-mono text-white truncate">{value}</p>
               </div>
             ))}

@@ -2,6 +2,7 @@ import * as React from "react"
 // import { Slot } from "@radix-ui/react-slot" // removed to fix build resolve (audit/continue fix)
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
+import { GlassButton, glassButtonVariants } from "@/components/ui/GlassButton"
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50",
@@ -14,6 +15,7 @@ const buttonVariants = cva(
         secondary: "bg-white/10 text-white hover:bg-white/20",
         ghost: "hover:bg-white/10",
         link: "text-[#49EACB] underline-offset-4 hover:underline",
+        glass: "",
       },
       size: {
         default: "h-10 px-5 py-2",
@@ -37,6 +39,18 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
+    // Glass variant: render GlassButton internally
+    if (variant === "glass") {
+      return (
+        <GlassButton
+          className={className}
+          size={size as "default" | "sm" | "lg" | "icon" | undefined}
+          ref={ref}
+          {...props}
+        />
+      )
+    }
+
     // const Comp = asChild ? Slot : "button" // disabled for build
     const Comp = "button"
     return (

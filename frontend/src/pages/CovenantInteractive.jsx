@@ -947,7 +947,7 @@ export default function CovenantInteractive() {
                   />
                   <div className="text-center text-xs text-gray-500 mb-6">per player for this chess arena</div>
 
-                  {/* Clean rules paragraph, all in order, no em dashes, simplistic transparent */}
+                  {/* Clean rules paragraph, all in order, simplistic transparent */}
                   <div className="rounded-2xl bg-black/40 border border-white/10 p-5 text-sm text-gray-200 leading-relaxed mb-6">
                     10 minute winner takes all chess.<br/><br/>
                     Second player must match the stake within 5 minutes or the funds return automatically to the staker.<br/><br/>

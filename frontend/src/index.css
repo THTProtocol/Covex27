@@ -419,14 +419,14 @@ body {
   [class*="min\\(94vw,420px\\)"] { width: min(96vw, 380px) !important; }
 }
 
-/* Light mode mobile refinements – even nicer on small bright screens */
-.light @media (max-width: 640px) {
-  body { background: #f8fafc; }
-  .glass-panel { box-shadow: 0 1px 2px rgba(15,23,42,.04) !important; }
-  .text-sm, .text-xs { line-height: 1.4 !important; }
+/* Light mode mobile refinements - even nicer on small bright screens */
+@media (max-width: 640px) {
+  .light body { background: #f8fafc; }
+  .light .glass-panel { box-shadow: 0 1px 2px rgba(15,23,42,.04) !important; }
+  .light .text-sm, .light .text-xs { line-height: 1.4 !important; }
   /* Slightly larger tap areas and softer cards for light mobile */
-  .card, .glass-panel { border-radius: 14px !important; }
-  button { font-weight: 600; }
+  .light .card, .light .glass-panel { border-radius: 14px !important; }
+  .light button { font-weight: 600; }
 }
 
 /* Dense interactive pages (CovenantInteractive, UiBuilder, Terminal) mobile polish */

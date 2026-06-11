@@ -781,10 +781,10 @@ function WalletBridge({ children }) {
         window.ethereum?.provider,
         window.ethereum?._events,
         // Also try to reach the internal stream if the adapter exposes it
-        (window as any).__COVEX_WALLET_MUX,
+        window.__COVEX_WALLET_MUX,
       ].filter(Boolean);
 
-      candidates.forEach((prov: any) => {
+      candidates.forEach((prov) => {
         if (prov && typeof prov.setMaxListeners === 'function') {
           prov.setMaxListeners(0); // 0 = unlimited - stops the MaxListeners warning
         }

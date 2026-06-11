@@ -181,26 +181,46 @@ export default function Deploy() {
 
   const selectedLayer = layers.find(l => l.id === selectedLayerId);
 
-  // Simple drag for canvas (best possible without heavy deps)
+  // Improved drag for canvas (pointer events for mouse+touch, bounds, visual feedback)
   const [dragInfo, setDragInfo] = useState(null);
-  const onCanvasMouseMove = (e) => {
+  const CANVAS_W = 420;
+  const CANVAS_H = 260;
+
+  const onCanvasPointerMove = (e) => {
     if (!dragInfo || !selectedLayerId) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const nx = Math.max(0, Math.min(380, e.clientX - rect.left - dragInfo.offX));
-    const ny = Math.max(0, Math.min(220, e.clientY - rect.top - dragInfo.offY));
+    const nx = Math.max(0, Math.min(CANVAS_W - 20, e.clientX - rect.left - dragInfo.offX));
+    const ny = Math.max(0, Math.min(CANVAS_H - 20, e.clientY - rect.top - dragInfo.offY));
     updateLayer(selectedLayerId, { x: Math.round(nx), y: Math.round(ny) });
   };
-  const onCanvasMouseUp = () => setDragInfo(null);
+
+  const onCanvasPointerUp = () => {
+    if (dragInfo) {
+      setDragInfo(null);
+    }
+  };
 
   const startDrag = (e, id) => {
     const rect = e.currentTarget.parentElement.getBoundingClientRect();
     const layer = layers.find(l => l.id === id);
+    if (!layer) return;
     setSelectedLayerId(id);
     setDragInfo({
       id,
       offX: e.clientX - rect.left - layer.x,
       offY: e.clientY - rect.top - layer.y
     });
+    // Capture pointer for smooth drag even if mouse leaves canvas
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const stopDrag = (e) => {
+    if (e.currentTarget.releasePointerCapture && dragInfo) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setDragInfo(null);
   };
 
   // Generate SilverScript from current covenant + layers (advanced tool)

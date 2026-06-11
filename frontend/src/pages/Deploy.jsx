@@ -69,8 +69,8 @@ export default function Deploy() {
   const [isCompiling, setIsCompiling] = useState(false);
 
   // Auto-unlock premium (advanced builder + SilverScript) if the user has paid any tier (via Pricing or here).
-  // This ensures payments via /pricing unlock functions here too.
-  const checkTierAndUnlock = async () => {
+  // This ensures payments via /pricing unlock functions here too. Polls briefly after payment for immediate unlock.
+  const checkTierAndUnlock = async (poll = false) => {
     if (!address) return false;
     const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
     try {
@@ -93,6 +93,10 @@ export default function Deploy() {
         }
       }
     } catch (_) {}
+    if (poll) {
+      // brief poll after payment
+      setTimeout(() => checkTierAndUnlock(false), 2000);
+    }
     return false;
   };
 

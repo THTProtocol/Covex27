@@ -352,6 +352,66 @@ body {
   border-color: #0f766e !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   FULL GAME ARENAS (FullScreen*) - Make them look fantastic in light mode
+   All the pot/turn/timer/modals/resign UI that were pure dark glass
+   ═══════════════════════════════════════════════════════════════ */
+.light .fixed.inset-0.z-\[100\].bg-black\/95,
+.light .fixed.inset-0.z-\[100\].bg-black\/80 {
+  background: rgba(248, 250, 252, 0.96) !important;
+}
+.light [class*="bg-black\/60"],
+.light [class*="bg-black\/50"],
+.light [class*="bg-black\/40"],
+.light [class*="bg-black\/70"] {
+  background: rgba(241, 245, 249, 0.9) !important;
+  border-color: #cbd5e1 !important;
+}
+.light [class*="border-white\/10"],
+.light [class*="border-white\/20"] {
+  border-color: #cbd5e1 !important;
+}
+.light .text-white,
+.light .text-white\/80,
+.light .text-white\/40,
+.light .text-white\/20,
+.light .text-gray-200,
+.light .text-gray-300,
+.light .text-gray-500 {
+  color: #0f172a !important;
+}
+.light .text-gray-400 { color: #475569 !important; }
+
+/* Game boards / grids in light */
+.light [class*="bg-\[#0a1628\]"],
+.light [class*="bg-\[#111\]"],
+.light [class*="bg-\[#0a0a0f\]"],
+.light [class*="bg-\[#0a120a\]"] {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Card/pot info bars */
+.light [class*="bg-black\/40"][class*="border"],
+.light [class*="bg-black\/50"][class*="border"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Action buttons in games (hit/stand/resign) stay colorful but readable */
+.light button[class*="bg-emerald-600"],
+.light button[class*="bg-red-600"],
+.light button[class*="bg-blue-600"],
+.light button[class*="bg-amber-600"] {
+  /* keep the strong colors, they work great on light */
+}
+
+/* Chess / board specific squares get a nice light chessboard if not already */
+.light .chess-square.light { background: #ebecd0 !important; }
+.light .chess-square.dark { background: #779556 !important; color: #fff; } /* for dark squares in light mode */
+.light .ck-light { background: #f0d9b5 !important; }
+.light .ck-dark { background: #b58863 !important; }
+
 /* Dag background container in light */
 .light .dag-background {
   background: #f8fafc !important;

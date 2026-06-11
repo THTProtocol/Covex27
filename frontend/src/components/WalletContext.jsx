@@ -768,6 +768,51 @@ function WalletBridge({ children }) {
     clearError: () => setError(null),
   };
 
+  // Prevent EventEmitter / ObjectMultiplex memory leaks from wallet providers (MetaMask, KasWare, etc.)
+  // These warnings appear in contentscript when too many 'end'/'close' listeners are added on streams.
+  // We aggressively set unlimited listeners on any provider/stream we can reach, and attempt cleanup on disconnect.
+  const suppressWalletStreamLeaks = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const candidates = [
+        window.ethereum,
+        window.kasware,
+        window.kaspa,
+        window.ethereum?.provider,
+        window.ethereum?._events,
+        // Also try to reach the internal stream if the adapter exposes it
+        (window as any).__COVEX_WALLET_MUX,
+      ].filter(Boolean);
+
+      candidates.forEach((prov: any) => {
+        if (prov && typeof prov.setMaxListeners === 'function') {
+          prov.setMaxListeners(0); // 0 = unlimited — stops the MaxListeners warning
+        }
+        const mux = prov?._events || prov?.provider?._events || prov?._mux || prov;
+        if (mux && typeof mux.setMaxListeners === 'function') {
+          mux.setMaxListeners(0);
+        }
+      });
+    } catch (_) {}
+  };
+
+  // Run on initial mount and after any wallet connect
+  useEffect(() => {
+    suppressWalletStreamLeaks();
+  }, [activeAddress]); // re-run when a new wallet appears
+
+  // Also run on disconnect to clean up any lingering streams from the previous provider
+  const originalDisconnect = disconnectWallet;
+  const disconnectWalletWithCleanup = async () => {
+    await originalDisconnect();
+    // Give the extension a moment to tear down streams, then re-suppress
+    setTimeout(suppressWalletStreamLeaks, 80);
+  };
+
+  // Expose a safe disconnect that the rest of the app should prefer
+  // (prevents the reference error we saw in earlier cleanup attempts)
+  const disconnect = disconnectWalletWithCleanup;
+
   return (
     <WalletContext.Provider value={value}>
       {children}

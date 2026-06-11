@@ -311,7 +311,7 @@ const Pricing = () => {
       </div>
 
       <div className="text-center mt-10 text-sm text-gray-400 max-w-xl mx-auto">
-        All paid tiers include the full Covex Terminal for deploying custom interactive UIs. The only difference is your covenant's visibility ranking on the Explorer.
+        All paid tiers unlock the full Covex Terminal for deploying custom interactive UIs, with higher tiers providing more custom selections, advanced options, and features for your covenants. Paid tiers also improve your covenant's visibility ranking on the Explorer.
       </div>
     </div>
   );

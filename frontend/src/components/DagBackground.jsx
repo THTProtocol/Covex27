@@ -15,17 +15,22 @@ const DagBackground = () => {
     <div 
       className={`dag-background fixed inset-0 z-[-10] pointer-events-none ${isDark ? 'bg-black' : 'bg-white'}`}
     >
-      {/* Dark DAG iframe - visible when isDark, hidden when light */}
+      {/* Dark DAG iframe - visible when isDark, hidden when light.
+          The external kgi.kaspad.net visualizer emits Pixi/console noise (theme/scale/params).
+          We keep the live view for branding but sandbox it and will replace with a local
+          quieter Pixi implementation in a follow-up. */}
       <iframe 
         src={darkSrc} 
         className={`absolute top-1/2 left-1/2 w-[125vw] h-[125vh] -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-200 ${isDark ? 'opacity-30 mix-blend-screen' : 'opacity-0 pointer-events-none'}`}
         title="Live Kaspa DAG (dark)"
+        sandbox="allow-scripts allow-same-origin"
       />
       {/* Light DAG iframe - visible when !isDark, hidden when dark */}
       <iframe 
         src={lightSrc} 
         className={`absolute top-1/2 left-1/2 w-[125vw] h-[125vh] -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-200 ${!isDark ? 'opacity-75' : 'opacity-0 pointer-events-none'}`}
         title="Live Kaspa DAG (light)"
+        sandbox="allow-scripts allow-same-origin"
       />
       {/* Subtle dark vignette only in dark mode */}
       {isDark && (

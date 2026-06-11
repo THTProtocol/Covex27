@@ -28,13 +28,13 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 light:bg-slate-100 flex flex-col">
       <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 light:border-slate-200">
-        <div className="text-white font-mono text-sm">
+        <div className="text-white light:text-slate-800 font-mono text-sm">
           <span className="text-amber-400 font-bold">{stake} KAS</span> Chess Match
         </div>
         <div className="flex items-center gap-4">
           <div className="text-xs text-gray-400">Fee: {feePercent}%</div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10">
-            <X size={20} className="text-white" />
+            <X size={20} className="text-white light:text-slate-700" />
           </button>
         </div>
       </div>
@@ -42,7 +42,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
         <div className="flex flex-col items-center gap-3">
           <div className={`px-4 py-2 rounded-xl ${turn === 'b' ? 'bg-white/10' : 'bg-white/5'} border ${turn === 'b' ? 'border-white/20' : 'border-white/10'}`}>
             <div className="text-xs text-gray-400">Black</div>
-            <div className={`font-mono text-2xl font-bold ${blackTime < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(blackTime)}</div>
+            <div className={`font-mono text-2xl font-bold ${blackTime < 60 ? 'text-red-400' : 'text-white light:text-slate-900'}`}>{formatTime(blackTime)}</div>
           </div>
           <div className="rounded-xl overflow-hidden border-2 border-white/10 light:border-slate-300">
             <Chessboard

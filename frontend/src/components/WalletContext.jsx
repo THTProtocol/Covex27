@@ -648,6 +648,14 @@ function WalletBridge({ children }) {
       // with actual UTXOs from kaspad, schnorr signs, and broadcasts via wRPC.
       const tier = amountKas >= 1000 ? 'MAX' : amountKas >= 500 ? 'PRO' : amountKas >= 100 ? 'BUILDER' : null;
       const tierLabel = tier || 'FREE';
+      // Pure tier payment (e.g. "Pay 100 KAS" upgrade button in CovenantInteractive) sends *only* the tier fee to treasury.
+      // Deployments bundle 1 KAS covenant output + tier fee in one tx. Detect via exact tier amounts + memo/recipient.
+      const isPureTierPayment = !!tier && (
+        (recipient || '').includes('qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m') ||
+        (meta.memo || '').toLowerCase().includes('upgrade') ||
+        (meta.memo || '').toLowerCase().includes('tier') ||
+        (meta.description || '').toLowerCase().includes('tier payment')
+      );
       try {
         const resp = await fetch('/api/sign-and-broadcast', {
           method: 'POST',
@@ -655,12 +663,13 @@ function WalletBridge({ children }) {
           body: JSON.stringify({
             private_key_hex: devMode.privateKeyHex,
             deployer_addr: activeAddress,
-            script_hex: 'aa20',
+            script_hex: isPureTierPayment ? '' : 'aa20',
             tier: tierLabel,
             covenant_name: tier ? `Covex ${tier} Tier Payment` : 'Covex Payment',
             description: meta.memo || `Tier payment: ${tierLabel}`,
-            use_dev_mode: true,          // signer resolves correct key from dev_wallets.rs
+            use_dev_mode: true,
             network: net,
+            pure_tier_payment: isPureTierPayment,
           }),
         });
         const data = await resp.json();

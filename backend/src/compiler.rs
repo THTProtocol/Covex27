@@ -285,8 +285,7 @@ fn infer_payouts(game_type: &str, outcome_name: &str) -> Vec<PayoutTarget> {
 pub fn emit_silverscript(unit: &CompileUnit) -> String {
     match unit.game_type.as_str() {
         "dice" => emit_dice(unit),
-        "chess" | "chess_v1" => emit_chess(unit),
-        "chess_v2" => emit_chess_v2(unit),
+        // (chess* emitters removed)
         "poker" => emit_poker(unit),
         "blackjack" => emit_blackjack(unit),
         "merkle_membership" => emit_merkle(unit),
@@ -502,7 +501,7 @@ fn silverc_path() -> &'static str {
 fn build_constructor_args(unit: &CompileUnit) -> serde_json::Value {
     // All game/circuit types now use feeBasisPoints + minLock constructor args
     match unit.game_type.as_str() {
-        "dice" | "chess" | "chess_v1" | "chess_v2" | "poker" | "blackjack"
+        "dice" | "poker" | "blackjack"
         | "merkle_membership" | "range_proof" | "age_verification" | "verifiable" => {
             serde_json::json!([
                 {"kind": "int", "data": unit.fee_basis_points},

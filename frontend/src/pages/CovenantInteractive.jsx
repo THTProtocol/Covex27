@@ -196,16 +196,29 @@ export default function CovenantInteractive() {
     setUpgradePaid(false);
   };
 
+  const handleSimulatePayment = async (tier) => {
+    // Dev/test helper: immediately mark as paid (simulates faucet / indexer credit). Real flow waits for on-chain + verifier.
+    setUpgradePaid(true);
+    if (typeof setToast === 'function') setToast({ type: 'success', msg: `Simulated ${tier.price} KAS ${tier.label} tier credit (local only)` });
+  };
+
   const handleUpgradePay = async (tier) => {
     try {
       if (address) {
         const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
-        if (result.success) setUpgradePaid(true);
+        if (result && result.success) {
+          setUpgradePaid(true);
+        } else {
+          const msg = (result && result.error) ? result.error : 'Payment failed to broadcast';
+          if (typeof setToast === 'function') setToast({ type: 'error', msg });
+          window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
+        }
       } else {
         window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
         setUpgradePaid(true);
       }
-    } catch {
+    } catch (e) {
+      if (typeof setToast === 'function') setToast({ type: 'error', msg: e?.message || 'Payment error' });
       window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
     }
   };

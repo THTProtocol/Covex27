@@ -26,9 +26,6 @@
     "black_scholes_approx"
   ],
   "risc0_stubs": [
-    "risc0_chess_eval",
-    "verifiable_chess",
-    "risc0_chess_endgame",
     "risc0_defi_liquidation",
     "risc0_connect4_eval"
   ],
@@ -162,30 +159,6 @@
       "note": "DeFi pricing / option stub (even more)."
     },
     {
-      "id": "risc0_chess_eval",
-      "category": "compute",
-      "reality": "risc0-stub",
-      "artifacts": false,
-      "script": null,
-      "note": "RISC0 guest for verifiable chess eval (stub accepts or invokes)."
-    },
-    {
-      "id": "chess_v1",
-      "category": "game",
-      "reality": "hybrid",
-      "artifacts": true,
-      "script": "verify_chess.js",
-      "note": "FIDE chess with dual proving modes via public proving_mode (0=Hybrid fast; 1=Full ZK). pot17 ceremony in progress (chess_v1.zkey); finish_phase2 auto-runs via chess_overnight_watch.sh. Core move legality, transition, post-king-safety, timers, repetition in-circuit. See CHESS_PROVING_MODES.md."
-    },
-    {
-      "id": "risc0_chess_endgame",
-      "category": "compute",
-      "reality": "risc0-stub",
-      "artifacts": false,
-      "script": null,
-      "note": "RISC0 guest for chess endgame/tablebase eval (Phase 4 prep; stub; complements chess_v1 modes)."
-    },
-    {
       "id": "risc0_defi_liquidation",
       "category": "compute",
       "reality": "risc0-stub",
@@ -317,14 +290,6 @@
       "artifacts": true,
       "script": "verify_sorting_proof.js",
       "note": "Verifiable sort / ordering proof (vision inventory)."
-    },
-    {
-      "id": "chess_ai_move",
-      "category": "game",
-      "reality": "hybrid",
-      "artifacts": true,
-      "script": "verify_chess_ai_move.js",
-      "note": "Chess AI move validity stub."
     },
     {
       "id": "poker_equity",

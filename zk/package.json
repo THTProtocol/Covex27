@@ -4,8 +4,6 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "compile:chess": "cd games/chess && circom2 ../../games/chess/chess_v1.circom --r1cs --wasm -o output/chess_v1_build",
-    "verify:chess": "node verify_chess.js",
     "compile:utxo": "circom2 basic_utxo_ownership.circom --r1cs --wasm -o .",
     "compile:script": "circom2 script_constraint.circom --r1cs --wasm -o .",
     "compile:vrf": "circom2 vrf_dice_roll.circom --r1cs --wasm -o . && circom2 vrf_random.circom --r1cs --wasm -o .",
@@ -20,7 +18,7 @@
     "compile:all-phase1": "npm run compile:utxo && npm run compile:script && npm run compile:vrf && npm run compile:timelock-rel && npm run compile:nullifier && npm run compile:pot-split && npm run compile:timer",
     "compile:phase2-defi": "npm run compile:collateral",
     "compile:phase3-onchain": "npm run compile:onchain-sig",
-    "compile:all": "npm run compile:all-phase1 && npm run compile:phase2-defi && npm run compile:phase3-onchain && npm run compile:bs-defi && npm run compile:chess"
+    "compile:all": "npm run compile:all-phase1 && npm run compile:phase2-defi && npm run compile:phase3-onchain && npm run compile:bs-defi"
   },
   "keywords": [],
   "author": "",
@@ -32,7 +30,6 @@
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
     "snarkjs": "^0.7.6",
-    "chess.js": "^1.0.0",
     "wasmbuilder": "^0.0.16"
   }
 }

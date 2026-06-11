@@ -9,7 +9,7 @@
 // Supported circuits (Phase 12):
 //   - merkle_membership: Fully production Groth16 + oracle
 //   - range_proof:       Fully wired to snarkjs verifier (zk/verify_range.js).
-//   - chess_v1:          Hybrid (or Full ZK via proving_mode public signal) FIDE move proof via zk/verify_chess.js.
+//   (chess_v1 removed)
 //                        proving_mode (0=Hybrid fast with witnessed candidates/attacks, 1=Full ZK stronger) is committed in public signals.
 //                        Falls back to oracle attestation with requested_outcome if no (valid) Groth16 proof body.
 //   - tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage: Groth16 + oracle fallback.
@@ -137,13 +137,6 @@ fn verify_script_path() -> PathBuf {
 fn verify_range_script_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("../zk/verify_range.js");
-    path
-}
-
-/// Path to the chess_v1 Groth16 verifier.
-fn verify_chess_script_path() -> PathBuf {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("../zk/verify_chess.js");
     path
 }
 
@@ -367,55 +360,7 @@ async fn verify_range_proof_async(proof: serde_json::Value, public_inputs: Vec<S
         .map_err(|e| format!("Spawn blocking failed: {}", e))?
 }
 
-/// Verify chess_v1 Groth16 proof via zk/verify_chess.js + chess_v1_vkey.json.
-fn verify_chess_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Result<bool, String> {
-    let proof_json = serde_json::json!({
-        "proof": proof,
-        "publicSignals": public_inputs,
-    });
-    let tmp_path = std::env::temp_dir().join(format!("covex_chess_{}.json", uuid::Uuid::new_v4()));
-    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
-
-    let script = verify_chess_script_path();
-    let node_binary = if std::path::Path::new("/usr/bin/node").exists() {
-        "/usr/bin/node"
-    } else if std::path::Path::new("/root/.nvm/versions/node/v20.20.2/bin/node").exists() {
-        "/root/.nvm/versions/node/v20.20.2/bin/node"
-    } else {
-        "node"
-    };
-
-    let output = Command::new(node_binary.to_string())
-        .arg(script.to_str().unwrap_or("zk/verify_chess.js"))
-        .arg(&tmp_path)
-        .output()
-        .map_err(|e| format!("Failed to run chess verifier: {}", e))?;
-
-    let _ = std::fs::remove_file(&tmp_path);
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    if !output.status.success() {
-        return Err(format!("Chess verifier failed: {} {}", stdout.trim(), stderr.trim()));
-    }
-
-    let result: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|e| format!("Invalid chess verifier output: {}", e))?;
-
-    match result["valid"].as_bool() {
-        Some(v) => Ok(v),
-        None => Err(format!("Unexpected chess verifier output: {}", result)),
-    }
-}
-
-async fn verify_chess_proof_async(proof: serde_json::Value, public_inputs: Vec<String>) -> Result<bool, String> {
-    tokio::task::spawn_blocking(move || verify_chess_proof(&proof, &public_inputs))
-        .await
-        .map_err(|e| format!("Spawn blocking failed: {}", e))?
-}
-
-// (proof_has_groth16_body provided by oracle_verifier import above)
+// chess_v1 support removed (circuit deleted per request)
 
 /// Handle POST /api/oracle/verify-and-sign
 async fn verify_and_sign_handler(
@@ -498,19 +443,13 @@ async fn verify_and_sign_handler(
     }
     let _valid = true;
 
-    // Step 2: Determine outcome via pluggable (covers groth derive for merkle/range/chess/timelock etc + requested_outcome fallback + new kaspa/vrf/defi/compute circuits)
+    // Step 2: Determine outcome via pluggable (covers groth derive for merkle/range/timelock etc + requested_outcome fallback + new kaspa/vrf/defi/compute circuits)
     let outcome: u32 = determine_outcome_for_circuit(
         &input.circuit_type,
         &input.proof,
         &input.public_inputs,
         input.requested_outcome,
     );
-
-    // Chess modes: if proving_mode provided (or in public signals for chess_v1), log for audit / include in metadata
-    if input.circuit_type == "chess_v1" {
-        let mode = input.proving_mode.unwrap_or(0);
-        info!("Chess proof submitted with proving_mode={} (0=Hybrid fast, 1=Full ZK) for covenant {}", mode, &input.covenant_id[..16.min(input.covenant_id.len())]);
-    }
 
     // Step 3: Sign the outcome
     // Message format: "covex-oracle:<covenant_id>:<outcome>:<timestamp>"

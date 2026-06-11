@@ -135,12 +135,6 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // === Hybrids: Groth16 when supplied, else oracle-attested (current behavior) ===
     m.insert(
-        "chess_v1",
-        VerifierSpec::HybridGroth16 { script: "verify_chess.js", prefix: "covex_chess" },
-    );
-    // chess_v1 supports proving_mode public signal (0=Hybrid fast, 1=Full ZK). Same verify script + artifacts;
-    // the mode is part of the publicSignals and can be used for policy / metadata. See zk/games/chess/CHESS_PROVING_MODES.md.
-    m.insert(
         "tictactoe_v1",
         VerifierSpec::HybridGroth16 { script: "verify_tictactoe.js", prefix: "covex_tt" },
     );
@@ -163,25 +157,14 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         VerifierSpec::Risc0Stub { guest: "generic" },
     );
     m.insert(
-        "game_ai_verify",
-        VerifierSpec::Risc0Stub { guest: "chess_ai" },
-    );
-    m.insert(
         "ml_inference",
         VerifierSpec::Risc0Stub { guest: "ml_stub" },
-    );
-    m.insert(
-        "chess_engine",
-        VerifierSpec::Risc0Stub { guest: "chess_eval" },
     );
     m.insert(
         "poker_solver",
         VerifierSpec::Risc0Stub { guest: "poker_nash" },
     );
-    m.insert(
-        "risc0_chess_eval",
-        VerifierSpec::Risc0Stub { guest: "chess_eval_d8" },
-    );
+    // (chess risc0 removed)
     // Phase 3: new RISC0 guests added to risc0_guests/ (poker_solver.rs, financial_formula.rs)
     // Registered explicitly so "risc0_poker_solver", "verifiable_poker" dispatch to Risc0Stub path.
     m.insert(
@@ -196,10 +179,10 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "risc0_financial_formula",
         VerifierSpec::Risc0Stub { guest: "financial_formula" },
     );
-    // Phase 4 prep from sub-agent: more RISC0 guests (chess_endgame, defi_liquidation, connect4_eval)
+    // Phase 4 prep from sub-agent (chess_endgame removed)
     m.insert(
-        "risc0_chess_endgame",
-        VerifierSpec::Risc0Stub { guest: "chess_endgame" },
+        "risc0_defi_liquidation",
+        VerifierSpec::Risc0Stub { guest: "defi_liquidation" },
     );
     m.insert(
         "risc0_defi_liquidation",
@@ -385,10 +368,7 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "sorting_proof",
         VerifierSpec::HybridGroth16 { script: "verify_sorting_proof.js", prefix: "covex_sort" },
     );
-    m.insert(
-        "chess_ai_move",
-        VerifierSpec::HybridGroth16 { script: "verify_chess_ai_move.js", prefix: "covex_chessai" },
-    );
+    // (chess_ai_move removed with chess zk circuit)
     m.insert(
         "poker_equity",
         VerifierSpec::HybridGroth16 { script: "verify_poker_equity.js", prefix: "covex_peq" },
@@ -739,7 +719,7 @@ pub(crate) fn determine_outcome_for_circuit(
 ) -> u32 {
     if let Some(req) = requested_outcome {
         // Clamp per legacy game conventions (most new circuits don't care).
-        if circuit_type.contains("chess") || circuit_type.contains("tictactoe") || circuit_type.contains("connect4") {
+        if circuit_type.contains("tictactoe") || circuit_type.contains("connect4") {
             return req.min(2);
         }
         if circuit_type.contains("privacy_mixer") {
@@ -776,27 +756,8 @@ pub(crate) fn determine_outcome_for_circuit(
         } else {
             1
         }
-    } else if circuit_type == "chess_v1" {
-        // chess_v1: game_status at [8]; proving_mode at [9] when len >= 10 (hybrid may supply signals without Groth body).
-        if public_inputs.len() >= 10 {
-            let _mode = public_inputs.get(9).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
-            match public_inputs[8].as_str() {
-                "1" => 0,
-                "2" => 1,
-                "3" => 2,
-                _ => 2,
-            }
-        } else if public_inputs.len() >= 9 {
-            match public_inputs[8].as_str() {
-                "1" => 0,
-                "2" => 1,
-                "3" => 2,
-                _ => 2,
-            }
-        } else if proof_has_groth16_body(proof) {
-            0
-        } else {
-            0
+    } else if proof_has_groth16_body(proof) {
+        0
         }
     } else if circuit_type == "tictactoe_v1" || circuit_type == "connect4_v1" {
         if proof_has_groth16_body(proof) && public_inputs.len() >= 5 {
@@ -849,7 +810,7 @@ mod tests {
         let r = get_registry();
         assert!(matches!(r.get("merkle_membership"), Some(VerifierSpec::StrictGroth16 { .. })));
         assert!(matches!(r.get("range_proof"), Some(VerifierSpec::StrictGroth16 { .. })));
-        assert!(matches!(r.get("chess_v1"), Some(VerifierSpec::HybridGroth16 { .. })));
+        // chess_v1 assert removed (circuit deleted)
         assert!(matches!(r.get("privacy_mixer_v1"), Some(VerifierSpec::HybridGroth16 { .. })));
         assert!(matches!(r.get("verifiable"), Some(VerifierSpec::Risc0Stub { .. })));
         assert!(matches!(r.get("wasm_execution"), Some(VerifierSpec::WasmStub { .. })));
@@ -872,7 +833,7 @@ mod tests {
         ));
         assert!(matches!(r.get("vrf_card_deal"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("black_scholes"), Some(VerifierSpec::Attested)));
-        assert!(matches!(r.get("chess_engine"), Some(VerifierSpec::Risc0Stub { .. })));
+        // chess_engine assert removed (circuit deleted)
     }
 
     #[test]
@@ -891,9 +852,7 @@ mod tests {
     #[test]
     fn outcome_defaults_and_clamp() {
         assert_eq!(determine_outcome_for_circuit("foo", &Value::Null, &[], Some(5)), 5);
-        assert_eq!(determine_outcome_for_circuit("chess_v1", &Value::Null, &[], Some(9)), 2);
-        // with mode (10 signals): game_status still at [8]
-        assert_eq!(determine_outcome_for_circuit("chess_v1", &Value::Null, &["0".into(),"0".into(),"0".into(),"0".into(),"0".into(),"0".into(),"0".into(),"0".into(),"2".into(),"1".into()], None), 1);
+        // chess_v1 outcome tests removed (circuit deleted)
         assert_eq!(determine_outcome_for_circuit("privacy_mixer_v1", &Value::Null, &[], Some(9)), 1);
         assert_eq!(determine_outcome_for_circuit("some_new_defi", &Value::Null, &[], None), 0);
     }

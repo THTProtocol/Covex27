@@ -8,9 +8,9 @@
 // and secp256k1, so we can sign Schnorr transactions natively.
 //
 // Transaction structure:
-//   Output 0 → Covenant payload (1 KAS, deployer)
-//   Output 1 → Treasury tier fee (if paid tier)
-//   Output 2 → Change (deployer)
+//   - Deploy: Output 0 → Covenant (1 KAS to deployer), Output 1 → Treasury tier fee (if any), Output 2 → change
+//   - Pure tier upgrade ("Pay 100 KAS" etc): Output 0 → Treasury (exact tier fee), Output 1 → change
+//     (no 1 KAS covenant side-output, no covenant DB row created — only address tier credit)
 //
 // STRICT: No DB writes. Returns tx_id only. Crawler discovers and
 // indexes the covenant on-chain.
@@ -95,6 +95,12 @@ pub struct SignAndBroadcastRequest {
     pub accent: Option<String>,
     #[serde(default)]
     pub ui_preset: Option<String>,
+
+    /// When true (from "Pay XXX KAS" tier upgrade buttons), perform a minimal treasury-only
+    /// transfer of exactly the tier fee. Do NOT emit the 1 KAS covenant self-output and do
+    /// NOT insert a covenant record (pure account tier top-up / covenant upgrade).
+    #[serde(default)]
+    pub pure_tier_payment: bool,
 
     // Premium covenant metadata — category and custom_ui_config
     #[serde(default)]
@@ -349,6 +355,11 @@ pub async fn sign_and_broadcast_handler(
     let tier = payload.tier.as_deref();
     let tier_fee = tier_fee_sompi(tier);
 
+    // Pure tier payment (upgrade pay button) = send *exactly* tier_fee to treasury.
+    // Regular deploy bundles 1 KAS covenant funding output + tier_fee in same tx.
+    let is_pure_tier = payload.pure_tier_payment
+        || (tier_fee > 0 && (payload.script_hex.trim().is_empty() || payload.script_hex.trim() == "aa20"));
+
     // Clone UTXO's script_public_key exactly — avoids byte mismatches
     let deployer_script = utxos[0].utxo_entry.script_public_key.clone();
 
@@ -364,7 +375,8 @@ pub async fn sign_and_broadcast_handler(
         }
     };
 
-    let total_cost = COVENANT_AMOUNT + tier_fee + TX_FEE;
+    let covenant_fund = if is_pure_tier { 0u64 } else { COVENANT_AMOUNT };
+    let total_cost = covenant_fund + tier_fee + TX_FEE;
 
     // Decode covenant script for the transaction payload.
     // If dsl_source is provided, compile it through silverc to get
@@ -437,13 +449,15 @@ pub async fn sign_and_broadcast_handler(
     let change = total_input - total_cost;
 
     // On-chain truth output structure:
-    //   Output 0 → Deployer (1 KAS)
-    //   Output 1 → Treasury (tier fee, only if paid)
-    //   Output 2 → Deployer (change)
-    let mut outputs = vec![TransactionOutput {
-        value: COVENANT_AMOUNT,
-        script_public_key: deployer_script.clone(),
-    }];
+    // For normal deploy: Output0=1KAS (deployer), Output1=tier to treasury (if any), Output2=change
+    // For pure tier payment (upgrade): Output0=tier to treasury, Output1=change  (exact fee only)
+    let mut outputs = Vec::new();
+    if covenant_fund > 0 {
+        outputs.push(TransactionOutput {
+            value: covenant_fund,
+            script_public_key: deployer_script.clone(),
+        });
+    }
     if tier_fee > 0 {
         outputs.push(TransactionOutput {
             value: tier_fee,
@@ -571,6 +585,9 @@ pub async fn sign_and_broadcast_handler(
             }
 
             // ── IMMEDIATE DB WRITE: save covenant so user sees it right away ──
+            // Skip entirely for pure tier payments (e.g. "Pay 100 KAS" upgrade on an existing covenant).
+            // Those only credit the payer address tier via the payment/upgrade_account above.
+            if !is_pure_tier {
             // Capture the actual hex payload for DB storage (compiled or raw)
             let script_hex_for_db: String = covenant_payload
                 .iter()
@@ -630,6 +647,7 @@ pub async fn sign_and_broadcast_handler(
                 "Covenant {} saved to DB immediately after broadcast",
                 tx_id_str
             );
+            } // end if !is_pure_tier
 
             let output_summaries: Vec<TxOutputSummary> = outputs
                 .iter()

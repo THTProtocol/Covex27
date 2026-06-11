@@ -115,7 +115,7 @@ export default function App() {
       <WalletProvider>
         <BrowserRouter>
           <DagBackground />
-          <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85">
+          <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85 light:bg-white/95 light:border-slate-200">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
               <Link to="/" className="group flex items-center gap-2.5">
                 {/* New user-provided glowing network C logo */}
@@ -128,8 +128,8 @@ export default function App() {
                 />
                 {/* COVEX wordmark */}
                 <span className="covex-brand font-extrabold text-[23px] tracking-[4px] leading-none select-none">
-                  <span className="text-white dark:text-white group-hover:text-[#49EACB] transition-colors duration-300">COV</span>
-                  <span className="text-[#49EACB] group-hover:text-white dark:group-hover:text-white transition-colors duration-300">EX</span>
+                  <span className="text-white dark:text-white group-hover:text-[#49EACB] light:text-slate-900 light:group-hover:text-[#0f766e] transition-colors duration-300">COV</span>
+                  <span className="text-[#49EACB] group-hover:text-white dark:group-hover:text-white light:text-[#0f766e] light:group-hover:text-slate-900 transition-colors duration-300">EX</span>
                 </span>
               </Link>
               <div className="flex items-center gap-6">
@@ -168,7 +168,7 @@ export default function App() {
             </Routes>
           </div>
 
-          <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400">
+          <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center">
               Non-custodial. Keys stay in your wallet.
             </div>

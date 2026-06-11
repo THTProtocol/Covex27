@@ -183,21 +183,30 @@ export default function Deploy() {
 
   // Improved drag for canvas (pointer events for mouse+touch, bounds, visual feedback)
   const [dragInfo, setDragInfo] = useState(null);
+  const [resizeInfo, setResizeInfo] = useState(null);
   const CANVAS_W = 420;
   const CANVAS_H = 260;
 
   const onCanvasPointerMove = (e) => {
-    if (!dragInfo || !selectedLayerId) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const nx = Math.max(0, Math.min(CANVAS_W - 20, e.clientX - rect.left - dragInfo.offX));
-    const ny = Math.max(0, Math.min(CANVAS_H - 20, e.clientY - rect.top - dragInfo.offY));
-    updateLayer(selectedLayerId, { x: Math.round(nx), y: Math.round(ny) });
+    if (dragInfo && selectedLayerId) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const nx = Math.max(0, Math.min(CANVAS_W - 20, e.clientX - rect.left - dragInfo.offX));
+      const ny = Math.max(0, Math.min(CANVAS_H - 20, e.clientY - rect.top - dragInfo.offY));
+      updateLayer(selectedLayerId, { x: Math.round(nx), y: Math.round(ny) });
+    }
+    if (resizeInfo && selectedLayerId) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const layer = layers.find(l => l.id === selectedLayerId);
+      if (!layer) return;
+      const newW = Math.max(30, Math.min(CANVAS_W - layer.x, e.clientX - rect.left - resizeInfo.startX + resizeInfo.startW));
+      const newH = Math.max(20, Math.min(CANVAS_H - layer.y, e.clientY - rect.top - resizeInfo.startY + resizeInfo.startH));
+      updateLayer(selectedLayerId, { w: Math.round(newW), h: Math.round(newH) });
+    }
   };
 
   const onCanvasPointerUp = () => {
-    if (dragInfo) {
-      setDragInfo(null);
-    }
+    if (dragInfo) setDragInfo(null);
+    if (resizeInfo) setResizeInfo(null);
   };
 
   const startDrag = (e, id) => {
@@ -210,17 +219,28 @@ export default function Deploy() {
       offX: e.clientX - rect.left - layer.x,
       offY: e.clientY - rect.top - layer.y
     });
-    // Capture pointer for smooth drag even if mouse leaves canvas
-    if (e.currentTarget.setPointerCapture) {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    }
+    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const stopDrag = (e) => {
-    if (e.currentTarget.releasePointerCapture && dragInfo) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    setDragInfo(null);
+  const startResize = (e, id) => {
+    e.stopPropagation();
+    const layer = layers.find(l => l.id === id);
+    if (!layer) return;
+    setSelectedLayerId(id);
+    setResizeInfo({
+      id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: layer.w,
+      startH: layer.h
+    });
+    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const stopDragOrResize = (e) => {
+    if (e.currentTarget.releasePointerCapture) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (dragInfo) setDragInfo(null);
+    if (resizeInfo) setResizeInfo(null);
   };
 
   // Generate SilverScript from current covenant + layers (advanced tool)
@@ -282,14 +302,14 @@ export default function Deploy() {
   const AdvancedCanvas = () => (
     <div 
       className="relative border-2 border-dashed border-white/30 bg-black/60 rounded-xl overflow-hidden"
-      style={{ width: 420, height: 260, cursor: dragInfo ? 'grabbing' : 'default' }}
-      onMouseMove={onCanvasMouseMove}
-      onMouseUp={onCanvasMouseUp}
-      onMouseLeave={onCanvasMouseUp}
+      style={{ width: CANVAS_W, height: CANVAS_H, cursor: dragInfo ? 'grabbing' : 'default' }}
+      onPointerMove={onCanvasPointerMove}
+      onPointerUp={onCanvasPointerUp}
+      onPointerLeave={onCanvasPointerUp}
     >
       {layers.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-xs text-white/40">
-          Add elements from toolbar • Drag to position • Edit in inspector
+          Add elements from toolbar • Drag to position • Resize from corner • Edit in inspector
         </div>
       )}
       {layers.map(layer => {
@@ -309,13 +329,13 @@ export default function Deploy() {
           justifyContent: 'center',
           overflow: 'hidden',
           userSelect: 'none',
-          cursor: 'move'
+          cursor: dragInfo?.id === layer.id ? 'grabbing' : 'move'
         };
         return (
           <div 
             key={layer.id} 
             style={style}
-            onMouseDown={(e) => startDrag(e, layer.id)}
+            onPointerDown={(e) => startDrag(e, layer.id)}
             onClick={() => setSelectedLayerId(layer.id)}
           >
             {layer.type === 'text' && layer.props.text}
@@ -331,7 +351,15 @@ export default function Deploy() {
             {layer.type === 'image' && <img src={layer.props.src} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} />}
             {layer.type === 'game' && <div className="text-[10px] opacity-70">🎮 {layer.props.game || 'chess'}</div>}
             {layer.type === 'shape' && <div className="w-3/4 h-3/4 border border-white/40 rounded" />}
-            {isSel && <div className="absolute -top-2 -right-2 text-[8px] bg-black px-1 rounded">drag</div>}
+            {isSel && (
+              <>
+                <div className="absolute -top-2 -right-2 text-[8px] bg-black px-1 rounded">drag</div>
+                <div 
+                  className="absolute -bottom-1 -right-1 w-3 h-3 bg-[#49EACB] cursor-se-resize border border-black"
+                  onPointerDown={(e) => startResize(e, layer.id)}
+                />
+              </>
+            )}
           </div>
         );
       })}
@@ -356,6 +384,22 @@ export default function Deploy() {
             <option value="claim">claim / resolve</option>
             <option value="custom">custom (SilverScript)</option>
           </select>
+        )}
+        {selectedLayer.type === 'image' && (
+          <div>
+            <label className="block text-[10px] mb-1">Upload Image</label>
+            <input type="file" accept="image/*" onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  updateLayer(selectedLayer.id, { props: { src: ev.target.result } });
+                };
+                reader.readAsDataURL(file);
+              }
+            }} className="text-[10px]" />
+            {selectedLayer.props.src && <img src={selectedLayer.props.src} alt="preview" className="mt-1 max-h-16 border border-white/20" />}
+          </div>
         )}
         <div className="grid grid-cols-2 gap-2">
           <input type="number" value={selectedLayer.x} onChange={e => updateLayer(selectedLayer.id, { x: parseInt(e.target.value)||0 })} className="bg-black/60 border border-white/10 px-2 py-1 rounded" placeholder="x" />
@@ -656,6 +700,31 @@ export default function Deploy() {
                       <button key={t} onClick={() => addLayer(t)} className="text-[10px] px-2.5 py-1 rounded border border-white/15 hover:bg-white/5 capitalize">{t}</button>
                     ))}
                     <button onClick={() => { const ss = generateSilverScript(); setSilverScript(ss); }} className="text-[10px] px-2.5 py-1 rounded bg-white/10">Generate SilverScript from UI</button>
+                    <button onClick={() => {
+                      const design = { layers, silverScript, template: currentTemplate.id };
+                      const blob = new Blob([JSON.stringify(design, null, 2)], {type: 'application/json'});
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `${name || 'covenant'}-design.json`; a.click();
+                    }} className="text-[10px] px-2.5 py-1 rounded border border-white/15 hover:bg-white/5">Export Design</button>
+                    <label className="text-[10px] px-2.5 py-1 rounded border border-white/15 hover:bg-white/5 cursor-pointer">
+                      Import Design
+                      <input type="file" accept=".json" className="hidden" onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            try {
+                              const design = JSON.parse(ev.target.result);
+                              if (design.layers) setLayers(design.layers);
+                              if (design.silverScript) setSilverScript(design.silverScript);
+                            } catch(err) { alert('Invalid design file'); }
+                          };
+                          reader.readAsText(file);
+                        }
+                      }} />
+                    </label>
+                    <button onClick={() => { setLayers([]); setSilverScript(''); setSelectedLayerId(null); }} className="text-[10px] px-2.5 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Clear All</button>
                   </div>
                 </div>
 

@@ -26,8 +26,8 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
   const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
-      <div className="flex items-center justify-between px-6 py-3 border-b border-white/10">
+    <div className="fixed inset-0 z-[100] bg-black/95 light:bg-slate-100 flex flex-col">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 light:border-slate-200">
         <div className="text-white font-mono text-sm">
           <span className="text-amber-400 font-bold">{stake} KAS</span> Chess Match
         </div>
@@ -44,7 +44,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
             <div className="text-xs text-gray-400">Black</div>
             <div className={`font-mono text-2xl font-bold ${blackTime < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(blackTime)}</div>
           </div>
-          <div className="rounded-xl overflow-hidden border-2 border-white/10">
+          <div className="rounded-xl overflow-hidden border-2 border-white/10 light:border-slate-300">
             <Chessboard
               position="start"
               boardWidth={Math.min(400, window.innerWidth - 48)}

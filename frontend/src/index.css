@@ -39,8 +39,9 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE - Clean, high-contrast cypherpunk light variant
-   Strong teal/green accents (#0f766e, #14b8a6), soft white backgrounds
+   LIGHT MODE - The nicest clean, premium cypherpunk light variant
+   Soft slate backgrounds, excellent contrast, vibrant yet readable teal accents
+   Modern cards with subtle depth, beautiful glass that actually works in light
    ═══════════════════════════════════════════════════════════════ */
 .light {
   --background: 248 250 252;
@@ -50,39 +51,63 @@ body {
   --primary: 15 118 110;
   --primary-foreground: 255 255 255;
   --border: 15 23 42 / 0.1;
-  --muted: 15 23 42 / 0.06;
-  --accent: 15 118 110;
+  --muted: 15 23 42 / 0.05;
+  --accent: 13 148 136; /* nice teal-600 */
   --input-bg: 255 255 255;
   --kaspa-green: #0f766e;
+  --surface-elevated: 255 255 255;
+  --text-muted: #64748b;
 }
 
+/* Base light body - clean off-white with very subtle texture feel */
 .light body {
-  background: #ffffff;
-  background-attachment: fixed;
+  background: #f8fafc;
   color: #0f172a;
+  background-image: 
+    linear-gradient(rgba(15, 23, 42, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.015) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-/* ── Light Mode Text Hierarchy ── */
-.light h1, .light h2, .light h3, .light h4 {
+/* Typography - crisp, high contrast */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
   color: #0f172a;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
-.light .text-white {
+.light .text-white,
+.light .text-gray-100,
+.light .text-gray-200,
+.light .text-gray-300 {
   color: #0f172a !important;
 }
-.light .text-gray-200 { color: #334155 !important; }
-.light .text-gray-300 { color: #475569 !important; }
-.light .text-gray-400 { color: #475569 !important; }
-.light .text-gray-500 { color: #64748b !important; }
+.light .text-gray-400,
+.light .text-gray-500 {
+  color: #475569 !important;
+}
+.light .text-gray-600 { color: #334155 !important; }
 
-/* ── Light Mode Accent Colors ── */
-.light .text-kaspa-green {
+/* Brand / Accent in light - deep teal that pops beautifully */
+.light .text-kaspa-green,
+.light .text-\[\#49EACB\] {
   color: #0f766e !important;
 }
-.light a { color: #0f766e; }
-.light a:hover { color: #14b8a6; }
+.light a {
+  color: #0f766e;
+  transition: color 0.15s ease;
+}
+.light a:hover {
+  color: #0d9488;
+}
 
-/* ── Light Mode Background Overrides (catch all dark hardcodes) ── */
-/* General dark backgrounds → light */
+/* Premium Card System for light mode */
+.light .glass-panel,
+.light .card,
+.light [class*="rounded-2xl"],
+.light .bg-zinc-900\/80,
+.light .bg-zinc-800,
+.light .bg-\[\#0a0a0a\],
+.light .bg-\[\#0A0A0D\],
 .light .bg-black\/10,
 .light .bg-black\/20,
 .light .bg-black\/30,
@@ -91,163 +116,205 @@ body {
 .light .bg-black\/60,
 .light .bg-black\/80,
 .light [class*="bg-black/"] {
-  background-color: rgba(255, 255, 255, 0.7) !important;
-}
-
-.light .bg-\[\#0a0a0a\],
-.light .bg-\[\#0A0A0D\],
-.light .bg-\[\#0A0A0D\]\/95,
-.light .bg-\[\#0a0a0a\]\/95,
-.light .bg-\[\#0a0a0a\]\/80,
-.light .bg-\[\#0a0a0f\],
-.light .bg-\[\#05050A\],
-.light .bg-\[\#11111a\],
-.light .bg-\[\#111\] {
-  background-color: #ffffff !important;
-}
-
-.light .bg-\[\#1f1f1f\] {
-  background-color: #e2e8f0 !important;
-}
-
-.light .bg-zinc-900,
-.light .bg-zinc-800 {
-  background-color: #f8fafc !important;
-}
-.light .bg-zinc-950 {
-  background-color: #ffffff !important;
-}
-
-/* Glass-panel: frosted white in light */
-.light .glass-panel {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(15, 23, 42, 0.08) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 10px 15px -3px rgba(15, 23, 42, 0.04) !important;
   color: #0f172a;
+  backdrop-filter: none;
 }
 
 .light .glass-heavy {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(15, 23, 42, 0.12) !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 20px 25px -5px rgba(15, 23, 42, 0.06) !important;
 }
 
-/* ── Light Mode Borders ── */
+/* Better elevated surfaces */
+.light .bg-\[\#1f1f1f\],
+.light .bg-zinc-950,
+.light .bg-\[\#11111a\],
+.light .bg-\[\#05050A\] {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Beautiful borders in light */
 .light .border-white\/5,
 .light .border-white\/\[0\.03\],
 .light .border-white\/\[0\.05\],
 .light .border-white\/\[0\.06\],
 .light .border-white\/\[0\.08\],
-.light .border-white\/10 {
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
+.light .border-white\/10,
 .light .border-white\/20,
 .light .border-white\/30 {
-  border-color: rgba(15, 23, 42, 0.15) !important;
+  border-color: #e2e8f0 !important;
 }
-
 .light .border-\[\#1f1f1f\] {
-  border-color: rgba(15, 23, 42, 0.12) !important;
+  border-color: #cbd5e1 !important;
 }
 
-/* ── Light Mode Nav / Header ── */
-.light nav, .light header {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+/* Nav / Header - clean elevated bar */
+.light nav,
+.light header,
+.light .fixed.top-0 {
+  background: rgba(248, 250, 252, 0.95) !important;
+  border-bottom: 1px solid #e2e8f0 !important;
   backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 }
 
-/* Nav COVEX "COV" text in light mode - white invisible on white nav bg, use dark slate */
+/* COVEX brand in light mode - dark text, teal hover accent */
 .light .covex-brand span:first-child {
   color: #0f172a;
 }
-/* Light mode hover: COV turns teal */
 .light .group:hover .covex-brand span:first-child {
-  color: #49EACB;
+  color: #0f766e;
+}
+.light .covex-brand span:last-child {
+  color: #0f766e;
+}
+.light .group:hover .covex-brand span:last-child {
+  color: #0f172a;
 }
 
-/* ── Light Mode Footer ── */
+/* Footer */
 .light footer {
-  border-top-color: rgba(15, 23, 42, 0.08) !important;
+  border-top-color: #e2e8f0 !important;
   color: #64748b !important;
 }
 
-/* ── Light Mode Buttons ── */
-.light .btn-kaspa-primary {
+/* Buttons - premium light versions */
+.light .btn-kaspa-primary,
+.light button[class*="bg-\[#49EACB\]"] {
   background: #0f766e !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
+  color: white !important;
+  border: none;
+  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.2), 0 1px 3px rgba(15, 118, 110, 0.1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .light .btn-kaspa-primary:hover {
   background: #115e59 !important;
+  box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.25);
+  transform: translateY(-1px);
 }
 
-/* ── Light Mode Inputs & Textareas ── */
+.light button[class*="border-white\/20"] {
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  background: transparent;
+}
+.light button[class*="border-white\/20"]:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Ghost / subtle buttons */
+.light button[class*="hover:bg-white\/10"],
+.light .ghost {
+  color: #475569;
+}
+.light button[class*="hover:bg-white\/10"]:hover,
+.light .ghost:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a;
+}
+
+/* Inputs - clean and crisp */
 .light .cyber-input,
 .light .shadcn-input,
-.light input[type="text"],
-.light input[type="search"],
+.light input,
 .light textarea,
 .light select {
-  background: #fff !important;
-  border-color: rgba(15, 23, 42, 0.2) !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
   color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 .light .cyber-input:focus,
-.light .shadcn-input:focus {
+.light .shadcn-input:focus,
+.light input:focus,
+.light textarea:focus {
   border-color: #0f766e !important;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12) !important;
+  outline: none;
 }
 .light input::placeholder,
 .light textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* ── Light Mode Cards ── */
+/* Cards & surfaces - the nicest possible */
 .light .card,
-.light [class*="rounded-2xl border"] {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* ── Light Mode Badges ── */
-.light .badge {
-  background: rgba(15, 118, 110, 0.08);
-  color: #0f766e;
-  border-color: rgba(15, 118, 110, 0.15);
-}
-
-/* ── Light Mode Tier Glows ── */
-.light .tier-glow-max {
-  box-shadow: 0 0 0 1px #7c3aed, 0 4px 12px rgba(124, 58, 237, 0.1) !important;
-}
-.light .tier-glow-pro {
-  box-shadow: 0 0 0 1px #d97706, 0 4px 12px rgba(217, 119, 6, 0.1) !important;
-}
-.light .tier-glow-builder {
-  box-shadow: 0 0 0 1px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.1) !important;
-}
-
-/* ── Light Mode Featured Cards ── */
-.light .featured-covenant-card {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-}
-
-/* ── Light Mode Terminal Sections ── */
+.light [class*="rounded-2xl border"],
+.light .featured-covenant-card,
 .light .terminal-section,
 .light section[class*="bg-black/30"] {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 10px 15px -3px rgba(15, 23, 42, 0.03);
+  color: #0f172a;
 }
 
-/* ── Light Mode Sticky Bottom Bar (Save bar in Terminal) ── */
+/* Badges */
+.light .badge {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+/* Tier glows - softer and more elegant in light */
+.light .tier-glow-max {
+  box-shadow: 0 0 0 1px #7c3aed, 0 10px 15px -3px rgba(124, 58, 237, 0.12) !important;
+}
+.light .tier-glow-pro {
+  box-shadow: 0 0 0 1px #d97706, 0 10px 15px -3px rgba(217, 119, 6, 0.12) !important;
+}
+.light .tier-glow-builder {
+  box-shadow: 0 0 0 1px #2563eb, 0 10px 15px -3px rgba(37, 99, 235, 0.12) !important;
+}
+
+/* Modals and overlays */
+.light .fixed.inset-0.z-\[100\] {
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(8px);
+}
+.light .modal-content,
+.light [class*="bg-\[\#0a0a0a\]"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  color: #0f172a;
+}
+
+/* Sticky bars and action rows */
 .light section[class*="sticky bottom"] {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px);
-  border-color: rgba(15, 23, 42, 0.1) !important;
+  background: rgba(248, 250, 252, 0.96) !important;
+  border-top: 1px solid #e2e8f0 !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Tables / Explorer rows */
+.light table,
+.light .explorer-row,
+.light [class*="border-b border-white"] {
+  border-color: #e2e8f0 !important;
+}
+.light tr:hover {
+  background: #f1f5f9 !important;
+}
+
+/* Dag background container in light */
+.light .dag-background {
+  background: #f8fafc !important;
+}
+
+/* Scrollbars for light */
+.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}  border-color: rgba(15, 23, 42, 0.1) !important;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06) !important;
 }
 

@@ -851,7 +851,7 @@ export default function CovexTerminal({ covenant }) {
         broadcastAt: Date.now()
       }));
       setTimeout(checkPaymentNow, 300);
-      // User stays in terminal — the !hasPaidAccess gate will hide on re-render, revealing the full paid content including the live visual editor with side add-ons.
+      // User stays in terminal - the !hasPaidAccess gate will hide on re-render, revealing the full paid content including the live visual editor with side add-ons.
     } catch (e) {
       // On error, still try to unlock if user confirms they saw a tx (for dev testnet reliability).
       const proceed = window.confirm('Dev payment call errored: ' + (e?.message || e) + '\n\nIf the TX was broadcast (check your node or logs for txid), click OK to unlock the terminal now. Otherwise Cancel.');
@@ -2119,7 +2119,7 @@ ${gameMeta.outcomeBranches}
         </div>
       )}
 
-      {/* Live SilverScript Editor (the visual sandbox with side add-ons) — gated behind paywall, only for paid users. Integrated in the terminal with all other tools (circuits, custom UI for public look, oracles, arenas, etc.) to create the best covenant. */}
+      {/* Live SilverScript Editor (the visual sandbox with side add-ons) - gated behind paywall, only for paid users. Integrated in the terminal with all other tools (circuits, custom UI for public look, oracles, arenas, etc.) to create the best covenant. */}
       {hasPaidAccess && (
       <section className={`${SECTION_BASE} border-[#49EACB]/20 bg-[#49EACB]/[0.01]`}>
         <div className={SECTION_HEADER}>

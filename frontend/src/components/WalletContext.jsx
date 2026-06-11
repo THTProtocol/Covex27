@@ -152,7 +152,7 @@ export async function loadKaspaWasm() {
       // initSync path may have silently failed (catch{} above suppresses the error).
       // Fallback: use default() to initialize the internal wasm global, but return
       // the MODULE (which has Mnemonic/XPrv/PrivateKey classes), NOT default()'s
-      // return value (which is raw WASM exports — no class constructors on it).
+      // return value (which is raw WASM exports - no class constructors on it).
       if (typeof mod.default === 'function') {
         await mod.default();         // initializes wasm global, side-effect only
         _wasmModuleCtx = mod;        // return the module with the classes
@@ -644,7 +644,7 @@ function WalletBridge({ children }) {
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
     if (devMode && activeAddress) {
       const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-      // Map amount to tier for backend signer — the backend constructs real TXs
+      // Map amount to tier for backend signer - the backend constructs real TXs
       // with actual UTXOs from kaspad, schnorr signs, and broadcasts via wRPC.
       const tier = amountKas >= 1000 ? 'MAX' : amountKas >= 500 ? 'PRO' : amountKas >= 100 ? 'BUILDER' : null;
       const tierLabel = tier || 'FREE';

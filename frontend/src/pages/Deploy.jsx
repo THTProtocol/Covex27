@@ -62,15 +62,43 @@ export default function Deploy() {
 
   const currentTemplate = VISUAL_TEMPLATES[templateIndex];
 
+  // Auto suggest template based on covenant info (name, desc, category) - like smart presets in GIMP/Canva
+  const suggestTemplateFromInfo = () => {
+    const q = (name + ' ' + description + ' ' + category).toLowerCase();
+    let idx = 0;
+    if (q.includes('chess') || q.includes('game') || q.includes('poker') || q.includes('match') || category.includes('games')) idx = 1; // neon-night for games
+    else if (q.includes('predict') || q.includes('bet') || q.includes('market')) idx = 4; // blood-moon for predictive
+    else if (q.includes('escrow') || q.includes('custody') || q.includes('milestone')) idx = 3; // ocean for escrow
+    else if (q.includes('governance') || q.includes('dao') || q.includes('vote')) idx = 6; // minimal white for gov
+    else if (q.includes('flash') || q.includes('quick') || q.includes('time')) idx = 5; // forest
+    else if (q.includes('gold') || q.includes('auction') || q.includes('yield')) idx = 2; // gold-rush
+    else if (q.includes('community') || q.includes('pool') || q.includes('crowd')) idx = 0; // dark-glass
+    else idx = (templateIndex + 1) % VISUAL_TEMPLATES.length;
+    setTemplateIndex(idx);
+    setAccentColor(VISUAL_TEMPLATES[idx].accent);
+  };
+
   const cycleTemplate = (dir) => {
     setTemplateIndex((prev) => {
-      const next = prev + dir;
-      if (next < 0) return VISUAL_TEMPLATES.length - 1;
-      if (next >= VISUAL_TEMPLATES.length) return 0;
+      const next = (prev + dir + VISUAL_TEMPLATES.length) % VISUAL_TEMPLATES.length;
+      setAccentColor(VISUAL_TEMPLATES[next].accent);
       return next;
     });
-    setAccentColor(VISUAL_TEMPLATES[(templateIndex + dir + VISUAL_TEMPLATES.length) % VISUAL_TEMPLATES.length].accent);
   };
+
+  // Live preview card that changes with each cycle / info - user presses and sees different design instantly
+  const LiveDesignPreview = () => (
+    <div className="mt-4 p-4 rounded-2xl border" style={{ background: currentTemplate.bg, borderColor: currentTemplate.border, color: currentTemplate.text }}>
+      <div className="text-[10px] opacity-70 mb-1">LIVE PREVIEW — changes with every press (based on your covenant info)</div>
+      <div className="font-bold text-lg" style={{ color: currentTemplate.accent }}>{name || 'Your Covenant Name'}</div>
+      <div className="text-xs opacity-80 mt-1 line-clamp-2">{description || 'Your rules and stakes go here. Transparent on-chain.'}</div>
+      <div className="mt-3 flex gap-2">
+        <button className="px-3 py-1 rounded text-xs font-bold" style={{ background: currentTemplate.accent, color: currentTemplate.bg }}>STAKE / JOIN</button>
+        <button className="px-3 py-1 rounded text-xs border" style={{ borderColor: currentTemplate.accent, color: currentTemplate.accent }}>VIEW DETAILS</button>
+      </div>
+      <div className="text-[9px] mt-2 opacity-60">Template: {currentTemplate.name} • Category: {category || 'General'}</div>
+    </div>
+  );
 
   const handleCreate = async () => {
     if (!name.trim()) return;

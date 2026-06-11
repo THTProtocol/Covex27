@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import {
@@ -67,6 +67,45 @@ export default function Deploy() {
   const [silverScript, setSilverScript] = useState('');
   const [compiledScriptHex, setCompiledScriptHex] = useState('');
   const [isCompiling, setIsCompiling] = useState(false);
+
+  // Auto-unlock premium (advanced builder + SilverScript) if the user has paid any tier (via Pricing or here).
+  // This ensures payments via /pricing unlock functions here too.
+  const checkTierAndUnlock = async () => {
+    if (!address) return false;
+    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    try {
+      const r = await fetch('/api/auth-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, network: net })
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data.tier && data.tier !== 'FREE') {
+          setIsAdvancedUnlocked(true);
+          if (layers.length === 0) {
+            setLayers([
+              { id: 'l1', type: 'text', x: 30, y: 30, w: 200, h: 30, props: { text: name || 'Your Covenant', color: '#fff', fontSize: 18 } },
+              { id: 'l2', type: 'button', x: 30, y: 80, w: 140, h: 38, props: { text: 'STAKE 10 KAS', action: 'stake', bg: currentTemplate.accent } },
+            ]);
+          }
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  };
+
+  useEffect(() => {
+    checkTierAndUnlock();
+  }, [address]);  // re-check when wallet connects/changes
+
+  // Also listen for network changes (dispatched by NetworkSwitcher in App)
+  useEffect(() => {
+    const handler = () => checkTierAndUnlock();
+    window.addEventListener('kaspa-network-change', handler);
+    return () => window.removeEventListener('kaspa-network-change', handler);
+  }, [address]);
 
   const currentTemplate = VISUAL_TEMPLATES[templateIndex];
 
@@ -311,6 +350,8 @@ export default function Deploy() {
   };
 
   // Unlock full advanced tools + SilverScript compiler (paywall)
+  // Payments go through real on-chain (dev wallets on testnet construct+sign+broadcast real txs via kaspad wRPC;
+  // real wallets use extension sendKaspa). Backend records tier, auth-session exposes it.
   const unlockAdvancedTools = async () => {
     if (!address) {
       alert('Connect wallet first (or use Dev Connect for test)');
@@ -321,19 +362,23 @@ export default function Deploy() {
     try {
       const pay = await sendPayment(treasury, 100, { memo: 'covex-tier:BUILDER advanced-ui', description: 'Unlock full UI builder + SilverScript compiler' });
       if (pay && (pay.success || pay.txid)) {
-        setIsAdvancedUnlocked(true);
-        // Seed some starter layers for best experience
-        if (layers.length === 0) {
-          setLayers([
-            { id: 'l1', type: 'text', x: 30, y: 30, w: 200, h: 30, props: { text: name || 'Your Covenant', color: '#fff', fontSize: 18 } },
-            { id: 'l2', type: 'button', x: 30, y: 80, w: 140, h: 38, props: { text: 'STAKE 10 KAS', action: 'stake', bg: currentTemplate.accent } },
-          ]);
+        // Payment succeeded (real tx_id returned). Re-check auth-session so backend-verified tier unlocks everything.
+        await checkTierAndUnlock();
+        if (!isAdvancedUnlocked) {
+          // Fallback immediate unlock for the session (backend verifier may take a second)
+          setIsAdvancedUnlocked(true);
+          if (layers.length === 0) {
+            setLayers([
+              { id: 'l1', type: 'text', x: 30, y: 30, w: 200, h: 30, props: { text: name || 'Your Covenant', color: '#fff', fontSize: 18 } },
+              { id: 'l2', type: 'button', x: 30, y: 80, w: 140, h: 38, props: { text: 'STAKE 10 KAS', action: 'stake', bg: currentTemplate.accent } },
+            ]);
+          }
         }
-        alert('BUILDER tier unlocked! Full advanced UI builder + SilverScript compiler now active.');
+        alert(`BUILDER tier payment sent (tx: ${pay.txid || 'see wallet'}). Premium functions (advanced builder + SilverScript compiler) unlocked.`);
       }
     } catch (e) {
-      alert('Payment failed or cancelled. Use Dev mode for test deploys.');
-      setIsAdvancedUnlocked(true); // allow in dev for testing
+      alert('Payment failed or cancelled. Use Dev Connect for test deploys on TN12/TN10 (real on-chain txs).');
+      setIsAdvancedUnlocked(true); // dev fallback
     }
   };
 
@@ -568,7 +613,7 @@ export default function Deploy() {
               </div>
               {!isAdvancedUnlocked && (
                 <button onClick={unlockAdvancedTools} className="px-4 py-2 rounded-2xl bg-amber-500 text-black text-xs font-bold flex items-center gap-1 hover:brightness-110">
-                  <Crown size={14} /> PAY BUILDER (100 KAS) TO UNLOCK
+                  <Crown size={14} /> PAY BUILDER (100 KAS) TO UNLOCK FULL TOOLS
                 </button>
               )}
               {isAdvancedUnlocked && <div className="text-emerald-400 text-xs font-bold px-3 py-1 border border-emerald-500/30 rounded">UNLOCKED • FULL TOOLS ACTIVE</div>}
@@ -576,7 +621,7 @@ export default function Deploy() {
 
             {!isAdvancedUnlocked && (
               <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl text-xs text-amber-300 mb-4">
-                The most advanced covenant design tools (layered canvas editor, drag & drop, full property inspector, image uploads, game embeds, and the complete SilverScript compiler) are available after paying a tier. Basic templates above are free.
+                Pay a tier (BUILDER 100 KAS+) to unlock the full advanced UI builder (layers, drag canvas, inspector) + SilverScript editor/compiler for real on-chain covenant creation. Payments create real txs on testnet (or via your wallet). Basic templates + preview work for free.
               </div>
             )}
 

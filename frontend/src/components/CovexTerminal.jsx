@@ -2204,13 +2204,13 @@ ${gameMeta.outcomeBranches}
       </section>
       )}
 
-      {/* ─── Section 0: Covenant Circuit Schema (circuits only after payment; free basic always available) ─── */}
+      {/* --- Section 0: ZK Circuit Configuration --- */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
         <div className={SECTION_HEADER}>
           <div className="p-1.5 rounded-lg bg-kaspa-green/20">
             <Cpu size={16} />
           </div>
-          <span className="flex-1">Covenant Circuit Schema</span>
+          <span className="flex-1">ZK Circuit Configuration</span>
           <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20">
             PRODUCTION
           </span>

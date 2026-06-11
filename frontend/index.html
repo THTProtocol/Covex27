@@ -35,9 +35,14 @@
     <script>
       window.__covexErrors = [];
       var ed = document.getElementById('covex-error-display');
-      // Wallet init rejections from @kasflow are expected when no wallet extension is present
+      // Wallet init rejections from @kasflow / extensions are expected.
+      // Also filter common extension stream noise (MaxListeners, ObjectMultiplex liveness, multiplex chunks)
+      // that appear in contentscript when multiple wallets or the page + extension streams interact.
       function isWalletNoise(msg) {
-        return /wallet|account|passkey|kasflow|connect/i.test(msg) && !/covex/i.test(msg);
+        if (!msg) return false;
+        const m = String(msg).toLowerCase();
+        if (/covex/i.test(m)) return false; // our errors are never "noise"
+        return /wallet|account|passkey|kasflow|connect|metamask|ethereum|multiplex|liveness|maxlisteners|orphaned data|malformed chunk|contentscript/i.test(m);
       }
       function showErrors() {
         var real = window.__covexErrors.filter(function(e) { return !isWalletNoise(e); });

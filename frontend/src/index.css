@@ -39,68 +39,64 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE - The nicest clean, premium cypherpunk light variant
-   Soft slate backgrounds, excellent contrast, vibrant yet readable teal accents
-   Modern cards with subtle depth, beautiful glass that actually works in light
+   LIGHT MODE - Super clean, premium, brand-matching cypherpunk light
+   Uses the exact brand #49EACB for accents (matches dark mode)
+   High contrast dark text on light surfaces, excellent readability
+   Modern soft cards, nice glass, vibrant but professional
    ═══════════════════════════════════════════════════════════════ */
 .light {
   --background: 248 250 252;
   --foreground: 15 23 42;
   --card: 255 255 255;
   --card-foreground: 15 23 42;
-  --primary: 15 118 110;
-  --primary-foreground: 255 255 255;
+  --primary: 73 234 203;  /* exact brand #49EACB */
+  --primary-foreground: 0 0 0;
   --border: 15 23 42 / 0.1;
   --muted: 15 23 42 / 0.05;
-  --accent: 13 148 136; /* nice teal-600 */
+  --accent: 73 234 203;
   --input-bg: 255 255 255;
-  --kaspa-green: #0f766e;
+  --kaspa-green: #49EACB;  /* bright brand for consistency */
   --surface-elevated: 255 255 255;
   --text-muted: #64748b;
+  --text-primary: #0f172a;
 }
 
-/* Base light body - clean off-white with very subtle texture feel */
+/* Base light body - clean, high quality off-white */
 .light body {
   background: #f8fafc;
   color: #0f172a;
-  background-image: 
-    linear-gradient(rgba(15, 23, 42, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.015) 1px, transparent 1px);
-  background-size: 24px 24px;
 }
 
-/* Typography - crisp, high contrast */
-.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+/* Crisp, high-contrast typography - all text visible */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6,
+.light p, .light span, .light div, .light li, .light label {
   color: #0f172a;
-  font-weight: 600;
-  letter-spacing: -0.01em;
 }
 .light .text-white,
 .light .text-gray-100,
 .light .text-gray-200,
-.light .text-gray-300 {
+.light .text-gray-300,
+.light .text-gray-400,
+.light .text-gray-500,
+.light .text-gray-600 {
   color: #0f172a !important;
 }
-.light .text-gray-400,
-.light .text-gray-500 {
-  color: #475569 !important;
-}
-.light .text-gray-600 { color: #334155 !important; }
+.light .text-gray-700 { color: #334155 !important; }
+.light .text-gray-800 { color: #1e293b !important; }
 
-/* Brand / Accent in light - deep teal that pops beautifully */
+/* Brand colors match dark mode exactly - #49EACB pops on light */
 .light .text-kaspa-green,
 .light .text-\[\#49EACB\] {
-  color: #0f766e !important;
+  color: #49EACB !important;
 }
 .light a {
-  color: #0f766e;
-  transition: color 0.15s ease;
+  color: #0f766e;  /* darker for body links, good contrast */
 }
 .light a:hover {
-  color: #0d9488;
+  color: #49EACB;
 }
 
-/* Premium Card System for light mode */
+/* Premium light glass and cards - clean white with soft depth */
 .light .glass-panel,
 .light .card,
 .light [class*="rounded-2xl"],
@@ -118,18 +114,18 @@ body {
 .light [class*="bg-black/"] {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 10px 15px -3px rgba(15, 23, 42, 0.04) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 6px -1px rgba(15, 23, 42, 0.03) !important;
   color: #0f172a;
-  backdrop-filter: none;
+  backdrop-filter: blur(8px);
 }
 
 .light .glass-heavy {
   background: #ffffff !important;
   border-color: #cbd5e1 !important;
-  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 20px 25px -5px rgba(15, 23, 42, 0.06) !important;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08) !important;
 }
 
-/* Better elevated surfaces */
+/* Elevated surfaces in light */
 .light .bg-\[\#1f1f1f\],
 .light .bg-zinc-950,
 .light .bg-\[\#11111a\],
@@ -138,7 +134,7 @@ body {
   border-color: #e2e8f0 !important;
 }
 
-/* Beautiful borders in light */
+/* Clean borders */
 .light .border-white\/5,
 .light .border-white\/\[0\.03\],
 .light .border-white\/\[0\.05\],
@@ -146,32 +142,30 @@ body {
 .light .border-white\/\[0\.08\],
 .light .border-white\/10,
 .light .border-white\/20,
-.light .border-white\/30 {
+.light .border-white\/30,
+.light .border-\[\#1f1f1f\] {
   border-color: #e2e8f0 !important;
 }
-.light .border-\[\#1f1f1f\] {
-  border-color: #cbd5e1 !important;
-}
 
-/* Nav / Header - clean elevated bar */
+/* Nav/Header - light elevated bar */
 .light nav,
 .light header,
 .light .fixed.top-0 {
   background: rgba(248, 250, 252, 0.95) !important;
   border-bottom: 1px solid #e2e8f0 !important;
   backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
 }
 
-/* COVEX brand in light mode - dark text, teal hover accent */
+/* Brand wordmark in light - dark text, brand accent on hover */
 .light .covex-brand span:first-child {
   color: #0f172a;
 }
 .light .group:hover .covex-brand span:first-child {
-  color: #0f766e;
+  color: #49EACB;
 }
 .light .covex-brand span:last-child {
-  color: #0f766e;
+  color: #49EACB;
 }
 .light .group:hover .covex-brand span:last-child {
   color: #0f172a;
@@ -183,32 +177,29 @@ body {
   color: #64748b !important;
 }
 
-/* Buttons - premium light versions */
+/* Buttons - brand matching, visible */
 .light .btn-kaspa-primary,
 .light button[class*="bg-\[#49EACB\]"] {
-  background: #0f766e !important;
-  color: white !important;
+  background: #49EACB !important;
+  color: #000 !important;
   border: none;
-  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.2), 0 1px 3px rgba(15, 118, 110, 0.1);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(73, 234, 203, 0.3);
 }
 .light .btn-kaspa-primary:hover {
-  background: #115e59 !important;
-  box-shadow: 0 4px 6px -1px rgba(15, 118, 110, 0.25);
-  transform: translateY(-1px);
+  background: #3cd8b6 !important;
+  box-shadow: 0 4px 6px -1px rgba(73, 234, 203, 0.3);
 }
 
 .light button[class*="border-white\/20"] {
   border-color: #cbd5e1 !important;
   color: #0f172a !important;
-  background: transparent;
 }
 .light button[class*="border-white\/20"]:hover {
   background: #f1f5f9 !important;
   border-color: #94a3b8 !important;
 }
 
-/* Ghost / subtle buttons */
+/* Ghost buttons */
 .light button[class*="hover:bg-white\/10"],
 .light .ghost {
   color: #475569;
@@ -219,7 +210,7 @@ body {
   color: #0f172a;
 }
 
-/* Inputs - clean and crisp */
+/* Inputs - clean white, dark text, brand focus */
 .light .cyber-input,
 .light .shadcn-input,
 .light input,
@@ -228,14 +219,13 @@ body {
   background: #ffffff !important;
   border: 1px solid #cbd5e1 !important;
   color: #0f172a !important;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 .light .cyber-input:focus,
 .light .shadcn-input:focus,
 .light input:focus,
 .light textarea:focus {
-  border-color: #0f766e !important;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12) !important;
+  border-color: #49EACB !important;
+  box-shadow: 0 0 0 3px rgba(73, 234, 203, 0.15) !important;
   outline: none;
 }
 .light input::placeholder,
@@ -243,7 +233,7 @@ body {
   color: #94a3b8 !important;
 }
 
-/* Cards & surfaces - the nicest possible */
+/* Cards - clean, modern, visible */
 .light .card,
 .light [class*="rounded-2xl border"],
 .light .featured-covenant-card,
@@ -251,7 +241,7 @@ body {
 .light section[class*="bg-black/30"] {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 10px 15px -3px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 6px -1px rgba(15, 23, 42, 0.03);
   color: #0f172a;
 }
 
@@ -262,38 +252,38 @@ body {
   border: 1px solid #99f6e4;
 }
 
-/* Tier glows - softer and more elegant in light */
+/* Tier glows - use brand colors but softer for light */
 .light .tier-glow-max {
-  box-shadow: 0 0 0 1px #7c3aed, 0 10px 15px -3px rgba(124, 58, 237, 0.12) !important;
+  box-shadow: 0 0 0 1px #7c3aed, 0 10px 15px -3px rgba(124, 58, 237, 0.1) !important;
 }
 .light .tier-glow-pro {
-  box-shadow: 0 0 0 1px #d97706, 0 10px 15px -3px rgba(217, 119, 6, 0.12) !important;
+  box-shadow: 0 0 0 1px #d97706, 0 10px 15px -3px rgba(217, 119, 6, 0.1) !important;
 }
 .light .tier-glow-builder {
-  box-shadow: 0 0 0 1px #2563eb, 0 10px 15px -3px rgba(37, 99, 235, 0.12) !important;
+  box-shadow: 0 0 0 1px #2563eb, 0 10px 15px -3px rgba(37, 99, 235, 0.1) !important;
 }
 
-/* Modals and overlays */
+/* Modals/overlays in light - clean light bg */
 .light .fixed.inset-0.z-\[100\] {
-  background: rgba(15, 23, 42, 0.6) !important;
+  background: rgba(248, 250, 252, 0.95) !important;
   backdrop-filter: blur(8px);
 }
 .light .modal-content,
 .light [class*="bg-\[\#0a0a0a\]"] {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   color: #0f172a;
 }
 
-/* Sticky bars and action rows */
+/* Sticky action bars */
 .light section[class*="sticky bottom"] {
   background: rgba(248, 250, 252, 0.96) !important;
   border-top: 1px solid #e2e8f0 !important;
   backdrop-filter: blur(12px);
 }
 
-/* Tables / Explorer rows */
+/* Explorer / tables */
 .light table,
 .light .explorer-row,
 .light [class*="border-b border-white"] {
@@ -303,34 +293,23 @@ body {
   background: #f1f5f9 !important;
 }
 
-/* Explorer tier cards & badges in light - make the colorful ones pop nicely without looking broken */
+/* Explorer tier visuals in light - brand matching, visible */
 .light .from-amber-500\/20,
 .light .border-amber-500\/30 {
-  background: linear-gradient(to bottom right, #fef3c7, transparent) !important;
+  background: linear-gradient(to bottom right, #fef3c7, #fff) !important;
   border-color: #fcd34d !important;
 }
-.light .text-amber-400 { color: #b45309 !important; }
+.light .text-amber-400 { color: #92400e !important; }
 .light .text-emerald-400 { color: #166534 !important; }
 .light .text-blue-400 { color: #1e40af !important; }
 
 .light .border-emerald-500\/25 { border-color: #86efac !important; }
 .light .border-blue-500\/20 { border-color: #93c5fd !important; }
 
-.light .shadow-\[0_0_24px_rgba\(245,158,11,0\.12\)\] {
-  box-shadow: 0 0 0 1px #b45309, 0 10px 15px -3px rgba(180, 83, 9, 0.1) !important;
-}
-.light .shadow-\[0_0_16px_rgba\(16,185,129,0\.10\)\] {
-  box-shadow: 0 0 0 1px #166534, 0 10px 15px -3px rgba(22, 101, 52, 0.1) !important;
-}
-.light .shadow-\[0_0_8px_rgba\(59,130,246,0\.08\)\] {
-  box-shadow: 0 0 0 1px #1e40af, 0 10px 15px -3px rgba(30, 64, 175, 0.1) !important;
-}
-
-/* More Explorer light polish - filters, glass cards, search */
+/* Glass in light - frosted white, brand accent border on focus */
 .light .glass-panel.rounded-2xl {
-  background: #fff !important;
+  background: rgba(255,255,255,0.9) !important;
   border-color: #e2e8f0 !important;
-  box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 10px 15px -3px rgba(15,23,42,.03) !important;
 }
 .light .bg-white\/\[0\.03\],
 .light .bg-white\/\[0\.015\] {
@@ -339,17 +318,67 @@ body {
 }
 .light .text-white\/70,
 .light .text-white\/40,
-.light .text-white\/80 {
-  color: #475569 !important;
-}
+.light .text-white\/80,
 .light .text-white\/50 {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 .light .hover\:text-white:hover {
   color: #0f172a !important;
 }
 .light .focus-within\:border-kaspa-green\/40:focus-within {
-  border-color: #0f766e !important;
+  border-color: #49EACB !important;
+}
+
+/* Game fullscreens chrome in light - light UI, keep boards dark for play */
+.light .fixed.inset-0.z-\[100\].bg-black\/95,
+.light .fixed.inset-0.z-\[100\].bg-black\/80 {
+  background: rgba(248, 250, 252, 0.96) !important;
+}
+.light [class*="bg-black\/60"],
+.light [class*="bg-black\/50"],
+.light [class*="bg-black\/40"] {
+  background: rgba(241, 245, 249, 0.85) !important;
+  border-color: #e2e8f0 !important;
+}
+.light .text-white,
+.light .text-white\/80,
+.light .text-white\/40,
+.light .text-white\/20 {
+  color: #0f172a !important;
+}
+
+/* Game boards - nice light chess/checker colors for visibility */
+.light .chess-square.light { background: #f0d9b5 !important; }
+.light .chess-square.dark { background: #b58863 !important; color: #fff; }
+.light .ck-light { background: #f0d9b5 !important; }
+.light .ck-dark { background: #b58863 !important; }
+
+/* Game felt (table) keep dark for immersion */
+.light [class*="felt"],
+.light .game-felt {
+  background: linear-gradient(145deg, #166534 0%, #14532d 100%) !important;
+}
+
+/* Code/pre in light */
+.light pre,
+.light code {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Scrollbars light */
+.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Selection */
+.light ::selection {
+  background: rgba(73, 234, 203, 0.2);
+  color: #0f172a;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -780,12 +809,5 @@ body {
    EXTRA: DAG Background - handled in DagBackground.jsx
    ═══════════════════════════════════════════════════════════════ */
 
-/* ═══════════════════════════════════════════════════════════════
-   EXTRA: Light mode white text in dark-background sections →
-   these are intentionally dark sections (game boards, code, etc.)
-   ═══════════════════════════════════════════════════════════════ */
-/* The game boards themselves keep dark text-on-dark for readability */
-.light [class*="bg-[#0a0a0a]"] [class*="text-white"],
-.light .bg-[#1f1f1f] .text-white {
-  color: #e2e8f0 !important;
-}
+/* Game boards keep dark for playability (standard for board games) */
+/* Chrome (headers, controls) is handled by the broad light overrides above for visible dark text on light surfaces */

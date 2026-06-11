@@ -69,9 +69,16 @@ const isSkillGame = (c) => {
 };
 
 const ALL_CATEGORIES = [
-  'All', 'Predictive Markets', 'Flash Covenants', 'Tournaments', 'Games & Matches',
+  'All',
+  // Core types
+  'Predictive Markets', 'Flash Covenants', 'Tournaments', 'Games & Matches',
   'Community Pools', 'ZK Oracle Tools', 'Escrow & Custody', 'Structured Settlement',
-  'Governance & DAO', 'Skill', 'VerifiableSkill', 'DeFi', 'Oracle', 'ZK', 'General'
+  'Governance & DAO', 'Skill', 'Verifiable Skill', 'DeFi', 'Oracle', 'ZK Proofs', 'General',
+  // Specific games & mechanics (for granular filtering)
+  'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe',
+  // Advanced / specialized
+  'Yield & Compounding', 'Auctions', 'Lotteries & Pots', 'Privacy Mixers', 'Timelocks',
+  'Milestone Escrows', 'Membership Claims', 'Multi-sig', 'Prediction Pools', 'Custom Logic'
 ];
 
 export default function Explorer() {
@@ -89,6 +96,7 @@ export default function Explorer() {
   const [showArena, setShowArena] = useState(false);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [showCategoryPanel, setShowCategoryPanel] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -163,13 +171,25 @@ export default function Explorer() {
   const filteredCovenants = activeCategory === 'All' 
     ? allCovenantsSorted 
     : allCovenantsSorted.filter(c => {
-        const cat = (c.category || c.covenant_type || '').toLowerCase();
+        const cat = (c.category || c.covenant_type || c.name || '').toLowerCase();
         const label = activeCategory.toLowerCase();
-        return cat.includes(label.replace(/ & | /g, '')) || 
-               cat.includes(label.split(' ')[0]) ||
-               (activeCategory === 'Games & Matches' && isSkillGame(c)) ||
-               (activeCategory === 'ZK Oracle Tools' && /zk|oracle|verifiable/i.test(cat)) ||
-               (activeCategory === 'DeFi' && /yield|pot|compound|defi/i.test(cat));
+        // Broad matching for verbose options + game-specific
+        if (activeCategory === 'Games & Matches' || activeCategory === 'Skill' || activeCategory === 'Verifiable Skill') return isSkillGame(c);
+        if (activeCategory === 'Chess') return /chess/i.test(cat) || /chess/i.test(c.covenant_type || '');
+        if (activeCategory === 'Poker') return /poker/i.test(cat);
+        if (activeCategory === 'Blackjack') return /blackjack/i.test(cat);
+        if (activeCategory === 'Dice & VRF' || activeCategory === 'RPS & Games') return /dice|vrf|rps|rock|reversi|tic/i.test(cat);
+        if (activeCategory === 'Connect4') return /connect.?4|connect4/i.test(cat);
+        if (activeCategory === 'ZK Proofs' || activeCategory === 'ZK Oracle Tools') return /zk|verifiable|oracle|range|merkle/i.test(cat);
+        if (activeCategory === 'DeFi' || activeCategory === 'Yield & Compounding') return /yield|defi|compound|pot|auction/i.test(cat);
+        if (activeCategory === 'Privacy Mixers') return /privacy|mixer|nullifier/i.test(cat);
+        if (activeCategory === 'Auctions') return /auction/i.test(cat);
+        if (activeCategory === 'Lotteries & Pots' || activeCategory === 'Community Pools') return /lottery|pot|community|pool/i.test(cat);
+        if (activeCategory === 'Timelocks' || activeCategory === 'Milestone Escrows') return /time|timelock|milestone|escrow/i.test(cat);
+        if (activeCategory === 'Membership Claims') return /claim|membership|merkle/i.test(cat);
+        if (activeCategory === 'Prediction Pools' || activeCategory === 'Predictive Markets') return /predict|bet|market/i.test(cat);
+        // Generic fallback
+        return cat.includes(label.replace(/ & | /g, '')) || cat.includes(label.split(' ')[0]) || label.includes(cat.split(' ')[0] || '');
       });
 
   // ARENA: only skill games created on Covex where someone is waiting
@@ -218,18 +238,37 @@ export default function Explorer() {
           ))}
         </div>
 
-        {/* More categories filter - matches backend + kaspa.com explorer style for better discovery */}
-        <div className="flex flex-wrap gap-1 justify-center mb-4 text-xs">
-          {ALL_CATEGORIES.map(cat => (
-            <button 
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-2 py-0.5 rounded border transition ${activeCategory === cat ? 'bg-white/10 border-white/30 text-white' : 'border-white/10 text-white/60 hover:text-white/90'}`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Category filter: single button that reveals all types/options when pressed (clean, not always listing everything) */}
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={() => setShowCategoryPanel(!showCategoryPanel)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm text-white/80 hover:text-white hover:border-white/20 transition-all"
+          >
+            <Layers size={16} className="text-kaspa-green" />
+            {activeCategory === 'All' ? 'All Covenant Types' : activeCategory}
+            <span className="text-xs opacity-60">▼</span>
+          </button>
         </div>
+
+        {showCategoryPanel && (
+          <div className="max-w-4xl mx-auto mb-6 p-4 rounded-2xl glass-panel border border-white/10">
+            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3 text-center">Filter by Covenant Type — click any to apply</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 text-xs">
+              {ALL_CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
+                  className={`px-3 py-2 rounded-xl border text-left transition-all ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 bg-white/[0.015] text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="text-center mt-3">
+              <button onClick={() => { setActiveCategory('All'); setShowCategoryPanel(false); }} className="text-[10px] text-white/50 hover:text-white underline">Clear / Show All Types</button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* CONTROLS - Explore / Search / Arena */}

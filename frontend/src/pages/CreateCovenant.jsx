@@ -186,7 +186,7 @@ contract ChessArena10min {
               }}
               className="w-full py-3 rounded-2xl bg-emerald-500 text-black font-bold text-sm active:scale-[0.985]"
             >
-              LOAD CHESS ARENA (10MIN WINNER-TAKES-ALL) TEMPLATE — auto 2% creator fee, transparent rules, 3 test addrs
+              LOAD CHESS ARENA (10MIN WINNER-TAKES-ALL) TEMPLATE - auto 2% creator fee, transparent rules, 3 test addrs
             </button>
             <div className="text-[10px] text-emerald-300/70 mt-2">After load, compile and deploy via wallet. Then view on hightable.pro/covenant/TX. Gets the full pro chess.com arena plus Fix tab for creator (login with creator wallet).</div>
           </div>

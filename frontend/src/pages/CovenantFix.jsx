@@ -502,7 +502,7 @@ export default function CovenantFix() {
                 disabled={publishing || !isCreatorOfSelected}
                 className="mt-4 w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <Save size={18} /> {publishing ? 'PUBLISHING TO PUBLIC...' : 'PUBLISH — Viewers see this exact look for this covenant instantly'}
+                <Save size={18} /> {publishing ? 'PUBLISHING TO PUBLIC...' : 'PUBLISH - Viewers see this exact look for this covenant instantly'}
               </button>
               <div className="text-[10px] text-center text-gray-500 mt-1.5">One click. The public page updates everywhere. No terminal for visitors.</div>
             </div>
@@ -510,7 +510,7 @@ export default function CovenantFix() {
             {/* LIVE PREVIEW - exactly what the public sees, updates with every click */}
             <div className="lg:col-span-3">
               <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2 flex items-center gap-2">
-                <Eye size={14}/> LIVE PUBLIC PREVIEW — Exactly what visitors see for this covenant
+                <Eye size={14}/> LIVE PUBLIC PREVIEW - Exactly what visitors see for this covenant
               </div>
               <div className="rounded-3xl overflow-hidden border border-white/10 bg-black" style={{height: '520px'}}>
                 {previewHtml ? (

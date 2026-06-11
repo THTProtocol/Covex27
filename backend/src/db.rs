@@ -349,6 +349,87 @@ pub fn get_all_covenants(
     Ok(result)
 }
 
+/// Paginated, filterable covenant query. Returns (page, total_matching).
+/// q matches name/type, description, category, tx_id and address (prefix or substring).
+pub fn query_covenants(
+    db: &Mutex<Connection>,
+    network: Option<&str>,
+    creator: Option<&str>,
+    q: Option<&str>,
+    category: Option<&str>,
+    limit: i64,
+    offset: i64,
+) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
+    let conn = db.lock().unwrap();
+    let mut where_clauses: Vec<String> = vec!["is_active = 1".to_string()];
+    let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    if let Some(net) = network {
+        args.push(Box::new(net.to_string()));
+        where_clauses.push(format!("network = ?{}", args.len()));
+    }
+    if let Some(c) = creator {
+        args.push(Box::new(c.to_string()));
+        where_clauses.push(format!("creator_addr = ?{}", args.len()));
+    }
+    if let Some(cat) = category {
+        args.push(Box::new(cat.to_string()));
+        where_clauses.push(format!("category = ?{}", args.len()));
+    }
+    if let Some(term) = q {
+        let like = format!("%{}%", term.replace('%', "").replace('_', ""));
+        args.push(Box::new(like));
+        let i = args.len();
+        where_clauses.push(format!(
+            "(covenant_type LIKE ?{i} OR description LIKE ?{i} OR category LIKE ?{i} OR tx_id LIKE ?{i} OR address LIKE ?{i})"
+        ));
+    }
+    let where_sql = where_clauses.join(" AND ");
+    let count_sql = format!("SELECT COUNT(*) FROM covenants WHERE {}", where_sql);
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> = args.iter().map(|b| b.as_ref()).collect();
+    let total: i64 = conn.query_row(&count_sql, params_ref.as_slice(), |r| r.get(0))?;
+
+    let sql = format!(
+        "{} WHERE {} ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC LIMIT {} OFFSET {}",
+        COVENANT_SELECT, where_sql, limit.clamp(1, 200), offset.max(0)
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_ref.as_slice(), |row| row_to_covenant(row))?;
+    let mut result = Vec::new();
+    for r in rows {
+        result.push(r?);
+    }
+    Ok((result, total))
+}
+
+/// Custom UI lookup for a single covenant (html, config) without loading the full map.
+pub fn get_generated_ui_for(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+) -> anyhow::Result<Option<(String, String)>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare(
+        "SELECT ui_html, ui_config FROM generated_uis WHERE covenant_id = ?1 ORDER BY ui_generated_at DESC LIMIT 1",
+    )?;
+    let mut rows = stmt.query_map(params![covenant_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    Ok(rows.next().transpose()?)
+}
+
+/// Set of covenant_ids that have a custom UI (cheap badge lookup for list pages).
+pub fn get_custom_ui_id_set(
+    db: &Mutex<Connection>,
+) -> anyhow::Result<std::collections::HashSet<String>> {
+    let conn = db.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT DISTINCT covenant_id FROM generated_uis")?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    let mut set = std::collections::HashSet::new();
+    for r in rows {
+        set.insert(r?);
+    }
+    Ok(set)
+}
+
 /// Resolve ui_config for a tier: glow + expanded for PRO/MAX, basic for others
 pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
     match tier {

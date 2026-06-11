@@ -1,5 +1,6 @@
 use axum::{
     extract::{Path, Query},
+    response::IntoResponse,
     routing::get,
     routing::post,
     Extension, Json, Router,
@@ -36,6 +37,18 @@ const DEFAULT_KASPA_NETWORK: &str = "testnet-12";
 async fn main() {
     // --- Load .env ---
     let _ = dotenvy::dotenv();
+
+    // Mainnet safety: a configured mainnet indexer MUST have a real oracle key.
+    // The compiled-in default key is for testnets only and never signs mainnet outcomes.
+    if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok()
+        && std::env::var("COVEX_ORACLE_KEY").is_err()
+    {
+        eprintln!(
+            "FATAL: KASPA_WRPC_URL_MAINNET is set but COVEX_ORACLE_KEY is not. \
+             Refusing to start with the default testnet oracle key on mainnet."
+        );
+        std::process::exit(1);
+    }
 
     // --- Init tracing ---
     let filter = EnvFilter::try_from_default_env()
@@ -267,11 +280,25 @@ async fn main() {
 
     // --- Routes ---
     let db_clone = db.clone();
-    let app = tower_http::cors::CorsLayer::permissive();
+    // CORS: same-origin product. Allow the production site + local dev; the API is
+    // public-read anyway, but locking origins blocks third-party browser abuse of
+    // the expensive POST endpoints.
+    let cors_origins = [
+        "https://hightable.pro".parse().unwrap(),
+        "https://www.hightable.pro".parse().unwrap(),
+        "http://localhost:5173".parse().unwrap(),
+        "http://127.0.0.1:5173".parse().unwrap(),
+    ];
+    let app = tower_http::cors::CorsLayer::new()
+        .allow_origin(cors_origins)
+        .allow_methods(tower_http::cors::Any)
+        .allow_headers(tower_http::cors::Any);
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/health", get(health_handler))
         .route("/covenants", get(covenants_handler))
+        .route("/covenants/:covenant_id", get(covenant_by_id_handler))
+        .route("/compile", post(compile_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .route("/paid-status", get(paid_status_handler))
@@ -309,6 +336,10 @@ async fn main() {
         .merge(mixer::mixer_routes().layer(Extension(db.clone())))
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))
         .layer(app)
+        // Per-IP token bucket on expensive routes (oracle verifies spawn Node, compile
+        // spawns silverc, sign-and-broadcast hits wRPC). GETs on list endpoints are cheap
+        // post-pagination and stay unthrottled.
+        .layer(axum::middleware::from_fn(rate_limit_middleware))
         // Basic protection (P0): concurrency limit to prevent too many simultaneous heavy requests
         // (oracle ZK verifies, deploys, mixer). Protects the backend while we add time-based rate later.
         // 64 max in-flight is generous for normal load + test bursts.
@@ -318,6 +349,72 @@ async fn main() {
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();
+}
+
+/// Per-IP token bucket for expensive routes. 20 burst, refills 2/sec.
+/// Keyed on X-Forwarded-For (nginx) falling back to X-Real-IP. No external deps.
+async fn rate_limit_middleware(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use std::collections::HashMap;
+    use std::sync::OnceLock;
+    use std::time::Instant;
+    static BUCKETS: OnceLock<std::sync::Mutex<HashMap<String, (f64, Instant)>>> = OnceLock::new();
+
+    let path = req.uri().path();
+    let expensive = matches!(
+        path,
+        "/compile" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
+    ) || path.starts_with("/oracle/")
+        || path.starts_with("/mixer/")
+        || (req.method() == axum::http::Method::POST && path.starts_with("/covenant/"));
+    if !expensive {
+        return next.run(req).await;
+    }
+
+    let ip = req
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .or_else(|| {
+            req.headers()
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+        })
+        .unwrap_or("unknown")
+        .trim()
+        .to_string();
+
+    let allowed = {
+        let buckets = BUCKETS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+        let mut map = buckets.lock().unwrap();
+        if map.len() > 10_000 {
+            map.clear(); // crude memory bound; resets all buckets
+        }
+        let now = Instant::now();
+        let entry = map.entry(ip).or_insert((20.0, now));
+        let elapsed = now.duration_since(entry.1).as_secs_f64();
+        entry.0 = (entry.0 + elapsed * 2.0).min(20.0);
+        entry.1 = now;
+        if entry.0 >= 1.0 {
+            entry.0 -= 1.0;
+            true
+        } else {
+            false
+        }
+    };
+
+    if allowed {
+        next.run(req).await
+    } else {
+        (
+            axum::http::StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "rate limit exceeded, slow down"})),
+        )
+            .into_response()
+    }
 }
 
 fn get_git_commit() -> String {
@@ -435,72 +532,149 @@ async fn status_handler(
     }))
 }
 
+/// Compact list representation: heavy fields (script_hex, custom_ui_html) are
+/// NEVER returned on list endpoints. Detail pages use GET /covenants/:id.
+fn covenant_summary_json(
+    c: &db::DbCovenant,
+    has_custom_ui: bool,
+    ui_config: serde_json::Value,
+) -> serde_json::Value {
+    json!({
+        "tx_id": c.tx_id,
+        "address": c.address,
+        "amount_kaspa": c.amount_kaspa,
+        "script_hash": c.script_hash,
+        "covenant_type": c.covenant_type,
+        "category": c.category,
+        "creator_addr": c.creator_addr,
+        "description": c.description,
+        "verified_tier": c.verified_tier,
+        "custom_ui_enabled": c.custom_ui_enabled,
+        "has_custom_ui": has_custom_ui,
+        "full_logic_summary": c.full_logic_summary,
+        "is_active": c.is_active,
+        "block_daa_score": c.block_daa_score,
+        "timestamp": c.timestamp,
+        "name": c.covenant_type,
+        "tier": c.verified_tier,
+        "network": c.network,
+        "custom_ui_config": ui_config,
+    })
+}
+
 async fn covenants_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let network_filter = params.get("network").map(|s| s.as_str());
-    let records = if let Some(creator_addr) = params.get("creator").filter(|s| !s.is_empty()) {
-        match db::get_covenants_by_creator(&db, creator_addr, network_filter) {
-            Ok(recs) => recs,
-            Err(e) => {
-                error!(
-                    "Failed to query covenants by creator '{}': {}",
-                    creator_addr, e
-                );
-                return Json(json!({"total": 0, "covenants": [], "error": e.to_string()}));
-            }
-        }
-    } else {
-        match db::get_all_covenants(&db, network_filter) {
-            Ok(recs) => recs,
-            Err(e) => {
-                error!("Failed to query all covenants: {}", e);
-                return Json(json!({"total": 0, "covenants": [], "error": e.to_string()}));
-            }
-        }
-    };
+    let creator = params
+        .get("creator")
+        .filter(|s| !s.is_empty())
+        .map(|s| s.as_str());
+    let q = params
+        .get("q")
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.as_str());
+    let category = params
+        .get("category")
+        .filter(|s| !s.is_empty() && s.as_str() != "all")
+        .map(|s| s.as_str());
+    let limit: i64 = params
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(60);
+    let limit = limit.clamp(1, 200);
+    let offset: i64 = params
+        .get("offset")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0)
+        .max(0);
 
-    let total = records.len();
-    let uis_map = db::get_all_generated_uis_map(&db).unwrap_or_default();
+    let (records, total) =
+        match db::query_covenants(&db, network_filter, creator, q, category, limit, offset) {
+            Ok(r) => r,
+            Err(e) => {
+                error!("Failed to query covenants: {}", e);
+                return Json(json!({"total": 0, "covenants": [], "error": e.to_string()}));
+            }
+        };
+
+    let ui_ids = db::get_custom_ui_id_set(&db).unwrap_or_default();
     let list: Vec<serde_json::Value> = records
-        .into_iter()
+        .iter()
         .map(|c| {
-            let tx_id = c.tx_id.clone();
-            let custom_ui_html = uis_map
-                .get(&tx_id)
-                .map(|(html, _)| html.clone())
-                .unwrap_or_default();
-            let custom_ui_config = uis_map
-                .get(&tx_id)
-                .and_then(|(_, cfg)| serde_json::from_str::<serde_json::Value>(cfg).ok());
-            let ui_config_display =
-                custom_ui_config.unwrap_or_else(|| db::ui_config_for_tier(&c.verified_tier));
-            json!({
-                "tx_id": tx_id,
-                "address": c.address,
-                "amount_kaspa": c.amount_kaspa,
-                "script_hash": c.script_hash,
-                "script_hex": c.script_hex,
-                "covenant_type": c.covenant_type,
-                "category": c.category,
-                "creator_addr": c.creator_addr,
-                "description": c.description,
-                "verified_tier": c.verified_tier,
-                "custom_ui_enabled": c.custom_ui_enabled,
-                "full_logic_summary": c.full_logic_summary,
-                "is_active": c.is_active,
-                "block_daa_score": c.block_daa_score,
-                "timestamp": c.timestamp,
-                "name": c.covenant_type,
-                "tier": c.verified_tier,
-                "network": c.network,
-                "custom_ui_html": custom_ui_html,
-                "custom_ui_config": ui_config_display,
-            })
+            covenant_summary_json(
+                c,
+                ui_ids.contains(&c.tx_id),
+                db::ui_config_for_tier(&c.verified_tier),
+            )
         })
         .collect();
-    Json(json!({"total": total, "covenants": list}))
+    Json(json!({
+        "total": total,
+        "covenants": list,
+        "limit": limit,
+        "offset": offset
+    }))
+}
+
+/// Full single-covenant detail, including script_hex and custom UI payloads.
+async fn covenant_by_id_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    axum::extract::Path(covenant_id): axum::extract::Path<String>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => {
+            let ui = db::get_generated_ui_for(&db, &c.tx_id).unwrap_or_default();
+            let (custom_ui_html, ui_cfg_raw) = ui.unwrap_or_default();
+            let custom_ui_config = serde_json::from_str::<serde_json::Value>(&ui_cfg_raw)
+                .unwrap_or_else(|_| db::ui_config_for_tier(&c.verified_tier));
+            let mut v = covenant_summary_json(&c, !custom_ui_html.is_empty(), custom_ui_config);
+            v["script_hex"] = json!(c.script_hex);
+            v["custom_ui_html"] = json!(custom_ui_html);
+            v["receiving_addresses"] = json!(c.receiving_addresses);
+            Ok(Json(json!({"covenant": v})))
+        }
+        Ok(None) => Err((
+            axum::http::StatusCode::NOT_FOUND,
+            Json(json!({"error": "covenant not found"})),
+        )),
+        Err(e) => Err((
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct CompileRequest {
+    source: String,
+}
+
+/// Compile Covex DSL to SilverScript bytecode (preview path for the editor).
+async fn compile_handler(
+    Json(req): Json<CompileRequest>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    if req.source.len() > 64 * 1024 {
+        return Err((
+            axum::http::StatusCode::PAYLOAD_TOO_LARGE,
+            Json(json!({"error": "source too large (max 64KB)"})),
+        ));
+    }
+    match compiler::compile_dsl(&req.source) {
+        Ok(out) => Ok(Json(json!({
+            "success": true,
+            "contract_name": out.contract_name,
+            "script_hex": out.script_hex,
+            "payload_hex": out.payload_hex,
+            "bytecode_len": out.bytecode.len(),
+            "abi": out.abi_json,
+        }))),
+        Err(e) => Err((
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(json!({"success": false, "error": e.to_string()})),
+        )),
+    }
 }
 
 async fn tiers_handler() -> Json<serde_json::Value> {

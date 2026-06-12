@@ -515,8 +515,19 @@ export default function Explorer() {
             {!loading && covenants.length === 0 && (
               <div className="glass-panel rounded-2xl p-10 text-center">
                 <Layers size={40} className="mx-auto text-gray-200 mb-3" />
-                <p className="text-lg font-semibold text-white mb-1">No covenants detected yet</p>
-                <p className="text-sm text-gray-300">The Kaspa node is still syncing. Covenants will appear automatically.</p>
+                {kaspaNetwork === 'mainnet' ? (
+                  <>
+                    <p className="text-lg font-semibold text-white mb-1">No covenants on mainnet yet</p>
+                    <p className="text-sm text-gray-300 max-w-md mx-auto">
+                      SilverScript covenants activate on Kaspa mainnet with the Toccata hard fork (June 2026 window). Covex runs a live mainnet node and indexes in real time; the first real covenant appears here the moment it lands. Covenants are live now on Toccata TN12.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-semibold text-white mb-1">No covenants detected yet</p>
+                    <p className="text-sm text-gray-300">The Kaspa node is still syncing. Covenants will appear automatically.</p>
+                  </>
+                )}
               </div>
             )}
             {!loading && covenants.length > 0 && (

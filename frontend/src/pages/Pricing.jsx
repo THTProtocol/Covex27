@@ -259,6 +259,11 @@ const Pricing = () => {
 
   return (
     <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+      {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reason') === 'advanced' && (
+        <div className="max-w-2xl mx-auto mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm text-center">
+          The Advanced Composer is part of the paid Terminal. Pick a tier below to unlock it.
+        </div>
+      )}
       <div className="text-center max-w-2xl mx-auto mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Deploy Interactive Covenants</h1>
         <p className="text-base md:text-lg text-gray-300 leading-relaxed">

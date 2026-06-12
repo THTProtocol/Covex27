@@ -610,11 +610,21 @@ async fn covenants_handler(
             )
         })
         .collect();
+    // Header aggregates ride along on the first page so the explorer needs no
+    // second round-trip and never downloads the full set for stats.
+    let stats = if offset == 0 {
+        db::covenant_stats(&db, network_filter)
+            .map(|(t, paid, tvl)| json!({"total": t, "paid": paid, "tvl_kas": tvl}))
+            .unwrap_or(serde_json::Value::Null)
+    } else {
+        serde_json::Value::Null
+    };
     Json(json!({
         "total": total,
         "covenants": list,
         "limit": limit,
-        "offset": offset
+        "offset": offset,
+        "stats": stats
     }))
 }
 

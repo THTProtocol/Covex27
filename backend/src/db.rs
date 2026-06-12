@@ -409,6 +409,27 @@ pub fn query_covenants(
     Ok((result, total))
 }
 
+/// Network-scoped aggregates for the explorer header: (total, paid, tvl_kas).
+pub fn covenant_stats(
+    db: &Mutex<Connection>,
+    network: Option<&str>,
+) -> anyhow::Result<(i64, i64, f64)> {
+    let conn = db.lock().unwrap();
+    let sql_base = "SELECT COUNT(*), COALESCE(SUM(CASE WHEN verified_tier != 'FREE' THEN 1 ELSE 0 END), 0), COALESCE(SUM(amount_kaspa), 0) FROM covenants WHERE is_active = 1";
+    let row = if let Some(net) = network {
+        conn.query_row(
+            &format!("{} AND network = ?1", sql_base),
+            params![net],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?)),
+        )?
+    } else {
+        conn.query_row(sql_base, [], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?))
+        })?
+    };
+    Ok(row)
+}
+
 /// Custom UI lookup for a single covenant (html, config) without loading the full map.
 pub fn get_generated_ui_for(
     db: &Mutex<Connection>,

@@ -149,24 +149,16 @@ export default function Explorer() {
         const list = (Array.isArray(data.covenants) ? data.covenants : []);
         setCovenants(list);
         setHasMore((data.total || 0) > list.length);
-        setStats(prev => ({ ...prev, total: data.total || list.length }));
+        setStats(prev => ({
+          ...prev,
+          total: data.total || list.length,
+          paidCount: data.stats?.paid ?? prev.paidCount,
+          totalTVL: data.stats?.tvl_kas ?? prev.totalTVL,
+        }));
         setLoading(false);
       })
       .catch(() => { setError('Could not load covenants'); setLoading(false); });
   }, [kaspaNetwork, activeCategory, buildListUrl]);
-
-  // Global stats (paid count, TVL) come from the analytics endpoint instead of
-  // downloading the entire covenant set.
-  useEffect(() => {
-    fetch(`/api/analytics?network=${kaspaNetwork}`)
-      .then(r => r.json())
-      .then(d => setStats(prev => ({
-        ...prev,
-        paidCount: d.verified_covenants ?? prev.paidCount,
-        totalTVL: d.total_value_kas ?? prev.totalTVL,
-      })))
-      .catch(() => {});
-  }, [kaspaNetwork]);
 
   const loadMore = useCallback(() => {
     const nextOffset = offset + PAGE_SIZE;

@@ -569,6 +569,17 @@ export default function CovenantInteractive() {
             )}
           </div>
 
+          {/* Creator-set background image behind the covenant page, dimmed for readability */}
+          {covenant?.custom_ui_config?.theme?.background_image && (
+            <div className="fixed inset-0 -z-10 pointer-events-none">
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${covenant.custom_ui_config.theme.background_image})` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-[#05050A]/80 via-[#05050A]/70 to-[#05050A]/95" />
+            </div>
+          )}
+
           {/* Lifecycle timeline + resolution trust: always visible, never hideable */}
           {covenant && (
             <div className="mb-6 glass-panel rounded-xl p-4 border border-white/[0.06]">

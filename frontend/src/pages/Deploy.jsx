@@ -68,6 +68,7 @@ export default function Deploy() {
   const [category, setCategory] = useState('');
   const [circuitId, setCircuitId] = useState('none');
   const [accentColor, setAccentColor] = useState('#49EACB');
+  const [bgImage, setBgImage] = useState('');
   const [uiPreset, setUiPreset] = useState('dark-glass');
   const [templateIndex, setTemplateIndex] = useState(0);
   const [feePercent, setFeePercent] = useState(2);
@@ -487,7 +488,7 @@ export default function Deploy() {
             covenant_type: category || 'general', category: category || 'general', accent: accentColor,
             ui_preset: uiPreset, use_dev_mode: true, network: net,
             custom_ui_config: { 
-              theme: { accent: accentColor, preset: uiPreset }, 
+              theme: { accent: accentColor, preset: uiPreset, background_image: bgImage || null }, 
               category, 
               circuit: circuitId !== 'none' ? circuitId : null,
               // Advanced builder data (only present if unlocked)
@@ -697,6 +698,32 @@ export default function Deploy() {
                   {['#49EACB', '#A855F7', '#E8AF34', '#3B82F6', '#EF4444', '#22C55E', '#F97316', '#EC4899', '#14B8A6', '#EAB308'].map(c => (
                     <button key={c} onClick={() => setAccentColor(c)} className="w-7 h-7 rounded-lg border transition-all" style={{ backgroundColor: c + '20', borderColor: accentColor === c ? c : 'transparent', boxShadow: accentColor === c ? `0 0 8px ${c}40` : 'none' }} />))}
                 </div></div></label>
+            <label className="block"><span className="text-xs text-gray-400 block mb-2">Covenant Background Image (shown behind your covenant page)</span>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  value={bgImage.startsWith('data:') ? '' : bgImage}
+                  onChange={e => setBgImage(e.target.value)}
+                  placeholder="https://... image URL"
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500 focus:border-[#49EACB]/50 outline-none"
+                />
+                <label className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-gray-300 hover:border-[#49EACB]/40 cursor-pointer text-center">
+                  Upload
+                  <input type="file" accept="image/*" className="hidden" onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    if (f.size > 600 * 1024) { alert('Image too large. Keep it under 600KB.'); return; }
+                    const r = new FileReader();
+                    r.onload = () => setBgImage(String(r.result));
+                    r.readAsDataURL(f);
+                  }} />
+                </label>
+                {bgImage && <button onClick={() => setBgImage('')} className="px-3 py-2.5 rounded-xl border border-red-500/30 text-red-300 text-sm">Clear</button>}
+              </div>
+              {bgImage && (
+                <div className="mt-3 h-24 rounded-xl border border-white/10 bg-cover bg-center" style={{ backgroundImage: `url(${bgImage})` }} />
+              )}
+            </label>
           </div>
 
           {!address && <div className="glass-panel rounded-2xl p-4 text-center"><p className="text-sm text-gray-400 mb-3">Connect a wallet to deploy on-chain</p><DevConnectPanel compact /></div>}

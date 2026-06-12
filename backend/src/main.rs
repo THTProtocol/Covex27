@@ -369,6 +369,7 @@ async fn main() {
         .route("/analytics", get(analytics_handler))
         .route("/stats", get(platform_stats_handler))
         .route("/og/covenant/:covenant_id", get(og_covenant_handler))
+        .route("/og-card/:covenant_id", get(og_card_handler))
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
@@ -1134,7 +1135,16 @@ async fn og_covenant_handler(
     axum::extract::Path(covenant_id): axum::extract::Path<String>,
 ) -> axum::response::Html<String> {
     let canonical = format!("https://hightable.pro/covenant/{}", covenant_id);
-    let image = "https://hightable.pro/og-cover.png";
+    // Per-covenant card if the covenant is indexed; branded cover otherwise.
+    let found = matches!(db::get_covenant_by_txid(&db, &covenant_id), Ok(Some(_)));
+    let image = if found {
+        format!(
+            "https://hightable.pro/api/og-card/{}",
+            urlencoding_path(&covenant_id)
+        )
+    } else {
+        "https://hightable.pro/og-cover.png".to_string()
+    };
 
     let (title, description) = match db::get_covenant_by_txid(&db, &covenant_id) {
         Ok(Some(c)) => {
@@ -1206,6 +1216,180 @@ async fn og_covenant_handler(
         image = image,
     );
     axum::response::Html(html)
+}
+
+/// Percent-encode the characters that are awkward in an og:image URL path
+/// (covenant ids can be `<txid>:<index>`; some crawlers mishandle a bare ':').
+fn urlencoding_path(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 8);
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            _ => out.push_str(&format!("%{:02X}", b)),
+        }
+    }
+    out
+}
+
+/// XML-escape for SVG text nodes.
+fn svg_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+/// Build a 1200x630 branded Open Graph card SVG for a covenant.
+fn covenant_og_card_svg(c: &db::DbCovenant) -> String {
+    let truncate = |s: &str, n: usize| -> String {
+        let s = s.trim();
+        if s.chars().count() > n {
+            let t: String = s.chars().take(n.saturating_sub(1)).collect();
+            format!("{}…", t.trim_end())
+        } else {
+            s.to_string()
+        }
+    };
+    let label = if c.covenant_type.trim().is_empty() { "Covenant" } else { &c.covenant_type };
+    let name = svg_escape(&truncate(label, 22));
+    let category = svg_escape(&truncate(if c.category.trim().is_empty() { "general" } else { &c.category }, 28));
+    let net = match c.network.as_str() {
+        "mainnet" => "Kaspa Mainnet",
+        "testnet-10" => "Kaspa TN10",
+        _ => "Kaspa TN12",
+    };
+    let tier = c.verified_tier.as_str();
+    let tier_color = match tier {
+        "MAX" => "#EF4444",
+        "PRO" => "#F59E0B",
+        "BUILDER" => "#49EACB",
+        _ => "#6B7280",
+    };
+    let tier_label = if tier.is_empty() { "EXPLORER" } else { tier };
+    let amount = if c.amount_kaspa >= 1000.0 {
+        format!("{:.0} KAS", c.amount_kaspa)
+    } else {
+        format!("{:.2} KAS", c.amount_kaspa)
+    };
+
+    format!(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a1018"/><stop offset="0.55" stop-color="#0e1726"/><stop offset="1" stop-color="#0b2430"/></linearGradient>
+    <linearGradient id="ft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d7fbf4"/><stop offset="1" stop-color="#7fe9d8"/></linearGradient>
+    <linearGradient id="fl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cead3"/><stop offset="1" stop-color="#2bb6a3"/></linearGradient>
+    <linearGradient id="fr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#33c6b2"/><stop offset="1" stop-color="#178f80"/></linearGradient>
+    <linearGradient id="fb" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#eafffb"/><stop offset="0.5" stop-color="#49EACB"/><stop offset="1" stop-color="#1c9d8c"/></linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1200" height="630" fill="none" stroke="#49EACB" stroke-opacity="0.18" stroke-width="2"/>
+  <g transform="translate(72 54) scale(1.15)">
+    <path fill-rule="evenodd" fill="url(#fb)" d="M32 4 L56 18 L56 26 L44 19 L32 12 L14 22.5 L14 41.5 L32 52 L44 45 L56 38 L56 46 L32 60 L8 46 L8 18 Z"/>
+    <g><path d="M49 17 L55 20.4 L49 23.8 L43 20.4 Z" fill="url(#ft)"/><path d="M43 20.4 L49 23.8 L49 30.6 L43 27.2 Z" fill="url(#fl)"/><path d="M55 20.4 L49 23.8 L49 30.6 L55 27.2 Z" fill="url(#fr)"/></g>
+    <g><path d="M32 25 L39 29 L32 33 L25 29 Z" fill="url(#ft)"/><path d="M25 29 L32 33 L32 41 L25 37 Z" fill="url(#fl)"/><path d="M39 29 L32 33 L32 41 L39 37 Z" fill="url(#fr)"/></g>
+    <g><path d="M49 40.2 L55 43.6 L49 47 L43 43.6 Z" fill="url(#ft)"/><path d="M43 43.6 L49 47 L49 53.8 L43 50.4 Z" fill="url(#fl)"/><path d="M55 43.6 L49 47 L49 53.8 L55 50.4 Z" fill="url(#fr)"/></g>
+  </g>
+  <text x="162" y="108" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="40" font-weight="800" letter-spacing="8" fill="#E8F6F3">COVEX</text>
+  <rect x="{badge_x}" y="62" width="{badge_w}" height="52" rx="26" fill="{tier_color}" fill-opacity="0.16" stroke="{tier_color}" stroke-opacity="0.7"/>
+  <text x="{badge_cx}" y="96" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="26" font-weight="700" letter-spacing="3" fill="{tier_color}">{tier_label}</text>
+  <text x="72" y="330" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="92" font-weight="800" fill="#FFFFFF">{name}</text>
+  <text x="72" y="412" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#49EACB">{amount}</text>
+  <text x="72" y="470" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="1" fill="#9fb8c9">{net}  ·  {category}</text>
+  <line x1="72" y1="540" x2="1128" y2="540" stroke="#49EACB" stroke-opacity="0.18" stroke-width="2"/>
+  <text x="72" y="586" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="24" font-weight="500" letter-spacing="1" fill="#5f7a8a">hightable.pro  ·  the covenant explorer and studio for Kaspa</text>
+</svg>"##,
+        name = name,
+        amount = svg_escape(&amount),
+        net = net,
+        category = category,
+        tier_color = tier_color,
+        tier_label = svg_escape(tier_label),
+        badge_x = 1128 - (tier_label.len() as i32 * 18 + 56),
+        badge_w = tier_label.len() as i32 * 18 + 56,
+        badge_cx = 1128 - (tier_label.len() as i32 * 18 + 56) / 2,
+    )
+}
+
+/// Rasterize an SVG string to PNG bytes via librsvg (rsvg-convert). Blocking.
+fn rasterize_svg_png(svg: &str) -> Option<Vec<u8>> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("rsvg-convert")
+        .args(["-w", "1200", "-h", "630", "-f", "png"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    {
+        let mut si = child.stdin.take()?;
+        si.write_all(svg.as_bytes()).ok()?;
+        // si dropped here -> stdin EOF so rsvg-convert finishes reading
+    }
+    let out = child.wait_with_output().ok()?;
+    if out.status.success() && !out.stdout.is_empty() {
+        Some(out.stdout)
+    } else {
+        None
+    }
+}
+
+static OG_CARD_CACHE: std::sync::OnceLock<Mutex<HashMap<String, Arc<Vec<u8>>>>> =
+    std::sync::OnceLock::new();
+
+/// GET /og-card/:id (reached via nginx /api/og-card/:id): a per-covenant PNG
+/// social card. Cached by (id, tier, amount) so a covenant only rasterizes once
+/// until its tier/value changes. Falls back to a redirect to the static cover
+/// if the covenant is unknown or rasterization is unavailable.
+async fn og_card_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    axum::extract::Path(covenant_id): axum::extract::Path<String>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+
+    let fallback = || {
+        axum::response::Redirect::temporary("https://hightable.pro/og-cover.png").into_response()
+    };
+
+    let cov = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => c,
+        _ => return fallback(),
+    };
+    let cache_key = format!("{}|{}|{:.4}", covenant_id, cov.verified_tier, cov.amount_kaspa);
+
+    let cache = OG_CARD_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(bytes) = cache.lock().unwrap().get(&cache_key).cloned() {
+        return png_response(bytes);
+    }
+
+    let svg = covenant_og_card_svg(&cov);
+    let rendered = tokio::task::spawn_blocking(move || rasterize_svg_png(&svg))
+        .await
+        .ok()
+        .flatten();
+    let bytes = match rendered {
+        Some(b) => Arc::new(b),
+        None => return fallback(),
+    };
+
+    {
+        let mut map = cache.lock().unwrap();
+        if map.len() >= 1000 {
+            map.clear(); // simple bound; cards regenerate on demand
+        }
+        map.insert(cache_key, Arc::clone(&bytes));
+    }
+    png_response(bytes)
+}
+
+fn png_response(bytes: Arc<Vec<u8>>) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/png")],
+        (*bytes).clone(),
+    )
+        .into_response()
 }
 
 /// GET /stats[?network=] : public platform statistics aggregated live from the

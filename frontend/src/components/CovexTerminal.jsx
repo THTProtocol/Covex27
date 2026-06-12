@@ -1020,7 +1020,6 @@ contract VisualCovenant {
   // ── Poker State (stake match → full screen pro table) ──
   const [showFullScreenPoker, setShowFullScreenPoker] = useState(false);
   const [pokerStake, setPokerStake] = useState(100);
-  const [pokerMatchState, setPokerMatchState] = useState('idle'); // idle | posted | matched | playing
 
   // ── Blackjack State (stake match → full screen pro table) ──
   const [showFullScreenBlackjack, setShowFullScreenBlackjack] = useState(false);
@@ -1436,14 +1435,6 @@ ${gameMeta.outcomeBranches}
       setBlackTime(5 * 60 * 1000);
     }, 650);
   }, [chessStake]);
-
-  // Simple stake match helpers for poker and blackjack (same pattern as chess)
-  const postPokerStake = useCallback(() => {
-    setPokerMatchState('posted');
-  }, []);
-  const acceptPokerMatch = useCallback(() => {
-    setPokerMatchState('matched');
-  }, []);
 
   // ── Persistent skill-game arenas: the table itself handles join/seats/turns
   // against /api/games via useGameSync, so opening it is the whole flow ──
@@ -2855,24 +2846,16 @@ ${gameMeta.outcomeBranches}
               <Play size={16} className="text-emerald-400" />
             </div>
             <span>Poker Pro Table (Texas Hold'em)</span>
-            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 font-mono border border-amber-400/30">LOCAL DEMO</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 font-mono border border-emerald-400/30">LIVE MULTIPLAYER</span>
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-emerald-400 font-mono">{pokerStake} KAS STAKE • 2% FEE</div>
             <div className="text-[10px] text-gray-400 -mt-0.5">Each side stakes equally • Oracle attested result</div>
-            {pokerMatchState === 'matched' && (
-              <button
-                onClick={() => { setShowFullScreenPoker(true); setPokerMatchState('playing'); }}
-                className="mt-1 px-3 py-1 text-[10px] rounded-lg bg-white text-black font-bold flex items-center gap-1 hover:bg-[#49EACB] active:scale-[0.985] transition-all"
-              >
-                <Play size={12} /> LAUNCH FULL SCREEN PRO TABLE
-              </button>
-            )}
           </div>
         </div>
 
         <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-          Professional Texas Hold'em table. Stake match gate ensures equal risk. Full-screen table with hole cards, community cards, betting actions, and live oracle result attestation after showdown. Real ZK hand ranking proofs coming as silverc matures.
+          Real heads-up No-Limit Hold'em against another wallet. Every deal is committed before any card is visible (sha256 of the deck seed, published on the table) and the seed is revealed after each hand, so both players can verify the deal was fixed in advance. Hole cards stay private behind wallet-signed table sessions. Chips are score units; the covenant pot pays the match winner through the oracle claim flow.
         </p>
 
         {/* Compact stake summary */}
@@ -2885,7 +2868,7 @@ ${gameMeta.outcomeBranches}
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
             <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{pokerStake * 2} KAS</div>
-            <div className="text-[11px] text-rose-400/90">-2% fee • {pokerMatchState === 'matched' ? 'STAKES MATCHED - READY' : 'WAITING FOR MATCH'}</div>
+            <div className="text-[11px] text-rose-400/90">-2% fee • COMMITMENT-VERIFIED DEALS</div>
           </div>
         </div>
 
@@ -2905,45 +2888,21 @@ ${gameMeta.outcomeBranches}
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
-              {pokerMatchState === 'idle' && 'LOCAL DEMO: the opponent is simulated. Real hidden-hand multiplayer needs signed moves + mental-poker dealing; it ships with the wallet-auth layer.'}
-              {pokerMatchState === 'posted' && 'Simulated opponent matching your stake (demo)...'}
-              {pokerMatchState === 'matched' && 'DEMO STAKES MATCHED - launch the local table'}
-              {pokerMatchState === 'playing' && 'LOCAL TABLE ACTIVE - demo play in full screen'}
+              Take a seat at the full-screen table: first wallet sits as P1 and waits, the second activates the match. Blinds 1/2, 100 chips each, winner takes the covenant pot.
             </div>
             <div>
-              {pokerMatchState === 'idle' && (
-                <button
-                  onClick={postPokerStake}
-                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
-                >
-                  POST {pokerStake} KAS - OPEN FOR MATCH
-                </button>
-              )}
-              {pokerMatchState === 'posted' && (
-                <button
-                  onClick={acceptPokerMatch}
-                  className="w-full h-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-sm active:scale-[0.985] transition-all"
-                >
-                  MATCH STAKE & JOIN (SIMULATED)
-                </button>
-              )}
-              {pokerMatchState === 'matched' && (
-                <button
-                  onClick={() => { setShowFullScreenPoker(true); setPokerMatchState('playing'); }}
-                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm"
-                >
-                  LAUNCH FULL SCREEN PRO TABLE
-                </button>
-              )}
-              {pokerMatchState === 'playing' && (
-                <div className="text-center py-2 text-emerald-400 font-semibold">PLAYING IN FULL SCREEN</div>
-              )}
+              <button
+                onClick={() => setShowFullScreenPoker(true)}
+                className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
+              >
+                OPEN POKER TABLE - {pokerStake} KAS SEAT
+              </button>
             </div>
           </div>
         </div>
 
         <div className="text-[10px] text-gray-400 px-1">
-          Stake match gate keeps it fair. Full-screen pro table with hole cards, community cards, betting actions (fold/call/raise), showdown, and live oracle attestation of result. Real ZK hand ranking proofs coming as circuits mature.
+          Oracle-dealt with a published deck commitment before every hand, seed revealed after; the client re-verifies each deal. Fold/check/call/bet/raise, all-in runouts, multi-hand chip play. Real ZK hand ranking proofs coming as circuits mature.
         </div>
       </section>
 
@@ -3185,7 +3144,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenPoker && (
         <FullScreenPoker
           stake={pokerStake}
-          onClose={() => { setShowFullScreenPoker(false); setPokerMatchState('idle'); }}
+          onClose={() => { setShowFullScreenPoker(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}

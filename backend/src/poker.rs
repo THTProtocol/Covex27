@@ -13,7 +13,7 @@
 //!   - cards 0..52, index = suit*13 + (rank-2); suits [c,d,h,s]; rank 2..=14
 //!   - byte stream: block_i = sha256(ascii(seed) || ":" || ascii(i)), i = 0,1,..
 //!   - next_u32 = next 4 stream bytes, big-endian
-//!   - uniform(n): rejection-sample u32 below floor(2^32/n)*n, then u % n
+//!   - uniform(n): rejection-sample u32 below floor((2^32 - 1)/n)*n, then u % n
 //!   - Fisher-Yates: for i in 51..=1 { j = uniform(i+1); swap(deck[i], deck[j]) }
 //!   - deal: P1 holes deck[0],deck[2]; P2 holes deck[1],deck[3];
 //!     flop deck[4],deck[5],deck[6]; turn deck[7]; river deck[8] (no burns)
@@ -94,7 +94,7 @@ impl SeedRng {
         u32::from_be_bytes(out)
     }
     fn uniform(&mut self, n: u32) -> u32 {
-        let limit = (u32::MAX / n) * n; // floor(2^32/n)*n without 2^32 overflow
+        let limit = (u32::MAX / n) * n; // floor((2^32 - 1)/n)*n; JS verifier matches this exactly
         loop {
             let u = self.next_u32();
             if u < limit {
@@ -501,6 +501,7 @@ fn settle_if_over(
         "win_label": win_label,
         "pot": total_pot,
         "seed": seed,
+        "commitment": hand_commitment(seed, covenant_id, hand_no),
         "board": board.iter().map(|&c| card_str(c)).collect::<Vec<_>>(),
         "holes": [
             [card_str(holes[0][0]), card_str(holes[0][1])],
@@ -859,9 +860,44 @@ async fn action_handler(
     let Some(seat) = seat_of(&addr, &p1, &p2) else {
         return Json(json!({"success": false, "error": "not seated"}));
     };
-    let Some((_, _, hand_no, _, _)) = match_row(&db, &covenant_id) else {
+    let Some((_, _, hand_no, _, match_status)) = match_row(&db, &covenant_id) else {
         return Json(json!({"success": false, "error": "no hand in progress"}));
     };
+
+    // resign concedes the whole MATCH (folding only concedes the hand)
+    if req.act == "resign" {
+        if match_status == "finished" {
+            return Json(json!({"success": false, "error": "match is already over"}));
+        }
+        let winner = if seat == 0 { "black" } else { "white" };
+        {
+            let conn = db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE poker_matches SET status = 'finished', \
+                 chips1 = CASE WHEN ?1 = 0 THEN 0 ELSE chips1 END, \
+                 chips2 = CASE WHEN ?1 = 1 THEN 0 ELSE chips2 END, \
+                 updated_at = unixepoch() WHERE covenant_id = ?2",
+                params![seat as i64, covenant_id],
+            );
+            let _ = conn.execute(
+                "UPDATE skill_games SET status = 'finished', winner = ?1, updated_at = unixepoch() \
+                 WHERE covenant_id = ?2",
+                params![winner, covenant_id],
+            );
+            // close any in-progress hand record honestly (seed revealed)
+            let _ = conn.execute(
+                "UPDATE poker_hands SET phase = 'ended', \
+                 result = json_object('hand_no', hand_no, 'reason', 'resign', 'winner_seat', ?1, \
+                                      'seed', seed, 'commitment', commitment, 'match_over', json('true')) \
+                 WHERE covenant_id = ?2 AND hand_no = ?3 AND result IS NULL",
+                params![(1 - seat) as i64, covenant_id, hand_no],
+            );
+        }
+        info!("Poker[{}]: seat {} resigned the match", &covenant_id[..16.min(covenant_id.len())], seat);
+        publish_update(&covenant_id);
+        return Json(json!({"success": true, "resigned": true}));
+    }
+
     let Some((seed, _, phase, actions_raw, result, c1s, c2s, hbtn)) =
         hand_row(&db, &covenant_id, hand_no)
     else {

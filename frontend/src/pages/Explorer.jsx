@@ -122,6 +122,7 @@ export default function Explorer() {
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
+  const [liveMatches, setLiveMatches] = useState([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
@@ -161,6 +162,19 @@ export default function Explorer() {
       })
       .catch(() => { setError('Could not load covenants'); setLoading(false); });
   }, [kaspaNetwork, activeCategory, buildListUrl]);
+
+  // Live matchmaking: waiting matches from the persistent games API.
+  useEffect(() => {
+    let mounted = true;
+    const load = () =>
+      fetch('/api/games?status=waiting&limit=24')
+        .then((r) => r.json())
+        .then((d) => { if (mounted) setLiveMatches(Array.isArray(d.games) ? d.games : []); })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 20000);
+    return () => { mounted = false; clearInterval(id); };
+  }, [activeTab]);
 
   const loadMore = useCallback(() => {
     const nextOffset = offset + PAGE_SIZE;
@@ -417,12 +431,38 @@ export default function Explorer() {
                 Skill games with someone waiting to match. Covex-created only.
               </span>
             </div>
+            {liveMatches.length > 0 && (
+              <div className="mb-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-2 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Opponent waiting - join now
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {liveMatches.map((m) => (
+                    <Link
+                      key={m.covenant_id}
+                      to={`/covenant/${encodeURIComponent(m.covenant_id)}?play=1`}
+                      className="glass-panel rounded-2xl p-4 border border-emerald-500/25 hover:border-emerald-400/60 transition-all hover:-translate-y-0.5 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white capitalize">{m.game_type} match</p>
+                        <p className="text-[10px] font-mono text-gray-500 truncate">{m.covenant_id.slice(0, 22)}...</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">White seat taken. Join as black.</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-base font-black text-emerald-300">{m.pot_amount_kas || 0} KAS</p>
+                        <span className="inline-block mt-1 px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[10px] font-extrabold">JOIN</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
             {loading ? (
               <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
                 <div className="w-10 h-10 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
                 <p className="text-sm font-mono">Scanning for active matches...</p>
               </div>
-            ) : arenaSorted.length === 0 ? (
+            ) : arenaSorted.length === 0 && liveMatches.length === 0 ? (
               <div className="text-center py-12 glass-panel rounded-2xl text-gray-400 text-sm">
                 <Gamepad2 size={32} className="mx-auto mb-3 text-amber-400/30" />
                 <p className="text-base text-amber-400/70 mb-2">No active matches right now</p>

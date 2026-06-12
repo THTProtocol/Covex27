@@ -248,6 +248,33 @@ export default function CovenantFix() {
       .finally(() => setLoading(false));
   }, [address, id]);
 
+  // Hydrate from the PERSISTED terminal-config. The covenant list endpoint
+  // only returns the tier-based custom_ui_config, not the saved theme, so the
+  // creator's accent/background/stake/public_* are read back from the stored
+  // config.theme here (where publish() nests them). Without this they reset to
+  // defaults on every reload.
+  useEffect(() => {
+    if (!selected?.tx_id) return undefined;
+    let alive = true;
+    fetch(`/api/terminal-config/${encodeURIComponent(selected.tx_id)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive || !d?.success) return;
+        const th = d.config?.theme || {};
+        if (th.default_stake) setStakeAmount(th.default_stake);
+        setConfig((prev) => ({
+          ...prev,
+          primaryColor: th.accent || prev.primaryColor,
+          backgroundImage: th.background_image || prev.backgroundImage,
+          publicAbout: th.public_about ?? prev.publicAbout,
+          publicRules: th.public_rules ?? prev.publicRules,
+          publicHowTo: th.public_howto ?? prev.publicHowTo,
+        }));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [selected?.tx_id]);
+
   const isCreatorOfSelected = !!(selected && address && selected.creator_addr === address);
 
   const applyTemplate = (tpl) => {
@@ -278,9 +305,18 @@ export default function CovenantFix() {
       signer_address: address,
       name: config.titleOverride || selected.name,
       description: config.descOverride || selected.description || (selected.covenant_type || 'Covenant'),
-      // include stake hint in metadata if backend supports; otherwise it lives in the UI
-      default_stake: stakeAmount,
-      theme: { ...(config.designTheme || {}), accent: config.primaryColor || null, background_image: config.backgroundImage || null },
+      // The backend persists `theme` verbatim inside the saved config but has no
+      // column for stake/public_* - so nest them in theme. They round-trip via
+      // GET /api/terminal-config/:id (read back in the hydrate effect above).
+      theme: {
+        ...(config.designTheme || {}),
+        accent: config.primaryColor || null,
+        background_image: config.backgroundImage || null,
+        default_stake: stakeAmount,
+        public_about: config.publicAbout || null,
+        public_rules: config.publicRules || null,
+        public_howto: config.publicHowTo || null,
+      },
     };
     try {
       const res = await fetch(`/api/terminal-config/${selected.tx_id}`, {

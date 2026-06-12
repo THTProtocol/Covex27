@@ -24,6 +24,7 @@ const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
 const DemoCovenant = lazy(() => import('./pages/DemoCovenant'));
 const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
 const ApiDocs = lazy(() => import('./pages/ApiDocs'));
+const Treasury = lazy(() => import('./pages/Treasury'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X } from 'lucide-react';
@@ -262,6 +263,7 @@ export default function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />
               <Route path="/docs" element={<ApiDocs />} />
+              <Route path="/treasury" element={<Treasury />} />
             </Routes>
             </Suspense>
           </div>
@@ -272,6 +274,8 @@ export default function App() {
                 Non-custodial. Keys stay in your wallet.
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/docs" className="hover:text-kaspa-green transition-colors">API</Link>
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/treasury" className="hover:text-kaspa-green transition-colors">Treasury</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/templates" className="hover:text-kaspa-green transition-colors">Templates</Link>
                 <span className="mx-2 opacity-30">|</span>

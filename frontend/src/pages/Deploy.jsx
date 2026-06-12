@@ -21,12 +21,29 @@ const CATEGORIES = [
   { key: 'general', label: 'General / Custom', icon: FileText, desc: 'Custom logic, any covenant type', color: '#6B7280' },
 ];
 
+// Real circuits from the Covex registry (zk/circuit_registry.json). Every entry
+// here has working verification on the oracle: full Groth16 where artifacts
+// exist, hybrid or attested otherwise.
 const CIRCUIT_OPTIONS = [
-  { id: 'none', label: 'None (Basic)', desc: 'Standard covenant without ZK proof requirements' },
-  { id: 'merkle_membership', label: 'Merkle Membership', desc: 'Prove inclusion in a set without revealing members' },
-  { id: 'range_proof', label: 'Range Proof', desc: 'Prove a value is within bounds without revealing it' },
-  { id: 'chess_v1', label: 'Chess V1', desc: 'ZK-verified chess moves with FIDE rules' },
-  { id: 'turn_timer', label: 'Turn Timer ZK', desc: 'ZK-verified liveness + per-turn timer validation' },
+  { id: 'none', label: 'None (Basic)', desc: 'Standard covenant without ZK proof requirements', kind: 'basic' },
+  { id: 'merkle_membership', label: 'Merkle Membership', desc: 'Prove inclusion in a set without revealing members', kind: 'zk' },
+  { id: 'range_proof', label: 'Range Proof', desc: 'Prove a value is within bounds without revealing it', kind: 'zk' },
+  { id: 'hash_preimage', label: 'Hash Preimage', desc: 'Prove knowledge of a secret without revealing it', kind: 'zk' },
+  { id: 'relative_timelock', label: 'Relative Timelock', desc: 'Time-based unlock proven against DAA score', kind: 'zk' },
+  { id: 'age_verification', label: 'Age Verification', desc: 'Prove an age threshold without revealing birth data', kind: 'zk' },
+  { id: 'escrow_2party', label: '2-Party Escrow', desc: 'Conditional release between two parties', kind: 'zk' },
+  { id: 'basic_utxo_ownership', label: 'UTXO Ownership', desc: 'Prove ownership of a Kaspa UTXO in zero knowledge', kind: 'zk' },
+  { id: 'nullifier_set', label: 'Nullifier Set', desc: 'One-time claims with double-spend protection', kind: 'zk' },
+  { id: 'pot_split_math', label: 'Pot Split Math', desc: 'Proven payout percentages for pooled stakes', kind: 'zk' },
+  { id: 'vrf_dice_roll', label: 'VRF Dice Roll', desc: 'Verifiable randomness for dice outcomes', kind: 'zk' },
+  { id: 'vrf_random', label: 'VRF Random', desc: 'General verifiable randomness beacon', kind: 'zk' },
+  { id: 'turn_timer', label: 'Turn Timer ZK', desc: 'ZK-verified liveness + per-turn timer validation', kind: 'zk' },
+  { id: 'chess_v1', label: 'Chess V1', desc: 'ZK-verified chess moves with FIDE rules', kind: 'hybrid' },
+  { id: 'connect4', label: 'Connect 4', desc: 'Verified connect-4 game outcomes', kind: 'hybrid' },
+  { id: 'tictactoe', label: 'Tic-Tac-Toe', desc: 'Verified tic-tac-toe outcomes', kind: 'hybrid' },
+  { id: 'collateral_liquidation', label: 'Collateral Liquidation', desc: 'DeFi liquidation thresholds proven on price inputs', kind: 'hybrid' },
+  { id: 'onchain_sig_verify', label: 'Signature Verify', desc: 'Verify an external Schnorr signature inside the circuit', kind: 'hybrid' },
+  { id: 'oracle_attested', label: 'Oracle Attested', desc: 'Any custom outcome attested and signed by the Covex oracle', kind: 'oracle' },
 ];
 
 // Premade visual templates - like Canva presets, user cycles to preview
@@ -581,7 +598,10 @@ export default function Deploy() {
             <p className="text-xs text-gray-400 mb-4">Select a ZK circuit for verifiable resolution. Paid tiers unlock the full sandbox with custom circuit composition.</p>
             <div className="grid grid-cols-2 gap-2">
               {CIRCUIT_OPTIONS.map(c => (
-                <button key={c.id} onClick={() => setCircuitId(c.id)} className={`p-3 rounded-xl border text-left transition-all ${circuitId === c.id ? 'border-[#49EACB] bg-[#49EACB]/10' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}>
+                <button key={c.id} onClick={() => setCircuitId(c.id)} className={`relative p-3 rounded-xl border text-left transition-all ${circuitId === c.id ? 'border-[#49EACB] bg-[#49EACB]/10' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}>
+                  {c.kind && c.kind !== 'basic' && (
+                    <span className={`absolute top-2 right-2 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${c.kind === 'zk' ? 'bg-emerald-500/15 text-emerald-300' : c.kind === 'hybrid' ? 'bg-cyan-500/15 text-cyan-300' : 'bg-amber-500/15 text-amber-300'}`}>{c.kind}</span>
+                  )}
                   <div className="text-xs font-semibold text-white">{c.label}</div><div className="text-[9px] text-gray-500 mt-0.5">{c.desc}</div></button>))}
             </div>
             <div className="mt-4 p-3 rounded-xl bg-amber-500/[0.04] border border-amber-500/15 flex items-start gap-2">

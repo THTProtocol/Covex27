@@ -269,7 +269,11 @@ const Pricing = () => {
         <p className="text-base md:text-lg text-gray-300 leading-relaxed">
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
         </p>
-        <p className="mt-3 text-sm"><Link to="/kaspa" className="text-kaspa-green underline">Learn about Kaspa</Link></p>
+        <p className="mt-3 text-sm">
+          <Link to="/kaspa" className="text-kaspa-green underline">Learn about Kaspa</Link>
+          <span className="mx-2 text-gray-600">|</span>
+          <Link to="/treasury" className="text-kaspa-green underline">Treasury and ranking transparency</Link>
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

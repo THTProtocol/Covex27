@@ -945,10 +945,10 @@ contract VisualCovenant {
     setShowFullScreenChess(false);
     setShowFullScreenPoker(false);
     setShowFullScreenBlackjack(false);
-    setShowFullScreenCheckers(false); setCheckersMatchState('idle');
-    setShowFullScreenConnect4(false); setConnect4MatchState('idle');
-    setShowFullScreenTicTacToe(false); setTttMatchState('idle');
-    setShowFullScreenReversi(false); setReversiMatchState('idle');
+    setShowFullScreenCheckers(false);
+    setShowFullScreenConnect4(false);
+    setShowFullScreenTicTacToe(false);
+    setShowFullScreenReversi(false);
     setShowFullScreenRPS(false); setRpsMatchState('idle');
 
     const gt = ZK_CIRCUIT_TYPES.find(g => g.id === typeId);
@@ -1028,21 +1028,19 @@ contract VisualCovenant {
   const [bjMatchState, setBjMatchState] = useState('idle'); // idle | posted | matched | playing
 
   // ── Additional Skill Games States (checkers, connect4, tictactoe, reversi + more) ──
+  // These four are persistent multiplayer: the real join/seat flow lives in
+  // the full-screen table (useGameSync); the terminal just opens it.
   const [showFullScreenCheckers, setShowFullScreenCheckers] = useState(false);
   const [checkersStake, setCheckersStake] = useState(50);
-  const [checkersMatchState, setCheckersMatchState] = useState('idle');
 
   const [showFullScreenConnect4, setShowFullScreenConnect4] = useState(false);
   const [connect4Stake, setConnect4Stake] = useState(30);
-  const [connect4MatchState, setConnect4MatchState] = useState('idle');
 
   const [showFullScreenTicTacToe, setShowFullScreenTicTacToe] = useState(false);
   const [tttStake, setTttStake] = useState(20);
-  const [tttMatchState, setTttMatchState] = useState('idle');
 
   const [showFullScreenReversi, setShowFullScreenReversi] = useState(false);
   const [reversiStake, setReversiStake] = useState(40);
-  const [reversiMatchState, setReversiMatchState] = useState('idle');
 
   // RPS (rock paper scissors) quick skill game
   const [showFullScreenRPS, setShowFullScreenRPS] = useState(false);
@@ -1407,10 +1405,10 @@ ${gameMeta.outcomeBranches}
     setBlackTime(5 * 60 * 1000);
     setOpponentStake(0);
     setShowFullScreenChess(false);
-    setShowFullScreenCheckers(false); setCheckersMatchState('idle');
-    setShowFullScreenConnect4(false); setConnect4MatchState('idle');
-    setShowFullScreenTicTacToe(false); setTttMatchState('idle');
-    setShowFullScreenReversi(false); setReversiMatchState('idle');
+    setShowFullScreenCheckers(false);
+    setShowFullScreenConnect4(false);
+    setShowFullScreenTicTacToe(false);
+    setShowFullScreenReversi(false);
     setShowFullScreenRPS(false); setRpsMatchState('idle');
   }, []);
 
@@ -1455,22 +1453,12 @@ ${gameMeta.outcomeBranches}
     setBjMatchState('matched');
   }, []);
 
-  // ── New skill game gates (checkers, connect4, ttt, reversi, rps) ──
-  const postCheckersStake = useCallback(() => { setCheckersMatchState('posted'); }, []);
-  const acceptCheckersMatch = useCallback(() => { setCheckersMatchState('matched'); }, []);
-  const launchFullScreenCheckers = useCallback(() => { setShowFullScreenCheckers(true); setCheckersMatchState('playing'); }, []);
-
-  const postConnect4Stake = useCallback(() => { setConnect4MatchState('posted'); }, []);
-  const acceptConnect4Match = useCallback(() => { setConnect4MatchState('matched'); }, []);
-  const launchFullScreenConnect4 = useCallback(() => { setShowFullScreenConnect4(true); setConnect4MatchState('playing'); }, []);
-
-  const postTttStake = useCallback(() => { setTttMatchState('posted'); }, []);
-  const acceptTttMatch = useCallback(() => { setTttMatchState('matched'); }, []);
-  const launchFullScreenTicTacToe = useCallback(() => { setShowFullScreenTicTacToe(true); setTttMatchState('playing'); }, []);
-
-  const postReversiStake = useCallback(() => { setReversiMatchState('posted'); }, []);
-  const acceptReversiMatch = useCallback(() => { setReversiMatchState('matched'); }, []);
-  const launchFullScreenReversi = useCallback(() => { setShowFullScreenReversi(true); setReversiMatchState('playing'); }, []);
+  // ── Persistent skill-game arenas: the table itself handles join/seats/turns
+  // against /api/games via useGameSync, so opening it is the whole flow ──
+  const launchFullScreenCheckers = useCallback(() => { setShowFullScreenCheckers(true); }, []);
+  const launchFullScreenConnect4 = useCallback(() => { setShowFullScreenConnect4(true); }, []);
+  const launchFullScreenTicTacToe = useCallback(() => { setShowFullScreenTicTacToe(true); }, []);
+  const launchFullScreenReversi = useCallback(() => { setShowFullScreenReversi(true); }, []);
 
   const postRpsStake = useCallback(() => { setRpsMatchState('posted'); }, []);
   const acceptRpsMatch = useCallback(() => { setRpsMatchState('matched'); }, []);
@@ -3084,10 +3072,7 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={checkersStake} onChange={e=>setCheckersStake(Math.max(1,parseInt(e.target.value||'50')))} className={INPUT} />
           </div>
           <div className="flex items-end">
-            {checkersMatchState === 'idle' && <button onClick={postCheckersStake} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">POST {checkersStake} KAS - OPEN MATCH</button>}
-            {checkersMatchState === 'posted' && <button onClick={acceptCheckersMatch} className="w-full py-3 rounded-xl bg-amber-500 text-black font-bold text-sm">MATCH STAKE &amp; JOIN</button>}
-            {checkersMatchState === 'matched' && <button onClick={launchFullScreenCheckers} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">LAUNCH FULL SCREEN CHECKERS</button>}
-            {checkersMatchState === 'playing' && <div className="text-amber-400 text-xs py-2">IN ARENA - timers + oracle resolution active</div>}
+            <button onClick={launchFullScreenCheckers} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">OPEN MATCH TABLE - {checkersStake} KAS SEAT</button>
           </div>
         </div>
         <div className="text-[10px] text-gray-400">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT → CLAIM with {potReturnPercent}% pot return</div>
@@ -3100,9 +3085,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-blue-400" /><span>Connect 4 (7×6)</span></div><div className="text-[10px] text-blue-400 font-mono">{connect4Stake} KAS</div></div>
           <div className="flex gap-2">
             <input type="number" value={connect4Stake} onChange={e=>setConnect4Stake(Math.max(5,parseInt(e.target.value||'30')))} className={INPUT + ' flex-1'} />
-            {connect4MatchState==='idle' && <button onClick={postConnect4Stake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
-            {connect4MatchState==='posted' && <button onClick={acceptConnect4Match} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
-            {connect4MatchState==='matched' && <button onClick={launchFullScreenConnect4} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+            <button onClick={launchFullScreenConnect4} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
           <div className="text-[9px] text-gray-400 mt-1">Gravity drops • 4-in-row • 2min clocks • oracle + {potReturnPercent}% pot return</div>
         </section>
@@ -3112,9 +3095,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-rose-400" /><span>Tic-Tac-Toe (3×3)</span></div><div className="text-[10px] text-rose-400 font-mono">{tttStake} KAS</div></div>
           <div className="flex gap-2">
             <input type="number" value={tttStake} onChange={e=>setTttStake(Math.max(5,parseInt(e.target.value||'20')))} className={INPUT + ' flex-1'} />
-            {tttMatchState==='idle' && <button onClick={postTttStake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
-            {tttMatchState==='posted' && <button onClick={acceptTttMatch} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
-            {tttMatchState==='matched' && <button onClick={launchFullScreenTicTacToe} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+            <button onClick={launchFullScreenTicTacToe} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
           <div className="text-[9px] text-gray-400 mt-1">Classic • 90s clocks • 3-in-row • fast oracle resolution + {potReturnPercent}% return</div>
         </section>
@@ -3124,9 +3105,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-emerald-400" /><span>Reversi / Othello</span></div><div className="text-[10px] text-emerald-400 font-mono">{reversiStake} KAS</div></div>
           <div className="flex gap-2">
             <input type="number" value={reversiStake} onChange={e=>setReversiStake(Math.max(5,parseInt(e.target.value||'40')))} className={INPUT + ' flex-1'} />
-            {reversiMatchState==='idle' && <button onClick={postReversiStake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
-            {reversiMatchState==='posted' && <button onClick={acceptReversiMatch} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
-            {reversiMatchState==='matched' && <button onClick={launchFullScreenReversi} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+            <button onClick={launchFullScreenReversi} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
           <div className="text-[9px] text-gray-400 mt-1">8×8 flips • legal only • 2.5min clocks • oracle attested + {potReturnPercent}% pot</div>
         </section>
@@ -3272,7 +3251,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenCheckers && (
         <FullScreenCheckers
           stake={checkersStake}
-          onClose={() => { setShowFullScreenCheckers(false); setCheckersMatchState('idle'); }}
+          onClose={() => { setShowFullScreenCheckers(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
@@ -3281,7 +3260,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenConnect4 && (
         <FullScreenConnect4
           stake={connect4Stake}
-          onClose={() => { setShowFullScreenConnect4(false); setConnect4MatchState('idle'); }}
+          onClose={() => { setShowFullScreenConnect4(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
@@ -3290,7 +3269,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenTicTacToe && (
         <FullScreenTicTacToe
           stake={tttStake}
-          onClose={() => { setShowFullScreenTicTacToe(false); setTttMatchState('idle'); }}
+          onClose={() => { setShowFullScreenTicTacToe(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
@@ -3299,7 +3278,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenReversi && (
         <FullScreenReversi
           stake={reversiStake}
-          onClose={() => { setShowFullScreenReversi(false); setReversiMatchState('idle'); }}
+          onClose={() => { setShowFullScreenReversi(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}

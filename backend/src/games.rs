@@ -189,7 +189,9 @@ async fn make_move(
                     || (turn == "black" && req.player != p2)
                 {
                     Err("not your turn".to_string())
-                } else if req.r#move.len() > 16 {
+                } else if req.r#move.len() > 64 {
+                    // 64 covers checkers multi-jump chains ("1-10-19-28-37")
+                    // and future phase tokens; chess SAN never gets close
                     Err("move too long".to_string())
                 } else {
                     let mut moves: Vec<String> =

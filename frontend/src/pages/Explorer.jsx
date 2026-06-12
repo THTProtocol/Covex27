@@ -277,18 +277,17 @@ export default function Explorer() {
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="w-full max-w-2xl mx-auto glass-panel rounded-2xl p-3 sm:p-4 grid grid-cols-3 gap-2 sm:gap-4 mb-2">
+        <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total.toLocaleString() },
             { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount },
             { icon: Coins, label: 'Total TVL', value: formatKaspa(stats.totalTVL) },
           ].map((s, i) => (
-            <div key={i} className="flex items-center gap-2 sm:gap-3 justify-center">
-              <s.icon size={16} className="text-kaspa-green shrink-0" />
-              <div className="text-left">
-                <p className="text-[9px] sm:text-[10px] text-gray-300 font-mono uppercase tracking-wider">{s.label}</p>
-                <p className="text-sm font-bold text-white">{s.value}</p>
-              </div>
+            <div key={i} className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] transition-colors">
+              <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 font-mono uppercase tracking-[0.18em]">
+                <s.icon size={11} className="text-kaspa-green/80" />{s.label}
+              </p>
+              <p className="text-lg sm:text-xl font-black bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent tabular-nums">{s.value}</p>
             </div>
           ))}
         </div>

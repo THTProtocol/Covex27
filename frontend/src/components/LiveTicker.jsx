@@ -1,23 +1,27 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity } from 'lucide-react';
 
-const TYPE_LABEL = {
-  covenant_discovered: { label: 'New covenant', color: 'text-kaspa-green' },
-  tier_upgraded: { label: 'Tier upgraded', color: 'text-amber-300' },
-  resolution_signed: { label: 'Resolved', color: 'text-purple-300' },
-  covenant_deployed: { label: 'Deployed', color: 'text-kaspa-green' },
+const TYPE_META = {
+  covenant_discovered: { label: 'New covenant', dot: '#49EACB', text: 'text-kaspa-green' },
+  covenant_deployed: { label: 'Deployed', dot: '#49EACB', text: 'text-kaspa-green' },
+  tier_upgraded: { label: 'Tier paid', dot: '#E8AF34', text: 'text-amber-300' },
+  resolution_signed: { label: 'Resolved', dot: '#C084FC', text: 'text-purple-300' },
+  game_update: { label: 'Match', dot: '#38BDF8', text: 'text-sky-300' },
+  game_move: { label: 'Move', dot: '#38BDF8', text: 'text-sky-300' },
 };
 
 function ago(ts) {
   const s = Math.max(1, Math.floor(Date.now() / 1000 - ts));
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
 }
 
-/** Horizontal live activity feed driven by /api/events. */
+/**
+ * Live network activity marquee. Events stream in over the websocket feed
+ * (poll fallback) and glide across an edge-faded glass strip. Hover pauses.
+ */
 export default function LiveTicker({ network }) {
   const [events, setEvents] = useState([]);
 
@@ -31,8 +35,6 @@ export default function LiveTicker({ network }) {
     load();
     const id = setInterval(load, 30000);
 
-    // Real-time path: the /ws live feed pushes events as the indexers see
-    // them; polling above stays as the fallback.
     let ws;
     try {
       const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -43,10 +45,7 @@ export default function LiveTicker({ network }) {
           const d = msg?.data;
           if (!d || !d.event_type || (d.network && d.network !== network)) return;
           if (!mounted) return;
-          setEvents((prev) => [
-            { id: `ws-${Date.now()}-${Math.random()}`, ...d },
-            ...prev,
-          ].slice(0, 20));
+          setEvents((prev) => [{ id: `ws-${Date.now()}-${Math.random()}`, ...d }, ...prev].slice(0, 20));
         } catch { /* ignore non-JSON frames */ }
       };
     } catch { /* ws unavailable, polling covers it */ }
@@ -56,29 +55,43 @@ export default function LiveTicker({ network }) {
 
   if (events.length === 0) return null;
 
-  return (
-    <div className="w-full max-w-3xl mx-auto mb-4 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
-      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto whitespace-nowrap scrollbar-none">
-        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-kaspa-green shrink-0">
-          <Activity size={12} className="animate-pulse" /> Live
+  const Item = ({ e }) => {
+    const t = TYPE_META[e.event_type] || { label: e.event_type, dot: '#9CA3AF', text: 'text-gray-300' };
+    return (
+      <Link
+        to={e.covenant_id ? `/covenant/${encodeURIComponent(e.covenant_id)}` : '#'}
+        className="ticker-item group/item"
+      >
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
+          <span className="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping" style={{ backgroundColor: t.dot }} />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: t.dot }} />
         </span>
-        {events.slice(0, 12).map((e) => {
-          const t = TYPE_LABEL[e.event_type] || { label: e.event_type, color: 'text-gray-300' };
-          return (
-            <Link
-              key={e.id}
-              to={e.covenant_id ? `/covenant/${encodeURIComponent(e.covenant_id)}` : '#'}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.05] hover:border-kaspa-green/40 transition-colors"
-            >
-              <span className={`text-[11px] font-semibold ${t.color}`}>{t.label}</span>
-              {e.detail && <span className="text-[11px] text-gray-300 max-w-[140px] truncate">{e.detail}</span>}
-              {e.amount_kaspa > 0 && (
-                <span className="text-[11px] font-mono text-white">{e.amount_kaspa} KAS</span>
-              )}
-              <span className="text-[10px] text-gray-500">{ago(e.timestamp)}</span>
-            </Link>
-          );
-        })}
+        <span className={`text-[11px] font-bold tracking-wide ${t.text}`}>{t.label}</span>
+        {e.detail && <span className="text-[11px] text-gray-400 max-w-[150px] truncate group-hover/item:text-gray-200 transition-colors">{e.detail}</span>}
+        {e.amount_kaspa > 0 && (
+          <span className="text-[11px] font-mono font-semibold text-white/90">{e.amount_kaspa.toLocaleString()} <span className="text-white/40">KAS</span></span>
+        )}
+        <span className="text-[10px] font-mono text-gray-600">{ago(e.timestamp)}</span>
+      </Link>
+    );
+  };
+
+  return (
+    <div className="w-full max-w-3xl mx-auto mb-5">
+      <div className="ticker-shell group">
+        <div className="ticker-badge">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-kaspa-green" />
+          </span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-kaspa-green">Live</span>
+        </div>
+        <div className="ticker-mask">
+          <div className="ticker-track">
+            {events.map((e) => <Item key={`a-${e.id}`} e={e} />)}
+            {events.map((e) => <Item key={`b-${e.id}`} e={e} />)}
+          </div>
+        </div>
       </div>
     </div>
   );

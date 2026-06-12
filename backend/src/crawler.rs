@@ -183,10 +183,26 @@ pub async fn run_crawler(
             if !client.is_connected() {
                 break;
             }
-            let block = match client.get_block(cur.clone(), true).await {
-                Ok(b) => b,
-                Err(e) => {
+            // A node mid-IBD answers get_block_dag_info but hangs on get_block
+            // (it does not yet have the block bodies). Without a timeout here the
+            // whole crawler wedges on a single await and silently stops indexing
+            // until process restart. Time-bounding it lets the crawler report the
+            // stall and retry each cycle, so it auto-resumes the moment the node
+            // finishes syncing.
+            let block = match tokio::time::timeout(
+                std::time::Duration::from_secs(12),
+                client.get_block(cur.clone(), true),
+            )
+            .await
+            {
+                Ok(Ok(b)) => b,
+                Ok(Err(e)) => {
                     debug!("Crawler: block fail at {}: {}", cur, e);
+                    break;
+                }
+                Err(_) => {
+                    warn!("Crawler[{}]: get_block timeout (node likely mid-sync); retrying", network);
+                    crate::node_status::report_err(&network, "get_block timeout (node serving dag_info but not block bodies; still syncing)");
                     break;
                 }
             };

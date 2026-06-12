@@ -667,7 +667,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           <span>Type: <span className="text-gray-400">{c.covenant_type || 'N/A'}</span></span>
           <span className="text-right">{timestamp}</span>
           <span className={`col-span-2 ${isPaid ? cfg.text : 'text-gray-500'} group-hover:translate-x-0.5 transition-transform text-right`}>
-            View covenant ->
+            View covenant {'→'}
           </span>
         </div>
       </div>

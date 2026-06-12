@@ -235,6 +235,24 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         // Drop old single-row table and recreate with composite PK + per-network rows
         // Losing scan positions is fine — crawlers restart from config start_daa
         conn.execute_batch("DROP TABLE IF EXISTS crawler_state;")?;
+
+    // Migration: production skill_games tables created before the current
+    // schema lack newer columns; CREATE TABLE IF NOT EXISTS never alters.
+    for ddl in [
+        "ALTER TABLE skill_games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'chess'",
+        "ALTER TABLE skill_games ADD COLUMN pot_amount_kas REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE skill_games ADD COLUMN player1 TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE skill_games ADD COLUMN player2 TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE skill_games ADD COLUMN moves TEXT NOT NULL DEFAULT '[]'",
+        "ALTER TABLE skill_games ADD COLUMN current_turn TEXT NOT NULL DEFAULT 'white'",
+        "ALTER TABLE skill_games ADD COLUMN winner TEXT",
+        "ALTER TABLE skill_games ADD COLUMN status TEXT NOT NULL DEFAULT 'waiting'",
+        "ALTER TABLE skill_games ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE skill_games ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0",
+    ] {
+        let _ = conn.execute(ddl, []); // duplicate-column errors are expected
+    }
+
         conn.execute_batch(
             "CREATE TABLE crawler_state (
                 id            INTEGER NOT NULL DEFAULT 1,

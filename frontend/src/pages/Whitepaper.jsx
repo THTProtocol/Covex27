@@ -5,7 +5,7 @@ const SECTIONS = [
   {
     id: 'abstract', n: 'Abstract',
     body: [
-      "Kaspa's Toccata hard fork turns the fastest proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs, with on-chain zero-knowledge verification. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
+      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs, with on-chain zero-knowledge verification. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
       "This paper describes the problem, the design, the trust model, and the path from oracle-assisted resolution today to fully on-chain proof verification under KIP-16.",
     ],
   },
@@ -55,7 +55,7 @@ const SECTIONS = [
   {
     id: 'why-now', n: '6 · Why now',
     body: [
-      "The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex is already the leading covenant explorer on Testnet-12 and runs a real mainnet node today, indexing for the Toccata activation window.",
+      "The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex already indexes 7,800+ covenants on Testnet-12 and runs a real mainnet node today, ready for the Toccata activation window.",
       "The goal of this codebase is to be ready - correct, honest, and complete - on day one of covenants on Kaspa mainnet.",
     ],
   },

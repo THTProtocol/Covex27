@@ -235,6 +235,14 @@ export default function CovenantInteractive() {
     }
   }, [toast]);
 
+  const [actions, setActions] = useState([]);
+  useEffect(() => {
+    fetch(`/api/covenants/${encodeURIComponent(id)}/actions`)
+      .then((r) => r.json())
+      .then((d) => setActions(Array.isArray(d.actions) ? d.actions : []))
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     setLoading(true);
     fetch(`/api/covenants/${encodeURIComponent(id)}`)
@@ -633,6 +641,35 @@ export default function CovenantInteractive() {
           {covenant?.custom_ui_config?.puck_data?.content?.length > 0 && (
             <div className="mb-6 rounded-2xl overflow-hidden border border-white/[0.06] bg-black/20">
               <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} />
+            </div>
+          )}
+
+          {/* On-chain activity history: everything the indexers have seen for this covenant */}
+          {actions.length > 0 && (
+            <div className="mb-6 glass-panel rounded-xl p-4 border border-white/[0.06]">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Activity History</p>
+              <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                {actions.slice().reverse().map((a, i) => {
+                  const LABELS = {
+                    deployed: { t: 'Deployed on-chain', c: 'text-kaspa-green' },
+                    covenant_discovered: { t: 'Indexed by crawler', c: 'text-kaspa-green' },
+                    tier_verified: { t: 'Tier verified', c: 'text-amber-300' },
+                    tier_upgraded: { t: 'Tier payment confirmed', c: 'text-amber-300' },
+                    resolution_signed: { t: 'Outcome resolved by oracle', c: 'text-purple-300' },
+                    game_update: { t: 'Match update', c: 'text-sky-300' },
+                    game_move: { t: 'Move played', c: 'text-sky-300' },
+                  };
+                  const l = LABELS[a.action] || { t: a.action, c: 'text-gray-300' };
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-3 text-[11px] font-mono">
+                      <span className={`font-bold ${l.c} shrink-0`}>{l.t}</span>
+                      <span className="text-gray-500 truncate">{a.detail}</span>
+                      {a.amount_kaspa > 0 && <span className="text-white shrink-0">{a.amount_kaspa} KAS</span>}
+                      <span className="text-gray-600 shrink-0">{a.timestamp ? new Date(a.timestamp * 1000).toLocaleString() : ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 

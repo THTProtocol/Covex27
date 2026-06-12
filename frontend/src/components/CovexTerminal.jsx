@@ -2754,7 +2754,7 @@ ${gameMeta.outcomeBranches}
                     onClick={postStakeForMatch}
                     className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                   >
-                    POST {chessStake} KAS - OPEN FOR MATCH (DEMO)
+                    POST {chessStake} KAS - OPEN FOR MATCH
                   </button>
                 )}
                 {chessMatchState === 'posted' && (
@@ -2938,7 +2938,7 @@ ${gameMeta.outcomeBranches}
                   onClick={postPokerStake}
                   className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                 >
-                  POST {pokerStake} KAS - OPEN FOR MATCH (DEMO)
+                  POST {pokerStake} KAS - OPEN FOR MATCH
                 </button>
               )}
               {pokerMatchState === 'posted' && (
@@ -3036,7 +3036,7 @@ ${gameMeta.outcomeBranches}
                   onClick={postBjStake}
                   className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
                 >
-                  POST {bjStake} KAS - OPEN FOR MATCH (DEMO)
+                  POST {bjStake} KAS - OPEN FOR MATCH
                 </button>
               )}
               {bjMatchState === 'posted' && (

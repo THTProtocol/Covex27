@@ -300,6 +300,7 @@ async fn main() {
         .route("/health", get(health_handler))
         .route("/covenants", get(covenants_handler))
         .route("/covenants/:covenant_id", get(covenant_by_id_handler))
+        .route("/covenants/:covenant_id/actions", get(covenant_actions_handler))
         .route("/compile", post(compile_handler))
         .merge(live::live_routes())
         .merge(games::games_routes().layer(Extension(db.clone())))
@@ -434,6 +435,55 @@ async fn openapi_handler() -> Json<serde_json::Value> {
             "/compile": {"post": {"summary": "Compile Covex DSL or SilverScript to bytecode", "requestBody": {"content": {"application/json": {"schema": {"type": "object", "properties": {"source": {"type": "string"}}}}}}}}
         }
     }))
+}
+
+/// Per-covenant activity history: deploy plus every indexed event
+/// (discovery, tier upgrades, oracle resolutions, game updates).
+async fn covenant_actions_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    axum::extract::Path(covenant_id): axum::extract::Path<String>,
+) -> Json<serde_json::Value> {
+    let mut actions: Vec<serde_json::Value> = Vec::new();
+    if let Ok(Some(c)) = db::get_covenant_by_txid(&db, &covenant_id) {
+        actions.push(json!({
+            "action": "deployed",
+            "detail": c.covenant_type,
+            "amount_kaspa": c.amount_kaspa,
+            "timestamp": c.timestamp,
+            "daa_score": c.block_daa_score,
+            "network": c.network,
+        }));
+        if let (tier, Some(ts)) = (c.verified_tier.clone(), c.verified_at) {
+            if tier != "FREE" {
+                actions.push(json!({
+                    "action": "tier_verified",
+                    "detail": tier,
+                    "tx_id": c.verified_payment_tx,
+                    "timestamp": ts,
+                }));
+            }
+        }
+    }
+    {
+        let conn = db.lock().unwrap();
+        if let Ok(mut stmt) = conn.prepare(
+            "SELECT event_type, amount_kaspa, detail, timestamp FROM events WHERE covenant_id = ?1 ORDER BY id ASC LIMIT 200",
+        ) {
+            if let Ok(rows) = stmt.query_map(rusqlite::params![covenant_id], |r| {
+                Ok(json!({
+                    "action": r.get::<_, String>(0)?,
+                    "amount_kaspa": r.get::<_, f64>(1)?,
+                    "detail": r.get::<_, String>(2)?,
+                    "timestamp": r.get::<_, i64>(3)?,
+                }))
+            }) {
+                for r in rows.flatten() {
+                    actions.push(r);
+                }
+            }
+        }
+    }
+    Json(json!({"covenant_id": covenant_id, "actions": actions, "total": actions.len()}))
 }
 
 /// Per-IP token bucket for expensive routes. 20 burst, refills 2/sec.

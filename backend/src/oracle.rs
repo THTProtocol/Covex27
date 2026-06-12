@@ -520,6 +520,26 @@ async fn verify_and_sign_handler(
         input.circuit_type
     );
 
+    // Surface the resolution in the live activity feed and per-covenant history
+    {
+        let conn = db.lock().unwrap();
+        let network: String = conn
+            .query_row(
+                "SELECT network FROM covenants WHERE tx_id = ?1",
+                rusqlite::params![input.covenant_id],
+                |r| r.get(0),
+            )
+            .unwrap_or_else(|_| "testnet-12".to_string());
+        crate::db::record_event(
+            &conn,
+            "resolution_signed",
+            &input.covenant_id,
+            &network,
+            0.0,
+            &input.circuit_type,
+        );
+    }
+
     if input.circuit_type == "privacy_mixer_v1" && outcome == 0 {
         if let Some(nullifier) = input.public_inputs.get(2) {
             let _ = crate::db::mixer_record_nullifier(&db, nullifier, &input.covenant_id);

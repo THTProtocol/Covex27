@@ -58,10 +58,10 @@ async fn main() {
     fmt().with_env_filter(filter).init();
 
     // --- Config ---
-    let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
+    let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3006".to_string());
     let addr: SocketAddr = bind_addr.parse().expect("Invalid BIND_ADDR");
     let wrpc_url =
-        env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string());
+        env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string());
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| {
         // Resolve relative to binary location to prevent zombie-DB when CWD is deleted
         // (process holds stale file handles to deleted inodes after directory moves)
@@ -176,7 +176,7 @@ async fn main() {
     for &extra_net in &extra_networks {
         let extra_wrpc = match extra_net {
             "testnet-10" => env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string()),
-            "mainnet" => env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string()),
+            "mainnet" => env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string()),
             _ => continue,
         };
 
@@ -617,7 +617,7 @@ async fn health_handler() -> Json<serde_json::Value> {
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
     let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
-    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3006".to_string());
     Json(json!({
         "status": "ok",
         "app": "Covex v1.0.0",
@@ -643,7 +643,7 @@ async fn root_handler() -> Json<serde_json::Value> {
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
     let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
-    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3006".to_string());
     Json(json!({
         "status": "ok",
         "app": "Covex v1.0.0",
@@ -673,7 +673,7 @@ async fn status_handler(
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
-    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3005".to_string());
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3006".to_string());
     Json(json!({
         "status": "ok",
         "network": network,

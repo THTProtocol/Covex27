@@ -29,8 +29,29 @@ export default function LiveTicker({ network }) {
         .then((d) => { if (mounted) setEvents(Array.isArray(d.events) ? d.events : []); })
         .catch(() => {});
     load();
-    const id = setInterval(load, 15000);
-    return () => { mounted = false; clearInterval(id); };
+    const id = setInterval(load, 30000);
+
+    // Real-time path: the /ws live feed pushes events as the indexers see
+    // them; polling above stays as the fallback.
+    let ws;
+    try {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          const d = msg?.data;
+          if (!d || !d.event_type || (d.network && d.network !== network)) return;
+          if (!mounted) return;
+          setEvents((prev) => [
+            { id: `ws-${Date.now()}-${Math.random()}`, ...d },
+            ...prev,
+          ].slice(0, 20));
+        } catch { /* ignore non-JSON frames */ }
+      };
+    } catch { /* ws unavailable, polling covers it */ }
+
+    return () => { mounted = false; clearInterval(id); try { ws && ws.close(); } catch {} };
   }, [network]);
 
   if (events.length === 0) return null;

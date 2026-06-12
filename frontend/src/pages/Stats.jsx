@@ -70,8 +70,11 @@ function ActivityChart({ days, types }) {
   const maxTotal = Math.max(...days.map((d) => d.total), 1);
   const W = 760, H = 200, padB = 22, padL = 4;
   const n = days.length;
-  const gap = n > 1 ? 4 : 0;
-  const bw = Math.max(3, (W - padL * 2 - gap * (n - 1)) / n);
+  const gap = 4;
+  // cap bar width so a 1-2 day window shows tidy bars, not a full-width slab
+  const bw = Math.min(64, Math.max(3, (W - padL * 2 - gap * (n - 1)) / n));
+  const span = n * bw + (n - 1) * gap;
+  const x0 = span < W - padL * 2 ? (W - span) / 2 : padL; // center when sparse
   const showEvery = Math.ceil(n / 8);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Daily activity">
@@ -80,7 +83,7 @@ function ActivityChart({ days, types }) {
       ))}
       {days.map((d, i) => {
         let yTop = H - padB;
-        const x = padL + i * (bw + gap);
+        const x = x0 + i * (bw + gap);
         return (
           <g key={d.day}>
             {types.map((t) => {

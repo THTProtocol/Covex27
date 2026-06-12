@@ -25,6 +25,7 @@ mod db;
 mod dev_wallets;
 mod indexer;
 mod mixer;
+mod node_status;
 mod oracle;
 mod oracle_verifier;
 mod payment_verifier;
@@ -681,7 +682,11 @@ async fn status_handler(
         "status": "ok",
         "network": network,
         "oracle_key_mode": oracle_mode,
-        "node_connected": true,
+        "node_connected": node_status::snapshot()
+            .as_object()
+            .map(|m| m.values().any(|v| v.get("connected").and_then(|c| c.as_bool()).unwrap_or(false)))
+            .unwrap_or(false),
+        "node_sync": node_status::snapshot(),
         "total_covenants": total,
         "active_covenants": active,
         "verified_covenants": verified,

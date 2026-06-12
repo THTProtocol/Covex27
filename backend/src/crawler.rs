@@ -133,6 +133,7 @@ pub async fn run_crawler(
 
     loop {
         if !client.is_connected() {
+            crate::node_status::report_err(&network, "node wRPC not connected (syncing or down)");
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             continue;
         }
@@ -145,16 +146,19 @@ pub async fn run_crawler(
             Ok(Ok(d)) => d,
             Ok(Err(e)) => {
                 warn!("Crawler: dag_info: {}", e);
+                crate::node_status::report_err(&network, &format!("dag_info error: {}", e));
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
                 continue;
             }
             Err(_) => {
                 warn!("Crawler: dag_info timeout");
+                crate::node_status::report_err(&network, "dag_info timeout (node likely mid-sync)");
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 continue;
             }
         };
         let virtual_daa = dag.virtual_daa_score;
+        crate::node_status::report_ok(&network, virtual_daa, scan_daa);
         if scan_daa >= virtual_daa {
             let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;

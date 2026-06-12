@@ -946,47 +946,49 @@ async fn save_terminal_config_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Json(input): Json<TerminalConfigInput>,
 ) -> Json<serde_json::Value> {
-    // ── Cryptographic ownership enforcement ──
-    // Verify the signer_address + signature against the nonce (challenge-response).
-    // If signature/nonce are provided, verify cryptographically.
-    // Fall back to string comparison ONLY if the frontend hasn't implemented signing yet.
-    if let (Some(ref signer), Some(ref sig_hex), Some(ref nonce)) =
-        (&input.signer_address, &input.signature, &input.nonce)
-    {
-        if !sig_hex.is_empty() && !nonce.is_empty() {
-            match verify_terminal_ownership_signature(signer, sig_hex, nonce, &covenant_id) {
-                Ok(true) => {
-                    info!("Schnorr signature verified for covenant {}", &covenant_id[..16]);
-                }
+    // ── Ownership enforcement (challenge-response) ──
+    // If the covenant is indexed and has a known creator, edits REQUIRE a valid
+    // wallet signature proving control of that exact address. Two things must
+    // hold: (1) the signer IS the creator, and (2) the signature over the nonce
+    // verifies for the signer (real Kaspa schnorr for extension wallets, or the
+    // dev-wallet path). There is no string-compare bypass: creator addresses are
+    // public, so signer==creator alone proves nothing without the signature.
+    // If the covenant is not yet indexed (no known creator), the save is allowed
+    // (nothing to protect; e.g. a brand-new deploy the indexer hasn't seen).
+    let pfx = |s: &str| &s[..s.len().min(16)];
+    if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &covenant_id) {
+        if !cov.creator_addr.is_empty() {
+            let signer = input.signer_address.as_deref().unwrap_or("");
+            let sig = input.signature.as_deref().unwrap_or("");
+            let nonce = input.nonce.as_deref().unwrap_or("");
+            if signer != cov.creator_addr {
+                warn!("terminal-config rejected for {}: signer {} != creator {}",
+                    pfx(&covenant_id), pfx(signer), pfx(&cov.creator_addr));
+                return Json(json!({
+                    "success": false,
+                    "error": "Only the original covenant deployer can edit this configuration"
+                }));
+            }
+            if sig.is_empty() || nonce.is_empty() {
+                return Json(json!({
+                    "success": false,
+                    "error": "A wallet signature is required to edit this covenant. Connect the creator wallet and approve the signature request."
+                }));
+            }
+            match verify_terminal_ownership_signature(signer, sig, nonce, &covenant_id) {
+                Ok(true) => info!("ownership signature verified for covenant {}", pfx(&covenant_id)),
                 Ok(false) => {
-                    warn!("Signature verification FAILED for covenant {} by claimed signer {}",
-                        &covenant_id[..16], &signer[..16]);
+                    warn!("terminal-config signature FAILED for {} by {}", pfx(&covenant_id), pfx(signer));
                     return Json(json!({
                         "success": false,
-                        "error": "Signature verification failed — the provided signature does not match the claimed signer address"
+                        "error": "Signature verification failed - the provided signature does not match the signer address"
                     }));
                 }
                 Err(e) => {
-                    warn!("Signature verification error: {}", e);
+                    warn!("terminal-config signature error for {}: {}", pfx(&covenant_id), e);
                     return Json(json!({
                         "success": false,
-                        "error": format!("Signature verification error: {}", e)
-                    }));
-                }
-            }
-        }
-    }
-
-    // Fallback string comparison (weaker, but works when frontend hasn't wired signing)
-    if let Some(ref signer) = input.signer_address {
-        if input.signature.as_deref().unwrap_or("").is_empty() {
-            if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &covenant_id) {
-                if !cov.creator_addr.is_empty() && cov.creator_addr != *signer {
-                    warn!("String comparison rejected edit for covenant {} — signer {} != creator {}",
-                        &covenant_id[..16], &signer[..16], &cov.creator_addr[..16]);
-                    return Json(json!({
-                        "success": false,
-                        "error": "Only the original covenant deployer can edit this configuration"
+                        "error": format!("Signature error: {}", e)
                     }));
                 }
             }
@@ -1047,11 +1049,17 @@ pub fn compute_script_hash(script_hex: &str) -> String {
 
 // ── Schnorr signature verification for Terminal config ownership ──
 
-/// Verify terminal ownership via key possession proof.
-/// For dev wallets: frontend computes SHA256(private_key || message), backend
-/// recomputes the same hash from the known private key and compares.
-/// For extension wallets: fall back to string comparison (the wallet bridge
-/// already authenticates the connection).
+/// Verify terminal ownership via a signature over `covex-config:{id}:{nonce}`.
+///
+/// 1. Real Kaspa schnorr signature (extension wallets like kasware, and dev
+///    wallets signing through kaspa-wasm signMessage). Verified against the
+///    x-only key in the signer's address - see kaspa_msg.rs, validated against
+///    @onekeyfe/kaspa-wasm fixtures.
+/// 2. Dev-wallet shared-secret path: the CovexTerminal inline dev signer
+///    computes SHA256(private_key || message); recompute and compare.
+///
+/// Returns Ok(true) when verified, Ok(false) when the signature is well-formed
+/// but does not match, Err only on malformed dev-key data.
 fn verify_terminal_ownership_signature(
     signer_address: &str,
     sig_hex: &str,
@@ -1062,32 +1070,32 @@ fn verify_terminal_ownership_signature(
 
     let expected_msg = format!("covex-config:{}:{}", covenant_id, nonce);
 
-    // Check known dev wallets
+    // 1. Real Kaspa schnorr signature. A non-schnorr-shaped sig (e.g. the dev
+    //    SHA256 hex) returns Err here; fall through to the dev path.
+    if let Ok(true) = crate::kaspa_msg::verify_message(signer_address, &expected_msg, sig_hex) {
+        return Ok(true);
+    }
+
+    // 2. Dev-wallet shared-secret path: SHA256(private_key_hex_bytes || message).
     let dev_keys = [
         (crate::dev_wallets::DEV_WALLET_1_ADDRESS, crate::dev_wallets::DEV_WALLET_1_PRIVATE_KEY),
         (crate::dev_wallets::DEV_WALLET_2_ADDRESS, crate::dev_wallets::DEV_WALLET_2_PRIVATE_KEY),
     ];
-
     for (known_addr, known_pk) in &dev_keys {
         if *known_addr == signer_address {
-            // Compute expected hash: SHA256(private_key_hex || message)
             let pk_clean = known_pk.trim_start_matches("0x");
             let pk_bytes = hex::decode(pk_clean).map_err(|_| "Invalid dev key hex".to_string())?;
             let mut hasher = Sha256::new();
             hasher.update(&pk_bytes);
             hasher.update(expected_msg.as_bytes());
             let expected = hex::encode(hasher.finalize());
-
             let sig_clean = sig_hex.trim_start_matches("0x");
             return Ok(sig_clean.eq_ignore_ascii_case(&expected));
         }
     }
 
-    // Unknown address: reject (can't verify without knowing the private key)
-    Err(format!(
-        "Signature verification not available for this address ({}). Use a connected dev wallet or extension wallet.",
-        &signer_address[..16]
-    ))
+    // Unknown address with no valid schnorr signature: not verified.
+    Ok(false)
 }
 
 /// GET /terminal-config-challenge/:covenant_id

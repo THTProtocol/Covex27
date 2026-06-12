@@ -38,9 +38,7 @@ pub fn verify_message(address: &str, message: &str, signature_hex: &str) -> Resu
     let mut hasher = kaspa_hashes::PersonalMessageSigningHash::new();
     hasher.write(message.as_bytes());
     let hash = hasher.finalize();
-    let mut digest = [0u8; 32];
-    digest.copy_from_slice(hash.as_bytes());
-    let msg = Message::from_digest(digest);
+    let msg = Message::from_digest(hash.as_bytes());
 
     let sig_bytes =
         hex::decode(signature_hex.trim_start_matches("0x")).map_err(|e| format!("bad signature hex: {}", e))?;

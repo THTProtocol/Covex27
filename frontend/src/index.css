@@ -973,8 +973,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   from { transform: translateX(-120%) skewX(-18deg); }
   to { transform: translateX(240%) skewX(-18deg); }
 }
-.glass-panel { position: relative; overflow: hidden; }
-.glass-panel:hover::after {
+/* zero-specificity so Tailwind position utilities (fixed nav!) always win;
+   nav is excluded entirely so its dropdown panels are never clipped */
+:where(.glass-panel:not(nav)) { position: relative; overflow: hidden; }
+:where(.glass-panel:not(nav)):hover::after {
   content: '';
   position: absolute;
   top: 0; bottom: 0; width: 35%;
@@ -982,6 +984,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   animation: card-shine 0.9s ease-out 1;
   pointer-events: none;
 }
-.light .glass-panel:hover::after {
+.light :where(.glass-panel:not(nav)):hover::after {
   background: linear-gradient(90deg, transparent, rgba(13,148,136,0.06), transparent);
 }

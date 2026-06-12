@@ -457,6 +457,7 @@ async fn openapi_handler() -> Json<serde_json::Value> {
             ]}},
             "/address/{addr}": {"get": {"summary": "Public portfolio for an address", "parameters": [{"name": "addr", "in": "path", "required": true, "schema": {"type": "string"}}]}},
             "/analytics": {"get": {"summary": "Creator or global analytics", "parameters": [{"name": "creator", "in": "query", "schema": {"type": "string"}}]}},
+            "/stats": {"get": {"summary": "Public platform statistics (covenants, TVL, tiers, categories, activity timeline)", "parameters": [{"name": "network", "in": "query", "schema": {"type": "string", "enum": ["all", "testnet-12", "testnet-10", "mainnet"]}}]}},
             "/balance/{addr}": {"get": {"summary": "Address balance in sompi", "parameters": [{"name": "addr", "in": "path", "required": true, "schema": {"type": "string"}}]}},
             "/tiers": {"get": {"summary": "Tier definitions and pricing"}},
             "/status": {"get": {"summary": "Indexer status, networks, commit"}},

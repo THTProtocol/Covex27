@@ -27,6 +27,7 @@ const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
 const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Whitepaper = lazy(() => import('./pages/Whitepaper'));
 const Treasury = lazy(() => import('./pages/Treasury'));
+const Stats = lazy(() => import('./pages/Stats'));
 const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
@@ -256,6 +257,7 @@ export default function App() {
               <Route path="/docs" element={<ApiDocs />} />
               <Route path="/whitepaper" element={<Whitepaper />} />
               <Route path="/treasury" element={<Treasury />} />
+              <Route path="/stats" element={<Stats />} />
               <Route path="/covenant/:id/studio" element={<CovenantStudio />} />
             </Routes>
             </Suspense>
@@ -271,6 +273,8 @@ export default function App() {
                 <Link to="/whitepaper" className="hover:text-kaspa-green transition-colors">Whitepaper</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/treasury" className="hover:text-kaspa-green transition-colors">Treasury</Link>
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/stats" className="hover:text-kaspa-green transition-colors">Stats</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/templates" className="hover:text-kaspa-green transition-colors">Templates</Link>
                 <span className="mx-2 opacity-30">|</span>

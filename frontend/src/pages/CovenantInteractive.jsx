@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Render as PuckRender } from '@measured/puck';
+import puckConfig from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
@@ -6,7 +8,7 @@ import { useWallet } from '../components/WalletContext';
 import CovexTerminal from '../components/CovexTerminal';
 import FullScreenChess from '../components/FullScreenChess';
 import { Chessboard } from 'react-chessboard';
-import { Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -567,6 +569,14 @@ export default function CovenantInteractive() {
                 <Palette size={16} /> FIX LOOKS + STAKE
               </Link>
             )}
+            {isCreator && (
+              <Link
+                to={`/covenant/${encodeURIComponent(id)}/studio`}
+                className="px-6 py-2.5 rounded-2xl bg-kaspa-green/90 hover:bg-kaspa-green text-black font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all"
+              >
+                <Layers size={16} /> PAGE STUDIO
+              </Link>
+            )}
           </div>
 
           {/* Creator-set background image behind the covenant page, dimmed for readability */}
@@ -616,6 +626,13 @@ export default function CovenantInteractive() {
                 </Link>
                 <span className="text-gray-500">Network: {covenant.network}</span>
               </div>
+            </div>
+          )}
+
+          {/* Creator-designed page (Puck blocks, platform components only) */}
+          {covenant?.custom_ui_config?.puck_data?.content?.length > 0 && (
+            <div className="mb-6 rounded-2xl overflow-hidden border border-white/[0.06] bg-black/20">
+              <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} />
             </div>
           )}
 

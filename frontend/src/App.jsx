@@ -25,6 +25,7 @@ const DemoCovenant = lazy(() => import('./pages/DemoCovenant'));
 const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
 const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Treasury = lazy(() => import('./pages/Treasury'));
+const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X } from 'lucide-react';
@@ -264,6 +265,7 @@ export default function App() {
               <Route path="/address/:addr" element={<AddressPortfolio />} />
               <Route path="/docs" element={<ApiDocs />} />
               <Route path="/treasury" element={<Treasury />} />
+              <Route path="/covenant/:id/studio" element={<CovenantStudio />} />
             </Routes>
             </Suspense>
           </div>

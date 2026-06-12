@@ -225,19 +225,17 @@ pub async fn run_crawler(
                     continue;
                 }
 
-                // Mainnet honesty gate: until the Toccata hard fork activates covenant
-                // support on mainnet, a bare P2SH commitment (OpBlake2b <32B> OpEqual)
-                // is indistinguishable from any ordinary P2SH output and cannot be
-                // proven to be a SilverScript covenant. We refuse to index these as
-                // covenants on mainnet, so the mainnet explorer stays honest (effectively
-                // empty until real covenants appear). On TN12/TN10, covenants are real.
-                if network.starts_with("mainnet") {
-                    let probe = if is_envelope(&pl) { &pl } else { &covenant_script };
-                    let blen = probe.len() / 2;
-                    let bare_p2sh = probe.starts_with("aa20") && probe.ends_with("87") && (34..=36).contains(&blen);
-                    if bare_p2sh {
-                        continue;
-                    }
+                // Mainnet honesty gate. SilverScript covenants are INVALID on mainnet
+                // until the Toccata hard fork activates (June 2026 window). Any aa20-aa23
+                // match on mainnet today is a coincidental ordinary output (standard P2SH,
+                // multisig, inscription bytes), NOT a covenant. We index ZERO mainnet
+                // covenants until the operator confirms Toccata is live by setting
+                // COVEX_MAINNET_COVENANTS_ENABLED=true. The crawler keeps walking so it is
+                // ready to backfill the instant real covenants appear.
+                if network.starts_with("mainnet")
+                    && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() != Ok("true")
+                {
+                    continue;
                 }
 
                 // Paid tiers are assigned exclusively by the payment guardian when a

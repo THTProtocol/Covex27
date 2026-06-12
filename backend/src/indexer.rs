@@ -140,6 +140,14 @@ pub async fn run_indexer(
                             tier_from_script(&script_hex, &treasury_script, amount_sompi);
                         let tier = if tier == "FREE" { "EXPLORER".to_string() } else { tier };
 
+                        // Mainnet honesty gate (see crawler.rs): no covenants on mainnet
+                        // until Toccata activation is confirmed via env flag.
+                        if network.starts_with("mainnet")
+                            && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() != Ok("true")
+                        {
+                            continue;
+                        }
+
                         if let Err(e) = db::insert_covenant(
                             &db,
                             &tx_id,

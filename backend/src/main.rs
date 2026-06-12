@@ -811,6 +811,7 @@ struct TerminalConfigInput {
     reusable: Option<bool>,
     allow_topups: Option<bool>,
     custom_ui_code: Option<String>,
+    theme: Option<serde_json::Value>,
     resolution_mode: Option<String>,
     custom_oracle_key: Option<String>,
     zk_circuit: Option<String>,
@@ -907,6 +908,7 @@ async fn save_terminal_config_handler(
         "zk_circuit": input.zk_circuit,
         "zk_verifier_key": input.zk_verifier_key,
         "game_type": input.game_type,
+        "theme": input.theme,
         "updated_at": chrono::Utc::now().timestamp(),
     });
     let ui_html = input.custom_ui_code.unwrap_or_default();

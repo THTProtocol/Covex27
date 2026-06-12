@@ -572,7 +572,9 @@ pub async fn sign_and_broadcast_handler(
                     &treasury_str,
                     tier_fee,
                     tier_str,
-                    None::<&str>,
+                    // The deploy transaction IS the covenant: link the payment to it
+                    // so the covenant can always prove its paid status.
+                    Some(&tx_id_str),
                     network,
                 );
                 let _ = db::confirm_payment(&db, &tx_id_str, 1);

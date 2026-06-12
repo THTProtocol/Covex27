@@ -608,10 +608,11 @@ async fn state_handler(
                 [0usize, 3, 4, 5][st.street as usize]
             };
             let board: Vec<String> = deck[4..4 + reveal_n].iter().map(|&c| card_str(c)).collect();
+            let street_name = ["preflop", "flop", "turn", "river"][st.street as usize];
             Some(json!({
                 "hand_no": hand_no,
                 "commitment": commitment,
-                "street": ["preflop", "flop", "turn", "river"][st.street as usize],
+                "street": street_name,
                 "board": board,
                 "pot": st.total_pot(),
                 "committed": st.committed,

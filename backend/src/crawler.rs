@@ -195,18 +195,19 @@ pub async fn run_crawler(
             for tx in &block.transactions {
                 let pl = hex::encode(&tx.payload);
                 let mut covenant_script = pl.clone();
-                let mut has_covenant_opcode = pl.contains("aa20")
-                    || pl.contains("aa21")
-                    || pl.contains("aa22")
-                    || pl.contains("aa23");
+                // The SilverScript covenant envelope is a payload PREFIX (aa20..aa23 +
+                // payload). A substring match false-positives on arbitrary payload
+                // bytes (inscriptions, KRC-20 envelopes) - critical on mainnet where
+                // honest data matters most.
+                let is_envelope = |h: &str| {
+                    h.starts_with("aa20") || h.starts_with("aa21") || h.starts_with("aa22") || h.starts_with("aa23")
+                };
+                let mut has_covenant_opcode = is_envelope(&pl);
 
                 // Also scan output scripts (many real covenants put the logic in script_public_key)
                 for out in &tx.outputs {
                     let sh = hex::encode(out.script_public_key.script());
-                    if sh.contains("aa20")
-                        || sh.contains("aa21")
-                        || sh.contains("aa22")
-                        || sh.contains("aa23")
+                    if is_envelope(&sh)
                     {
                         has_covenant_opcode = true;
                         // Prefer the first output script that carries the opcode for classification
@@ -235,7 +236,8 @@ pub async fn run_crawler(
                 let tid = format!("{}:{}", txh, 0);
                 let ctype = classify(&covenant_script);
                 let cat = categorize(&covenant_script);
-                let addr = format!("kaspatest:{}", &txh[..32]);
+                let addr_prefix = if network.starts_with("mainnet") { "kaspa" } else { "kaspatest" };
+                let addr = format!("{}:{}", addr_prefix, &txh[..32]);
                 // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
                 let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
                 let creator =

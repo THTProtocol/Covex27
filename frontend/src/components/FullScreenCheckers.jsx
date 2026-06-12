@@ -228,12 +228,9 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
   };
 
   const submitResultToOracle = useCallback(async () => {
-    if (!result || !covenantId) {
-      // demo fallback even without covenant
-      const fake = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      setOracleSig(fake);
-      setOracleSubmitted(true);
-      setOracleResult({ signature: fake, outcome: { white: 0, black: 1, draw: 2 }[result?.outcome] ?? 0 });
+    if (!result) return;
+    if (!covenantId) {
+      setOracleError('This match is not attached to an on-chain covenant, so there is nothing to resolve. Create a checkers covenant to play for real stakes.');
       return;
     }
     setOracleLoading(true);
@@ -263,11 +260,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         setOracleError(data.error || 'Oracle error');
       }
     } catch (e) {
-      // Fallback demo
-      const fake = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      setOracleSig(fake);
-      setOracleSubmitted(true);
-      setOracleResult({ signature: fake, outcome });
+      setOracleError(e?.message || 'Oracle request failed. Check your connection and try again.');
     } finally {
       setOracleLoading(false);
     }

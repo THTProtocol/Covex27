@@ -114,8 +114,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
   const submitToOracle = useCallback(async () => {
     if (!result) return;
     if (!covenantId) {
-      const fake = '0x' + Array.from({length:16},()=>Math.floor(Math.random()*16).toString(16)).join('');
-      setOracleSig(fake); setOracleSubmitted(true); setOracleResult({signature: fake});
+      setOracleError('This match is not attached to an on-chain covenant, so there is nothing to resolve. Create a connect4 covenant to play for real stakes.');
       return;
     }
     setOracleLoading(true); setOracleError(null);
@@ -137,13 +136,10 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
       if (data.success) {
         setOracleSig(data.signature); setOracleSubmitted(true); setOracleResult(data);
       } else {
-        setOracleError(data.error || 'error'); 
-        const fake = '0x' + Array.from({length:16},()=>Math.floor(Math.random()*16).toString(16)).join('');
-        setOracleSig(fake); setOracleSubmitted(true); setOracleResult({signature: fake});
+        setOracleError(data.error || 'Oracle rejected the result.');
       }
-    } catch {
-      const fake = '0x' + Array.from({length:16},()=>Math.floor(Math.random()*16).toString(16)).join('');
-      setOracleSig(fake); setOracleSubmitted(true); setOracleResult({signature: fake});
+    } catch (e) {
+      setOracleError(e?.message || 'Oracle request failed. Check your connection and try again.');
     } finally { setOracleLoading(false); }
   }, [result, covenantId, moves]);
 

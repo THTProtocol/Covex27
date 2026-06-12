@@ -48,8 +48,8 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
             <Chessboard
               position="start"
               boardWidth={Math.min(400, window.innerWidth - 48)}
-              customDarkSquareStyle={{ backgroundColor: '#b58863' }}
-              customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+              customDarkSquareStyle={{ backgroundColor: '#769656' }}
+              customLightSquareStyle={{ backgroundColor: '#EEEED2' }}
             />
           </div>
           <div className={`px-4 py-2 rounded-xl ${turn === 'w' ? 'bg-white/10' : 'bg-white/5'} border ${turn === 'w' ? 'border-white/20' : 'border-white/10'}`}>

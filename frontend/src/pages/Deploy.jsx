@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DesignStudio from '../components/DesignStudio';
 import { useNavigate, Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import {
@@ -69,6 +70,7 @@ export default function Deploy() {
   const [circuitId, setCircuitId] = useState('none');
   const [accentColor, setAccentColor] = useState('#49EACB');
   const [bgImage, setBgImage] = useState('');
+  const [designTheme, setDesignTheme] = useState(null);
   const [uiPreset, setUiPreset] = useState('dark-glass');
   const [templateIndex, setTemplateIndex] = useState(0);
   const [feePercent, setFeePercent] = useState(2);
@@ -488,7 +490,7 @@ export default function Deploy() {
             covenant_type: category || 'general', category: category || 'general', accent: accentColor,
             ui_preset: uiPreset, use_dev_mode: true, network: net,
             custom_ui_config: { 
-              theme: { accent: accentColor, preset: uiPreset, background_image: bgImage || null }, 
+              theme: { ...(designTheme || {}), accent: accentColor, preset: designTheme?.preset || uiPreset, background_image: bgImage || null }, 
               category, 
               circuit: circuitId !== 'none' ? circuitId : null,
               // Advanced builder data (only present if unlocked)
@@ -691,6 +693,14 @@ export default function Deploy() {
           {/* Color + UI preset */}
           <div className="glass-panel rounded-2xl p-6">
             <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><Layout size={16} className="text-[#49EACB]" /> Colors & Presets</div>
+            <DesignStudio
+              currentTheme={{ accent: accentColor, background_image: bgImage, ...(designTheme || {}) }}
+              onApply={(t) => {
+                setDesignTheme(t);
+                if (t.accent) setAccentColor(t.accent);
+                if (t.background_image) setBgImage(t.background_image);
+              }}
+            />
             <label className="block mb-3"><span className="text-xs text-gray-400 block mb-2">Accent Color</span>
               <div className="flex items-center gap-3">
                 <input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-12 h-12 rounded-xl border border-white/10 bg-transparent cursor-pointer" />

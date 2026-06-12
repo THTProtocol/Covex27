@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DesignStudio from '../components/DesignStudio';
 import { useParams, Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { ArrowLeft, Save, Palette, Eye, Wallet, Check, ExternalLink } from 'lucide-react';
@@ -279,7 +280,7 @@ export default function CovenantFix() {
       description: config.descOverride || selected.description || (selected.covenant_type || 'Covenant'),
       // include stake hint in metadata if backend supports; otherwise it lives in the UI
       default_stake: stakeAmount,
-      theme: { accent: config.primaryColor || null, background_image: config.backgroundImage || null },
+      theme: { ...(config.designTheme || {}), accent: config.primaryColor || null, background_image: config.backgroundImage || null },
     };
     try {
       const res = await fetch(`/api/terminal-config/${selected.tx_id}`, {
@@ -418,6 +419,17 @@ export default function CovenantFix() {
                 <div className="font-semibold">Public Page Designer</div>
               </div>
               <div className="text-xs text-gray-400 mb-4">Click buttons to instantly see how this specific covenant will look to the public. All on-chain facts, addresses, logic and game UI are included by default.</div>
+
+              {/* Design Studio: 240 premade designs + code terminal */}
+              <DesignStudio
+                currentTheme={{ accent: config.primaryColor, background_image: config.backgroundImage, ...(config.designTheme || {}) }}
+                onApply={(t) => setConfig((c) => ({
+                  ...c,
+                  primaryColor: t.accent || c.primaryColor,
+                  backgroundImage: t.background_image !== undefined && t.background_image !== null ? t.background_image : c.backgroundImage,
+                  designTheme: t,
+                }))}
+              />
 
               {/* Covenant page background image */}
               <div className="mb-4">

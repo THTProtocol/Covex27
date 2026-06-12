@@ -173,6 +173,7 @@ export default function CovenantFix() {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState({ 
     primaryColor: '#49EACB', 
+    backgroundImage: '', 
     titleOverride: '', 
     descOverride: '', 
     publicAbout: '', 
@@ -210,7 +211,8 @@ export default function CovenantFix() {
             setSelected(match);
             setStakeAmount(match.default_stake || 50);
             setConfig({ 
-              primaryColor: '#49EACB', 
+              primaryColor: match.custom_ui_config?.theme?.accent || '#49EACB', 
+              backgroundImage: match.custom_ui_config?.theme?.background_image || '', 
               titleOverride: match.name || '', 
               descOverride: match.description || '', 
               publicAbout: match.public_about || match.description || '', 
@@ -228,7 +230,8 @@ export default function CovenantFix() {
           setSelected(first);
           setStakeAmount(first.default_stake || 50);
           setConfig({ 
-            primaryColor: '#49EACB', 
+            primaryColor: first.custom_ui_config?.theme?.accent || '#49EACB', 
+            backgroundImage: first.custom_ui_config?.theme?.background_image || '', 
             titleOverride: first.name || '', 
             descOverride: first.description || '', 
             publicAbout: first.public_about || first.description || '', 
@@ -276,6 +279,7 @@ export default function CovenantFix() {
       description: config.descOverride || selected.description || (selected.covenant_type || 'Covenant'),
       // include stake hint in metadata if backend supports; otherwise it lives in the UI
       default_stake: stakeAmount,
+      theme: { accent: config.primaryColor || null, background_image: config.backgroundImage || null },
     };
     try {
       const res = await fetch(`/api/terminal-config/${selected.tx_id}`, {
@@ -414,6 +418,37 @@ export default function CovenantFix() {
                 <div className="font-semibold">Public Page Designer</div>
               </div>
               <div className="text-xs text-gray-400 mb-4">Click buttons to instantly see how this specific covenant will look to the public. All on-chain facts, addresses, logic and game UI are included by default.</div>
+
+              {/* Covenant page background image */}
+              <div className="mb-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">BACKGROUND IMAGE (shown behind your covenant page)</div>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={config.backgroundImage?.startsWith('data:') ? '' : (config.backgroundImage || '')}
+                    onChange={(e) => setConfig((c) => ({ ...c, backgroundImage: e.target.value }))}
+                    placeholder="https://... image URL"
+                    className="flex-1 px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500 outline-none focus:border-[#49EACB]/50"
+                  />
+                  <label className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-gray-300 hover:border-[#49EACB]/40 cursor-pointer">
+                    Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (f.size > 600 * 1024) { setToast({ type: 'error', msg: 'Image too large. Keep it under 600KB.' }); return; }
+                      const r = new FileReader();
+                      r.onload = () => setConfig((c) => ({ ...c, backgroundImage: String(r.result) }));
+                      r.readAsDataURL(f);
+                    }} />
+                  </label>
+                  {config.backgroundImage && (
+                    <button onClick={() => setConfig((c) => ({ ...c, backgroundImage: '' }))} className="px-3 py-2.5 rounded-xl border border-red-500/30 text-red-300 text-sm">Clear</button>
+                  )}
+                </div>
+                {config.backgroundImage && (
+                  <div className="mt-2 h-20 rounded-xl border border-white/10 bg-cover bg-center" style={{ backgroundImage: `url(${config.backgroundImage})` }} />
+                )}
+              </div>
 
               {/* Quick clicks - Wix style actions */}
               <div className="mb-4">

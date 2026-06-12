@@ -222,10 +222,11 @@ pub async fn run_crawler(
                     continue;
                 }
 
-                let (mut tier, _) = determine_tier_from_outputs(tx, &treasury_script);
-                if tier == "FREE" {
-                    tier = "EXPLORER".to_string(); // Default for raw / unverified covenants
-                }
+                // Paid tiers are assigned exclusively by the payment guardian when a
+                // confirmed treasury payment exists. The crawler never infers them:
+                // a covenant is "paid" only if it was deployed through the paid flow.
+                let _ = determine_tier_from_outputs(tx, &treasury_script);
+                let tier = "EXPLORER".to_string();
 
                 let amt = tx.outputs[0].value;
                 let txh = tx

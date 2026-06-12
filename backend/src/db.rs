@@ -296,8 +296,19 @@ pub fn insert_covenant(
         )
         .unwrap_or(false);
     conn.execute(
-        "INSERT OR REPLACE INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses, network)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13, ?14)",
+        "INSERT INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses, network)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13, ?14)
+         ON CONFLICT(tx_id) DO UPDATE SET
+           address = excluded.address,
+           amount_kaspa = excluded.amount_kaspa,
+           script_hash = excluded.script_hash,
+           script_hex = excluded.script_hex,
+           is_active = 1,
+           block_daa_score = excluded.block_daa_score,
+           network = excluded.network
+           -- verified_tier, verified_payment_tx, descriptions and custom metadata
+           -- are intentionally preserved: re-discovery must never downgrade a paid
+           -- covenant or erase creator edits.",
         params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, block_daa_score, full_logic_summary, receiving_addresses, network],
     )?;
     if !already {

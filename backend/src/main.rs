@@ -271,6 +271,33 @@ async fn main() {
         payment_verifier::run_payment_verifier(pay_client, pay_db, pay_treasury, pay_network).await;
     });
 
+    // --- Background: Archiver ---
+    // FREE tier covenants with no indexed activity for 30 days are archived
+    // (is_active = 0, hidden from default explorer listings). Paid covenants
+    // never auto-archive: the tier was bought once and lasts forever.
+    let archive_db = Arc::clone(&db);
+    tokio::spawn(async move {
+        loop {
+            {
+                let conn = archive_db.lock().unwrap();
+                let cutoff_sql = "UPDATE covenants SET is_active = 0
+                     WHERE is_active = 1
+                       AND verified_tier IN ('FREE', 'EXPLORER')
+                       AND timestamp < unixepoch() - 30 * 86400
+                       AND tx_id NOT IN (
+                           SELECT covenant_id FROM events
+                           WHERE timestamp > unixepoch() - 30 * 86400
+                       )";
+                match conn.execute(cutoff_sql, []) {
+                    Ok(n) if n > 0 => info!("Archiver: archived {} stale free covenants", n),
+                    Ok(_) => {}
+                    Err(e) => warn!("Archiver: sweep failed: {}", e),
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(6 * 3600)).await;
+        }
+    });
+
     // --- Background: Historic Crawler (for the configured network) ---
     let crawl_db = Arc::clone(&db);
     let crawl_client = Arc::clone(&client);

@@ -955,7 +955,9 @@ async fn save_terminal_config_handler(
     // public, so signer==creator alone proves nothing without the signature.
     // If the covenant is not yet indexed (no known creator), the save is allowed
     // (nothing to protect; e.g. a brand-new deploy the indexer hasn't seen).
-    let pfx = |s: &str| &s[..s.len().min(16)];
+    fn pfx(s: &str) -> &str {
+        &s[..s.len().min(16)]
+    }
     if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &covenant_id) {
         if !cov.creator_addr.is_empty() {
             let signer = input.signer_address.as_deref().unwrap_or("");

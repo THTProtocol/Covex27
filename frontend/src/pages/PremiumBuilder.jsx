@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
+import { signCovenantOwnership } from '../lib/ownership';
 import {
   ArrowLeft, Sparkles, Cpu, Zap, Code, Layers, Shield, Terminal, ChevronRight,
   Plus, Check, Copy, Loader2, Play, Palette, Users, Clock, Coins, Eye, Award, Crown, Star, Send
@@ -29,7 +30,7 @@ function getTreasuryForNet(net) {
 
 export default function PremiumBuilder() {
   const navigate = useNavigate();
-  const { address, DevConnectPanel } = useWallet();
+  const { address, DevConnectPanel, signMessage } = useWallet();
 
   // === SERVER AUTH (ONLY source of truth - no localStorage bypass) ===
   const [auth, setAuth] = useState({ token: null, tier: null, address: null, loading: true, error: null });
@@ -190,7 +191,13 @@ export default function PremiumBuilder() {
       // 4. Generate custom interactive UI (self-contained HTML for srcDoc iframe)
       const customUiHtml = generateCustomUiHtml(def, txid);
 
-      // 5. Save terminal config with custom UI
+      // 5. Save terminal config with custom UI. Sign the ownership challenge so
+      // the save is authorized even if the crawler has already indexed the new
+      // covenant (a fresh deploy is otherwise un-indexed and would be allowed).
+      let ownerProof = { signer_address: address };
+      try {
+        ownerProof = await signCovenantOwnership(txid, address, signMessage);
+      } catch { /* not yet indexed: backend allows the initial save without a signature */ }
       const termRes = await fetch(`/api/terminal-config/${txid}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -205,7 +212,7 @@ export default function PremiumBuilder() {
           zk_circuit: def.circuit?.id || null,
           zk_verifier_key: null,
           custom_oracle_key: null,
-          signer_address: address,
+          ...ownerProof,
         }),
       });
       const termJson = await termRes.json();

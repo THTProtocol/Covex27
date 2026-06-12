@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DesignStudio from '../components/DesignStudio';
 import { useParams, Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
+import { signCovenantOwnership } from '../lib/ownership';
 import { ArrowLeft, Save, Palette, Eye, Wallet, Check, ExternalLink } from 'lucide-react';
 
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -167,7 +168,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
 
 export default function CovenantFix() {
   const { id } = useParams();
-  const { address } = useWallet();
+  const { address, signMessage } = useWallet();
   const [allCovenants, setAllCovenants] = useState([]);
   const [myCovenants, setMyCovenants] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -299,10 +300,19 @@ export default function CovenantFix() {
       return;
     }
     setPublishing(true);
+    // Prove covenant ownership: sign the server challenge with the creator wallet.
+    let proof;
+    try {
+      proof = await signCovenantOwnership(selected.tx_id, address, signMessage);
+    } catch (e) {
+      setToast({ type: 'error', msg: `Signature required to publish: ${e.message}` });
+      setPublishing(false);
+      return;
+    }
     const html = buildTransparentCustomUI(selected, config, stakeAmount);
     const payload = {
       custom_ui_code: html,
-      signer_address: address,
+      ...proof,
       name: config.titleOverride || selected.name,
       description: config.descOverride || selected.description || (selected.covenant_type || 'Covenant'),
       // The backend persists `theme` verbatim inside the saved config but has no

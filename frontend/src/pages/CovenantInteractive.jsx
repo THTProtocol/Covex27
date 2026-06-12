@@ -5,6 +5,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
+import { signCovenantOwnership } from '../lib/ownership';
 import CovexTerminal from '../components/CovexTerminal';
 import FullScreenChess from '../components/FullScreenChess';
 import { Chessboard } from 'react-chessboard';
@@ -118,7 +119,7 @@ export default function CovenantInteractive() {
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
-  const { address, balance, sendPayment, connecting, buildUri } = useWallet();
+  const { address, balance, sendPayment, connecting, buildUri, signMessage } = useWallet();
 
   // UI Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -460,13 +461,14 @@ export default function CovenantInteractive() {
     const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view. Everything there is to know about this covenant.', publicAbout: 'Creator published details and full on-chain logic visible to all.', publicRules: 'All fees, timers, addresses, verification and payouts are public by default.', publicHowTo: 'Stake directly to the covenant. All information is transparent.' } : config;
     const html = buildTransparentCustomUI(covenant, cfg);
     try {
+      // Prove ownership: sign the server challenge with the creator wallet.
+      const proof = await signCovenantOwnership(id, address, signMessage);
       const payload = {
         custom_ui_code: html,
-        signer_address: address,
+        ...proof,
         name: cfg.titleOverride || covenant.name,
         description: cfg.descOverride || covenant.description,
         resolution_mode: 'transparent-ui',
-        // nonce/signature can be added later for full challenge; backend falls back to creator_addr match
       };
       const res = await fetch(`/api/terminal-config/${id}`, {
         method: 'POST',

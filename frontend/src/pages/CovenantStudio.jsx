@@ -4,6 +4,7 @@ import { Puck } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { ArrowLeft, Save, Eye, Sparkles } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
+import { signCovenantOwnership } from '../lib/ownership';
 import puckConfig from '../lib/puckConfig';
 
 const EMPTY_PAGE = { content: [], root: { props: {} } };
@@ -16,7 +17,7 @@ const EMPTY_PAGE = { content: [], root: { props: {} } };
  */
 export default function CovenantStudio() {
   const { id } = useParams();
-  const { address } = useWallet();
+  const { address, signMessage } = useWallet();
   const [covenant, setCovenant] = useState(null);
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,11 +47,13 @@ export default function CovenantStudio() {
   const save = useCallback(async (data) => {
     setSaving(true);
     try {
+      // Prove ownership: sign the server challenge with the creator wallet.
+      const proof = await signCovenantOwnership(id, address, signMessage);
       const res = await fetch(`/api/terminal-config/${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          signer_address: address,
+          ...proof,
           name: covenant?.name,
           description: covenant?.description,
           theme: covenant?.custom_ui_config?.theme || null,
@@ -68,7 +71,7 @@ export default function CovenantStudio() {
     } finally {
       setSaving(false);
     }
-  }, [id, address, covenant]);
+  }, [id, address, signMessage, covenant]);
 
   if (loading) {
     return <div className="flex justify-center py-32"><div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" /></div>;

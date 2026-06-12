@@ -28,6 +28,14 @@ pub enum CovenantCategory {
     Oracle,            // Oracle-attested, VRF, external data
     #[serde(rename = "zk")]
     ZK,                // Pure ZK proofs, range, membership without oracle
+    #[serde(rename = "p2sh")]
+    P2sh,
+    #[serde(rename = "vesting")]
+    Vesting,
+    #[serde(rename = "atomic-swap")]
+    AtomicSwap,
+    #[serde(rename = "multisig")]
+    Multisig,
     #[serde(rename = "general")]
     General,
 }
@@ -50,6 +58,29 @@ impl CovenantCategory {
         let has_aa22 = script_hex.contains("aa22");
         let has_aa23 = script_hex.contains("aa23");
         let has_opcodes = has_aa20 || has_aa21 || has_aa22 || has_aa23;
+
+        // Pure P2SH commitment: exactly OpBlake2b <32-byte hash> OpEqual.
+        // The script's logic is hidden until spend, so it gets its own honest class.
+        if script_hex.starts_with("aa20") && script_hex.ends_with("87") && (34..=36).contains(&raw_len) {
+            return CovenantCategory::P2sh;
+        }
+
+        // Multi-sig: OpCheckMultiSig family present
+        if has_opcodes && (script_hex.contains("ae") && script_hex.contains("51")) && raw_len > 36 {
+            if script_hex.matches("21").count() >= 2 {
+                return CovenantCategory::Multisig;
+            }
+        }
+
+        // HTLC / atomic swap: hash-op plus locktime verify in one script
+        if has_opcodes && script_hex.contains("a8") && script_hex.contains("b1") {
+            return CovenantCategory::AtomicSwap;
+        }
+
+        // Vesting: extended custody envelope with locktime
+        if has_aa21 && script_hex.contains("b1") {
+            return CovenantCategory::Vesting;
+        }
 
         // Flash: very short covenant payload (compact one-shot logic, e.g. simple transfers)
         if has_opcodes && raw_len < 80 {
@@ -123,7 +154,13 @@ impl CovenantCategory {
             return "unknown".into();
         }
         if script_hex.starts_with("aa20") && script_hex.ends_with("87") {
-            return "p2sh-covenant".into();
+            return "p2sh-commitment".into();
+        }
+        if script_hex.contains("a8") && script_hex.contains("b1") {
+            return "atomic-swap-htlc".into();
+        }
+        if script_hex.contains("aa21") && script_hex.contains("b1") {
+            return "vesting-covenant".into();
         }
         if script_hex.contains("aa21") {
             if script_hex.contains("51") && script_hex.contains("52") {
@@ -169,6 +206,10 @@ impl CovenantCategory {
             CovenantCategory::DeFi => "DeFi & Yield",
             CovenantCategory::Oracle => "Oracle & Attestation",
             CovenantCategory::ZK => "ZK Proofs & Claims",
+            CovenantCategory::P2sh => "P2SH Commitments",
+            CovenantCategory::Vesting => "Vesting & Timelocks",
+            CovenantCategory::AtomicSwap => "Atomic Swaps & HTLC",
+            CovenantCategory::Multisig => "Multi-sig",
             CovenantCategory::General => "General",
         }
     }

@@ -950,3 +950,38 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .covex-brand { font-size: 17px !important; letter-spacing: 0.2em !important; }
   h1 { letter-spacing: -0.01em; }
 }
+
+
+/* ===== Decorative premium layer ===== */
+/* Aurora glow under the navbar on every page */
+.relative.z-10.pt-16::before {
+  content: '';
+  position: fixed;
+  top: -120px; left: 50%;
+  width: 70vw; height: 240px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(73,234,203,0.12) 0%, rgba(34,211,238,0.05) 45%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+.light .relative.z-10.pt-16::before {
+  background: radial-gradient(ellipse at center, rgba(13,148,136,0.1) 0%, transparent 70%);
+}
+
+/* Shine sweep on premium cards */
+@keyframes card-shine {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(240%) skewX(-18deg); }
+}
+.glass-panel { position: relative; overflow: hidden; }
+.glass-panel:hover::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; width: 35%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.045), transparent);
+  animation: card-shine 0.9s ease-out 1;
+  pointer-events: none;
+}
+.light .glass-panel:hover::after {
+  background: linear-gradient(90deg, transparent, rgba(13,148,136,0.06), transparent);
+}

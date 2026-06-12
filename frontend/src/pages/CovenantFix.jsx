@@ -420,6 +420,45 @@ export default function CovenantFix() {
               </div>
               <div className="text-xs text-gray-400 mb-4">Click buttons to instantly see how this specific covenant will look to the public. All on-chain facts, addresses, logic and game UI are included by default.</div>
 
+              {/* Live page preview: exactly what visitors will see, updates with every edit */}
+              <div className="mb-4 rounded-2xl border border-white/[0.08] overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-white/[0.03] border-b border-white/[0.06]">
+                  <span className="kicker">Live page preview</span>
+                  <span className="flex items-center gap-1.5 text-[10px] text-kaspa-green font-bold"><span className="w-1.5 h-1.5 rounded-full bg-kaspa-green animate-pulse" /> updates as you edit</span>
+                </div>
+                <div className="relative h-64 overflow-hidden" style={{
+                  background: config.backgroundImage
+                    ? undefined
+                    : (config.designTheme?.backdrop_css || 'linear-gradient(180deg,#05050A,#0a0a12)'),
+                }}>
+                  {config.backgroundImage && (
+                    <>
+                      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${config.backgroundImage})` }} />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/85" />
+                    </>
+                  )}
+                  <div className="relative p-5 text-center">
+                    <h3 className="text-xl font-black mb-1.5" style={{ color: config.primaryColor || '#49EACB' }}>
+                      {config.titleOverride || selected?.name || 'Covenant title'}
+                    </h3>
+                    <p className="text-[11px] text-gray-300 max-w-sm mx-auto line-clamp-2 mb-3">
+                      {config.descOverride || selected?.description || 'Your covenant description appears here.'}
+                    </p>
+                    <div className="flex justify-center gap-2 mb-3">
+                      {[['Stake', `${stakeAmount || 0} KAS`], ['Fee', '2%'], ['Network', selected?.network || 'testnet-12']].map(([l, v]) => (
+                        <div key={l} className="px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] backdrop-blur">
+                          <p className="text-[8px] uppercase tracking-widest text-gray-400">{l}</p>
+                          <p className="text-[11px] font-bold text-white">{v}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <span className="inline-block px-5 py-2 rounded-xl text-xs font-extrabold text-black" style={{ backgroundColor: config.primaryColor || '#49EACB' }}>
+                      Stake and join
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Design Studio: 240 premade designs + code terminal */}
               <DesignStudio
                 currentTheme={{ accent: config.primaryColor, background_image: config.backgroundImage, ...(config.designTheme || {}) }}

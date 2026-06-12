@@ -89,6 +89,8 @@ const CATEGORY_QUERY = {
   'Governance & DAO': 'governance|dao|voting', 'Tournaments': 'tournament|bracket',
   'Flash Covenants': 'flash', 'Multi-sig': 'multisig|multi-sig|multi sig',
   'Custom Logic': 'custom', 'General': 'general', 'Oracle': 'oracle',
+  'P2SH Commitments': 'p2sh', 'Vesting & Timelocks': 'vesting|timelock',
+  'Atomic Swaps': 'atomic|htlc|swap', 'Multi-sig Safes': 'multisig|multi-sig',
 };
 
 const PAGE_SIZE = 60;
@@ -103,8 +105,7 @@ const ALL_CATEGORIES = [
   'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe',
   // Advanced / specialized
   'Yield & Compounding', 'Auctions', 'Lotteries & Pots', 'Privacy Mixers', 'Timelocks',
-  'Milestone Escrows', 'Membership Claims', 'Multi-sig', 'Prediction Pools', 'Custom Logic'
-];
+  'Milestone Escrows', 'Membership Claims', 'Multi-sig', 'Prediction Pools', 'Custom Logic', 'P2SH Commitments', 'Vesting & Timelocks', 'Atomic Swaps', 'Multi-sig Safes'];
 
 export default function Explorer() {
   const { address } = useWallet();
@@ -605,6 +606,10 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
     'community': 'from-orange-500/30 via-orange-600/10 to-transparent',
     'flash': 'from-yellow-500/30 via-yellow-600/10 to-transparent',
     'governance': 'from-red-500/30 via-red-600/10 to-transparent',
+    'p2sh': 'from-slate-500/30 via-slate-600/10 to-transparent',
+    'vesting': 'from-indigo-500/30 via-indigo-600/10 to-transparent',
+    'atomic': 'from-rose-500/30 via-rose-600/10 to-transparent',
+    'multisig': 'from-lime-500/30 via-lime-600/10 to-transparent',
   };
   const catGradient = catColors[categoryLabel.toLowerCase()] || catColors.general;
 

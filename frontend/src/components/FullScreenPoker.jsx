@@ -131,7 +131,7 @@ export default function FullScreenPoker({ stake, onClose, covenantId, feePercent
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           covenant_id: covenantId,
-          circuit_type: 'chess_v1', // poker uses same oracle path for game result attestation
+          circuit_type: 'poker_v1', // poker uses same oracle path for game result attestation
           proof: {
             result,
             player_hole: hands.playerHole.map(c => `${c.rank}${SUITS[c.suit]}`),

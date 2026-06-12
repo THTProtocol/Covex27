@@ -88,7 +88,10 @@ pub async fn run_payment_verifier(
                             continue;
                         }
 
-                        if confirmations >= 6 {
+                        // Only run the expensive upgrade + UI-regen ONCE, on the
+                        // transition to confirmed. Treasury UTXOs are never swept, so
+                        // without this gate every one of them re-ran every cycle forever.
+                        if confirmations >= 6 && !db::is_payment_confirmed(&db, &tx_id) {
                             if let Err(e) = db::confirm_payment(&db, &tx_id, confirmations as i64) {
                                 warn!(
                                     "Payment Verifier: confirm_payment failed for {}: {}",

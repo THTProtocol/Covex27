@@ -126,7 +126,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           covenant_id: covenantId,
-          circuit_type: 'connect4',
+          circuit_type: 'connect4_v1',
           proof: { game: 'connect4', result: result.outcome, cols: moves.length },
           public_inputs: [result.outcome, result.method],
           requested_outcome: out,

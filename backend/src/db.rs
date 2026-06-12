@@ -712,7 +712,7 @@ pub fn upgrade_covenant_record(
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
-        "UPDATE covenants SET verified_tier = ?2, verified_payment_tx = ?3, verified_at = unixepoch(), custom_ui_enabled = 1, full_logic_summary = ?4, receiving_addresses = ?5 WHERE tx_id = ?1",
+        "UPDATE covenants SET verified_tier = ?2, verified_payment_tx = ?3, verified_at = unixepoch(), custom_ui_enabled = 1, full_logic_summary = ?4, receiving_addresses = ?5 WHERE tx_id = ?1 AND (verified_payment_tx IS NULL OR verified_payment_tx != ?3)",
         params![covenant_id, verified_tier, verified_payment_tx, full_logic_summary, receiving_addresses],
     )?;
     Ok(())
@@ -750,6 +750,19 @@ pub fn confirm_payment(
         params![tx_id, confirmations],
     )?;
     Ok(())
+}
+
+/// True if this payment has already been confirmed. Used by the verifier loop
+/// to do the expensive upgrade + UI-regen work ONCE on the pending->confirmed
+/// transition, instead of every 15s cycle for every never-swept treasury UTXO.
+pub fn is_payment_confirmed(db: &Mutex<Connection>, tx_id: &str) -> bool {
+    let conn = db.lock().unwrap();
+    conn.query_row(
+        "SELECT 1 FROM payments WHERE tx_id = ?1 AND status = 'confirmed'",
+        params![tx_id],
+        |_| Ok(true),
+    )
+    .unwrap_or(false)
 }
 
 /// Returns the highest tier this address has ever successfully paid for (by amount),

@@ -245,7 +245,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           covenant_id: covenantId,
-          circuit_type: 'checkers',
+          circuit_type: 'checkers_v1',
           proof: { game: 'checkers', result: result.outcome, method: result.method, moves: moves.length },
           public_inputs: [String(result.outcome), result.method],
           requested_outcome: outcome,

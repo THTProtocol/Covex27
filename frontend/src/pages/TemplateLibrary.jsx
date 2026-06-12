@@ -26,7 +26,7 @@ export default function TemplateLibrary() {
 
   // Load real published custom UIs from creators (activates the backend marketplace)
   useEffect(() => {
-    fetch('/marketplace/templates')
+    fetch('/api/marketplace/templates')
       .then(r => r.ok ? r.json() : { templates: [] })
       .then(data => {
         const list = (data.templates || []).slice(0, 12);

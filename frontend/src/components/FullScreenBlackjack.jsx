@@ -157,7 +157,7 @@ export default function FullScreenBlackjack({ stake, onClose, covenantId, feePer
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           covenant_id: covenantId,
-          circuit_type: 'chess_v1', // game result attestation
+          circuit_type: 'blackjack_v1', // game result attestation
           proof: {
             result,
             player_hand: playerCards.map(c => `${c.rank}${SUITS[c.suit]}`),

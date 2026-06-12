@@ -1,9 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Shield, ArrowDownToLine, ArrowUpFromLine, Copy, Check } from 'lucide-react';
 
-const API = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? 'http://127.0.0.1:3006/api'
-  : 'https://hightable.pro/api';
+const API = '/api';
 
 export default function PrivacyMixerPanel({ covenantId = 'demo-mixer' }) {
   const [secret, setSecret] = useState('');

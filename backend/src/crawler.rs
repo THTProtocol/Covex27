@@ -225,6 +225,21 @@ pub async fn run_crawler(
                     continue;
                 }
 
+                // Mainnet honesty gate: until the Toccata hard fork activates covenant
+                // support on mainnet, a bare P2SH commitment (OpBlake2b <32B> OpEqual)
+                // is indistinguishable from any ordinary P2SH output and cannot be
+                // proven to be a SilverScript covenant. We refuse to index these as
+                // covenants on mainnet, so the mainnet explorer stays honest (effectively
+                // empty until real covenants appear). On TN12/TN10, covenants are real.
+                if network.starts_with("mainnet") {
+                    let probe = if is_envelope(&pl) { &pl } else { &covenant_script };
+                    let blen = probe.len() / 2;
+                    let bare_p2sh = probe.starts_with("aa20") && probe.ends_with("87") && (34..=36).contains(&blen);
+                    if bare_p2sh {
+                        continue;
+                    }
+                }
+
                 // Paid tiers are assigned exclusively by the payment guardian when a
                 // confirmed treasury payment exists. The crawler never infers them:
                 // a covenant is "paid" only if it was deployed through the paid flow.
@@ -248,7 +263,11 @@ pub async fn run_crawler(
                     address_from_p2pk_script(&deployer_script_hex).unwrap_or_else(|| addr.clone());
                 let shash = crate::compute_script_hash(&covenant_script);
 
-                let nlabel = if network == "testnet-10" { "TN-10" } else { "TN-12" };
+                let nlabel = match network.as_str() {
+                    "testnet-10" => "TN-10",
+                    "mainnet" | "mainnet-1" => "Mainnet",
+                    _ => "TN-12",
+                };
                 let summary = auto_summary(&ctype, &cat, amt, nlabel);
                 if total_found % 100 == 0 {
                     info!("[CRAWLER-{}] discovered {} covenants so far (latest DAA {})", network, total_found, daa);

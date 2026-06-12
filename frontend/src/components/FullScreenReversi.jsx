@@ -123,7 +123,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
     const om = { black:0, white:1, draw:2 };
     const ov = om[result.outcome] ?? 0;
     try {
-      const r = await fetch('/api/oracle/verify-and-sign', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({covenant_id:covenantId, circuit_type:'reversi', proof:{g:'reversi',o:result.outcome}, public_inputs:[result.outcome], requested_outcome:ov }) });
+      const r = await fetch('/api/oracle/verify-and-sign', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({covenant_id:covenantId, circuit_type:'reversi_v1', proof:{g:'reversi',o:result.outcome}, public_inputs:[result.outcome], requested_outcome:ov }) });
       const d = await r.json();
       if (d.success) { setOracleSig(d.signature); setOracleSubmitted(true); setOracleResult(d); } else { const f='0x'+Array.from({length:14},()=>Math.floor(Math.random()*16).toString(16)).join(''); setOracleSig(f); setOracleSubmitted(true); setOracleResult({signature:f}); }
     } catch { const f='0x'+Array.from({length:14},()=>Math.floor(Math.random()*16).toString(16)).join(''); setOracleSig(f); setOracleSubmitted(true); setOracleResult({signature:f}); }

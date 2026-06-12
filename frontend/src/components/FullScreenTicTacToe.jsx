@@ -70,7 +70,7 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
     try {
       const r = await fetch('/api/oracle/verify-and-sign', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ covenant_id: covenantId, circuit_type: 'tictactoe', proof:{game:'ttt', res:result.outcome}, public_inputs:[result.outcome], requested_outcome: outv })
+        body: JSON.stringify({ covenant_id: covenantId, circuit_type: 'tictactoe_v1', proof:{game:'ttt', res:result.outcome}, public_inputs:[result.outcome], requested_outcome: outv })
       });
       const d = await r.json();
       if (d.success) { setOracleSig(d.signature); setOracleSubmitted(true); setOracleResult(d); }

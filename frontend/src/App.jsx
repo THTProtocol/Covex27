@@ -127,7 +127,7 @@ function LiveStatus() {
       const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
       const selectedNet = localStorage.getItem('kaspaNetwork') || 'testnet-12';
       Promise.all([
-        tryFetch('/status').then(d => d || tryFetch('/api/status')),
+        tryFetch('/api/status'),
         tryFetch(`/api/covenants?network=${selectedNet}&limit=1`),
       ])
         .then(([d, list]) => {

@@ -466,9 +466,10 @@ async fn covenant_actions_handler(
     }
     {
         let conn = db.lock().unwrap();
-        if let Ok(mut stmt) = conn.prepare(
+        let stmt_res = conn.prepare(
             "SELECT event_type, amount_kaspa, detail, timestamp FROM events WHERE covenant_id = ?1 ORDER BY id ASC LIMIT 200",
-        ) {
+        );
+        if let Ok(mut stmt) = stmt_res {
             if let Ok(rows) = stmt.query_map(rusqlite::params![covenant_id], |r| {
                 Ok(json!({
                     "action": r.get::<_, String>(0)?,

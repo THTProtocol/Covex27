@@ -557,7 +557,7 @@ pub fn covenant_stats(
     network: Option<&str>,
 ) -> anyhow::Result<(i64, i64, f64)> {
     let conn = db.lock().unwrap();
-    let sql_base = "SELECT COUNT(*), COALESCE(SUM(CASE WHEN verified_tier != 'FREE' THEN 1 ELSE 0 END), 0), COALESCE(SUM(amount_kaspa), 0) FROM covenants WHERE is_active = 1";
+    let sql_base = "SELECT COUNT(*), COALESCE(SUM(CASE WHEN verified_tier IN ('BUILDER','PRO','MAX') THEN 1 ELSE 0 END), 0), COALESCE(SUM(amount_kaspa), 0) FROM covenants WHERE is_active = 1";
     let row = if let Some(net) = network {
         conn.query_row(
             &format!("{} AND network = ?1", sql_base),

@@ -393,7 +393,7 @@ async fn address_summary_handler(
         .map(|c| covenant_summary_json(c, ui_ids.contains(&c.tx_id), db::ui_config_for_tier(&c.verified_tier)))
         .collect();
     let tvl: f64 = covs.iter().map(|c| c.amount_kaspa).sum();
-    let paid = covs.iter().filter(|c| c.verified_tier != "FREE").count();
+    let paid = covs.iter().filter(|c| matches!(c.verified_tier.as_str(), "BUILDER" | "PRO" | "MAX")).count();
     Json(json!({
         "address": addr,
         "covenants": list,

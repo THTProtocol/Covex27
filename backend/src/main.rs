@@ -24,6 +24,7 @@ mod crawler;
 mod db;
 mod dev_wallets;
 mod indexer;
+mod kaspa_msg;
 mod mixer;
 mod node_status;
 mod oracle;

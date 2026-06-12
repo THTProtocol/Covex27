@@ -106,6 +106,10 @@ pub async fn run_payment_verifier(
                                 } else {
                                     info!("Payment Verifier: Upgraded {} to {} tier ({} KAS, {} confs)",
                                         &from_address[..16], tier, amount_sompi as f64 / 100_000_000.0, confirmations);
+                                    {
+                                        let conn = db.lock().unwrap();
+                                        crate::db::record_event(&conn, "tier_upgraded", &tx_id, &network, amount_sompi as f64 / 100_000_000.0, tier);
+                                    }
 
                                     // Upgrade matched covenant record with full disclosure
                                     if let Some(ref cid) = covenant_id {

@@ -27,7 +27,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
   // Load existing trust config from backend
   useEffect(() => {
     if (!covenant?.tx_id) return;
-    fetch(`/api/covenants/${encodeURIComponent(covenant.tx_id)}/trust-config`)
+    fetch(`/api/terminal-config/${encodeURIComponent(covenant.tx_id)}`)
       .then(r => r.json())
       .then(d => {
         if (d.success && d.trust_config) {
@@ -51,7 +51,7 @@ export default function UiBuilder({ covenant, walletAddress, onSaved }) {
     setError(null);
 
     try {
-      const res = await fetch(`/api/covenants/${encodeURIComponent(covenant.tx_id)}/ui-config`, {
+      const res = await fetch(`/api/terminal-config/${encodeURIComponent(covenant.tx_id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

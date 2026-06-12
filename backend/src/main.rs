@@ -299,6 +299,9 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/covenants/:covenant_id", get(covenant_by_id_handler))
         .route("/compile", post(compile_handler))
+        .route("/events", get(events_handler))
+        .route("/address/:addr", get(address_summary_handler))
+        .route("/openapi.json", get(openapi_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
         .route("/paid-status", get(paid_status_handler))
@@ -349,6 +352,78 @@ async fn main() {
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();
+}
+
+async fn events_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let network = params.get("network").map(|s| s.as_str());
+    let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(30);
+    match db::get_events(&db, network, limit) {
+        Ok(ev) => Json(json!({"events": ev, "total": ev.len()})),
+        Err(e) => Json(json!({"events": [], "error": e.to_string()})),
+    }
+}
+
+/// Public portfolio summary for any address: covenants created, payments, totals.
+async fn address_summary_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    axum::extract::Path(addr): axum::extract::Path<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let network = params.get("network").map(|s| s.as_str());
+    let (covs, total) =
+        db::query_covenants(&db, network, Some(addr.as_str()), None, None, 100, 0)
+            .unwrap_or((vec![], 0));
+    let ui_ids = db::get_custom_ui_id_set(&db).unwrap_or_default();
+    let list: Vec<serde_json::Value> = covs
+        .iter()
+        .map(|c| covenant_summary_json(c, ui_ids.contains(&c.tx_id), db::ui_config_for_tier(&c.verified_tier)))
+        .collect();
+    let tvl: f64 = covs.iter().map(|c| c.amount_kaspa).sum();
+    let paid = covs.iter().filter(|c| c.verified_tier != "FREE").count();
+    Json(json!({
+        "address": addr,
+        "covenants": list,
+        "total_covenants": total,
+        "paid_covenants": paid,
+        "tvl_kas": tvl
+    }))
+}
+
+/// Hand-maintained OpenAPI document for the public read API.
+async fn openapi_handler() -> Json<serde_json::Value> {
+    Json(json!({
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Covex Covenant API",
+            "version": "1.1.0",
+            "description": "Public read API for Kaspa covenants indexed by Covex (hightable.pro). All list endpoints are paginated with limit (max 200) and offset. The same API powers the explorer UI."
+        },
+        "servers": [{"url": "https://hightable.pro/api"}],
+        "paths": {
+            "/covenants": {"get": {"summary": "List covenants", "parameters": [
+                {"name": "network", "in": "query", "schema": {"type": "string", "enum": ["testnet-12", "testnet-10", "mainnet"]}},
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "maximum": 200, "default": 60}},
+                {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+                {"name": "q", "in": "query", "description": "Keyword search. Pipe separates OR alternatives (chess|fide).", "schema": {"type": "string"}},
+                {"name": "category", "in": "query", "schema": {"type": "string"}},
+                {"name": "creator", "in": "query", "schema": {"type": "string"}}
+            ]}},
+            "/covenants/{covenant_id}": {"get": {"summary": "Full covenant detail including script_hex and custom UI", "parameters": [{"name": "covenant_id", "in": "path", "required": true, "schema": {"type": "string"}}]}},
+            "/events": {"get": {"summary": "Recent activity feed (discoveries, tier upgrades, resolutions)", "parameters": [
+                {"name": "network", "in": "query", "schema": {"type": "string"}},
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "maximum": 200, "default": 30}}
+            ]}},
+            "/address/{addr}": {"get": {"summary": "Public portfolio for an address", "parameters": [{"name": "addr", "in": "path", "required": true, "schema": {"type": "string"}}]}},
+            "/analytics": {"get": {"summary": "Creator or global analytics", "parameters": [{"name": "creator", "in": "query", "schema": {"type": "string"}}]}},
+            "/balance/{addr}": {"get": {"summary": "Address balance in sompi", "parameters": [{"name": "addr", "in": "path", "required": true, "schema": {"type": "string"}}]}},
+            "/tiers": {"get": {"summary": "Tier definitions and pricing"}},
+            "/status": {"get": {"summary": "Indexer status, networks, commit"}},
+            "/compile": {"post": {"summary": "Compile Covex DSL or SilverScript to bytecode", "requestBody": {"content": {"application/json": {"schema": {"type": "object", "properties": {"source": {"type": "string"}}}}}}}}
+        }
+    }))
 }
 
 /// Per-IP token bucket for expensive routes. 20 burst, refills 2/sec.

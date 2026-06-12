@@ -140,6 +140,19 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         );
         CREATE INDEX IF NOT EXISTS idx_skill_games_status ON skill_games(status);
 
+        CREATE TABLE IF NOT EXISTS events (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type    TEXT NOT NULL,
+            covenant_id   TEXT NOT NULL DEFAULT '',
+            network       TEXT NOT NULL DEFAULT 'testnet-12',
+            amount_kaspa  REAL NOT NULL DEFAULT 0,
+            detail        TEXT NOT NULL DEFAULT '',
+            timestamp     INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_events_time ON events(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_events_network ON events(network);
+        CREATE INDEX IF NOT EXISTS idx_events_covenant ON events(covenant_id);
+
         CREATE TABLE IF NOT EXISTS mixer_leaves (
             covenant_id   TEXT NOT NULL,
             leaf_index    INTEGER NOT NULL,
@@ -257,11 +270,28 @@ pub fn insert_covenant(
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     let amount = amount_sompi as f64 / 100_000_000.0;
+    let already: bool = conn
+        .query_row(
+            "SELECT 1 FROM covenants WHERE tx_id = ?1",
+            params![tx_id],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
     conn.execute(
         "INSERT OR REPLACE INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses, network)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13, ?14)",
         params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, block_daa_score, full_logic_summary, receiving_addresses, network],
     )?;
+    if !already {
+        record_event(
+            &conn,
+            "covenant_discovered",
+            tx_id,
+            network,
+            amount,
+            covenant_type,
+        );
+    }
     Ok(())
 }
 
@@ -347,6 +377,67 @@ pub fn get_all_covenants(
         }
     }
     Ok(result)
+}
+
+/// Append an activity event (discovery, tier upgrade, resolution, deploy).
+/// Conn is expected to already be held by the caller via the Mutex wrapper.
+pub fn record_event(
+    conn: &Connection,
+    event_type: &str,
+    covenant_id: &str,
+    network: &str,
+    amount_kaspa: f64,
+    detail: &str,
+) {
+    let _ = conn.execute(
+        "INSERT INTO events (event_type, covenant_id, network, amount_kaspa, detail) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![event_type, covenant_id, network, amount_kaspa, detail],
+    );
+    // Bound the table: keep the most recent 5000 events
+    let _ = conn.execute(
+        "DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 5000)",
+        [],
+    );
+}
+
+#[derive(serde::Serialize)]
+pub struct EventRow {
+    pub id: i64,
+    pub event_type: String,
+    pub covenant_id: String,
+    pub network: String,
+    pub amount_kaspa: f64,
+    pub detail: String,
+    pub timestamp: i64,
+}
+
+pub fn get_events(
+    db: &Mutex<Connection>,
+    network: Option<&str>,
+    limit: i64,
+) -> anyhow::Result<Vec<EventRow>> {
+    let conn = db.lock().unwrap();
+    let limit = limit.clamp(1, 200);
+    let mut out = Vec::new();
+    let map = |row: &rusqlite::Row| -> rusqlite::Result<EventRow> {
+        Ok(EventRow {
+            id: row.get(0)?,
+            event_type: row.get(1)?,
+            covenant_id: row.get(2)?,
+            network: row.get(3)?,
+            amount_kaspa: row.get(4)?,
+            detail: row.get(5)?,
+            timestamp: row.get(6)?,
+        })
+    };
+    if let Some(net) = network {
+        let mut stmt = conn.prepare("SELECT id, event_type, covenant_id, network, amount_kaspa, detail, timestamp FROM events WHERE network = ?1 ORDER BY id DESC LIMIT ?2")?;
+        for r in stmt.query_map(params![net, limit], map)? { out.push(r?); }
+    } else {
+        let mut stmt = conn.prepare("SELECT id, event_type, covenant_id, network, amount_kaspa, detail, timestamp FROM events ORDER BY id DESC LIMIT ?1")?;
+        for r in stmt.query_map(params![limit], map)? { out.push(r?); }
+    }
+    Ok(out)
 }
 
 /// Paginated, filterable covenant query. Returns (page, total_matching).

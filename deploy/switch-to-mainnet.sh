@@ -31,8 +31,8 @@ LOG_FILE="/tmp/covex27.log"
 
 # === MAINNET CONFIGURATION (EDIT THESE BEFORE RUNNING) ===
 MAINNET_TREASURY="${MAINNET_TREASURY:-kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2}"
-MAINNET_WRPC_URL="${MAINNET_WRPC_URL:-ws://127.0.0.1:17110}"   # Change to your mainnet node
-MAINNET_BIND_ADDR="0.0.0.0:3005"
+MAINNET_WRPC_URL="${MAINNET_WRPC_URL:-ws://127.0.0.1:17310}"   # On hightable.pro this is the reverse SSH tunnel to the operator PC node; a local node would be ws://127.0.0.1:17110
+MAINNET_BIND_ADDR="0.0.0.0:3006"
 
 echo "Current network detected from running process (if any):"
 if pgrep -f covex27-backend >/dev/null 2>&1; then
@@ -95,8 +95,8 @@ fi
 echo "[4/5] Verifying new configuration..."
 sleep 2
 
-if curl -s --max-time 5 http://127.0.0.1:3005/health >/dev/null 2>&1; then
-    echo "  ✓ Backend is responding on port 3005"
+if curl -s --max-time 5 http://127.0.0.1:3006/health >/dev/null 2>&1; then
+    echo "  ✓ Backend is responding on port 3006"
 else
     echo "  ⚠ Backend may not be healthy yet. Check logs."
 fi

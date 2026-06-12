@@ -6,7 +6,7 @@
 # Usage:
 #   ./deploy/covex-launch-verify.sh
 #   BASE_URL=https://hightable.pro ./deploy/covex-launch-verify.sh
-#   BASE_URL=http://127.0.0.1:3005 FRONTEND_URL=http://localhost:5173 ./deploy/covex-launch-verify.sh
+#   BASE_URL=http://127.0.0.1:3006 FRONTEND_URL=http://localhost:5173 ./deploy/covex-launch-verify.sh
 #
 # Exit codes:
 #   0 = All critical checks passed (launch ready or very close)
@@ -22,7 +22,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:3005}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:3006}"
 FRONTEND_URL="${FRONTEND_URL:-https://hightable.pro}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

@@ -29,7 +29,7 @@ PID=$!
 sleep 3
 if ps -p $PID > /dev/null; then
   echo "MAINNET kaspad started PID $PID. Data: $DATA_DIR Log: $LOG_FILE"
-  echo "Borsh/wRPC typically on 17110 -> set KASPA_WRPC_URL_MAINNET=ws://127.0.0.1:17110"
+  echo "Borsh/wRPC on 17110 locally. On the SAME machine: KASPA_WRPC_URL_MAINNET=ws://127.0.0.1:17110. On hightable.pro the node is reached through the reverse SSH tunnel: ws://127.0.0.1:17310"
   echo "Monitor: tail -f $LOG_FILE"
 else
   echo "Failed. tail -20 $LOG_FILE"

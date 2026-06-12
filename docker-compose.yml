@@ -7,11 +7,11 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     ports:
-      - "3001:3001"
+      - "3006:3006"
     environment:
       - KASPA_NETWORK=${KASPA_NETWORK:-testnet-12}
-      - KASPA_WRPC_URL=${KASPA_WRPC_URL:-ws://host.docker.internal:17110}
-      - BIND_ADDR=0.0.0.0:3001
+      - KASPA_WRPC_URL=${KASPA_WRPC_URL:-ws://host.docker.internal:17217}
+      - BIND_ADDR=0.0.0.0:3006
       - DB_PATH=/data/covex.db
       - COVENANT_TREASURY_ADDRESS=${COVENANT_TREASURY_ADDRESS:-kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq}
       - RUST_LOG=${RUST_LOG:-covex27_backend=debug,kaspa_wrpc=info}

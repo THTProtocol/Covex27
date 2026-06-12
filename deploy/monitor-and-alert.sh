@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:3005}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:3006}"
 WEBHOOK_URL="${WEBHOOK_URL:-}"   # Set this to your Slack/Discord webhook for alerts
 LOG_FILE="/tmp/covex-monitor.log"
 

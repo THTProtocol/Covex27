@@ -27,6 +27,6 @@ COPY --from=builder /app/target/release/covex27-backend /usr/local/bin/covex-bac
 RUN mkdir -p /data
 VOLUME ["/data"]
 
-EXPOSE 3001
+EXPOSE 3006
 
 CMD ["covex-backend"]

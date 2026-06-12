@@ -28,7 +28,7 @@ KASPAD_BIN="/home/kasparov/.cargo/bin/kaspad"
 KASPA_DATA_DIR="/home/kasparov/kaspa-tn10-data"
 KASPA_USER="kasparov"
 DOMAIN="hightable.pro"
-BACKEND_PORT=3001
+BACKEND_PORT=3006
 PROJECT_DIR="/home/kasparov/Covex27"
 FRONTEND_DIST="${PROJECT_DIR}/frontend/dist"
 
@@ -95,7 +95,7 @@ cat > "${PROJECT_DIR}/deploy/.env.production" <<'DOTENVPROD'
 # Covex Production Environment - Hetzner VPS (hightable.pro)
 KASPA_NETWORK=testnet-12
 KASPA_WRPC_URL=ws://127.0.0.1:17217
-BIND_ADDR=127.0.0.1:3001
+BIND_ADDR=0.0.0.0:3006
 DB_PATH=../covex.db
 COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
 COVENANT_SEED_ADDRESSES=
@@ -224,7 +224,7 @@ fi
 echo "[4.4] Configuring Nginx for ${DOMAIN}..."
 cat > /etc/nginx/sites-available/hightable <<'NGINXCONF'
 # Covex27 — hightable.pro Nginx Configuration
-# Serves React SPA + proxies /api/ to Rust backend on :3001
+# Serves React SPA + proxies /api/ to Rust backend on :3006
 
 server {
     listen 80;
@@ -256,9 +256,20 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # API proxy to Rust backend
+    # WebSocket live feed (Upgrade headers are required or /api/ws breaks)
+    location = /api/ws {
+        proxy_pass http://127.0.0.1:3006/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+    }
+
+    # API proxy to Rust backend.
+    # The TRAILING SLASH on proxy_pass strips the /api prefix (backend routes have no /api).
     location /api/ {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:3006/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -276,7 +287,7 @@ server {
 
     # Health check
     location /health {
-        proxy_pass http://127.0.0.1:3001/health;
+        proxy_pass http://127.0.0.1:3006/health;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_read_timeout 5s;
@@ -363,7 +374,7 @@ REPORT="/root/Covex27/Covex_Health_Report.md"
 TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 NETWORK="testnet-12"
 TREASURY="kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
-BACKEND_PORT=3001
+BACKEND_PORT=3006
 DOMAIN="hightable.pro"
 
 check_pass()  { echo "| $1 |  PASS  | $2 |"; }
@@ -392,8 +403,8 @@ else
     SYNC_DETAIL="kaspad service not running"
 fi
 
-# ── API Port 3001 ────────────────────────────────────────────────────
-echo "→ Checking API port 3001..."
+# ── API Port 3006 ────────────────────────────────────────────────────
+echo "→ Checking API port 3006..."
 API_HEALTHY=false
 API_RESPONSE=""
 if curl -sf --max-time 5 "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null 2>&1; then
@@ -539,8 +550,8 @@ echo "  HEALTH REPORT:"
 echo "    bash /root/Covex27/scripts/generate_covex_health_report.sh"
 echo ""
 echo "  VERIFY:"
-echo "    curl http://127.0.0.1:3001/health"
-echo "    curl http://127.0.0.1:3001/status"
+echo "    curl http://127.0.0.1:3006/health"
+echo "    curl http://127.0.0.1:3006/status"
 echo "    curl -I http://hightable.pro"
 echo ""
 echo "  IF SSL NEEDED:"

@@ -15,7 +15,7 @@ echo "║           COVEX PHASE 5 — PRODUCTION VALIDATION              ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:3005}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:3006}"
 FRONTEND_URL="${FRONTEND_URL:-https://hightable.pro}"
 
 failures=0

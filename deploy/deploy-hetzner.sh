@@ -128,8 +128,8 @@ echo
 echo "=== Deployment Complete ==="
 echo
 echo "Quick checks:"
-echo "  curl -s http://localhost:3001/api/health"
-curl -s http://localhost:3001/api/health 2>/dev/null || echo "  (backend not running yet - start it manually)"
+echo "  curl -s http://localhost:3006/health"
+curl -s http://localhost:3006/health 2>/dev/null || echo "  (backend not running yet - start it manually)"
 echo
 echo "  systemctl status covex-backend"
 systemctl status covex-backend --no-pager -l 2>/dev/null || echo "  (check systemd service)"

@@ -1,25 +1,34 @@
+# Covex backend systemd unit. This mirrors the LIVE unit on hightable.pro
+# at /etc/systemd/system/covex-backend.service (verified 2026-06-12).
+#
+# Network endpoints for TN10 and mainnet, plus the oracle key, live in a
+# drop-in at /etc/systemd/system/covex-backend.service.d/mainnet.conf:
+#   [Service]
+#   Environment=COVEX_ORACLE_KEY=<generate on the server; NEVER commit>
+#   Environment=KASPA_WRPC_URL_MAINNET=ws://127.0.0.1:17310   # reverse SSH tunnel
+#   Environment=KASPA_WRPC_URL_TN10=ws://127.0.0.1:17210
+#
+# To enable mainnet covenant indexing after Toccata activates, add to the
+# drop-in: Environment=COVEX_MAINNET_COVENANTS_ENABLED=true and restart.
+
 [Unit]
-Description=Covex27 Backend - Rust Kaspa Covenant Explorer API
+Description=Covex Rust Backend
 After=network.target
 
 [Service]
 Type=simple
-User=kasparov
-WorkingDirectory=/home/kasparov/Covex27
-# Change to "mainnet" after Toccata hard fork + update treasury below
-Environment="KASPA_NETWORK=testnet-12"
-Environment="KASPA_WRPC_URL=ws://127.0.0.1:17217"
-Environment="BIND_ADDR=0.0.0.0:3005"
-Environment="DB_PATH=/home/kasparov/Covex27/covex.db"
-Environment="COVENANT_TREASURY_ADDRESS=kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
-Environment="COVENANT_SEED_ADDRESSES=kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353,kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs,kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
-Environment="CRAWL_START_DAA=1"
-Environment="RUST_LOG=covex27_backend=debug,kaspa_wrpc=info"
-ExecStart=/home/kasparov/Covex27/backend/target/release/covex27-backend
+User=root
+WorkingDirectory=/mnt/HC_Volume_105579109/Covex27
+Environment=BIND_ADDR=0.0.0.0:3006
+Environment=DB_PATH=/mnt/HC_Volume_105579109/Covex27/covex.db
+Environment=KASPA_WRPC_URL=ws://127.0.0.1:17217
+Environment=KASPA_NETWORK=testnet-12
+Environment=COVENANT_SEED_ADDRESSES=kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353,kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs,kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m
+EnvironmentFile=-/mnt/HC_Volume_105579109/Covex27/.env
+ExecStart=/mnt/HC_Volume_105579109/Covex27/backend/target/release/covex27-backend
 Restart=always
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

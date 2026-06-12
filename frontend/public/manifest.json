@@ -1,7 +1,7 @@
 {
-  "name": "COVEX - Multi-Network Kaspa Covenant Platform",
-  "short_name": "COVEX",
-  "description": "Multi-network verifiable interactive covenant platform on Kaspa BlockDAG. TN12, TN10, Mainnet. ZK circuits, oracle resolution, pro game arenas. Non-custodial.",
+  "name": "Covex",
+  "short_name": "Covex",
+  "description": "The covenant explorer and studio for Kaspa. Index every covenant, interact with any of them, design and verify your own.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#05050A",

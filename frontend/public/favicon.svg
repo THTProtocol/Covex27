@@ -1,16 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 512 512" fill="none">
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="g" x1="100" y1="100" x2="400" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#00ff9d"/><stop offset="100%" stop-color="#00e5ff"/>
-    </linearGradient>
+    <linearGradient id="ft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d7fbf4"/><stop offset="1" stop-color="#7fe9d8"/></linearGradient>
+    <linearGradient id="fl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cead3"/><stop offset="1" stop-color="#2bb6a3"/></linearGradient>
+    <linearGradient id="fr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#33c6b2"/><stop offset="1" stop-color="#178f80"/></linearGradient>
+    <linearGradient id="fb" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#eafffb"/><stop offset="0.5" stop-color="#49EACB"/><stop offset="1" stop-color="#1c9d8c"/></linearGradient>
   </defs>
-  <g stroke="url(#g)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="140" y1="120" x2="200" y2="90"/><line x1="200" y1="90" x2="280" y2="85"/><line x1="280" y1="85" x2="360" y2="110"/>
-    <line x1="360" y1="110" x2="395" y2="170"/><line x1="395" y1="170" x2="400" y2="250"/><line x1="400" y1="250" x2="385" y2="320"/>
-    <line x1="385" y1="320" x2="320" y2="370"/><line x1="320" y1="370" x2="240" y2="390"/><line x1="240" y1="390" x2="160" y2="365"/>
-    <line x1="160" y1="365" x2="125" y2="300"/><line x1="125" y1="300" x2="120" y2="200"/><line x1="120" y1="200" x2="140" y1="120"/>
-  </g>
-  <g fill="#00ff9d">
-    <circle cx="140" cy="120" r="6"/><circle cx="280" cy="85" r="5"/><circle cx="400" cy="250" r="5"/><circle cx="240" cy="390" r="5"/>
-  </g>
+  <path fill-rule="evenodd" fill="url(#fb)" d="M32 4 L56 18 L56 26 L44 19 L32 12 L14 22.5 L14 41.5 L32 52 L44 45 L56 38 L56 46 L32 60 L8 46 L8 18 Z"/>
+  <g stroke="#eafffb" stroke-width="0.9" stroke-opacity="0.6" stroke-linejoin="round" fill="none"><path d="M32 12 L14 22.5 L14 41.5 L32 52"/></g>
+  <g><path d="M49 17 L55 20.4 L49 23.8 L43 20.4 Z" fill="url(#ft)"/><path d="M43 20.4 L49 23.8 L49 30.6 L43 27.2 Z" fill="url(#fl)"/><path d="M55 20.4 L49 23.8 L49 30.6 L55 27.2 Z" fill="url(#fr)"/></g>
+  <g><path d="M32 25 L39 29 L32 33 L25 29 Z" fill="url(#ft)"/><path d="M25 29 L32 33 L32 41 L25 37 Z" fill="url(#fl)"/><path d="M39 29 L32 33 L32 41 L39 37 Z" fill="url(#fr)"/></g>
+  <g><path d="M49 40.2 L55 43.6 L49 47 L43 43.6 Z" fill="url(#ft)"/><path d="M43 43.6 L49 47 L49 53.8 L43 50.4 Z" fill="url(#fl)"/><path d="M55 43.6 L49 47 L49 53.8 L55 50.4 Z" fill="url(#fr)"/></g>
 </svg>

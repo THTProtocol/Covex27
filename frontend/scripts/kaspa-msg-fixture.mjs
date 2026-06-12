@@ -3,9 +3,9 @@
 // backend verifier can be validated against the real signing scheme.
 // Run from frontend/: node kaspa-msg-fixture.mjs
 import { readFileSync } from 'fs';
-import * as mod from './node_modules/@onekeyfe/kaspa-wasm/kaspa.js';
+import * as mod from '../node_modules/@onekeyfe/kaspa-wasm/kaspa.js';
 
-const bytes = readFileSync('./node_modules/@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin');
+const bytes = readFileSync('../node_modules/@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin');
 const compiled = await WebAssembly.compile(bytes);
 mod.initSync({ module: compiled });
 

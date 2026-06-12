@@ -16,7 +16,7 @@ import useGameSync from '../hooks/useGameSync';
 // match winner through the same oracle attest + claim flow as the other games.
 
 const SUITS = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
-const SUIT_COLORS = { hearts: 'text-red-500', diamonds: 'text-red-500', clubs: 'text-white', spades: 'text-white' };
+const SUIT_COLORS = { hearts: 'text-red-500', diamonds: 'text-red-500', clubs: 'text-gray-900', spades: 'text-gray-900' };
 const SUIT_NAME = { c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' };
 const parseCard = (s) => (s ? { rank: s[0] === 'T' ? '10' : s[0], suit: SUIT_NAME[s[1]] } : null);
 
@@ -243,7 +243,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
   const matchOver = m?.status === 'finished';
   const iWonMatch = matchOver && mySeat != null && (m.chips[mySeat] ?? 0) > 0;
   const oppSeat = mySeat == null ? 1 : 1 - mySeat;
-  const seatLabel = (s) => (m?.players?.[s] ? `${m.players[s].slice(0, 10)}...` : 'open');
+  const seatLabel = (s) => (m?.players?.[s] ? `${m.players[s].slice(0, 16)}...` : 'open');
 
   const submitToOracle = useCallback(async () => {
     if (!matchOver || !covenantId) return;

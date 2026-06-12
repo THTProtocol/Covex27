@@ -1,8 +1,6 @@
 <div align="center">
 
-  <img src="docs/assets/covex-logo.svg" alt="Covex logo" width="120" height="120">
-
-  <img src="docs/assets/covex-banner.svg" alt="Covex, the covenant explorer and studio for Kaspa" width="100%">
+  <img src="docs/assets/covex-logo-full.png" alt="Covex" width="220">
 
   <br><br>
 

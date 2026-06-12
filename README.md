@@ -10,7 +10,7 @@
  ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝
   </pre>
 
-  <img src="https://raw.githubusercontent.com/THTProtocol/Covex27/master/frontend/public/covex-logo-full.jpg" alt="Covex - Verifiable Interactive Covenants" width="256" />
+
 
   <h3>The Production Platform for Verifiable Interactive Covenants on the Kaspa BlockDAG</h3>
 

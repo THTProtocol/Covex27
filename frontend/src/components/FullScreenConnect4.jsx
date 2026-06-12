@@ -195,10 +195,10 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
             <div className={`font-mono tabular-nums ${yellowTime<30000?'text-red-500':'text-yellow-400'}`}>YEL {formatTime(yellowTime)}</div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 p-2 bg-[#0a1628] rounded-2xl border border-white/10 shadow-2xl" style={{ width: 'min(94vw, 420px)' }}>
+          <div className="grid grid-cols-7 gap-1 p-2 bg-[#1d4ed8] rounded-2xl border-4 border-[#1e40af] shadow-[0_16px_50px_-12px_rgba(29,78,216,0.55)]" style={{ width: 'min(94vw, 420px)' }}>
             {board.map((cell, i) => (
-              <div key={i} onClick={() => drop(getCol(i))} className="aspect-square bg-[#112233] rounded-full cursor-pointer flex items-center justify-center border border-white/10 active:bg-[#1a2a3a]">
-                {cell && <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow-inner ${cell === 'R' ? 'bg-red-500' : 'bg-yellow-400'}`} />}
+              <div key={i} onClick={() => drop(getCol(i))} className="aspect-square bg-[#0b1530] rounded-full cursor-pointer flex items-center justify-center shadow-[inset_0_3px_8px_rgba(0,0,0,0.7)] hover:bg-[#101d42] active:bg-[#15265a] transition-colors">
+                {cell && <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${cell === 'R' ? 'bg-gradient-to-br from-red-400 to-red-600 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35),0_2px_4px_rgba(0,0,0,0.5)]' : 'bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.5)]'}`} />}
               </div>
             ))}
           </div>

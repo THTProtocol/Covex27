@@ -13,18 +13,23 @@ const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 function Card({ rank, suit, faceDown, small }) {
   if (faceDown) {
     return (
-      <div className={`${small ? 'w-10 h-14' : 'w-16 h-24'} rounded-lg bg-blue-800 border-2 border-blue-600 flex items-center justify-center shadow-lg`}>
-        <div className="w-full h-full m-1 rounded border border-blue-500 bg-blue-700 flex items-center justify-center">
-          <span className="text-blue-400 text-2xl font-bold">?</span>
-        </div>
-      </div>
+      <div className={`${small ? 'w-10 h-14' : 'w-16 h-24'} rounded-lg border-2 border-white/80 shadow-lg bg-[repeating-linear-gradient(45deg,#1e3a8a,#1e3a8a_6px,#1d4ed8_6px,#1d4ed8_12px)]`} />
     );
   }
   const color = SUIT_COLORS[suit] || 'text-white';
   return (
-    <div className={`${small ? 'w-10 h-14' : 'w-16 h-24'} rounded-lg bg-white border-2 border-gray-300 flex flex-col items-center justify-start pt-0.5 shadow-lg`}>
-      <span className={`${small ? 'text-xs' : 'text-sm'} font-bold ${color} leading-none`}>{rank}</span>
-      <span className={`${color} ${small ? 'text-lg' : 'text-3xl'} leading-none`}>{SUITS[suit]}</span>
+    <div className={`relative ${small ? 'w-10 h-14' : 'w-16 h-24'} rounded-lg bg-white border border-gray-300 shadow-lg select-none`}>
+      <div className={`absolute top-0.5 left-0.5 flex flex-col items-center leading-none ${color}`}>
+        <span className={`${small ? 'text-[9px]' : 'text-xs'} font-bold`}>{rank}</span>
+        <span className={small ? 'text-[9px]' : 'text-xs'}>{SUITS[suit]}</span>
+      </div>
+      <div className={`absolute inset-0 flex items-center justify-center ${color}`}>
+        <span className={small ? 'text-base' : 'text-2xl'}>{SUITS[suit]}</span>
+      </div>
+      <div className={`absolute bottom-0.5 right-0.5 flex flex-col items-center leading-none rotate-180 ${color}`}>
+        <span className={`${small ? 'text-[9px]' : 'text-xs'} font-bold`}>{rank}</span>
+        <span className={small ? 'text-[9px]' : 'text-xs'}>{SUITS[suit]}</span>
+      </div>
     </div>
   );
 }

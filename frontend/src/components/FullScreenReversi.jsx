@@ -157,11 +157,11 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
 
         <div className="relative">
           <div className="lg:hidden flex justify-between max-w-[min(92vw,420px)] text-[10px] mb-1 font-mono"><span className={blackTime<30000?'text-red-500':''}>B {format(blackTime)}</span><span className="text-kaspa-green">{result?'OVER':(turn+' TO PLAY')}</span><span className={whiteTime<30000?'text-red-500':''}>W {format(whiteTime)}</span></div>
-          <div className="grid grid-cols-8 gap-0.5 p-1 bg-[#0a120a] rounded-2xl border border-white/10" style={{width:'min(92vw,420px)', aspectRatio:'1'}}>
+          <div className="grid grid-cols-8 gap-0.5 p-1 bg-[#0e3320] rounded-2xl border border-white/10" style={{width:'min(92vw,420px)', aspectRatio:'1'}}>
             {board.map((v,i) => {
               const legal = !result && isLegal(i);
-              return <div key={i} onClick={()=>place(i)} className={`aspect-square flex items-center justify-center rounded ${legal ? 'ring-1 ring-emerald-400/60' : ''} ${v ? '' : 'hover:bg-white/5'} cursor-pointer`} style={{background: (Math.floor(i/8)+i%8)%2 ? '#0f2a18' : '#0a1f12'}}>
-                {v && <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow ${v==='B'?'bg-black':'bg-white'}`} />}
+              return <div key={i} onClick={()=>place(i)} className={`aspect-square flex items-center justify-center rounded ${legal ? 'ring-2 ring-yellow-300/80' : ''} ${v ? '' : 'hover:bg-white/5'} cursor-pointer`} style={{background: '#1a7a44', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.35)'}}>
+                {v && <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow ${v==='B'?'bg-gradient-to-br from-[#333] to-black shadow-[0_2px_4px_rgba(0,0,0,0.6)]':'bg-gradient-to-br from-white to-[#cfcfcf] shadow-[0_2px_4px_rgba(0,0,0,0.5)]'}`} />}
               </div>;
             })}
           </div>

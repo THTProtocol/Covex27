@@ -133,9 +133,17 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         <div className="text-sm text-gray-300">{result ? 'GAME OVER' : (turn + ' PICK')}</div>
 
         <div className="flex gap-3">
-          {CHOICES.map(c => (
-            <button key={c} disabled={!!myPick || !!result} onClick={() => pick(c)} className="px-6 py-4 rounded-2xl border border-white/20 bg-black/40 hover:bg-white/5 text-lg capitalize active:scale-[0.985] disabled:opacity-50">{c}</button>
-          ))}
+          {CHOICES.map(c => {
+            const ICONS = { rock: '✊', paper: '✋', scissors: '✌️' };
+            const COLORS = { rock: 'border-stone-400/40 hover:border-stone-300', paper: 'border-sky-400/40 hover:border-sky-300', scissors: 'border-rose-400/40 hover:border-rose-300' };
+            return (
+              <button key={c} disabled={!!myPick || !!result} onClick={() => pick(c)}
+                className={`flex flex-col items-center gap-2 px-7 py-5 rounded-2xl border-2 bg-black/40 hover:bg-white/5 hover:scale-105 active:scale-[0.985] disabled:opacity-50 transition-all ${COLORS[c] || 'border-white/20'}`}>
+                <span className="text-5xl leading-none">{ICONS[c]}</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-300">{c}</span>
+              </button>
+            );
+          })}
         </div>
 
         {last && <div className="text-xs text-gray-400">Last: {last.p1} vs {last.p2} → {last.winner}</div>}

@@ -52,18 +52,23 @@ function dealInitial(deck) {
 function Card({ rank, suit, faceDown, small }) {
   if (faceDown) {
     return (
-      <div className={`${small ? 'w-12 h-18' : 'w-20 h-28'} rounded-lg bg-blue-800 border-2 border-blue-600 flex items-center justify-center shadow-xl`}>
-        <div className="w-full h-full m-1 rounded border border-blue-500/50 bg-blue-700 flex items-center justify-center">
-          <span className="text-blue-400 text-3xl font-bold">?</span>
-        </div>
-      </div>
+      <div className={`${small ? 'w-12 h-18' : 'w-20 h-28'} rounded-lg border-2 border-white/80 shadow-xl bg-[repeating-linear-gradient(45deg,#1e3a8a,#1e3a8a_6px,#1d4ed8_6px,#1d4ed8_12px)]`} />
     );
   }
   const color = SUIT_COLORS[suit] || 'text-white';
   return (
-    <div className={`${small ? 'w-12 h-18' : 'w-20 h-28'} rounded-lg bg-white border-2 border-gray-300 flex flex-col items-center justify-start p-1 shadow-xl transition-all hover:-translate-y-1`}>
-      <span className={`${small ? 'text-sm' : 'text-lg'} font-bold ${color} leading-none`}>{rank}</span>
-      <span className={`${color} ${small ? 'text-2xl' : 'text-4xl'} leading-none`}>{SUITS[suit]}</span>
+    <div className={`relative ${small ? 'w-12 h-18' : 'w-20 h-28'} rounded-lg bg-white border border-gray-300 shadow-xl select-none transition-all hover:-translate-y-1`}>
+      <div className={`absolute top-0.5 left-1 flex flex-col items-center leading-none ${color}`}>
+        <span className={`${small ? 'text-[10px]' : 'text-sm'} font-bold`}>{rank}</span>
+        <span className={small ? 'text-[10px]' : 'text-sm'}>{SUITS[suit]}</span>
+      </div>
+      <div className={`absolute inset-0 flex items-center justify-center ${color}`}>
+        <span className={small ? 'text-xl' : 'text-3xl'}>{SUITS[suit]}</span>
+      </div>
+      <div className={`absolute bottom-0.5 right-1 flex flex-col items-center leading-none rotate-180 ${color}`}>
+        <span className={`${small ? 'text-[10px]' : 'text-sm'} font-bold`}>{rank}</span>
+        <span className={small ? 'text-[10px]' : 'text-sm'}>{SUITS[suit]}</span>
+      </div>
     </div>
   );
 }

@@ -126,9 +126,9 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
           </div>
           <div className="grid grid-cols-3 gap-1.5 p-2 bg-[#111] rounded-2xl border border-white/10" style={{ width: 'min(82vw, 280px)' }}>
             {board.map((v, i) => (
-              <div key={i} onClick={() => place(i)} className="aspect-square bg-[#0a0a0f] border border-white/10 rounded-xl flex items-center justify-center text-5xl font-bold cursor-pointer active:bg-white/5">
-                {v === 'X' && <span className="text-white">X</span>}
-                {v === 'O' && <span className="text-[#E8AF34]">O</span>}
+              <div key={i} onClick={() => place(i)} className="aspect-square bg-[#0a0a0f] border border-white/10 rounded-none flex items-center justify-center text-5xl font-black cursor-pointer hover:bg-white/[0.04] transition-colors active:bg-white/5">
+                {v === 'X' && <span className="text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]">X</span>}
+                {v === 'O' && <span className="text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)]">O</span>}
               </div>
             ))}
           </div>

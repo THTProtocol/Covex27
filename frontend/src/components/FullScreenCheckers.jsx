@@ -346,11 +346,11 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
                   <div
                     key={i}
                     onClick={() => onSquareClick(i)}
-                    className={`aspect-square flex items-center justify-center text-3xl sm:text-4xl cursor-pointer transition-all active:scale-[0.985] ${dark ? 'bg-[#3a2f1f]' : 'bg-[#5c4633]'} ${isSelected ? 'ring-4 ring-[#49EACB]' : ''} ${isLegal ? 'ring-2 ring-emerald-400' : ''}`}
+                    className={`aspect-square flex items-center justify-center text-3xl sm:text-4xl cursor-pointer transition-all active:scale-[0.985] ${dark ? 'bg-[#7a4a2b]' : 'bg-[#e8c99b]'} ${isSelected ? 'ring-4 ring-[#49EACB]' : ''} ${isLegal ? 'ring-2 ring-emerald-400' : ''}`}
                   >
                     {p && (
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold shadow-inner ${isWhite(p) ? 'bg-white text-black' : 'bg-black text-white'} ${isKing(p) ? 'ring-2 ring-yellow-400' : ''}`}>
-                        {isKing(p) ? '♔' : ''}
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold shadow-inner ${isWhite(p) ? 'bg-gradient-to-br from-[#fafafa] to-[#cfcfcf] text-amber-600 ring-1 ring-black/20' : 'bg-gradient-to-br from-[#3a3a3a] to-[#0c0c0c] text-amber-400 ring-1 ring-white/15'} ${isKing(p) ? 'ring-2 ring-yellow-400' : ''}`}>
+                        {isKing(p) ? '♛' : ''}
                       </div>
                     )}
                   </div>

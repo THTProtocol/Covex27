@@ -343,6 +343,12 @@ async fn main() {
         // spawns silverc, sign-and-broadcast hits wRPC). GETs on list endpoints are cheap
         // post-pagination and stay unthrottled.
         .layer(axum::middleware::from_fn(rate_limit_middleware))
+        // API responses are live data: stop browsers from serving stale covenant
+        // configs (a published Studio page must appear on the next load).
+        .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            axum::http::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static("no-store"),
+        ))
         // Basic protection (P0): concurrency limit to prevent too many simultaneous heavy requests
         // (oracle ZK verifies, deploys, mixer). Protects the backend while we add time-based rate later.
         // 64 max in-flight is generous for normal load + test bursts.

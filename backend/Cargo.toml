@@ -7,7 +7,7 @@ description = "Covex -- The Stateful Kaspa Covenant Indexer and SaaS Platform"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
-tower-http = { version = "0.5", features = ["cors", "limit"] }
+tower-http = { version = "0.5", features = ["cors", "limit", "set-header"] }
 tower = { version = "0.4", features = ["limit", "util"] }
 kaspa-wrpc-client = "0.15.0"
 kaspa-rpc-core = "0.15.0"

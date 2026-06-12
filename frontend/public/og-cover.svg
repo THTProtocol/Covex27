@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Covex, the covenant explorer and studio for Kaspa">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1018"/>
+      <stop offset="0.55" stop-color="#0e1726"/>
+      <stop offset="1" stop-color="#0b2430"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#70C7BA"/>
+      <stop offset="1" stop-color="#49EACB"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- BlockDAG motif, upper-left -->
+  <g stroke="#70C7BA" stroke-opacity="0.20" stroke-width="2" fill="none">
+    <path d="M90 110 L200 170 M90 110 L185 60 M185 60 L300 120 M200 170 L300 120 M200 170 L230 280 M300 120 L400 185 M230 280 L400 185 M230 280 L330 360 M400 185 L330 360 M330 360 L450 310 M400 185 L450 310"/>
+  </g>
+  <g fill="#70C7BA">
+    <circle cx="90" cy="110" r="7" fill-opacity="0.5"/>
+    <circle cx="185" cy="60" r="6" fill-opacity="0.4"/>
+    <circle cx="200" cy="170" r="9" fill-opacity="0.7"/>
+    <circle cx="300" cy="120" r="7" fill-opacity="0.5"/>
+    <circle cx="230" cy="280" r="8" fill-opacity="0.6"/>
+    <circle cx="400" cy="185" r="10" fill-opacity="0.85"/>
+    <circle cx="330" cy="360" r="6" fill-opacity="0.45"/>
+    <circle cx="450" cy="310" r="7" fill-opacity="0.6"/>
+  </g>
+
+  <!-- BlockDAG motif, lower-right -->
+  <g stroke="#70C7BA" stroke-opacity="0.20" stroke-width="2" fill="none">
+    <path d="M1110 520 L1000 460 M1110 520 L1015 570 M1015 570 L900 510 M1000 460 L900 510 M1000 460 L970 350 M900 510 L800 445 M970 350 L800 445 M970 350 L870 270 M800 445 L870 270 M870 270 L750 320 M800 445 L750 320"/>
+  </g>
+  <g fill="#70C7BA">
+    <circle cx="1110" cy="520" r="7" fill-opacity="0.5"/>
+    <circle cx="1015" cy="570" r="6" fill-opacity="0.4"/>
+    <circle cx="1000" cy="460" r="9" fill-opacity="0.7"/>
+    <circle cx="900" cy="510" r="7" fill-opacity="0.5"/>
+    <circle cx="970" cy="350" r="8" fill-opacity="0.6"/>
+    <circle cx="800" cy="445" r="10" fill-opacity="0.85"/>
+    <circle cx="870" cy="270" r="6" fill-opacity="0.45"/>
+    <circle cx="750" cy="320" r="7" fill-opacity="0.6"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="600" y="320" text-anchor="middle"
+        font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="148" font-weight="800" letter-spacing="40" fill="#E8F6F3">COVEX</text>
+  <rect x="360" y="362" width="480" height="7" rx="3.5" fill="url(#accent)"/>
+  <text x="600" y="424" text-anchor="middle"
+        font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="32" font-weight="500" letter-spacing="6" fill="#9fb8c9">THE COVENANT EXPLORER AND STUDIO FOR KASPA</text>
+  <text x="600" y="470" text-anchor="middle"
+        font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="22" font-weight="400" letter-spacing="3" fill="#5f7a8a">REAL ON-CHAIN DATA ONLY  ·  BUILT FOR THE TOCCATA MAINNET ERA</text>
+</svg>

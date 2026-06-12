@@ -366,6 +366,7 @@ async fn main() {
         .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
         .route("/analytics", get(analytics_handler))
         .route("/stats", get(platform_stats_handler))
+        .route("/og/covenant/:covenant_id", get(og_covenant_handler))
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
@@ -1095,6 +1096,102 @@ async fn terminal_config_challenge_handler(
         "message": message,
         "note": "Sign this exact message with your wallet to prove ownership of the covenant"
     }))
+}
+
+/// Minimal HTML/attribute escaping for values interpolated into the OG document.
+fn og_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+        // collapse newlines so meta content stays single-line
+        .replace(['\n', '\r'], " ")
+}
+
+/// GET /og/covenant/:id : a tiny HTML document with per-covenant Open Graph /
+/// Twitter tags, served to social-media crawlers (nginx routes bot User-Agents
+/// here; humans get the SPA). Any human who lands here is redirected to the
+/// real SPA route, so the endpoint is safe to hit directly.
+async fn og_covenant_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    axum::extract::Path(covenant_id): axum::extract::Path<String>,
+) -> axum::response::Html<String> {
+    let canonical = format!("https://hightable.pro/covenant/{}", covenant_id);
+    let image = "https://hightable.pro/og-cover.png";
+
+    let (title, description) = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(c)) => {
+            let label = if !c.name.trim().is_empty() {
+                c.name.clone()
+            } else if !c.covenant_type.trim().is_empty() {
+                c.covenant_type.clone()
+            } else {
+                "Covenant".to_string()
+            };
+            let tier = if c.verified_tier != "FREE" && !c.verified_tier.is_empty() {
+                format!(" · {} tier", c.verified_tier)
+            } else {
+                String::new()
+            };
+            let net = match c.network.as_str() {
+                "mainnet" => "Kaspa mainnet",
+                "testnet-10" => "Kaspa TN10",
+                _ => "Kaspa TN12",
+            };
+            let title = format!("{} · {:.0} KAS{} on Covex", label, c.amount_kaspa, tier);
+            let desc = if !c.description.trim().is_empty() {
+                c.description.clone()
+            } else if !c.full_logic_summary.trim().is_empty() {
+                c.full_logic_summary.clone()
+            } else {
+                format!(
+                    "A {} covenant locking {:.2} KAS on {}, indexed live by Covex.",
+                    if c.category.trim().is_empty() { "Kaspa" } else { &c.category },
+                    c.amount_kaspa,
+                    net
+                )
+            };
+            (title, desc)
+        }
+        _ => (
+            "Covenant on Covex".to_string(),
+            "Explore this Kaspa covenant on Covex, the covenant explorer and studio.".to_string(),
+        ),
+    };
+
+    let t = og_escape(&title);
+    let d = og_escape(&description);
+    let html = format!(
+        "<!doctype html>\n<html lang=\"en\"><head>\n\
+<meta charset=\"utf-8\"/>\n\
+<title>{t}</title>\n\
+<meta name=\"description\" content=\"{d}\"/>\n\
+<link rel=\"canonical\" href=\"{canonical}\"/>\n\
+<meta property=\"og:type\" content=\"article\"/>\n\
+<meta property=\"og:site_name\" content=\"Covex\"/>\n\
+<meta property=\"og:title\" content=\"{t}\"/>\n\
+<meta property=\"og:description\" content=\"{d}\"/>\n\
+<meta property=\"og:url\" content=\"{canonical}\"/>\n\
+<meta property=\"og:image\" content=\"{image}\"/>\n\
+<meta property=\"og:image:width\" content=\"1200\"/>\n\
+<meta property=\"og:image:height\" content=\"630\"/>\n\
+<meta name=\"twitter:card\" content=\"summary_large_image\"/>\n\
+<meta name=\"twitter:title\" content=\"{t}\"/>\n\
+<meta name=\"twitter:description\" content=\"{d}\"/>\n\
+<meta name=\"twitter:image\" content=\"{image}\"/>\n\
+<meta http-equiv=\"refresh\" content=\"0; url={canonical}\"/>\n\
+</head><body>\n\
+<p>Redirecting to <a href=\"{canonical}\">{t}</a></p>\n\
+<script>location.replace({canonical_js});</script>\n\
+</body></html>",
+        t = t,
+        d = d,
+        canonical = og_escape(&canonical),
+        canonical_js = serde_json::to_string(&canonical).unwrap_or_else(|_| "\"/\"".into()),
+        image = image,
+    );
+    axum::response::Html(html)
 }
 
 /// GET /stats[?network=] : public platform statistics aggregated live from the

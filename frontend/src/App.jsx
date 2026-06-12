@@ -22,6 +22,8 @@ const PaidDeploy = lazy(() => import('./pages/PaidDeploy'));
 const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));
 const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
 const DemoCovenant = lazy(() => import('./pages/DemoCovenant'));
+const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
+const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X } from 'lucide-react';
@@ -258,13 +260,23 @@ export default function App() {
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/address/:addr" element={<AddressPortfolio />} />
+              <Route path="/docs" element={<ApiDocs />} />
             </Routes>
             </Suspense>
           </div>
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center space-y-1">
-              <div>Non-custodial. Keys stay in your wallet.</div>
+              <div>
+                Non-custodial. Keys stay in your wallet.
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/docs" className="hover:text-kaspa-green transition-colors">API</Link>
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/templates" className="hover:text-kaspa-green transition-colors">Templates</Link>
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/terms" className="hover:text-kaspa-green transition-colors">Terms</Link>
+              </div>
               <LiveStatus />
             </div>
           </footer>

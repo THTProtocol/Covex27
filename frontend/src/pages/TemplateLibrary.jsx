@@ -148,6 +148,8 @@ export default function TemplateLibrary() {
         ))}
       </div>
 
+      <CommunityPublished />
+
       {/* Preview Modal */}
       {selectedTemplate && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6" onClick={() => setSelectedTemplate(null)}>
@@ -234,6 +236,41 @@ export default function TemplateLibrary() {
         Templates use the official Covex shared configuration protocol.<br />
         All templates are fully compatible with Covenant Studio for further customization.
       </div>
+    </div>
+  );
+}
+
+
+/** Real published covenant designs from /api/marketplace/templates. */
+function CommunityPublished() {
+  const [items, setItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    fetch('/api/marketplace/templates')
+      .then((r) => r.json())
+      .then((d) => setItems(Array.isArray(d.templates) ? d.templates : []))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+  return (
+    <div className="mt-16">
+      <h2 className="text-2xl font-bold text-white mb-2 text-center">Community Published</h2>
+      <p className="text-gray-400 text-sm text-center mb-8">Custom covenant designs published by paid creators, live from the marketplace.</p>
+      {!loaded ? null : items.length === 0 ? (
+        <div className="glass-panel rounded-2xl py-12 text-center border border-white/[0.06]">
+          <p className="text-gray-300 text-sm font-semibold mb-1">No community designs published yet</p>
+          <p className="text-gray-500 text-xs">Paid creators can publish their covenant page designs from the Studio. The first ones will appear here.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((t, i) => (
+            <a key={t.covenant_id || i} href={`/covenant/${encodeURIComponent(t.covenant_id)}`} className="glass-panel rounded-2xl p-5 border border-white/[0.06] hover:border-kaspa-green/30 transition-all block">
+              <p className="font-bold text-white mb-1 truncate">{t.slug || t.covenant_id}</p>
+              <p className="text-xs text-gray-400">Published covenant design</p>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
+import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
 import CovexTerminal from '../components/CovexTerminal';
@@ -567,6 +568,39 @@ export default function CovenantInteractive() {
               </Link>
             )}
           </div>
+
+          {/* Lifecycle timeline + resolution trust: always visible, never hideable */}
+          {covenant && (
+            <div className="mb-6 glass-panel rounded-xl p-4 border border-white/[0.06]">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Covenant Lifecycle</p>
+                <TrustBadge covenant={covenant} size="md" />
+              </div>
+              <div className="flex items-center gap-0 overflow-x-auto">
+                {[
+                  { label: 'Deployed', done: true, sub: covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleDateString() : `DAA ${covenant.block_daa_score || 0}` },
+                  { label: 'Indexed', done: true, sub: covenant.network },
+                  { label: covenant.verified_tier !== 'FREE' ? `Verified ${covenant.verified_tier}` : 'Unverified', done: covenant.verified_tier !== 'FREE', sub: covenant.verified_tier !== 'FREE' ? 'on-chain payment' : 'free tier' },
+                  { label: covenant.is_active === false ? 'Settled' : 'Active', done: true, sub: covenant.is_active === false ? 'pot distributed' : `${covenant.amount_kaspa || 0} KAS locked` },
+                ].map((st, i, arr) => (
+                  <div key={st.label} className="flex items-center shrink-0">
+                    <div className="flex flex-col items-center text-center px-1">
+                      <div className={`w-3 h-3 rounded-full mb-1.5 ${st.done ? 'bg-kaspa-green shadow-[0_0_8px_rgba(73,234,203,0.6)]' : 'bg-white/15 border border-white/20'}`} />
+                      <span className={`text-[11px] font-semibold ${st.done ? 'text-white' : 'text-gray-500'}`}>{st.label}</span>
+                      <span className="text-[9px] text-gray-500 font-mono">{st.sub}</span>
+                    </div>
+                    {i < arr.length - 1 && <div className={`h-px w-10 sm:w-16 mx-1 mb-7 ${st.done ? 'bg-kaspa-green/40' : 'bg-white/10'}`} />}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono">
+                <Link to={`/address/${encodeURIComponent(covenant.creator_addr || covenant.address || '')}`} className="text-gray-400 hover:text-kaspa-green transition-colors">
+                  Creator portfolio: {(covenant.creator_addr || '').slice(0, 22)}...
+                </Link>
+                <span className="text-gray-500">Network: {covenant.network}</span>
+              </div>
+            </div>
+          )}
 
           {/* Verification / Transparency badge - for chess always full transparent pro view, no paid nag, no limited text */}
           {isChess || verified ? (

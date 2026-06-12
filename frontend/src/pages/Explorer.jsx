@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
+import LiveTicker from '../components/LiveTicker';
+import TrustBadge from '../components/TrustBadge';
 import { Badge } from '../components/ui/Badge';
 
 const formatKaspa = (kas) => {
@@ -276,6 +278,8 @@ export default function Explorer() {
             </div>
           ))}
         </div>
+
+        <LiveTicker network={kaspaNetwork} />
 
         {/* Category filter: single button that reveals all types/options when pressed (clean, not always listing everything) */}
         <div className="flex justify-center mb-4">
@@ -595,6 +599,9 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         </div>
         <div className="absolute bottom-1 right-3 text-[10px] font-mono text-white/60">
           {categoryLabel}
+        </div>
+        <div className="absolute bottom-2 left-3">
+          <TrustBadge covenant={c} size="sm" />
         </div>
       </div>
 

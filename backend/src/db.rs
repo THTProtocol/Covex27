@@ -175,6 +175,45 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             spent_at      INTEGER NOT NULL DEFAULT (unixepoch())
         );
         CREATE INDEX IF NOT EXISTS idx_mixer_nullifiers_covenant ON mixer_nullifiers(covenant_id);
+
+        -- Real multiplayer poker (oracle-dealt, commitment-verifiable; poker.rs)
+        CREATE TABLE IF NOT EXISTS poker_matches (
+            covenant_id  TEXT PRIMARY KEY,
+            chips1       INTEGER NOT NULL,
+            chips2       INTEGER NOT NULL,
+            hand_no      INTEGER NOT NULL DEFAULT 1,
+            button       INTEGER NOT NULL DEFAULT 0,
+            status       TEXT NOT NULL DEFAULT 'active',
+            created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+            updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE TABLE IF NOT EXISTS poker_hands (
+            covenant_id  TEXT NOT NULL,
+            hand_no      INTEGER NOT NULL,
+            seed         TEXT NOT NULL,
+            commitment   TEXT NOT NULL,
+            phase        TEXT NOT NULL DEFAULT 'preflop',
+            actions      TEXT NOT NULL DEFAULT '[]',
+            result       TEXT,
+            chips1_start INTEGER NOT NULL,
+            chips2_start INTEGER NOT NULL,
+            button       INTEGER NOT NULL DEFAULT 0,
+            created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+            PRIMARY KEY (covenant_id, hand_no)
+        );
+        CREATE TABLE IF NOT EXISTS poker_sessions (
+            token        TEXT PRIMARY KEY,
+            covenant_id  TEXT NOT NULL,
+            address      TEXT NOT NULL,
+            expires      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_poker_sessions_cov ON poker_sessions(covenant_id);
+        CREATE TABLE IF NOT EXISTS poker_nonces (
+            nonce        TEXT PRIMARY KEY,
+            covenant_id  TEXT NOT NULL,
+            address      TEXT NOT NULL,
+            expires      INTEGER NOT NULL
+        );
         ",
     )?;
 

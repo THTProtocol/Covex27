@@ -27,6 +27,7 @@ mod indexer;
 mod kaspa_msg;
 mod mixer;
 mod node_status;
+mod poker;
 mod oracle;
 mod oracle_verifier;
 mod payment_verifier;
@@ -333,6 +334,7 @@ async fn main() {
         .route("/compile", post(compile_handler))
         .merge(live::live_routes())
         .merge(games::games_routes().layer(Extension(db.clone())))
+        .merge(poker::poker_routes().layer(Extension(db.clone())))
         .route("/events", get(events_handler))
         .route("/address/:addr", get(address_summary_handler))
         .route("/openapi.json", get(openapi_handler))

@@ -16,6 +16,8 @@ use tracing_subscriber::{fmt, EnvFilter};
 use rusqlite::params;
 
 mod broadcast;
+mod games;
+mod live;
 mod compiler;
 mod covenant_types;
 mod crawler;
@@ -299,6 +301,8 @@ async fn main() {
         .route("/covenants", get(covenants_handler))
         .route("/covenants/:covenant_id", get(covenant_by_id_handler))
         .route("/compile", post(compile_handler))
+        .merge(live::live_routes())
+        .merge(games::games_routes().layer(Extension(db.clone())))
         .route("/events", get(events_handler))
         .route("/address/:addr", get(address_summary_handler))
         .route("/openapi.json", get(openapi_handler))

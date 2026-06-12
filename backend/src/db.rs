@@ -393,6 +393,17 @@ pub fn record_event(
         "INSERT INTO events (event_type, covenant_id, network, amount_kaspa, detail) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![event_type, covenant_id, network, amount_kaspa, detail],
     );
+    crate::live::publish(
+        event_type,
+        serde_json::json!({
+            "event_type": event_type,
+            "covenant_id": covenant_id,
+            "network": network,
+            "amount_kaspa": amount_kaspa,
+            "detail": detail,
+            "timestamp": chrono::Utc::now().timestamp(),
+        }),
+    );
     // Bound the table: keep the most recent 5000 events
     let _ = conn.execute(
         "DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 5000)",

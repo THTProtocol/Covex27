@@ -108,7 +108,7 @@ pub async fn run_payment_verifier(
                                         &from_address[..16], tier, amount_sompi as f64 / 100_000_000.0, confirmations);
                                     {
                                         let conn = db.lock().unwrap();
-                                        crate::db::record_event(&conn, "tier_upgraded", &tx_id, &network, amount_sompi as f64 / 100_000_000.0, tier);
+                                        crate::db::record_event_once(&conn, "tier_upgraded", &tx_id, &network, amount_sompi as f64 / 100_000_000.0, tier);
                                     }
 
                                     // Upgrade matched covenant record with full disclosure

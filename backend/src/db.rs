@@ -400,6 +400,28 @@ pub fn record_event(
     );
 }
 
+/// Record an event only once per (event_type, covenant_id). Used for
+/// idempotent loops like the payment guardian that re-scan history.
+pub fn record_event_once(
+    conn: &Connection,
+    event_type: &str,
+    covenant_id: &str,
+    network: &str,
+    amount_kaspa: f64,
+    detail: &str,
+) {
+    let exists: bool = conn
+        .query_row(
+            "SELECT 1 FROM events WHERE event_type = ?1 AND covenant_id = ?2 LIMIT 1",
+            params![event_type, covenant_id],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+    if !exists {
+        record_event(conn, event_type, covenant_id, network, amount_kaspa, detail);
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct EventRow {
     pub id: i64,

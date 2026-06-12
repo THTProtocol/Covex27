@@ -96,6 +96,10 @@ covenants=$(sqlite3 "$WORK/restored.db" "SELECT count(*) FROM covenants;") || fa
 
 payments=$(sqlite3 "$WORK/restored.db" "SELECT count(*) FROM payments;") || fail "payments table missing or unreadable"
 custom_uis=$(sqlite3 "$WORK/restored.db" "SELECT count(*) FROM custom_ui_configs;") || fail "custom_ui_configs table missing or unreadable"
+# generated_uis holds the per-covenant UI/terminal configs - the data these
+# backups exist to protect (custom_ui_configs is empty as of 2026-06)
+gen_uis=$(sqlite3 "$WORK/restored.db" "SELECT count(*) FROM generated_uis;") || fail "generated_uis table missing or unreadable"
+[ "$gen_uis" -ge 1000 ] || fail "generated_uis count suspiciously low: $gen_uis (expected >= 1000)"
 
-log "DRILL PASS: $(basename "$latest") restores cleanly (tables=$tables covenants=$covenants payments=$payments custom_ui_configs=$custom_uis)"
+log "DRILL PASS: $(basename "$latest") restores cleanly (tables=$tables covenants=$covenants payments=$payments generated_uis=$gen_uis custom_ui_configs=$custom_uis)"
 printf 'PASS %s %s covenants=%s\n' "$(date -u +%FT%TZ)" "$(basename "$latest")" "$covenants" > "$STATUS_FILE"

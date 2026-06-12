@@ -843,7 +843,7 @@ export default function CovenantInteractive() {
 
                     <button
                       onClick={handleExecute}
-                      disabled={connecting || !amount}
+                      disabled={connecting}
                       className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-50 flex items-center justify-center gap-3 uppercase tracking-wide"
                     >
                       {address ? <ShieldCheck size={24} /> : <Lock size={24} />}

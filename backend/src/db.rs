@@ -583,6 +583,185 @@ pub fn covenant_stats(
     Ok(row)
 }
 
+/// Aggregate platform stats for the public /stats page. All figures are
+/// computed live from the covenants, payments, and events tables. The events
+/// timeline reflects only the rolling window the events table retains (capped
+/// at the most recent 5000 events), so it is labelled as recent activity, not
+/// full history. Network is optional; None aggregates across all networks.
+pub fn platform_stats(
+    db: &Mutex<Connection>,
+    network: Option<&str>,
+) -> anyhow::Result<serde_json::Value> {
+    use serde_json::json;
+    let conn = db.lock().unwrap();
+
+    // helper: build the optional "AND network = ?" clause + bind value
+    let net_clause = if network.is_some() { " AND network = ?1" } else { "" };
+
+    // ── Per-network summary (always all networks, ignores the filter) ──
+    let mut by_network = Vec::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT network, COUNT(*), \
+             COALESCE(SUM(CASE WHEN verified_tier IN ('BUILDER','PRO','MAX') THEN 1 ELSE 0 END), 0), \
+             COALESCE(SUM(amount_kaspa), 0) \
+             FROM covenants WHERE is_active = 1 GROUP BY network ORDER BY COUNT(*) DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(json!({
+                "network": r.get::<_, String>(0)?,
+                "covenants": r.get::<_, i64>(1)?,
+                "paid": r.get::<_, i64>(2)?,
+                "tvl_kas": (r.get::<_, f64>(3)? * 100.0).round() / 100.0,
+            }))
+        })?;
+        for r in rows {
+            by_network.push(r?);
+        }
+    }
+
+    // ── Tier breakdown (network-filtered) ──
+    let by_tier: Vec<serde_json::Value> = {
+        let sql = format!(
+            "SELECT verified_tier, COUNT(*), COALESCE(SUM(amount_kaspa), 0) \
+             FROM covenants WHERE is_active = 1{} GROUP BY verified_tier",
+            net_clause
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let map = |r: &rusqlite::Row| -> rusqlite::Result<serde_json::Value> {
+            Ok(json!({
+                "tier": r.get::<_, String>(0)?,
+                "count": r.get::<_, i64>(1)?,
+                "tvl_kas": (r.get::<_, f64>(2)? * 100.0).round() / 100.0,
+            }))
+        };
+        if let Some(net) = network {
+            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+        } else {
+            stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
+        }
+    };
+
+    // ── Category breakdown (top 12, network-filtered) ──
+    let by_category: Vec<serde_json::Value> = {
+        let sql = format!(
+            "SELECT CASE WHEN category IS NULL OR category = '' THEN 'uncategorized' ELSE category END AS cat, \
+             COUNT(*), COALESCE(SUM(amount_kaspa), 0) \
+             FROM covenants WHERE is_active = 1{} GROUP BY cat ORDER BY COUNT(*) DESC LIMIT 12",
+            net_clause
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let map = |r: &rusqlite::Row| -> rusqlite::Result<serde_json::Value> {
+            Ok(json!({
+                "category": r.get::<_, String>(0)?,
+                "count": r.get::<_, i64>(1)?,
+                "tvl_kas": (r.get::<_, f64>(2)? * 100.0).round() / 100.0,
+            }))
+        };
+        if let Some(net) = network {
+            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+        } else {
+            stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
+        }
+    };
+
+    // ── Event type totals (over the retained event window, network-filtered) ──
+    let mut event_totals = serde_json::Map::new();
+    {
+        let sql = format!(
+            "SELECT event_type, COUNT(*) FROM events WHERE 1=1{} GROUP BY event_type",
+            net_clause
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let map = |r: &rusqlite::Row| -> rusqlite::Result<(String, i64)> {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+        };
+        let rows = if let Some(net) = network {
+            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+        } else {
+            stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
+        };
+        for (k, v) in rows {
+            event_totals.insert(k, json!(v));
+        }
+    }
+
+    // ── Daily activity timeline over the retained event window ──
+    // One row per (day, event_type); the frontend pivots into stacked series.
+    let timeline: Vec<serde_json::Value> = {
+        let sql = format!(
+            "SELECT date(timestamp, 'unixepoch') AS day, event_type, COUNT(*), COALESCE(SUM(amount_kaspa), 0) \
+             FROM events WHERE 1=1{} GROUP BY day, event_type ORDER BY day",
+            net_clause
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let map = |r: &rusqlite::Row| -> rusqlite::Result<serde_json::Value> {
+            Ok(json!({
+                "day": r.get::<_, String>(0)?,
+                "event_type": r.get::<_, String>(1)?,
+                "count": r.get::<_, i64>(2)?,
+                "amount_kaspa": (r.get::<_, f64>(3)? * 100.0).round() / 100.0,
+            }))
+        };
+        if let Some(net) = network {
+            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+        } else {
+            stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
+        }
+    };
+
+    // ── Confirmed payments summary (network-filtered) ──
+    let (payment_count, payment_total): (i64, f64) = {
+        let sql = format!(
+            "SELECT COUNT(*), COALESCE(SUM(amount_kaspa), 0) FROM payments \
+             WHERE status = 'confirmed'{}",
+            net_clause
+        );
+        if let Some(net) = network {
+            conn.query_row(&sql, params![net], |r| Ok((r.get(0)?, r.get(1)?)))?
+        } else {
+            conn.query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?)))?
+        }
+    };
+
+    // ── Filtered totals (respect the network filter) ──
+    let sql_totals = format!(
+        "SELECT COUNT(*), \
+         COALESCE(SUM(CASE WHEN verified_tier IN ('BUILDER','PRO','MAX') THEN 1 ELSE 0 END), 0), \
+         COALESCE(SUM(amount_kaspa), 0), \
+         COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0) \
+         FROM covenants WHERE 1=1{}",
+        net_clause
+    );
+    let (total, paid, tvl, active): (i64, i64, f64, i64) = if let Some(net) = network {
+        conn.query_row(&sql_totals, params![net], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?
+    } else {
+        conn.query_row(&sql_totals, [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?
+    };
+
+    Ok(json!({
+        "network": network.unwrap_or("all"),
+        "summary": {
+            "total_covenants": total,
+            "active_covenants": active,
+            "paid_covenants": paid,
+            "tvl_kas": (tvl * 100.0).round() / 100.0,
+            "confirmed_payments": payment_count,
+            "treasury_inflow_kas": (payment_total * 100.0).round() / 100.0,
+        },
+        "by_network": by_network,
+        "by_tier": by_tier,
+        "by_category": by_category,
+        "event_totals": event_totals,
+        "timeline": timeline,
+        "timeline_note": "Activity reflects the most recent 5000 indexed events, not full history.",
+    }))
+}
+
 /// Custom UI lookup for a single covenant (html, config) without loading the full map.
 pub fn get_generated_ui_for(
     db: &Mutex<Connection>,

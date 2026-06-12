@@ -365,6 +365,7 @@ async fn main() {
         )
         .merge(broadcast::broadcast_routes().layer(Extension(client.clone())))
         .route("/analytics", get(analytics_handler))
+        .route("/stats", get(platform_stats_handler))
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
@@ -1093,6 +1094,19 @@ async fn terminal_config_challenge_handler(
         "message": message,
         "note": "Sign this exact message with your wallet to prove ownership of the covenant"
     }))
+}
+
+/// GET /stats[?network=] : public platform statistics aggregated live from the
+/// covenants, payments, and events tables. Real data only.
+async fn platform_stats_handler(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let network = params.get("network").map(|s| s.as_str()).filter(|s| *s != "all");
+    match db::platform_stats(&db, network) {
+        Ok(v) => Json(v),
+        Err(e) => Json(json!({"error": e.to_string()})),
+    }
 }
 
 // ── Analytics handler (Phase 18) ────────────────────────────────

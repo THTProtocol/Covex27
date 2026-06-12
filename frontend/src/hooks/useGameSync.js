@@ -98,12 +98,12 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
     }
   }, [covenantId, gameType, stake, address, applyServerGame]);
 
-  const submitMove = useCallback(async (move, { finished = false, winner = null } = {}) => {
+  const submitMove = useCallback(async (move, { finished = false, winner = null, keepTurn = false } = {}) => {
     try {
       const r = await fetch(`/api/games/${encodeURIComponent(covenantId)}/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: address, move, finished, winner }),
+        body: JSON.stringify({ player: address, move, finished, winner, keep_turn: keepTurn }),
       });
       const d = await r.json();
       if (!d.success) { setError(d.error || 'Move rejected.'); refresh(); return false; }

@@ -221,7 +221,7 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // Games (non full-zk)
     let game_attested = [
         "chess_blitz", "chess_bullet", "poker_v1", "poker_6max", "poker_tourney",
-        "blackjack_v1", "blackjack_multi", "go_9x9", "go_13x13", "go_19x19",
+        "blackjack_v1", "blackjack_multi", "rps_v1", "go_9x9", "go_13x13", "go_19x19",
         "backgammon_v1", "checkers_v1", "reversi_v1", "battleship_v1", "scrabble_v1",
         "dominoes_v1", "rummikub_v1", "mancala_v1", "risk_v1", "catan_v1",
         "monopoly_v1", "yahtzee_v1", "gin_rummy_v1", "hearts_v1", "spades_v1",

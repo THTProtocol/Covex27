@@ -162,6 +162,11 @@ struct MoveReq {
     winner: Option<String>,
     #[serde(default)]
     finished: Option<bool>,
+    /// Keep the turn after this move: multi-action sequences by one player
+    /// (e.g. blackjack hits before a stand). Turn ownership is still
+    /// enforced; this only skips the flip afterwards.
+    #[serde(default)]
+    keep_turn: Option<bool>,
 }
 
 /// POST /games/:id/move : append a move, flip the turn, optionally finish.
@@ -200,7 +205,13 @@ async fn make_move(
                         Err("move limit reached".to_string())
                     } else {
                         moves.push(req.r#move.clone());
-                        let next = if turn == "white" { "black" } else { "white" };
+                        let next = if req.keep_turn.unwrap_or(false) {
+                            turn.as_str()
+                        } else if turn == "white" {
+                            "black"
+                        } else {
+                            "white"
+                        };
                         let finished = req.finished.unwrap_or(false);
                         let new_status = if finished { "finished" } else { "active" };
                         conn.execute(

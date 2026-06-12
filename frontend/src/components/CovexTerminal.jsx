@@ -949,7 +949,7 @@ contract VisualCovenant {
     setShowFullScreenConnect4(false);
     setShowFullScreenTicTacToe(false);
     setShowFullScreenReversi(false);
-    setShowFullScreenRPS(false); setRpsMatchState('idle');
+    setShowFullScreenRPS(false);
 
     const gt = ZK_CIRCUIT_TYPES.find(g => g.id === typeId);
     if (gt) {
@@ -1025,7 +1025,6 @@ contract VisualCovenant {
   // ── Blackjack State (stake match → full screen pro table) ──
   const [showFullScreenBlackjack, setShowFullScreenBlackjack] = useState(false);
   const [bjStake, setBjStake] = useState(100);
-  const [bjMatchState, setBjMatchState] = useState('idle'); // idle | posted | matched | playing
 
   // ── Additional Skill Games States (checkers, connect4, tictactoe, reversi + more) ──
   // These four are persistent multiplayer: the real join/seat flow lives in
@@ -1045,7 +1044,6 @@ contract VisualCovenant {
   // RPS (rock paper scissors) quick skill game
   const [showFullScreenRPS, setShowFullScreenRPS] = useState(false);
   const [rpsStake, setRpsStake] = useState(25);
-  const [rpsMatchState, setRpsMatchState] = useState('idle');
 
   // ── Oracle Resolution State (merkle_membership + future circuits) ──
   const [oracleProof, setOracleProof] = useState('');       // Pasted proof JSON
@@ -1409,7 +1407,7 @@ ${gameMeta.outcomeBranches}
     setShowFullScreenConnect4(false);
     setShowFullScreenTicTacToe(false);
     setShowFullScreenReversi(false);
-    setShowFullScreenRPS(false); setRpsMatchState('idle');
+    setShowFullScreenRPS(false);
   }, []);
 
   const postStakeForMatch = useCallback(() => {
@@ -1446,12 +1444,6 @@ ${gameMeta.outcomeBranches}
   const acceptPokerMatch = useCallback(() => {
     setPokerMatchState('matched');
   }, []);
-  const postBjStake = useCallback(() => {
-    setBjMatchState('posted');
-  }, []);
-  const acceptBjMatch = useCallback(() => {
-    setBjMatchState('matched');
-  }, []);
 
   // ── Persistent skill-game arenas: the table itself handles join/seats/turns
   // against /api/games via useGameSync, so opening it is the whole flow ──
@@ -1460,9 +1452,7 @@ ${gameMeta.outcomeBranches}
   const launchFullScreenTicTacToe = useCallback(() => { setShowFullScreenTicTacToe(true); }, []);
   const launchFullScreenReversi = useCallback(() => { setShowFullScreenReversi(true); }, []);
 
-  const postRpsStake = useCallback(() => { setRpsMatchState('posted'); }, []);
-  const acceptRpsMatch = useCallback(() => { setRpsMatchState('matched'); }, []);
-  const launchFullScreenRPS = useCallback(() => { setShowFullScreenRPS(true); setRpsMatchState('playing'); }, []);
+  const launchFullScreenRPS = useCallback(() => { setShowFullScreenRPS(true); }, []);
 
   const launchFullScreenChess = useCallback(() => {
     if (chessMatchState !== 'playing' && chessMatchState !== 'finished') return;
@@ -2865,7 +2855,7 @@ ${gameMeta.outcomeBranches}
               <Play size={16} className="text-emerald-400" />
             </div>
             <span>Poker Pro Table (Texas Hold'em)</span>
-            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 font-mono border border-emerald-400/30">PRO TABLE</span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 font-mono border border-amber-400/30">LOCAL DEMO</span>
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-emerald-400 font-mono">{pokerStake} KAS STAKE • 2% FEE</div>
@@ -2915,10 +2905,10 @@ ${gameMeta.outcomeBranches}
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
-              {pokerMatchState === 'idle' && 'Post stakes to open a match. Each side puts up equal KAS.'}
-              {pokerMatchState === 'posted' && 'Opponent matching your stake on testnet...'}
-              {pokerMatchState === 'matched' && 'STAKES MATCHED - Launch full screen pro table'}
-              {pokerMatchState === 'playing' && 'PRO TABLE ACTIVE - Play in full screen'}
+              {pokerMatchState === 'idle' && 'LOCAL DEMO: the opponent is simulated. Real hidden-hand multiplayer needs signed moves + mental-poker dealing; it ships with the wallet-auth layer.'}
+              {pokerMatchState === 'posted' && 'Simulated opponent matching your stake (demo)...'}
+              {pokerMatchState === 'matched' && 'DEMO STAKES MATCHED - launch the local table'}
+              {pokerMatchState === 'playing' && 'LOCAL TABLE ACTIVE - demo play in full screen'}
             </div>
             <div>
               {pokerMatchState === 'idle' && (
@@ -2970,19 +2960,11 @@ ${gameMeta.outcomeBranches}
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-amber-400 font-mono">{bjStake} KAS STAKE • 2% FEE</div>
             <div className="text-[10px] text-gray-400 -mt-0.5">Each side stakes equally • Oracle attested result</div>
-            {bjMatchState === 'matched' && (
-              <button
-                onClick={() => { setShowFullScreenBlackjack(true); setBjMatchState('playing'); }}
-                className="mt-1 px-3 py-1 text-[10px] rounded-lg bg-white text-black font-bold flex items-center gap-1 hover:bg-[#49EACB] active:scale-[0.985] transition-all"
-              >
-                <Play size={12} /> LAUNCH FULL SCREEN PRO TABLE
-              </button>
-            )}
           </div>
         </div>
 
         <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-          Professional Blackjack table. Stake match gate ensures equal risk before play. Full-screen felt table with cards, hit/stand actions, live oracle result attestation. Real ZK verification coming as circuits mature.
+          Open duel, no house: both players co-commit shuffle seeds (commit-reveal), the deck derives from the combined seeds so neither side controls it, and each plays their own open hand. Closest to 21 without busting wins. Seats, turns, and moves persist on the covenant match record.
         </p>
 
         <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
@@ -2994,7 +2976,7 @@ ${gameMeta.outcomeBranches}
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
             <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{bjStake * 2} KAS</div>
-            <div className="text-[11px] text-rose-400/90">-2% fee • {bjMatchState === 'matched' ? 'STAKES MATCHED - READY' : 'WAITING FOR MATCH'}</div>
+            <div className="text-[11px] text-rose-400/90">-2% fee • OPEN DUEL, NO HOUSE</div>
           </div>
         </div>
 
@@ -3013,45 +2995,21 @@ ${gameMeta.outcomeBranches}
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
-              {bjMatchState === 'idle' && 'Post stakes. You vs dealer. Standard blackjack rules.'}
-              {bjMatchState === 'posted' && 'Opponent matching your stake...'}
-              {bjMatchState === 'matched' && 'STAKES MATCHED - Launch full screen pro table'}
-              {bjMatchState === 'playing' && 'PRO TABLE ACTIVE - Play in full screen'}
+              Take a seat in the full-screen table: first wallet sits as X and waits, the second activates the duel. Hands sync live.
             </div>
             <div>
-              {bjMatchState === 'idle' && (
-                <button
-                  onClick={postBjStake}
-                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
-                >
-                  POST {bjStake} KAS - OPEN FOR MATCH
-                </button>
-              )}
-              {bjMatchState === 'posted' && (
-                <button
-                  onClick={acceptBjMatch}
-                  className="w-full h-full py-3 rounded-xl bg-amber-500 text-black font-bold text-sm active:scale-[0.985] transition-all"
-                >
-                  MATCH STAKE & JOIN (SIMULATED)
-                </button>
-              )}
-              {bjMatchState === 'matched' && (
-                <button
-                  onClick={() => { setShowFullScreenBlackjack(true); setBjMatchState('playing'); }}
-                  className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm"
-                >
-                  LAUNCH FULL SCREEN PRO TABLE
-                </button>
-              )}
-              {bjMatchState === 'playing' && (
-                <div className="text-center py-2 text-amber-400 font-semibold">PLAYING IN FULL SCREEN</div>
-              )}
+              <button
+                onClick={() => setShowFullScreenBlackjack(true)}
+                className="w-full h-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm active:scale-[0.985] transition-all shadow-[0_0_25px_rgba(73,234,203,0.3)]"
+              >
+                OPEN DUEL TABLE - {bjStake} KAS SEAT
+              </button>
             </div>
           </div>
         </div>
 
         <div className="text-[10px] text-gray-400 px-1">
-          Stake match gate for equal risk. Full-screen pro table with cards, hit/stand mechanics, dealer reveal, and oracle attested result. Real ZK verification coming.
+          Commit-reveal deck cut, open hands, hit/stand on your own hand, oracle attested result. Real ZK verification coming.
         </div>
       </section>
 
@@ -3115,9 +3073,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex justify-between mb-2"><div className={SECTION_HEADER}><Play size={15} className="text-violet-400" /><span>RPS (best of 3)</span></div><div className="text-[10px] text-violet-400 font-mono">{rpsStake} KAS</div></div>
           <div className="flex gap-2">
             <input type="number" value={rpsStake} onChange={e=>setRpsStake(Math.max(5,parseInt(e.target.value||'25')))} className={INPUT + ' flex-1'} />
-            {rpsMatchState==='idle' && <button onClick={postRpsStake} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">POST</button>}
-            {rpsMatchState==='posted' && <button onClick={acceptRpsMatch} className="px-4 rounded-xl bg-amber-500 text-black text-xs font-bold">MATCH</button>}
-            {rpsMatchState==='matched' && <button onClick={launchFullScreenRPS} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">LAUNCH</button>}
+            <button onClick={launchFullScreenRPS} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
           <div className="text-[9px] text-gray-400 mt-1">Timed picks • 12s/choice • best of 3 • instant oracle + {potReturnPercent}% return</div>
         </section>
@@ -3240,7 +3196,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenBlackjack && (
         <FullScreenBlackjack
           stake={bjStake}
-          onClose={() => { setShowFullScreenBlackjack(false); setBjMatchState('idle'); }}
+          onClose={() => { setShowFullScreenBlackjack(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
@@ -3287,7 +3243,7 @@ ${gameMeta.outcomeBranches}
       {showFullScreenRPS && (
         <FullScreenRPS
           stake={rpsStake}
-          onClose={() => { setShowFullScreenRPS(false); setRpsMatchState('idle'); }}
+          onClose={() => { setShowFullScreenRPS(false); }}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}

@@ -87,7 +87,7 @@ body {
 /* Brand colors match dark mode exactly - #49EACB pops on light */
 .light .text-kaspa-green,
 .light .text-\[\#49EACB\] {
-  color: #49EACB !important;
+  color: #0d9488 !important; /* deep teal: brand-true but readable on white */
 }
 .light a {
   color: #0f766e;  /* darker for body links, good contrast */
@@ -904,4 +904,49 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   text-transform: uppercase;
   letter-spacing: 0.22em;
   color: #6b7280;
+}
+
+
+/* ===== Light mode: complete coverage for newer surfaces ===== */
+/* Hero stats cluster + any white-alpha gradient panels become solid cards */
+.light [class*="from-white/"],
+.light [class*="bg-white/"] {
+  background: #ffffff !important;
+}
+.light [class*="border-white/"] { border-color: #e2e8f0 !important; }
+.light [class*="divide-white/"] > * + * { border-color: #e2e8f0 !important; }
+
+/* Gradient-clipped numerals fall back to solid ink */
+.light .bg-clip-text.text-transparent {
+  background: none !important;
+  -webkit-text-fill-color: #0f172a;
+  color: #0f172a !important;
+}
+
+/* Amber / purple / sky accents: darken for white backgrounds */
+.light .text-amber-300, .light .text-amber-400 { color: #b45309 !important; }
+.light .text-purple-300 { color: #7e22ce !important; }
+.light .text-sky-300, .light .text-sky-400 { color: #0369a1 !important; }
+.light .text-emerald-300, .light .text-emerald-400 { color: #047857 !important; }
+.light .text-red-300, .light .text-red-400 { color: #b91c1c !important; }
+
+/* Ticker in light: white strip, readable chips, dark text preserved per item */
+.light .ticker-shell { box-shadow: 0 1px 3px rgba(15,23,42,0.08); }
+.light .ticker-badge { background: rgba(13,148,136,0.07); border-color: #cce7e2; }
+.light .ticker-item span { text-shadow: none; }
+.light .ticker-item .text-gray-600 { color: #94a3b8 !important; }
+
+/* Scrollbars + selection adapt */
+.light * { scrollbar-color: rgba(13,148,136,0.35) transparent; }
+.light *::-webkit-scrollbar-thumb { background: rgba(13,148,136,0.3); }
+
+/* Buttons that keep dark fills in dark mode get light treatment */
+.light .bg-black\/40, .light .bg-black\/60 { background: #f1f5f9 !important; }
+
+/* ===== Mobile refinements ===== */
+@media (max-width: 640px) {
+  .ticker-badge { padding: 0 10px; }
+  .ticker-item { margin: 0 4px; padding: 3px 8px; }
+  .covex-brand { font-size: 17px !important; letter-spacing: 0.2em !important; }
+  h1 { letter-spacing: -0.01em; }
 }

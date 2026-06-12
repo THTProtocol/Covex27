@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
+import CovexLogo from './components/CovexLogo';
 import Explorer from './pages/Explorer';
 
 // Route-level code splitting: the Explorer (homepage) stays eager, everything
@@ -177,20 +178,8 @@ export default function App() {
           <DagBackground />
           <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/95 light:bg-white/95 light:border-slate-200">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-              <Link to="/" className="group flex items-center gap-2.5">
-                {/* New user-provided glowing network C logo */}
-                <img 
-                  src="/covex-logo-48.png" 
-                  alt="Covex" 
-                  width="28" 
-                  height="28" 
-                  className="shrink-0 drop-shadow-[0_0_8px_rgba(0,255,157,0.45)] group-hover:drop-shadow-[0_0_16px_rgba(0,229,255,0.6)] transition-all duration-300 rounded"
-                />
-                {/* COVEX wordmark */}
-                <span className="covex-brand font-extrabold text-[23px] tracking-[4px] leading-none select-none">
-                  <span className="text-white dark:text-white group-hover:text-[#49EACB] light:text-slate-900 light:group-hover:text-[#0f766e] transition-colors duration-300">COV</span>
-                  <span className="text-[#49EACB] group-hover:text-white dark:group-hover:text-white light:text-[#0f766e] light:group-hover:text-slate-900 transition-colors duration-300">EX</span>
-                </span>
+              <Link to="/" className="group flex items-center transition-all duration-300 hover:drop-shadow-[0_0_18px_rgba(73,234,203,0.45)]">
+                <CovexLogo size={30} />
               </Link>
 
               {/* Desktop Nav */}

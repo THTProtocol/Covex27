@@ -68,6 +68,29 @@ const isSkillGame = (c) => {
   return /chess|connect.?4|poker|blackjack|checkers|tic.?tac|reversi|rps|rock.?paper|skill.?game|game|tournament|flip/i.test(t);
 };
 
+// Server-side q terms per category (pipe-separated = OR). Keeps filters working
+// now that the list is paginated instead of fully downloaded.
+const CATEGORY_QUERY = {
+  'Chess': 'chess', 'Poker': 'poker', 'Blackjack': 'blackjack',
+  'Dice & VRF': 'dice|vrf', 'RPS & Games': 'rps|rock|reversi|tic',
+  'Connect4': 'connect4|connect 4|connect-4',
+  'ZK Proofs': 'zk|verifiable|range|merkle', 'ZK Oracle Tools': 'zk|oracle|range|merkle',
+  'DeFi': 'defi|yield|compound', 'Yield & Compounding': 'yield|compound',
+  'Privacy Mixers': 'privacy|mixer|nullifier', 'Auctions': 'auction',
+  'Lotteries & Pots': 'lottery|pot', 'Community Pools': 'community|pool',
+  'Timelocks': 'timelock', 'Milestone Escrows': 'milestone|escrow',
+  'Membership Claims': 'claim|membership', 'Prediction Pools': 'predict|bet|market',
+  'Predictive Markets': 'predict|market',
+  'Games & Matches': 'chess|poker|connect|tic|rps|reversi|blackjack|game',
+  'Skill': 'skill|chess|poker|game', 'Verifiable Skill': 'skill|chess|game',
+  'Escrow & Custody': 'escrow|custody', 'Structured Settlement': 'structured|vesting|settlement',
+  'Governance & DAO': 'governance|dao|voting', 'Tournaments': 'tournament|bracket',
+  'Flash Covenants': 'flash', 'Multi-sig': 'multisig|multi-sig|multi sig',
+  'Custom Logic': 'custom', 'General': 'general', 'Oracle': 'oracle',
+};
+
+const PAGE_SIZE = 60;
+
 const ALL_CATEGORIES = [
   'All',
   // Core types
@@ -96,6 +119,9 @@ export default function Explorer() {
   const [showArena, setShowArena] = useState(false);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
 
   useEffect(() => {
@@ -106,23 +132,59 @@ export default function Explorer() {
     return () => window.removeEventListener('kaspa-network-change', handler);
   }, []);
 
+  const buildListUrl = useCallback((off) => {
+    let url = `/api/covenants?network=${kaspaNetwork}&limit=${PAGE_SIZE}&offset=${off}`;
+    const catQ = CATEGORY_QUERY[activeCategory];
+    if (activeCategory !== 'All' && catQ) url += `&q=${encodeURIComponent(catQ)}`;
+    return url;
+  }, [kaspaNetwork, activeCategory]);
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/covenants?network=${kaspaNetwork}&limit=20000`)  // High limit to surface ALL covenants discovered by crawlers on TN10/TN12
+    setOffset(0);
+    fetch(buildListUrl(0))
       .then(res => res.json())
       .then(data => {
         const list = (Array.isArray(data.covenants) ? data.covenants : []);
         setCovenants(list);
-        const paid = list.filter(c => {
-          const t = (c.verified_tier || c.tier || 'FREE').toUpperCase();
-          return t === 'MAX' || t === 'PRO' || t === 'BUILDER';
-        });
-        setStats({ total: list.length, paidCount: paid.length, totalTVL: list.reduce((s, c) => s + (c.amount_kaspa || 0), 0) });
+        setHasMore((data.total || 0) > list.length);
+        setStats(prev => ({ ...prev, total: data.total || list.length }));
         setLoading(false);
       })
-      .catch(err => { setError('Could not load covenants'); setLoading(false); });
+      .catch(() => { setError('Could not load covenants'); setLoading(false); });
+  }, [kaspaNetwork, activeCategory, buildListUrl]);
+
+  // Global stats (paid count, TVL) come from the analytics endpoint instead of
+  // downloading the entire covenant set.
+  useEffect(() => {
+    fetch(`/api/analytics?network=${kaspaNetwork}`)
+      .then(r => r.json())
+      .then(d => setStats(prev => ({
+        ...prev,
+        paidCount: d.verified_covenants ?? prev.paidCount,
+        totalTVL: d.total_value_kas ?? prev.totalTVL,
+      })))
+      .catch(() => {});
   }, [kaspaNetwork]);
+
+  const loadMore = useCallback(() => {
+    const nextOffset = offset + PAGE_SIZE;
+    setLoadingMore(true);
+    fetch(buildListUrl(nextOffset))
+      .then(r => r.json())
+      .then(data => {
+        const more = (Array.isArray(data.covenants) ? data.covenants : []);
+        setCovenants(prev => {
+          const seen = new Set(prev.map(c => c.tx_id));
+          return [...prev, ...more.filter(c => !seen.has(c.tx_id))];
+        });
+        setOffset(nextOffset);
+        setHasMore((data.total || 0) > nextOffset + more.length);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  }, [offset, buildListUrl]);
 
   const handleSearch = useCallback((e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -132,28 +194,35 @@ export default function Explorer() {
     const isTxId = q.includes(':');
     const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:') || q.length >= 40;
     if (isTxId) {
-      fetch(`/api/covenants/${encodeURIComponent(q)}?network=${kaspaNetwork}`)
-        .then(r => r.json())
+      fetch(`/api/covenants/${encodeURIComponent(q)}`)
+        .then(r => (r.ok ? r.json() : {}))
         .then(d => {
-          setSearchResults({ type: 'covenant', data: d.success && d.covenant ? [d.covenant] : [] });
-          if (!d.success || !d.covenant) setSearchError(`No covenant found for TXID: ${q.slice(0, 16)}...`);
+          setSearchResults({ type: 'covenant', data: d.covenant ? [d.covenant] : [] });
+          if (!d.covenant) setSearchError(`No covenant found for TXID: ${q.slice(0, 16)}...`);
           setSearchLoading(false);
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     } else if (isWalletAddr) {
-      fetch(`/api/covenants?network=${kaspaNetwork}&limit=5000`)
+      fetch(`/api/covenants?network=${kaspaNetwork}&creator=${encodeURIComponent(q)}&limit=200`)
         .then(r => r.json())
         .then(d => {
-          const all = Array.isArray(d.covenants) ? d.covenants : [];
-          const matches = all.filter(c => c.creator_addr?.toLowerCase().includes(q.toLowerCase()));
+          const matches = Array.isArray(d.covenants) ? d.covenants : [];
           setSearchResults({ type: 'wallet', query: q, data: matches });
           if (matches.length === 0) setSearchError(`No covenants found for wallet: ${q.slice(0, 20)}...`);
           setSearchLoading(false);
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     } else {
-      setSearchError('Enter a Kaspa wallet address (kaspatest:...) or covenant TXID (hash:index)');
-      setSearchLoading(false);
+      // Keyword search across name, description and category
+      fetch(`/api/covenants?network=${kaspaNetwork}&q=${encodeURIComponent(q)}&limit=100`)
+        .then(r => r.json())
+        .then(d => {
+          const matches = Array.isArray(d.covenants) ? d.covenants : [];
+          setSearchResults({ type: 'keyword', query: q, data: matches });
+          if (matches.length === 0) setSearchError(`No covenants match "${q.slice(0, 30)}"`);
+          setSearchLoading(false);
+        })
+        .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     }
   }, [searchQuery, kaspaNetwork]);
 
@@ -167,30 +236,8 @@ export default function Explorer() {
     return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
 
-  // Category filter (more categories for better discovery, matching backend + kaspa.com style)
-  const filteredCovenants = activeCategory === 'All' 
-    ? allCovenantsSorted 
-    : allCovenantsSorted.filter(c => {
-        const cat = (c.category || c.covenant_type || c.name || '').toLowerCase();
-        const label = activeCategory.toLowerCase();
-        // Broad matching for verbose options + game-specific
-        if (activeCategory === 'Games & Matches' || activeCategory === 'Skill' || activeCategory === 'Verifiable Skill') return isSkillGame(c);
-        if (activeCategory === 'Chess') return /chess/i.test(cat) || /chess/i.test(c.covenant_type || '');
-        if (activeCategory === 'Poker') return /poker/i.test(cat);
-        if (activeCategory === 'Blackjack') return /blackjack/i.test(cat);
-        if (activeCategory === 'Dice & VRF' || activeCategory === 'RPS & Games') return /dice|vrf|rps|rock|reversi|tic/i.test(cat);
-        if (activeCategory === 'Connect4') return /connect.?4|connect4/i.test(cat);
-        if (activeCategory === 'ZK Proofs' || activeCategory === 'ZK Oracle Tools') return /zk|verifiable|oracle|range|merkle/i.test(cat);
-        if (activeCategory === 'DeFi' || activeCategory === 'Yield & Compounding') return /yield|defi|compound|pot|auction/i.test(cat);
-        if (activeCategory === 'Privacy Mixers') return /privacy|mixer|nullifier/i.test(cat);
-        if (activeCategory === 'Auctions') return /auction/i.test(cat);
-        if (activeCategory === 'Lotteries & Pots' || activeCategory === 'Community Pools') return /lottery|pot|community|pool/i.test(cat);
-        if (activeCategory === 'Timelocks' || activeCategory === 'Milestone Escrows') return /time|timelock|milestone|escrow/i.test(cat);
-        if (activeCategory === 'Membership Claims') return /claim|membership|merkle/i.test(cat);
-        if (activeCategory === 'Prediction Pools' || activeCategory === 'Predictive Markets') return /predict|bet|market/i.test(cat);
-        // Generic fallback
-        return cat.includes(label.replace(/ & | /g, '')) || cat.includes(label.split(' ')[0]) || label.includes(cat.split(' ')[0] || '');
-      });
+  // Category filtering happens server-side (q terms); the loaded list is already filtered.
+  const filteredCovenants = allCovenantsSorted;
 
   // ARENA: only skill games created on Covex where someone is waiting
   const arenaWaiting = covenants.filter(c => {
@@ -446,11 +493,29 @@ export default function Explorer() {
                     <span className="text-[10px] text-gray-500 font-mono">{stats.total.toLocaleString()} total - PAID at top</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {filteredCovenants.map((c, i) => (
-                    <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
-                  ))}
-                </div>
+                {filteredCovenants.length === 0 ? (
+                  <div className="glass-panel rounded-2xl py-14 text-center">
+                    <p className="text-gray-300 text-sm font-semibold mb-1">No covenants match this filter yet</p>
+                    <p className="text-gray-500 text-xs">Try another category or check back soon. New covenants are indexed within seconds.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                    {filteredCovenants.map((c, i) => (
+                      <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
+                    ))}
+                  </div>
+                )}
+                {hasMore && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                      className="px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-colors disabled:opacity-50"
+                    >
+                      {loadingMore ? 'Loading...' : `Load more (${stats.total.toLocaleString()} total)`}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </>
@@ -602,7 +667,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           <span>Type: <span className="text-gray-400">{c.covenant_type || 'N/A'}</span></span>
           <span className="text-right">{timestamp}</span>
           <span className={`col-span-2 ${isPaid ? cfg.text : 'text-gray-500'} group-hover:translate-x-0.5 transition-transform text-right`}>
-            View covenant --
+            View covenant ->
           </span>
         </div>
       </div>

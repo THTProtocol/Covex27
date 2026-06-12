@@ -5,6 +5,23 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('three') || id.includes('@react-three')) return 'vendor-three';
+            if (id.includes('snarkjs')) return 'vendor-snarkjs';
+            if (id.includes('chess.js') || id.includes('react-chessboard')) return 'vendor-chess';
+            if (id.includes('kaspa-wasm') || id.includes('@onekeyfe')) return 'vendor-kaspa-wasm';
+            if (id.includes('framer-motion')) return 'vendor-motion';
+            if (id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
+          }
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:3005',

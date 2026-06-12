@@ -192,12 +192,16 @@ export default function CovenantFix() {
   // Load all covenants and filter to mine
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
+    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    const url = address
+      ? `/api/covenants?network=${net}&creator=${encodeURIComponent(address)}&limit=200`
+      : `/api/covenants?network=${net}&limit=60`;
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         const list = (d.covenants || []);
         setAllCovenants(list);
-        const mine = address ? list.filter(c => c.creator_addr && c.creator_addr === address) : [];
+        const mine = address ? list : [];
         setMyCovenants(mine);
         // Preselect if id param matches one of mine
         if (id) {

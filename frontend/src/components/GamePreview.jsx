@@ -33,6 +33,9 @@ const detectGameType = (covenant) => {
 
 // Has actual custom UI HTML (from Covenant Studio / custom paste)
 const hasCustomUI = (covenant) => {
+  // List endpoints send a lightweight has_custom_ui flag; detail responses still
+  // include the full custom_ui_html payload.
+  if (covenant.has_custom_ui !== undefined) return !!covenant.has_custom_ui;
   return covenant.custom_ui_html && covenant.custom_ui_html.length > 50;
 };
 

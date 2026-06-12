@@ -44,7 +44,7 @@ export default function AdvancedComposer() {
   useEffect(() => {
     if (!auth.loading && (!auth.token || auth.tier === 'FREE')) {
       // Small delay so the UI doesn't flash; replace to avoid back-button loops
-      const t = setTimeout(() => navigate('/pricing', { replace: true }), 10);
+      const t = setTimeout(() => navigate('/pricing?reason=advanced', { replace: true }), 10);
       return () => clearTimeout(t);
     }
   }, [auth.loading, auth.token, auth.tier, navigate]);

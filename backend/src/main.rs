@@ -648,20 +648,34 @@ async fn covenant_by_id_handler(
 
 #[derive(serde::Deserialize)]
 struct CompileRequest {
-    source: String,
+    #[serde(default)]
+    source: Option<String>,
+    /// Alias used by the Deploy wizard
+    #[serde(default)]
+    silver_script: Option<String>,
 }
 
 /// Compile Covex DSL to SilverScript bytecode (preview path for the editor).
 async fn compile_handler(
     Json(req): Json<CompileRequest>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    if req.source.len() > 64 * 1024 {
+    let source = req
+        .source
+        .or(req.silver_script)
+        .unwrap_or_default();
+    if source.trim().is_empty() {
+        return Err((
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(json!({"success": false, "error": "missing source"})),
+        ));
+    }
+    if source.len() > 64 * 1024 {
         return Err((
             axum::http::StatusCode::PAYLOAD_TOO_LARGE,
             Json(json!({"error": "source too large (max 64KB)"})),
         ));
     }
-    match compiler::compile_dsl(&req.source) {
+    match compiler::compile_dsl(&source) {
         Ok(out) => Ok(Json(json!({
             "success": true,
             "contract_name": out.contract_name,

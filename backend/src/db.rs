@@ -376,12 +376,20 @@ pub fn query_covenants(
         where_clauses.push(format!("category = ?{}", args.len()));
     }
     if let Some(term) = q {
-        let like = format!("%{}%", term.replace('%', "").replace('_', ""));
-        args.push(Box::new(like));
-        let i = args.len();
-        where_clauses.push(format!(
-            "(covenant_type LIKE ?{i} OR description LIKE ?{i} OR category LIKE ?{i} OR tx_id LIKE ?{i} OR address LIKE ?{i})"
-        ));
+        // Pipe-separated terms act as OR alternatives (used by category filters):
+        // q=chess|fide matches covenants containing either term in any text field.
+        let mut alts: Vec<String> = Vec::new();
+        for t in term.split('|').map(str::trim).filter(|t| !t.is_empty()).take(8) {
+            let like = format!("%{}%", t.replace('%', "").replace('_', ""));
+            args.push(Box::new(like));
+            let i = args.len();
+            alts.push(format!(
+                "covenant_type LIKE ?{i} OR description LIKE ?{i} OR category LIKE ?{i} OR tx_id LIKE ?{i} OR address LIKE ?{i}"
+            ));
+        }
+        if !alts.is_empty() {
+            where_clauses.push(format!("({})", alts.join(" OR ")));
+        }
     }
     let where_sql = where_clauses.join(" AND ");
     let count_sql = format!("SELECT COUNT(*) FROM covenants WHERE {}", where_sql);

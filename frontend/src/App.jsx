@@ -1,24 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import Explorer from './pages/Explorer';
-import CovenantInteractive from './pages/CovenantInteractive';
-import CovenantFix from './pages/CovenantFix';
-import WhatIsKaspaPage from './pages/WhatIsKaspa';
-import Pricing from './pages/Pricing';
-import TemplateLibrary from './pages/TemplateLibrary';
-import AdvancedComposer from './pages/AdvancedComposer';
-import Analytics from './pages/Analytics';
 
-import Dashboard from './pages/Dashboard';
-import Terms from './pages/Terms';
-import Deploy from './pages/Deploy';
-import PaidDeploy from './pages/PaidDeploy';
-import PaidBuilder from './pages/PaidBuilder';
-import PremiumBuilder from './pages/PremiumBuilder';
-import DemoCovenant from './pages/DemoCovenant';
+// Route-level code splitting: the Explorer (homepage) stays eager, everything
+// else (games, builders, wasm, snarkjs, three.js) loads on demand. This is the
+// difference between a 16MB and a sub-1MB initial bundle.
+const CovenantInteractive = lazy(() => import('./pages/CovenantInteractive'));
+const CovenantFix = lazy(() => import('./pages/CovenantFix'));
+const WhatIsKaspaPage = lazy(() => import('./pages/WhatIsKaspa'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary'));
+const AdvancedComposer = lazy(() => import('./pages/AdvancedComposer'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Deploy = lazy(() => import('./pages/Deploy'));
+const PaidDeploy = lazy(() => import('./pages/PaidDeploy'));
+const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));
+const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
+const DemoCovenant = lazy(() => import('./pages/DemoCovenant'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X } from 'lucide-react';
@@ -117,23 +120,26 @@ function LiveStatus() {
     let mounted = true;
     const load = () => {
       const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
-      Promise.resolve()
-        .then(() => tryFetch('/status'))
-        .then(d => d || tryFetch('/api/status'))
-        .then(d => {
+      const selectedNet = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      Promise.all([
+        tryFetch('/status').then(d => d || tryFetch('/api/status')),
+        tryFetch(`/api/covenants?network=${selectedNet}&limit=1`),
+      ])
+        .then(([d, list]) => {
           if (!mounted || !d) return;
           const git = (d.git_commit || 'dev').slice(0, 7);
-          const net = d.network || 'testnet-12';
-          const total = d.total_covenants || 0;
+          const total = (list && typeof list.total === 'number') ? list.total : (d.total_covenants || 0);
           const totalStr = total > 1000 ? `${(total / 1000).toFixed(1)}k` : total.toString();
           const ready = d.mainnet_ready ? ' • mainnet-ready' : '';
-          setInfo(`${git} • ${net} • ${totalStr} covenants${ready}`);
+          setInfo(`${git} • ${selectedNet} • ${totalStr} covenants${ready}`);
         })
         .catch(() => { /* silent, keep footer clean */ });
     };
     load();
     const id = setInterval(load, 90000); // light poll
-    return () => { mounted = false; clearInterval(id); };
+    const onNet = () => load();
+    window.addEventListener('kaspa-network-change', onNet);
+    return () => { mounted = false; clearInterval(id); window.removeEventListener('kaspa-network-change', onNet); };
   }, []);
 
   if (!info) return null;
@@ -165,7 +171,7 @@ export default function App() {
       <WalletProvider>
         <BrowserRouter>
           <DagBackground />
-          <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/85 light:bg-white/95 light:border-slate-200">
+          <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/95 light:bg-white/95 light:border-slate-200">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
               <Link to="/" className="group flex items-center gap-2.5">
                 {/* New user-provided glowing network C logo */}
@@ -229,7 +235,12 @@ export default function App() {
             )}
           </nav>
 
-          <div className="relative z-10 pt-14">
+          <div className="relative z-10 pt-16">
+            <Suspense fallback={
+              <div className="flex items-center justify-center py-32">
+                <div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" />
+              </div>
+            }>
             <Routes>
               <Route path="/" element={<Explorer />} />
               <Route path="/fix" element={<CovenantFix />} />
@@ -248,6 +259,7 @@ export default function App() {
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/analytics" element={<Analytics />} />
             </Routes>
+            </Suspense>
           </div>
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">

@@ -234,12 +234,10 @@ export default function CovenantInteractive() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/covenants?network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const found = (d.covenants || []).find((c) => c.tx_id === id) || null;
-        setCovenant(found);
-      })
+    fetch(`/api/covenants/${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setCovenant(d.covenant || null))
+      .catch(() => setCovenant(null))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -254,17 +252,32 @@ export default function CovenantInteractive() {
   );
 
   const handleExecute = useCallback(async () => {
-    if (!covenant || !amount) return;
+    if (!covenant) return;
+    if (!amount || Number(amount) <= 0) {
+      setToast({ type: 'error', msg: 'Enter an amount to lock before executing.' });
+      return;
+    }
     if (address) {
       try {
         await sendPayment(covenant.address || DEPLOYER, amount, {
           scriptHash: covenant.script_hash,
         });
-      } catch {
+        setToast({ type: 'success', msg: 'Transaction sent to your wallet for signing.' });
+      } catch (e) {
+        setToast({
+          type: 'error',
+          msg: `Wallet rejected or failed: ${e?.message || 'unknown error'}. Opening payment URI instead.`,
+        });
         if (deployUri) window.open(deployUri, '_blank');
       }
     } else if (deployUri) {
+      setToast({
+        type: 'info',
+        msg: 'No wallet connected. Opening a payment URI; connect KasWare or Kastle for one-click execution.',
+      });
       window.open(deployUri, '_blank');
+    } else {
+      setToast({ type: 'error', msg: 'No Kaspa wallet detected. Install KasWare or Kastle to interact.' });
     }
   }, [covenant, amount, address, deployUri, sendPayment]);
 

@@ -243,6 +243,11 @@ const Pricing = () => {
           />
         </div>
         <div className="space-y-4 max-w-md mx-auto">
+          {paymentStatus?.type === 'error' && (
+            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm text-left">
+              {paymentStatus.message}
+            </div>
+          )}
           <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">
             {paymentStatus?.type === 'sending' ? 'Sending...' : `Send ${p.price.toLocaleString()} KAS Now`}
           </Button>

@@ -452,6 +452,11 @@ export default function Deploy() {
 
   const handleCreate = async () => {
     if (!name.trim()) return;
+    if (!address) {
+      setResult({ success: false, error: 'Connect a wallet first. Nothing was created or deployed.' });
+      setStatus('error');
+      return;
+    }
     setStatus('creating');
     try {
       const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
@@ -484,7 +489,11 @@ export default function Deploy() {
         }
       }
       sessionStorage.setItem('pending_free_covenant', JSON.stringify({ name: name.trim(), description: description.trim(), category, network: net }));
-      setResult({ success: true, pending: true, message: 'Covenant created! Pay a tier for on-chain deployment and visibility.' });
+      setResult({
+        success: true,
+        pending: true,
+        message: 'Your covenant design is saved as a draft in this browser. Nothing is on-chain yet. Pay a tier to unlock full deployment with your wallet, or use the testnet dev wallet for a free on-chain deploy.',
+      });
       setStatus('success');
       setShowUpgrade(true);
     } catch (e) { setResult({ success: false, error: e.message || 'Creation failed' }); setStatus('error'); }
@@ -493,8 +502,8 @@ export default function Deploy() {
   if (status === 'success' && result) {
     return (
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-16 text-center">
-        <div className="w-20 h-20 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6"><Check size={36} className="text-emerald-400" /></div>
-        <h1 className="text-2xl font-bold text-white mb-2">{result.pending ? 'Covenant Created!' : 'Deployed to Kaspa!'}</h1>
+        <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-6 ${result.pending ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}><Check size={36} className={result.pending ? 'text-amber-400' : 'text-emerald-400'} /></div>
+        <h1 className="text-2xl font-bold text-white mb-2">{result.pending ? 'Draft Saved (Not On-Chain)' : 'Deployed to Kaspa!'}</h1>
         <p className="text-gray-300 mb-6">{result.message}</p>
         {result.txid && <div className="glass-panel rounded-xl p-4 mb-6"><p className="text-xs font-mono text-gray-400 break-all">{result.txid}</p></div>}
         {showUpgrade ? (
@@ -776,7 +785,7 @@ export default function Deploy() {
 
           <div className="flex gap-3">
             <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all">Back</button>
-            <button onClick={handleCreate} disabled={status === 'creating' || !name.trim()}
+            <button onClick={handleCreate} disabled={status === 'creating' || !name.trim() || !address}
               className="flex-1 py-4 rounded-2xl bg-[#49EACB] text-black font-extrabold text-lg hover:brightness-110 disabled:opacity-30 transition-all flex items-center justify-center gap-2">
               {status === 'creating' ? <><span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Creating...</> : <><Send size={18} /> Create Covenant (uses advanced design + script if unlocked)</>}
             </button></div>

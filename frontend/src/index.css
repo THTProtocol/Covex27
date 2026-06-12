@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* Register the light variant so component-level `light:` utilities actually
+   apply (Tailwind v4 has no built-in `light:`). ~100 intentional light:* classes
+   across the app were previously dead no-ops; this activates them. */
+@custom-variant light (&:where(.light, .light *));
 
 @theme {
   --color-kaspa-green: #49EACB;

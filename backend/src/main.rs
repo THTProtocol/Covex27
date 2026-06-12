@@ -1122,9 +1122,7 @@ async fn og_covenant_handler(
 
     let (title, description) = match db::get_covenant_by_txid(&db, &covenant_id) {
         Ok(Some(c)) => {
-            let label = if !c.name.trim().is_empty() {
-                c.name.clone()
-            } else if !c.covenant_type.trim().is_empty() {
+            let label = if !c.covenant_type.trim().is_empty() {
                 c.covenant_type.clone()
             } else {
                 "Covenant".to_string()

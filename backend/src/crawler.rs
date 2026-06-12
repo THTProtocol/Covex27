@@ -204,10 +204,13 @@ pub async fn run_crawler(
                 };
                 let mut has_covenant_opcode = is_envelope(&pl);
 
-                // Also scan output scripts (many real covenants put the logic in script_public_key)
+                // Output scripts: covenants are P2SH-wrapped, so the envelope may sit
+                // mid-script (after preceding opcodes). Scripts are small and structured,
+                // so substring matching is safe here - unlike free-form payloads, where
+                // only a prefix match avoids inscription false positives.
                 for out in &tx.outputs {
                     let sh = hex::encode(out.script_public_key.script());
-                    if is_envelope(&sh)
+                    if sh.contains("aa20") || sh.contains("aa21") || sh.contains("aa22") || sh.contains("aa23")
                     {
                         has_covenant_opcode = true;
                         // Prefer the first output script that carries the opcode for classification

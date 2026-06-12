@@ -1,0 +1,14 @@
+[Unit]
+Description=Covex weekly backup restore drill (verifies the newest snapshot restores)
+Documentation=file:/mnt/HC_Volume_105579109/Covex27/deploy/restore-drill-covex.sh
+Wants=covex-backup.service
+After=covex-backup.service
+OnFailure=covex-alert@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/restore-drill-covex.sh
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

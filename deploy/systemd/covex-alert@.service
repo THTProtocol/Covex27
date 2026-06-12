@@ -1,0 +1,6 @@
+[Unit]
+Description=Covex failure alert for %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/covex-alert.sh %i

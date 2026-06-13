@@ -47,6 +47,18 @@ export default function PremiumBuilder() {
     if (raw) { try { setJustPaid(JSON.parse(raw)); sessionStorage.removeItem('payment_just_confirmed'); } catch (_) {} }
   }, []);
 
+  // Advanced config handed off from /composer (AdvancedComposer writes it to
+  // sessionStorage then navigates here). This was never read, so a user's advanced
+  // primitives + multi-oracle settings were silently dropped before deploy. Carry it
+  // through so it is persisted with the covenant instead of lost.
+  const [pendingConfig, setPendingConfig] = useState(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('pending_covenant_config');
+      if (raw) { setPendingConfig(JSON.parse(raw)); sessionStorage.removeItem('pending_covenant_config'); }
+    } catch (_) { /* ignore malformed handoff */ }
+  }, []);
+
   // Server auth session (the only way in)
   useEffect(() => {
     if (!address) { setAuth({ token: null, tier: null, address: null, loading: false, error: null }); return; }
@@ -177,6 +189,9 @@ export default function PremiumBuilder() {
           customBases,
           params,
           lookPreset,
+          // Preserve the advanced-composer config (time locks, multi-party approvals,
+          // dispute settings, multi-oracle) so it is not silently lost at deploy.
+          ...(pendingConfig ? { advanced: pendingConfig } : {}),
         },
       };
       const deployRes = await fetch('/api/sign-and-broadcast', {

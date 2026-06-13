@@ -429,6 +429,20 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "nullifier_set",
         VerifierSpec::StrictGroth16 { script: "verify_nullifier_set.js", prefix: "covex_null" },
     );
+    // Re-assert as StrictGroth16 AFTER the attested loops above. age_verification and
+    // escrow_2party were inserted Strict early (lines ~128/131) but the later
+    // gating_attested / defi_attested loops overwrote them with Attested (HashMap: last
+    // insert wins), which silently downgraded them to "sign requested_outcome" and made
+    // them soft-pass an empty proof. Their verify scripts now fail closed on a bodyless
+    // proof, so re-pinning them Strict here makes them genuinely require a real proof.
+    m.insert(
+        "age_verification",
+        VerifierSpec::StrictGroth16 { script: "verify_age_verification.js", prefix: "covex_age" },
+    );
+    m.insert(
+        "escrow_2party",
+        VerifierSpec::StrictGroth16 { script: "verify_escrow_2party.js", prefix: "covex_escrow" },
+    );
 
     m
 }
@@ -844,19 +858,22 @@ mod tests {
         assert!(matches!(r.get("liquidation_threshold"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("price_kas"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("custom"), Some(VerifierSpec::Attested)));
-        // vision examples
+        // Promoted to StrictGroth16 after a live trusted setup + verified proofs.
         assert!(matches!(
             r.get("relative_timelock"),
-            Some(VerifierSpec::HybridGroth16 { .. })
+            Some(VerifierSpec::StrictGroth16 { .. })
         ));
         assert!(matches!(
             r.get("basic_utxo_ownership"),
-            Some(VerifierSpec::HybridGroth16 { .. })
+            Some(VerifierSpec::StrictGroth16 { .. })
         ));
         assert!(matches!(
             r.get("nullifier_set"),
-            Some(VerifierSpec::HybridGroth16 { .. })
+            Some(VerifierSpec::StrictGroth16 { .. })
         ));
+        // Re-pinned Strict after the attested-loop overwrite bug.
+        assert!(matches!(r.get("escrow_2party"), Some(VerifierSpec::StrictGroth16 { .. })));
+        assert!(matches!(r.get("age_verification"), Some(VerifierSpec::StrictGroth16 { .. })));
         assert!(matches!(r.get("vrf_card_deal"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("black_scholes"), Some(VerifierSpec::Attested)));
         // chess_engine assert removed (circuit deleted)

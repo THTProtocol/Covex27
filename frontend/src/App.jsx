@@ -19,6 +19,7 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Deploy = lazy(() => import('./pages/Deploy'));
+const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
 const PaidDeploy = lazy(() => import('./pages/PaidDeploy'));
 const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));
 const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
@@ -193,6 +194,7 @@ export default function App() {
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
+                <NavLink to="/deploy/enforced" className={NL}>Enforced</NavLink>
                 <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
@@ -222,6 +224,7 @@ export default function App() {
                   <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>Kaspa</NavLink>
                   <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <SmartDeployLink />
+                  <NavLink to="/deploy/enforced" className={NL} onClick={() => setMobileMenuOpen(false)}>Enforced</NavLink>
                   <div className="pt-2 border-t border-white/10 light:border-slate-200">
                     <NetworkSwitcher />
                   </div>
@@ -247,6 +250,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/deploy" element={<Deploy />} />
+              <Route path="/deploy/enforced" element={<EnforcedDeploy />} />
               <Route path="/deploy/paid" element={<PaidDeploy />} />
               <Route path="/paid-builder" element={<PaidBuilder />} />
               <Route path="/premium" element={<PremiumBuilder />} />

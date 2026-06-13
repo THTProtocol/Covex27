@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "check:sandbox": "node scripts/check-sandbox.mjs",
+    "prebuild": "node scripts/check-sandbox.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

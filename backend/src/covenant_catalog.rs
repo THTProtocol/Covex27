@@ -144,6 +144,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "Release requires `required` of M listed keys. DAO treasuries, 2-of-3 escrow.",
     },
     CatalogEntry {
+        id: "p2sh_htlc",
+        label: "HTLC (atomic swap)",
+        category: "Atomic Swaps & HTLC",
+        reality: EnforcementReality::OnChain,
+        builder: "covenant_builder",
+        params: &["stake_kas", "preimage_hex", "lock_daa", "receiver_pubkey_hex", "sender_pubkey_hex"],
+        summary: "Receiver claims by revealing a preimage; sender refunds after a timelock. Cross-party / cross-chain atomic swaps.",
+    },
+    CatalogEntry {
         id: "oracle_game",
         label: "Oracle-resolved game / market",
         category: "Verifiable Games (ZK/Oracle)",

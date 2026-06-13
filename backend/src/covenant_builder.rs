@@ -551,6 +551,7 @@ pub async fn p2sh_deploy_handler(
                 "outpoint": format!("{}:0", tx_id_str),
                 "locked_sompi": stake_sompi,
                 "locked_kas": stake_sompi as f64 / 100_000_000.0,
+                "enforcement_reality": "on-chain",
                 "note": "Funds are locked to the script hash, not the deployer. Spend via POST /covenant/p2sh/spend."
             }))
         }

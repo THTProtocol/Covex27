@@ -20,6 +20,7 @@ mod games;
 mod live;
 mod compiler;
 mod covenant_builder;
+mod covenant_catalog;
 mod covenant_types;
 mod crawler;
 mod db;
@@ -389,6 +390,7 @@ async fn main() {
         .merge(mixer::mixer_routes().layer(Extension(db.clone())))
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))
         .merge(covenant_builder::p2sh_routes().layer(Extension(db.clone())))
+        .merge(covenant_catalog::catalog_routes())
         .layer(app)
         // Per-IP token bucket on expensive routes (oracle verifies spawn Node, compile
         // spawns silverc, sign-and-broadcast hits wRPC). GETs on list endpoints are cheap
@@ -750,6 +752,9 @@ fn covenant_summary_json(
         "tier": c.verified_tier,
         "network": c.network,
         "custom_ui_config": ui_config,
+        // Honest enforcement label derived from the on-chain script (roadmap B4):
+        // on-chain (script-enforced) | oracle-attested | decorative.
+        "enforcement_reality": covenant_catalog::reality_for_script(&c.script_hex).as_str(),
     })
 }
 

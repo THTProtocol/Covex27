@@ -109,6 +109,13 @@ pub struct SignAndBroadcastRequest {
     pub category: Option<String>,
     #[serde(default)]
     pub custom_ui_config: Option<serde_json::Value>,
+
+    /// Mainnet honesty gate (roadmap B6): this legacy path produces a DECORATIVE
+    /// covenant (a self-payment plus an aa20 metadata payload) - the chain enforces
+    /// nothing about its outcome. On mainnet, deploying one requires explicitly
+    /// acknowledging that. For real on-chain enforcement use POST /covenant/p2sh/deploy.
+    #[serde(default)]
+    pub acknowledge_unenforced: bool,
 }
 
 fn default_network() -> String { "testnet-12".to_string() }
@@ -359,6 +366,20 @@ pub async fn sign_and_broadcast_handler(
     // Regular deploy bundles 1 KAS covenant funding output + tier_fee in same tx.
     let is_pure_tier = payload.pure_tier_payment
         || (tier_fee > 0 && (payload.script_hex.trim().is_empty() || payload.script_hex.trim() == "aa20"));
+
+    // Mainnet reality gate (B6): a legacy deploy here is a DECORATIVE covenant - it
+    // self-pays and only embeds an aa20 metadata payload, so the chain enforces nothing
+    // about its outcome. Refuse it on mainnet unless the caller explicitly acknowledges,
+    // and point them at the real script-enforced builder. (Pure tier payments are just
+    // treasury transfers and are unaffected.)
+    if (network == "mainnet" || network == "mainnet-1") && !is_pure_tier && !payload.acknowledge_unenforced {
+        return Json(serde_json::json!(SignAndBroadcastResponse {
+            success: false,
+            tx_id: None,
+            outputs: None,
+            error: Some("This deploy path produces a DECORATIVE covenant (metadata only; the chain does not enforce its outcome). On mainnet, use POST /covenant/p2sh/deploy for a real script-enforced covenant, or resend with acknowledge_unenforced:true if a marker covenant is intended.".into()),
+        }));
+    }
 
     // Clone UTXO's script_public_key exactly — avoids byte mismatches
     let deployer_script = utxos[0].utxo_entry.script_public_key.clone();

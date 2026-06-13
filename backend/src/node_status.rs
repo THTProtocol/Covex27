@@ -50,14 +50,6 @@ pub fn report_err(network: &str, err: &str) {
     e.updated = now();
 }
 
-/// Seconds since the last successful dag_info for `network`, or None if the
-/// network has never reported a success (node down or still in IBD). Used by the
-/// resolver-failover supervisor to decide when our own node is unavailable.
-pub fn last_ok_age(network: &str) -> Option<i64> {
-    let m = reg().lock().unwrap();
-    m.get(network).filter(|s| s.last_ok > 0).map(|s| now() - s.last_ok)
-}
-
 /// JSON snapshot of every network that has reported, for /status.
 pub fn snapshot() -> serde_json::Value {
     let m = reg().lock().unwrap();

@@ -82,6 +82,15 @@ pub async fn run_indexer(
         interval.tick().await;
 
         if !client.is_connected() {
+            // Resolver-eligible clients (mainnet, testnet-10) are owned by the
+            // failover supervisor, which is the sole caller of connect() for them
+            // (it switches between our node and a public resolver node). Their
+            // background Retry loop reconnects toward the supervisor-chosen target
+            // on its own. A connect(None) here would clear that pin and resolve to
+            // a public node, fighting the supervisor -- so skip it for them.
+            if crate::resolver_failover::network_is_resolver_eligible(&network) {
+                continue;
+            }
             warn!("Indexer: wRPC client not connected, reconnecting...");
             if let Err(e) = client.connect(None).await {
                 warn!("Indexer: reconnect failed: {}", e);

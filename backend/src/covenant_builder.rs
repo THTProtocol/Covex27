@@ -34,7 +34,8 @@ use kaspa_consensus_core::tx::{
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
 use kaspa_txscript::opcodes::codes::{
-    OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpElse, OpEndIf, OpEqualVerify, OpFalse, OpIf, OpTrue,
+    OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpCheckSigVerify, OpElse, OpEndIf, OpEqualVerify, OpFalse,
+    OpIf, OpTrue,
 };
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
@@ -184,6 +185,62 @@ pub fn redeem_htlc(
     b.add_op(OpCheckSig).map_err(|e| format!("htlc refund OpCheckSig: {e}"))?;
     b.add_op(OpEndIf).map_err(|e| format!("htlc OpEndIf: {e}"))?;
     Ok(b.drain())
+}
+
+/// Redeem script for an oracle-enforced 2-player escrow / game pot:
+/// `<oracle> OpCheckSigVerify  OP_IF <player_a> OpCheckSig OP_ELSE <player_b> OpCheckSig OP_ENDIF`.
+/// The chain requires BOTH the disclosed oracle's signature (always) AND the winning
+/// player's signature on their own branch. The oracle co-signs only the actual winner's
+/// claim, so neither a loser nor a third party can take the pot. This is the on-chain
+/// enforcement for 2-party games / markets where the winner is unknown at deploy time.
+pub fn redeem_oracle_escrow(
+    oracle: &[u8; 32],
+    player_a: &[u8; 32],
+    player_b: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    b.add_data(oracle).map_err(|e| format!("escrow oracle: {e}"))?;
+    b.add_op(OpCheckSigVerify).map_err(|e| format!("escrow OpCheckSigVerify: {e}"))?;
+    b.add_op(OpIf).map_err(|e| format!("escrow OpIf: {e}"))?;
+    b.add_data(player_a).map_err(|e| format!("escrow player_a: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("escrow a OpCheckSig: {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("escrow OpElse: {e}"))?;
+    b.add_data(player_b).map_err(|e| format!("escrow player_b: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("escrow b OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("escrow OpEndIf: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Build the input `idx` signature_script that releases an oracle escrow to the winner.
+/// The satisfier (bottom->top) is `<winner_player_sig> <branch> <oracle_sig>`: the
+/// player's sig is consumed by the branch's OpCheckSig, the branch selector picks IF
+/// (player A) or ELSE (player B), and the oracle's sig (on top) is consumed by the
+/// leading OpCheckSigVerify. `winner_is_a` true => IF branch (player A won).
+pub fn build_oracle_escrow_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    oracle_kp: &secp256k1::Keypair,
+    player_kp: &secp256k1::Keypair,
+    winner_is_a: bool,
+    redeem: &[u8],
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let player_sig: [u8; 64] = *player_kp.sign_schnorr(msg).as_ref();
+    let oracle_sig: [u8; 64] = *oracle_kp.sign_schnorr(msg).as_ref();
+
+    let mut satisfier: Vec<u8> = Vec::new();
+    // 1. winning player's signature (bottom of the stack; consumed by the branch).
+    satisfier.extend(std::iter::once(65u8).chain(player_sig).chain([SIG_HASH_ALL.to_u8()]));
+    // 2. branch selector.
+    satisfier.push(if winner_is_a { OpTrue } else { OpFalse });
+    // 3. oracle signature (top; consumed by the leading OpCheckSigVerify).
+    satisfier.extend(std::iter::once(65u8).chain(oracle_sig).chain([SIG_HASH_ALL.to_u8()]));
+
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("oracle escrow signature script: {e}"))
 }
 
 /// Build the input `idx` signature_script that spends an HTLC.
@@ -1320,6 +1377,45 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, false, None).unwrap()),
             "refund branch requires the sender key"
+        );
+    }
+
+    #[test]
+    fn oracle_escrow_pays_only_the_winner_with_oracle_cosign() {
+        let oracle = test_keypair(81);
+        let player_a = test_keypair(82);
+        let player_b = test_keypair(83);
+        let ox = oracle.x_only_public_key().0.serialize();
+        let ax = player_a.x_only_public_key().0.serialize();
+        let bx = player_b.x_only_public_key().0.serialize();
+        let redeem = redeem_oracle_escrow(&ox, &ax, &bx).unwrap();
+
+        // Player A won: oracle co-signs + A signs the IF branch.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &player_a, true, &redeem).unwrap()),
+            "A's claim with the oracle co-sign must pass"
+        );
+        // Player B won: oracle co-signs + B signs the ELSE branch.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &player_b, false, &redeem).unwrap()),
+            "B's claim with the oracle co-sign must pass"
+        );
+        // A signs but selects B's branch (B's pubkey vs A's sig) -> fail.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &player_a, false, &redeem).unwrap()),
+            "claiming the wrong branch must fail"
+        );
+        // No valid oracle co-sign (wrong oracle key) -> OpCheckSigVerify aborts.
+        let not_oracle = test_keypair(99);
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &not_oracle, &player_a, true, &redeem).unwrap()),
+            "without the real oracle co-sign the pot is unspendable"
+        );
+        // A non-member 'player' with the oracle co-sign still fails (OpCheckSig in branch).
+        let outsider = test_keypair(98);
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &outsider, true, &redeem).unwrap()),
+            "a non-member cannot claim even with the oracle co-sign"
         );
     }
 }

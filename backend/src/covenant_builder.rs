@@ -33,7 +33,7 @@ use kaspa_consensus_core::tx::{
 };
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
-use kaspa_txscript::opcodes::codes::{OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpDrop, OpEqualVerify};
+use kaspa_txscript::opcodes::codes::{OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpEqualVerify};
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
 use rusqlite::Connection;
@@ -104,15 +104,17 @@ pub fn redeem_hashlock(hash32: &[u8; 32], xonly_pubkey: &[u8; 32]) -> BResult<Ve
 }
 
 /// Redeem script for an absolute timelock:
-/// `<lock_daa> OpCheckLockTimeVerify OpDrop <xonly_pubkey> OpCheckSig`.
-/// To spend, the spend tx must set `lock_time >= lock_daa` (same DAA type, i.e.
-/// both below LOCK_TIME_THRESHOLD) AND the input sequence must be non-final, and
-/// the chain must have reached lock_daa (else the node treats the tx as non-final).
+/// `<lock_daa> OpCheckLockTimeVerify <xonly_pubkey> OpCheckSig`.
+/// NOTE: Kaspa's OpCheckLockTimeVerify POPS the lock-time value off the stack
+/// (unlike Bitcoin's CLTV, which leaves it), so there is NO OpDrop here - adding one
+/// would drop the signature and the spend would fail (caught by the engine test).
+/// To spend, the spend tx must set `lock_time >= lock_daa` (same DAA type, i.e. both
+/// below LOCK_TIME_THRESHOLD), the input sequence must be non-final, and the chain
+/// must have reached lock_daa (else the node treats the tx as non-final).
 pub fn redeem_timelock(lock_daa: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
     b.add_lock_time(lock_daa).map_err(|e| format!("redeem timelock add_lock_time: {e}"))?;
     b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("redeem timelock CLTV: {e}"))?;
-    b.add_op(OpDrop).map_err(|e| format!("redeem timelock OpDrop: {e}"))?;
     b.add_data(xonly_pubkey).map_err(|e| format!("redeem timelock pubkey: {e}"))?;
     b.add_op(OpCheckSig).map_err(|e| format!("redeem timelock OpCheckSig: {e}"))?;
     Ok(b.drain())

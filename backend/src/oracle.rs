@@ -516,13 +516,83 @@ async fn verify_and_sign_handler(
     }
     let _valid = true;
 
-    // Step 2: Determine outcome via pluggable (covers groth derive for merkle/range/timelock etc + requested_outcome fallback + new kaspa/vrf/defi/compute circuits)
-    let outcome: u32 = determine_outcome_for_circuit(
-        &input.circuit_type,
-        &input.proof,
-        &input.public_inputs,
-        input.requested_outcome,
-    );
+    // Step 2: Determine the outcome.
+    //
+    // SECURITY (0.2 - bind game attestations to the SERVER result): if this covenant is a
+    // skill_games match, the oracle signs ONLY the outcome the server itself recorded
+    // (white->0 / black->1 / draw->2), never a caller-chosen requested_outcome. The game
+    // result is server-authoritative (engine replay for board wins, server-timed
+    // timeouts), so no caller can get the oracle to attest a losing player as the winner.
+    // Non-game covenants (no skill_games row) fall through to the normal ZK/derive path.
+    let game_row: Option<(String, Option<String>)> = {
+        let conn = db.lock().unwrap();
+        conn.query_row(
+            "SELECT status, winner FROM skill_games WHERE covenant_id = ?1",
+            rusqlite::params![input.covenant_id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)),
+        )
+        .ok()
+    };
+    let outcome: u32 = if let Some((status, winner)) = game_row {
+        if status != "finished" {
+            return Json(OracleVerifyOutput {
+                success: false,
+                outcome: None,
+                signature: None,
+                timestamp: None,
+                message: None,
+                error: Some("oracle will not attest an unfinished game".into()),
+                public_inputs: input.public_inputs,
+                circuit_type: Some(input.circuit_type.clone()),
+                covenant_hint: None,
+            });
+        }
+        let server_outcome = match winner.as_deref().map(|w| w.to_lowercase()).as_deref() {
+            Some("white") | Some("player1") => 0u32,
+            Some("black") | Some("player2") => 1u32,
+            Some("draw") => 2u32,
+            other => {
+                return Json(OracleVerifyOutput {
+                    success: false,
+                    outcome: None,
+                    signature: None,
+                    timestamp: None,
+                    message: None,
+                    error: Some(format!("game has no settleable winner (recorded: {other:?})")),
+                    public_inputs: input.public_inputs,
+                    circuit_type: Some(input.circuit_type.clone()),
+                    covenant_hint: None,
+                });
+            }
+        };
+        if let Some(req) = input.requested_outcome {
+            if req != server_outcome {
+                return Json(OracleVerifyOutput {
+                    success: false,
+                    outcome: None,
+                    signature: None,
+                    timestamp: None,
+                    message: None,
+                    error: Some(format!(
+                        "requested outcome {req} contradicts the server-recorded game result {server_outcome}; the oracle attests only the real winner"
+                    )),
+                    public_inputs: input.public_inputs,
+                    circuit_type: Some(input.circuit_type.clone()),
+                    covenant_hint: None,
+                });
+            }
+        }
+        server_outcome
+    } else {
+        // Not a game covenant: pluggable derive (merkle/range/timelock groth signals +
+        // requested_outcome fallback for the non-game attested circuits).
+        determine_outcome_for_circuit(
+            &input.circuit_type,
+            &input.proof,
+            &input.public_inputs,
+            input.requested_outcome,
+        )
+    };
 
     // Step 3: Sign the outcome
     // Message format: "covex-oracle:<covenant_id>:<outcome>:<timestamp>"

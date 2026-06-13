@@ -494,6 +494,20 @@ pub async fn p2sh_deploy_handler(
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
 
+    // GATE 2 (trustless-by-removal): oracle-enforced / oracle-escrow covenants still put
+    // the Covex oracle key in the payout path, so they are NOT yet removable from the
+    // money path. Refuse to fund them for value on mainnet until the trustless rebuild
+    // (player 2-of-2 state channels / k-of-n oracle) lands. The deterministic primitives
+    // (singlesig/hashlock/timelock/multisig/htlc), which the user's own wallet redeems
+    // with no Covex key, are unaffected. Testnets stay open for development.
+    let is_mainnet = req.network.starts_with("mainnet");
+    if is_mainnet && req.redeem.kind.starts_with("oracle") {
+        return err(format!(
+            "oracle-enforced covenants ('{}') are frozen on mainnet: the Covex oracle key is still in the payout path, so funds are not yet trustless. Use a deterministic primitive (timelock/hashlock/multisig/htlc) on mainnet, or this covenant on a testnet.",
+            req.redeem.kind
+        ));
+    }
+
     let (seckey, deployer_addr_str) =
         match resolve_signing_key(&req.network, &req.deployer_addr, &req.private_key_hex, req.use_dev_mode) {
             Ok(v) => v,
@@ -812,6 +826,17 @@ pub struct P2shSpendRequest {
     /// signer_keys_hex[0] (the claimer or refunder, who is not the covenant owner).
     #[serde(default)]
     pub htlc_mode: Option<String>,
+    /// UNIVERSAL INTERACTION (covenant NOT created on Covex): supply the redeem script
+    /// (hex) that hashes to the on-chain P2SH, its kind (singlesig | hashlock |
+    /// timelock:<daa> | multisig:<total> | htlc:<lock_daa>), and the funding outpoint
+    /// index. The P2SH address is derived from the redeem, so a wrong script just fails
+    /// the UTXO lookup. Used only when deploy_tx_id is not in our covenant DB.
+    #[serde(default)]
+    pub redeem_script_hex: Option<String>,
+    #[serde(default)]
+    pub redeem_kind: Option<String>,
+    #[serde(default)]
+    pub outpoint_index: Option<u32>,
 }
 
 /// POST /covenant/p2sh/spend - redeem a P2SH covenant by satisfying its script.
@@ -821,16 +846,50 @@ pub async fn p2sh_spend_handler(
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
 
+    // Resolve the covenant. If Covex deployed it, the DB has everything. If NOT (any
+    // covenant created anywhere on-chain), the caller supplies the redeem script + kind
+    // and we DERIVE the P2SH address from the redeem - so a wrong script simply fails the
+    // on-chain UTXO lookup; the caller proves they hold the real redeem. This is the
+    // trustless interaction path: Covex only assembles the tx, the caller's key signs it.
     let cov = match db::get_p2sh_covenant(&db, &req.deploy_tx_id) {
-        Some(c) => c,
-        None => return err(format!("no P2SH covenant found for deploy_tx_id {}", req.deploy_tx_id)),
+        Some(c) => {
+            if let Some(spent) = &c.spent_tx_id {
+                return err(format!("covenant already spent in tx {spent}"));
+            }
+            c
+        }
+        None => {
+            let rh = match req.redeem_script_hex.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                Some(h) => h.to_string(),
+                None => return err(format!(
+                    "no covenant stored for {}. To interact with a covenant NOT created on Covex, supply redeem_script_hex (the script that hashes to the on-chain P2SH) and redeem_kind (singlesig | hashlock | timelock:<daa> | multisig:<total> | htlc:<lock_daa>), plus outpoint_index if not 0.",
+                    req.deploy_tx_id
+                )),
+            };
+            let rbytes = match hex::decode(&rh) {
+                Ok(b) => b,
+                Err(e) => return err(format!("bad redeem_script_hex: {e}")),
+            };
+            let addr = match p2sh_address(&rbytes, prefix_for_network(&req.network)) {
+                Ok(a) => a.to_string(),
+                Err(e) => return err(e),
+            };
+            db::P2shCovenant {
+                tx_id: req.deploy_tx_id.clone(),
+                network: req.network.clone(),
+                p2sh_address: addr,
+                redeem_script_hex: rh,
+                redeem_kind: req.redeem_kind.clone().unwrap_or_else(|| "singlesig".to_string()),
+                amount_sompi: 0,
+                outpoint_index: req.outpoint_index.unwrap_or(0),
+                owner_addr: req.destination_addr.clone(),
+                spent_tx_id: None,
+            }
+        }
     };
-    if let Some(spent) = &cov.spent_tx_id {
-        return err(format!("covenant already spent in tx {spent}"));
-    }
     let redeem = match hex::decode(&cov.redeem_script_hex) {
         Ok(b) => b,
-        Err(e) => return err(format!("corrupt stored redeem script: {e}")),
+        Err(e) => return err(format!("corrupt redeem script: {e}")),
     };
     // Redeem-kind dispatch: multisig (N keys), timelock (single owner key + lock_time),
     // singlesig/hashlock (single owner key).

@@ -394,13 +394,16 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         VerifierSpec::HybridGroth16 { script: "verify_verifiable_poker_solver.js", prefix: "covex_pks" },
     );
     // Latest sub-agent Phase 0/1 circuits (relative timelock, VRF family, script constraints, pot split, turn timer)
+    // Promoted Hybrid -> Strict after a live trusted setup produced matched keys and a
+    // real proof verified end-to-end (tamper-rejected). Strict = always run snarkjs and
+    // fail closed; a bodyless request can no longer be rubber-stamped to requested_outcome.
     m.insert(
         "relative_timelock",
-        VerifierSpec::HybridGroth16 { script: "verify_relative_timelock.js", prefix: "covex_rtl" },
+        VerifierSpec::StrictGroth16 { script: "verify_relative_timelock.js", prefix: "covex_rtl" },
     );
     m.insert(
         "vrf_dice_roll",
-        VerifierSpec::HybridGroth16 { script: "verify_vrf_dice_roll.js", prefix: "covex_vrf" },
+        VerifierSpec::StrictGroth16 { script: "verify_vrf_dice_roll.js", prefix: "covex_vrf" },
     );
     m.insert(
         "vrf_random",
@@ -420,11 +423,11 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     );
     m.insert(
         "basic_utxo_ownership",
-        VerifierSpec::HybridGroth16 { script: "verify_basic_utxo_ownership.js", prefix: "covex_utxo" },
+        VerifierSpec::StrictGroth16 { script: "verify_basic_utxo_ownership.js", prefix: "covex_utxo" },
     );
     m.insert(
         "nullifier_set",
-        VerifierSpec::HybridGroth16 { script: "verify_nullifier_set.js", prefix: "covex_null" },
+        VerifierSpec::StrictGroth16 { script: "verify_nullifier_set.js", prefix: "covex_null" },
     );
 
     m

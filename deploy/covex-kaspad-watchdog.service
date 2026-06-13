@@ -1,0 +1,8 @@
+[Unit]
+Description=Covex kaspad tip-liveness watchdog (GATE 1 / 1.3)
+After=network-online.target covex-backend.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/covex/alert.env
+ExecStart=/usr/bin/env bash /mnt/HC_Volume_105579109/Covex27/deploy/kaspad-watchdog.sh

@@ -142,6 +142,38 @@ body {
   border-color: #e2e8f0 !important;
 }
 
+/* Dark gradient FADES (content fading down to the dark page bg) must fade to a LIGHT
+   surface in light mode, otherwise they leave a dark strip over light cards - e.g. the
+   explorer covenant-card header. These set the Tailwind gradient stop vars, which the
+   computed --tw-gradient-stops references, so the whole fade re-colours. */
+.light .from-\[\#0c0c12\],
+.light .from-\[\#0a0a0a\],
+.light .from-\[\#0A0A0D\],
+.light .from-\[\#05050A\],
+.light .from-\[\#11111a\],
+.light .from-\[\#0f0f17\],
+.light .from-black,
+.light .from-black\/80,
+.light .from-black\/60,
+.light .from-black\/40 {
+  --tw-gradient-from: #f1f5f9 !important;
+}
+.light .to-\[\#0c0c12\],
+.light .to-\[\#0a0a0a\],
+.light .to-black {
+  --tw-gradient-to: #f1f5f9 !important;
+}
+.light .via-\[\#0c0c12\],
+.light .via-black {
+  --tw-gradient-via: #f1f5f9 !important;
+}
+
+/* Opacity-modified white text (text-white/60, /70 ...) is not caught by the .text-white
+   rule above; in light mode it should read as muted DARK, not invisible light. */
+.light [class*="text-white/"] {
+  color: #475569 !important;
+}
+
 /* Clean borders */
 .light .border-white\/5,
 .light .border-white\/\[0\.03\],

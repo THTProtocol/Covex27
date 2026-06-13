@@ -18,6 +18,9 @@ async function verifyGroth16Hybrid({ proofFile, vkeyPath, circuit, argv }) {
     const proof = data.proof || data;
     const hasFullBody = !!(proof && (proof.pi_a || proof.A));
     if (fs.existsSync(vkeyPath) && hasFullBody) {
+        // Real proof body + verifying key present: the groth16 result is
+        // AUTHORITATIVE. Fail closed - a proof that does not verify (or throws)
+        // is REJECTED, never soft-passed through to the attested branch.
         try {
             const vkey = JSON.parse(fs.readFileSync(vkeyPath, "utf8"));
             const valid = await snarkjs.groth16.verify(vkey, data.publicSignals || [], proof);
@@ -30,7 +33,12 @@ async function verifyGroth16Hybrid({ proofFile, vkeyPath, circuit, argv }) {
                 }));
                 process.exit(0);
             }
-        } catch (_) {}
+            console.log(JSON.stringify({ valid: false, circuit, error: `groth16 verification failed: ${circuit} proof rejected` }));
+            process.exit(1);
+        } catch (e) {
+            console.log(JSON.stringify({ valid: false, circuit, error: `groth16 verify error: ${e && e.message ? e.message : String(e)}` }));
+            process.exit(1);
+        }
     }
     console.log(JSON.stringify({
         valid: true,

@@ -159,6 +159,22 @@ pub async fn run_crawler(
         };
         let virtual_daa = dag.virtual_daa_score;
         crate::node_status::report_ok(&network, virtual_daa, scan_daa);
+
+        // Mainnet short-circuit. SilverScript covenants cannot exist on mainnet until
+        // Toccata activates, so there is nothing to index there yet. Walking up to
+        // MAX_WALK_DISTANCE (~5M) blocks every cycle only to skip every match (below)
+        // wastes node CPU/bandwidth and reports a permanently-behind scanned_daa.
+        // Probe the tip, report caught-up (scanned == tip), and idle until the
+        // operator flips COVEX_MAINNET_COVENANTS_ENABLED=true, at which point this
+        // guard falls through to the normal forward walk.
+        if network.starts_with("mainnet")
+            && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() != Ok("true")
+        {
+            crate::node_status::report_ok(&network, virtual_daa, virtual_daa);
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            continue;
+        }
+
         if scan_daa >= virtual_daa {
             let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -178,9 +194,14 @@ pub async fn run_crawler(
         let mut walked = 0u64;
         let mut batch = 0usize;
         let mut lowest = virtual_daa;
+        // True if the walk was cut short by a node stall/disconnect (not a clean
+        // completion). Gates the watermark persist below so a partial walk never
+        // corrupts the scan pointer.
+        let mut walk_interrupted = false;
 
         for _ in 0..MAX_WALK_DISTANCE {
             if !client.is_connected() {
+                walk_interrupted = true;
                 break;
             }
             // A node mid-IBD answers get_block_dag_info but hangs on get_block
@@ -203,6 +224,7 @@ pub async fn run_crawler(
                 Err(_) => {
                     warn!("Crawler[{}]: get_block timeout (node likely mid-sync); retrying", network);
                     crate::node_status::report_err(&network, "get_block timeout (node serving dag_info but not block bodies; still syncing)");
+                    walk_interrupted = true;
                     break;
                 }
             };
@@ -391,10 +413,22 @@ pub async fn run_crawler(
             "Crawler: walked={} found={} total={} lowest_daa={}",
             walked, batch, total_found, lowest
         );
-        // Advance past the floor — lowest is the minimum DAA seen in this batch.
-        // Without this decrement, the next cycle hits the same floor and makes zero net progress.
-        scan_daa = lowest.saturating_sub(1);
-        let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
+        // Advance the scan floor ONLY when the walk completed normally. If it was cut
+        // short by a node stall/disconnect (walk_interrupted), `lowest` reflects a
+        // PARTIAL walk, so persisting scan_daa = lowest-1 would ratchet the watermark
+        // past unscanned ranges and corrupt it (the exact TN10 failure: a node serving
+        // dag_info but hanging on get_block). Hold the watermark and retry next cycle.
+        if walk_interrupted {
+            warn!(
+                "Crawler[{}]: walk interrupted (node stalled/disconnected) after {} blocks; holding watermark at {}",
+                network, walked, scan_daa
+            );
+        } else {
+            // lowest is the minimum DAA seen in this batch. Without this decrement the
+            // next cycle hits the same floor and makes zero net progress.
+            scan_daa = lowest.saturating_sub(1);
+            let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
+        }
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }

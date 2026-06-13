@@ -32,6 +32,9 @@ async function main() {
     const hasFullBody = !!(data.proof && (data.proof.pi_a || data.proof.A) || data.pi_a || data.A);
 
     if (fs.existsSync(VKEY_PATH) && hasFullBody) {
+        // A real proof body is present AND we have a verifying key: the groth16
+        // result is AUTHORITATIVE. Fail closed - a proof that does not verify (or
+        // throws) is REJECTED, never soft-passed through to the attested branch.
         try {
             const { proof, publicSignals } = data;
             const vkey = JSON.parse(fs.readFileSync(VKEY_PATH, "utf8"));
@@ -40,11 +43,16 @@ async function main() {
                 console.log(JSON.stringify({ valid: true, publicSignals: publicSignals || data.publicSignals, circuit, note: "real groth16 range_proof" }));
                 process.exit(0);
             }
-            // fall through on crypto failure
-        } catch (_) {}
+            console.log(JSON.stringify({ valid: false, circuit, error: "groth16 verification failed: proof rejected" }));
+            process.exit(1);
+        } catch (e) {
+            console.log(JSON.stringify({ valid: false, circuit, error: "groth16 verify error: " + (e && e.message ? e.message : String(e)) }));
+            process.exit(1);
+        }
     }
 
-    // Attested / Hybrid fallback (the pragmatic path used by most circuits today)
+    // Attested fallback: reached ONLY when there is no vkey or no proof body (the
+    // off-chain/attested path). A present-but-invalid proof never lands here.
     const hasBody = !!( (data.proof && (data.proof.pi_a || data.proof.A)) || data.pi_a || data.A );
     console.log(JSON.stringify({
         valid: true,

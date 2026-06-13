@@ -574,6 +574,18 @@ pub(crate) async fn verify_risc0_stub(
     _public_inputs: Vec<String>,
     _requested_outcome: Option<u32>,
 ) -> Result<bool, String> {
+    // Fail closed by default. There is NO real RISC0 receipt verifier implemented
+    // here - the paths below only probe for a binary/receipt FILE, they never
+    // cryptographically verify a receipt. Rubber-stamping a "verifiable compute"
+    // outcome as proven would be dishonest, so by default we REJECT. An operator can
+    // opt back into the permissive dev/testnet behavior with
+    // COVEX_ALLOW_STUB_VERIFIERS=true. Mainnet must never set that flag.
+    if std::env::var("COVEX_ALLOW_STUB_VERIFIERS").as_deref() != Ok("true") {
+        return Err(format!(
+            "RISC0 verifier for guest '{}' is not implemented; refusing to attest (set COVEX_ALLOW_STUB_VERIFIERS=true to allow attested stubs on testnet)",
+            guest
+        ));
+    }
     let bin_opt = find_risc0_binary();
     // Sprint 2/3: Support dev guests by loading their _proof.json as receipt.
     // This makes risc0_chess_eval, risc0_poker_solver, financial_formula, etc. "use" the existing artifacts
@@ -647,6 +659,14 @@ pub(crate) async fn verify_wasm_exec_stub(
     _public_inputs: Vec<String>,
     _requested_outcome: Option<u32>,
 ) -> Result<bool, String> {
+    // Fail closed by default - same rationale as verify_risc0_stub: this is a probe,
+    // not a real proof-of-execution verifier, so we must not attest by default.
+    if std::env::var("COVEX_ALLOW_STUB_VERIFIERS").as_deref() != Ok("true") {
+        return Err(format!(
+            "WASM verifier (module '{}') is not implemented; refusing to attest (set COVEX_ALLOW_STUB_VERIFIERS=true to allow attested stubs on testnet)",
+            module_hint
+        ));
+    }
     let rt = find_wasm_runtime();
     if rt.is_none() {
         return Ok(true);
@@ -696,12 +716,20 @@ pub(crate) async fn verify_proof_for_circuit(
         Some(VerifierSpec::WasmStub { module_hint }) => {
             verify_wasm_exec_stub(module_hint, proof, public_inputs, requested_outcome).await
         }
-        Some(VerifierSpec::Attested) | None => {
-            // Unknown / new / expanded vision circuit_types (or future registry-driven) fall here.
-            // Verification "succeeds" (the proof was the off-chain engine or property ZK or data
-            // attestation); outcome is driven by requested_outcome (enforced in oracle handler
-            // for pure attested cases).
+        Some(VerifierSpec::Attested) => {
+            // Deliberate oracle-attested model (games, data feeds, property proofs):
+            // verification "succeeds" and the outcome is driven by requested_outcome
+            // (enforced in the oracle handler). This is an intentional, registered path.
             Ok(true)
+        }
+        None => {
+            // Fail closed: an UNKNOWN circuit_type has no registered verifier, so we
+            // must NOT silently attest it. Returning Err makes the caller
+            // (verify_and_sign_handler, which does .unwrap_or(false)) reject the request.
+            Err(format!(
+                "Unknown circuit_type '{}': no verifier registered (rejected)",
+                circuit_type
+            ))
         }
     }
 }

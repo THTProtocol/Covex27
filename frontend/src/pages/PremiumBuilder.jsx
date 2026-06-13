@@ -251,7 +251,7 @@ export default function PremiumBuilder() {
 
       setDeployResult({
         success: true,
-        message: `Covenant deployed on-chain. Custom interactive UI saved.`,
+        message: `Covenant recorded on-chain (decorative tier - the chain does not enforce its payout; use the Enforced/P2SH deploy for consensus enforcement). Custom interactive UI saved.`,
         def,
         txid,
         terminalSaved: termJson.success,

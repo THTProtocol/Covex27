@@ -521,7 +521,7 @@ export default function Deploy() {
         });
         const d = await deployRes.json();
         if (d.success && d.tx_id) {
-          setResult({ success: true, txid: d.tx_id, message: 'Covenant deployed on-chain!' });
+          setResult({ success: true, txid: d.tx_id, message: 'Covenant recorded on-chain (decorative tier - a real Kaspa tx commits your covenant, but the chain does not enforce its payout). For consensus-enforced custody, use the Enforced (P2SH) deploy.' });
           setStatus('success');
           setTimeout(() => navigate(`/covenant/${d.tx_id}`), 2000);
           return;
@@ -542,7 +542,7 @@ export default function Deploy() {
     return (
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-16 text-center">
         <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-6 ${result.pending ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-emerald-500/10 border border-emerald-500/20'}`}><Check size={36} className={result.pending ? 'text-amber-400' : 'text-emerald-400'} /></div>
-        <h1 className="text-2xl font-bold text-white mb-2">{result.pending ? 'Draft Saved (Not On-Chain)' : 'Deployed to Kaspa!'}</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">{result.pending ? 'Draft Saved (Not On-Chain)' : 'Recorded on Kaspa'}</h1>
         <p className="text-gray-300 mb-6">{result.message}</p>
         {result.txid && <div className="glass-panel rounded-xl p-4 mb-6"><p className="text-xs font-mono text-gray-400 break-all">{result.txid}</p></div>}
         {showUpgrade ? (
@@ -847,7 +847,7 @@ export default function Deploy() {
                   <textarea 
                     value={silverScript} 
                     onChange={e => setSilverScript(e.target.value)} 
-                    placeholder="Write or generate SilverScript here. Use 'Generate from UI' then 'Compile'. This becomes the actual on-chain covenant logic."
+                    placeholder="Write or generate SilverScript here. Use 'Generate from UI' then 'Compile'. The compiled script is recorded on-chain with the covenant (decorative tier - it is not consensus-enforced; use the Enforced/P2SH deploy for that)."
                     className="w-full h-28 font-mono text-xs bg-black/60 border border-white/10 rounded p-3 text-white resize-y" 
                   />
                   {compiledScriptHex && (

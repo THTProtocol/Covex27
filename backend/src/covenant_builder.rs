@@ -1528,10 +1528,225 @@ pub async fn oracle_payout_handler(
     }
 }
 
+// ── Mainnet wallet-side signing (trustless 2a): the server NEVER holds the key ──
+// A user redeems a single-sig covenant by signing with their OWN wallet. prepare-spend
+// builds the unsigned tx and returns the sighash for the wallet to sign (BIP340 Schnorr
+// over the 32-byte hash); submit-signed assembles that signature into the satisfier and
+// broadcasts. Covex only constructs and relays the tx - it is fully removable from the key
+// path, which is what makes a mainnet spend trustless (no raw key sent to the server).
+struct PendingWalletSpend {
+    network: String,
+    unsigned_tx: Transaction,
+    entry: UtxoEntry,
+    redeem: Vec<u8>,
+    created_at: i64,
+}
+
+fn wallet_sessions() -> &'static Mutex<std::collections::HashMap<String, PendingWalletSpend>> {
+    static S: std::sync::OnceLock<Mutex<std::collections::HashMap<String, PendingWalletSpend>>> =
+        std::sync::OnceLock::new();
+    S.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+#[derive(Deserialize)]
+pub struct WalletPrepareRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    pub deploy_tx_id: String,
+    pub destination_addr: String,
+    /// External covenant (not in our DB): supply the single-sig redeem script.
+    #[serde(default)]
+    pub redeem_script_hex: Option<String>,
+    #[serde(default)]
+    pub outpoint_index: Option<u32>,
+}
+
+/// POST /covenant/p2sh/prepare-spend - build the unsigned spend + return the sighash the
+/// user's wallet must sign. No key touches the server.
+pub async fn prepare_spend_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<WalletPrepareRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let (redeem_hex, redeem_kind, src_tx_id, outpoint_index, p2sh_address) =
+        match db::get_p2sh_covenant(&db, &req.deploy_tx_id) {
+            Some(c) => {
+                if let Some(s) = &c.spent_tx_id {
+                    return err(format!("covenant already spent in tx {s}"));
+                }
+                (c.redeem_script_hex, c.redeem_kind, c.tx_id, c.outpoint_index, c.p2sh_address)
+            }
+            None => {
+                let rh = match req.redeem_script_hex.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                    Some(h) => h.to_string(),
+                    None => return err("no covenant stored; supply redeem_script_hex (single-sig) for wallet-side signing".into()),
+                };
+                let rbytes = match hex::decode(&rh) {
+                    Ok(b) => b,
+                    Err(e) => return err(format!("bad redeem_script_hex: {e}")),
+                };
+                let addr = match p2sh_address(&rbytes, prefix_for_network(&req.network)) {
+                    Ok(a) => a.to_string(),
+                    Err(e) => return err(e),
+                };
+                (rh, "singlesig".to_string(), req.deploy_tx_id.clone(), req.outpoint_index.unwrap_or(0), addr)
+            }
+        };
+    if redeem_kind != "singlesig" {
+        return err(format!(
+            "wallet-side signing currently supports single-sig covenants; '{redeem_kind}' needs the multi-party flow"
+        ));
+    }
+    let redeem = match hex::decode(&redeem_hex) {
+        Ok(b) => b,
+        Err(e) => return err(format!("corrupt redeem: {e}")),
+    };
+    // The signer key is the singlesig redeem's pushed x-only pubkey (<0x20><32B> OpCheckSig).
+    let signer_xonly = if redeem.len() == 34 && redeem[0] == 0x20 {
+        hex::encode(&redeem[1..33])
+    } else {
+        String::new()
+    };
+
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let p2sh = match Address::try_from(p2sh_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("bad p2sh address: {e}")),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![p2sh]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    let utxo = match utxos.iter().find(|u| {
+        u.outpoint.transaction_id.to_string() == src_tx_id && u.outpoint.index == outpoint_index
+    }) {
+        Some(u) => u,
+        None => return err("P2SH UTXO not found on-chain (unconfirmed, spent, or wrong network)".into()),
+    };
+    let amount = utxo.utxo_entry.amount;
+    if amount <= TX_FEE {
+        return err("locked amount does not cover the tx fee".into());
+    }
+    let dest_script = match script_pub_key_from_address(&req.destination_addr) {
+        Ok(s) => s,
+        Err(e) => return err(e),
+    };
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint {
+            transaction_id: utxo.outpoint.transaction_id,
+            index: utxo.outpoint.index,
+        },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: 1,
+    }];
+    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let unsigned = Transaction::new_non_finalized(
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        b"covex-p2sh-spend".to_vec(),
+    );
+    let entry = UtxoEntry {
+        amount,
+        script_public_key: p2sh_script_pubkey(&redeem),
+        block_daa_score: utxo.utxo_entry.block_daa_score,
+        is_coinbase: utxo.utxo_entry.is_coinbase,
+    };
+    let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+    let sighash_hex = hex::encode(sig_hash.as_bytes());
+
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let now_ts = chrono::Utc::now().timestamp();
+    {
+        let mut s = wallet_sessions().lock().unwrap();
+        s.retain(|_, v| v.created_at > now_ts - 600); // drop sessions older than 10 min
+        s.insert(
+            session_id.clone(),
+            PendingWalletSpend { network: req.network.clone(), unsigned_tx: unsigned, entry, redeem, created_at: now_ts },
+        );
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "session_id": session_id,
+        "sighash": sighash_hex,
+        "sign_scheme": "bip340-schnorr-secp256k1",
+        "signer_xonly": signer_xonly,
+        "p2sh_address": p2sh_address,
+        "amount_sompi": amount,
+        "destination": req.destination_addr,
+        "note": "Sign the sighash (BIP340 Schnorr) with the covenant key in your wallet, then POST {session_id, signature_hex} to /covenant/p2sh/submit-signed. No key is sent to the server."
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct WalletSubmitRequest {
+    pub session_id: String,
+    /// 64-byte BIP340 Schnorr signature (hex) over the prepared sighash.
+    pub signature_hex: String,
+}
+
+/// POST /covenant/p2sh/submit-signed - assemble the wallet's signature into the satisfier
+/// and broadcast. The server never had the key; it only relays the signed tx.
+pub async fn submit_signed_handler(
+    Extension(_db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<WalletSubmitRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let pending = {
+        let mut s = wallet_sessions().lock().unwrap();
+        match s.remove(&req.session_id) {
+            Some(p) => p,
+            None => return err("unknown or expired session_id (call prepare-spend first; sessions last 10 minutes)".into()),
+        }
+    };
+    let sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x"))
+        .ok()
+        .and_then(|b| b.try_into().ok())
+    {
+        Some(b) => b,
+        None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
+    };
+    // Single-sig satisfier: OpData65 <sig || sighash-type> then the redeem-script push.
+    let satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let sig_script = match kaspa_txscript::pay_to_script_hash_signature_script(pending.redeem.clone(), satisfier) {
+        Ok(s) => s,
+        Err(e) => return err(format!("assemble signature script: {e}")),
+    };
+    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
+    signable.tx.inputs[0].signature_script = sig_script;
+    signable.tx.finalize();
+    let client = match client_for_network(&pending.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let rpc_tx = RpcTransaction::from(&signable.tx);
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => Json(serde_json::json!({
+            "success": true,
+            "spend_tx_id": tx_id.to_string(),
+            "note": "Wallet-signed spend broadcast; no key touched the server."
+        })),
+        Err(e) => err(format!(
+            "broadcast rejected: {e} (a wrong signature, or the wallet signing a different sighash, fails the script)"
+        )),
+    }
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
+        .route("/covenant/p2sh/prepare-spend", post(prepare_spend_handler))
+        .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))
         .route("/covenant/oracle-payout", post(oracle_payout_handler))
 }
 

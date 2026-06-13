@@ -433,7 +433,10 @@ pub async fn p2sh_deploy_handler(
             };
             let required = req.redeem.required.unwrap_or(pubkeys.len());
             match redeem_multisig(&pubkeys, required) {
-                Ok(r) => (r, "multisig".to_string()),
+                // Encode the member TOTAL so the spend can set the input sig_op_count
+                // (Kaspa counts a CheckMultiSig as one sig-op per listed pubkey; too
+                // low a sig_op_count yields a "script units exceeded" rejection).
+                Ok(r) => (r, format!("multisig:{}", pubkeys.len())),
                 Err(e) => return err(e),
             }
         }
@@ -596,7 +599,9 @@ pub async fn p2sh_spend_handler(
     };
     // Redeem-kind dispatch: multisig (N keys), timelock (single owner key + lock_time),
     // singlesig/hashlock (single owner key).
-    let is_multisig = cov.redeem_kind == "multisig";
+    let is_multisig = cov.redeem_kind.starts_with("multisig");
+    let multisig_total: u8 =
+        cov.redeem_kind.strip_prefix("multisig:").and_then(|s| s.parse::<u8>().ok()).unwrap_or(1);
     let lock_daa: Option<u64> =
         cov.redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
 
@@ -690,8 +695,11 @@ pub async fn p2sh_spend_handler(
             index: utxo.outpoint.index,
         },
         signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
+        sequence: 0, // non-final, required for CLTV timelock spends
+        // Kaspa counts a CheckMultiSig as one sig-op per listed pubkey; the declared
+        // count must cover the redeem's actual sig ops or the node rejects with
+        // "script units exceeded". Single-key redeems use 1.
+        sig_op_count: if is_multisig { multisig_total } else { 1 },
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,

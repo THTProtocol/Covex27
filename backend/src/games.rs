@@ -32,6 +32,31 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/refund-channel", post(refund_channel))
 }
 
+/// A per-seat secret issued to a seated client exactly once (at create for
+/// player1, at join for player2). Every move/resign must echo it back, so the
+/// opponent - who only knows the public player addresses - cannot forge the
+/// victim's moves.
+fn gen_seat_token() -> String {
+    uuid::Uuid::new_v4().simple().to_string()
+}
+
+/// Authorise acting for a seat. Matches the supplied token against the stored
+/// one. A NULL/empty stored token means a legacy row created before move-auth
+/// existed: we fall back to turn-only enforcement (testnet demos only; every
+/// new game is tokenised). A set token that does not match is rejected.
+fn check_seat_token(stored: &Option<String>, supplied: &str) -> Result<(), String> {
+    match stored {
+        Some(t) if !t.is_empty() => {
+            if t == supplied {
+                Ok(())
+            } else {
+                Err("invalid or missing move token for this seat - only the seated player (the client that joined) can act for this side".to_string())
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Background sweep: finalise active matches whose side-to-move has run its clock out
 /// when neither client called claim-timeout (e.g. both closed the tab). Recorded as
 /// end_reason='abandon' - server-timed, so it may settle a real pot to the winner.
@@ -425,6 +450,10 @@ async fn refund_channel(
 #[derive(serde::Deserialize)]
 struct ResignReq {
     player: String,
+    /// Per-seat secret issued at join (see make_move). Required for tokenised
+    /// games so the opponent cannot resign the victim's seat.
+    #[serde(default)]
+    token: Option<String>,
 }
 
 /// POST /games/:id/resign : the caller forfeits the match (quit = loss), on OR off
@@ -439,20 +468,27 @@ async fn resign_game(
 ) -> Json<serde_json::Value> {
     let result = {
         let conn = db.lock().unwrap();
-        let row: Option<(String, String, String)> = conn
+        let row: Option<(String, String, String, Option<String>, Option<String>)> = conn
             .query_row(
-                "SELECT player1, player2, status FROM skill_games WHERE covenant_id = ?1",
+                "SELECT player1, player2, status, p1_token, p2_token FROM skill_games WHERE covenant_id = ?1",
                 params![covenant_id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )
             .ok();
         match row {
             None => Err("no match for this covenant".to_string()),
-            Some((p1, p2, status)) => {
+            Some((p1, p2, status, p1_token, p2_token)) => {
                 if status == "finished" {
                     Err("match already finished".to_string())
                 } else if req.player != p1 && req.player != p2 {
                     Err("only a seated player can resign".to_string())
+                } else if let Err(e) = check_seat_token(
+                    if req.player == p1 { &p1_token } else { &p2_token },
+                    req.token.as_deref().unwrap_or(""),
+                ) {
+                    // The resigner must hold their own seat token, so the
+                    // opponent cannot forfeit the victim's match.
+                    Err(e)
                 } else {
                     let win = if req.player == p1 { "black" } else { "white" };
                     conn.execute(
@@ -589,26 +625,34 @@ async fn join_game(
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .ok();
+        // Result carries (status, newly-issued (token, seat)). The token is
+        // returned ONLY when we just seated this caller, so it is never handed
+        // to someone who merely knows a public player address.
         match existing {
             None => {
                 let gt = req.game_type.clone().unwrap_or_else(|| "chess".into());
+                let token = gen_seat_token();
                 conn.execute(
-                    "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, status) VALUES (?1, ?2, ?3, ?4, 'waiting')",
-                    params![covenant_id, gt, req.pot_amount_kas.unwrap_or(0.0), req.player],
+                    "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, status, p1_token) VALUES (?1, ?2, ?3, ?4, 'waiting', ?5)",
+                    params![covenant_id, gt, req.pot_amount_kas.unwrap_or(0.0), req.player, token],
                 )
-                .map(|_| "waiting")
+                .map(|_| ("waiting", Some((token, "white"))))
                 .map_err(|e| e.to_string())
             }
             Some((p1, p2, status)) => {
                 if p1 == req.player || p2 == req.player {
-                    Ok(if status == "waiting" { "waiting" } else { "active" })
+                    // Rejoin/poll: the seated client already holds its token
+                    // (stored locally on first join). Do NOT re-issue it here -
+                    // that would leak it to anyone who knows the address.
+                    Ok((if status == "waiting" { "waiting" } else { "active" }, None))
                 } else if status == "waiting" && p2.is_empty() {
-                    // Match goes live: start player1's (white's) clock now.
+                    // Match goes live: seat player2 (black) + start white's clock.
+                    let token = gen_seat_token();
                     conn.execute(
-                        "UPDATE skill_games SET player2 = ?1, status = 'active', turn_started_at = unixepoch(), updated_at = unixepoch() WHERE covenant_id = ?2",
-                        params![req.player, covenant_id],
+                        "UPDATE skill_games SET player2 = ?1, status = 'active', p2_token = ?2, turn_started_at = unixepoch(), updated_at = unixepoch() WHERE covenant_id = ?3",
+                        params![req.player, token, covenant_id],
                     )
-                    .map(|_| "active")
+                    .map(|_| ("active", Some((token, "black"))))
                     .map_err(|e| e.to_string())
                 } else {
                     Err("match is full".to_string())
@@ -617,10 +661,15 @@ async fn join_game(
         }
     };
     match result {
-        Ok(status) => {
+        Ok((status, issued)) => {
             let game = fetch_game(&db, &covenant_id);
             live::publish("game_update", json!({"covenant_id": covenant_id, "status": status, "game": game}));
-            Json(json!({"success": true, "status": status, "game": game}))
+            let mut body = json!({"success": true, "status": status, "game": game});
+            if let Some((token, seat)) = issued {
+                body["your_token"] = json!(token);
+                body["your_seat"] = json!(seat);
+            }
+            Json(body)
         }
         Err(e) => Json(json!({"success": false, "error": e})),
     }
@@ -640,6 +689,10 @@ struct MoveReq {
     /// enforced; this only skips the flip afterwards.
     #[serde(default)]
     keep_turn: Option<bool>,
+    /// Per-seat secret issued at join. Proves the caller holds this side's
+    /// seat (not just knows the public address). Required for tokenised games.
+    #[serde(default)]
+    token: Option<String>,
 }
 
 /// POST /games/:id/move : append a move, flip the turn, optionally finish.
@@ -651,22 +704,29 @@ async fn make_move(
 ) -> Json<serde_json::Value> {
     let result = {
         let conn = db.lock().unwrap();
-        let row: Option<(String, String, String, String, String, String, i64, i64, i64, i64)> = conn
+        let row: Option<(String, String, String, String, String, String, i64, i64, i64, i64, Option<String>, Option<String>)> = conn
             .query_row(
-                "SELECT player1, player2, moves, current_turn, status, game_type, p1_time_ms, p2_time_ms, turn_started_at, unixepoch() FROM skill_games WHERE covenant_id = ?1",
+                "SELECT player1, player2, moves, current_turn, status, game_type, p1_time_ms, p2_time_ms, turn_started_at, unixepoch(), p1_token, p2_token FROM skill_games WHERE covenant_id = ?1",
                 params![covenant_id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?, r.get(10)?, r.get(11)?)),
             )
             .ok();
         match row {
             None => Err("no match for this covenant; join first".to_string()),
-            Some((p1, p2, moves_raw, turn, status, game_type, p1_ms, p2_ms, turn_started, now)) => {
+            Some((p1, p2, moves_raw, turn, status, game_type, p1_ms, p2_ms, turn_started, now, p1_token, p2_token)) => {
                 if status == "finished" {
                     Err("match already finished".to_string())
                 } else if (turn == "white" && req.player != p1)
                     || (turn == "black" && req.player != p2)
                 {
                     Err("not your turn".to_string())
+                } else if let Err(e) = check_seat_token(
+                    if turn == "white" { &p1_token } else { &p2_token },
+                    req.token.as_deref().unwrap_or(""),
+                ) {
+                    // Only the seated client (holding the token) may submit this
+                    // side's move - closes the opponent-forges-victim's-move hole.
+                    Err(e)
                 } else {
                     // Server-authoritative clock: charge the mover for the time spent
                     // this turn. turn_started_at and the budgets are written ONLY by the

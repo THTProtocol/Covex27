@@ -343,6 +343,20 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         let _ = conn.execute(ddl, []);
     }
 
+    // ── Migration: per-seat move tokens (P0.4 move authentication) ──
+    // p1_token/p2_token are secrets issued ONLY to each seated client at
+    // create/join. Every move/resign must carry the mover's token, so the
+    // opponent (who knows only the public player addresses) can no longer forge
+    // the victim's moves to steer the engine-replayed board to their own win.
+    // Legacy rows created before this migration have NULL tokens and fall back
+    // to turn-only checks (testnet demos; new games are always tokenised).
+    for ddl in [
+        "ALTER TABLE skill_games ADD COLUMN p1_token TEXT",
+        "ALTER TABLE skill_games ADD COLUMN p2_token TEXT",
+    ] {
+        let _ = conn.execute(ddl, []);
+    }
+
     Ok(Mutex::new(conn))
 }
 

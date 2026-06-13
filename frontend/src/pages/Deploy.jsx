@@ -86,6 +86,7 @@ export default function Deploy() {
   const [selectedLayerId, setSelectedLayerId] = useState(null);
   const [silverScript, setSilverScript] = useState('');
   const [compiledScriptHex, setCompiledScriptHex] = useState('');
+  const [compileError, setCompileError] = useState('');
   const [isCompiling, setIsCompiling] = useState(false);
 
   // Auto-unlock premium (advanced builder + SilverScript) if the user has paid any tier (via Pricing or here).
@@ -287,12 +288,16 @@ export default function Deploy() {
     return ss;
   };
 
-  // "Compiler" - turns SilverScript/DSL into script_hex (uses backend compiler if available, else simulation)
+  // Compiler - turns SilverScript/DSL into REAL script_hex via the backend silverc
+  // compiler. There is NO fake/random fallback: if the compiler is unavailable or
+  // the source does not compile, we surface the error and return null so nothing
+  // garbage is ever put on-chain or shown as "Compiled".
   const compileSilverScript = async () => {
     setIsCompiling(true);
+    setCompileError('');
     try {
       const code = silverScript || generateSilverScript();
-      // Try real backend compiler (Covex DSL or SilverScript -> bytecode)
+      // Real backend compiler (Covex DSL or SilverScript -> Kaspa bytecode)
       const res = await fetch('/api/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,21 +310,22 @@ export default function Deploy() {
           allow_topups: allowTopups,
         })
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.script_hex) {
-          setCompiledScriptHex(data.script_hex);
-          return data.script_hex;
-        }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.script_hex) {
+        setCompiledScriptHex(data.script_hex);
+        return data.script_hex;
       }
-    } catch (e) { /* fall to sim */ }
-
-    // Fallback simulation (realistic hex for demo + real deploys)
-    const simHex = 'aa20' + Array.from({length: 32}, () => Math.floor(Math.random()*16).toString(16)).join('') + 
-                   (layers.length > 0 ? 'bb' + layers.length.toString(16).padStart(2,'0') : '');
-    setCompiledScriptHex(simHex);
-    setIsCompiling(false);
-    return simHex;
+      // Honest failure: do NOT fabricate hex.
+      setCompiledScriptHex('');
+      setCompileError(data.error || `Compiler returned HTTP ${res.status}. The script was not compiled.`);
+      return null;
+    } catch (e) {
+      setCompiledScriptHex('');
+      setCompileError(e.message || 'Compiler is unavailable. The script was not compiled.');
+      return null;
+    } finally {
+      setIsCompiling(false);
+    }
   };
 
   // Render the advanced canvas preview (fully interactive builder)
@@ -486,7 +492,15 @@ export default function Deploy() {
     try {
       const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
       if (address && isDevMode && devMode?.privateKeyHex) {
-        const scriptHex = 'aa20' + Array.from({length: 32}, () => Math.floor(Math.random() * 16).toString(16)).join('');
+        // Compile the covenant's SilverScript to a REAL on-chain script. No
+        // random/fake hex is ever deployed - if compilation fails we refuse so
+        // nothing garbage lands on-chain.
+        const scriptHex = await compileSilverScript();
+        if (!scriptHex) {
+          setResult({ success: false, error: `Compilation failed, so nothing was deployed: ${compileError || 'the covenant script could not be compiled'}. Fix the script and try again.` });
+          setStatus('error');
+          return;
+        }
         const deployRes = await fetch('/api/sign-and-broadcast', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -837,9 +851,12 @@ export default function Deploy() {
                     className="w-full h-28 font-mono text-xs bg-black/60 border border-white/10 rounded p-3 text-white resize-y" 
                   />
                   {compiledScriptHex && (
-                    <div className="mt-1 text-[10px] font-mono text-emerald-400 break-all">Compiled: {compiledScriptHex}</div>
+                    <div className="mt-1 text-[10px] font-mono text-emerald-400 break-all">Compiled (real silverc bytecode): {compiledScriptHex}</div>
                   )}
-                  <div className="text-[9px] text-white/40 mt-1">The compiled script_hex + your visual layers will be deployed together. Real on-chain covenant.</div>
+                  {compileError && (
+                    <div className="mt-1 text-[10px] font-mono text-rose-400 break-all">Compile failed: {compileError}</div>
+                  )}
+                  <div className="text-[9px] text-white/40 mt-1">Your compiled script is recorded on-chain as a covenant commitment (discoverable, decorative tier - funds are not script-enforced by this path). For consensus-enforced custody, use the Enforced deploy (P2SH).</div>
                 </div>
               </div>
             )}

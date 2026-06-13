@@ -466,16 +466,26 @@ fn emit_generic_game(unit: &CompileUnit, max_outcome: i64) -> String {
     out
 }
 
-/// Emit generic SilverScript for unknown game types — minimal valid contract.
+/// Emit generic SilverScript for unknown game types.
+///
+/// This is NOT an always-true no-op (the old `require(true)` accepted any
+/// unlock, which was dishonest — it compiled to a contract that enforced
+/// nothing). Instead it bakes the covenant's own parameters in and validates
+/// them at unlock time, matching the 2-arg constructor shape every other
+/// emitter uses so build_constructor_args is consistent.
 fn emit_generic(unit: &CompileUnit) -> String {
     format!(
         "pragma silverscript ^0.1.0;\n\n\
-         contract {name}() {{\n\
-             entrypoint function unlock() {{\n\
-                 require(true);\n\
+         contract {name}(int feeBasisPoints, int minLock) {{\n\
+             entrypoint function unlock(int stakeAmount) {{\n\
+                 require(feeBasisPoints == {fee});\n\
+                 require(minLock == {lock});\n\
+                 require(stakeAmount >= minLock);\n\
              }}\n\
          }}\n",
-        name = unit.covenant_name
+        name = unit.covenant_name,
+        fee = unit.fee_basis_points,
+        lock = unit.min_lock,
     )
 }
 
@@ -498,18 +508,17 @@ fn silverc_path() -> &'static str {
 }
 
 /// Build a constructor args JSON for silverc from a CompileUnit.
+///
+/// EVERY emitter (emit_generic_game and emit_generic) now produces a
+/// `contract Name(int feeBasisPoints, int minLock)` signature, so we always
+/// supply those two ints. (Previously unknown/privacy_mixer types fell to a
+/// `[]` arm while their emitter still declared 2 args — an arity mismatch that
+/// made silverc reject them.)
 fn build_constructor_args(unit: &CompileUnit) -> serde_json::Value {
-    // All game/circuit types now use feeBasisPoints + minLock constructor args
-    match unit.game_type.as_str() {
-        "dice" | "poker" | "blackjack"
-        | "merkle_membership" | "range_proof" | "age_verification" | "verifiable" => {
-            serde_json::json!([
-                {"kind": "int", "data": unit.fee_basis_points},
-                {"kind": "int", "data": unit.min_lock}
-            ])
-        }
-        _ => serde_json::json!([]),
-    }
+    serde_json::json!([
+        {"kind": "int", "data": unit.fee_basis_points},
+        {"kind": "int", "data": unit.min_lock}
+    ])
 }
 
 /// Compile a CompileUnit through silverc.

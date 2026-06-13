@@ -350,16 +350,16 @@ export default function CovenantFix() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && (data.success || data.ok)) {
         setToast({ type: 'success', msg: 'Published! Viewers now see your clean updated look and stake.' });
-        // Optimistic: update the selected
         setSelected((s) => ({ ...s, custom_ui_html: html }));
       } else {
-        setToast({ type: 'success', msg: 'Published (local preview ready). Backend may sync shortly.' });
+        // The backend did NOT accept the update - do not claim it published.
         setSelected((s) => ({ ...s, custom_ui_html: html }));
+        setToast({ type: 'error', msg: `Publish failed: ${data.error || `backend returned HTTP ${res.status}`}. Your changes are NOT live for viewers (shown here as a local preview only).` });
       }
     } catch (e) {
-      // Still make it visible locally for the creator
+      // Network/transport error - the update did not reach the backend.
       setSelected((s) => ({ ...s, custom_ui_html: html }));
-      setToast({ type: 'success', msg: 'Saved locally for preview. Publish will sync when backend is reachable.' });
+      setToast({ type: 'error', msg: `Publish failed: ${e.message || 'could not reach the backend'}. Your changes are NOT live for viewers (local preview only).` });
     } finally {
       setPublishing(false);
       setTimeout(() => setToast(null), 3800);

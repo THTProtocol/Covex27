@@ -25,8 +25,18 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
   const seenMoves = useRef(-1);
   const syncedAt = useRef(0);
   const claimedAt = useRef(0);
+  // Per-seat secret issued by the server exactly once when this client took its
+  // seat. It must accompany every move/resign so the opponent (who knows only
+  // the public addresses) cannot act for this side. Persisted so a reload of the
+  // same browser keeps the seat; the server never re-issues it on rejoin.
+  const seatToken = useRef('');
   const onMovesRef = useRef(onMoves);
   onMovesRef.current = onMoves;
+
+  useEffect(() => {
+    if (!covenantId) return;
+    try { seatToken.current = localStorage.getItem(`covex_seat_token:${covenantId}`) || ''; } catch { seatToken.current = ''; }
+  }, [covenantId]);
 
   const myColor = useMemo(() => {
     if (!game || !address) return null;
@@ -133,7 +143,14 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
         body: JSON.stringify({ player: address, game_type: gameType, pot_amount_kas: stake }),
       });
       const d = await r.json();
-      if (d.success) { applyServerGame(d.game); return true; }
+      if (d.success) {
+        if (d.your_token) {
+          seatToken.current = d.your_token;
+          try { localStorage.setItem(`covex_seat_token:${covenantId}`, d.your_token); } catch { /* storage blocked */ }
+        }
+        applyServerGame(d.game);
+        return true;
+      }
       setError(d.error || 'Could not join.');
       return false;
     } catch (e) {
@@ -149,7 +166,7 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
       const r = await fetch(`/api/games/${encodeURIComponent(covenantId)}/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: address, move, finished, winner, keep_turn: keepTurn }),
+        body: JSON.stringify({ player: address, move, finished, winner, keep_turn: keepTurn, token: seatToken.current }),
       });
       const d = await r.json();
       if (!d.success) { setError(d.error || 'Move rejected.'); refresh(); return false; }
@@ -169,7 +186,7 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
     try {
       const r = await fetch(`/api/games/${encodeURIComponent(covenantId)}/resign`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: address }),
+        body: JSON.stringify({ player: address, token: seatToken.current }),
       });
       const d = await r.json();
       if (d?.success) { applyServerGame(d.game); return true; }

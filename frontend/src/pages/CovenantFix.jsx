@@ -7,6 +7,19 @@ import { ArrowLeft, Save, Palette, Eye, Wallet, Check, ExternalLink } from 'luci
 
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
 
+// The published page is rendered as raw HTML (in an iframe srcDoc / dangerouslySet),
+// so EVERY interpolated value must be escaped or it is a stored-XSS vector. Colors
+// go into CSS and are validated against a strict pattern instead of HTML-escaped.
+const ESC = (s) =>
+  String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+const SAFE_COLOR = (c) =>
+  /^#[0-9a-fA-F]{3,8}$|^rgba?\([\d.,\s%]+\)$/.test(String(c || '')) ? c : '#49EACB';
+
 const COVENANT_TEMPLATES = [
   { id: 'aether', name: 'Aether', tagline: 'Minimal Luxury', accent: '#E8AF34', config: { primaryColor: '#E8AF34', bgStyle: 'glass' } },
   { id: 'forge', name: 'Forge', tagline: 'Bold DeFi', accent: '#F59E0B', config: { primaryColor: '#F59E0B', bgStyle: 'dark' } },
@@ -17,18 +30,18 @@ const COVENANT_TEMPLATES = [
 ];
 
 function buildTransparentCustomUI(cov, cfg, stakeAmount) {
-  const primary = cfg.primaryColor || '#49EACB';
-  const title = cfg.titleOverride || cov.name || TRUNC(cov.tx_id);
-  const desc = cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.';
-  const publicAbout = cfg.publicAbout || cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.';
-  const publicRules = cfg.publicRules || cov.full_logic_summary || 'All logic, fees, timers, resolution and payouts are public and on-chain.';
-  const publicHowTo = cfg.publicHowTo || 'Stake to the covenant address. All addresses, rules and verification are visible by default.';
-  const creator = cov.creator_addr || 'Unknown';
-  const locked = (cov.amount_kaspa || 0).toLocaleString();
-  const tx = cov.tx_id || '';
-  const cat = cov.category || cov.covenant_type || 'General';
-  const tier = cov.verified_tier || cov.tier || 'FREE';
-  const ts = cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent';
+  const primary = SAFE_COLOR(cfg.primaryColor);
+  const title = ESC(cfg.titleOverride || cov.name || TRUNC(cov.tx_id));
+  const desc = ESC(cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.');
+  const publicAbout = ESC(cfg.publicAbout || cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.');
+  const publicRules = ESC(cfg.publicRules || cov.full_logic_summary || 'All logic, fees, timers, resolution and payouts are public and on-chain.');
+  const publicHowTo = ESC(cfg.publicHowTo || 'Stake to the covenant address. All addresses, rules and verification are visible by default.');
+  const creator = ESC(cov.creator_addr || 'Unknown');
+  const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
+  const tx = ESC(cov.tx_id || '');
+  const cat = ESC(cov.category || cov.covenant_type || 'General');
+  const tier = ESC(cov.verified_tier || cov.tier || 'FREE');
+  const ts = ESC(cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent');
   const isChess = (cov.covenant_type || cov.category || '').toLowerCase().includes('chess');
   const stake = stakeAmount || 50;
 

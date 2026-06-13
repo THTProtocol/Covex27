@@ -313,24 +313,28 @@ export default function CovenantInteractive() {
   // Paid creators get powerful tools to make their covenant page look like a premium product/brand site.
   // The output is self-contained, beautiful, transparent, and highly inviting.
   function buildTransparentCustomUI(cov, cfg) {
-    const primary = cfg.primaryColor || '#49EACB';
-    const title = cfg.titleOverride || cov.name || TRUNC(cov.tx_id);
-    const desc = cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.';
-    const logic = cov.full_logic_summary || cov.description || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.';
-    const creator = cov.creator_addr || 'Unknown';
-    const locked = (cov.amount_kaspa || 0).toLocaleString();
-    const tx = cov.tx_id || '';
-    const cat = cov.category || 'General';
-    const tier = cov.verified_tier || cov.tier || 'FREE';
+    // The page renders as raw HTML, so every interpolated value must be escaped
+    // (stored-XSS guard); colors are validated against a strict pattern.
+    const ESC = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const SAFE_COLOR = (c) => (/^#[0-9a-fA-F]{3,8}$|^rgba?\([\d.,\s%]+\)$/.test(String(c || '')) ? c : '#49EACB');
+    const primary = SAFE_COLOR(cfg.primaryColor);
+    const title = ESC(cfg.titleOverride || cov.name || TRUNC(cov.tx_id));
+    const desc = ESC(cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.');
+    const logic = ESC(cov.full_logic_summary || cov.description || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.');
+    const creator = ESC(cov.creator_addr || 'Unknown');
+    const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
+    const tx = ESC(cov.tx_id || '');
+    const cat = ESC(cov.category || 'General');
+    const tier = ESC(cov.verified_tier || cov.tier || 'FREE');
     const verified = isVerified(cov);
-    const addrs = cov.receiving_addresses || cov.address || '';
-    const ts = cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent';
+    const addrs = ESC(cov.receiving_addresses || cov.address || '');
+    const ts = ESC(cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent');
 
-    const heroImage = cfg.heroImageUrl || '';
-    const vision = cfg.vision || '';
-    const publicAbout = cfg.publicAbout || cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.';
-    const publicRules = cfg.publicRules || cov.full_logic_summary || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.';
-    const publicHowTo = cfg.publicHowTo || 'Connect a wallet, choose your stake amount, and execute directly to the covenant address. All details, addresses, and resolution logic are public.';
+    const heroImage = encodeURI(cfg.heroImageUrl || '');
+    const vision = ESC(cfg.vision || '');
+    const publicAbout = ESC(cfg.publicAbout || cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.');
+    const publicRules = ESC(cfg.publicRules || cov.full_logic_summary || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.');
+    const publicHowTo = ESC(cfg.publicHowTo || 'Connect a wallet, choose your stake amount, and execute directly to the covenant address. All details, addresses, and resolution logic are public.');
 
     // Premium, modern, billion-dollar aesthetic
     const customCss = `

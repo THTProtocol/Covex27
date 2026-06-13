@@ -466,7 +466,12 @@ export default function Deploy() {
       }
     } catch (e) {
       alert('Payment failed or cancelled. Use Dev Connect for test deploys on TN12/TN10 (real on-chain txs).');
-      setIsAdvancedUnlocked(true); // dev fallback
+      // Testnet-only dev affordance. NEVER unlock advanced tools on mainnet
+      // without a confirmed payment - the real deploy is gated server-side by
+      // the auth token, but the UI must not imply paid access for free.
+      if ((localStorage.getItem('kaspaNetwork') || 'testnet-12') !== 'mainnet') {
+        setIsAdvancedUnlocked(true);
+      }
     }
   };
 

@@ -631,6 +631,8 @@ async fn health_handler() -> Json<serde_json::Value> {
         "app": "Covex v1.0.0",
         "network": network,
         "oracle_key_mode": oracle_mode,
+        "oracle_pubkey": oracle::oracle_xonly_pubkey_hex(),
+        "oracle_scheme": "bip340-schnorr-secp256k1",
         "git_commit": git_commit,
         "bind_addr": bind_addr,
         "crawl_full_rescan": crawl_full_rescan,
@@ -657,6 +659,8 @@ async fn root_handler() -> Json<serde_json::Value> {
         "app": "Covex v1.0.0",
         "network": network,
         "oracle_key_mode": oracle_mode,
+        "oracle_pubkey": oracle::oracle_xonly_pubkey_hex(),
+        "oracle_scheme": "bip340-schnorr-secp256k1",
         "git_commit": git_commit,
         "bind_addr": bind_addr,
         "crawl_full_rescan": crawl_full_rescan,
@@ -1561,8 +1565,7 @@ async fn compute_payout_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Json(input): Json<ComputePayoutInput>,
 ) -> Json<serde_json::Value> {
-    // 1. Verify oracle signature
-    let oracle_key = oracle::oracle_key_bytes_public();
+    // 1. Verify the oracle's BIP340 Schnorr signature over the outcome message.
     let message = input.oracle_message.as_deref().unwrap_or("");
     let expected_message = format!(
         "covex-oracle:{}:{}:{}",
@@ -1571,18 +1574,23 @@ async fn compute_payout_handler(
         input.oracle_timestamp.unwrap_or(0)
     );
     
-    let sig_verified = if !message.is_empty() {
-        // Verify: SHA256(oracle_key || message) must match signature
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(&oracle_key);
-        hasher.update(message.as_bytes());
-        let expected_sig = hex::encode(hasher.finalize());
-        expected_sig == input.oracle_signature || message == expected_message
-    } else {
-        // Without message, accept signature as pre-verified by oracle endpoint
-        true
-    };
+    // The message must be the canonical one for THIS covenant+outcome+timestamp,
+    // AND carry a valid BIP340 Schnorr signature from the oracle. No bypass: the
+    // old `|| message == expected_message` let anyone mint a payout witness from
+    // public values, and the response was returned unconditionally regardless.
+    let sig_verified = !message.is_empty()
+        && message == expected_message
+        && oracle::verify_outcome(message, &input.oracle_signature);
+    if !sig_verified {
+        warn!(
+            "compute_payout rejected for {}: oracle signature did not verify",
+            &covenant_id[..16.min(covenant_id.len())]
+        );
+        return Json(json!({
+            "success": false,
+            "error": "Oracle signature verification failed. The payout witness requires a valid oracle signature over covex-oracle:{id}:{outcome}:{timestamp}."
+        }));
+    }
 
     // 2. Look up covenant config for fee/pot-return percentages
     let (fee_percent, pot_return_percent) = match db::get_generated_ui_by_covenant(&db, &covenant_id) {
@@ -1616,15 +1624,16 @@ async fn compute_payout_handler(
 
     // 6. Build unlock witness data (for the user to use in their spend TX)
     let unlock_witness = format!(
-        "Covenant ID: {}\nOutcome: {}\nOracle Signature: {}\nSigned Message: {}\nTimestamp: {}\n\n\
+        "Covenant ID: {}\nOutcome: {}\nOracle Signature (BIP340 schnorr): {}\nOracle Pubkey (x-only): {}\nSigned Message: {}\nTimestamp: {}\n\n\
          To unlock: include this signature as witness data in your Kaspa spend transaction.\n\
-         The covenant script unlock(outcome) will verify the oracle signature and release funds.\n\
+         The covenant script verifies this Schnorr signature against the oracle pubkey (OpCheckSig at Toccata) and releases funds.\n\
          Winner receives: {} KAS\n\
          Platform fee: {} KAS (to treasury)\n\
          Pot return: {} KAS (back to covenant for reuse)",
         covenant_id,
         input.outcome,
         input.oracle_signature,
+        oracle::oracle_xonly_pubkey_hex(),
         message,
         input.oracle_timestamp.unwrap_or(0),
         format!("{:.2}", winner_share),

@@ -22,6 +22,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tracing::info;
+use secp256k1::{schnorr::Signature, Keypair, Message, Secp256k1};
+use serde_json::json;
 
 use crate::oracle_verifier::{
     determine_outcome_for_circuit, proof_has_groth16_body, verify_proof_for_circuit,
@@ -108,6 +110,19 @@ pub fn oracle_routes() -> Router {
     Router::new()
         .route("/oracle/verify-and-sign", post(verify_and_sign_handler))
         .route("/oracle/liveness", get(oracle_liveness_handler))
+        .route("/oracle/pubkey", get(oracle_pubkey_handler))
+}
+
+/// GET /oracle/pubkey : the oracle's verifiable identity + signing scheme, so
+/// anyone (and a Toccata covenant unlock) can verify outcome signatures.
+async fn oracle_pubkey_handler() -> Json<serde_json::Value> {
+    Json(json!({
+        "scheme": "bip340-schnorr-secp256k1",
+        "xonly_pubkey": oracle_xonly_pubkey_hex(),
+        "message_format": "covex-oracle:{covenant_id}:{outcome}:{timestamp}",
+        "digest": "sha256(message)",
+        "note": "Verify the oracle's outcome signature (BIP340) against this x-only key."
+    }))
 }
 
 /// The oracle signing key (DEV_WALLET_1 private key on testnet).
@@ -124,6 +139,57 @@ fn oracle_key_bytes() -> Vec<u8> {
 /// Public version for use by the claim/payout handler in main.rs
 pub fn oracle_key_bytes_public() -> Vec<u8> {
     oracle_key_bytes()
+}
+
+// ── Real BIP340 Schnorr oracle signatures ───────────────────────────────────
+// The oracle attests an outcome by signing `covex-oracle:{id}:{outcome}:{ts}`
+// with a secp256k1 key. This is a REAL elliptic-curve signature (not the old
+// SHA256(key||msg) keyed hash, which no Kaspa opcode could ever verify): a
+// covenant unlock can check it on-chain via OpCheckSig at Toccata, and any
+// third party can verify it against the published x-only public key.
+
+/// Derive the oracle's secp256k1 keypair from the configured key. We hash the
+/// configured bytes so ANY COVEX_ORACLE_KEY value maps to a valid secp256k1
+/// scalar; the oracle's identity (its public key) is deterministic from the
+/// configured secret.
+fn oracle_keypair() -> Keypair {
+    let seed = Sha256::digest(oracle_key_bytes());
+    Keypair::from_seckey_slice(&Secp256k1::new(), seed.as_slice())
+        .expect("hashed oracle key is a valid secp256k1 scalar")
+}
+
+/// The oracle's BIP340 x-only public key (32-byte hex) - its verifiable identity.
+pub fn oracle_xonly_pubkey_hex() -> String {
+    let (xonly, _parity) = oracle_keypair().x_only_public_key();
+    hex::encode(xonly.serialize())
+}
+
+fn message_digest(message: &str) -> Message {
+    let d: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+    Message::from_digest(d)
+}
+
+/// Sign sha256(message) with the oracle key (BIP340 Schnorr; 64-byte hex sig).
+pub fn sign_outcome(message: &str) -> String {
+    let kp = oracle_keypair();
+    let sig = Secp256k1::new().sign_schnorr_no_aux_rand(&message_digest(message), &kp);
+    hex::encode(sig.as_ref())
+}
+
+/// Verify a BIP340 Schnorr signature over sha256(message) against the oracle key.
+pub fn verify_outcome(message: &str, sig_hex: &str) -> bool {
+    let (xonly, _parity) = oracle_keypair().x_only_public_key();
+    let sig_bytes = match hex::decode(sig_hex.trim_start_matches("0x")) {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    let sig = match Signature::from_slice(&sig_bytes) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    Secp256k1::verification_only()
+        .verify_schnorr(&sig, &message_digest(message), &xonly)
+        .is_ok()
 }
 
 /// Path to the snarkjs verify.js script (for merkle).
@@ -506,12 +572,8 @@ async fn verify_and_sign_handler(
         );
     }
 
-    // Signature: SHA256(oracle_private_key || message)
-    let oracle_key = oracle_key_bytes();
-    let mut hasher = Sha256::new();
-    hasher.update(&oracle_key);
-    hasher.update(message.as_bytes());
-    let signature = hex::encode(hasher.finalize());
+    // Real BIP340 Schnorr signature over the outcome message (verifiable on-chain).
+    let signature = sign_outcome(&message);
 
     info!(
         "Oracle signed outcome {} for covenant {} (circuit: {})",
@@ -568,23 +630,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_oracle_signature_format() {
-        let covenant_id = "test123";
-        let outcome = 0u32;
-        let timestamp = 1717000000i64;
-        let message = format!(
-            "covex-oracle:{}:{}:{}",
-            covenant_id, outcome, timestamp
-        );
-
-        let oracle_key = oracle_key_bytes();
-        let mut hasher = Sha256::new();
-        hasher.update(&oracle_key);
-        hasher.update(message.as_bytes());
-        let sig = hex::encode(hasher.finalize());
-
-        assert_eq!(sig.len(), 64);
-        assert_eq!(message, "covex-oracle:test123:0:1717000000");
+    fn test_oracle_schnorr_roundtrip() {
+        let message = "covex-oracle:test123:0:1717000000";
+        let sig = sign_outcome(message);
+        // BIP340 schnorr signature: 64 bytes = 128 hex chars
+        assert_eq!(sig.len(), 128);
+        // a valid oracle signature verifies
+        assert!(verify_outcome(message, &sig), "oracle sig must verify");
+        // tampered message does NOT verify
+        assert!(!verify_outcome("covex-oracle:test123:1:1717000000", &sig));
+        // a garbage signature does NOT verify
+        assert!(!verify_outcome(message, &"ab".repeat(64)));
+        // the pubkey is a 32-byte x-only key
+        assert_eq!(oracle_xonly_pubkey_hex().len(), 64);
     }
 
     /// Test that verify_merkle_proof with a real valid proof returns Ok(true).

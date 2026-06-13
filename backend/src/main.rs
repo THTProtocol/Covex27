@@ -19,6 +19,7 @@ mod broadcast;
 mod games;
 mod live;
 mod compiler;
+mod covenant_builder;
 mod covenant_types;
 mod crawler;
 mod db;
@@ -312,6 +313,13 @@ async fn main() {
     tokio::spawn(async move {
         crawler::run_crawler(crawl_client, crawl_db, crawl_treasury, crawl_start_daa, crawl_network).await;
     });
+
+    // --- Background: Resolver failover supervisor ---
+    // For resolver-eligible networks (mainnet, testnet-10) this fails the wRPC
+    // client over to a public Kaspa node when our own node is unavailable, and
+    // switches back when it recovers. testnet-12 has no public coverage and stays
+    // direct-only. Disable with COVEX_RESOLVER_FALLBACK=0.
+    resolver_failover::spawn_supervisor(supervised);
 
     // --- Routes ---
     let db_clone = db.clone();

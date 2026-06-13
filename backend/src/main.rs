@@ -323,6 +323,9 @@ async fn main() {
     // direct-only. Disable with COVEX_RESOLVER_FALLBACK=0.
     resolver_failover::spawn_supervisor(supervised);
 
+    // Finalise abandoned matches whose clock has run out (quit/timeout = loss).
+    games::spawn_timeout_sweeper(db.clone());
+
     // --- Routes ---
     let db_clone = db.clone();
     // CORS: same-origin product. Allow the production site + local dev; the API is

@@ -19,7 +19,12 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
   const [game, setGame] = useState(null);
   const [error, setError] = useState(null);
   const [joining, setJoining] = useState(false);
+  // Live server-authoritative clocks (ms remaining per side), ticked locally between
+  // syncs off the server's snapshot so the countdown is smooth but never client-trusted.
+  const [clocks, setClocks] = useState({ whiteMs: 0, blackMs: 0 });
   const seenMoves = useRef(-1);
+  const syncedAt = useRef(0);
+  const claimedAt = useRef(0);
   const onMovesRef = useRef(onMoves);
   onMovesRef.current = onMoves;
 
@@ -32,6 +37,7 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
 
   const applyServerGame = useCallback((g) => {
     if (!g) return;
+    syncedAt.current = Date.now();
     setGame(g);
     const moves = Array.isArray(g.moves) ? g.moves : [];
     if (moves.length !== seenMoves.current) {
@@ -39,6 +45,46 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
       onMovesRef.current?.(moves, g);
     }
   }, []);
+
+  const claimTimeout = useCallback(() => {
+    if (!covenantId) return;
+    // throttle: avoid spamming while the server finalises
+    if (Date.now() - claimedAt.current < 3000) return;
+    claimedAt.current = Date.now();
+    fetch(`/api/games/${encodeURIComponent(covenantId)}/claim-timeout`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    })
+      .then((r) => r.json())
+      .then((d) => { if (d?.success && d.timed_out) applyServerGame(d.game); })
+      .catch(() => {});
+  }, [covenantId, applyServerGame]);
+
+  // Tick the clocks locally off the latest server snapshot. When the side to move
+  // flatlines, ask the server to finalise the timeout (server recomputes and decides).
+  useEffect(() => {
+    if (!game) return undefined;
+    const tick = () => {
+      const p1 = Number(game.p1_time_ms) || 0;
+      const p2 = Number(game.p2_time_ms) || 0;
+      const started = Number(game.turn_started_at) || 0;
+      const serverNow = Number(game.server_now) || 0;
+      let whiteMs = p1;
+      let blackMs = p2;
+      if (game.status === 'active' && started > 0) {
+        const elapsedMs = (serverNow - started) * 1000 + (Date.now() - syncedAt.current);
+        if (game.current_turn === 'white') whiteMs = Math.max(0, p1 - elapsedMs);
+        else blackMs = Math.max(0, p2 - elapsedMs);
+      }
+      setClocks({ whiteMs, blackMs });
+      if (game.status === 'active') {
+        if (game.current_turn === 'white' && whiteMs <= 0) claimTimeout();
+        else if (game.current_turn === 'black' && blackMs <= 0) claimTimeout();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [game, claimTimeout]);
 
   const refresh = useCallback(() => {
     if (!covenantId) return;
@@ -116,14 +162,27 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
     }
   }, [covenantId, address, applyServerGame, refresh]);
 
-  const resign = useCallback(() => {
-    if (!myColor || !game || game.status !== 'active') return Promise.resolve(false);
-    const winner = myColor === 'white' ? 'black' : 'white';
-    return submitMove('resign', { finished: true, winner });
-  }, [myColor, game, submitMove]);
+  // Quitting = losing. Hits the dedicated server endpoint, which records the win for
+  // the opponent (works on OR off your turn). The server decides the winner, not us.
+  const resign = useCallback(async () => {
+    if (!address || !game || game.status !== 'active') return false;
+    try {
+      const r = await fetch(`/api/games/${encodeURIComponent(covenantId)}/resign`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player: address }),
+      });
+      const d = await r.json();
+      if (d?.success) { applyServerGame(d.game); return true; }
+      setError(d?.error || 'Could not resign.');
+      return false;
+    } catch (e) {
+      setError(e?.message || 'Network error.');
+      return false;
+    }
+  }, [covenantId, address, game, applyServerGame]);
 
   const status = game?.status || 'none';
   const isMyTurn = !!(game && myColor && game.status === 'active' && game.current_turn === myColor);
 
-  return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh };
+  return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh, clocks, claimTimeout };
 }

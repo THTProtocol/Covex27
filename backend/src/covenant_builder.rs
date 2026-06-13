@@ -1078,16 +1078,16 @@ enum GamePot {
 /// it refuses to co-sign any payout (no value ever moves on an unproven outcome). This is
 /// the launch-safe default; adding a game's engine to game_engine re-enables its pots.
 fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
-    let row: Option<(String, String, Option<String>, String)> = {
+    let row: Option<(String, String, Option<String>, String, Option<String>)> = {
         let conn = db.lock().unwrap();
         conn.query_row(
-            "SELECT game_type, moves, winner, status FROM skill_games WHERE pot_tx = ?1",
+            "SELECT game_type, moves, winner, status, end_reason FROM skill_games WHERE pot_tx = ?1",
             rusqlite::params![pot_tx],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .ok()
     };
-    let (gtype, moves_raw, winner, status) = match row {
+    let (gtype, moves_raw, winner, status, end_reason) = match row {
         Some(t) => t,
         None => return GamePot::NotAGamePot,
     };
@@ -1095,6 +1095,20 @@ fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
         return GamePot::Rejected(
             "game pot: the match is not finished; the oracle will not co-sign a payout".into(),
         );
+    }
+    // Server-decided timeouts/abandonment are timed by the server itself (the opponent
+    // cannot manufacture them), so they MAY settle to the recorded winner. A resign or a
+    // client-claimed finish is forgeable until moves are wallet-authenticated, so those
+    // fall through to the engine replay below and only settle on a decisive board.
+    let er = end_reason.as_deref().unwrap_or("");
+    if er == "timeout" || er == "abandon" {
+        return match winner.as_deref().map(|w| w.to_lowercase()).as_deref() {
+            Some("white") | Some("player1") => GamePot::Verified(0),
+            Some("black") | Some("player2") => GamePot::Verified(1),
+            _ => GamePot::Rejected(format!(
+                "game pot: {er} did not record a single winning player (winner={winner:?})"
+            )),
+        };
     }
     let moves: Vec<String> = serde_json::from_str(&moves_raw).unwrap_or_default();
     match crate::game_engine::result_from_moves(&gtype, &moves) {

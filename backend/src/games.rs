@@ -23,8 +23,61 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id", get(get_game))
         .route("/games/:covenant_id/join", post(join_game))
         .route("/games/:covenant_id/move", post(make_move))
+        .route("/games/:covenant_id/resign", post(resign_game))
+        .route("/games/:covenant_id/claim-timeout", post(claim_timeout))
         .route("/games/:covenant_id/lock-pot", post(lock_pot))
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
+}
+
+/// Background sweep: finalise active matches whose side-to-move has run its clock out
+/// when neither client called claim-timeout (e.g. both closed the tab). Recorded as
+/// end_reason='abandon' - server-timed, so it may settle a real pot to the winner.
+pub fn spawn_timeout_sweeper(db: Arc<Mutex<rusqlite::Connection>>) {
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            tick.tick().await;
+            let finalized: Vec<String> = {
+                let conn = db.lock().unwrap();
+                let rows: Vec<(String, String, i64, i64, i64, i64)> = {
+                    let mut stmt = match conn.prepare(
+                        "SELECT covenant_id, current_turn, p1_time_ms, p2_time_ms, turn_started_at, unixepoch() FROM skill_games WHERE status = 'active' AND turn_started_at > 0",
+                    ) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
+                    stmt.query_map([], |r| {
+                        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+                    })
+                    .map(|it| it.flatten().collect())
+                    .unwrap_or_default()
+                };
+                let mut done = Vec::new();
+                for (cid, turn, p1ms, p2ms, started, now) in rows {
+                    let elapsed = (now - started).max(0) * 1000;
+                    let budget = if turn == "white" { p1ms } else { p2ms };
+                    if budget - elapsed <= 0 {
+                        let win = if turn == "white" { "black" } else { "white" };
+                        let (np1, np2) = if turn == "white" { (0i64, p2ms) } else { (p1ms, 0i64) };
+                        if conn
+                            .execute(
+                                "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'abandon', p1_time_ms = ?2, p2_time_ms = ?3, updated_at = unixepoch() WHERE covenant_id = ?4 AND status = 'active'",
+                                params![win, np1, np2, cid],
+                            )
+                            .is_ok()
+                        {
+                            done.push(cid);
+                        }
+                    }
+                }
+                done
+            };
+            for cid in finalized {
+                let game = fetch_game(&db, &cid);
+                live::publish("game_move", json!({"covenant_id": cid, "game": game}));
+            }
+        }
+    });
 }
 
 fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
@@ -43,10 +96,17 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
         "status": row.get::<_, String>(8)?,
         "created_at": row.get::<_, i64>(9)?,
         "updated_at": row.get::<_, i64>(10)?,
+        // Server-authoritative clocks. The client renders a live countdown by
+        // subtracting (server_now - turn_started_at) from the side-to-move's budget.
+        "p1_time_ms": row.get::<_, i64>(11)?,
+        "p2_time_ms": row.get::<_, i64>(12)?,
+        "turn_started_at": row.get::<_, i64>(13)?,
+        "end_reason": row.get::<_, Option<String>>(14)?,
+        "server_now": row.get::<_, i64>(15)?,
     }))
 }
 
-const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at FROM skill_games";
+const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch() FROM skill_games";
 
 fn fetch_game(
     db: &Mutex<rusqlite::Connection>,
@@ -184,6 +244,113 @@ async fn settle_pot(
     Json(v)
 }
 
+#[derive(serde::Deserialize)]
+struct ResignReq {
+    player: String,
+}
+
+/// POST /games/:id/resign : the caller forfeits the match (quit = loss), on OR off
+/// their turn. The server records winner = opponent with end_reason='resign'. NOTE:
+/// moves are not yet wallet-authenticated, so a resign is only trustworthy between
+/// cooperating clients; the pot gate therefore does NOT settle a pot on a resign
+/// (only on server-timed timeouts or an engine-decisive board), see game_pot_outcome.
+async fn resign_game(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<ResignReq>,
+) -> Json<serde_json::Value> {
+    let result = {
+        let conn = db.lock().unwrap();
+        let row: Option<(String, String, String)> = conn
+            .query_row(
+                "SELECT player1, player2, status FROM skill_games WHERE covenant_id = ?1",
+                params![covenant_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .ok();
+        match row {
+            None => Err("no match for this covenant".to_string()),
+            Some((p1, p2, status)) => {
+                if status == "finished" {
+                    Err("match already finished".to_string())
+                } else if req.player != p1 && req.player != p2 {
+                    Err("only a seated player can resign".to_string())
+                } else {
+                    let win = if req.player == p1 { "black" } else { "white" };
+                    conn.execute(
+                        "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'resign', updated_at = unixepoch() WHERE covenant_id = ?2",
+                        params![win, covenant_id],
+                    )
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+                }
+            }
+        }
+    };
+    match result {
+        Ok(()) => {
+            let game = fetch_game(&db, &covenant_id);
+            live::publish("game_move", json!({"covenant_id": covenant_id, "game": game}));
+            Json(json!({"success": true, "game": game}))
+        }
+        Err(e) => Json(json!({"success": false, "error": e})),
+    }
+}
+
+/// POST /games/:id/claim-timeout : if the side to move has run its clock out, the
+/// SERVER finalises a timeout loss for them (winner = opponent, end_reason='timeout').
+/// The server recomputes elapsed from its own turn_started_at and server-written
+/// budgets, so neither player can fake or dodge a timeout - which is why a timeout
+/// IS allowed to settle a real pot (unlike a forgeable resign).
+async fn claim_timeout(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+) -> Json<serde_json::Value> {
+    let result = {
+        let conn = db.lock().unwrap();
+        let row: Option<(String, String, i64, i64, i64, i64)> = conn
+            .query_row(
+                "SELECT current_turn, status, p1_time_ms, p2_time_ms, turn_started_at, unixepoch() FROM skill_games WHERE covenant_id = ?1",
+                params![covenant_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            )
+            .ok();
+        match row {
+            None => Err("no match for this covenant".to_string()),
+            Some((turn, status, p1_ms, p2_ms, turn_started, now)) => {
+                if status != "active" {
+                    Err("match is not active".to_string())
+                } else {
+                    let elapsed_ms = if turn_started > 0 { (now - turn_started).max(0) * 1000 } else { 0 };
+                    let budget = if turn == "white" { p1_ms } else { p2_ms };
+                    if budget - elapsed_ms <= 0 {
+                        let win = if turn == "white" { "black" } else { "white" };
+                        let (np1, np2) = if turn == "white" { (0i64, p2_ms) } else { (p1_ms, 0i64) };
+                        conn.execute(
+                            "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'timeout', p1_time_ms = ?2, p2_time_ms = ?3, updated_at = unixepoch() WHERE covenant_id = ?4",
+                            params![win, np1, np2, covenant_id],
+                        )
+                        .map(|_| true)
+                        .map_err(|e| e.to_string())
+                    } else {
+                        Ok(false)
+                    }
+                }
+            }
+        }
+    };
+    match result {
+        Ok(timed_out) => {
+            let game = fetch_game(&db, &covenant_id);
+            if timed_out {
+                live::publish("game_move", json!({"covenant_id": covenant_id, "game": game}));
+            }
+            Json(json!({"success": true, "timed_out": timed_out, "game": game}))
+        }
+        Err(e) => Json(json!({"success": false, "error": e})),
+    }
+}
+
 /// GET /games?status=waiting|active&limit=50 : matchmaking + arena counts.
 async fn list_games(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
@@ -258,8 +425,9 @@ async fn join_game(
                 if p1 == req.player || p2 == req.player {
                     Ok(if status == "waiting" { "waiting" } else { "active" })
                 } else if status == "waiting" && p2.is_empty() {
+                    // Match goes live: start player1's (white's) clock now.
                     conn.execute(
-                        "UPDATE skill_games SET player2 = ?1, status = 'active', updated_at = unixepoch() WHERE covenant_id = ?2",
+                        "UPDATE skill_games SET player2 = ?1, status = 'active', turn_started_at = unixepoch(), updated_at = unixepoch() WHERE covenant_id = ?2",
                         params![req.player, covenant_id],
                     )
                     .map(|_| "active")
@@ -305,89 +473,123 @@ async fn make_move(
 ) -> Json<serde_json::Value> {
     let result = {
         let conn = db.lock().unwrap();
-        let row: Option<(String, String, String, String, String, String)> = conn
+        let row: Option<(String, String, String, String, String, String, i64, i64, i64, i64)> = conn
             .query_row(
-                "SELECT player1, player2, moves, current_turn, status, game_type FROM skill_games WHERE covenant_id = ?1",
+                "SELECT player1, player2, moves, current_turn, status, game_type, p1_time_ms, p2_time_ms, turn_started_at, unixepoch() FROM skill_games WHERE covenant_id = ?1",
                 params![covenant_id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?)),
             )
             .ok();
         match row {
             None => Err("no match for this covenant; join first".to_string()),
-            Some((p1, p2, moves_raw, turn, status, game_type)) => {
+            Some((p1, p2, moves_raw, turn, status, game_type, p1_ms, p2_ms, turn_started, now)) => {
                 if status == "finished" {
                     Err("match already finished".to_string())
                 } else if (turn == "white" && req.player != p1)
                     || (turn == "black" && req.player != p2)
                 {
                     Err("not your turn".to_string())
-                } else if req.r#move.len() > 64 {
-                    // 64 covers checkers multi-jump chains ("1-10-19-28-37")
-                    // and future phase tokens; chess SAN never gets close
-                    Err("move too long".to_string())
                 } else {
-                    let mut moves: Vec<String> =
-                        serde_json::from_str(&moves_raw).unwrap_or_default();
-                    if moves.len() >= 1024 {
-                        Err("move limit reached".to_string())
+                    // Server-authoritative clock: charge the mover for the time spent
+                    // this turn. turn_started_at and the budgets are written ONLY by the
+                    // server, so a client cannot manufacture or dodge a timeout.
+                    let elapsed_ms = if turn_started > 0 { (now - turn_started).max(0) * 1000 } else { 0 };
+                    let mover_budget = if turn == "white" { p1_ms } else { p2_ms };
+                    let mover_remaining = mover_budget - elapsed_ms;
+                    if mover_remaining <= 0 {
+                        // The mover's clock ran out: they lose on time (end_reason=timeout).
+                        let win = if turn == "white" { "black" } else { "white" };
+                        let (np1, np2) = if turn == "white" { (0i64, p2_ms) } else { (p1_ms, 0i64) };
+                        conn.execute(
+                            "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'timeout', p1_time_ms = ?2, p2_time_ms = ?3, updated_at = unixepoch() WHERE covenant_id = ?4",
+                            params![win, np1, np2, covenant_id],
+                        )
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                    } else if req.r#move.len() > 64 {
+                        // 64 covers checkers multi-jump chains ("1-10-19-28-37")
+                        // and future phase tokens; chess SAN never gets close
+                        Err("move too long".to_string())
                     } else {
-                        moves.push(req.r#move.clone());
-                        // Server-authoritative outcome. For replayable games the
-                        // server REPLAYS the move log and decides finished/winner
-                        // itself, ignoring the client's claim entirely (this is the
-                        // real "prove who won"). A client cannot forge a victory.
-                        // Turn ownership was enforced above, so the mover's colour
-                        // is `turn`; an undecided board still permits a concession
-                        // or draw-agreement (winner is not the mover) but rejects a
-                        // self-declared win.
-                        let claimed_finished = req.finished.unwrap_or(false);
-                        let outcome: Result<(bool, Option<String>), String> =
-                            match game_engine::result_from_moves(&game_type, &moves) {
-                                Some(game_engine::GameResult::Unfinished) => {
-                                    if claimed_finished {
-                                        if req.winner.as_deref() == Some(turn.as_str()) {
-                                            Err("cannot declare yourself the winner on an undecided board".to_string())
+                        let mut moves: Vec<String> =
+                            serde_json::from_str(&moves_raw).unwrap_or_default();
+                        if moves.len() >= 1024 {
+                            Err("move limit reached".to_string())
+                        } else {
+                            moves.push(req.r#move.clone());
+                            // Server-authoritative outcome. For replayable games the
+                            // server REPLAYS the move log and decides finished/winner
+                            // itself, ignoring the client's claim (the real "prove who
+                            // won"). Turn ownership was enforced above, so the mover's
+                            // colour is `turn`; an undecided board still permits a
+                            // concession/draw (winner is not the mover) but rejects a
+                            // self-declared win. end_reason records HOW it ended so the
+                            // pot gate can trust server-decided timeouts but stay strict
+                            // on (forgeable) concessions until move-auth lands.
+                            let claimed_finished = req.finished.unwrap_or(false);
+                            let outcome: Result<(bool, Option<String>, &'static str), String> =
+                                match game_engine::result_from_moves(&game_type, &moves) {
+                                    Some(game_engine::GameResult::Unfinished) => {
+                                        if claimed_finished {
+                                            if req.winner.as_deref() == Some(turn.as_str()) {
+                                                Err("cannot declare yourself the winner on an undecided board".to_string())
+                                            } else {
+                                                Ok((true, req.winner.clone(), "resign"))
+                                            }
                                         } else {
-                                            Ok((true, req.winner.clone()))
+                                            Ok((false, None, ""))
                                         }
-                                    } else {
-                                        Ok((false, None))
                                     }
-                                }
-                                Some(decisive) => {
-                                    Ok((true, decisive.winner_str().map(|s| s.to_string())))
-                                }
-                                // Unsupported game type: no server replay yet, so
-                                // fall back to the client-reported result (still
-                                // turn-enforced; the games money path treats these
-                                // as not yet server-verifiable, see oracle gate).
-                                None => Ok((claimed_finished, req.winner.clone())),
-                            };
-                        match outcome {
-                            Err(e) => Err(e),
-                            Ok((finished, winner)) => {
-                                let next = if finished {
-                                    turn.as_str()
-                                } else if req.keep_turn.unwrap_or(false) {
-                                    turn.as_str()
-                                } else if turn == "white" {
-                                    "black"
-                                } else {
-                                    "white"
+                                    Some(decisive) => {
+                                        Ok((true, decisive.winner_str().map(|s| s.to_string()), "board"))
+                                    }
+                                    // Unsupported game type: no server replay yet, so
+                                    // fall back to the client-reported result (still
+                                    // turn-enforced; the pot gate fails closed for these).
+                                    None => Ok((
+                                        claimed_finished,
+                                        req.winner.clone(),
+                                        if claimed_finished { "client" } else { "" },
+                                    )),
                                 };
-                                let new_status = if finished { "finished" } else { "active" };
-                                conn.execute(
-                                    "UPDATE skill_games SET moves = ?1, current_turn = ?2, status = ?3, winner = ?4, updated_at = unixepoch() WHERE covenant_id = ?5",
-                                    params![
-                                        serde_json::to_string(&moves).unwrap_or_else(|_| "[]".into()),
-                                        next,
-                                        new_status,
-                                        winner,
-                                        covenant_id
-                                    ],
-                                )
-                                .map(|_| ())
-                                .map_err(|e| e.to_string())
+                            match outcome {
+                                Err(e) => Err(e),
+                                Ok((finished, winner, reason)) => {
+                                    let next = if finished {
+                                        turn.as_str()
+                                    } else if req.keep_turn.unwrap_or(false) {
+                                        turn.as_str()
+                                    } else if turn == "white" {
+                                        "black"
+                                    } else {
+                                        "white"
+                                    };
+                                    let new_status = if finished { "finished" } else { "active" };
+                                    // Write back the mover's deducted clock; the next
+                                    // player's clock starts now (turn_started_at).
+                                    let (np1, np2) = if turn == "white" {
+                                        (mover_remaining, p2_ms)
+                                    } else {
+                                        (p1_ms, mover_remaining)
+                                    };
+                                    let end_reason: Option<&str> =
+                                        if finished && !reason.is_empty() { Some(reason) } else { None };
+                                    conn.execute(
+                                        "UPDATE skill_games SET moves = ?1, current_turn = ?2, status = ?3, winner = ?4, p1_time_ms = ?5, p2_time_ms = ?6, turn_started_at = unixepoch(), end_reason = ?7, updated_at = unixepoch() WHERE covenant_id = ?8",
+                                        params![
+                                            serde_json::to_string(&moves).unwrap_or_else(|_| "[]".into()),
+                                            next,
+                                            new_status,
+                                            winner,
+                                            np1,
+                                            np2,
+                                            end_reason,
+                                            covenant_id
+                                        ],
+                                    )
+                                    .map(|_| ())
+                                    .map_err(|e| e.to_string())
+                                }
                             }
                         }
                     }

@@ -328,6 +328,21 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         let _ = conn.execute(ddl, []);
     }
 
+    // ── Migration: server-authoritative clocks + end reason ──
+    // p1_time_ms/p2_time_ms are each player's remaining time budget (written ONLY by
+    // the server). turn_started_at (unix seconds) is when the current turn began, so
+    // elapsed = now - turn_started_at is deducted from the mover. end_reason records
+    // HOW a finished match ended (board | resign | timeout | abandon | draw) so the
+    // pot gate can trust server-decided timeouts while staying strict on board wins.
+    for ddl in [
+        "ALTER TABLE skill_games ADD COLUMN p1_time_ms INTEGER NOT NULL DEFAULT 300000",
+        "ALTER TABLE skill_games ADD COLUMN p2_time_ms INTEGER NOT NULL DEFAULT 300000",
+        "ALTER TABLE skill_games ADD COLUMN turn_started_at INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE skill_games ADD COLUMN end_reason TEXT",
+    ] {
+        let _ = conn.execute(ddl, []);
+    }
+
     Ok(Mutex::new(conn))
 }
 

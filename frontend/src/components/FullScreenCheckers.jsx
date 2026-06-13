@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CheckCircle2, Users } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 
@@ -21,6 +21,142 @@ const isDarkSquare = (i) => ((Math.floor(i / 8) + (i % 8)) % 2) === 1;
 const isWhitePc = (p) => p === 'w' || p === 'W';
 const isBlackPc = (p) => p === 'b' || p === 'B';
 const isKing = (p) => p === 'W' || p === 'B';
+
+// Visual-only file/rank coordinates (A-H along the bottom, 8-1 down the left).
+const FILES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+// Engraved gold crown for king pieces (visual only, replaces the unicode queen).
+function KingCrown({ size, tint }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="ck-crown-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#F4D27A" />
+          <stop offset="55%" stopColor="#E8AF34" />
+          <stop offset="100%" stopColor="#9c6f12" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M20 70 L17 34 L34 50 L50 26 L66 50 L83 34 L80 70 Z"
+        fill="url(#ck-crown-grad)"
+        stroke={tint}
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <rect x="20" y="70" width="60" height="11" rx="3" fill="url(#ck-crown-grad)" stroke={tint} strokeWidth="2" />
+      <circle cx="17" cy="30" r="5" fill="#F4D27A" />
+      <circle cx="50" cy="20" r="5.5" fill="#F4D27A" />
+      <circle cx="83" cy="30" r="5" fill="#F4D27A" />
+    </svg>
+  );
+}
+
+// Captured-count tray: small glossy discs of the pieces this side has taken,
+// plus a JetBrains Mono count. Visual only; derived from board piece counts.
+function CapturedTray({ side, count }) {
+  const taken = side === 'w' ? 'b' : 'w'; // white's tray holds captured black discs
+  const dotBg = taken === 'w'
+    ? 'radial-gradient(circle at 38% 32%, #f5f0e6, #cbbfa6)'
+    : 'radial-gradient(circle at 38% 32%, #3a3a40, #0a0a0c)';
+  const edge = taken === 'w' ? 'rgba(60,48,28,0.5)' : 'rgba(0,0,0,0.7)';
+  const shown = Math.min(count, 12);
+  return (
+    <div className="mt-1 flex items-center gap-1.5">
+      <div className="flex flex-wrap gap-0.5 max-w-[120px] justify-center min-h-[12px]">
+        {Array.from({ length: shown }).map((_, k) => (
+          <span
+            key={k}
+            style={{
+              width: 11,
+              height: 11,
+              borderRadius: '50%',
+              background: dotBg,
+              boxShadow: `inset 0 0 0 1px ${edge}`,
+              display: 'inline-block',
+            }}
+          />
+        ))}
+      </div>
+      <span className="font-mono text-[10px]" style={{ color: count > 0 ? '#49EACB' : 'rgba(156,163,175,0.6)' }}>x{count}</span>
+    </div>
+  );
+}
+
+// A premium layered glossy disc piece: base radial-gradient disc, inset top face,
+// thin dark edge ring and a top-left specular blob. Kings stack a second disc
+// offset 2px down and engrave a gold crown. Visual only; no piece/move logic.
+function CheckerPiece({ piece, captured = false }) {
+  const white = isWhitePc(piece);
+  const king = isKing(piece);
+  const edge = white ? 'rgba(60,48,28,0.55)' : 'rgba(0,0,0,0.7)';
+  const baseGrad = white
+    ? 'radial-gradient(circle at 38% 32%, #f5f0e6 0%, #e3d8c2 48%, #cbbfa6 100%)'
+    : 'radial-gradient(circle at 38% 32%, #3a3a40 0%, #1c1c20 48%, #0a0a0c 100%)';
+  const topFace = white
+    ? 'radial-gradient(circle at 42% 34%, #fbf7ee 0%, #ddd0b6 100%)'
+    : 'radial-gradient(circle at 42% 34%, #34343a 0%, #121216 100%)';
+  const crownTint = white ? 'rgba(70,52,20,0.5)' : 'rgba(0,0,0,0.55)';
+
+  const disc = (offset) => (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        top: offset,
+        borderRadius: '50%',
+        background: baseGrad,
+        boxShadow: `0 2px 4px rgba(0,0,0,0.45), inset 0 0 0 1.5px ${edge}`,
+      }}
+    />
+  );
+
+  return (
+    <div
+      className="ck-piece"
+      style={{
+        position: 'relative',
+        width: '78%',
+        height: '78%',
+        opacity: captured ? 0 : 1,
+        transform: captured ? 'scale(0.6)' : 'scale(1)',
+        transition: 'opacity 180ms ease-out, transform 180ms ease-out',
+      }}
+    >
+      {/* under-disc for kings (gives a stacked, taller look) */}
+      {king && disc('2px')}
+      {disc(0)}
+      {/* inset top face, slightly smaller than the base */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: '14%',
+          borderRadius: '50%',
+          background: topFace,
+          boxShadow: `inset 0 1px 2px rgba(255,255,255,${white ? 0.5 : 0.12}), inset 0 -2px 4px rgba(0,0,0,0.4)`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {king && <KingCrown size="62%" tint={crownTint} />}
+      </div>
+      {/* top-left specular highlight blob (~30%) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '14%',
+          left: '16%',
+          width: '30%',
+          height: '24%',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.85), rgba(255,255,255,0) 70%)',
+          opacity: white ? 0.9 : 0.45,
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
+}
 const dirsFor = (p) => (isKing(p) ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] : (isWhitePc(p) ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]));
 
 // legal moves for the piece at `from` on `bd`, given whose turn it is ('w'|'b')
@@ -92,9 +228,6 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
   const [chain, setChain] = useState(null); // in-progress multi-jump: [sq0, sq1, ...]
   const [localMethod, setLocalMethod] = useState(null);
 
-  const [whiteTime, setWhiteTime] = useState(3 * 60 * 1000);
-  const [blackTime, setBlackTime] = useState(3 * 60 * 1000);
-
   const [oracleSubmitted, setOracleSubmitted] = useState(false);
   const [oracleSig, setOracleSig] = useState(null);
   const [oracleResult, setOracleResult] = useState(null);
@@ -112,8 +245,12 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
     setChain(null);
   }, []);
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks } =
     useGameSync({ covenantId, gameType: 'checkers', stake, onMoves });
+
+  // Live countdowns come straight from the hook's server-authoritative clocks.
+  const whiteMs = clocks?.whiteMs ?? 0;
+  const blackMs = clocks?.blackMs ?? 0;
 
   // player1 (server white) plays the white pieces; pieces map 1:1 here
   const mySide = myColor === 'white' ? 'w' : myColor === 'black' ? 'b' : null;
@@ -176,16 +313,6 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
     }
     finalizeTurn(newB, [selected, mv.to]);
   };
-
-  // display clocks tick for the side to move (advisory; server enforces turns, not time)
-  useEffect(() => {
-    if (status !== 'active') return undefined;
-    const interval = setInterval(() => {
-      if (game?.current_turn === 'white') setWhiteTime((t) => Math.max(0, t - 1000));
-      else setBlackTime((t) => Math.max(0, t - 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [status, game]);
 
   const formatTime = (ms) => {
     const m = Math.floor(ms / 60000);
@@ -263,6 +390,26 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
   const previewPotRet = ((totalPot) * potReturnPercent / 100).toFixed(1);
 
   const moves = Array.isArray(game?.moves) ? game.moves : [];
+
+  // Visual-only derivations (no game logic): pieces still on the board, and the
+  // origin/destination squares of the most recent move for the amber tint.
+  const whiteOnBoard = board.filter((p) => isWhitePc(p)).length;
+  const blackOnBoard = board.filter((p) => isBlackPc(p)).length;
+  const whiteCaptured = Math.max(0, 12 - whiteOnBoard); // black has taken this many
+  const blackCaptured = Math.max(0, 12 - blackOnBoard); // white has taken this many
+
+  const lastMoveSquares = (() => {
+    for (let k = moves.length - 1; k >= 0; k--) {
+      const m = moves[k];
+      if (typeof m !== 'string' || m === 'resign' || m === 'pass') continue;
+      const sq = m.replace(/\s*\(J\)$/, '').split('-').map(Number);
+      const valid = sq.filter((n) => Number.isInteger(n) && n >= 0 && n < 64);
+      if (valid.length >= 2) return new Set([valid[0], valid[valid.length - 1]]);
+      return new Set();
+    }
+    return new Set();
+  })();
+
   const seat = (p) => (p && p.length ? `${p.slice(0, 10)}...` : 'open');
   const statusLine = result
     ? `${result.outcome.toUpperCase()} WINS (${result.method})`
@@ -287,8 +434,11 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         {/* Desktop left: White clock */}
         <div className="hidden lg:flex flex-col items-center gap-1 w-44 shrink-0">
           <div className="text-[10px] uppercase tracking-[2px] text-gray-400">WHITE{mySide === 'w' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(whiteTime)}</div>
+          <div className={`px-3 py-1 ${status === 'active' && turnSide === 'w' ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(whiteMs)}</div>
+          </div>
           <div className="text-[10px] font-mono text-gray-500">{seat(game?.player1)}</div>
+          <CapturedTray side="w" count={blackCaptured} />
           <div className="text-[10px] text-gray-500 mt-1">{status === 'active' && turnSide === 'w' ? 'TO MOVE' : ''}</div>
         </div>
 
@@ -296,19 +446,24 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         <div className="relative shrink-0">
           {/* Mobile clocks */}
           <div className="lg:hidden flex items-center justify-between w-full max-w-[min(92vw,520px)] mb-1 px-1">
-            <div className="flex flex-col items-center">
+            <div className={`flex flex-col items-center px-2 py-0.5 ${status === 'active' && turnSide === 'w' ? 'clock-active' : ''}`}>
               <div className="text-[9px] text-gray-400">WHITE</div>
-              <div className={`font-mono text-xl font-bold tabular-nums ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(whiteTime)}</div>
+              <div className={`font-mono text-xl font-bold tabular-nums ${whiteMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(whiteMs)}</div>
+              <div className="text-[8px] font-mono text-gray-500">TAKEN {blackCaptured}</div>
             </div>
             <div className="text-center text-[10px] text-kaspa-green font-mono tracking-widest">{result ? 'GAME OVER' : statusLine}</div>
-            <div className="flex flex-col items-center">
+            <div className={`flex flex-col items-center px-2 py-0.5 ${status === 'active' && turnSide === 'b' ? 'clock-active' : ''}`}>
               <div className="text-[9px] text-gray-400">BLACK</div>
-              <div className={`font-mono text-xl font-bold tabular-nums ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(blackTime)}</div>
+              <div className={`font-mono text-xl font-bold tabular-nums ${blackMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(blackMs)}</div>
+              <div className="text-[8px] font-mono text-gray-500">TAKEN {whiteCaptured}</div>
             </div>
           </div>
 
-          <div className="rounded-2xl p-2 bg-[#111] shadow-2xl border border-white/10" style={{ boxShadow: '0 25px 80px -15px rgba(0,0,0,0.8)' }}>
-            <div className="grid grid-cols-8 gap-0.5 bg-[#222] p-1 rounded-xl" style={{ width: 'min(92vw, 520px)', aspectRatio: '1' }}>
+          <div className="board-bezel-wood shadow-2xl" style={{ boxShadow: '0 25px 80px -15px rgba(0,0,0,0.85)' }}>
+            <div
+              className="grid grid-cols-8 overflow-hidden"
+              style={{ width: 'min(92vw, 520px)', aspectRatio: '1', borderRadius: '8px', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 2px 10px rgba(0,0,0,0.6)' }}
+            >
               {board.map((p, i) => {
                 const row = Math.floor(i / 8);
                 const col = i % 8;
@@ -316,18 +471,40 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
                 const isSelected = selected === i;
                 const origin = chain ? chain[chain.length - 1] : selected;
                 const legals = origin != null && mySide && isMyTurn
-                  ? legalMovesFor(board, origin, mySide).filter((m) => !chain || m.jump).map((m) => m.to)
+                  ? legalMovesFor(board, origin, mySide).filter((m) => !chain || m.jump)
                   : [];
-                const isLegal = legals.includes(i);
+                const legalMv = legals.find((m) => m.to === i);
+                const isLegal = !!legalMv;
+                const isCapture = isLegal && legalMv.jump;
+                const isLast = lastMoveSquares.has(i);
+                // Faint wood-grain striping layered onto the dark playing squares.
+                const darkBg = dark
+                  ? 'repeating-linear-gradient(115deg, rgba(0,0,0,0.18) 0 3px, rgba(255,255,255,0.025) 3px 7px), linear-gradient(160deg, #6b4226 0%, #4f2f17 100%)'
+                  : 'linear-gradient(160deg, #ead2a8 0%, #d9bd8a 100%)';
                 return (
                   <div
                     key={i}
                     onClick={() => onSquareClick(i)}
-                    className={`aspect-square flex items-center justify-center text-3xl sm:text-4xl cursor-pointer transition-all active:scale-[0.985] ${dark ? 'bg-[#7a4a2b]' : 'bg-[#e8c99b]'} ${isSelected ? 'ring-4 ring-[#49EACB]' : ''} ${isLegal ? 'ring-2 ring-emerald-400' : ''}`}
+                    className={`relative aspect-square flex items-center justify-center cursor-pointer transition-all active:scale-[0.985] ${dark && isLegal ? (isCapture ? 'move-ring' : 'move-dot') : ''} ${isLast ? 'last-move' : ''}`}
+                    style={{ background: darkBg }}
                   >
+                    {/* soft kaspa-green inner glow for the selected square */}
+                    {isSelected && (
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ boxShadow: 'inset 0 0 0 2px rgba(73,234,203,0.85), inset 0 0 16px rgba(73,234,203,0.45)' }}
+                      />
+                    )}
+                    {/* file/rank coordinates in faint cream */}
+                    {col === 0 && (
+                      <span className="absolute top-0.5 left-1 text-[9px] sm:text-[10px] font-mono pointer-events-none" style={{ color: 'rgba(245,240,230,0.4)' }}>{8 - row}</span>
+                    )}
+                    {row === 7 && (
+                      <span className="absolute bottom-0.5 right-1 text-[9px] sm:text-[10px] font-mono pointer-events-none" style={{ color: 'rgba(245,240,230,0.4)' }}>{FILES[col]}</span>
+                    )}
                     {p && (
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold shadow-inner ${isWhitePc(p) ? 'bg-gradient-to-br from-[#fafafa] to-[#cfcfcf] text-amber-600 ring-1 ring-black/20' : 'bg-gradient-to-br from-[#3a3a3a] to-[#0c0c0c] text-amber-400 ring-1 ring-white/15'} ${isKing(p) ? 'ring-2 ring-yellow-400' : ''}`}>
-                        {isKing(p) ? '♛' : ''}
+                      <div key={`${i}-${p}`} className="anim-pop w-full h-full flex items-center justify-center">
+                        <CheckerPiece piece={p} />
                       </div>
                     )}
                   </div>
@@ -358,8 +535,11 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         {/* Desktop right panel + actions */}
         <div className="hidden lg:flex flex-col items-center gap-1 w-44 xl:w-56 shrink-0">
           <div className="text-[10px] uppercase tracking-[2px] text-gray-400">BLACK{mySide === 'b' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(blackTime)}</div>
+          <div className={`px-3 py-1 ${status === 'active' && turnSide === 'b' ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(blackMs)}</div>
+          </div>
           <div className="text-[10px] font-mono text-gray-500">{seat(game?.player2)}</div>
+          <CapturedTray side="b" count={whiteCaptured} />
 
           {/* Move log */}
           <div className="mt-3 w-full bg-black/60 border border-white/10 rounded-2xl p-2 text-[11px] font-mono max-h-[160px] overflow-auto text-gray-200">

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Users } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 
@@ -8,6 +8,59 @@ import useGameSync from '../hooks/useGameSync';
 
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 const checkWin = (b, p) => LINES.some(([a, c, d]) => b[a] === p && b[c] === p && b[d] === p);
+// Find the actual winning triple (for the on-board strike line + cell pulse). Visual only.
+const findWinningLine = (b) => {
+  for (const p of ['X', 'O']) {
+    const line = LINES.find(([a, c, d]) => b[a] === p && b[c] === p && b[d] === p);
+    if (line) return { line, mark: p };
+  }
+  return null;
+};
+
+// Cell centers on a 0..300 viewBox (3x3 grid, 100px cells). Visual geometry only.
+const CELL_CENTERS = [
+  [50, 50], [150, 50], [250, 50],
+  [50, 150], [150, 150], [250, 150],
+  [50, 250], [150, 250], [250, 250],
+];
+
+// Inline SVG X (two kaspa-green strokes) and O (kaspa-gold ring) that draw in on place.
+function MarkX({ ghost = false }) {
+  const stroke = '#49EACB';
+  return (
+    <svg viewBox="0 0 100 100" className={`w-3/4 h-3/4 ${ghost ? '' : 'anim-pop'}`} style={ghost ? { opacity: 0.25 } : undefined}>
+      <g
+        fill="none"
+        stroke={stroke}
+        strokeWidth="11"
+        strokeLinecap="round"
+        style={ghost ? undefined : { filter: 'drop-shadow(0 0 8px rgba(73,234,203,0.65))' }}
+      >
+        <line x1="24" y1="24" x2="76" y2="76" style={ghost ? undefined : { strokeDasharray: 74, strokeDashoffset: 74, animation: 'ttt-draw 0.25s ease-out 0.02s forwards' }} />
+        <line x1="76" y1="24" x2="24" y2="76" style={ghost ? undefined : { strokeDasharray: 74, strokeDashoffset: 74, animation: 'ttt-draw 0.25s ease-out 0.12s forwards' }} />
+      </g>
+    </svg>
+  );
+}
+
+function MarkO({ ghost = false }) {
+  const stroke = '#E8AF34';
+  return (
+    <svg viewBox="0 0 100 100" className={`w-3/4 h-3/4 ${ghost ? '' : 'anim-pop'}`} style={ghost ? { opacity: 0.25 } : undefined}>
+      <circle
+        cx="50"
+        cy="50"
+        r="30"
+        fill="none"
+        stroke={stroke}
+        strokeWidth="11"
+        strokeLinecap="round"
+        transform="rotate(-90 50 50)"
+        style={ghost ? undefined : { strokeDasharray: 188.5, strokeDashoffset: 188.5, animation: 'ttt-draw 0.25s ease-out forwards', filter: 'drop-shadow(0 0 8px rgba(232,175,52,0.6))' }}
+      />
+    </svg>
+  );
+}
 
 const replayBoard = (moves) => {
   const b = Array(9).fill(null);
@@ -21,9 +74,7 @@ const replayBoard = (moves) => {
 export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
   const [board, setBoard] = useState(Array(9).fill(null));
   const [localMethod, setLocalMethod] = useState(null);
-
-  const [xTime, setXTime] = useState(90 * 1000);
-  const [oTime, setOTime] = useState(90 * 1000);
+  const [hoverCell, setHoverCell] = useState(null);
 
   const [oracleSubmitted, setOracleSubmitted] = useState(false);
   const [oracleSig, setOracleSig] = useState(null);
@@ -36,7 +87,7 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
   const totalPot = stake * 2;
 
   const onMoves = useCallback((moves) => { setBoard(replayBoard(moves)); }, []);
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks } =
     useGameSync({ covenantId, gameType: 'tictactoe', stake, onMoves });
 
   const myLabel = myColor === 'white' ? 'X' : myColor === 'black' ? 'O' : null;
@@ -64,17 +115,15 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
     submitMove(`${myLabel}${i}`, { finished: won || full, winner: won ? myColor : full ? 'draw' : null });
   };
 
-  // display clocks tick for the side to move (advisory; server enforces turns, not time)
-  useEffect(() => {
-    if (status !== 'active') return undefined;
-    const iv = setInterval(() => {
-      if (game?.current_turn === 'white') setXTime((t) => Math.max(0, t - 1000));
-      else setOTime((t) => Math.max(0, t - 1000));
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [status, game]);
-
+  // Live mm:ss rendered from the hook's server-authoritative clocks; no local clock state.
+  const xTime = clocks?.whiteMs ?? 0;
+  const oTime = clocks?.blackMs ?? 0;
   const format = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+
+  // Winning triple for the on-board strike line + cell pulse (presentation only).
+  const winInfo = useMemo(() => findWinningLine(board), [board]);
+  const winSet = winInfo ? new Set(winInfo.line) : null;
+  const xIsTurn = game?.current_turn === 'white';
 
   const submitToOracle = useCallback(async () => {
     if (!result) return;
@@ -125,6 +174,12 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
 
   return (
     <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 18%, #1a0f0f 0%, #050505 72%)' }}>
+      <style>{`
+        @keyframes ttt-draw { to { stroke-dashoffset: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+          [style*="ttt-draw"] { animation: none !important; stroke-dashoffset: 0 !important; }
+        }
+      `}</style>
       <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur shrink-0">
         <div className="font-bold tracking-wider text-[#49EACB]">TIC-TAC-TOE • KASPA COVENANT</div>
         <div className="flex items-center gap-2">
@@ -134,24 +189,75 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-4 p-3">
-        <div className="hidden lg:block text-center w-36">
-          <div className="text-[10px] text-gray-400">X (FIRST){myLabel === 'X' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl font-bold tabular-nums ${xTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(xTime)}</div>
+        <div className="hidden lg:block text-center w-40">
+          <div className="text-[10px] tracking-widest text-gray-400 mb-1">X (FIRST){myLabel === 'X' && ' • YOU'}</div>
+          <div className={`rounded-2xl bg-black/50 border border-white/10 px-4 py-3 ${status === 'active' && xIsTurn ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl font-bold tabular-nums ${xTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(xTime)}</div>
+          </div>
         </div>
 
         <div className="relative">
-          <div className="lg:hidden flex justify-between w-[min(82vw,280px)] mb-1 text-xs font-mono">
-            <span className={xTime < 30000 ? 'text-red-500' : ''}>X {format(xTime)}</span>
-            <span className="text-kaspa-green">{result ? 'OVER' : status === 'active' ? turnLabel + ' TO PLAY' : status.toUpperCase()}</span>
-            <span className={oTime < 30000 ? 'text-red-500' : ''}>O {format(oTime)}</span>
+          <div className="lg:hidden flex justify-between items-center w-[min(86vw,380px)] mb-2 text-xs font-mono">
+            <span className={`px-2 py-1 rounded-lg bg-black/50 border border-white/10 ${status === 'active' && xIsTurn ? 'clock-active' : ''} ${xTime < 30000 ? 'text-red-500' : ''}`}>X {format(xTime)}</span>
+            <span className="text-kaspa-green tracking-wider">{result ? 'OVER' : status === 'active' ? turnLabel + ' TO PLAY' : status.toUpperCase()}</span>
+            <span className={`px-2 py-1 rounded-lg bg-black/50 border border-white/10 ${status === 'active' && !xIsTurn ? 'clock-active' : ''} ${oTime < 30000 ? 'text-red-500' : ''}`}>O {format(oTime)}</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 p-2 bg-[#111] rounded-2xl border border-white/10" style={{ width: 'min(82vw, 280px)' }}>
-            {board.map((v, i) => (
-              <div key={i} onClick={() => place(i)} className="aspect-square bg-[#0a0a0f] border border-white/10 rounded-none flex items-center justify-center text-5xl font-black cursor-pointer hover:bg-white/[0.04] transition-colors active:bg-white/5">
-                {v === 'X' && <span className="text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]">X</span>}
-                {v === 'O' && <span className="text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)]">O</span>}
+
+          <div
+            className="relative rounded-2xl p-3"
+            style={{
+              width: 'min(86vw, 380px)',
+              background: 'linear-gradient(160deg, rgba(18,22,26,0.95), rgba(6,8,10,0.95))',
+              border: '1px solid rgba(73,234,203,0.16)',
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.03) inset, 0 18px 60px -18px rgba(73,234,203,0.45), 0 0 80px -30px rgba(73,234,203,0.6)',
+            }}
+          >
+            <div className="relative aspect-square w-full rounded-xl overflow-hidden" style={{ background: 'radial-gradient(circle at 50% 38%, #0d141a 0%, #05080a 78%)' }}>
+              {/* Neon grid dividers over one glass panel */}
+              <svg viewBox="0 0 300 300" className="absolute inset-0 w-full h-full pointer-events-none">
+                <g stroke="rgba(73,234,203,0.3)" strokeWidth="2" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 4px rgba(73,234,203,0.4))' }}>
+                  <line x1="100" y1="14" x2="100" y2="286" />
+                  <line x1="200" y1="14" x2="200" y2="286" />
+                  <line x1="14" y1="100" x2="286" y2="100" />
+                  <line x1="14" y1="200" x2="286" y2="200" />
+                </g>
+                {/* Winning strike line through the 3 winning cells */}
+                {winInfo && (() => {
+                  const [a, , c] = winInfo.line;
+                  const [x1, y1] = CELL_CENTERS[a];
+                  const [x2, y2] = CELL_CENTERS[c];
+                  return (
+                    <line
+                      x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke="#49EACB" strokeWidth="7" strokeLinecap="round"
+                      style={{ strokeDasharray: 320, strokeDashoffset: 320, animation: 'ttt-draw 0.4s ease-out 0.1s forwards', filter: 'drop-shadow(0 0 10px rgba(73,234,203,0.9))' }}
+                    />
+                  );
+                })()}
+              </svg>
+
+              {/* Cells */}
+              <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                {board.map((v, i) => {
+                  const isWinCell = winSet?.has(i);
+                  const canPlay = status === 'active' && !!myLabel && !v && !result && isMyTurn;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => place(i)}
+                      onMouseEnter={() => setHoverCell(i)}
+                      onMouseLeave={() => setHoverCell((c) => (c === i ? null : c))}
+                      className={`relative flex items-center justify-center rounded-xl transition-colors ${canPlay ? 'cursor-pointer hover:bg-white/[0.035]' : 'cursor-default'} ${isWinCell ? 'animate-pulse' : ''}`}
+                      style={isWinCell ? { background: 'rgba(73,234,203,0.12)' } : undefined}
+                    >
+                      {v === 'X' && <MarkX />}
+                      {v === 'O' && <MarkO />}
+                      {!v && canPlay && hoverCell === i && (myLabel === 'X' ? <MarkX ghost /> : <MarkO ghost />)}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            </div>
           </div>
 
           {status !== 'active' && !result && (
@@ -176,9 +282,11 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
           {error && status === 'active' && <div className="text-center text-[10px] text-red-300 mt-0.5">{error}</div>}
         </div>
 
-        <div className="hidden lg:block text-center w-36">
-          <div className="text-[10px] text-gray-400">O{myLabel === 'O' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl font-bold tabular-nums ${oTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(oTime)}</div>
+        <div className="hidden lg:block text-center w-40">
+          <div className="text-[10px] tracking-widest text-gray-400 mb-1">O{myLabel === 'O' && ' • YOU'}</div>
+          <div className={`rounded-2xl bg-black/50 border border-white/10 px-4 py-3 ${status === 'active' && !xIsTurn ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl font-bold tabular-nums ${oTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(oTime)}</div>
+          </div>
           <div className="mt-3 text-[10px] font-mono bg-black/50 p-2 rounded border border-white/10">{moves.slice(-4).join(' ')}</div>
           <div className="mt-2 flex flex-col gap-1 text-xs w-32 mx-auto">
             {!result && myColor && status === 'active' && <button onClick={resign} className="py-1.5 rounded bg-red-600/90 text-white">RESIGN</button>}

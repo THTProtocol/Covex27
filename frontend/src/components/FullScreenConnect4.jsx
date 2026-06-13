@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CheckCircle2, Users } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 
@@ -11,24 +11,38 @@ const ROWS = 6;
 const getCol = (i) => i % COLS;
 const getRow = (i) => Math.floor(i / COLS);
 
+// Returns the 4 winning cell indices (truthy) when `idx` completes a line for
+// `player`, otherwise null (falsy). Win-detection callers use it as a boolean,
+// so the truthiness is identical to the previous true/false contract; the
+// returned indices are used only for highlighting the winning four.
 const checkWin = (b, idx, player) => {
   const r = getRow(idx), c = getCol(idx);
   const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
   for (const [dr, dc] of dirs) {
-    let cnt = 1;
+    const line = [idx];
     for (let d = 1; d < 4; d++) {
       const rr = r + d * dr, cc = c + d * dc;
       if (rr < 0 || rr >= ROWS || cc < 0 || cc >= COLS || b[rr * COLS + cc] !== player) break;
-      cnt++;
+      line.push(rr * COLS + cc);
     }
     for (let d = 1; d < 4; d++) {
       const rr = r - d * dr, cc = c - d * dc;
       if (rr < 0 || rr >= ROWS || cc < 0 || cc >= COLS || b[rr * COLS + cc] !== player) break;
-      cnt++;
+      line.unshift(rr * COLS + cc);
     }
-    if (cnt >= 4) return true;
+    if (line.length >= 4) return line.slice(0, 4);
   }
-  return false;
+  return null;
+};
+
+// Scan the whole board for any winning line (display-only highlight helper).
+const findWinningLine = (b) => {
+  for (let i = 0; i < b.length; i++) {
+    if (!b[i]) continue;
+    const line = checkWin(b, i, b[i]);
+    if (line) return line;
+  }
+  return null;
 };
 
 const dropInto = (b, col, label) => {
@@ -52,8 +66,10 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
   const [board, setBoard] = useState(Array(COLS * ROWS).fill(null));
   const [localMethod, setLocalMethod] = useState(null);
 
-  const [redTime, setRedTime] = useState(2 * 60 * 1000);
-  const [yellowTime, setYellowTime] = useState(2 * 60 * 1000);
+  // Index of the most recently landed disc, for the drop animation + landed ring.
+  const [lastDrop, setLastDrop] = useState(-1);
+  // Column the pointer is hovering, for the ghost-disc affordance (pointer only).
+  const [hoverCol, setHoverCol] = useState(-1);
 
   const [oracleSubmitted, setOracleSubmitted] = useState(false);
   const [oracleSig, setOracleSig] = useState(null);
@@ -65,8 +81,21 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
 
   const totalPot = stake * 2;
 
-  const onMoves = useCallback((moves) => { setBoard(replayBoard(moves)); }, []);
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign } =
+  const onMoves = useCallback((moves) => {
+    const b = replayBoard(moves);
+    setBoard(b);
+    // Mark the last replayed drop so it animates / rings for remote moves too.
+    const lastMove = Array.isArray(moves) && moves.length ? moves[moves.length - 1] : null;
+    const mt = typeof lastMove === 'string' && lastMove.match(/^([RY]):([0-6])$/);
+    if (mt) {
+      const col = Number(mt[2]);
+      for (let r = 0; r < ROWS; r++) {
+        const i = r * COLS + col;
+        if (b[i]) { setLastDrop(i); break; }
+      }
+    }
+  }, []);
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks } =
     useGameSync({ covenantId, gameType: 'connect4', stake, onMoves });
 
   const myLabel = myColor === 'white' ? 'R' : myColor === 'black' ? 'Y' : null;
@@ -79,6 +108,28 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
     return { outcome, method: localMethod || 'result' };
   }, [status, game, localMethod]);
 
+  // The four winning cell indices (display-only highlight); empty when no line.
+  const winningCells = useMemo(() => {
+    if (result && result.outcome !== 'draw') {
+      const line = findWinningLine(board);
+      if (line) return line;
+    }
+    return [];
+  }, [result, board]);
+  const winSet = useMemo(() => new Set(winningCells), [winningCells]);
+  const hasWinHighlight = winningCells.length === 4;
+
+  // Topmost open row per column, for the hover ghost disc (null when full).
+  const landingRow = useMemo(() => {
+    const rows = Array(COLS).fill(null);
+    for (let c = 0; c < COLS; c++) {
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (!board[r * COLS + c]) { rows[c] = r; break; }
+      }
+    }
+    return rows;
+  }, [board]);
+
   const drop = (col) => {
     if (status !== 'active' || !myLabel || result) return;
     if (!isMyTurn) { setError('Not your turn.'); return; }
@@ -86,6 +137,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
     const landed = dropInto(newB, col, myLabel);
     if (landed < 0) return; // column full
     setBoard(newB);
+    setLastDrop(landed);
     setError(null);
     const won = checkWin(newB, landed, myLabel);
     const full = newB.every(Boolean);
@@ -94,15 +146,10 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
     submitMove(`${myLabel}:${col}`, { finished: won || full, winner: won ? myColor : full ? 'draw' : null });
   };
 
-  // display clocks tick for the side to move (advisory; server enforces turns, not time)
-  useEffect(() => {
-    if (status !== 'active') return undefined;
-    const iv = setInterval(() => {
-      if (game?.current_turn === 'white') setRedTime((t) => Math.max(0, t - 1000));
-      else setYellowTime((t) => Math.max(0, t - 1000));
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [status, game]);
+  // Live countdown clocks come straight from the sync hook (server-authoritative,
+  // ms remaining per side). Red is the white seat, Yellow is the black seat.
+  const redTime = clocks?.whiteMs ?? 0;
+  const yellowTime = clocks?.blackMs ?? 0;
 
   const formatTime = (ms) => {
     const m = Math.floor(ms / 60000);
@@ -171,8 +218,57 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
   const moves = Array.isArray(game?.moves) ? game.moves : [];
   const seat = (p) => (p && p.length ? `${p.slice(0, 10)}...` : 'open');
 
+  // Premium disc material: vertical color body, sharp top-left specular, a thin
+  // 1px inner rim, and a deeper bottom shadow for a moulded plastic feel.
+  const discStyle = (label) => ({
+    background: label === 'R'
+      ? 'radial-gradient(circle at 32% 28%, #ff7a6b 0%, #ef4444 42%, #b91c1c 100%)'
+      : 'radial-gradient(circle at 32% 28%, #fde68a 0%, #facc15 44%, #ca8a04 100%)',
+    boxShadow: [
+      'inset 0 1px 0 rgba(255,255,255,0.55)',
+      label === 'R'
+        ? 'inset 0 0 0 1px rgba(255,160,150,0.45)'
+        : 'inset 0 0 0 1px rgba(255,235,150,0.5)',
+      'inset 0 -6px 10px rgba(0,0,0,0.42)',
+      '0 3px 5px rgba(0,0,0,0.55)',
+    ].join(','),
+  });
+  // A crisp specular highlight glint sitting on the disc's top-left.
+  const discGlint = (
+    <span className="pointer-events-none absolute rounded-full"
+      style={{ top: '14%', left: '18%', width: '30%', height: '24%', background: 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 70%)' }} />
+  );
+
   return (
     <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a1628 0%, #050505 70%)' }}>
+      <style>{`
+        @keyframes c4-drop-fall {
+          0%   { transform: translateY(var(--drop-from, -380%)); }
+          78%  { transform: translateY(0); }
+          88%  { transform: translateY(-7%); }
+          100% { transform: translateY(0); }
+        }
+        .c4-drop { animation: c4-drop-fall 0.4s cubic-bezier(0.45, 0.05, 0.55, 1) both; }
+        @keyframes c4-win-glow {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.0), inset 0 -6px 10px rgba(0,0,0,0.42); }
+          50%      { transform: scale(1.1); box-shadow: 0 0 16px 5px rgba(255,255,255,0.85), 0 0 28px 8px rgba(73,234,203,0.5), inset 0 -6px 10px rgba(0,0,0,0.42); }
+        }
+        .c4-win-pulse { animation: c4-win-glow 1.05s ease-in-out infinite; z-index: 1; }
+        @keyframes c4-ring-flash {
+          0%   { opacity: 0.95; transform: scale(0.92); }
+          100% { opacity: 0;    transform: scale(1.28); }
+        }
+        .c4-land-ring {
+          border: 2px solid rgba(73,234,203,0.95);
+          box-shadow: 0 0 10px rgba(73,234,203,0.6);
+          animation: c4-ring-flash 0.55s ease-out 1 forwards;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .c4-drop, .c4-win-pulse, .c4-land-ring { animation: none; }
+          .c4-win-pulse { transform: scale(1.06); box-shadow: 0 0 14px 4px rgba(255,255,255,0.8), inset 0 -6px 10px rgba(0,0,0,0.42); }
+          .c4-land-ring { opacity: 0; }
+        }
+      `}</style>
       <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
         <div className="font-bold tracking-wider text-[#49EACB]">CONNECT 4 • KASPA COVENANT</div>
         <div className="flex items-center gap-2">
@@ -185,7 +281,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
         {/* Left desktop red clock */}
         <div className="hidden lg:flex flex-col items-center w-40">
           <div className="text-xs text-gray-400 tracking-widest">RED{myLabel === 'R' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl font-bold tabular-nums ${redTime < 30000 ? 'text-red-500' : 'text-red-400'}`}>{formatTime(redTime)}</div>
+          <div className={`font-mono text-5xl font-bold tabular-nums px-3 py-1 ${turnLabel === 'R' && status === 'active' && !result ? 'clock-active' : ''} ${redTime < 30000 ? 'text-red-500' : 'text-red-400'}`}>{formatTime(redTime)}</div>
           <div className="mt-1 text-[10px] font-mono text-gray-500">{seat(game?.player1)}</div>
         </div>
 
@@ -193,16 +289,74 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
         <div className="relative">
           {/* mobile clocks row */}
           <div className="lg:hidden flex justify-between items-center max-w-[min(94vw,420px)] mb-1 text-xs">
-            <div className={`font-mono tabular-nums ${redTime < 30000 ? 'text-red-500' : 'text-red-400'}`}>{formatTime(redTime)} RED</div>
+            <div className={`font-mono tabular-nums px-1.5 ${turnLabel === 'R' && status === 'active' && !result ? 'clock-active' : ''} ${redTime < 30000 ? 'text-red-500' : 'text-red-400'}`}>{formatTime(redTime)} RED</div>
             <div className="text-kaspa-green font-mono text-[10px] tracking-widest">{result ? 'OVER' : status === 'active' ? (turnLabel === 'R' ? 'RED DROP' : 'YELLOW DROP') : status.toUpperCase()}</div>
-            <div className={`font-mono tabular-nums ${yellowTime < 30000 ? 'text-red-500' : 'text-yellow-400'}`}>YEL {formatTime(yellowTime)}</div>
+            <div className={`font-mono tabular-nums px-1.5 ${turnLabel === 'Y' && status === 'active' && !result ? 'clock-active' : ''} ${yellowTime < 30000 ? 'text-red-500' : 'text-yellow-400'}`}>YEL {formatTime(yellowTime)}</div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 p-2 bg-[#1d4ed8] rounded-2xl border-4 border-[#1e40af] shadow-[0_16px_50px_-12px_rgba(29,78,216,0.55)]" style={{ width: 'min(94vw, 420px)' }}>
-            {board.map((cell, i) => (
-              <div key={i} onClick={() => drop(getCol(i))} className="aspect-square bg-[#0b1530] rounded-full cursor-pointer flex items-center justify-center shadow-[inset_0_3px_8px_rgba(0,0,0,0.7)] hover:bg-[#101d42] active:bg-[#15265a] transition-colors">
-                {cell && <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${cell === 'R' ? 'bg-gradient-to-br from-red-400 to-red-600 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35),0_2px_4px_rgba(0,0,0,0.5)]' : 'bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.5)]'}`} />}
-              </div>
+          {/* Premium board: deep vertical gradient, top-light/bottom-dark bevel, contact shadow */}
+          <div
+            className="relative grid grid-cols-7 gap-1.5 p-2.5 rounded-[20px]"
+            style={{
+              width: 'min(94vw, 420px)',
+              background: 'linear-gradient(180deg, #2563eb 0%, #1e3a8a 100%)',
+              boxShadow: [
+                'inset 0 2px 2px rgba(255,255,255,0.28)',
+                'inset 0 -10px 22px rgba(0,0,0,0.5)',
+                'inset 0 0 0 1px rgba(255,255,255,0.08)',
+                '0 22px 46px -14px rgba(0,0,0,0.7)',
+                '0 8px 18px -6px rgba(29,78,216,0.5)',
+              ].join(','),
+            }}
+          >
+            {/* contact shadow under the board for grounding */}
+            <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-3 w-[86%] h-5 rounded-[50%]"
+              style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 72%)' }} aria-hidden="true" />
+            {board.map((cell, i) => {
+              const col = getCol(i);
+              const row = getRow(i);
+              const colPlayable = status === 'active' && !!myLabel && !result && isMyTurn && landingRow[col] !== null;
+              const isHoverCol = hoverCol === col && colPlayable;
+              const isGhost = isHoverCol && landingRow[col] === row;
+              const isWinCell = winSet.has(i);
+              const dimmed = hasWinHighlight && !isWinCell && !!cell;
+              // Gravity fall distance scales with the landed row (top rows fall further).
+              const dropVar = { '--drop-from': `-${(row + 1) * 118}%` };
+              return (
+                <div
+                  key={i}
+                  onClick={() => drop(col)}
+                  onMouseEnter={() => setHoverCol(col)}
+                  onMouseLeave={() => setHoverCol((c) => (c === col ? -1 : c))}
+                  className={`relative aspect-square rounded-full flex items-center justify-center transition-colors ${colPlayable ? 'cursor-pointer' : ''} ${isHoverCol ? 'bg-[#13235a]' : 'bg-[#0b1530]'}`}
+                  style={{ boxShadow: 'inset 0 4px 9px rgba(0,0,0,0.78), inset 0 -1px 0 rgba(255,255,255,0.05)' }}
+                >
+                  {/* hover ghost disc (current player's color) in the next landing slot */}
+                  {isGhost && !cell && (
+                    <div className="absolute w-[82%] h-[82%] rounded-full opacity-30"
+                      style={{ background: myLabel === 'R' ? 'radial-gradient(circle at 32% 28%, #ff8a7a, #ef4444)' : 'radial-gradient(circle at 32% 28%, #fde68a, #facc15)' }} aria-hidden="true" />
+                  )}
+                  {cell && (
+                    <div
+                      className={`relative w-[82%] h-[82%] rounded-full ${i === lastDrop && !hasWinHighlight ? 'c4-drop' : ''} ${isWinCell ? 'c4-win-pulse' : ''}`}
+                      style={{ ...discStyle(cell), ...(i === lastDrop && !hasWinHighlight ? dropVar : {}), opacity: dimmed ? 0.32 : 1, transition: 'opacity 0.4s ease' }}
+                    >
+                      {discGlint}
+                      {/* brief ring around the just-landed disc */}
+                      {i === lastDrop && !hasWinHighlight && (
+                        <span className="pointer-events-none absolute -inset-[3px] rounded-full c4-land-ring" aria-hidden="true" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* column numbers 1-7 */}
+          <div className="grid grid-cols-7 gap-1.5 px-2.5 mt-1 select-none" style={{ width: 'min(94vw, 420px)' }} aria-hidden="true">
+            {Array.from({ length: COLS }).map((_, c) => (
+              <div key={c} className={`text-center text-[10px] font-mono ${hoverCol === c ? 'text-[#49EACB]' : 'text-blue-300/45'}`}>{c + 1}</div>
             ))}
           </div>
 
@@ -228,7 +382,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
         {/* Right desktop + controls */}
         <div className="hidden lg:flex flex-col items-center w-40">
           <div className="text-xs text-gray-400 tracking-widest">YELLOW{myLabel === 'Y' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl font-bold tabular-nums ${yellowTime < 30000 ? 'text-red-500' : 'text-yellow-400'}`}>{formatTime(yellowTime)}</div>
+          <div className={`font-mono text-5xl font-bold tabular-nums px-3 py-1 ${turnLabel === 'Y' && status === 'active' && !result ? 'clock-active' : ''} ${yellowTime < 30000 ? 'text-red-500' : 'text-yellow-400'}`}>{formatTime(yellowTime)}</div>
           <div className="mt-1 text-[10px] font-mono text-gray-500">{seat(game?.player2)}</div>
 
           <div className="mt-3 w-full text-[10px] font-mono bg-black/50 border border-white/10 rounded-xl p-2 max-h-[120px] overflow-auto">

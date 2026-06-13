@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CheckCircle2, Users } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 
@@ -56,12 +56,112 @@ function replayBoard(moves) {
   return bd;
 }
 
+// Visual-only: replay the log to learn where the last disc was placed and which
+// discs that move flipped, so we can stage the flip + scale-in animations. This
+// reads the same move strings as replayBoard and never alters them or any logic.
+function lastMoveInfo(moves) {
+  const list = Array.isArray(moves) ? moves : [];
+  const bd = initBoard();
+  let placed = -1;
+  let flipped = [];
+  for (const m of list) {
+    const mt = typeof m === 'string' && m.match(/^([BW])([0-9]{1,2})$/);
+    if (!mt) { placed = -1; flipped = []; continue; } // pass/resign: clear hint
+    const i = Number(mt[2]);
+    if (i >= SIZE * SIZE) continue;
+    const flips = getFlipsForBoard(bd, i, mt[1]);
+    bd[i] = mt[1];
+    flips.forEach((j) => { bd[j] = mt[1]; });
+    placed = i;
+    flipped = flips;
+  }
+  return { placed, flipped };
+}
+
+// Board file/rank coordinate labels (a..h, 1..8) for the premium frame.
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const RANKS = ['1', '2', '3', '4', '5', '6', '7', '8'];
+
+// A single Othello disc rendered with real thickness: a 3D preserve-3d shell
+// with two faces (black / white), a darker rim and a soft specular highlight.
+// `flip` plays the rotateY capture animation; `pop` plays the place scale-in.
+function Disc({ color, flip = false, pop = false, delay = 0 }) {
+  const isB = color === 'B';
+  const faceBack = isB
+    ? 'radial-gradient(circle at 34% 28%, #3a3a44 0%, #1a1a1a 46%, #000 100%)'
+    : 'radial-gradient(circle at 34% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)';
+  const specular = isB
+    ? 'radial-gradient(circle at 36% 26%, rgba(120,150,255,0.28) 0%, rgba(120,150,255,0) 42%)'
+    : 'radial-gradient(circle at 36% 26%, rgba(255,244,225,0.85) 0%, rgba(255,244,225,0) 46%)';
+  const rim = isB ? '#000' : '#bdbdbd';
+  // When flipping we present BOTH faces and rotate the shell; otherwise one face.
+  const flipColor = isB ? 'B' : 'W';
+  const otherIsB = flipColor !== 'B'; // the face shown at the start of a flip is the opponent's
+  const startBack = otherIsB
+    ? 'radial-gradient(circle at 34% 28%, #3a3a44 0%, #1a1a1a 46%, #000 100%)'
+    : 'radial-gradient(circle at 34% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)';
+  return (
+    <div
+      className={pop ? 'anim-pop' : undefined}
+      style={{ width: '82%', height: '82%', perspective: '220px', animationDelay: pop ? `${delay}ms` : undefined }}
+    >
+      <div
+        className={flip ? 'anim-flip' : undefined}
+        style={{
+          position: 'relative', width: '100%', height: '100%',
+          transformStyle: 'preserve-3d',
+          animationDelay: flip ? `${delay}ms` : undefined,
+        }}
+      >
+        {/* settled / front face (the disc's current color) */}
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%', backfaceVisibility: 'hidden',
+          background: faceBack,
+          boxShadow: `inset 0 -2px 3px ${rim}, inset 0 2px 2px rgba(255,255,255,0.18), 0 3px 5px rgba(0,0,0,0.55), 0 1px 0 ${rim}`,
+        }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: specular, pointerEvents: 'none' }} />
+        </div>
+        {/* back face shown only during a flip (the side it was before capture) */}
+        {flip && (
+          <div style={{
+            position: 'absolute', inset: 0, borderRadius: '50%', backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)', background: startBack,
+            boxShadow: `inset 0 -2px 3px ${otherIsB ? '#000' : '#bdbdbd'}, inset 0 2px 2px rgba(255,255,255,0.18), 0 3px 5px rgba(0,0,0,0.55)`,
+          }} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Big disc-count chip used in the live scoreboard beside the board.
+function ScoreChip({ color, count, leading }) {
+  const isB = color === 'B';
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div
+        className="relative rounded-full flex items-center justify-center"
+        style={{
+          width: 48, height: 48,
+          background: isB
+            ? 'radial-gradient(circle at 36% 28%, #3a3a44 0%, #1a1a1a 48%, #000 100%)'
+            : 'radial-gradient(circle at 36% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)',
+          boxShadow: leading
+            ? `0 0 0 2px #49EACB, 0 0 14px rgba(73,234,203,0.5), inset 0 -2px 3px ${isB ? '#000' : '#bdbdbd'}`
+            : `inset 0 -2px 3px ${isB ? '#000' : '#bdbdbd'}, 0 2px 5px rgba(0,0,0,0.5)`,
+        }}
+      />
+      <span className={`font-mono text-2xl font-bold tabular-nums ${isB ? 'text-white' : 'text-white'}`}>{count}</span>
+    </div>
+  );
+}
+
 export default function FullScreenReversi({ stake = 40, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
   const [board, setBoard] = useState(() => initBoard());
   const [localMethod, setLocalMethod] = useState(null);
-
-  const [blackTime, setBlackTime] = useState(2.5 * 60 * 1000);
-  const [whiteTime, setWhiteTime] = useState(2.5 * 60 * 1000);
+  // Visual-only: which cell was just placed and which discs it flipped, so we can
+  // stage the place scale-in and capture flip animations. No game logic here.
+  const [lastMove, setLastMove] = useState({ placed: -1, flipped: [] });
 
   const [oracleSubmitted, setOracleSubmitted] = useState(false);
   const [oracleSig, setOracleSig] = useState(null);
@@ -73,14 +173,16 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
 
   const totalPot = stake * 2;
 
-  const onMoves = useCallback((moves) => { setBoard(replayBoard(moves)); }, []);
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign } =
+  const onMoves = useCallback((moves) => {
+    setBoard(replayBoard(moves));
+    setLastMove(lastMoveInfo(moves)); // visual hint only
+  }, []);
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks } =
     useGameSync({ covenantId, gameType: 'reversi', stake, onMoves });
 
   // Black moves first: player1 (server 'white') plays B
   const myPiece = myColor === 'white' ? 'B' : myColor === 'black' ? 'W' : null;
   const turnPiece = game?.current_turn === 'black' ? 'W' : 'B';
-  const pieceToServer = (piece) => (piece === 'B' ? 'white' : 'black');
 
   // outcome is in PIECE colors (black/white discs), mapped from the server winner
   const result = useMemo(() => {
@@ -107,6 +209,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
     newB[i] = myPiece;
     flips.forEach((j) => { newB[j] = myPiece; });
     setBoard(newB);
+    setLastMove({ placed: i, flipped: flips }); // visual hint only
     setError(null);
 
     const opp = myPiece === 'B' ? 'W' : 'B';
@@ -123,17 +226,20 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
     submitMove('pass', { finished, winner: finished ? countWinner(board) : null });
   };
 
-  // display clocks tick for the side to move (advisory; server enforces turns, not time)
-  useEffect(() => {
-    if (status !== 'active') return undefined;
-    const iv = setInterval(() => {
-      if (game?.current_turn === 'white') setBlackTime((t) => Math.max(0, t - 1000));
-      else setWhiteTime((t) => Math.max(0, t - 1000));
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [status, game]);
+  // Live clocks come straight from the hook (server-authoritative, ticked between
+  // syncs). Black discs are player1 = server 'white' (clocks.whiteMs); White discs
+  // are player2 = server 'black' (clocks.blackMs). No local clock state is kept.
+  const blackTime = clocks?.whiteMs ?? 0;
+  const whiteTime = clocks?.blackMs ?? 0;
 
   const format = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+
+  // Live disc counts for the scoreboard.
+  const blackCount = board.filter((x) => x === 'B').length;
+  const whiteCount = board.filter((x) => x === 'W').length;
+  // Which side is on the clock (B discs = current_turn 'white', W discs = 'black').
+  const blackToMove = status === 'active' && game?.current_turn === 'white';
+  const whiteToMove = status === 'active' && game?.current_turn === 'black';
 
   const submitToOracle = useCallback(async () => {
     if (!result) return;
@@ -179,21 +285,84 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-3 p-2 overflow-auto">
-        <div className="hidden lg:flex flex-col items-center w-40">
-          <div className="text-xs text-gray-400">BLACK{myPiece === 'B' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl font-bold tabular-nums ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(blackTime)}</div>
-          <div className="mt-1 text-[10px] font-mono text-gray-500">{seat(game?.player1)}</div>
+        <div className="hidden lg:flex flex-col items-center w-44 gap-3">
+          <div className="flex flex-col items-center">
+            <div className="text-xs text-gray-400 tracking-wider">BLACK{myPiece === 'B' && ' • YOU'}</div>
+            <div className={`mt-1 px-3 py-1 ${blackToMove ? 'clock-active' : ''}`}>
+              <div className={`font-mono text-5xl font-bold tabular-nums ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(blackTime)}</div>
+            </div>
+            <div className="mt-1 text-[10px] font-mono text-gray-500">{seat(game?.player1)}</div>
+          </div>
+          <ScoreChip color="B" count={blackCount} leading={blackCount > whiteCount} />
+          <div className="text-[10px] font-mono tracking-wider text-center" style={{ color: '#49EACB' }}>
+            {blackCount === whiteCount ? 'LEVEL' : blackCount > whiteCount ? `BLACK +${blackCount - whiteCount}` : `WHITE +${whiteCount - blackCount}`}
+          </div>
         </div>
 
         <div className="relative">
-          <div className="lg:hidden flex justify-between max-w-[min(92vw,420px)] text-[10px] mb-1 font-mono"><span className={blackTime < 30000 ? 'text-red-500' : ''}>B {format(blackTime)}</span><span className="text-kaspa-green">{result ? 'OVER' : status === 'active' ? (turnPiece + ' TO PLAY') : status.toUpperCase()}</span><span className={whiteTime < 30000 ? 'text-red-500' : ''}>W {format(whiteTime)}</span></div>
-          <div className="grid grid-cols-8 gap-0.5 p-1 bg-[#0e3320] rounded-2xl border border-white/10" style={{ width: 'min(92vw,420px)', aspectRatio: '1' }}>
-            {board.map((v, i) => {
-              const legal = !result && isLegal(i);
-              return <div key={i} onClick={() => place(i)} className={`aspect-square flex items-center justify-center rounded ${legal ? 'ring-2 ring-yellow-300/80' : ''} ${v ? '' : 'hover:bg-white/5'} cursor-pointer`} style={{ background: '#1a7a44', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.35)' }}>
-                {v && <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full shadow ${v === 'B' ? 'bg-gradient-to-br from-[#333] to-black shadow-[0_2px_4px_rgba(0,0,0,0.6)]' : 'bg-gradient-to-br from-white to-[#cfcfcf] shadow-[0_2px_4px_rgba(0,0,0,0.5)]'}`} />}
-              </div>;
-            })}
+          {/* mobile scoreboard strip */}
+          <div className="lg:hidden flex items-center justify-between max-w-[min(92vw,420px)] mb-1 font-mono">
+            <span className={`text-[11px] ${blackToMove ? 'text-kaspa-green' : 'text-gray-300'}`}>B {blackCount} · {format(blackTime)}</span>
+            <span className="text-[10px] text-kaspa-green tracking-wider">{result ? 'OVER' : status === 'active' ? ((turnPiece === 'B' ? 'BLACK' : 'WHITE') + ' TO PLAY') : status.toUpperCase()}</span>
+            <span className={`text-[11px] ${whiteToMove ? 'text-kaspa-green' : 'text-gray-300'}`}>W {whiteCount} · {format(whiteTime)}</span>
+          </div>
+
+          {/* wood-framed felt board with file/rank coordinates */}
+          <div className="board-bezel-wood" style={{ width: 'min(92vw,420px)' }}>
+            <div className="relative">
+              <div
+                className="felt-radial felt-noise grid grid-cols-8 overflow-hidden"
+                style={{ width: '100%', aspectRatio: '1', borderRadius: 8, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 0 22px rgba(0,0,0,0.45)' }}
+              >
+                {board.map((v, i) => {
+                  const legal = !result && isLegal(i);
+                  const isPlaced = lastMove.placed === i;
+                  const isFlipped = lastMove.flipped.includes(i);
+                  const flipIdx = isFlipped ? lastMove.flipped.indexOf(i) : 0;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => place(i)}
+                      className={`relative flex items-center justify-center cursor-pointer ${isPlaced ? 'last-move' : ''}`}
+                      style={{
+                        aspectRatio: '1',
+                        // embossed grid lines: faint light top/left, dark bottom/right
+                        boxShadow: 'inset -1px -1px 0 rgba(0,0,0,0.28), inset 1px 1px 0 rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      {v && (
+                        <Disc
+                          color={v}
+                          flip={isFlipped}
+                          pop={isPlaced}
+                          delay={isFlipped ? flipIdx * 55 : 0}
+                        />
+                      )}
+                      {legal && (
+                        <span
+                          className="absolute rounded-full pointer-events-none"
+                          style={{
+                            width: '30%', height: '30%',
+                            background: myPiece === 'B'
+                              ? 'radial-gradient(circle at 38% 30%, #4a4a52, #0c0c0c)'
+                              : 'radial-gradient(circle at 38% 30%, #ffffff, #cfcfcf)',
+                            opacity: 0.55,
+                            boxShadow: '0 0 6px rgba(73,234,203,0.5), 0 0 0 1px rgba(73,234,203,0.6)',
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* file coordinates (a..h) bottom, rank coordinates (1..8) left */}
+              <div className="absolute left-0 right-0 -bottom-[14px] grid grid-cols-8 text-[9px] font-mono text-amber-200/60 select-none pointer-events-none">
+                {FILES.map((f) => <span key={f} className="text-center">{f}</span>)}
+              </div>
+              <div className="absolute top-0 bottom-0 -left-[12px] grid grid-rows-8 text-[9px] font-mono text-amber-200/60 select-none pointer-events-none">
+                {RANKS.map((rk) => <span key={rk} className="flex items-center">{rk}</span>)}
+              </div>
+            </div>
           </div>
 
           {status !== 'active' && !result && (
@@ -220,11 +389,14 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
           {error && status === 'active' && <div className="text-center text-[10px] text-red-300 mt-0.5">{error}</div>}
         </div>
 
-        <div className="hidden lg:flex flex-col items-center w-40">
-          <div className="text-xs text-gray-400">WHITE{myPiece === 'W' && ' • YOU'}</div>
-          <div className={`font-mono text-5xl font-bold tabular-nums ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(whiteTime)}</div>
+        <div className="hidden lg:flex flex-col items-center w-44">
+          <div className="text-xs text-gray-400 tracking-wider">WHITE{myPiece === 'W' && ' • YOU'}</div>
+          <div className={`mt-1 px-3 py-1 ${whiteToMove ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl font-bold tabular-nums ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(whiteTime)}</div>
+          </div>
           <div className="mt-1 text-[10px] font-mono text-gray-500">{seat(game?.player2)}</div>
-          <div className="mt-2 w-full text-[10px] font-mono bg-black/50 p-2 rounded border border-white/10 max-h-28 overflow-auto">{moves.slice(-5).join(' ')}</div>
+          <div className="mt-3"><ScoreChip color="W" count={whiteCount} leading={whiteCount > blackCount} /></div>
+          <div className="mt-3 w-full text-[10px] font-mono bg-black/50 p-2 rounded border border-white/10 max-h-28 overflow-auto">{moves.slice(-5).join(' ')}</div>
           <div className="mt-2 flex flex-col gap-1 w-full text-xs">
             {!result && myColor && status === 'active' && <button onClick={resign} className="py-2 rounded-xl bg-red-600/90 text-white font-bold">RESIGN</button>}
             {result && !oracleSubmitted && <button onClick={submitToOracle} disabled={oracleLoading} className="py-2 rounded-2xl bg-[#49EACB] text-black font-bold">{oracleLoading ? '...' : 'SUBMIT TO ORACLE'}</button>}

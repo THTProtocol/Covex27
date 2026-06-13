@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Users, ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
 import { useWallet } from './WalletContext';
 import useGameSync from '../hooks/useGameSync';
+import PlayingCard from './games/PlayingCard';
+import { ChipStack } from './games/Chips';
 
 // Real heads-up No-Limit Hold'em over the covenant match record.
 //
@@ -15,35 +17,13 @@ import useGameSync from '../hooks/useGameSync';
 // Chips are score units (100 each, blinds 1/2); the covenant pot pays the
 // match winner through the same oracle attest + claim flow as the other games.
 
-const SUITS = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
-const SUIT_COLORS = { hearts: 'text-red-500', diamonds: 'text-red-500', clubs: 'text-gray-900', spades: 'text-gray-900' };
-const SUIT_NAME = { c: 'clubs', d: 'diamonds', h: 'hearts', s: 'spades' };
-const parseCard = (s) => (s ? { rank: s[0] === 'T' ? '10' : s[0], suit: SUIT_NAME[s[1]] } : null);
-
-function Card({ code, faceDown, small }) {
-  if (faceDown || !code) {
-    return (
-      <div className={`${small ? 'w-10 h-14' : 'w-16 h-24'} rounded-lg border-2 border-white/70 shadow-lg bg-[repeating-linear-gradient(45deg,#1e3a8a,#1e3a8a_6px,#1d4ed8_6px,#1d4ed8_12px)]`} />
-    );
-  }
-  const { rank, suit } = parseCard(code);
-  const color = SUIT_COLORS[suit] || 'text-white';
-  return (
-    <div className={`relative ${small ? 'w-10 h-14' : 'w-16 h-24'} rounded-lg bg-white border border-gray-300 shadow-lg select-none`}>
-      <div className={`absolute top-0.5 left-1 flex flex-col items-center leading-none ${color}`}>
-        <span className={`${small ? 'text-[9px]' : 'text-xs'} font-bold`}>{rank}</span>
-        <span className={small ? 'text-[9px]' : 'text-xs'}>{SUITS[suit]}</span>
-      </div>
-      <div className={`absolute inset-0 flex items-center justify-center ${color}`}>
-        <span className={small ? 'text-base' : 'text-2xl'}>{SUITS[suit]}</span>
-      </div>
-      <div className={`absolute bottom-0.5 right-1 flex flex-col items-center leading-none rotate-180 ${color}`}>
-        <span className={`${small ? 'text-[9px]' : 'text-xs'} font-bold`}>{rank}</span>
-        <span className={small ? 'text-[9px]' : 'text-xs'}>{SUITS[suit]}</span>
-      </div>
-    </div>
-  );
-}
+// Map a backend card code (e.g. "Th", "As") to the shared PlayingCard props.
+// PlayingCard wants rank as a string ('10' not 'T') and suit as a single
+// uppercase letter (S/H/D/C). This is purely presentational; the raw code
+// strings the backend sends are never altered.
+const SUIT_LETTER = { c: 'C', d: 'D', h: 'H', s: 'S' };
+const cardProps = (code) =>
+  code ? { rank: code[0] === 'T' ? '10' : code[0], suit: SUIT_LETTER[code[1]] } : null;
 
 // ── client-side deal verification (mirrors the spec in backend poker.rs) ────
 const enc = new TextEncoder();
@@ -105,11 +85,181 @@ async function verifyDeal(result, covenantId, seenCommitment) {
   }
 }
 
+// ── Winning 5-card combo derivation (VISUAL ONLY) ───────────────────────────
+// Picks the best 5-of-7 to draw the kaspa-green ring at showdown. This never
+// decides the winner (that comes from last.winner_seat off the server); it only
+// chooses which already-revealed cards get highlighted. Returns a Set of the
+// card code strings that form the best five.
+const R_ORDER = '23456789TJQKA';
+const rankVal = (code) => R_ORDER.indexOf(code[0]);
+function combos5(cards) {
+  const out = [];
+  const n = cards.length;
+  for (let a = 0; a < n; a++)
+    for (let b = a + 1; b < n; b++)
+      for (let c = b + 1; c < n; c++)
+        for (let d = c + 1; d < n; d++)
+          for (let e = d + 1; e < n; e++)
+            out.push([cards[a], cards[b], cards[c], cards[d], cards[e]]);
+  return out;
+}
+function scoreFive(five) {
+  const ranks = five.map(rankVal).sort((x, y) => y - x);
+  const suits = five.map((c) => c[1]);
+  const counts = {};
+  ranks.forEach((r) => { counts[r] = (counts[r] || 0) + 1; });
+  const groups = Object.entries(counts)
+    .map(([r, c]) => [c, Number(r)])
+    .sort((p, q) => q[0] - p[0] || q[1] - p[1]);
+  const isFlush = suits.every((s) => s === suits[0]);
+  const uniq = [...new Set(ranks)].sort((x, y) => y - x);
+  let straightHigh = -1;
+  if (uniq.length === 5) {
+    if (uniq[0] - uniq[4] === 4) straightHigh = uniq[0];
+    // wheel: A-2-3-4-5 (A high is 12, 5 is 3)
+    else if (uniq[0] === 12 && uniq[1] === 3 && uniq[2] === 2 && uniq[3] === 1 && uniq[4] === 0) straightHigh = 3;
+  }
+  const isStraight = straightHigh >= 0;
+  let cat;
+  if (isStraight && isFlush) cat = 8;
+  else if (groups[0][0] === 4) cat = 7;
+  else if (groups[0][0] === 3 && groups[1] && groups[1][0] === 2) cat = 6;
+  else if (isFlush) cat = 5;
+  else if (isStraight) cat = 4;
+  else if (groups[0][0] === 3) cat = 3;
+  else if (groups[0][0] === 2 && groups[1] && groups[1][0] === 2) cat = 2;
+  else if (groups[0][0] === 2) cat = 1;
+  else cat = 0;
+  const tie = isStraight ? [straightHigh] : groups.map((g) => g[1]);
+  return [cat, ...tie, ...ranks];
+}
+function cmpScore(x, y) {
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const dx = (x[i] || 0) - (y[i] || 0);
+    if (dx !== 0) return dx;
+  }
+  return 0;
+}
+function bestComboSet(board, holes) {
+  try {
+    const cards = [...(board || []), ...(holes || [])].filter(Boolean);
+    if (cards.length < 5) return null;
+    let best = null, bestCards = null;
+    for (const five of combos5(cards)) {
+      const sc = scoreFive(five);
+      if (!best || cmpScore(sc, best) > 0) { best = sc; bestCards = five; }
+    }
+    return bestCards ? new Set(bestCards) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Small presentational helpers ────────────────────────────────────────────
+const shortAddr = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : 'open');
+const avatarColor = (a) => {
+  if (!a) return '#3a3a44';
+  let h = 0;
+  for (let i = 0; i < a.length; i++) h = (h * 31 + a.charCodeAt(i)) % 360;
+  return `hsl(${h} 55% 45%)`;
+};
+
+// Time-bank ring drawn around the seat to act, filling down as the clock ticks.
+function TimeBankRing({ ms, total = 30000, size = 92, active }) {
+  const frac = Math.max(0, Math.min(1, (Number(ms) || 0) / total));
+  const r = 44;
+  const circ = 2 * Math.PI * r;
+  const low = frac < 0.25;
+  const stroke = !active ? 'rgba(255,255,255,0.10)' : low ? '#E8AF34' : '#49EACB';
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) rotate(-90deg)', pointerEvents: 'none' }}
+      aria-hidden
+    >
+      <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="4" />
+      {active && (
+        <circle
+          cx="50"
+          cy="50"
+          r={r}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - frac)}
+          style={{ transition: 'stroke-dashoffset 0.25s linear', filter: `drop-shadow(0 0 4px ${stroke})` }}
+        />
+      )}
+    </svg>
+  );
+}
+
+// Rounded seat plate: avatar + truncated address + chip count + dealer button,
+// wrapped by the time-bank ring and the kaspa-green clock-active glow when it is
+// this seat's turn. Pure presentation; all values are passed in already decoded.
+function SeatPlate({ label, addr, stack, isButton, active, isMe, ms }) {
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <TimeBankRing ms={ms} active={active} size={104} />
+      <div
+        className={active ? 'clock-active' : ''}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '5px 11px 5px 5px', borderRadius: 999,
+          background: 'rgba(8,14,12,0.82)', backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          boxShadow: '0 6px 18px -8px rgba(0,0,0,0.8)',
+        }}
+      >
+        {/* avatar */}
+        <div
+          style={{
+            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+            background: addr ? avatarColor(addr) : '#23262e',
+            border: '1.5px solid rgba(255,255,255,0.22)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 11, color: '#fff',
+          }}
+        >
+          {addr ? addr.slice(2, 4).toUpperCase() : '·'}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontSize: 10, letterSpacing: '1px', color: isMe ? '#49EACB' : '#cbd2cf', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
+              {label}
+            </span>
+            {isButton && (
+              <span style={{ background: '#fff', color: '#000', fontSize: 8, fontWeight: 900, borderRadius: '50%', width: 14, height: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>D</span>
+            )}
+          </span>
+          <span style={{ fontSize: 10, color: '#8c948f', fontFamily: "'JetBrains Mono', monospace" }}>{shortAddr(addr)}</span>
+          <span style={{ fontSize: 11, color: '#E8AF34', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{stack} chips</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Bet chips that sit in front of a seat and pop when the committed amount changes
+// (read as chips sliding toward the pot). Visual only.
+function BetChips({ amount }) {
+  if (!(amount > 0)) return <div style={{ minHeight: 30 }} />;
+  return (
+    <div key={`bet-${amount}`} className="anim-pop" style={{ marginTop: 4 }}>
+      <ChipStack amount={amount} size={26} />
+    </div>
+  );
+}
+
 export default function FullScreenPoker({ stake = 100, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
   const { address, signMessage } = useWallet();
 
   // seats + join come from the shared match record (skill_games)
-  const { game, status, myColor, joining, error: seatError, join } =
+  const { game, status, myColor, joining, error: seatError, join, clocks } =
     useGameSync({ covenantId, gameType: 'poker', stake, onMoves: undefined });
 
   const [ps, setPs] = useState(null); // /api/poker/:id/state
@@ -240,10 +390,20 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
   const minTo = hand ? Math.min(hand.min_raise_to, maxTo) : 0;
   useEffect(() => { if (hand) setRaiseTo(minTo); }, [hand?.hand_no, hand?.current_bet, minTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // quick-size helpers (presentation: they only move the slider value; the
+  // amount sent to act() is still clamped to [minTo, maxTo] exactly as before)
+  const clampTo = (v) => Math.min(Math.max(Math.round(v) || 0, minTo), maxTo);
+  const potNow = hand ? hand.pot : 0;
+  const callTotal = hand && mySeat != null ? hand.current_bet : 0; // "to" level a call lands on
+  // pot-sized raise-to ≈ call level + (pot + amount-to-call)
+  const halfPotTo = clampTo(callTotal + (potNow + callAmount) * 0.5);
+  const fullPotTo = clampTo(callTotal + (potNow + callAmount));
+  const sizedTo = clampTo(raiseTo);
+  const stackAfter = maxTo - sizedTo; // chips left behind after raising to `sizedTo`
+
   const matchOver = m?.status === 'finished';
   const iWonMatch = matchOver && mySeat != null && (m.chips[mySeat] ?? 0) > 0;
   const oppSeat = mySeat == null ? 1 : 1 - mySeat;
-  const seatLabel = (s) => (m?.players?.[s] ? `${m.players[s].slice(0, 16)}...` : 'open');
 
   const submitToOracle = useCallback(async () => {
     if (!matchOver || !covenantId) return;
@@ -285,8 +445,30 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
 
   // which cards to show for each seat
   const showdown = last && (!hand || hand.hand_no !== last.hand_no) && !matchOver;
+  const reveal = showdown || matchOver;
   const myCards = hole && hand && hole.hand_no === hand.hand_no ? hole.cards : null;
-  const board = hand?.board || ((showdown || matchOver) ? last?.board : []) || [];
+  const board = hand?.board || (reveal ? last?.board : []) || [];
+
+  // ── deal/street animation tracking ──────────────────────────────────────
+  // Tag freshly revealed cards with .anim-deal. Hold'em reveals are
+  // deterministic by board length, so the index from which cards are "new" this
+  // street is derived purely from how many community cards are showing: the flop
+  // (3 cards) animates together, then the turn and river each animate alone.
+  // The dealKey remounts those cards so the slide-in replays on each new street.
+  // Purely visual: it never changes which cards exist or their encodings.
+  const liveHandNo = hand?.hand_no ?? (reveal ? last?.hand_no : null);
+  const boardLen = board.filter(Boolean).length;
+  const dealtFrom = boardLen >= 5 ? 4 : boardLen >= 4 ? 3 : 0;
+  // animation key bumps so React remounts the dealt cards and replays anim-deal
+  const dealKey = `${liveHandNo ?? 'x'}-${boardLen}`;
+
+  // winning combo set (visual ring) for the seat that won at showdown
+  const winningSet = useMemo(() => {
+    if (!reveal || !last || last.winner_seat == null || last.reason === 'fold') return null;
+    if (!last.holes || !last.board) return null;
+    return bestComboSet(last.board, last.holes[last.winner_seat]);
+  }, [reveal, last]);
+  const isWinCard = (code) => !!(winningSet && code && winningSet.has(code));
 
   const statusLine = matchOver
     ? null
@@ -304,12 +486,35 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                 ? `SEAT ${hand.to_act + 1} TO ACT`
                 : 'OPPONENT TO ACT';
 
+  // live clocks from the hook (mm:ss). player1 = white = seat 0, player2 = seat 1.
+  const seatMs = (seat) => (seat === 0 ? clocks.whiteMs : clocks.blackMs);
+  const seatActive = (seat) => !!(hand && status === 'active' && !matchOver && hand.to_act === seat && !hand.all_in_runout);
+
+  // Which hole cards a seat shows, as PlayingCard descriptors (or null = back).
+  const seatHoles = (seat) => {
+    const isMe = mySeat != null && seat === mySeat;
+    if (isMe && myCards) return myCards;
+    if (reveal && last?.holes?.[seat]) return last.holes[seat];
+    return [null, null];
+  };
+
+  // Build the props for a seat plate (already-decoded display values only).
+  const seatPlateProps = (seat, label) => ({
+    label,
+    addr: m?.players?.[seat],
+    stack: hand ? stacks[seat] : (m?.chips?.[seat] ?? 0),
+    isButton: !!(hand && hand.button === seat),
+    active: seatActive(seat),
+    isMe: mySeat === seat,
+    ms: seatMs(seat),
+  });
+
   return (
-    <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 60%, #0a1a0a 0%, #050510 70%)' }}>
+    <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 55%, #0a1a12 0%, #050510 72%)' }}>
       {/* Top bar */}
       <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between px-3 sm:px-4 text-sm bg-black/60 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="font-bold tracking-wider text-amber-400 truncate">POKER · HEADS-UP NLHE · KASPA COVENANT</div>
+          <div className="font-bold tracking-wider text-[#E8AF34] truncate">POKER · HEADS-UP NLHE · KASPA COVENANT</div>
           <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10">{stake * 2} KAS POT · BLINDS {m?.blinds?.[0] ?? 1}/{m?.blinds?.[1] ?? 2}</div>
         </div>
         <div className="flex items-center gap-2">
@@ -325,80 +530,117 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
       <div className="flex-1 flex flex-col items-center justify-start sm:justify-center p-3 gap-3 overflow-auto">
         {/* match score */}
         <div className="flex items-center gap-4 text-xs font-mono text-gray-300">
-          <span className={mySeat === 0 ? 'text-[#49EACB]' : ''}>P1 {seatLabel(0)} · {m?.chips?.[0] ?? '-'} chips</span>
+          <span className={mySeat === 0 ? 'text-[#49EACB]' : ''}>P1 {shortAddr(m?.players?.[0])} · {m?.chips?.[0] ?? '-'} chips</span>
           <span className="text-gray-500">hand #{m?.hand_no ?? '-'}</span>
-          <span className={mySeat === 1 ? 'text-[#49EACB]' : ''}>P2 {seatLabel(1)} · {m?.chips?.[1] ?? '-'} chips</span>
+          <span className={mySeat === 1 ? 'text-[#49EACB]' : ''}>P2 {shortAddr(m?.players?.[1])} · {m?.chips?.[1] ?? '-'} chips</span>
         </div>
 
-        {/* Table */}
-        <div className="relative w-full max-w-[860px] aspect-[2/1] rounded-[140px] border-[10px] border-amber-900/50 shadow-2xl shrink-0"
-             style={{ background: 'radial-gradient(ellipse at 50% 55%, #0d6b2e 0%, #073d1a 50%, #031a0a 100%)' }}>
+        {/* Table (wood bezel around a teal-rail felt oval) */}
+        <div className="board-bezel-wood w-full max-w-[880px] shrink-0" style={{ borderRadius: 999 }}>
+          <div
+            className="felt-radial felt-noise relative w-full aspect-[2/1]"
+            style={{
+              borderRadius: 999,
+              boxShadow: 'inset 0 0 0 8px rgba(15,94,84,0.55), inset 0 0 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(73,234,203,0.18)',
+            }}
+          >
+            {/* betting-line arc + pot ring + center brand mark */}
+            <svg viewBox="0 0 880 440" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }} aria-hidden>
+              {/* outer betting line arc */}
+              <ellipse cx="440" cy="220" rx="320" ry="150" fill="none" stroke="rgba(73,234,203,0.14)" strokeWidth="2" />
+              {/* pot-area ring */}
+              <ellipse cx="440" cy="196" rx="150" ry="70" fill="none" stroke="rgba(232,175,52,0.18)" strokeWidth="1.5" strokeDasharray="4 7" />
+            </svg>
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none"
+              style={{ fontFamily: "'JetBrains Mono', monospace", color: 'rgba(73,234,203,0.10)', fontWeight: 900, fontSize: 'clamp(28px, 7vw, 64px)', letterSpacing: '0.08em', pointerEvents: 'none' }}
+            >
+              COVEX
+            </div>
 
-          {/* opponent seat (top) */}
-          <div className="absolute top-[10%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5">
-            <div className="text-[11px] text-gray-300 uppercase tracking-[2px] font-mono flex items-center gap-2">
-              {mySeat == null ? `SEAT ${oppSeat + 1}` : 'OPPONENT'}
-              {hand && hand.button === oppSeat && <span className="px-1.5 rounded-full bg-white text-black text-[9px] font-bold">D</span>}
+            {/* opponent seat (top) */}
+            <div className="absolute top-[2%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+              <SeatPlate {...seatPlateProps(oppSeat, mySeat == null ? `SEAT ${oppSeat + 1}` : 'OPPONENT')} />
+              <div className="flex gap-1.5">
+                {seatHoles(oppSeat).map((c, i) => {
+                  const p = cardProps(c);
+                  return p
+                    ? <div key={i} className={reveal ? 'anim-deal' : ''}><PlayingCard {...p} width={44} highlight={isWinCard(c)} /></div>
+                    : <PlayingCard key={i} faceDown width={44} />;
+                })}
+              </div>
+              <BetChips amount={hand ? committed[oppSeat] : 0} />
             </div>
-            <div className="flex gap-1.5">
-              {(showdown || matchOver) && last?.holes
-                ? last.holes[oppSeat].map((c, i) => <Card key={i} code={c} small />)
-                : [0, 1].map((i) => <Card key={i} faceDown small />)}
+
+            {/* board + pot (center) */}
+            <div className="absolute top-[44%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
+              <div className="flex gap-1.5" style={{ minHeight: 78 }}>
+                {[0, 1, 2, 3, 4].map((i) => {
+                  const code = board[i];
+                  const p = cardProps(code);
+                  const fresh = !!code && i >= dealtFrom;
+                  return p
+                    ? (
+                      <div key={`${dealKey}-${i}`} className={fresh ? 'anim-deal' : ''} style={fresh ? { animationDelay: `${(i - dealtFrom) * 90}ms` } : undefined}>
+                        <PlayingCard {...p} width={56} highlight={isWinCard(code)} />
+                      </div>
+                    )
+                    : <PlayingCard key={i} faceDown width={56} />;
+                })}
+              </div>
+              {/* pot as chip graphic */}
+              <div className="flex flex-col items-center gap-0.5">
+                {(() => {
+                  const potVal = hand ? hand.pot : (reveal && last ? last.pot : 0);
+                  return potVal > 0
+                    ? <div key={`pot-${potVal}`} className="anim-pop"><ChipStack amount={potVal} size={30} /></div>
+                    : <div className="text-xs font-bold font-mono text-emerald-300/70">POT 0</div>;
+                })()}
+                <div className="text-[10px] font-mono text-emerald-300/80 tracking-wider">POT</div>
+              </div>
+              {statusLine && <div className="text-[10px] text-gray-300 uppercase tracking-[3px] font-mono">{statusLine}</div>}
             </div>
-            {hand && <div className="text-[11px] font-mono text-amber-300 min-h-[14px]">{committed[oppSeat] > 0 ? `bet ${committed[oppSeat]}` : ''}</div>}
+
+            {/* my seat (bottom) */}
+            <div className="absolute bottom-[2%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+              <BetChips amount={hand ? committed[mySeat == null ? 0 : mySeat] : 0} />
+              <div className="flex gap-1.5">
+                {seatHoles(mySeat == null ? 0 : mySeat).map((c, i) => {
+                  const p = cardProps(c);
+                  const big = mySeat != null; // your own cards bigger
+                  return p
+                    ? <div key={i} className={reveal ? 'anim-deal' : ''}><PlayingCard {...p} width={big ? 68 : 44} highlight={isWinCard(c)} /></div>
+                    : <PlayingCard key={i} faceDown width={big ? 68 : 44} />;
+                })}
+              </div>
+              <SeatPlate {...seatPlateProps(mySeat == null ? 0 : mySeat, mySeat == null ? 'SEAT 1' : 'YOU')} />
+            </div>
+
+            {/* join overlay */}
+            {status !== 'active' && !matchOver && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm" style={{ borderRadius: 999 }}>
+                {(status === 'none' || (status === 'waiting' && !myColor)) ? (
+                  <button onClick={join} disabled={joining}
+                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
+                    <Users size={16} /> {joining ? 'JOINING...' : status === 'none' ? 'TAKE SEAT 1 (CREATE TABLE)' : 'TAKE SEAT 2 (JOIN TABLE)'}
+                  </button>
+                ) : (
+                  <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO TAKE SEAT 2...</div>
+                )}
+                {seatError && <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-[11px] max-w-[280px] text-center">{seatError}</div>}
+              </div>
+            )}
           </div>
-
-          {/* board + pot */}
-          <div className="absolute top-[44%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
-            <div className="flex gap-1.5">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Card key={i} code={board[i]} faceDown={!board[i]} small />
-              ))}
-            </div>
-            <div className="text-sm font-bold font-mono text-emerald-300">POT {hand ? hand.pot : (showdown || matchOver) && last ? last.pot : 0}</div>
-            {statusLine && <div className="text-[10px] text-gray-300 uppercase tracking-[3px] font-mono">{statusLine}</div>}
-          </div>
-
-          {/* my seat (bottom) */}
-          <div className="absolute bottom-[8%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5">
-            {hand && mySeat != null && <div className="text-[11px] font-mono text-amber-300 min-h-[14px]">{committed[mySeat] > 0 ? `bet ${committed[mySeat]}` : ''}</div>}
-            <div className="flex gap-1.5">
-              {mySeat == null
-                ? (showdown || matchOver) && last?.holes
-                  ? last.holes[0].map((c, i) => <Card key={i} code={c} small />)
-                  : [0, 1].map((i) => <Card key={i} faceDown small />)
-                : myCards
-                  ? myCards.map((c, i) => <Card key={i} code={c} />)
-                  : (showdown || matchOver) && last?.holes
-                    ? last.holes[mySeat].map((c, i) => <Card key={i} code={c} />)
-                    : [0, 1].map((i) => <Card key={i} faceDown />)}
-            </div>
-            <div className="text-[11px] text-gray-300 uppercase tracking-[2px] font-mono flex items-center gap-2">
-              {mySeat == null ? 'SEAT 1' : 'YOU'}
-              {hand && mySeat != null && hand.button === mySeat && <span className="px-1.5 rounded-full bg-white text-black text-[9px] font-bold">D</span>}
-              {mySeat != null && hand && <span className="text-gray-500">stack {stacks[mySeat]}</span>}
-            </div>
-          </div>
-
-          {/* join overlay */}
-          {status !== 'active' && !matchOver && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm rounded-[130px]">
-              {(status === 'none' || (status === 'waiting' && !myColor)) ? (
-                <button onClick={join} disabled={joining}
-                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
-                  <Users size={16} /> {joining ? 'JOINING...' : status === 'none' ? 'TAKE SEAT 1 (CREATE TABLE)' : 'TAKE SEAT 2 (JOIN TABLE)'}
-                </button>
-              ) : (
-                <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO TAKE SEAT 2...</div>
-              )}
-              {seatError && <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-[11px] max-w-[280px] text-center">{seatError}</div>}
-            </div>
-          )}
         </div>
 
-        {/* last hand result + verification */}
-        {last && (showdown || matchOver) && (
+        {/* last hand result + verification + hand label */}
+        {last && reveal && (
           <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-gray-300">
+            {last.reason !== 'fold' && last.win_label && (
+              <span className="px-2 py-0.5 rounded-full border border-[#49EACB]/40 bg-[#49EACB]/10 text-[#49EACB] tracking-wide font-bold">
+                {last.win_label}
+              </span>
+            )}
             <span>
               hand #{last.hand_no}: {last.reason === 'fold' ? 'won by fold' : last.win_label}
               {last.winner_seat != null && ` · seat ${last.winner_seat + 1} +${last.pot}`}
@@ -419,45 +661,84 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
 
         {/* action dock */}
         {!matchOver && mySeat != null && status === 'active' && (
-          <div className="w-full max-w-[860px] rounded-2xl border border-white/10 bg-black/50 p-3 flex flex-wrap items-center justify-center gap-2">
-            {authBusy && <span className="text-[11px] text-amber-300 font-mono animate-pulse">SIGNING TABLE SESSION...</span>}
+          <div className="w-full max-w-[880px] rounded-2xl border border-white/10 bg-black/55 backdrop-blur-md p-3 flex flex-col items-stretch gap-3">
+            {authBusy && <span className="text-[11px] text-amber-300 font-mono animate-pulse text-center">SIGNING TABLE SESSION...</span>}
+
             {!hand && (
-              <button onClick={deal} disabled={busy || authBusy}
-                className="px-6 py-2.5 rounded-xl bg-[#49EACB] text-black font-black text-sm disabled:opacity-50 flex items-center gap-2">
-                <RefreshCw size={14} /> DEAL {m?.hand_no > 1 ? 'NEXT HAND' : 'FIRST HAND'}
-              </button>
+              <div className="flex justify-center">
+                <button onClick={deal} disabled={busy || authBusy}
+                  className="px-6 py-2.5 rounded-xl bg-[#49EACB] text-black font-black text-sm disabled:opacity-50 flex items-center gap-2 shadow-[0_0_24px_rgba(73,234,203,0.3)]">
+                  <RefreshCw size={14} /> DEAL {m?.hand_no > 1 ? 'NEXT HAND' : 'FIRST HAND'}
+                </button>
+              </div>
             )}
+
             {hand && myTurn && (
               <>
-                <button onClick={() => act('fold')} disabled={busy}
-                  className="px-5 py-2.5 rounded-xl bg-red-600/90 text-white text-sm font-bold disabled:opacity-50">FOLD</button>
-                {canCheck ? (
-                  <button onClick={() => act('check')} disabled={busy}
-                    className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-bold disabled:opacity-50">CHECK</button>
-                ) : (
-                  <button onClick={() => act('call')} disabled={busy}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold disabled:opacity-50">CALL {callAmount}</button>
-                )}
-                {maxTo > hand.current_bet && (
-                  <span className="flex items-center gap-1.5">
-                    <input type="number" min={minTo} max={maxTo} value={raiseTo}
-                      onChange={(e) => setRaiseTo(Math.max(0, parseInt(e.target.value || '0', 10)))}
-                      className="w-20 px-2 py-2 rounded-xl bg-black/60 border border-white/15 text-sm font-mono text-white" />
+                {/* primary actions */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button onClick={() => act('fold')} disabled={busy}
+                    className="px-5 py-2.5 rounded-xl bg-red-600/90 hover:bg-red-600 text-white text-sm font-bold disabled:opacity-50">FOLD</button>
+                  {canCheck ? (
+                    <button onClick={() => act('check')} disabled={busy}
+                      className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 hover:bg-white/15 text-white text-sm font-bold disabled:opacity-50">CHECK</button>
+                  ) : (
+                    <button onClick={() => act('call')} disabled={busy}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50">CALL {callAmount}</button>
+                  )}
+                  {maxTo > hand.current_bet && (
                     <button onClick={() => act(hand.current_bet > 0 ? 'raise' : 'bet', Math.min(Math.max(raiseTo, minTo), maxTo))} disabled={busy}
-                      className="px-4 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-black disabled:opacity-50">
-                      {hand.current_bet > 0 ? 'RAISE TO' : 'BET'} {Math.min(Math.max(raiseTo, minTo), maxTo)}
+                      className="px-5 py-2.5 rounded-xl bg-[#E8AF34] hover:brightness-110 text-black text-sm font-black disabled:opacity-50">
+                      {hand.current_bet > 0 ? 'RAISE TO' : 'BET'} {sizedTo}
                     </button>
-                    <button onClick={() => act(hand.current_bet > 0 ? 'raise' : 'bet', maxTo)} disabled={busy}
-                      className="px-3 py-2.5 rounded-xl border border-amber-500/50 text-amber-300 text-xs font-bold disabled:opacity-50">ALL-IN</button>
-                  </span>
+                  )}
+                </div>
+
+                {/* bet sizing: quick buttons + slider + readout */}
+                {maxTo > hand.current_bet && (
+                  <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-black/40 p-2.5">
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      <button onClick={() => setRaiseTo(minTo)} disabled={busy}
+                        className="px-3 py-1.5 rounded-lg border border-white/15 hover:bg-white/10 text-[11px] font-bold text-gray-200 font-mono disabled:opacity-50">MIN</button>
+                      <button onClick={() => setRaiseTo(halfPotTo)} disabled={busy}
+                        className="px-3 py-1.5 rounded-lg border border-white/15 hover:bg-white/10 text-[11px] font-bold text-gray-200 font-mono disabled:opacity-50">1/2 POT</button>
+                      <button onClick={() => setRaiseTo(fullPotTo)} disabled={busy}
+                        className="px-3 py-1.5 rounded-lg border border-white/15 hover:bg-white/10 text-[11px] font-bold text-gray-200 font-mono disabled:opacity-50">POT</button>
+                      <button onClick={() => setRaiseTo(maxTo)} disabled={busy}
+                        className="px-3 py-1.5 rounded-lg border border-[#E8AF34]/50 hover:bg-[#E8AF34]/15 text-[11px] font-bold text-[#E8AF34] font-mono disabled:opacity-50">ALL-IN</button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range" min={minTo} max={maxTo} value={Math.min(Math.max(raiseTo, minTo), maxTo)}
+                        onChange={(e) => setRaiseTo(parseInt(e.target.value || '0', 10))}
+                        disabled={busy}
+                        className="flex-1 accent-[#49EACB] cursor-pointer"
+                        style={{ height: 6 }}
+                      />
+                      <input
+                        type="number" min={minTo} max={maxTo} value={raiseTo}
+                        onChange={(e) => setRaiseTo(Math.max(0, parseInt(e.target.value || '0', 10)))}
+                        disabled={busy}
+                        className="w-20 px-2 py-1.5 rounded-lg bg-black/60 border border-white/15 text-sm font-mono text-white text-center"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-mono text-gray-400 px-0.5">
+                      <span>raise to <span className="text-[#E8AF34] font-bold">{sizedTo}</span></span>
+                      <span>stack after <span className="text-[#49EACB] font-bold">{Math.max(0, stackAfter)}</span></span>
+                    </div>
+                  </div>
                 )}
               </>
             )}
+
             {hand && !myTurn && !hand.all_in_runout && (
-              <span className="text-[11px] text-gray-400 font-mono">waiting for opponent...</span>
+              <span className="text-[11px] text-gray-400 font-mono text-center">waiting for opponent...</span>
             )}
-            <button onClick={() => act('resign')} disabled={busy}
-              className="px-3 py-2 rounded-xl border border-red-500/40 text-red-300 text-[11px] font-bold disabled:opacity-50">RESIGN MATCH</button>
+
+            <div className="flex items-center justify-center">
+              <button onClick={() => act('resign')} disabled={busy}
+                className="px-3 py-2 rounded-xl border border-red-500/40 hover:bg-red-500/10 text-red-300 text-[11px] font-bold disabled:opacity-50">RESIGN MATCH</button>
+            </div>
             {err && <span className="w-full text-center text-[11px] text-red-300">{err}</span>}
           </div>
         )}

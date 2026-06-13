@@ -1,6 +1,11 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Play, Users } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
+import PlayingCard from './games/PlayingCard';
+import { ChipStack } from './games/Chips';
+
+// Map our internal suit names to the PlayingCard primitive's suit codes.
+const SUIT_CODE = { hearts: 'H', diamonds: 'D', clubs: 'C', spades: 'S' };
 
 // Blackjack OPEN DUEL: persistent two-wallet multiplayer over the covenant
 // match record. There is no house dealer: both players co-commit shuffle
@@ -14,8 +19,8 @@ import useGameSync from '../hooks/useGameSync';
 //   P1 "h"* then "st"            P2 "h"* then "st" (hits keep the turn)
 // Hands are public by design (open duel); secrecy is not claimed.
 
+// SUITS feeds the oracle proof payload (e.g. "A♥"); leave its encoding intact.
 const SUITS = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
-const SUIT_COLORS = { hearts: 'text-red-500', diamonds: 'text-red-500', clubs: 'text-gray-900', spades: 'text-gray-900' };
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const CARD_VALUES = { A: 11, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 10, Q: 10, K: 10 };
 
@@ -113,21 +118,33 @@ function deriveTable(moves) {
   return { stage, commits: { c1, c2 }, seeds: { seed1, seed2 }, deck, drawIdx, p1, p2, v1, v2, bust, outcome };
 }
 
-function Card({ rank, suit, small }) {
-  const color = SUIT_COLORS[suit] || 'text-white';
+// A dealt hand of PlayingCards. Deals one card at a time with a stagger so each
+// card slides from the shoe (.anim-deal) and flips back->face. This is purely a
+// presentation concern: the cards/values are already derived by deriveTable().
+function HandRow({ cards, width = 64, faceUp = true, dim = false, win = false }) {
   return (
-    <div className={`relative ${small ? 'w-12 h-18' : 'w-20 h-28'} rounded-lg bg-white border border-gray-300 shadow-xl select-none transition-all hover:-translate-y-1`}>
-      <div className={`absolute top-0.5 left-1 flex flex-col items-center leading-none ${color}`}>
-        <span className={`${small ? 'text-[10px]' : 'text-sm'} font-bold`}>{rank}</span>
-        <span className={small ? 'text-[10px]' : 'text-sm'}>{SUITS[suit]}</span>
-      </div>
-      <div className={`absolute inset-0 flex items-center justify-center ${color}`}>
-        <span className={small ? 'text-xl' : 'text-3xl'}>{SUITS[suit]}</span>
-      </div>
-      <div className={`absolute bottom-0.5 right-1 flex flex-col items-center leading-none rotate-180 ${color}`}>
-        <span className={`${small ? 'text-[10px]' : 'text-sm'} font-bold`}>{rank}</span>
-        <span className={small ? 'text-[10px]' : 'text-sm'}>{SUITS[suit]}</span>
-      </div>
+    <div style={{ display: 'flex', gap: width * 0.18 }}>
+      {cards.map((card, i) => (
+        <div
+          key={i}
+          className="anim-deal"
+          style={{
+            animationDelay: `${i * 120}ms`,
+            opacity: dim ? 0.45 : 1,
+            filter: dim ? 'grayscale(0.85) brightness(0.8)' : 'none',
+            transition: 'opacity 220ms ease, filter 220ms ease',
+          }}
+        >
+          <PlayingCard
+            rank={card.rank}
+            suit={SUIT_CODE[card.suit]}
+            width={width}
+            faceDown={!faceUp}
+            flipping={faceUp}
+            highlight={win}
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -312,6 +329,22 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
   const seat = (p) => (p && p.length ? `${p.slice(0, 10)}...` : 'open');
   const iWon = result && mySeatNum && result.outcome === (mySeatNum === 1 ? 'p1' : 'p2');
+
+  // Presentation-only showdown flags (derived from already-computed values):
+  // at resolution, flip every card face-up, glow the winning hand kaspa-green,
+  // and grey out the busted hand. None of this touches game logic.
+  const showdown = !!result;
+  const p1Win = result && result.outcome === 'p1';
+  const p2Win = result && result.outcome === 'p2';
+  const p1Bust = table.bust === 1;
+  const p2Bust = table.bust === 2;
+  // Resolve flags from each viewer's perspective (seat 1 = X = white).
+  const oppIsP2 = mySeatNum !== 2; // for a spectator/seat-1, the top hand is p2
+  const oppWin = oppIsP2 ? p2Win : p1Win;
+  const oppBust = oppIsP2 ? p2Bust : p1Bust;
+  const meWin = oppIsP2 ? p1Win : p2Win;
+  const meBust = oppIsP2 ? p1Bust : p2Bust;
+
   const resultText = !result ? null
     : result.outcome === 'push' ? 'PUSH'
     : mySeatNum ? (iWon ? 'YOU WIN!' : 'OPPONENT WINS')
@@ -345,51 +378,124 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
       {/* Main area */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 gap-8 overflow-auto">
         {/* Table surface */}
-        <div className="relative w-full max-w-[850px] aspect-[2.2/1] rounded-[160px] border-[10px] border-amber-900/50 shadow-2xl"
-             style={{ background: 'radial-gradient(ellipse at 50% 55%, #0d6b2e 0%, #073d1a 50%, #031a0a 100%)' }}>
+        <div className="board-bezel-wood relative w-full max-w-[850px] aspect-[2.2/1] rounded-[160px] shadow-2xl">
+          <div className="felt-radial felt-noise absolute inset-0 rounded-[150px] overflow-hidden"
+               style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(73,234,203,0.10)' }}>
 
-          {/* Opponent area - top */}
-          <div className="absolute top-[13%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-            <div className="text-[12px] text-gray-400 uppercase tracking-[3px] font-mono">
-              {mySeatNum ? 'OPPONENT' : 'O SEAT'} <span className="lowercase tracking-normal">{seat(mySeatNum === 2 ? game?.player1 : game?.player2)}</span>
-            </div>
-            <div className="flex gap-2">
-              {(mySeatNum ? oppHand : table.p2).map((card, i) => (
-                <Card key={i} rank={card.rank} suit={card.suit} small />
-              ))}
-            </div>
-            <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? oppHand : table.p2).length ? (mySeatNum ? oppVal : table.v2) : ''}</div>
-          </div>
-
-          {/* Center status */}
-          <div className="absolute top-[47%] left-1/2 -translate-x-1/2 text-center w-full px-10">
-            {stageText && <div className="text-[10px] text-gray-300 uppercase tracking-[3px] font-mono">{stageText}</div>}
-            {seedAlert && <div className="mt-1 text-[10px] text-amber-300 font-mono">{seedAlert}</div>}
-            {result && (
-              <div className="inline-block px-4 py-1.5 rounded-xl bg-black/60 border border-white/10 mt-1">
-                <span className="text-sm font-bold font-mono uppercase tracking-wider text-[#49EACB]">{resultText}</span>
+            {/* Center insignia: BLACKJACK arc + PAYS 3:2 */}
+            <div className="absolute top-[30%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none select-none"
+                 style={{ opacity: 0.5 }}>
+              <svg width="320" height="86" viewBox="0 0 320 86" aria-hidden>
+                <defs>
+                  <path id="bj-arc" d="M30 80 A150 150 0 0 1 290 80" fill="none" />
+                </defs>
+                <text fill="#E8AF34" fontFamily="'Inter', sans-serif" fontWeight="700"
+                      fontSize="26" letterSpacing="8">
+                  <textPath href="#bj-arc" startOffset="50%" textAnchor="middle">BLACKJACK</textPath>
+                </text>
+              </svg>
+              <div className="mt-1 font-mono tracking-[6px]" style={{ color: '#49EACB', fontSize: 13, opacity: 0.85 }}>
+                PAYS 3:2
               </div>
-            )}
-          </div>
-
-          {/* My area - bottom */}
-          <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-            <div className="flex gap-2">
-              {(mySeatNum ? myHand : table.p1).map((card, i) => (
-                <Card key={i} rank={card.rank} suit={card.suit} />
-              ))}
+              <div className="mt-1.5 font-mono tracking-[3px] text-white/35" style={{ fontSize: 8 }}>
+                DEALER MUST DRAW TO 16 AND STAND ON ALL 17S
+              </div>
             </div>
-            <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? myHand : table.p1).length ? (mySeatNum ? myVal : table.v1) : ''}</div>
-            <div className="text-[12px] text-gray-400 uppercase tracking-[3px] font-mono">
-              {mySeatNum ? 'YOU' : 'X SEAT'} <span className="lowercase tracking-normal">{seat(mySeatNum === 2 ? game?.player2 : game?.player1)}</span>
+
+            {/* Deck / shoe object on the upper-right corner of the felt */}
+            <div className="absolute top-[8%] right-[6%] pointer-events-none select-none" aria-hidden>
+              <div className="relative" style={{ width: 58, height: 78 }}>
+                {/* stacked deck edges */}
+                <div className="absolute inset-0 rounded-[8px]"
+                     style={{ background: 'linear-gradient(160deg,#0b2a26,#06151a)', boxShadow: '0 6px 14px rgba(0,0,0,0.5)', border: '1px solid rgba(232,175,52,0.5)' }} />
+                <div className="absolute rounded-[8px]" style={{ inset: '-3px -3px 3px -3px', background: 'linear-gradient(160deg,#0e342f,#08191f)', zIndex: -1, border: '1px solid rgba(232,175,52,0.3)' }} />
+                <div className="absolute rounded-[8px]" style={{ inset: '-6px -6px 6px -6px', background: 'linear-gradient(160deg,#0e342f,#08191f)', zIndex: -2, border: '1px solid rgba(232,175,52,0.2)' }} />
+                {/* gold inner frame + DAG diamond mark */}
+                <div className="absolute" style={{ inset: 6, borderRadius: 5, border: '1px solid rgba(232,175,52,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden>
+                    <g fill="none" stroke="#49EACB" strokeWidth="6" opacity="0.85">
+                      <path d="M50 14 L86 50 L50 86 L14 50 Z" />
+                    </g>
+                  </svg>
+                </div>
+              </div>
+              <div className="text-center font-mono text-white/30 tracking-[2px]" style={{ fontSize: 7, marginTop: 4 }}>SHOE</div>
+            </div>
+
+            {/* Opponent area - top */}
+            <div className="absolute top-[13%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+              <div className="text-[12px] text-gray-300 uppercase tracking-[3px] font-mono">
+                {mySeatNum ? 'OPPONENT' : 'O SEAT'} <span className="lowercase tracking-normal text-gray-400">{seat(mySeatNum === 2 ? game?.player1 : game?.player2)}</span>
+              </div>
+              {/* betting circle for the opponent */}
+              <div className="relative flex items-center justify-center"
+                   style={{ minHeight: 72, padding: '4px 18px', borderRadius: 999,
+                            boxShadow: oppWin ? '0 0 0 2px #49EACB, 0 0 22px rgba(73,234,203,0.5)' : 'inset 0 0 0 2px rgba(255,255,255,0.10)',
+                            transition: 'box-shadow 260ms ease' }}>
+                {(mySeatNum ? oppHand : table.p2).length ? (
+                  <HandRow
+                    cards={mySeatNum ? oppHand : table.p2}
+                    width={48}
+                    faceUp={showdown}
+                    dim={showdown && oppBust}
+                    win={showdown && oppWin}
+                  />
+                ) : (
+                  <span className="font-mono text-white/20 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
+                )}
+              </div>
+              <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? oppHand : table.p2).length ? (mySeatNum ? oppVal : table.v2) : ''}</div>
+            </div>
+
+            {/* Center status */}
+            <div className="absolute top-[49%] left-1/2 -translate-x-1/2 text-center w-full px-10">
+              {stageText && <div className="text-[10px] text-gray-300 uppercase tracking-[3px] font-mono">{stageText}</div>}
+              {seedAlert && <div className="mt-1 text-[10px] text-amber-300 font-mono">{seedAlert}</div>}
+              {result && (
+                <div className="inline-block px-4 py-1.5 rounded-xl bg-black/60 border border-white/10 mt-1 anim-pop">
+                  <span className="text-sm font-bold font-mono uppercase tracking-wider text-[#49EACB]">{resultText}</span>
+                </div>
+              )}
+            </div>
+
+            {/* My area - bottom */}
+            <div className="absolute bottom-[9%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+              {/* betting circle for me */}
+              <div className="relative flex items-center justify-center"
+                   style={{ minHeight: 96, padding: '4px 18px', borderRadius: 999,
+                            boxShadow: meWin ? '0 0 0 2px #49EACB, 0 0 26px rgba(73,234,203,0.55)' : 'inset 0 0 0 2px rgba(255,255,255,0.12)',
+                            transition: 'box-shadow 260ms ease' }}>
+                {(mySeatNum ? myHand : table.p1).length ? (
+                  <HandRow
+                    cards={mySeatNum ? myHand : table.p1}
+                    width={64}
+                    faceUp={showdown}
+                    dim={showdown && meBust}
+                    win={showdown && meWin}
+                  />
+                ) : (
+                  <span className="font-mono text-white/20 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
+                )}
+              </div>
+              <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? myHand : table.p1).length ? (mySeatNum ? myVal : table.v1) : ''}</div>
+              <div className="text-[12px] text-gray-300 uppercase tracking-[3px] font-mono">
+                {mySeatNum ? 'YOU' : 'X SEAT'} <span className="lowercase tracking-normal text-gray-400">{seat(mySeatNum === 2 ? game?.player2 : game?.player1)}</span>
+              </div>
+            </div>
+
+            {/* Pot display: a real chip stack that slides toward the winner on resolution */}
+            <div className="absolute top-[6%] left-[12%] text-center"
+                 style={{
+                   transform: result
+                     ? (result.outcome === 'push' ? 'none' : `translateY(${(oppIsP2 ? oppWin : meWin) ? 120 : -10}px)`)
+                     : 'none',
+                   transition: 'transform 600ms cubic-bezier(0.22,1,0.36,1)',
+                 }}>
+              <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">POT</div>
+              <ChipStack amount={totalPot} size={36} />
             </div>
           </div>
-
-          {/* Pot display */}
-          <div className="absolute top-[5%] right-[15%] text-center">
-            <div className="text-[10px] text-gray-400 uppercase tracking-widest">POT</div>
-            <div className="text-lg font-bold text-emerald-400 tabular-nums">{totalPot} KAS</div>
-          </div>
+          {/* end felt surface */}
 
           {/* Join overlay */}
           {status !== 'active' && !result && (

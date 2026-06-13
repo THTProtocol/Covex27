@@ -1,0 +1,9 @@
+[Unit]
+Description=Covex indexer/health monitor + alerting (GATE 1)
+After=network-online.target covex-backend.service
+
+[Service]
+Type=oneshot
+# WEBHOOK_URL (Slack/Discord/ntfy) is read from this file if present; "-" = optional.
+EnvironmentFile=-/etc/covex/alert.env
+ExecStart=/usr/bin/env bash /mnt/HC_Volume_105579109/Covex27/deploy/monitor-and-alert.sh

@@ -659,7 +659,12 @@ async fn health_handler() -> Json<serde_json::Value> {
             "testnet_10": has_tn10_wrpc,
             "mainnet": has_mainnet_wrpc
         },
-        "mainnet_ready": has_mainnet_wrpc
+        // Honest split: a configured wRPC URL is NOT readiness. Mainnet covenants are
+        // indexed/served only once the operator flips COVEX_MAINNET_COVENANTS_ENABLED
+        // (Toccata gate). Report both sub-signals so nobody reads "ready" off the URL alone.
+        "mainnet_wrpc_configured": has_mainnet_wrpc,
+        "mainnet_covenants_enabled": crawler::mainnet_covenants_enabled(),
+        "mainnet_ready": has_mainnet_wrpc && crawler::mainnet_covenants_enabled()
     }))
 }
 
@@ -687,7 +692,12 @@ async fn root_handler() -> Json<serde_json::Value> {
             "testnet_10": has_tn10_wrpc,
             "mainnet": has_mainnet_wrpc
         },
-        "mainnet_ready": has_mainnet_wrpc
+        // Honest split: a configured wRPC URL is NOT readiness. Mainnet covenants are
+        // indexed/served only once the operator flips COVEX_MAINNET_COVENANTS_ENABLED
+        // (Toccata gate). Report both sub-signals so nobody reads "ready" off the URL alone.
+        "mainnet_wrpc_configured": has_mainnet_wrpc,
+        "mainnet_covenants_enabled": crawler::mainnet_covenants_enabled(),
+        "mainnet_ready": has_mainnet_wrpc && crawler::mainnet_covenants_enabled()
     }))
 }
 
@@ -724,7 +734,9 @@ async fn status_handler(
             "testnet_10": std::env::var("KASPA_WRPC_URL_TN10").is_ok(),
             "mainnet": has_mainnet_wrpc
         },
-        "mainnet_ready": has_mainnet_wrpc,
+        "mainnet_wrpc_configured": has_mainnet_wrpc,
+        "mainnet_covenants_enabled": crawler::mainnet_covenants_enabled(),
+        "mainnet_ready": has_mainnet_wrpc && crawler::mainnet_covenants_enabled(),
         "message": "Indexer active"
     }))
 }
@@ -849,7 +861,10 @@ async fn covenant_by_id_handler(
             // response. Without this, a user who closed the tab could never recover funds
             // (the on-chain P2SH wrapper aa20<hash>87 is one-way). The redeem script is not
             // a secret - it is required to spend and is safe to publish.
-            if let Some(p2sh) = db::get_p2sh_covenant(&db, &c.tx_id) {
+            // Covenant ids are "<txid>:<outpoint_index>" but p2sh_covenants is keyed by
+            // the raw txid, so strip the ":N" suffix before the lookup.
+            let p2sh_txid = c.tx_id.split(':').next().unwrap_or(&c.tx_id);
+            if let Some(p2sh) = db::get_p2sh_covenant(&db, p2sh_txid) {
                 v["redeem_script_hex"] = json!(p2sh.redeem_script_hex);
                 v["redeem_kind"] = json!(p2sh.redeem_kind);
                 v["p2sh_address"] = json!(p2sh.p2sh_address);

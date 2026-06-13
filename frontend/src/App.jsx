@@ -138,7 +138,11 @@ function LiveStatus() {
           const git = (d.git_commit || 'dev').slice(0, 7);
           const total = (list && typeof list.total === 'number') ? list.total : (d.total_covenants || 0);
           const totalStr = total > 1000 ? `${(total / 1000).toFixed(1)}k` : total.toString();
-          const ready = d.mainnet_ready ? ' • mainnet-ready' : '';
+          // Honest mainnet signal: "live" only when the covenant gate is actually open,
+          // "wRPC configured" when only the node URL is set (not yet indexing covenants).
+          const ready = d.mainnet_ready
+            ? ' • mainnet live'
+            : (d.mainnet_wrpc_configured ? ' • mainnet wRPC configured' : '');
           setInfo(`${git} • ${selectedNet} • ${totalStr} covenants${ready}`);
         })
         .catch(() => { /* silent, keep footer clean */ });

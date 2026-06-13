@@ -83,6 +83,11 @@ export default function EnforcedDeploy() {
       if (!j.success) { setError(j.error || 'Deploy failed.'); return; }
       setMine((m) => [{
         tx: j.deploy_tx_id, p2sh: j.p2sh_address, kind: j.redeem_kind, kas: j.locked_kas,
+        // Keep the redeem script: it is REQUIRED to spend and is the only thing that
+        // makes the covenant recoverable without trusting Covex. Also re-servable from
+        // GET /api/covenants/<tx>:0 (redeem_script_hex), but save it here so the user
+        // has it immediately.
+        redeem_script_hex: j.redeem_script_hex || null,
         preimage, dev: usesDevWallets, lock_daa: redeem.lock_daa || null, spent: null,
       }, ...m]);
     } catch (e) {
@@ -220,6 +225,12 @@ export default function EnforcedDeploy() {
                   deploy tx: {String(c.tx).slice(0, 24)}...
                   <a href={`/covenant/${c.tx}:0`} className="inline-flex items-center gap-1 text-gray-400 hover:text-kaspa-green"><ExternalLink size={11} /> view</a>
                 </div>
+                {c.redeem_script_hex && !c.spent && (
+                  <div className="text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2 mt-1">
+                    <span className="font-sans font-semibold not-italic">Save your redeem script</span> - it is REQUIRED to spend this covenant and is what makes it recoverable without trusting Covex (also re-servable from the covenant page):
+                    <div className="mt-1">{c.redeem_script_hex} <CopyBtn text={c.redeem_script_hex} /></div>
+                  </div>
+                )}
                 {c.preimage && !c.spent && (
                   <div className="text-[11px] text-amber-300 font-mono break-all">secret (save to redeem): {c.preimage} <CopyBtn text={c.preimage} /></div>
                 )}

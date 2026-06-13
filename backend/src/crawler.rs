@@ -101,7 +101,7 @@ fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64, network_
 }
 
 /// True once the operator flips the mainnet covenant gate on (Toccata activation).
-fn mainnet_covenants_enabled() -> bool {
+pub(crate) fn mainnet_covenants_enabled() -> bool {
     std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() == Ok("true")
 }
 

@@ -538,6 +538,23 @@ pub async fn p2sh_deploy_handler(
                 &db, &tx_id_str, &req.network, &p2sh_addr, &redeem_hex, &redeem_kind, stake_sompi, 0,
                 &deployer_addr_str,
             );
+
+            // Also index it as a covenant IMMEDIATELY (mirrors signer.rs) so real
+            // script-enforced covenants show up in the explorer at once with their
+            // honest on-chain label, instead of waiting for the crawler to walk to the
+            // tip. The stored script_hex is the P2SH wrapper (aa20<hash>87), so
+            // reality_for_script classifies it on-chain. id matches the crawler's
+            // `<txid>:0` form so the later crawl upserts the same row.
+            let p2sh_script_hex = hex::encode(p2sh_script_pubkey(&redeem).script());
+            let cid = format!("{}:0", tx_id_str);
+            let recv = serde_json::to_string(&vec![p2sh_addr.clone()]).unwrap_or_default();
+            let ctype = format!("p2sh-{}", req.redeem.kind);
+            let summary = format!("Script-enforced {} covenant, {} KAS locked", req.redeem.kind, stake_sompi as f64 / 1e8);
+            let _ = db::insert_covenant(
+                &db, &cid, &p2sh_addr, stake_sompi, &crate::compute_script_hash(&p2sh_script_hex),
+                &p2sh_script_hex, &ctype, "P2SH Commitments", &deployer_addr_str, &summary, 0,
+                "EXPLORER", &summary, &recv, &req.network,
+            );
             info!(
                 "P2SH covenant deployed: tx={} kind={} addr={} locked={} sompi",
                 tx_id_str, redeem_kind, p2sh_addr, stake_sompi

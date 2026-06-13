@@ -21,14 +21,33 @@
 //! `TxScriptEngine` to prove a correct spend passes and a wrong one fails - the
 //! consensus-correctness gate before any value is ever locked on-chain.
 
+use axum::{routing::post, Extension, Json, Router};
 use kaspa_addresses::{Address, Prefix};
 use kaspa_consensus_core::hashing::sighash::{calc_schnorr_signature_hash, SigHashReusedValues};
 use kaspa_consensus_core::hashing::sighash_type::SIG_HASH_ALL;
-use kaspa_consensus_core::tx::{ScriptPublicKey, SignableTransaction, VerifiableTransaction};
+use kaspa_consensus_core::sign::sign_with_multiple_v2;
+use kaspa_consensus_core::subnets::SubnetworkId;
+use kaspa_consensus_core::tx::{
+    ScriptPublicKey, ScriptVec, SignableTransaction, Transaction, TransactionInput,
+    TransactionOutpoint, TransactionOutput, UtxoEntry, VerifiableTransaction,
+};
+use kaspa_rpc_core::api::rpc::RpcApi;
+use kaspa_rpc_core::RpcTransaction;
 use kaspa_txscript::opcodes::codes::{OpBlake2b, OpCheckSig, OpEqualVerify};
 use kaspa_txscript::script_builder::ScriptBuilder;
+use kaspa_wrpc_client::KaspaRpcClient;
+use rusqlite::Connection;
+use serde::Deserialize;
+use std::sync::{Arc, Mutex};
+use tracing::{info, warn};
+
+use crate::db;
+use crate::dev_wallets;
 
 pub type BResult<T> = Result<T, String>;
+
+/// Minimum tx fee (0.0001 KAS), same as signer.rs.
+const TX_FEE: u64 = 10_000;
 
 /// The covenant kinds this builder can lock funds into. Each maps to a redeem
 /// script that is genuinely enforced by Kaspa consensus (no oracle, no silverc).
@@ -141,6 +160,410 @@ pub fn xonly_from_seckey(seckey: &[u8; 32]) -> BResult<[u8; 32]> {
     let kp = secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, seckey)
         .map_err(|e| format!("bad seckey: {e}"))?;
     Ok(kp.x_only_public_key().0.serialize())
+}
+
+// ── HTTP handlers: deploy a P2SH covenant and spend (redeem) it ──────
+
+fn default_network() -> String {
+    "testnet-12".to_string()
+}
+
+/// Parse a kaspa address into its ScriptPublicKey (P2PK schnorr=32 / P2PK ecdsa=33
+/// not handled here / P2SH=via address). Mirrors signer.rs for the 32-byte case.
+fn script_pub_key_from_address(addr_str: &str) -> BResult<ScriptPublicKey> {
+    let addr = Address::try_from(addr_str).map_err(|e| format!("invalid address '{addr_str}': {e}"))?;
+    let payload = addr.payload.as_slice();
+    let script_vec: Vec<u8> = match payload.len() {
+        32 => {
+            let mut s = Vec::with_capacity(34);
+            s.push(0x20);
+            s.extend_from_slice(payload);
+            s.push(0xac);
+            s
+        }
+        20 => {
+            // P2SH address payload is the 32-byte script hash, but kaspa P2SH
+            // addresses carry a 32-byte payload; 20 is legacy p2pkh. Keep parity
+            // with signer.rs which handles both.
+            let mut s = Vec::with_capacity(25);
+            s.extend_from_slice(&[0x76, 0xa9, 0x14]);
+            s.extend_from_slice(payload);
+            s.extend_from_slice(&[0x88, 0xac]);
+            s
+        }
+        n => return Err(format!("unexpected address payload length {n}")),
+    };
+    Ok(ScriptPublicKey::new(0, ScriptVec::from_slice(&script_vec)))
+}
+
+async fn client_for_network(network: &str) -> BResult<Arc<KaspaRpcClient>> {
+    let wrpc = if network == "testnet-10" {
+        std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
+    } else if network == "mainnet" || network == "mainnet-1" {
+        std::env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+    } else {
+        std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
+    };
+    let c = KaspaRpcClient::new(kaspa_wrpc_client::WrpcEncoding::Borsh, Some(&wrpc), None, None, None)
+        .map_err(|e| format!("wRPC client create failed for {network}: {e}"))?;
+    let _ = c.connect(None).await;
+    Ok(Arc::new(c))
+}
+
+/// Resolve the (private_key_hex, address) that signs, honoring use_dev_mode for the
+/// two testnet dev wallets (never on mainnet). Mirrors signer.rs.
+fn resolve_signing_key(
+    network: &str,
+    addr: &str,
+    private_key_hex: &str,
+    use_dev_mode: bool,
+) -> BResult<([u8; 32], String)> {
+    if (network == "mainnet" || network == "mainnet-1") && use_dev_mode {
+        return Err("dev mode is disabled on mainnet; sign with a real wallet".into());
+    }
+    let (hexkey, address) = if use_dev_mode {
+        if addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12 || addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10 {
+            if network == "testnet-10" {
+                (dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10.to_string(), dev_wallets::DEV_WALLET_2_ADDRESS_TN10.to_string())
+            } else {
+                (dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12.to_string(), dev_wallets::DEV_WALLET_2_ADDRESS_TN12.to_string())
+            }
+        } else if network == "testnet-10" {
+            (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10.to_string(), dev_wallets::DEV_WALLET_1_ADDRESS_TN10.to_string())
+        } else {
+            (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12.to_string(), dev_wallets::DEV_WALLET_1_ADDRESS_TN12.to_string())
+        }
+    } else {
+        (private_key_hex.trim().to_string(), addr.to_string())
+    };
+    let clean = hexkey.trim().trim_start_matches("0x");
+    let bytes: [u8; 32] = hex::decode(clean)
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or_else(|| "invalid private key: must be 64 hex chars".to_string())?;
+    Ok((bytes, address))
+}
+
+#[derive(Deserialize)]
+pub struct RedeemSpec {
+    /// "singlesig" or "hashlock"
+    pub kind: String,
+    /// hashlock only: the secret preimage as hex. blake2b256(preimage) becomes the
+    /// lock hash. The preimage is NEVER stored - the spender re-supplies it.
+    #[serde(default)]
+    pub preimage_hex: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct P2shDeployRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    pub deployer_addr: String,
+    #[serde(default)]
+    pub private_key_hex: String,
+    #[serde(default)]
+    pub use_dev_mode: bool,
+    /// Amount of KAS to LOCK into the P2SH covenant (genuinely script-locked).
+    pub stake_kas: f64,
+    pub redeem: RedeemSpec,
+}
+
+/// POST /covenant/p2sh/deploy - lock `stake_kas` into a real P2SH covenant.
+pub async fn p2sh_deploy_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<P2shDeployRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+
+    let (seckey, deployer_addr_str) =
+        match resolve_signing_key(&req.network, &req.deployer_addr, &req.private_key_hex, req.use_dev_mode) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
+
+    // Redeem pubkey = the deployer's own key (so the deployer can redeem).
+    let xonly = match xonly_from_seckey(&seckey) {
+        Ok(x) => x,
+        Err(e) => return err(e),
+    };
+    let (redeem, redeem_kind) = match req.redeem.kind.as_str() {
+        "singlesig" => match redeem_singlesig(&xonly) {
+            Ok(r) => (r, "singlesig".to_string()),
+            Err(e) => return err(e),
+        },
+        "hashlock" => {
+            let preimage_hex = match &req.redeem.preimage_hex {
+                Some(p) => p,
+                None => return err("hashlock requires preimage_hex".into()),
+            };
+            let preimage = match hex::decode(preimage_hex.trim()) {
+                Ok(b) => b,
+                Err(e) => return err(format!("bad preimage_hex: {e}")),
+            };
+            let hash = blake2b256(&preimage);
+            match redeem_hashlock(&hash, &xonly) {
+                Ok(r) => (r, "hashlock".to_string()),
+                Err(e) => return err(e),
+            }
+        }
+        other => return err(format!("unknown redeem kind '{other}' (singlesig|hashlock)")),
+    };
+
+    let p2sh_spk = p2sh_script_pubkey(&redeem);
+    let p2sh_addr = match p2sh_address(&redeem, prefix_for_network(&req.network)) {
+        Ok(a) => a.to_string(),
+        Err(e) => return err(e),
+    };
+
+    let stake_sompi = (req.stake_kas * 100_000_000.0).round() as u64;
+    if stake_sompi == 0 {
+        return err("stake_kas must be > 0".into());
+    }
+
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let deployer_addr = match Address::try_from(deployer_addr_str.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("invalid deployer address: {e}")),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![deployer_addr.clone()]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    if utxos.is_empty() {
+        return err("no UTXOs for deployer address".into());
+    }
+
+    // Single largest UTXO funds the lock (keeps mass small).
+    let best = utxos.iter().max_by_key(|u| u.utxo_entry.amount).unwrap();
+    let total_input = best.utxo_entry.amount;
+    let total_cost = stake_sompi + TX_FEE;
+    if total_input < total_cost {
+        return err(format!(
+            "insufficient balance: have {} sompi, need {} sompi",
+            total_input, total_cost
+        ));
+    }
+    let deployer_script = best.utxo_entry.script_public_key.clone();
+    let change = total_input - total_cost;
+
+    // Output 0 = stake LOCKED to the P2SH script. Output 1 = change to deployer.
+    let mut outputs = vec![TransactionOutput { value: stake_sompi, script_public_key: p2sh_spk }];
+    if change > 0 {
+        outputs.push(TransactionOutput { value: change, script_public_key: deployer_script });
+    }
+
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint {
+            transaction_id: best.outpoint.transaction_id,
+            index: best.outpoint.index,
+        },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: 1,
+    }];
+
+    let unsigned = Transaction::new_non_finalized(
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        vec![], // no payload: the P2SH output script IS the covenant
+    );
+    let entries = vec![UtxoEntry {
+        amount: best.utxo_entry.amount,
+        script_public_key: best.utxo_entry.script_public_key.clone(),
+        block_daa_score: best.utxo_entry.block_daa_score,
+        is_coinbase: best.utxo_entry.is_coinbase,
+    }];
+    let signable = SignableTransaction::with_entries(unsigned, entries);
+    let signed = match sign_with_multiple_v2(signable, &[seckey]).fully_signed() {
+        Ok(tx) => tx,
+        Err(e) => return err(format!("signing failed: {e:?}")),
+    };
+    let mut signed = signed;
+    signed.tx.finalize();
+    let rpc_tx = RpcTransaction::from(&signed.tx);
+
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => {
+            let tx_id_str = tx_id.to_string();
+            let redeem_hex = hex::encode(&redeem);
+            let _ = db::insert_p2sh_covenant(
+                &db, &tx_id_str, &req.network, &p2sh_addr, &redeem_hex, &redeem_kind, stake_sompi, 0,
+                &deployer_addr_str,
+            );
+            info!(
+                "P2SH covenant deployed: tx={} kind={} addr={} locked={} sompi",
+                tx_id_str, redeem_kind, p2sh_addr, stake_sompi
+            );
+            Json(serde_json::json!({
+                "success": true,
+                "deploy_tx_id": tx_id_str,
+                "p2sh_address": p2sh_addr,
+                "redeem_script_hex": redeem_hex,
+                "redeem_kind": redeem_kind,
+                "outpoint": format!("{}:0", tx_id_str),
+                "locked_sompi": stake_sompi,
+                "locked_kas": stake_sompi as f64 / 100_000_000.0,
+                "note": "Funds are locked to the script hash, not the deployer. Spend via POST /covenant/p2sh/spend."
+            }))
+        }
+        Err(e) => err(format!("broadcast rejected: {e}")),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct P2shSpendRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    /// The deploy tx id of the P2SH covenant to redeem.
+    pub deploy_tx_id: String,
+    #[serde(default)]
+    pub private_key_hex: String,
+    #[serde(default)]
+    pub use_dev_mode: bool,
+    /// Where the redeemed funds go.
+    pub destination_addr: String,
+    /// hashlock only: the preimage (hex) that satisfies the lock.
+    #[serde(default)]
+    pub preimage_hex: Option<String>,
+}
+
+/// POST /covenant/p2sh/spend - redeem a P2SH covenant by satisfying its script.
+pub async fn p2sh_spend_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<P2shSpendRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+
+    let cov = match db::get_p2sh_covenant(&db, &req.deploy_tx_id) {
+        Some(c) => c,
+        None => return err(format!("no P2SH covenant found for deploy_tx_id {}", req.deploy_tx_id)),
+    };
+    if let Some(spent) = &cov.spent_tx_id {
+        return err(format!("covenant already spent in tx {spent}"));
+    }
+    let redeem = match hex::decode(&cov.redeem_script_hex) {
+        Ok(b) => b,
+        Err(e) => return err(format!("corrupt stored redeem script: {e}")),
+    };
+    let (seckey, _addr) =
+        match resolve_signing_key(&req.network, &req.destination_addr, &req.private_key_hex, req.use_dev_mode) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
+    let keypair = match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &seckey) {
+        Ok(k) => k,
+        Err(e) => return err(format!("bad key: {e}")),
+    };
+
+    // Extra satisfier pushes (after the sig): the preimage for a hashlock.
+    let extra: Vec<Vec<u8>> = if cov.redeem_kind == "hashlock" {
+        let p = match &req.preimage_hex {
+            Some(p) => p,
+            None => return err("hashlock spend requires preimage_hex".into()),
+        };
+        match hex::decode(p.trim()) {
+            Ok(b) => vec![b],
+            Err(e) => return err(format!("bad preimage_hex: {e}")),
+        }
+    } else {
+        vec![]
+    };
+
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    // Find the P2SH UTXO at (deploy_tx_id, outpoint_index).
+    let p2sh_addr = match Address::try_from(cov.p2sh_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("stored p2sh address invalid: {e}")),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![p2sh_addr]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    let utxo = utxos.iter().find(|u| {
+        u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index
+    });
+    let utxo = match utxo {
+        Some(u) => u,
+        None => return err("P2SH UTXO not found on-chain (unconfirmed, already spent, or wrong network)".into()),
+    };
+    let amount = utxo.utxo_entry.amount;
+    if amount <= TX_FEE {
+        return err("locked amount does not cover the tx fee".into());
+    }
+    let dest_script = match script_pub_key_from_address(&req.destination_addr) {
+        Ok(s) => s,
+        Err(e) => return err(e),
+    };
+    let p2sh_spk = p2sh_script_pubkey(&redeem);
+
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint {
+            transaction_id: utxo.outpoint.transaction_id,
+            index: utxo.outpoint.index,
+        },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: 1,
+    }];
+    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let unsigned = Transaction::new_non_finalized(
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        vec![],
+    );
+    let entries = vec![UtxoEntry {
+        amount,
+        script_public_key: p2sh_spk,
+        block_daa_score: utxo.utxo_entry.block_daa_score,
+        is_coinbase: utxo.utxo_entry.is_coinbase,
+    }];
+    let mut signable = SignableTransaction::with_entries(unsigned, entries);
+    let sig_script = match build_p2sh_signature_script(&signable, 0, &keypair, &redeem, &extra) {
+        Ok(s) => s,
+        Err(e) => return err(format!("build spend script: {e}")),
+    };
+    signable.tx.inputs[0].signature_script = sig_script;
+    signable.tx.finalize();
+    let rpc_tx = RpcTransaction::from(&signable.tx);
+
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => {
+            let spent_id = tx_id.to_string();
+            let _ = db::mark_p2sh_spent(&db, &cov.tx_id, &spent_id);
+            info!("P2SH covenant {} redeemed in tx {}", cov.tx_id, spent_id);
+            Json(serde_json::json!({
+                "success": true,
+                "spend_tx_id": spent_id,
+                "redeemed_sompi": amount - TX_FEE,
+                "redeemed_kas": (amount - TX_FEE) as f64 / 100_000_000.0,
+                "destination": req.destination_addr,
+            }))
+        }
+        Err(e) => {
+            warn!("P2SH spend broadcast rejected for {}: {}", cov.tx_id, e);
+            err(format!("broadcast rejected: {e}"))
+        }
+    }
+}
+
+pub fn p2sh_routes() -> Router {
+    Router::new()
+        .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
+        .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
 }
 
 #[cfg(test)]

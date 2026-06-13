@@ -388,6 +388,7 @@ async fn main() {
         .layer(Extension(db.clone()))
         .merge(mixer::mixer_routes().layer(Extension(db.clone())))
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))
+        .merge(covenant_builder::p2sh_routes().layer(Extension(db.clone())))
         .layer(app)
         // Per-IP token bucket on expensive routes (oracle verifies spawn Node, compile
         // spawns silverc, sign-and-broadcast hits wRPC). GETs on list endpoints are cheap

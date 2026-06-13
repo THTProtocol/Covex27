@@ -214,6 +214,19 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             address      TEXT NOT NULL,
             expires      INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS p2sh_covenants (
+            tx_id             TEXT PRIMARY KEY,
+            network           TEXT NOT NULL,
+            p2sh_address      TEXT NOT NULL,
+            redeem_script_hex TEXT NOT NULL,
+            redeem_kind       TEXT NOT NULL,
+            amount_sompi      INTEGER NOT NULL,
+            outpoint_index    INTEGER NOT NULL,
+            owner_addr        TEXT NOT NULL,
+            spent_tx_id       TEXT,
+            created_at        INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_p2sh_address ON p2sh_covenants(p2sh_address);
         ",
     )?;
 
@@ -1235,6 +1248,76 @@ pub fn set_visibility(
         "INSERT OR REPLACE INTO visibilities (covenant_id, tier, featured, priority, custom_domain)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         params![covenant_id, tier, featured as i32, priority, custom_domain],
+    )?;
+    Ok(())
+}
+
+// ── P2SH covenants (real script-locked custody, roadmap B3) ──────────
+
+/// A persisted P2SH covenant: the redeem script + funded outpoint needed to later
+/// build a spend transaction that redeems the locked funds.
+pub struct P2shCovenant {
+    pub tx_id: String,
+    pub network: String,
+    pub p2sh_address: String,
+    pub redeem_script_hex: String,
+    pub redeem_kind: String,
+    pub amount_sompi: u64,
+    pub outpoint_index: u32,
+    pub owner_addr: String,
+    pub spent_tx_id: Option<String>,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn insert_p2sh_covenant(
+    db: &Mutex<Connection>,
+    tx_id: &str,
+    network: &str,
+    p2sh_address: &str,
+    redeem_script_hex: &str,
+    redeem_kind: &str,
+    amount_sompi: u64,
+    outpoint_index: u32,
+    owner_addr: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO p2sh_covenants
+         (tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr, spent_tx_id, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, unixepoch())",
+        params![tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr],
+    )?;
+    Ok(())
+}
+
+pub fn get_p2sh_covenant(db: &Mutex<Connection>, tx_id: &str) -> Option<P2shCovenant> {
+    let conn = db.lock().unwrap();
+    conn.query_row(
+        "SELECT tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr, spent_tx_id
+         FROM p2sh_covenants WHERE tx_id = ?1",
+        params![tx_id],
+        |r| {
+            Ok(P2shCovenant {
+                tx_id: r.get(0)?,
+                network: r.get(1)?,
+                p2sh_address: r.get(2)?,
+                redeem_script_hex: r.get(3)?,
+                redeem_kind: r.get(4)?,
+                amount_sompi: r.get(5)?,
+                outpoint_index: r.get(6)?,
+                owner_addr: r.get(7)?,
+                spent_tx_id: r.get(8)?,
+            })
+        },
+    )
+    .ok()
+}
+
+pub fn mark_p2sh_spent(db: &Mutex<Connection>, tx_id: &str, spent_tx_id: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE p2sh_covenants SET spent_tx_id = ?2 WHERE tx_id = ?1",
+        params![tx_id, spent_tx_id],
     )?;
     Ok(())
 }

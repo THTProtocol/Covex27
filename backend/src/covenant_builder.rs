@@ -275,6 +275,69 @@ pub fn build_htlc_signature_script(
         .map_err(|e| format!("htlc signature script: {e}"))
 }
 
+/// Redeem script for a trustless 2-player game channel (no oracle key):
+/// `OP_IF  <p1> OpCheckSigVerify <p2> OpCheckSig
+///  OP_ELSE <lock_daa> OpCheckLockTimeVerify <p1> OpCheckSig  OP_ENDIF`.
+/// IF = the cooperative close: BOTH players co-sign the agreed winner's payout, so the
+/// chain pays the winner with no third party. ELSE = the timeout default: after `lock_daa`
+/// the funder (p1) can refund, so a non-cooperating counterparty cannot freeze the pot
+/// forever. This is the on-chain half of a state channel; Covex is never in the path.
+pub fn redeem_channel(p1: &[u8; 32], p2: &[u8; 32], lock_daa: u64) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    b.add_op(OpIf).map_err(|e| format!("channel OpIf: {e}"))?;
+    b.add_data(p1).map_err(|e| format!("channel p1: {e}"))?;
+    b.add_op(OpCheckSigVerify).map_err(|e| format!("channel p1 CheckSigVerify: {e}"))?;
+    b.add_data(p2).map_err(|e| format!("channel p2: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("channel p2 CheckSig: {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("channel OpElse: {e}"))?;
+    b.add_lock_time(lock_daa).map_err(|e| format!("channel add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("channel CLTV: {e}"))?;
+    b.add_data(p1).map_err(|e| format!("channel refund p1: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("channel refund CheckSig: {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("channel OpEndIf: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Build the input `idx` signature_script for a channel spend.
+/// `cooperative`=true (the close): satisfier bottom->top `<sig_p2> <sig_p1> OP_TRUE`;
+/// both players sign the same sighash and the IF branch pays whatever the tx outputs say
+/// (the agreed winner). `cooperative`=false (the refund): satisfier `<sig_p1> OP_FALSE`;
+/// the spend tx must set `lock_time >= lock_daa` and a non-final sequence. `kp2` is required
+/// only for the cooperative close.
+pub fn build_channel_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    kp1: &secp256k1::Keypair,
+    kp2: Option<&secp256k1::Keypair>,
+    cooperative: bool,
+    redeem: &[u8],
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let push65 = |sig: [u8; 64]| -> Vec<u8> {
+        std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect()
+    };
+    let sig1: [u8; 64] = *kp1.sign_schnorr(msg).as_ref();
+    let mut satisfier: Vec<u8> = Vec::new();
+    if cooperative {
+        let kp2 = kp2.ok_or_else(|| "cooperative channel close needs both player keys".to_string())?;
+        let sig2: [u8; 64] = *kp2.sign_schnorr(msg).as_ref();
+        // bottom->top: sig_p2 (consumed by p2 OpCheckSig), sig_p1 (consumed by p1
+        // OpCheckSigVerify), then OP_TRUE to select the IF branch.
+        satisfier.extend(push65(sig2));
+        satisfier.extend(push65(sig1));
+        satisfier.push(OpTrue);
+    } else {
+        // refund: p1's sig then OP_FALSE to select the ELSE (timeout) branch.
+        satisfier.extend(push65(sig1));
+        satisfier.push(OpFalse);
+    }
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("channel signature script: {e}"))
+}
+
 /// blake2b-256 of a preimage, matching the hash OpBlake2b computes on-chain. Used
 /// to build a hashlock's `hash` from a chosen secret.
 pub fn blake2b256(data: &[u8]) -> [u8; 32] {
@@ -664,8 +727,40 @@ pub async fn p2sh_deploy_handler(
                 Err(e) => return err(e),
             }
         }
+        "channel" => {
+            // Trustless 2-player game channel: cooperative 2-of-2 close OR a funder
+            // refund after lock_daa. NO oracle key. pubkeys_hex=[player1, player2].
+            let (p1k, p2k) = if let Some(pks) = &req.redeem.pubkeys_hex {
+                if pks.len() >= 2 {
+                    match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
+                        (Ok(a), Ok(b)) => (a, b),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    }
+                } else {
+                    return err("channel needs pubkeys_hex=[player1, player2]".into());
+                }
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
+                        (Ok(a), Ok(b)) => (a, b),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    },
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("channel requires pubkeys_hex=[player1, player2] (or use_dev_mode)".into());
+            };
+            let lock_daa = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("channel requires lock_daa (the refund deadline)".into()),
+            };
+            match redeem_channel(&p1k, &p2k, lock_daa) {
+                Ok(r) => (r, format!("channel:{lock_daa}")),
+                Err(e) => return err(e),
+            }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel)"
         )),
     };
 
@@ -826,6 +921,10 @@ pub struct P2shSpendRequest {
     /// signer_keys_hex[0] (the claimer or refunder, who is not the covenant owner).
     #[serde(default)]
     pub htlc_mode: Option<String>,
+    /// channel only: "cooperative" (both players co-sign the close, default) or "refund"
+    /// (the funder reclaims via the timeout branch after lock_daa).
+    #[serde(default)]
+    pub channel_mode: Option<String>,
     /// UNIVERSAL INTERACTION (covenant NOT created on Covex): supply the redeem script
     /// (hex) that hashes to the on-chain P2SH, its kind (singlesig | hashlock |
     /// timelock:<daa> | multisig:<total> | htlc:<lock_daa>), and the funding outpoint
@@ -902,6 +1001,12 @@ pub async fn p2sh_spend_handler(
     let htlc_lock_daa: Option<u64> =
         cov.redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
     let htlc_claim = req.htlc_mode.as_deref() != Some("refund");
+    let is_channel = cov.redeem_kind.starts_with("channel");
+    let channel_lock_daa: Option<u64> =
+        cov.redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
+    // Channel close mode: "cooperative" (both players co-sign the IF branch, the default)
+    // or "refund" (the funder p1 reclaims via the ELSE timeout branch after lock_daa).
+    let channel_cooperative = req.channel_mode.as_deref() != Some("refund");
 
     // Extra satisfier pushes (after the sig): the preimage for a hashlock.
     let extra: Vec<Vec<u8>> = if cov.redeem_kind == "hashlock" {
@@ -967,6 +1072,40 @@ pub async fn p2sh_spend_handler(
             Ok(k) => vec![k],
             Err(e) => return err(format!("bad key: {e}")),
         }
+    } else if is_channel {
+        // Cooperative close needs BOTH player keys [p1, p2]; refund needs only p1 (the
+        // funder). Explicit via signer_keys_hex, else the two dev wallets in dev mode.
+        let seckeys: Vec<[u8; 32]> = if let Some(keys) = &req.signer_keys_hex {
+            let mut v = Vec::new();
+            for k in keys {
+                match hex::decode(k.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                    Some(b) => v.push(b),
+                    None => return err("bad channel signer key hex (need 64 hex chars)".into()),
+                }
+            }
+            v
+        } else if req.use_dev_mode {
+            match dev_keys(&req.network) {
+                Ok(ks) => ks,
+                Err(e) => return err(e),
+            }
+        } else {
+            return err("channel spend requires signer_keys_hex (or use_dev_mode)".into());
+        };
+        if seckeys.is_empty() {
+            return err("channel spend needs the funder (player1) key".into());
+        }
+        if channel_cooperative && seckeys.len() < 2 {
+            return err("cooperative channel close needs BOTH player keys [player1, player2]".into());
+        }
+        let mut kps = Vec::new();
+        for sk in &seckeys {
+            match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, sk) {
+                Ok(k) => kps.push(k),
+                Err(e) => return err(format!("bad channel key: {e}")),
+            }
+        }
+        kps
     } else {
         let (seckey, _addr) =
             match resolve_signing_key(&req.network, &cov.owner_addr, &req.private_key_hex, req.use_dev_mode) {
@@ -1018,8 +1157,9 @@ pub async fn p2sh_spend_handler(
         sequence: 0, // non-final, required for CLTV timelock spends
         // Kaspa counts a CheckMultiSig as one sig-op per listed pubkey; the declared
         // count must cover the redeem's actual sig ops or the node rejects with
-        // "script units exceeded". Single-key redeems use 1.
-        sig_op_count: if is_multisig { multisig_total } else { 1 },
+        // "script units exceeded". The channel redeem has 3 sig ops across its branches
+        // (CheckSigVerify + CheckSig in IF, CheckSig in ELSE). Single-key redeems use 1.
+        sig_op_count: if is_multisig { multisig_total } else if is_channel { 3 } else { 1 },
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
@@ -1030,6 +1170,7 @@ pub async fn p2sh_spend_handler(
     // not touch the timelock branch, so they keep lock_time 0.
     let spend_lock_time = lock_daa
         .or(if is_htlc && !htlc_claim { htlc_lock_daa } else { None })
+        .or(if is_channel && !channel_cooperative { channel_lock_daa } else { None })
         .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
@@ -1067,6 +1208,13 @@ pub async fn p2sh_spend_handler(
         match build_htlc_signature_script(&signable, 0, &keypairs[0], &redeem, htlc_claim, preimage.as_deref()) {
             Ok(s) => s,
             Err(e) => return err(format!("build htlc spend script: {e}")),
+        }
+    } else if is_channel {
+        let kp1 = &keypairs[0];
+        let kp2 = if channel_cooperative { keypairs.get(1) } else { None };
+        match build_channel_signature_script(&signable, 0, kp1, kp2, channel_cooperative, &redeem) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build channel spend script: {e}")),
         }
     } else {
         match build_p2sh_signature_script(&signable, 0, &keypairs[0], &redeem, &extra) {
@@ -1628,6 +1776,43 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &outsider, true, &redeem).unwrap()),
             "a non-member cannot claim even with the oracle co-sign"
+        );
+    }
+
+    #[test]
+    fn channel_cooperative_close_and_timeout_refund() {
+        let p1 = test_keypair(71);
+        let p2 = test_keypair(72);
+        let p1x = p1.x_only_public_key().0.serialize();
+        let p2x = p2.x_only_public_key().0.serialize();
+        let lock_daa = 5_000u64; // absolute DAA (well below LOCK_TIME_THRESHOLD)
+        let redeem = redeem_channel(&p1x, &p2x, lock_daa).unwrap();
+
+        // Cooperative close: BOTH players co-sign the IF branch (no oracle) -> spends.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(s, 0, &p1, Some(&p2), true, &redeem).unwrap()),
+            "cooperative 2-of-2 close must satisfy the IF branch"
+        );
+        // Cooperative close with a wrong second key -> the p2 OpCheckSig fails.
+        let wrong = test_keypair(99);
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(s, 0, &p1, Some(&wrong), true, &redeem).unwrap()),
+            "cooperative close needs BOTH real player signatures"
+        );
+        // Refund BEFORE the timeout (tx lock_time 0 < lock_daa) -> CLTV rejects.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(s, 0, &p1, None, false, &redeem).unwrap()),
+            "refund before the timeout must be rejected by CLTV"
+        );
+        // Refund AFTER the timeout (lock_time >= lock_daa, non-final sequence) -> p1 reclaims.
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(s, 0, &p1, None, false, &redeem).unwrap()),
+            "funder refund after the timeout must pass"
+        );
+        // Refund after the timeout by the wrong key -> the ELSE branch's OpCheckSig fails.
+        assert!(
+            !run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(s, 0, &wrong, None, false, &redeem).unwrap()),
+            "only the funder can refund the channel"
         );
     }
 }

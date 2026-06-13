@@ -29,6 +29,7 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
         .route("/games/:covenant_id/lock-channel", post(lock_channel))
         .route("/games/:covenant_id/settle-channel", post(settle_channel))
+        .route("/games/:covenant_id/refund-channel", post(refund_channel))
 }
 
 /// Background sweep: finalise active matches whose side-to-move has run its clock out
@@ -272,13 +273,21 @@ async fn lock_channel(
         return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
     }
     let net = req.get("network").and_then(|v| v.as_str()).unwrap_or("testnet-12").to_string();
+    // refund_after_daa: the absolute DAA after which the funder may reclaim if there is no
+    // cooperative close (so a vanished counterparty cannot freeze the pot). The caller
+    // (frontend) passes the current node DAA plus a window from /api/status.
+    let refund_after_daa = match req.get("refund_after_daa").and_then(|v| v.as_u64()) {
+        Some(d) => d,
+        None => return Json(json!({ "success": false, "error": "lock-channel requires refund_after_daa (current node DAA + a refund window)" })),
+    };
     let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
     let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
 
-    // 2-of-2 multisig of [player1, player2] - NO oracle pubkey.
+    // Trustless channel: cooperative 2-of-2 [player1, player2] close OR a funder refund
+    // after refund_after_daa. NO oracle pubkey - Covex is never in the payout path.
     let dreq: crate::covenant_builder::P2shDeployRequest = match serde_json::from_value(json!({
         "network": net, "deployer_addr": p1, "use_dev_mode": true, "stake_kas": stake,
-        "redeem": { "kind": "multisig", "pubkeys_hex": [p1x, p2x], "required": 2 }
+        "redeem": { "kind": "channel", "pubkeys_hex": [p1x, p2x], "lock_daa": refund_after_daa }
     })) {
         Ok(r) => r,
         Err(e) => return Json(json!({ "success": false, "error": format!("build channel deploy: {e}") })),
@@ -347,6 +356,58 @@ async fn settle_channel(
     })) {
         Ok(r) => r,
         Err(e) => return Json(json!({ "success": false, "error": format!("build channel close: {e}") })),
+    };
+    let v = crate::covenant_builder::p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        if let Some(tx) = v.get("spend_tx_id").and_then(|t| t.as_str()) {
+            let conn = db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
+                params![tx, covenant_id],
+            );
+        }
+    }
+    Json(v)
+}
+
+/// POST /games/:id/refund-channel : the funder (player1) reclaims the channel pot via the
+/// timeout branch when there was no cooperative close (e.g. the opponent vanished). The
+/// spend sets lock_time to the channel's refund_after_daa, so the node rejects it until
+/// the chain reaches that DAA. No oracle key - the funder always recovers after the
+/// timeout, so the pot can never be frozen.
+async fn refund_channel(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+) -> Json<serde_json::Value> {
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    if p1.is_empty() {
+        return Json(json!({ "success": false, "error": "game has no funder" }));
+    }
+    let (pot_tx, net): (Option<String>, String) = {
+        let conn = db.lock().unwrap();
+        let pot: Option<String> = conn
+            .query_row("SELECT pot_tx FROM skill_games WHERE covenant_id = ?1", params![covenant_id], |r| r.get(0))
+            .ok()
+            .flatten();
+        let net = pot
+            .as_ref()
+            .and_then(|t| conn.query_row("SELECT network FROM p2sh_covenants WHERE tx_id = ?1", params![t], |r| r.get::<_, String>(0)).ok())
+            .unwrap_or_else(|| "testnet-12".to_string());
+        (pot, net)
+    };
+    let pot_tx = match pot_tx {
+        Some(t) if !t.is_empty() => t,
+        _ => return Json(json!({ "success": false, "error": "no channel pot locked" })),
+    };
+    let sreq: crate::covenant_builder::P2shSpendRequest = match serde_json::from_value(json!({
+        "network": net, "deploy_tx_id": pot_tx, "use_dev_mode": true, "destination_addr": p1, "channel_mode": "refund"
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build channel refund: {e}") })),
     };
     let v = crate::covenant_builder::p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {

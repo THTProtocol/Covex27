@@ -60,34 +60,38 @@ impl EnforcementReality {
     }
 }
 
-/// Map a script-derived category to its honest enforcement reality.
+/// True iff `script_hex` is EXACTLY the Kaspa P2SH structure: OpBlake2b (0xaa) +
+/// 32-byte push (0x20) + 32-byte hash + OpEqual (0x87), i.e. 35 bytes. This is the
+/// only pattern we trust to mean "the chain enforces a script", because it is exact
+/// and unambiguous - it is precisely what covenant_builder emits for every real
+/// covenant (the redeem TYPE stays hidden in the P2SH until spend).
+fn is_exact_p2sh(script_hex: &str) -> bool {
+    let s = script_hex.trim().to_ascii_lowercase();
+    let raw_len = s.len() / 2;
+    s.starts_with("aa20") && s.ends_with("87") && (34..=36).contains(&raw_len)
+}
+
+/// Classify a covenant's HONEST enforcement reality from its on-chain script.
 ///
-/// CONSERVATIVE BY DESIGN: only the categories that come from genuine Kaspa script
-/// patterns (P2SH structure, OpCheckMultiSig, hash-op + CLTV, locktime custody) are
-/// called OnChain. The game/oracle categories are OracleAttested. Everything else -
-/// the aa20-payload "logic lives in metadata" classes - is Decorative, because the
-/// chain enforces nothing about those outcomes. We never upgrade a covenant's trust
-/// label on a guess.
-pub fn reality_for_category(cat: CovenantCategory) -> EnforcementReality {
-    match cat {
-        // Real script-enforced patterns.
-        CovenantCategory::P2sh
-        | CovenantCategory::Multisig
-        | CovenantCategory::AtomicSwap
-        | CovenantCategory::Vesting => EnforcementReality::OnChain,
-        // Outcome asserted by the oracle / a proof; funds not script-gated yet.
+/// CONSERVATIVE BY DESIGN. OnChain is claimed ONLY for the exact P2SH structure -
+/// NOT for the looser multisig/HTLC/timelock substring heuristics in
+/// `from_script_ops`, which false-positive on arbitrary aa20 payload bytes.
+/// Over-claiming "on-chain" is exactly the dishonesty this label exists to prevent,
+/// so a genuine multisig/HTLC/timelock - which is itself P2SH-wrapped on-chain -
+/// is caught by the exact-P2SH test, while a random game payload never is. The
+/// remaining game/oracle classes are OracleAttested; everything else is Decorative.
+pub fn reality_for_script(script_hex: &str) -> EnforcementReality {
+    if is_exact_p2sh(script_hex) {
+        return EnforcementReality::OnChain;
+    }
+    match CovenantCategory::from_script_ops(script_hex) {
         CovenantCategory::VerifiableSkill
         | CovenantCategory::Predictive
         | CovenantCategory::Oracle
-        | CovenantCategory::ZK => EnforcementReality::OracleAttested,
-        // Metadata-only covenants.
+        | CovenantCategory::ZK
+        | CovenantCategory::Skill => EnforcementReality::OracleAttested,
         _ => EnforcementReality::Decorative,
     }
-}
-
-/// Classify a covenant's enforcement reality from its on-chain script (best effort).
-pub fn reality_for_script(script_hex: &str) -> EnforcementReality {
-    reality_for_category(CovenantCategory::from_script_ops(script_hex))
 }
 
 /// A deployable covenant type the wizard can build, with its honest reality and the
@@ -218,6 +222,15 @@ mod tests {
     #[test]
     fn empty_or_plain_is_decorative() {
         assert_eq!(reality_for_script(""), EnforcementReality::Decorative);
+    }
+
+    #[test]
+    fn loose_heuristic_payload_is_never_onchain() {
+        // A long aa20 payload containing the very bytes the loose multisig/HTLC/timelock
+        // substring heuristics look for (ae, a8, b1, 51, repeated 21) but which is NOT
+        // the exact P2SH structure. It must NEVER be labeled on-chain.
+        let payload = format!("aa20{}", "ae512121a8b1cdef".repeat(8));
+        assert_ne!(reality_for_script(&payload), EnforcementReality::OnChain);
     }
 
     #[test]

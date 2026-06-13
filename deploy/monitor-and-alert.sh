@@ -34,8 +34,9 @@ if ! curl -sf --max-time 8 "$BASE_URL/health" > /dev/null; then
     exit 1
 fi
 
-# 2. Quick oracle responsiveness check (very lightweight)
-if ! curl -sf --max-time 12 -X POST "$BASE_URL/api/oracle/verify-and-sign" \
+# 2. Quick oracle responsiveness check (very lightweight). Internal route has no /api
+# prefix (nginx adds that for the public URL).
+if ! curl -sf --max-time 12 -X POST "$BASE_URL/oracle/verify-and-sign" \
      -H "Content-Type: application/json" \
      -d '{"covenant_id":"monitor","circuit_type":"merkle_membership","proof":{},"public_inputs":[]}' | grep -q '"success"' ; then
     alert "Oracle endpoint is slow or failing"
@@ -58,7 +59,7 @@ fi
 # line records every run so silence (cron/timer dead) is itself observable.
 STATE_FILE="/var/lib/covex-monitor/indexer-state.txt"
 mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null || true
-STATUS_JSON=$(curl -sf --max-time 12 "$BASE_URL/api/status" 2>/dev/null || echo "")
+STATUS_JSON=$(curl -sf --max-time 12 "$BASE_URL/status" 2>/dev/null || echo "")
 if [ -n "$STATUS_JSON" ]; then
     STATE=$(printf '%s' "$STATUS_JSON" | python3 -c "
 import sys, json

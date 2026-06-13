@@ -114,14 +114,6 @@ export const ZK_CIRCUIT_TYPES = [
   { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Prove script constraints (fee % <= max, pot split math, shares). Reality: hybrid. Use cases: enforce covenant rules, fee caps, pot returns without trusting off-chain. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Prove correct pot split (fees, returns, winner share). Reality: hybrid. Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'turn_timer', name: 'Per-Turn Timer Proof', description: 'Prove turn timer (DAA elapsed <= max, player active). Reality: hybrid. Use cases: clock enforcement in chess/poker/etc. (vision §4.3)', circuit: 'turn_timer', accent: '#06B6D4', category: 'game', variant: true, reality: 'hybrid' },
-  { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Prove DAA-based relative timelock (using range on delta). Reality: hybrid. Use cases: time-locked covenants, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'hybrid' },
-  { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Prove script constraints (fee % <= max, pot split math, shares). Reality: hybrid. Use cases: enforce covenant rules, fee caps, pot returns without trusting off-chain. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'hybrid' },
-  { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Prove correct pot split (fees, returns, winner share). Reality: hybrid. Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'hybrid' },
-  { id: 'turn_timer', name: 'Per-Turn Timer Proof', description: 'Prove turn timer (DAA elapsed <= max, player active). Reality: hybrid. Use cases: clock enforcement in chess/poker/etc. (vision §4.3)', circuit: 'turn_timer', accent: '#06B6D4', category: 'game', variant: true, reality: 'hybrid' },
-  { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Prove DAA-based relative timelock (using range on delta). Reality: hybrid. Use cases: time-locked covenants, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'hybrid' },
-  { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Prove script constraints (fee % <= max, pot split math, shares). Reality: hybrid. Use cases: enforce covenant rules, fee caps, pot returns without trusting off-chain. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'hybrid' },
-  { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Prove correct pot split (fees, returns, winner share). Reality: hybrid. Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'hybrid' },
-  { id: 'turn_timer', name: 'Per-Turn Timer Proof', description: 'Prove turn timer (DAA elapsed <= max, player active). Reality: hybrid. Use cases: clock enforcement in chess/poker/etc. (vision §4.3)', circuit: 'turn_timer', accent: '#06B6D4', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'vrf_card_deal', name: 'VRF Card Deal (Shared)', description: 'VRF: provable card from committed shuffle/deck. Reality: oracle-attested. Use cases: poker/blackjack/gin/hearts/mahjong fair deals on Kaspa. (vision §4.3)', circuit: 'vrf_card_deal', accent: '#EC4899', category: 'game', variant: true, reality: 'oracle-attested' },
   { id: 'pot_math_verify', name: 'Pot Math + Split Verification (Shared)', description: 'DeFi/game: prove weighted split (stake/score/VRF) + fees without trusting off-chain. Reality: hybrid (verifiable math + oracle). Use cases: all pot-based Kaspa game covenants. (vision §4.3, §4.4)', circuit: 'pot_math_verify', accent: '#FB923C', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'move_transcript', name: 'Move Transcript Validity Proof', description: 'Hash-chain of moves: prove sequence valid + no tampering. Reality: hybrid. Use cases: dispute resolution + replay in Kaspa game covenants. (vision §4.3)', circuit: 'move_transcript', accent: '#10B981', category: 'game', variant: true, reality: 'hybrid' },
@@ -1496,10 +1488,7 @@ ${gameMeta.outcomeBranches}
 
   const submitChessResultToOracle = useCallback(async () => {
     if (!chessResult || !covenantId) {
-      // For demo without real covenant, still simulate but prefer real oracle call
-      const simulatedHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-      setChessProofHash(simulatedHash);
-      setChessZkVerified(true);
+      alert('Configure your covenant and finish the game first, then submit the result to the oracle.');
       return;
     }
 
@@ -1546,16 +1535,16 @@ ${gameMeta.outcomeBranches}
         // Store for claim / unlock flow
         // console.log('[Chess Oracle] Result attested:', data); // cleaned for prod
       } else {
-        // Fallback to local for robustness in demo
-        const simulatedHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-        setChessProofHash(simulatedHash);
-        setChessZkVerified(true);
+        // No fabricated signature: a failed oracle call must NOT render a fake
+        // attestation or a live CLAIM button. Surface the real error and keep
+        // chessZkVerified=false so the claim path stays gated.
+        setChessZkVerified(false);
+        alert('Oracle verification failed' + (data && data.error ? ': ' + data.error : '') + '. Please try again.');
       }
     } catch (e) {
-      // Offline/demo fallback
-      const simulatedHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-      setChessProofHash(simulatedHash);
-      setChessZkVerified(true);
+      // Network/parse error: never fabricate a signature. Keep verified=false.
+      setChessZkVerified(false);
+      alert('Network error submitting result to the oracle. Check your connection and try again.');
     }
   }, [chessResult, chessGame, covenantId, chessProvingMode, buildTimelockConfig]);
 

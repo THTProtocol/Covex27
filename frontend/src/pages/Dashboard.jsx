@@ -10,17 +10,25 @@ export default function Dashboard() {
   const [accountTier, setAccountTier] = useState('FREE');
 
   useEffect(() => {
-    // Fetch user's generated UIs
     setLoading(true);
-    fetch('/api/status')
-      .then((r) => r.json())
-      .then(() => {
-        if (address) {
-          setGeneratedUis([]);
-          setAccountTier('FREE');
-        }
+    setGeneratedUis([]);
+    if (address) {
+      // Resolve the REAL account tier the same way App.jsx does, instead of
+      // hardcoding FREE (which made paying users see FREE on their own dashboard).
+      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      fetch('/api/auth-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, network: net })
       })
-      .finally(() => setLoading(false));
+        .then((r) => (r.ok ? r.json() : { tier: 'FREE' }))
+        .then((data) => setAccountTier(data.tier || 'FREE'))
+        .catch(() => setAccountTier('FREE'))
+        .finally(() => setLoading(false));
+    } else {
+      setAccountTier('FREE');
+      setLoading(false);
+    }
 
     // Basic Creator Analytics (fetch real covenant data for this address)
     if (address) {
@@ -79,7 +87,7 @@ export default function Dashboard() {
             </div>
             <div className="bg-black/30 p-4 rounded-xl">
               <div className="text-gray-400 text-xs">Status</div>
-              <div className="text-sm text-emerald-400 mt-2">Production Ready</div>
+              <div className="text-sm text-emerald-400 mt-2">{accountTier === 'FREE' ? 'Explorer' : 'Active'}</div>
             </div>
           </div>
         </div>

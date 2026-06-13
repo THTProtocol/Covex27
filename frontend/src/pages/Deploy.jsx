@@ -367,7 +367,7 @@ export default function Deploy() {
               <button 
                 className="px-3 py-0.5 rounded text-xs font-bold active:scale-95"
                 style={{ background: layer.props.bg, color: layer.props.color || '#000' }}
-                onClick={(e) => { e.stopPropagation(); alert(`Would trigger action: ${layer.props.action || 'stake'}`); }}
+                onClick={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
               >
                 {layer.props.text || 'ACTION'}
               </button>

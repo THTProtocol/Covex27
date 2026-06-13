@@ -185,10 +185,6 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         VerifierSpec::Risc0Stub { guest: "defi_liquidation" },
     );
     m.insert(
-        "risc0_defi_liquidation",
-        VerifierSpec::Risc0Stub { guest: "defi_liquidation" },
-    );
-    m.insert(
         "risc0_connect4_eval",
         VerifierSpec::Risc0Stub { guest: "connect4_eval" },
     );

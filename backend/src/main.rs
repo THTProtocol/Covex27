@@ -31,6 +31,7 @@ mod poker;
 mod oracle;
 mod oracle_verifier;
 mod payment_verifier;
+mod resolver_failover;
 mod signer;
 mod ui_generator;
 
@@ -131,37 +132,33 @@ async fn main() {
     };
 
     // --- Connect to Kaspa wRPC ---
-    let (client, client_url) = match kaspa_wrpc_client::KaspaRpcClient::new(
-        kaspa_wrpc_client::WrpcEncoding::Borsh,
-        Some(&wrpc_url),
-        None,
-        None,
-        None,
-    ) {
-        Ok(c) => {
-            let url = c.url().unwrap_or(wrpc_url.clone());
-            (Arc::new(c), url)
-        }
+    // resolver_failover::build_client constructs the client so resolver-eligible
+    // networks (mainnet, testnet-10) can later fail over to a public node, while
+    // booting pinned to our own direct node. Non-eligible networks (testnet-12)
+    // are pinned to the direct URL exactly as before.
+    let client = match resolver_failover::build_client(&network, &wrpc_url) {
+        Ok(c) => c,
         Err(e) => {
             error!("Failed to create wRPC client: {}", e);
             std::process::exit(1);
         }
     };
+    let client_url = wrpc_url.clone();
 
-    info!("Connecting to Kaspa wRPC node at {}...", client_url);
+    info!("Connecting to Kaspa wRPC node at {} (network {})...", client_url, network);
     // Non-blocking connect: the HTTP server MUST bind and serve regardless of
-    // whether any Kaspa node is currently reachable. With block_async_connect:false
-    // the call returns immediately and the client keeps retrying in the background
-    // (strategy: Retry), so the node link self-heals without ever wedging startup.
-    // (A blocking connect to a down node retries forever and never reaches axum::serve.)
-    let connect_opts = || kaspa_wrpc_client::prelude::ConnectOptions {
-        block_async_connect: false,
-        ..Default::default()
-    };
-    match client.connect(Some(connect_opts())).await {
-        Ok(_) => info!("Kaspa wRPC connect initiated (non-blocking; connects when node is reachable)"),
-        Err(e) => warn!("wRPC connect failed (will retry in background): {}", e),
-    }
+    // whether any Kaspa node is currently reachable. The connect returns
+    // immediately and the client keeps retrying in the background (strategy:
+    // Retry), so the node link self-heals without ever wedging startup.
+    resolver_failover::initial_connect(&client, &network, &wrpc_url).await;
+
+    // Networks placed under resolver-failover supervision (filled in below).
+    let mut supervised: Vec<resolver_failover::Supervised> =
+        vec![resolver_failover::Supervised {
+            network: network.clone(),
+            client: Arc::clone(&client),
+            direct_url: wrpc_url.clone(),
+        }];
 
     // --- Multi-network support: spawn indexers for ALL configured networks ---
     // This lets ONE backend process index covenants for TN12, TN10, and MAINNET
@@ -210,28 +207,23 @@ async fn main() {
         .map(|s| s.trim().to_string())
         .collect();
 
-        let (extra_client, extra_url) = match kaspa_wrpc_client::KaspaRpcClient::new(
-            kaspa_wrpc_client::WrpcEncoding::Borsh,
-            Some(&extra_wrpc),
-            None, None, None,
-        ) {
-            Ok(c) => {
-                let url = c.url().unwrap_or(extra_wrpc.clone());
-                (Arc::new(c), url)
-            }
+        let extra_client = match resolver_failover::build_client(extra_net, &extra_wrpc) {
+            Ok(c) => c,
             Err(e) => {
                 warn!("Failed to create wRPC client for {} at {}: {} (indexing disabled for this network)", extra_net, extra_wrpc, e);
                 continue;
             }
         };
 
-        info!("Additional network {} wRPC: {}", extra_net, extra_url);
+        info!("Additional network {} wRPC: {}", extra_net, extra_wrpc);
         // Non-blocking: a down optional-network node (e.g. mainnet pre-Toccata)
         // must never wedge startup. Returns immediately; client retries in background.
-        match extra_client.connect(Some(connect_opts())).await {
-            Ok(_) => info!("{} wRPC connect initiated (non-blocking)", extra_net),
-            Err(e) => warn!("{} wRPC connect failed (indexer will retry): {}", extra_net, e),
-        }
+        resolver_failover::initial_connect(&extra_client, extra_net, &extra_wrpc).await;
+        supervised.push(resolver_failover::Supervised {
+            network: extra_net.to_string(),
+            client: Arc::clone(&extra_client),
+            direct_url: extra_wrpc.clone(),
+        });
 
         // Spawn indexer
         {

@@ -202,6 +202,12 @@ export default function CovenantInteractive() {
 
   const handleSimulatePayment = async (tier) => {
     // Dev/test helper: immediately mark as paid (simulates faucet / indexer credit). Real flow waits for on-chain + verifier.
+    // Testnet only. A paid tier must NEVER be granted without a confirmed payment on mainnet.
+    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    if (net === 'mainnet') {
+      if (typeof setToast === 'function') setToast({ type: 'error', msg: 'The testnet faucet simulation is not available on mainnet.' });
+      return;
+    }
     setUpgradePaid(true);
     if (typeof setToast === 'function') setToast({ type: 'success', msg: `Simulated ${tier.price} KAS ${tier.label} tier credit (local only)` });
   };
@@ -1225,7 +1231,9 @@ export default function CovenantInteractive() {
                       alert('Stake sent (real tx on testnet)!');
                     } catch(e) { alert('Stake failed: ' + e.message); }
                   } else {
-                    alert(`Action triggered: ${layer.props.action} (would call real covenant logic)`);
+                    // Only stake/join are wired to a real on-chain action. Be honest
+                    // about anything else rather than implying hidden covenant logic.
+                    alert('This button is not connected to an on-chain action.');
                   }
                 }
               };
@@ -1395,6 +1403,7 @@ export default function CovenantInteractive() {
                   <span className="flex-shrink-0 mx-3 text-[10px] text-gray-200 uppercase">Testnet Faucet</span>
                   <div className="flex-grow border-t border-white/10"></div>
                 </div>
+                {(localStorage.getItem('kaspaNetwork') || 'testnet-12') !== 'mainnet' && (
                 <button
                   onClick={() => handleSimulatePayment(upgradeTier)}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-kaspa-gold/40 bg-kaspa-gold/[0.05] text-kaspa-gold font-semibold text-sm hover:bg-kaspa-gold/10 hover:border-kaspa-gold/60 transition-all"
@@ -1402,6 +1411,7 @@ export default function CovenantInteractive() {
                   <Zap size={16} />
                   Simulate tKAS Payment (Faucet)
                 </button>
+                )}
                 <p className="text-[11px] text-gray-200 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
               </div>
             )}

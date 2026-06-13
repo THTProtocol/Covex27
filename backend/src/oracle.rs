@@ -152,7 +152,7 @@ pub fn oracle_key_bytes_public() -> Vec<u8> {
 /// configured bytes so ANY COVEX_ORACLE_KEY value maps to a valid secp256k1
 /// scalar; the oracle's identity (its public key) is deterministic from the
 /// configured secret.
-fn oracle_keypair() -> Keypair {
+pub(crate) fn oracle_keypair() -> Keypair {
     let seed = Sha256::digest(oracle_key_bytes());
     Keypair::from_seckey_slice(&Secp256k1::new(), seed.as_slice())
         .expect("hashed oracle key is a valid secp256k1 scalar")
@@ -162,6 +162,13 @@ fn oracle_keypair() -> Keypair {
 pub fn oracle_xonly_pubkey_hex() -> String {
     let (xonly, _parity) = oracle_keypair().x_only_public_key();
     hex::encode(xonly.serialize())
+}
+
+/// The oracle's x-only public key as raw bytes - used as a multisig member in an
+/// oracle-enforced covenant (a 2-of-2 P2SH of [oracle, winner]), so the chain itself
+/// requires the disclosed oracle's co-signature to release funds (roadmap D1).
+pub(crate) fn oracle_xonly_pubkey_bytes() -> [u8; 32] {
+    oracle_keypair().x_only_public_key().0.serialize()
 }
 
 fn message_digest(message: &str) -> Message {

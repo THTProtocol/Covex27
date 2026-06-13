@@ -553,7 +553,20 @@ pub async fn p2sh_deploy_handler(
                 Err(e) => return err(e),
             }
         }
-        other => return err(format!("unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc)")),
+        "oracle_enforced" => {
+            // 2-of-2 [oracle, winner]: the chain itself requires the disclosed oracle's
+            // co-signature, and the oracle co-signs only a verified outcome (D1). This
+            // upgrades an oracle covenant from "trust the oracle off-chain" to "the chain
+            // enforced that the disclosed oracle signed". Member order: [oracle, winner=deployer].
+            let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
+            match redeem_multisig(&[oracle_xonly, xonly], 2) {
+                Ok(r) => (r, "oracle:2".to_string()),
+                Err(e) => return err(e),
+            }
+        }
+        other => return err(format!(
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced)"
+        )),
     };
 
     let p2sh_spk = p2sh_script_pubkey(&redeem);
@@ -940,10 +953,169 @@ pub async fn p2sh_spend_handler(
     }
 }
 
+#[derive(Deserialize)]
+pub struct OraclePayoutRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    /// The deploy tx id of the oracle-enforced (oracle:2) covenant.
+    pub deploy_tx_id: String,
+    /// The winner's key (the second multisig member). Dev mode resolves the dev wallet.
+    #[serde(default)]
+    pub private_key_hex: String,
+    #[serde(default)]
+    pub use_dev_mode: bool,
+    pub destination_addr: String,
+    /// The outcome proof the oracle must verify before it will co-sign.
+    pub circuit_type: String,
+    #[serde(default)]
+    pub proof: serde_json::Value,
+    #[serde(default)]
+    pub public_inputs: Vec<String>,
+    #[serde(default)]
+    pub requested_outcome: Option<u32>,
+}
+
+/// POST /covenant/oracle-payout - release an oracle-enforced 2-of-2 [oracle, winner]
+/// covenant. The oracle co-signs ONLY if the outcome verifies; the chain enforces the
+/// 2-of-2, so the disclosed oracle's signature is consensus-required (roadmap D1).
+pub async fn oracle_payout_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<OraclePayoutRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+
+    let cov = match db::get_p2sh_covenant(&db, &req.deploy_tx_id) {
+        Some(c) => c,
+        None => return err(format!("no covenant for {}", req.deploy_tx_id)),
+    };
+    if !cov.redeem_kind.starts_with("oracle:") {
+        return err("not an oracle-enforced covenant (deploy with redeem.kind=oracle_enforced)".into());
+    }
+    if let Some(s) = &cov.spent_tx_id {
+        return err(format!("already paid out in {s}"));
+    }
+
+    // THE ORACLE GATE: verify the outcome before co-signing. A losing/invalid outcome
+    // means the oracle declines - and without its signature the 2-of-2 can never spend.
+    let verified = crate::oracle_verifier::verify_proof_for_circuit(
+        &req.circuit_type,
+        req.proof.clone(),
+        req.public_inputs.clone(),
+        req.requested_outcome,
+    )
+    .await
+    .unwrap_or(false);
+    if !verified {
+        return err(format!(
+            "oracle declines to co-sign: outcome for circuit '{}' did not verify",
+            req.circuit_type
+        ));
+    }
+
+    let redeem = match hex::decode(&cov.redeem_script_hex) {
+        Ok(b) => b,
+        Err(e) => return err(format!("corrupt stored redeem: {e}")),
+    };
+    let (winner_seckey, _addr) =
+        match resolve_signing_key(&req.network, &req.destination_addr, &req.private_key_hex, req.use_dev_mode) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
+    let winner_kp = match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &winner_seckey) {
+        Ok(k) => k,
+        Err(e) => return err(format!("bad winner key: {e}")),
+    };
+
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let p2sh_addr = match Address::try_from(cov.p2sh_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("stored p2sh address invalid: {e}")),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![p2sh_addr]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    let utxo = match utxos
+        .iter()
+        .find(|u| u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index)
+    {
+        Some(u) => u,
+        None => return err("covenant UTXO not found on-chain (unconfirmed or already spent)".into()),
+    };
+    let amount = utxo.utxo_entry.amount;
+    if amount <= TX_FEE {
+        return err("locked amount does not cover the tx fee".into());
+    }
+    let dest_script = match script_pub_key_from_address(&req.destination_addr) {
+        Ok(s) => s,
+        Err(e) => return err(e),
+    };
+    let p2sh_spk = p2sh_script_pubkey(&redeem);
+
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint {
+            transaction_id: utxo.outpoint.transaction_id,
+            index: utxo.outpoint.index,
+        },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: 2, // 2-of-2 oracle multisig
+    }];
+    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let unsigned = Transaction::new_non_finalized(
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        b"covex-oracle-payout".to_vec(),
+    );
+    let entries = vec![UtxoEntry {
+        amount,
+        script_public_key: p2sh_spk,
+        block_daa_score: utxo.utxo_entry.block_daa_score,
+        is_coinbase: utxo.utxo_entry.is_coinbase,
+    }];
+    let mut signable = SignableTransaction::with_entries(unsigned, entries);
+    // Sigs in pubkey order: [oracle, winner] (redeem = multisig([oracle, winner], 2)).
+    let keypairs = [crate::oracle::oracle_keypair(), winner_kp];
+    let sig_script = match build_p2sh_multisig_signature_script(&signable, 0, &keypairs, &redeem) {
+        Ok(s) => s,
+        Err(e) => return err(format!("build oracle payout script: {e}")),
+    };
+    signable.tx.inputs[0].signature_script = sig_script;
+    signable.tx.finalize();
+    let rpc_tx = RpcTransaction::from(&signable.tx);
+
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => {
+            let spent = tx_id.to_string();
+            let _ = db::mark_p2sh_spent(&db, &cov.tx_id, &spent);
+            info!("Oracle-enforced payout: covenant {} released in {}", cov.tx_id, spent);
+            Json(serde_json::json!({
+                "success": true,
+                "payout_tx_id": spent,
+                "paid_kas": (amount - TX_FEE) as f64 / 100_000_000.0,
+                "destination": req.destination_addr,
+                "note": "The chain required the oracle co-signature; the oracle co-signed because the outcome verified."
+            }))
+        }
+        Err(e) => {
+            warn!("Oracle payout broadcast rejected for {}: {}", cov.tx_id, e);
+            err(format!("broadcast rejected: {e}"))
+        }
+    }
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
+        .route("/covenant/oracle-payout", post(oracle_payout_handler))
 }
 
 #[cfg(test)]

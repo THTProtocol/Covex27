@@ -1,0 +1,11 @@
+# Groth16 keys are server-generated together by setup_live_zk.sh (like
+# node_modules) so the proving key (.zkey) and verifying key (_vkey.json) always
+# come from the SAME trusted setup and match. They survive deploys as untracked
+# files; run setup_live_zk.sh once after a fresh checkout to make circuits live.
+*.zkey
+*.wtns
+*_0000.zkey
+*_0001.zkey
+# trusted-setup ceremony files (downloaded on the server)
+*.ptau
+*_vkey.json

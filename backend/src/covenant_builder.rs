@@ -386,6 +386,13 @@ pub struct RedeemSpec {
     /// multisig only: how many signatures are required (defaults to all members).
     #[serde(default)]
     pub required: Option<usize>,
+    /// htlc/timelock: absolute DAA lock (htlc refund branch / timelock).
+    /// htlc only: the receiver (claim) and sender (refund) x-only pubkeys. If absent
+    /// in dev mode, receiver=dev wallet 2, sender=dev wallet 1.
+    #[serde(default)]
+    pub receiver_pubkey_hex: Option<String>,
+    #[serde(default)]
+    pub sender_pubkey_hex: Option<String>,
 }
 
 /// The two testnet dev-wallet secret keys for a network (used as default multisig
@@ -508,7 +515,45 @@ pub async fn p2sh_deploy_handler(
                 Err(e) => return err(e),
             }
         }
-        other => return err(format!("unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig)")),
+        "htlc" => {
+            let preimage_hex = match &req.redeem.preimage_hex {
+                Some(p) => p,
+                None => return err("htlc requires preimage_hex".into()),
+            };
+            let preimage = match hex::decode(preimage_hex.trim()) {
+                Ok(b) => b,
+                Err(e) => return err(format!("bad preimage_hex: {e}")),
+            };
+            let hash = blake2b256(&preimage);
+            let lock_daa = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("htlc requires lock_daa (refund deadline)".into()),
+            };
+            // receiver (claim) and sender (refund) pubkeys: explicit, or dev wallets.
+            let (receiver, sender) = if let (Some(r), Some(s)) =
+                (&req.redeem.receiver_pubkey_hex, &req.redeem.sender_pubkey_hex)
+            {
+                match (decode_xonly_hex(r), decode_xonly_hex(s)) {
+                    (Ok(rr), Ok(ss)) => (rr, ss),
+                    (Err(e), _) | (_, Err(e)) => return err(e),
+                }
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => match (xonly_from_seckey(&ks[1]), xonly_from_seckey(&ks[0])) {
+                        (Ok(rr), Ok(ss)) => (rr, ss),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    },
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("htlc requires receiver_pubkey_hex + sender_pubkey_hex (or use_dev_mode)".into());
+            };
+            match redeem_htlc(&hash, &receiver, lock_daa, &sender) {
+                Ok(r) => (r, format!("htlc:{lock_daa}")),
+                Err(e) => return err(e),
+            }
+        }
+        other => return err(format!("unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc)")),
     };
 
     let p2sh_spk = p2sh_script_pubkey(&redeem);
@@ -663,6 +708,11 @@ pub struct P2shSpendRequest {
     /// absent in dev mode, the two dev wallets are used.
     #[serde(default)]
     pub signer_keys_hex: Option<Vec<String>>,
+    /// htlc only: "claim" (receiver reveals preimage) or "refund" (sender, after the
+    /// timelock). Defaults to "claim". The signer key comes from private_key_hex or
+    /// signer_keys_hex[0] (the claimer or refunder, who is not the covenant owner).
+    #[serde(default)]
+    pub htlc_mode: Option<String>,
 }
 
 /// POST /covenant/p2sh/spend - redeem a P2SH covenant by satisfying its script.
@@ -690,6 +740,10 @@ pub async fn p2sh_spend_handler(
         cov.redeem_kind.strip_prefix("multisig:").and_then(|s| s.parse::<u8>().ok()).unwrap_or(1);
     let lock_daa: Option<u64> =
         cov.redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
+    let is_htlc = cov.redeem_kind.starts_with("htlc:");
+    let htlc_lock_daa: Option<u64> =
+        cov.redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
+    let htlc_claim = req.htlc_mode.as_deref() != Some("refund");
 
     // Extra satisfier pushes (after the sig): the preimage for a hashlock.
     let extra: Vec<Vec<u8>> = if cov.redeem_kind == "hashlock" {
@@ -733,6 +787,28 @@ pub async fn p2sh_spend_handler(
             }
         }
         kps
+    } else if is_htlc {
+        // The claimer (receiver) or refunder (sender) signs - NOT the covenant owner.
+        // Their key is supplied explicitly (private_key_hex or signer_keys_hex[0]).
+        let sk_hex = req
+            .signer_keys_hex
+            .as_ref()
+            .and_then(|v| v.first())
+            .cloned()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| if req.private_key_hex.trim().is_empty() { None } else { Some(req.private_key_hex.clone()) });
+        let sk_hex = match sk_hex {
+            Some(s) => s,
+            None => return err("HTLC spend requires the claimer/refunder key (private_key_hex)".into()),
+        };
+        let bytes: [u8; 32] = match hex::decode(sk_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+            Some(b) => b,
+            None => return err("bad HTLC signer key (need 64 hex chars)".into()),
+        };
+        match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &bytes) {
+            Ok(k) => vec![k],
+            Err(e) => return err(format!("bad key: {e}")),
+        }
     } else {
         let (seckey, _addr) =
             match resolve_signing_key(&req.network, &cov.owner_addr, &req.private_key_hex, req.use_dev_mode) {
@@ -791,9 +867,12 @@ pub async fn p2sh_spend_handler(
     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
     // so the crawler does not misread a redeem spend as a new covenant.
     let spend_payload = b"covex-p2sh-spend".to_vec();
-    // Timelock spends must set lock_time >= lock_daa (and the chain must have reached
-    // it, else the node rejects the tx as non-final). We set it exactly to lock_daa.
-    let spend_lock_time = lock_daa.unwrap_or(0);
+    // Timelock spends (and HTLC refunds) must set lock_time >= lock_daa (and the chain
+    // must have reached it, else the node rejects the tx as non-final). HTLC CLAIMS do
+    // not touch the timelock branch, so they keep lock_time 0.
+    let spend_lock_time = lock_daa
+        .or(if is_htlc && !htlc_claim { htlc_lock_daa } else { None })
+        .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
@@ -814,6 +893,22 @@ pub async fn p2sh_spend_handler(
         match build_p2sh_multisig_signature_script(&signable, 0, &keypairs, &redeem) {
             Ok(s) => s,
             Err(e) => return err(format!("build multisig spend script: {e}")),
+        }
+    } else if is_htlc {
+        let preimage: Option<Vec<u8>> = if htlc_claim {
+            match &req.preimage_hex {
+                Some(p) => match hex::decode(p.trim()) {
+                    Ok(b) => Some(b),
+                    Err(e) => return err(format!("bad preimage_hex: {e}")),
+                },
+                None => return err("HTLC claim requires preimage_hex".into()),
+            }
+        } else {
+            None
+        };
+        match build_htlc_signature_script(&signable, 0, &keypairs[0], &redeem, htlc_claim, preimage.as_deref()) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build htlc spend script: {e}")),
         }
     } else {
         match build_p2sh_signature_script(&signable, 0, &keypairs[0], &redeem, &extra) {

@@ -100,6 +100,19 @@ fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64, network_
     format!("{} covenant (category: {}) locking {:.2} KAS on Kaspa BlockDAG {}. Extracted automatically from on-chain UTXO data.", covenant_type, category, kas, network_label)
 }
 
+/// True once the operator flips the mainnet covenant gate on (Toccata activation).
+fn mainnet_covenants_enabled() -> bool {
+    std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() == Ok("true")
+}
+
+/// The honesty gate (GATE 1 / 1.5): on mainnet, a bare aa20-aa23 output is indistinguishable
+/// from an ordinary P2SH/multisig/inscription until Toccata makes covenants valid, so we
+/// index ZERO mainnet covenants until the operator flips the gate. Testnets are never gated.
+/// Pure + testable so the irreversible gate-flip can be asserted in CI before launch.
+fn covenant_indexing_gated(network: &str, mainnet_enabled: bool) -> bool {
+    network.starts_with("mainnet") && !mainnet_enabled
+}
+
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
     db: Arc<Mutex<rusqlite::Connection>>,
@@ -185,9 +198,7 @@ pub async fn run_crawler(
         // Probe the tip, report caught-up (scanned == tip), and idle until the
         // operator flips COVEX_MAINNET_COVENANTS_ENABLED=true, at which point this
         // guard falls through to the normal forward walk.
-        if network.starts_with("mainnet")
-            && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() != Ok("true")
-        {
+        if covenant_indexing_gated(&network, mainnet_covenants_enabled()) {
             crate::node_status::report_ok(&network, virtual_daa, virtual_daa);
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
@@ -313,9 +324,7 @@ pub async fn run_crawler(
                 // covenants until the operator confirms Toccata is live by setting
                 // COVEX_MAINNET_COVENANTS_ENABLED=true. The crawler keeps walking so it is
                 // ready to backfill the instant real covenants appear.
-                if network.starts_with("mainnet")
-                    && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() != Ok("true")
-                {
+                if covenant_indexing_gated(&network, mainnet_covenants_enabled()) {
                     continue;
                 }
 
@@ -482,4 +491,22 @@ fn categorize(hex: &str) -> String {
     crate::covenant_types::CovenantCategory::from_script_ops(hex)
         .label()
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mainnet_gate_blocks_until_enabled() {
+        // Gate OFF (pre-Toccata): mainnet indexes ZERO covenants; testnets always index.
+        assert!(covenant_indexing_gated("mainnet", false), "mainnet must be gated when disabled");
+        assert!(covenant_indexing_gated("mainnet-1", false), "mainnet-1 must be gated when disabled");
+        assert!(!covenant_indexing_gated("testnet-12", false), "testnet-12 is never gated");
+        assert!(!covenant_indexing_gated("testnet-10", false), "testnet-10 is never gated");
+        // Gate ON (operator flips it at Toccata activation): mainnet covenants now index.
+        assert!(!covenant_indexing_gated("mainnet", true), "mainnet must index once enabled");
+        assert!(!covenant_indexing_gated("mainnet-1", true), "mainnet-1 must index once enabled");
+        assert!(!covenant_indexing_gated("testnet-12", true), "testnets unaffected by the flag");
+    }
 }

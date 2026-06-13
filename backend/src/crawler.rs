@@ -23,6 +23,12 @@ use tracing::{debug, error, info, warn};
 /// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
 const MAX_WALK_DISTANCE: u64 = 5_000_000;  // Increased to catch more historic covenants on TN10/TN12 (full DAG coverage)
+// Forward-tail window (C3): when the watermark is far below the tip, walk only this many
+// recent DAA each cycle so NEW covenants index immediately and the health signal reflects
+// tip coverage, instead of re-walking a million blocks of history every cycle (which
+// stalled TN12). The deferred deep history is logged for a later backfill, not silently
+// dropped. In steady state the gap is tiny so this never binds.
+const FORWARD_WINDOW: u64 = 5_000;
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
 const BUILDER_THRESHOLD: u64 = 10_000_000_000;
@@ -158,6 +164,18 @@ pub async fn run_crawler(
             }
         };
         let virtual_daa = dag.virtual_daa_score;
+        // The node tip can REGRESS below our watermark (e.g. a node resync to a lower
+        // tip - exactly what stranded TN10). If we idle as "caught up" above the tip we
+        // index nothing new for hours until the node climbs back. Clamp the watermark to
+        // the real tip so we always tail the chain the node actually has.
+        if scan_daa > virtual_daa {
+            warn!(
+                "Crawler[{}]: watermark {} is above node tip {} (node resynced lower); clamping to tip",
+                network, scan_daa, virtual_daa
+            );
+            scan_daa = virtual_daa;
+            let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
+        }
         crate::node_status::report_ok(&network, virtual_daa, scan_daa);
 
         // Mainnet short-circuit. SilverScript covenants cannot exist on mainnet until
@@ -180,6 +198,21 @@ pub async fn run_crawler(
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
         }
+        // Forward-tail floor (C3): if we are far behind, walk only the recent
+        // FORWARD_WINDOW so NEW covenants index immediately and the health reflects tip
+        // coverage; the deep history below is DEFERRED to a backfill (logged, never
+        // silently dropped). In steady state this equals scan_daa, so each cycle walks
+        // only the blocks added since the last cycle (no more re-walking a million blocks).
+        let walk_floor = if virtual_daa - scan_daa > FORWARD_WINDOW {
+            let f = virtual_daa - FORWARD_WINDOW;
+            warn!(
+                "Crawler[{}]: {} DAA behind; tailing the recent {} and DEFERRING backfill of [{}, {}) so new covenants stay current",
+                network, virtual_daa - scan_daa, FORWARD_WINDOW, scan_daa, f
+            );
+            f
+        } else {
+            scan_daa
+        };
         let tip_hash = match dag.virtual_parent_hashes.first() {
             Some(h) => h.clone(),
             None => {
@@ -188,7 +221,7 @@ pub async fn run_crawler(
                 continue;
             }
         };
-        info!("Crawler: tip DAA {} | scanned={}", virtual_daa, scan_daa);
+        info!("Crawler: tip DAA {} | scanned={} | walk_floor={}", virtual_daa, scan_daa, walk_floor);
 
         let mut cur = tip_hash;
         let mut walked = 0u64;
@@ -230,6 +263,12 @@ pub async fn run_crawler(
             };
             let daa = block.header.daa_score;
             lowest = daa.min(lowest);
+            // Stop once we reach already-covered territory (or the forward-tail floor):
+            // everything from here down was scanned in a prior cycle or is deferred
+            // backfill, so re-walking it wastes node round-trips and stalls the tail.
+            if daa <= walk_floor {
+                break;
+            }
 
             // Broad scan for *ALL* covenants: check payload + every output script for opcodes.
             // This captures raw covenants (manual deploys, other tools, experiments) in addition
@@ -424,9 +463,12 @@ pub async fn run_crawler(
                 network, walked, scan_daa
             );
         } else {
-            // lowest is the minimum DAA seen in this batch. Without this decrement the
-            // next cycle hits the same floor and makes zero net progress.
-            scan_daa = lowest.saturating_sub(1);
+            // Clean walk: we covered [walk_floor, tip] down the selected-parent chain, so
+            // we are current at the tip. Persist scan_daa = tip; any deferred backfill
+            // range below walk_floor was logged above for a later pass. (Previously this
+            // set scan_daa = lowest-1, which combined with no stop condition re-walked the
+            // whole history every cycle and reported a permanently-behind floor.)
+            scan_daa = virtual_daa;
             let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
         }
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;

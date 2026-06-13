@@ -71,12 +71,12 @@ mindmap
 
 ### Live numbers
 
-Real indexed data as of **2026-06-12**. Nothing here is seeded, simulated, or projected; every figure is queryable from the public API right now.
+Real indexed data as of **2026-06-13**. Nothing here is seeded, simulated, or projected; every figure is queryable from the public API right now.
 
 | Network | Covenants indexed | Provably paid | TVL |
 |---------|------------------:|--------------:|----:|
-| Testnet-12 (Toccata) | 7,841 | 2 | 38.06M KAS |
-| Testnet-10 | 3,176 | 0 | 15,349 KAS |
+| Testnet-12 (Toccata) | 8,471 | 2 | 38.08M KAS |
+| Testnet-10 | 6,417 | 0 | 39,155 KAS |
 | Mainnet | 0 (gated until Toccata activation) | 0 | 0 |
 
 ```bash
@@ -247,7 +247,7 @@ timeline
     section Testnet era
         2025 to 2026 : SilverScript covenants live on Testnet-12 : Covex ships explorer, studio, arenas, oracle : 11,000+ covenants indexed across TN12 and TN10
     section Toccata
-        June 2026 : Mainnet activation window June 5 to 20 : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
+        June 30, 2026 : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
     section Trustless era
         After activation : Mainnet covenants indexed from the first one : resolutions migrate to on-chain Groth16 and STARK verification : multi-oracle threshold signing, KCC-20 indexing, pay-per-call API
 ```
@@ -267,7 +267,7 @@ The full phased plan lives in [docs/COVEX_MASTER_BUILD_PLAN.md](docs/COVEX_MASTE
 
 Kaspa is a proof-of-work BlockDAG using the GHOSTDAG/DAGKNIGHT ordering protocol. Since the **Crescendo** hard fork (mainnet, ~May 2025) it produces **10 blocks per second** while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped **KIP-10** transaction-introspection opcodes, the first step toward covenants.
 
-The **Toccata** hard fork completes the covenant story. Scheduled to activate on mainnet in the **June 5 to 20, 2026** window, it bundles four improvement proposals:
+The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet on **June 30, 2026**, it bundles four improvement proposals:
 
 - **KIP-17**: extended script-engine opcodes, the covenant backbone.
 - **KIP-20**: covenant IDs, stable identity and lineage across a covenant's spends.
@@ -288,7 +288,7 @@ A programmable UTXO is invisible without infrastructure. At the moment covenants
 
 **Indexing.** Three independent background workers per network give defense in depth: a *crawler* that walks the selected-parent chain recognizing `aa20` to `aa23` covenant envelopes; a *live indexer* polling seed addresses every 10 seconds for fresh UTXOs; and a *payment guardian* watching the treasury to confirm tier payments at six DAA confirmations. Discovered covenants are classified by opcode signature into 17 categories (escrow, vesting, atomic swap, multisig, prediction, governance, community pool, skill and verifiable-skill games, P2SH commitments, and more). On mainnet, a bare P2SH commitment is indistinguishable from an ordinary output and is *not* counted as a covenant until Toccata activation: the explorer stays honest rather than inflating numbers.
 
-**Interaction.** Every covenant has a page bound to its on-chain address. Visitors connect any Kaspa wallet (KasWare, Kastle, Kasperia, OKX, and more) and act non-custodially. Game covenants are the proof of concept: two players stake into a covenant, play a real game (chess and seven others) with moves persisted and synced live over WebSockets, and the outcome is resolved and signed; the winner's unlock spends the pot on-chain. The platform never custodies the stake.
+**Interaction.** Every covenant has a page bound to its on-chain address. Visitors connect any Kaspa wallet (KasWare, Kastle, Kasperia, OKX, and more) and act non-custodially, and **any** on-chain P2SH covenant can be redeemed by supplying its redeem script, even ones not created on Covex. Game covenants are the proof of concept: two players stake into a covenant and play a real game (chess and seven others) in a premium client, with moves persisted and synced live over WebSockets. The result is **computed by the server, not asserted by a client**: deterministic games are settled by replaying the public move log, and quitting or letting the clock run out is a server-timed loss. The winner's unlock spends the pot on-chain and the platform never custodies the stake.
 
 **Authorship and the Studio.** Creators compose a covenant's public page from a fixed catalog of platform-authored blocks using a drag-and-drop builder (Puck), or type a theme directly in a design-code terminal; 240 procedural presets give instant, professional starting points. Because pages serialize to validated JSON rendered through an allow-listed component set, **no user-authored HTML or JavaScript ever reaches a visitor's DOM**, eliminating the phishing/XSS surface that plagues open page builders on financial sites. Circuit selection (Groth16 and oracle-attested), fee and payout configuration, background images, and SilverScript compilation complete the authoring surface.
 
@@ -307,14 +307,25 @@ flowchart LR
     CHAIN -.-> FUT["Toccata KIP-16: verification<br/>moves fully on-chain"]
 ```
 
+The north star is **trustless-by-removal**, measured by one acid test: *if hightable.pro vanished tomorrow, could every user still recover or settle their funds using only their own wallet and the published script?* Where the answer is yes, the feature is simultaneously launch-safe (nothing to steal), legally defensible (a tool, not an operator), and honest.
+
 - **Custody:** fully trustless. The platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet.
-- **Discovery and display:** trustless in substance. Every listed covenant is a real on-chain object; nothing is fabricated. The honesty gate on mainnet enforces this.
-- **Resolution:** *currently oracle-assisted.* Game and event outcomes are verified, by a real Groth16 proof where a circuit and artifacts exist, otherwise attested, and signed by the Covex oracle; the signature is checked on-chain at unlock. Each covenant page states which mode applies via a trust badge. This is the one trusted component today, and it is disclosed, not hidden.
+- **Script-enforced primitives: trustless today.** Covex builds seven real on-chain covenant types where the **chain itself** enforces the spend condition and the user's own wallet redeems, with no Covex key in the path: single-sig, hashlock, absolute timelock (CLTV), N-of-M multisig, HTLC, plus two-party oracle escrow. Each is engine-tested against the real `kaspa-txscript` interpreter before any value is locked, then verified on-chain on Testnet-12. These pass the acid test.
+- **Interact with any covenant, even non-Covex ones.** Given a covenant's redeem script, Covex derives its P2SH address (a wrong script simply fails the lookup), assembles the spend, and the **caller's own key** signs it. Covex is removable from the interaction path.
+- **Discovery and display:** trustless in substance. Every listed covenant is a real on-chain object; nothing is fabricated. The honesty gate on mainnet enforces this, and both testnet indexers tail the tip so new covenants appear the moment they land.
+- **Resolution:** *currently oracle-assisted, and frozen for value on mainnet until it is trustless.* For the games that are deterministic, the **result is computed server-authoritatively** by replaying the public move log (tic-tac-toe, connect-four, chess) or by a server-timed timeout/forfeit, not asserted by a client; the oracle signs only that verified result, and the on-chain escrow pays only the side the chain itself can prove won. Oracle-enforced covenants are refused on mainnet (GATE 2) until the trustless rebuild lands. Each covenant page states which mode applies via a trust badge. This trusted component is disclosed, not hidden.
 - **Visibility:** the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.
 
 #### 7.5 Roadmap to trustlessness
 
-Toccata's KIP-16 lets covenants verify proofs **on-chain**. Covex's resolution layer is built to migrate onto it: circuits that already have artifacts (Merkle membership, range, timelock, pot-split, VRF) move first to on-chain Groth16 verification; game logic moves to RISC Zero STARK guests, which need no trusted setup. As that migration completes, the oracle's role shrinks from "trusted signer" to "liveness helper," and eventually to optional. The honest badge system makes each step visible to users in real time. Beyond resolution: multi-oracle threshold signing for whatever remains attested, a real MPC ceremony (or STARK paths) to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.
+Trustlessness is earned per covenant type by **removing Covex from the money path**, not by adding more cryptography. The ladder, honestly:
+
+- **Deterministic primitives** (timelock/vesting, hashlock/HTLC, multisig escrow): trustless today. The chain enforces them and the user's wallet redeems. Remaining work is product, not crypto: make the enforced builder the default deploy, ship mainnet wallet-side signing, and publish the redeem-script builders so anyone can reconstruct a spend without Covex.
+- **Deterministic two-player games** (chess, checkers, connect-four, reversi): reachable via **state channels**. The pot locks in a 2-of-2 between the two players (not Covex); every move is co-signed off-chain with a sequence number; the cooperative close is both players signing the winner and spending the pot with no oracle; abandonment resolves by publishing the last co-signed state plus a CLTV timeout default. This replaces the server-writes-the-winner model entirely and is the next major build.
+- **Poker and blackjack**: reach **trust-minimized**, not trustless. Mixing both players' entropy with a public randomness beacon (drand or a commit-reveal VRF) removes the operator's ability to grind the deck; fully trustless hidden-card dealing needs mental-poker / threshold encryption, which is labeled as the ceiling.
+- **Prediction markets**: cannot be made trustless (something off-chain must attest the real-world fact); the honest target is k-of-n independent oracle signers with an on-chain multisig release, labeled oracle-attested.
+
+A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verification is **not** the trustlessness path at Toccata. The path is script-enforced custody plus Schnorr, CLTV, hashlocks, multisig, and state channels, which is exactly the toolkit already built. KIP-16 on-chain proof checking is complementary, not the enforcement. Live Groth16 circuits (Merkle membership, range, timelock, escrow, VRF, nullifier, and more) verify real proofs today and fail closed on a bad one, ready to migrate onto KIP-16 when it lands.
 
 #### 7.6 Why now
 

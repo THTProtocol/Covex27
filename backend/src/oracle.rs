@@ -26,8 +26,7 @@ use secp256k1::{schnorr::Signature, Keypair, Message, Secp256k1};
 use serde_json::json;
 
 use crate::oracle_verifier::{
-    circuit_requires_crypto_proof, determine_outcome_for_circuit, proof_has_groth16_body,
-    verify_proof_for_circuit,
+    circuit_requires_crypto_proof, determine_outcome_for_circuit, verify_proof_for_circuit,
 };
 
 /// Input to the oracle verification endpoint.
@@ -300,20 +299,6 @@ async fn run_zk_verifier_async(
     tokio::task::spawn_blocking(move || run_zk_verifier(script, tmp_prefix, &proof, &public_inputs))
         .await
         .map_err(|e| format!("Spawn blocking failed: {}", e))?
-}
-
-async fn verify_hybrid_game_async(
-    script: PathBuf,
-    prefix: &'static str,
-    _label: &'static str,
-    proof: serde_json::Value,
-    public_inputs: Vec<String>,
-) -> Result<bool, String> {
-    if proof_has_groth16_body(&proof) {
-        run_zk_verifier_async(script, prefix, proof, public_inputs).await
-    } else {
-        Ok(true)
-    }
 }
 
 /// Verify a MerkleMembership Groth16 proof via snarkjs.

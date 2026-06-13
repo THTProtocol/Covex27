@@ -33,7 +33,7 @@ use kaspa_consensus_core::tx::{
 };
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
-use kaspa_txscript::opcodes::codes::{OpBlake2b, OpCheckSig, OpEqualVerify};
+use kaspa_txscript::opcodes::codes::{OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpDrop, OpEqualVerify};
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
 use rusqlite::Connection;
@@ -60,6 +60,13 @@ pub enum RedeemKind {
     /// release: spend requires revealing a preimage P with blake2b256(P)==hash
     /// AND a valid signature. The building block for HTLC / commit-reveal escrow.
     HashLock { hash: [u8; 32], xonly_pubkey: [u8; 32] },
+    /// `<lock_daa> OpCheckLockTimeVerify OpDrop <xonly_pubkey> OpCheckSig` - an
+    /// absolute timelock (vesting cliff / dispute window): spendable only once the
+    /// chain DAA score reaches `lock_daa`, then by the key holder.
+    Timelock { lock_daa: u64, xonly_pubkey: [u8; 32] },
+    /// N-of-M multisig (`OP_required <pk..> OP_total OpCheckMultiSig`): spend
+    /// requires `required` of the listed keys. DAO treasuries, 2-of-3 escrow.
+    Multisig { pubkeys: Vec<[u8; 32]>, required: usize },
 }
 
 impl RedeemKind {
@@ -68,6 +75,8 @@ impl RedeemKind {
         match self {
             RedeemKind::SingleSig { xonly_pubkey } => redeem_singlesig(xonly_pubkey),
             RedeemKind::HashLock { hash, xonly_pubkey } => redeem_hashlock(hash, xonly_pubkey),
+            RedeemKind::Timelock { lock_daa, xonly_pubkey } => redeem_timelock(*lock_daa, xonly_pubkey),
+            RedeemKind::Multisig { pubkeys, required } => redeem_multisig(pubkeys, *required),
         }
     }
 }
@@ -92,6 +101,51 @@ pub fn redeem_hashlock(hash32: &[u8; 32], xonly_pubkey: &[u8; 32]) -> BResult<Ve
     b.add_data(xonly_pubkey).map_err(|e| format!("redeem hashlock pubkey: {e}"))?;
     b.add_op(OpCheckSig).map_err(|e| format!("redeem hashlock OpCheckSig: {e}"))?;
     Ok(b.drain())
+}
+
+/// Redeem script for an absolute timelock:
+/// `<lock_daa> OpCheckLockTimeVerify OpDrop <xonly_pubkey> OpCheckSig`.
+/// To spend, the spend tx must set `lock_time >= lock_daa` (same DAA type, i.e.
+/// both below LOCK_TIME_THRESHOLD) AND the input sequence must be non-final, and
+/// the chain must have reached lock_daa (else the node treats the tx as non-final).
+pub fn redeem_timelock(lock_daa: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    b.add_lock_time(lock_daa).map_err(|e| format!("redeem timelock add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("redeem timelock CLTV: {e}"))?;
+    b.add_op(OpDrop).map_err(|e| format!("redeem timelock OpDrop: {e}"))?;
+    b.add_data(xonly_pubkey).map_err(|e| format!("redeem timelock pubkey: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("redeem timelock OpCheckSig: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Redeem script for an N-of-M multisig, built by kaspa-txscript:
+/// `OP_required <pk1> .. <pkM> OP_M OpCheckMultiSig`. To spend, the satisfier must
+/// push exactly `required` signatures in the same relative order as their pubkeys.
+pub fn redeem_multisig(pubkeys: &[[u8; 32]], required: usize) -> BResult<Vec<u8>> {
+    kaspa_txscript::multisig_redeem_script(pubkeys.iter(), required)
+        .map_err(|e| format!("multisig redeem: {e:?}"))
+}
+
+/// Build the input `idx` signature_script for a multisig P2SH spend: `required`
+/// OpData65 signatures (in `keypairs` order, which MUST match pubkey order in the
+/// redeem) followed by a push of the redeem script.
+pub fn build_p2sh_multisig_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    keypairs: &[secp256k1::Keypair],
+    redeem: &[u8],
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let mut satisfier: Vec<u8> = Vec::new();
+    for kp in keypairs {
+        let sig: [u8; 64] = *kp.sign_schnorr(msg).as_ref();
+        satisfier.extend(std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]));
+    }
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("p2sh multisig signature script: {e}"))
 }
 
 /// blake2b-256 of a preimage, matching the hash OpBlake2b computes on-chain. Used
@@ -591,18 +645,21 @@ mod tests {
         Keypair::from_seckey_slice(secp256k1::SECP256K1, &sk).unwrap()
     }
 
-    /// Build a spend tx of a single P2SH UTXO, install the signature_script, and run
+    /// Build a 1-input P2SH spend tx with the given lock_time/sequence, let `make_sig`
+    /// produce the signature_script from the (unsigned) signable, install it, and run
     /// the real consensus engine. Returns whether `execute()` succeeded.
-    fn run_spend(redeem: &[u8], sign_kp: &Keypair, extra_after_sig: &[Vec<u8>]) -> bool {
-        let prev = TransactionOutpoint {
-            transaction_id: kaspa_hashes::Hash::from_bytes([7u8; 32]),
-            index: 0,
-        };
+    fn run_spend_generic(
+        redeem: &[u8],
+        lock_time: u64,
+        sequence: u64,
+        make_sig: impl Fn(&SignableTransaction) -> Vec<u8>,
+    ) -> bool {
+        let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([7u8; 32]), index: 0 };
         let tx = Transaction::new(
             0,
-            vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence: 0, sig_op_count: 1 }],
+            vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence, sig_op_count: 1 }],
             vec![TransactionOutput { value: 90_000_000, script_public_key: p2sh_script_pubkey(redeem) }],
-            0,
+            lock_time,
             SubnetworkId::from_bytes([0u8; 20]),
             0,
             vec![],
@@ -614,7 +671,7 @@ mod tests {
             is_coinbase: false,
         }];
         let mut signable = SignableTransaction::with_entries(tx, entries);
-        let sig_script = build_p2sh_signature_script(&signable, 0, sign_kp, redeem, extra_after_sig).unwrap();
+        let sig_script = make_sig(&signable);
         signable.tx.inputs[0].signature_script = sig_script;
 
         let verifiable = signable.as_verifiable();
@@ -624,6 +681,13 @@ mod tests {
         let mut engine =
             TxScriptEngine::from_transaction_input(&verifiable, input, 0, entry, &mut reused, &cache).unwrap();
         engine.execute().is_ok()
+    }
+
+    /// Single-key spend (singlesig / hashlock) at lock_time 0, non-final sequence.
+    fn run_spend(redeem: &[u8], sign_kp: &Keypair, extra_after_sig: &[Vec<u8>]) -> bool {
+        run_spend_generic(redeem, 0, 0, |s| {
+            build_p2sh_signature_script(s, 0, sign_kp, redeem, extra_after_sig).unwrap()
+        })
     }
 
     #[test]
@@ -678,5 +742,53 @@ mod tests {
         let redeem = redeem_singlesig(&kp.x_only_public_key().0.serialize()).unwrap();
         let addr = p2sh_address(&redeem, Prefix::Testnet).unwrap();
         assert!(addr.to_string().starts_with("kaspatest:"), "testnet P2SH address prefix");
+    }
+
+    #[test]
+    fn timelock_p2sh_spend_respects_locktime() {
+        let kp = test_keypair(55);
+        let xonly = kp.x_only_public_key().0.serialize();
+        let lock_daa: u64 = 1_000_000;
+        let redeem = redeem_timelock(lock_daa, &xonly).unwrap();
+        let sign = |s: &SignableTransaction| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap();
+
+        // tx.lock_time == lock_daa, input not final -> CLTV satisfied.
+        assert!(run_spend_generic(&redeem, lock_daa, 0, sign), "spend at lock_time==lock_daa must pass");
+        // tx.lock_time above lock_daa also passes (lock elapsed further).
+        assert!(run_spend_generic(&redeem, lock_daa + 50, 0, sign), "spend after the lock must pass");
+        // tx.lock_time below lock_daa -> CLTV fails (still locked).
+        assert!(!run_spend_generic(&redeem, lock_daa - 1, 0, sign), "spend before the lock must be rejected");
+        // A finalized input (max sequence) disables locktime enforcement -> rejected.
+        assert!(!run_spend_generic(&redeem, lock_daa, u64::MAX, sign), "finalized input must be rejected by CLTV");
+    }
+
+    #[test]
+    fn multisig_2_of_3_requires_two_distinct_sigs() {
+        let kp1 = test_keypair(61);
+        let kp2 = test_keypair(62);
+        let kp3 = test_keypair(63);
+        let pks = vec![
+            kp1.x_only_public_key().0.serialize(),
+            kp2.x_only_public_key().0.serialize(),
+            kp3.x_only_public_key().0.serialize(),
+        ];
+        let redeem = redeem_multisig(&pks, 2).unwrap();
+
+        // 2 of 3 (in pubkey order) -> passes.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1, kp2], &redeem).unwrap()),
+            "2-of-3 with two valid sigs must pass"
+        );
+        // Only 1 signature -> fails.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1], &redeem).unwrap()),
+            "2-of-3 with a single sig must be rejected"
+        );
+        // 2 sigs but one from a non-member key -> fails.
+        let outsider = test_keypair(99);
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1, outsider], &redeem).unwrap()),
+            "a signature from a non-member key must be rejected"
+        );
     }
 }

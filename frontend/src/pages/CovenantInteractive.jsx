@@ -299,6 +299,23 @@ export default function CovenantInteractive() {
     }
   }, [covenant, amount, address, deployUri, sendPayment]);
 
+  // BRIDGE: published/preview/fullscreen covenant UIs render inside a sandboxed
+  // iframe (sandbox="allow-scripts", opaque 'null' origin) whose call-to-action posts
+  // window.parent.postMessage({type:'COVENANT_EXECUTE'}). Nothing listened, so the
+  // headline button was a dead no-op. Route the signal to the real action: open the
+  // chess arena for a chess covenant, else run the wallet execute flow. The iframe is
+  // sandboxed without allow-same-origin, so a message is all it can do - it cannot read
+  // or drive the app, and CSP frame-ancestors 'self' blocks third-party framing.
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e?.data?.type !== 'COVENANT_EXECUTE') return;
+      if (isChess) setShowChessArena(true);
+      else handleExecute();
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [isChess, handleExecute]);
+
   const covenantTierVal = tierValue(covenant?.verified_tier || covenant?.tier || 'FREE');
 
   // React to loaded covenant (custom UI presence) and isCreator for correct default tab

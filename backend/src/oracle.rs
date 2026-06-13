@@ -584,8 +584,29 @@ async fn verify_and_sign_handler(
         }
         server_outcome
     } else {
-        // Not a game covenant: pluggable derive (merkle/range/timelock groth signals +
-        // requested_outcome fallback for the non-game attested circuits).
+        // Not a game covenant. The oracle must NOT sign an outcome it has not verified.
+        // A real Groth16 proof body means it was verified above (Strict circuits now fail
+        // closed on an empty proof), so the outcome is derived from the proof's public
+        // signals. WITHOUT a proof body this is an attested/bodyless request, and signing
+        // the caller's requested_outcome would let ANYONE mint a "verified" oracle
+        // signature for ANY outcome on ANY covenant_id (the free-signature hole the audit
+        // confirmed live). Refuse: no proof + no server-resolved game = no signature.
+        if !proof_has_groth16_body(&input.proof) {
+            return Json(OracleVerifyOutput {
+                success: false,
+                outcome: None,
+                signature: None,
+                timestamp: None,
+                message: None,
+                error: Some(format!(
+                    "oracle declines to sign an unverified outcome for '{}': supply a real Groth16 proof, or use a server-resolved game covenant. Signing an arbitrary requested_outcome with no proof is disabled.",
+                    input.circuit_type
+                )),
+                public_inputs: input.public_inputs,
+                circuit_type: Some(input.circuit_type.clone()),
+                covenant_hint: None,
+            });
+        }
         determine_outcome_for_circuit(
             &input.circuit_type,
             &input.proof,
@@ -606,21 +627,30 @@ async fn verify_and_sign_handler(
         let threshold = multi.threshold;
         let mut valid_weight = 0u32;
 
+        let verifier = Secp256k1::verification_only();
+        let digest = message_digest(&message);
         for sig_entry in &multi.signatures {
-            // Find the matching provider
+            // Find the matching provider.
             if let Some(provider) = multi.providers.iter().find(|p| p.public_key == sig_entry.public_key) {
-                let pubkey_bytes = match hex::decode(&provider.public_key) {
-                    Ok(b) => b,
-                    Err(_) => continue,
+                // REAL BIP340 Schnorr verification: the provider must have actually signed
+                // the outcome message with their key. (The old code compared
+                // sha256(pubkey||message) to the supplied signature - a keyless MAC anyone
+                // could forge with zero private keys, providing no security at all.)
+                let xonly = match hex::decode(&provider.public_key)
+                    .ok()
+                    .and_then(|b| secp256k1::XOnlyPublicKey::from_slice(&b).ok())
+                {
+                    Some(x) => x,
+                    None => continue,
                 };
-
-                // Recompute expected signature using the same scheme as single oracle
-                let mut hasher = Sha256::new();
-                hasher.update(&pubkey_bytes);
-                hasher.update(message.as_bytes());
-                let expected_sig = hex::encode(hasher.finalize());
-
-                if expected_sig == sig_entry.signature {
+                let sig = match hex::decode(sig_entry.signature.trim())
+                    .ok()
+                    .and_then(|b| Signature::from_slice(&b).ok())
+                {
+                    Some(s) => s,
+                    None => continue,
+                };
+                if verifier.verify_schnorr(&sig, &digest, &xonly).is_ok() {
                     valid_weight += if provider.weight > 0 { provider.weight } else { 1 };
                 }
             }

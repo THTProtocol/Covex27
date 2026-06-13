@@ -8,6 +8,7 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
+use kaspa_addresses::Address;
 use rusqlite::params;
 use serde_json::json;
 use std::collections::HashMap;
@@ -21,6 +22,8 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id", get(get_game))
         .route("/games/:covenant_id/join", post(join_game))
         .route("/games/:covenant_id/move", post(make_move))
+        .route("/games/:covenant_id/lock-pot", post(lock_pot))
+        .route("/games/:covenant_id/settle-pot", post(settle_pot))
 }
 
 fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
@@ -55,6 +58,129 @@ fn fetch_game(
         row_to_game,
     )
     .ok()
+}
+
+/// Derive a schnorr x-only pubkey (hex) from a kaspa address (its 32-byte payload).
+fn xonly_hex_from_address(addr: &str) -> Result<String, String> {
+    let a = Address::try_from(addr).map_err(|e| format!("invalid address '{addr}': {e}"))?;
+    let p = a.payload.as_slice();
+    if p.len() != 32 {
+        return Err(format!("address '{addr}' is not a 32-byte schnorr key (payload {} bytes)", p.len()));
+    }
+    Ok(hex::encode(p))
+}
+
+/// POST /games/:id/lock-pot {stake_kas, network?} : lock a real on-chain pot for this
+/// match into an oracle_escrow covenant [oracle, player1, player2]. The chain will then
+/// release the pot ONLY to the oracle-declared winner (settle-pot). Funded by player1
+/// via the testnet dev wallet, so both players must be dev wallets for this demo flow.
+async fn lock_pot(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    let p2 = game["player2"].as_str().unwrap_or("").to_string();
+    if p1.is_empty() || p2.is_empty() {
+        return Json(json!({ "success": false, "error": "game needs two players before locking a pot" }));
+    }
+    let stake = req.get("stake_kas").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    if !(stake > 0.0) {
+        return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
+    }
+    let net = req.get("network").and_then(|v| v.as_str()).unwrap_or("testnet-12").to_string();
+    let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
+    let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
+
+    let dreq: crate::covenant_builder::P2shDeployRequest = match serde_json::from_value(json!({
+        "network": net, "deployer_addr": p1, "use_dev_mode": true, "stake_kas": stake,
+        "redeem": { "kind": "oracle_escrow", "pubkeys_hex": [p1x, p2x] }
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build deploy request: {e}") })),
+    };
+    let v = crate::covenant_builder::p2sh_deploy_handler(Extension(db.clone()), Json(dreq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        if let Some(tx) = v.get("deploy_tx_id").and_then(|t| t.as_str()) {
+            let conn = db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, updated_at = unixepoch() WHERE covenant_id = ?3",
+                params![tx, stake, covenant_id],
+            );
+        }
+    }
+    Json(v)
+}
+
+/// POST /games/:id/settle-pot : release the locked pot to the game's winner. The winner
+/// is read from the finished match, mapped to outcome 0 (player1) / 1 (player2), and the
+/// oracle co-signs the payout ONLY because the outcome verifies - so the chain itself
+/// paid the winner.
+async fn settle_pot(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+) -> Json<serde_json::Value> {
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let winner = game["winner"].as_str().unwrap_or("").to_string();
+    if winner.is_empty() {
+        return Json(json!({ "success": false, "error": "game has no winner yet" }));
+    }
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    let p2 = game["player2"].as_str().unwrap_or("").to_string();
+    let gt = game["game_type"].as_str().unwrap_or("chess").to_string();
+
+    let (pot_tx, net): (Option<String>, String) = {
+        let conn = db.lock().unwrap();
+        let pot: Option<String> = conn
+            .query_row("SELECT pot_tx FROM skill_games WHERE covenant_id = ?1", params![covenant_id], |r| r.get(0))
+            .ok()
+            .flatten();
+        let net = pot
+            .as_ref()
+            .and_then(|t| conn.query_row("SELECT network FROM p2sh_covenants WHERE tx_id = ?1", params![t], |r| r.get::<_, String>(0)).ok())
+            .unwrap_or_else(|| "testnet-12".to_string());
+        (pot, net)
+    };
+    let pot_tx = match pot_tx {
+        Some(t) if !t.is_empty() => t,
+        _ => return Json(json!({ "success": false, "error": "no pot locked for this game (call lock-pot first)" })),
+    };
+
+    let wl = winner.to_lowercase();
+    let outcome: u32 = if winner == p1 || wl == "white" || wl == "player1" {
+        0
+    } else if winner == p2 || wl == "black" || wl == "player2" {
+        1
+    } else {
+        return Json(json!({ "success": false, "error": format!("cannot map winner '{winner}' to player1/player2") }));
+    };
+    let dest = if outcome == 0 { &p1 } else { &p2 };
+
+    let preq: crate::covenant_builder::OraclePayoutRequest = match serde_json::from_value(json!({
+        "network": net, "deploy_tx_id": pot_tx, "use_dev_mode": true, "destination_addr": dest,
+        "circuit_type": format!("{}_v1", gt), "proof": {}, "public_inputs": [], "requested_outcome": outcome
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build payout request: {e}") })),
+    };
+    let v = crate::covenant_builder::oracle_payout_handler(Extension(db.clone()), Json(preq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        if let Some(tx) = v.get("payout_tx_id").and_then(|t| t.as_str()) {
+            let conn = db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
+                params![tx, covenant_id],
+            );
+        }
+    }
+    Json(v)
 }
 
 /// GET /games?status=waiting|active&limit=50 : matchmaking + arena counts.

@@ -318,6 +318,16 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         )?;
     }
 
+    // ── Migration: game-pot covenant columns (oracle_escrow integration) ──
+    // The pot covenant a match locks into, and the payout tx that released it to the
+    // winner. Unconditional + idempotent (duplicate-column errors are expected).
+    for ddl in [
+        "ALTER TABLE skill_games ADD COLUMN pot_tx TEXT",
+        "ALTER TABLE skill_games ADD COLUMN pot_payout_tx TEXT",
+    ] {
+        let _ = conn.execute(ddl, []);
+    }
+
     Ok(Mutex::new(conn))
 }
 

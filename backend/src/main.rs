@@ -149,8 +149,17 @@ async fn main() {
     };
 
     info!("Connecting to Kaspa wRPC node at {}...", client_url);
-    match client.connect(None).await {
-        Ok(_) => info!("Connected to Kaspa wRPC node"),
+    // Non-blocking connect: the HTTP server MUST bind and serve regardless of
+    // whether any Kaspa node is currently reachable. With block_async_connect:false
+    // the call returns immediately and the client keeps retrying in the background
+    // (strategy: Retry), so the node link self-heals without ever wedging startup.
+    // (A blocking connect to a down node retries forever and never reaches axum::serve.)
+    let connect_opts = || kaspa_wrpc_client::prelude::ConnectOptions {
+        block_async_connect: false,
+        ..Default::default()
+    };
+    match client.connect(Some(connect_opts())).await {
+        Ok(_) => info!("Kaspa wRPC connect initiated (non-blocking; connects when node is reachable)"),
         Err(e) => warn!("wRPC connect failed (will retry in background): {}", e),
     }
 
@@ -217,8 +226,10 @@ async fn main() {
         };
 
         info!("Additional network {} wRPC: {}", extra_net, extra_url);
-        match extra_client.connect(None).await {
-            Ok(_) => info!("Connected to {} wRPC", extra_net),
+        // Non-blocking: a down optional-network node (e.g. mainnet pre-Toccata)
+        // must never wedge startup. Returns immediately; client retries in background.
+        match extra_client.connect(Some(connect_opts())).await {
+            Ok(_) => info!("{} wRPC connect initiated (non-blocking)", extra_net),
             Err(e) => warn!("{} wRPC connect failed (indexer will retry): {}", extra_net, e),
         }
 

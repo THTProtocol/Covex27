@@ -1061,6 +1061,69 @@ pub struct OraclePayoutRequest {
     pub requested_outcome: Option<u32>,
 }
 
+/// Result of checking whether a covenant being paid out is a skill_games pot.
+enum GamePot {
+    /// The covenant is not linked to any match; use the request's outcome as-is.
+    NotAGamePot,
+    /// The server determined the winning side: 0 = player1, 1 = player2.
+    Verified(u32),
+    /// The covenant is a game pot but cannot be paid out (reason for the caller).
+    Rejected(String),
+}
+
+/// If `pot_tx` is the locked pot of a skill_games match, return the server-authoritative
+/// winning side. For replayable game types (tictactoe, connect4) the winner is recomputed
+/// from the move log via game_engine - the move log, not a stored or client-supplied
+/// field, is the source of truth. Unsupported game types fall back to the recorded winner
+/// string (still turn-enforced at move time; flagged client-trusted by enforcement_reality).
+fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
+    let row: Option<(String, String, Option<String>, String)> = {
+        let conn = db.lock().unwrap();
+        conn.query_row(
+            "SELECT game_type, moves, winner, status FROM skill_games WHERE pot_tx = ?1",
+            rusqlite::params![pot_tx],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok()
+    };
+    let (gtype, moves_raw, winner, status) = match row {
+        Some(t) => t,
+        None => return GamePot::NotAGamePot,
+    };
+    if status != "finished" {
+        return GamePot::Rejected(
+            "game pot: the match is not finished; the oracle will not co-sign a payout".into(),
+        );
+    }
+    let moves: Vec<String> = serde_json::from_str(&moves_raw).unwrap_or_default();
+    match crate::game_engine::result_from_moves(&gtype, &moves) {
+        Some(crate::game_engine::GameResult::Unfinished) => GamePot::Rejected(
+            "game pot: the move log shows no decisive result; nothing to pay out".into(),
+        ),
+        Some(crate::game_engine::GameResult::Draw) => GamePot::Rejected(
+            "game pot: the match is a draw; this escrow primitive pays a single winner (refund both players instead)".into(),
+        ),
+        Some(res) => match res.outcome() {
+            Some(o) => GamePot::Verified(o),
+            None => GamePot::Rejected("game pot: indeterminate result".into()),
+        },
+        None => {
+            // Unsupported (not yet server-replayable) game type: use the recorded winner.
+            let w = winner.unwrap_or_default();
+            match w.to_lowercase().as_str() {
+                "white" | "player1" => GamePot::Verified(0),
+                "black" | "player2" => GamePot::Verified(1),
+                "draw" => GamePot::Rejected(
+                    "game pot: the match is a draw; refund both players instead".into(),
+                ),
+                _ => GamePot::Rejected(format!(
+                    "game pot: cannot map recorded winner '{w}' for unsupported game type '{gtype}'"
+                )),
+            }
+        }
+    }
+}
+
 /// POST /covenant/oracle-payout - release an oracle-enforced 2-of-2 [oracle, winner]
 /// covenant. The oracle co-signs ONLY if the outcome verifies; the chain enforces the
 /// 2-of-2, so the disclosed oracle's signature is consensus-required (roadmap D1).
@@ -1078,11 +1141,32 @@ pub async fn oracle_payout_handler(
         return err("not an oracle-enforced covenant (deploy with redeem.kind=oracle_enforced or oracle_escrow)".into());
     }
     let is_escrow = cov.redeem_kind == "oracle_escrow";
-    // For an escrow, the outcome picks the winner: 0 -> player A (IF), 1 -> player B (ELSE).
-    let winner_is_a = req.requested_outcome != Some(1);
     if let Some(s) = &cov.spent_tx_id {
         return err(format!("already paid out in {s}"));
     }
+
+    // GAME-POT GATE: if this covenant is the pot of a skill_games match, the winning
+    // side is NOT client-controlled. Re-derive it from the server's recorded match -
+    // and, for replayable game types, from a deterministic engine replay of the move
+    // log - then override any client-supplied requested_outcome. This is what stops a
+    // caller from asking the oracle to co-sign a payout to the losing side and drain
+    // the pot. For a non-game oracle covenant the requested outcome is used as before.
+    let effective_outcome: Option<u32> = match game_pot_outcome(&db, &req.deploy_tx_id) {
+        GamePot::NotAGamePot => req.requested_outcome,
+        GamePot::Verified(o) => {
+            if let Some(req_o) = req.requested_outcome {
+                if req_o != o {
+                    return err(format!(
+                        "game pot: requested outcome {req_o} contradicts the server-verified result {o}; the oracle co-signs only the real winner"
+                    ));
+                }
+            }
+            Some(o)
+        }
+        GamePot::Rejected(msg) => return err(msg),
+    };
+    // For an escrow, the outcome picks the winner: 0 -> player A (IF), 1 -> player B (ELSE).
+    let winner_is_a = effective_outcome != Some(1);
 
     // THE ORACLE GATE: verify the outcome before co-signing. A losing/invalid outcome
     // means the oracle declines - and without its signature the 2-of-2 can never spend.
@@ -1090,7 +1174,7 @@ pub async fn oracle_payout_handler(
         &req.circuit_type,
         req.proof.clone(),
         req.public_inputs.clone(),
-        req.requested_outcome,
+        effective_outcome,
     )
     .await
     .unwrap_or(false);

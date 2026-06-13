@@ -14,6 +14,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::game_engine;
 use crate::live;
 
 pub fn games_routes() -> Router {
@@ -304,16 +305,16 @@ async fn make_move(
 ) -> Json<serde_json::Value> {
     let result = {
         let conn = db.lock().unwrap();
-        let row: Option<(String, String, String, String, String)> = conn
+        let row: Option<(String, String, String, String, String, String)> = conn
             .query_row(
-                "SELECT player1, player2, moves, current_turn, status FROM skill_games WHERE covenant_id = ?1",
+                "SELECT player1, player2, moves, current_turn, status, game_type FROM skill_games WHERE covenant_id = ?1",
                 params![covenant_id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
             )
             .ok();
         match row {
             None => Err("no match for this covenant; join first".to_string()),
-            Some((p1, p2, moves_raw, turn, status)) => {
+            Some((p1, p2, moves_raw, turn, status, game_type)) => {
                 if status == "finished" {
                     Err("match already finished".to_string())
                 } else if (turn == "white" && req.player != p1)
@@ -331,27 +332,64 @@ async fn make_move(
                         Err("move limit reached".to_string())
                     } else {
                         moves.push(req.r#move.clone());
-                        let next = if req.keep_turn.unwrap_or(false) {
-                            turn.as_str()
-                        } else if turn == "white" {
-                            "black"
-                        } else {
-                            "white"
-                        };
-                        let finished = req.finished.unwrap_or(false);
-                        let new_status = if finished { "finished" } else { "active" };
-                        conn.execute(
-                            "UPDATE skill_games SET moves = ?1, current_turn = ?2, status = ?3, winner = ?4, updated_at = unixepoch() WHERE covenant_id = ?5",
-                            params![
-                                serde_json::to_string(&moves).unwrap_or_else(|_| "[]".into()),
-                                next,
-                                new_status,
-                                req.winner,
-                                covenant_id
-                            ],
-                        )
-                        .map(|_| ())
-                        .map_err(|e| e.to_string())
+                        // Server-authoritative outcome. For replayable games the
+                        // server REPLAYS the move log and decides finished/winner
+                        // itself, ignoring the client's claim entirely (this is the
+                        // real "prove who won"). A client cannot forge a victory.
+                        // Turn ownership was enforced above, so the mover's colour
+                        // is `turn`; an undecided board still permits a concession
+                        // or draw-agreement (winner is not the mover) but rejects a
+                        // self-declared win.
+                        let claimed_finished = req.finished.unwrap_or(false);
+                        let outcome: Result<(bool, Option<String>), String> =
+                            match game_engine::result_from_moves(&game_type, &moves) {
+                                Some(game_engine::GameResult::Unfinished) => {
+                                    if claimed_finished {
+                                        if req.winner.as_deref() == Some(turn.as_str()) {
+                                            Err("cannot declare yourself the winner on an undecided board".to_string())
+                                        } else {
+                                            Ok((true, req.winner.clone()))
+                                        }
+                                    } else {
+                                        Ok((false, None))
+                                    }
+                                }
+                                Some(decisive) => {
+                                    Ok((true, decisive.winner_str().map(|s| s.to_string())))
+                                }
+                                // Unsupported game type: no server replay yet, so
+                                // fall back to the client-reported result (still
+                                // turn-enforced; the games money path treats these
+                                // as not yet server-verifiable, see oracle gate).
+                                None => Ok((claimed_finished, req.winner.clone())),
+                            };
+                        match outcome {
+                            Err(e) => Err(e),
+                            Ok((finished, winner)) => {
+                                let next = if finished {
+                                    turn.as_str()
+                                } else if req.keep_turn.unwrap_or(false) {
+                                    turn.as_str()
+                                } else if turn == "white" {
+                                    "black"
+                                } else {
+                                    "white"
+                                };
+                                let new_status = if finished { "finished" } else { "active" };
+                                conn.execute(
+                                    "UPDATE skill_games SET moves = ?1, current_turn = ?2, status = ?3, winner = ?4, updated_at = unixepoch() WHERE covenant_id = ?5",
+                                    params![
+                                        serde_json::to_string(&moves).unwrap_or_else(|_| "[]".into()),
+                                        next,
+                                        new_status,
+                                        winner,
+                                        covenant_id
+                                    ],
+                                )
+                                .map(|_| ())
+                                .map_err(|e| e.to_string())
+                            }
+                        }
                     }
                 }
             }

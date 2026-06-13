@@ -16,6 +16,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 use rusqlite::params;
 
 mod broadcast;
+mod game_engine;
 mod games;
 mod live;
 mod compiler;

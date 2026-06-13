@@ -1072,10 +1072,11 @@ enum GamePot {
 }
 
 /// If `pot_tx` is the locked pot of a skill_games match, return the server-authoritative
-/// winning side. For replayable game types (tictactoe, connect4) the winner is recomputed
-/// from the move log via game_engine - the move log, not a stored or client-supplied
-/// field, is the source of truth. Unsupported game types fall back to the recorded winner
-/// string (still turn-enforced at move time; flagged client-trusted by enforcement_reality).
+/// winning side. The winner is recomputed from the move log via game_engine - the move
+/// log, not a stored or client-supplied field, is the source of truth. Game types that
+/// have no server-side replay engine yet FAIL CLOSED: the oracle cannot prove who won, so
+/// it refuses to co-sign any payout (no value ever moves on an unproven outcome). This is
+/// the launch-safe default; adding a game's engine to game_engine re-enables its pots.
 fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
     let row: Option<(String, String, Option<String>, String)> = {
         let conn = db.lock().unwrap();
@@ -1108,18 +1109,13 @@ fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
             None => GamePot::Rejected("game pot: indeterminate result".into()),
         },
         None => {
-            // Unsupported (not yet server-replayable) game type: use the recorded winner.
-            let w = winner.unwrap_or_default();
-            match w.to_lowercase().as_str() {
-                "white" | "player1" => GamePot::Verified(0),
-                "black" | "player2" => GamePot::Verified(1),
-                "draw" => GamePot::Rejected(
-                    "game pot: the match is a draw; refund both players instead".into(),
-                ),
-                _ => GamePot::Rejected(format!(
-                    "game pot: cannot map recorded winner '{w}' for unsupported game type '{gtype}'"
-                )),
-            }
+            // No server-side replay engine for this game type: FAIL CLOSED. The oracle
+            // will not co-sign a payout it cannot prove. `winner` here is only
+            // client-recorded, so paying it out would reopen the fund-theft hole.
+            let _ = winner;
+            GamePot::Rejected(format!(
+                "game pot: game type '{gtype}' has no server-side outcome engine yet, so the oracle cannot prove the winner and will not co-sign a payout (server-verifiable today: tictactoe, connect4, chess)"
+            ))
         }
     }
 }

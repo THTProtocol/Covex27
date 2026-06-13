@@ -10,8 +10,13 @@
 //! Move encodings mirror the frontend exactly:
 //!   tictactoe: "<X|O><cell0-8>"  (X = white = player1, first mover)
 //!   connect4 : "<R|Y>:<col0-6>"  (R = white = player1; drops to the lowest empty row)
+//!   chess    : SAN per move ("e4", "Nf3", "Qxf7#", "O-O"); replayed with shakmaty,
+//!              the winner is whoever delivered checkmate (white = player1).
 //!
 //! Unsupported game types return None; value-bearing callers must fail closed for them.
+
+use shakmaty::san::San;
+use shakmaty::{Chess, Color, Position};
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum GameResult {
@@ -47,7 +52,7 @@ impl GameResult {
 
 /// True iff we can deterministically replay this game type to a verified result.
 pub fn is_supported(game_type: &str) -> bool {
-    matches!(game_type, "tictactoe" | "connect4")
+    matches!(game_type, "tictactoe" | "connect4" | "chess")
 }
 
 /// Map an oracle circuit_type ("tictactoe_v1") to a replayable game type, if any.
@@ -55,6 +60,7 @@ pub fn game_type_for_circuit(circuit_type: &str) -> Option<&'static str> {
     match circuit_type {
         "tictactoe_v1" => Some("tictactoe"),
         "connect4_v1" => Some("connect4"),
+        "chess_v1" => Some("chess"),
         _ => None,
     }
 }
@@ -64,6 +70,7 @@ pub fn result_from_moves(game_type: &str, moves: &[String]) -> Option<GameResult
     match game_type {
         "tictactoe" => Some(tictactoe(moves)),
         "connect4" => Some(connect4(moves)),
+        "chess" => Some(chess(moves)),
         _ => None,
     }
 }
@@ -201,6 +208,44 @@ fn connect4(moves: &[String]) -> GameResult {
     }
 }
 
+fn chess(moves: &[String]) -> GameResult {
+    let mut pos = Chess::default();
+    for m in moves {
+        let s = m.trim();
+        if s.is_empty() {
+            continue;
+        }
+        // Control tokens (resign, draw offers) are not SAN; stop replay and let the
+        // final position decide. A SAN that will not parse or is illegal in this
+        // position is treated the same way (we cannot verify past it).
+        let san = match San::from_ascii(s.as_bytes()) {
+            Ok(san) => san,
+            Err(_) => break,
+        };
+        let mv = match san.to_move(&pos) {
+            Ok(mv) => mv,
+            Err(_) => break,
+        };
+        pos = match pos.play(&mv) {
+            Ok(next) => next,
+            // to_move already proved legality, so this is unreachable in practice; if it
+            // ever fires the state is unverifiable, so report Unfinished (pays no one).
+            Err(_) => return GameResult::Unfinished,
+        };
+    }
+    if pos.is_checkmate() {
+        // The side to move has been checkmated, so the other side delivered mate.
+        match pos.turn() {
+            Color::White => GameResult::BlackWins, // white to move and mated -> player2
+            Color::Black => GameResult::WhiteWins, // black to move and mated -> player1
+        }
+    } else if pos.is_stalemate() || pos.is_insufficient_material() {
+        GameResult::Draw
+    } else {
+        GameResult::Unfinished
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -253,6 +298,42 @@ mod tests {
     }
 
     #[test]
+    fn chess_fools_mate_black_wins() {
+        // 1. f3 e5 2. g4 Qh4# -> black delivers mate (player2).
+        let r = chess(&mv(&["f3", "e5", "g4", "Qh4#"]));
+        assert_eq!(r, GameResult::BlackWins);
+    }
+
+    #[test]
+    fn chess_scholars_mate_white_wins() {
+        // 1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# -> white delivers mate (player1).
+        let r = chess(&mv(&["e4", "e5", "Bc4", "Nc6", "Qh5", "Nf6", "Qxf7#"]));
+        assert_eq!(r, GameResult::WhiteWins);
+    }
+
+    #[test]
+    fn chess_unfinished_and_castling_parse() {
+        // An ordinary opening with castling is replayable and still undecided.
+        assert_eq!(
+            chess(&mv(&["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "O-O", "Nf6"])),
+            GameResult::Unfinished
+        );
+        // A control token after a few moves stops replay; position is still undecided.
+        assert_eq!(chess(&mv(&["e4", "e5", "resign"])), GameResult::Unfinished);
+    }
+
+    #[test]
+    fn chess_rejects_a_forged_win_on_an_undecided_board() {
+        // No checkmate on the board, so a self-declared chess win must be rejected.
+        let moves = mv(&["e4", "e5"]);
+        assert!(verify_claim("chess", &moves, Some("white"), true).is_err());
+        // The true fool's-mate result is accepted.
+        let mate = mv(&["f3", "e5", "g4", "Qh4#"]);
+        assert!(verify_claim("chess", &mate, Some("black"), true).is_ok());
+        assert!(verify_claim("chess", &mate, Some("white"), true).is_err());
+    }
+
+    #[test]
     fn verify_claim_rejects_a_forged_winner() {
         // Board shows white wins; a forged "black" claim must be rejected.
         let moves = mv(&["X0", "O3", "X1", "O4", "X2"]);
@@ -261,6 +342,6 @@ mod tests {
         // Claiming finished with no decisive board is rejected.
         assert!(verify_claim("tictactoe", &mv(&["X0", "O1"]), Some("white"), true).is_err());
         // Unsupported game types are not validated here (caller fails closed).
-        assert!(verify_claim("chess", &mv(&["e4", "e5"]), Some("white"), true).is_ok());
+        assert!(verify_claim("checkers", &mv(&["17-26"]), Some("white"), true).is_ok());
     }
 }

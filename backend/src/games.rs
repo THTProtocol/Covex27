@@ -27,6 +27,8 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/claim-timeout", post(claim_timeout))
         .route("/games/:covenant_id/lock-pot", post(lock_pot))
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
+        .route("/games/:covenant_id/lock-channel", post(lock_channel))
+        .route("/games/:covenant_id/settle-channel", post(settle_channel))
 }
 
 /// Background sweep: finalise active matches whose side-to-move has run its clock out
@@ -234,6 +236,121 @@ async fn settle_pot(
     let v = crate::covenant_builder::oracle_payout_handler(Extension(db.clone()), Json(preq)).await.0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         if let Some(tx) = v.get("payout_tx_id").and_then(|t| t.as_str()) {
+            let conn = db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
+                params![tx, covenant_id],
+            );
+        }
+    }
+    Json(v)
+}
+
+/// POST /games/:id/lock-channel {stake_kas, network?} : the TRUSTLESS games pot. Locks
+/// the stake into a 2-of-2 multisig between the two PLAYERS only - there is NO Covex
+/// oracle key in the redeem, so Covex can never move the funds. The pot releases only
+/// when both players co-sign (cooperative close to the agreed winner, see settle-channel)
+/// or, in the full state-channel design, via a CLTV-timeout default. The dev flow funds
+/// via player1 and both keys are dev wallets, so it exercises the mechanism end to end;
+/// production has each player's own wallet sign its half.
+async fn lock_channel(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    let p2 = game["player2"].as_str().unwrap_or("").to_string();
+    if p1.is_empty() || p2.is_empty() {
+        return Json(json!({ "success": false, "error": "game needs two players before locking a channel" }));
+    }
+    let stake = req.get("stake_kas").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    if !(stake > 0.0) {
+        return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
+    }
+    let net = req.get("network").and_then(|v| v.as_str()).unwrap_or("testnet-12").to_string();
+    let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
+    let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
+
+    // 2-of-2 multisig of [player1, player2] - NO oracle pubkey.
+    let dreq: crate::covenant_builder::P2shDeployRequest = match serde_json::from_value(json!({
+        "network": net, "deployer_addr": p1, "use_dev_mode": true, "stake_kas": stake,
+        "redeem": { "kind": "multisig", "pubkeys_hex": [p1x, p2x], "required": 2 }
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build channel deploy: {e}") })),
+    };
+    let v = crate::covenant_builder::p2sh_deploy_handler(Extension(db.clone()), Json(dreq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        if let Some(tx) = v.get("deploy_tx_id").and_then(|t| t.as_str()) {
+            let conn = db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, updated_at = unixepoch() WHERE covenant_id = ?3",
+                params![tx, stake, covenant_id],
+            );
+        }
+    }
+    Json(v)
+}
+
+/// POST /games/:id/settle-channel : cooperative close. Reads the SERVER-VERIFIED winner
+/// and releases the 2-of-2 player pot to them with BOTH players' signatures. No Covex
+/// oracle key is ever used - the chain pays the winner purely on the two players'
+/// co-signature. (Dev flow signs both dev wallets to exercise it; production has each
+/// player sign its half. A non-cooperating loser is handled by the CLTV-timeout default
+/// in the full state-channel build.)
+async fn settle_channel(
+    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Path(covenant_id): Path<String>,
+) -> Json<serde_json::Value> {
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let winner = game["winner"].as_str().unwrap_or("").to_string();
+    if winner.is_empty() {
+        return Json(json!({ "success": false, "error": "game has no winner yet" }));
+    }
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    let p2 = game["player2"].as_str().unwrap_or("").to_string();
+    let (pot_tx, net): (Option<String>, String) = {
+        let conn = db.lock().unwrap();
+        let pot: Option<String> = conn
+            .query_row("SELECT pot_tx FROM skill_games WHERE covenant_id = ?1", params![covenant_id], |r| r.get(0))
+            .ok()
+            .flatten();
+        let net = pot
+            .as_ref()
+            .and_then(|t| conn.query_row("SELECT network FROM p2sh_covenants WHERE tx_id = ?1", params![t], |r| r.get::<_, String>(0)).ok())
+            .unwrap_or_else(|| "testnet-12".to_string());
+        (pot, net)
+    };
+    let pot_tx = match pot_tx {
+        Some(t) if !t.is_empty() => t,
+        _ => return Json(json!({ "success": false, "error": "no channel pot locked (call lock-channel first)" })),
+    };
+    let wl = winner.to_lowercase();
+    let dest = if winner == p1 || wl == "white" || wl == "player1" {
+        &p1
+    } else if winner == p2 || wl == "black" || wl == "player2" {
+        &p2
+    } else {
+        return Json(json!({ "success": false, "error": format!("cannot map winner '{winner}' to a player") }));
+    };
+    // 2-of-2 cooperative close: spend the multisig pot to the winner. The spend handler
+    // uses both players' keys (dev wallets in dev mode); NO oracle key is involved.
+    let sreq: crate::covenant_builder::P2shSpendRequest = match serde_json::from_value(json!({
+        "network": net, "deploy_tx_id": pot_tx, "use_dev_mode": true, "destination_addr": dest
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build channel close: {e}") })),
+    };
+    let v = crate::covenant_builder::p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        if let Some(tx) = v.get("spend_tx_id").and_then(|t| t.as_str()) {
             let conn = db.lock().unwrap();
             let _ = conn.execute(
                 "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",

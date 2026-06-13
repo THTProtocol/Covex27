@@ -26,7 +26,8 @@ use secp256k1::{schnorr::Signature, Keypair, Message, Secp256k1};
 use serde_json::json;
 
 use crate::oracle_verifier::{
-    determine_outcome_for_circuit, proof_has_groth16_body, verify_proof_for_circuit,
+    circuit_requires_crypto_proof, determine_outcome_for_circuit, proof_has_groth16_body,
+    verify_proof_for_circuit,
 };
 
 /// Input to the oracle verification endpoint.
@@ -584,14 +585,18 @@ async fn verify_and_sign_handler(
         }
         server_outcome
     } else {
-        // Not a game covenant. The oracle must NOT sign an outcome it has not verified.
-        // A real Groth16 proof body means it was verified above (Strict circuits now fail
-        // closed on an empty proof), so the outcome is derived from the proof's public
-        // signals. WITHOUT a proof body this is an attested/bodyless request, and signing
-        // the caller's requested_outcome would let ANYONE mint a "verified" oracle
-        // signature for ANY outcome on ANY covenant_id (the free-signature hole the audit
-        // confirmed live). Refuse: no proof + no server-resolved game = no signature.
-        if !proof_has_groth16_body(&input.proof) {
+        // Not a game covenant. The oracle must NOT sign an outcome it has not
+        // cryptographically verified. Signing is allowed ONLY when the circuit is a
+        // Strict/Hybrid Groth16 type (circuit_requires_crypto_proof) AND its proof
+        // passed snarkjs above (verified == true). An Attested circuit performs NO
+        // crypto check - `verified` is unconditionally true for it - so signing its
+        // caller-supplied requested_outcome would let ANYONE mint a valid oracle
+        // signature for ANY outcome on ANY covenant_id. The earlier
+        // proof_has_groth16_body shape check was bypassable by planting a junk
+        // {"pi_a":[...]} body on an attested circuit; gating on the registered
+        // verifier kind (not proof shape) closes that. The outcome is derived from
+        // the VERIFIED public signals, never from the attacker's requested_outcome.
+        if !circuit_requires_crypto_proof(&input.circuit_type) {
             return Json(OracleVerifyOutput {
                 success: false,
                 outcome: None,
@@ -599,7 +604,7 @@ async fn verify_and_sign_handler(
                 timestamp: None,
                 message: None,
                 error: Some(format!(
-                    "oracle declines to sign an unverified outcome for '{}': supply a real Groth16 proof, or use a server-resolved game covenant. Signing an arbitrary requested_outcome with no proof is disabled.",
+                    "oracle declines to sign an unverified outcome for '{}': it is an attested circuit with no cryptographic proof. Only a server-resolved game covenant or a real Groth16 proof (a Strict/Hybrid circuit) can be signed.",
                     input.circuit_type
                 )),
                 public_inputs: input.public_inputs,
@@ -607,11 +612,13 @@ async fn verify_and_sign_handler(
                 covenant_hint: None,
             });
         }
+        // verified == true here means snarkjs accepted the proof; derive the outcome
+        // from the cryptographically-bound public signals (requested_outcome ignored).
         determine_outcome_for_circuit(
             &input.circuit_type,
             &input.proof,
             &input.public_inputs,
-            input.requested_outcome,
+            None,
         )
     };
 

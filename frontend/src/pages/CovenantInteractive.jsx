@@ -485,22 +485,24 @@ export default function CovenantInteractive() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         // Optimistically update local covenant so the nice UI appears immediately for preview
         setCovenant((c) => ({ ...c, custom_ui_html: html }));
         localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
         setToast({ type: 'success', msg: 'Custom transparent UI published! All viewers now see the nice view (no terminal).' });
         setActiveTab('interact');
-      } else {
-        setToast({ type: 'error', msg: data.error || 'Publish failed (are you the creator?)' });
+        return true;
       }
+      setToast({ type: 'error', msg: data.error || 'Publish failed (are you the creator?). Your change is NOT live for viewers.' });
+      return false;
     } catch (e) {
-      // Fallback: still save locally + show generated in preview
+      // The update did NOT reach the backend - do not claim it published. Save the
+      // config locally for the creator's own preview, but be explicit it is not live.
       localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
       setCovenant((c) => ({ ...c, custom_ui_html: html }));
-      setToast({ type: 'success', msg: 'Published locally (backend sync pending). The transparent UI is now visible.' });
-      setActiveTab('interact');
+      setToast({ type: 'error', msg: `Publish failed: ${e.message || 'could not reach the backend'}. Saved locally for your preview only - viewers do NOT see this yet.` });
+      return false;
     }
   };
 
@@ -1090,10 +1092,13 @@ export default function CovenantInteractive() {
 
                   <button
                     onClick={async () => {
-                      // Use the existing publish logic but scoped to fix tab + this covenant. Updates custom_ui + stake hint.
-                      await publishCustomUI(false);
-                      // Also update local chessStake hint if needed
-                      setToast({ type: 'success', msg: 'Published! The public view and arena now reflect your settings. Refresh to see for visitors.' });
+                      // publishCustomUI already shows the accurate success/error toast and
+                      // returns whether it actually published. Only add the extra success
+                      // note when it really went live - never claim success on failure.
+                      const ok = await publishCustomUI(false);
+                      if (ok) {
+                        setToast({ type: 'success', msg: 'Published! The public view and arena now reflect your settings. Refresh to see for visitors.' });
+                      }
                     }}
                     className="w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 text-base"
                   >

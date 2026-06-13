@@ -1133,13 +1133,14 @@ contract VisualCovenant {
       setOraclePublicInputs(publicSignals.map(s => s.toString()).join(','));
       setZkGenError(''); // clear any previous
     } catch (e) {
-      setZkGenError(`Range witness gen failed (known MiMC7 / wasm toolchain difference in browser). Using demo attested proof. ${e.message || e}`);
-      // Demo attested fallback that the oracle will treat as valid (last=1 means proven)
-      setOracleProof(JSON.stringify({
-        proof: { protocol: 'groth16', note: 'range_proof_browser_workaround' },
-        publicSignals: ['20473339414381364284988912838485478706292217748325897174032535818078518775705', '0', '100', '1']
-      }));
-      setOraclePublicInputs('20473339414381364284988912838485478706292217748325897174032535818078518775705,0,100,1');
+      // Do NOT fabricate a proof. range_proof's in-browser prover currently fails
+      // (a known MiMC7/wasm toolchain mismatch), and emitting a fake "proven" Groth16
+      // object would be a forged value: the oracle (correctly) rejects it as a Strict
+      // circuit, while the user is misled into thinking they proved something. Surface
+      // the real failure and leave the proof empty so nothing fake is ever submitted.
+      setOracleProof('');
+      setOraclePublicInputs('');
+      setZkGenError(`Range proof generation failed in-browser (known MiMC7/wasm mismatch). No proof was produced - this circuit's in-browser prover is not yet working, so it cannot be used for a real ZK resolution yet. ${e.message || e}`);
     }
     setZkGenerating(false);
   };

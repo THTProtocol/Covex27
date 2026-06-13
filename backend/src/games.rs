@@ -367,13 +367,33 @@ async fn settle_channel(
         _ => return Json(json!({ "success": false, "error": "no channel pot locked (call lock-channel first)" })),
     };
     let wl = winner.to_lowercase();
-    let dest = if winner == p1 || wl == "white" || wl == "player1" {
-        &p1
+    let dest_outcome: u32 = if winner == p1 || wl == "white" || wl == "player1" {
+        0
     } else if winner == p2 || wl == "black" || wl == "player2" {
-        &p2
+        1
     } else {
         return Json(json!({ "success": false, "error": format!("cannot map winner '{winner}' to a player") }));
     };
+    // MONEY GATE (defense in depth): re-derive the winner from the server-authoritative
+    // engine replay of the move log - exactly like settle-pot - and refuse to build the
+    // close unless it matches the recorded winner's side. Move/resign are now token-bound
+    // (only the seated client can act), but this gate ALSO rejects a forged/concession
+    // (end_reason='resign'/'client') outcome: game_pot_outcome FAILS CLOSED on anything
+    // that is not an engine-decisive board or a server-timed timeout. So even a poisoned
+    // `winner` field can never drain the 2-of-2 channel pot.
+    match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
+        crate::covenant_builder::GamePot::Verified(o) if o == dest_outcome => {}
+        crate::covenant_builder::GamePot::Verified(o) => {
+            return Json(json!({ "success": false, "error": format!("recorded winner maps to side {dest_outcome} but the server-verified result is side {o}; refusing to close to the wrong player") }));
+        }
+        crate::covenant_builder::GamePot::Rejected(msg) => {
+            return Json(json!({ "success": false, "error": format!("channel close refused: {msg}") }));
+        }
+        crate::covenant_builder::GamePot::NotAGamePot => {
+            return Json(json!({ "success": false, "error": "this channel pot is not linked to a server-verified match; refusing to close" }));
+        }
+    }
+    let dest = if dest_outcome == 0 { &p1 } else { &p2 };
     // 2-of-2 cooperative close: spend the multisig pot to the winner. The spend handler
     // uses both players' keys (dev wallets in dev mode); NO oracle key is involved.
     let sreq: crate::covenant_builder::P2shSpendRequest = match serde_json::from_value(json!({

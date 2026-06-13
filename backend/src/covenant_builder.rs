@@ -1269,7 +1269,7 @@ pub struct OraclePayoutRequest {
 }
 
 /// Result of checking whether a covenant being paid out is a skill_games pot.
-enum GamePot {
+pub(crate) enum GamePot {
     /// The covenant is not linked to any match; use the request's outcome as-is.
     NotAGamePot,
     /// The server determined the winning side: 0 = player1, 1 = player2.
@@ -1284,7 +1284,7 @@ enum GamePot {
 /// have no server-side replay engine yet FAIL CLOSED: the oracle cannot prove who won, so
 /// it refuses to co-sign any payout (no value ever moves on an unproven outcome). This is
 /// the launch-safe default; adding a game's engine to game_engine re-enables its pots.
-fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
+pub(crate) fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
     let row: Option<(String, String, Option<String>, String, Option<String>)> = {
         let conn = db.lock().unwrap();
         conn.query_row(
@@ -1368,7 +1368,9 @@ pub async fn oracle_payout_handler(
     // log - then override any client-supplied requested_outcome. This is what stops a
     // caller from asking the oracle to co-sign a payout to the losing side and drain
     // the pot. For a non-game oracle covenant the requested outcome is used as before.
-    let effective_outcome: Option<u32> = match game_pot_outcome(&db, &req.deploy_tx_id) {
+    let game_pot = game_pot_outcome(&db, &req.deploy_tx_id);
+    let is_game_pot = matches!(game_pot, GamePot::Verified(_));
+    let effective_outcome: Option<u32> = match game_pot {
         GamePot::NotAGamePot => req.requested_outcome,
         GamePot::Verified(o) => {
             if let Some(req_o) = req.requested_outcome {
@@ -1382,6 +1384,21 @@ pub async fn oracle_payout_handler(
         }
         GamePot::Rejected(msg) => return err(msg),
     };
+
+    // NON-GAME ATTESTED GATE (on-chain twin of the oracle.rs free-signature fix).
+    // For a covenant that is NOT a server-resolved game pot, the oracle may co-sign
+    // ONLY when the circuit performs real cryptographic verification (Strict/Hybrid
+    // Groth16). An Attested circuit does NO crypto check, so verify_proof_for_circuit
+    // returns true unconditionally and effective_outcome is the caller's
+    // requested_outcome - co-signing it would release the 2-of-2 to an attacker-chosen
+    // destination and DRAIN the covenant. Refuse before we ever reach the verify call.
+    if !is_game_pot && !crate::oracle_verifier::circuit_requires_crypto_proof(&req.circuit_type) {
+        return err(format!(
+            "oracle declines to co-sign a non-game payout for attested circuit '{}': only a server-resolved game pot, or a real Groth16 proof (a Strict/Hybrid circuit), authorises a covenant payout",
+            req.circuit_type
+        ));
+    }
+
     // For an escrow, the outcome picks the winner: 0 -> player A (IF), 1 -> player B (ELSE).
     let winner_is_a = effective_outcome != Some(1);
 

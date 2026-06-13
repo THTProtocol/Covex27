@@ -843,6 +843,22 @@ async fn covenant_by_id_handler(
             v["script_hex"] = json!(c.script_hex);
             v["custom_ui_html"] = json!(custom_ui_html);
             v["receiving_addresses"] = json!(c.receiving_addresses);
+            // TRUSTLESS RECOVERY: for an enforced P2SH covenant, surface the full redeem
+            // script + spend metadata so the owner (or anyone) can reconstruct and sign the
+            // spend with ONLY their wallet, even if they never saved the one-time deploy
+            // response. Without this, a user who closed the tab could never recover funds
+            // (the on-chain P2SH wrapper aa20<hash>87 is one-way). The redeem script is not
+            // a secret - it is required to spend and is safe to publish.
+            if let Some(p2sh) = db::get_p2sh_covenant(&db, &c.tx_id) {
+                v["redeem_script_hex"] = json!(p2sh.redeem_script_hex);
+                v["redeem_kind"] = json!(p2sh.redeem_kind);
+                v["p2sh_address"] = json!(p2sh.p2sh_address);
+                v["outpoint_index"] = json!(p2sh.outpoint_index);
+                v["spendable"] = json!(p2sh.spent_tx_id.is_none());
+                if let Some(spent) = &p2sh.spent_tx_id {
+                    v["spent_tx_id"] = json!(spent);
+                }
+            }
             Ok(Json(json!({"covenant": v})))
         }
         Ok(None) => Err((

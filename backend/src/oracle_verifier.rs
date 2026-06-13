@@ -448,9 +448,28 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 }
 
 /// Check for presence of a Groth16 snarkjs proof body (pi_a / A fields).
-/// Used by hybrid paths and outcome derivation.
+/// NOTE: this is a SHAPE check only - it does NOT verify the proof. It must
+/// never gate a signing decision on its own (a planted `{"pi_a":[...]}` key
+/// passes it); use circuit_requires_crypto_proof + a real verifier result.
 pub fn proof_has_groth16_body(proof: &Value) -> bool {
     proof.get("pi_a").is_some() || proof.get("A").is_some()
+}
+
+/// True ONLY if the circuit's registered verifier performs REAL cryptographic
+/// verification (Strict or Hybrid Groth16). For these a `true` from
+/// verify_proof_for_circuit means snarkjs actually checked a proof, so an oracle
+/// signature is warranted (outcome derived from the verified public signals).
+///
+/// Attested / Risc0Stub / WasmStub circuits do NO cryptographic check - a `true`
+/// from them means only "attested", so they must NEVER mint a signature off a
+/// caller-chosen requested_outcome. Only a server-resolved game outcome may.
+/// This is the gate that closes the junk-`pi_a`-body free-signature bypass on
+/// BOTH the off-chain (oracle.rs) and on-chain (oracle_payout_handler) paths.
+pub(crate) fn circuit_requires_crypto_proof(circuit_type: &str) -> bool {
+    matches!(
+        get_registry().get(circuit_type),
+        Some(VerifierSpec::StrictGroth16 { .. }) | Some(VerifierSpec::HybridGroth16 { .. })
+    )
 }
 
 /// Consolidated node binary selection (same heuristics as legacy oracle.rs for compat).
@@ -545,7 +564,14 @@ pub(crate) async fn run_hybrid_groth16_async(
     if proof_has_groth16_body(&proof) {
         run_groth16_verifier_async(script_rel, prefix, proof, public_inputs).await
     } else {
-        Ok(true)
+        // FAIL CLOSED. A Hybrid circuit with NO proof body is not cryptographically
+        // verified. The old Ok(true) soft-pass let a bodyless request through, which
+        // the on-chain oracle payout would trust as "verified". Reject it - a real
+        // Groth16 body or a server-resolved game outcome is required to sign.
+        Err(format!(
+            "hybrid circuit (prefix '{}') requires a Groth16 proof body; bodyless attestation is rejected",
+            prefix
+        ))
     }
 }
 

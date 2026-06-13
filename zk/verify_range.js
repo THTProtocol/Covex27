@@ -51,13 +51,16 @@ async function main() {
         }
     }
 
-    // Attested fallback: reached ONLY when there is no vkey or no proof body (the
-    // off-chain/attested path). A present-but-invalid proof never lands here.
-    const hasBody = !!( (data.proof && (data.proof.pi_a || data.proof.A)) || data.pi_a || data.A );
+    // FAIL CLOSED. range_proof is StrictGroth16, so a request with no verifying key or no
+    // Groth16 proof body must be REJECTED, never soft-passed to an attested success -
+    // otherwise a caller mints a "verified" range outcome with an empty proof.
     console.log(JSON.stringify({
-        valid: true,
+        valid: false,
         circuit,
-        note: "attested/hybrid stub for range_proof" + (hasBody ? " (groth body present)" : "")
+        error: fs.existsSync(VKEY_PATH)
+            ? "no Groth16 proof body supplied (a real proof is required; empty proofs are rejected)"
+            : "missing verifying key " + VKEY_PATH,
     }));
+    process.exit(1);
 }
 main();

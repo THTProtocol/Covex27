@@ -51,13 +51,19 @@ async function main() {
         }
     }
 
-    // Attested fallback: reached ONLY when there is no vkey or no proof body (the
-    // off-chain/attested path). A present-but-invalid proof never lands here.
+    // FAIL CLOSED. merkle_membership (and its aliases) are StrictGroth16, so a request
+    // with no verifying key or no Groth16 proof body must be REJECTED, not soft-passed to
+    // an attested success - otherwise a caller mints a "verified" outcome with an empty
+    // proof. A real proof is generatable in-browser (the merkle prover ships wasm + zkey).
     const hasBody = !!( (data.proof && (data.proof.pi_a || data.proof.A)) || data.pi_a || data.A );
     console.log(JSON.stringify({
-        valid: true,
+        valid: false,
         circuit,
-        note: "attested/hybrid stub for merkle_membership" + (hasBody ? " (groth body present)" : "")
+        error: fs.existsSync(VKEY_PATH)
+            ? "no Groth16 proof body supplied (a real proof is required; empty proofs are rejected)"
+            : "missing verifying key " + VKEY_PATH,
+        had_body: hasBody,
     }));
+    process.exit(1);
 }
 main();

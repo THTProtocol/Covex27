@@ -40,11 +40,19 @@ async function verifyGroth16Hybrid({ proofFile, vkeyPath, circuit, argv }) {
             process.exit(1);
         }
     }
+    // FAIL CLOSED. This shared verifier is only invoked for circuits the oracle treats as
+    // StrictGroth16 (Hybrid circuits are auto-attested in the Rust layer BEFORE this script
+    // runs), so a request with no Groth16 proof body - or with no verifying key on disk -
+    // must be REJECTED, never soft-passed to an attested success. Otherwise a caller mints
+    // a "verified" outcome by submitting an empty proof.
     console.log(JSON.stringify({
-        valid: true,
+        valid: false,
         circuit,
-        note: `attested/hybrid ${circuit}` + (hasFullBody ? " (groth body present)" : ""),
+        error: hasFullBody
+            ? `missing verifying key for ${circuit}`
+            : `no Groth16 proof body supplied for ${circuit} (a real proof is required; empty proofs are rejected)`,
     }));
+    process.exit(1);
 }
 
 module.exports = { verifyGroth16Hybrid };

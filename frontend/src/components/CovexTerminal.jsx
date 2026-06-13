@@ -53,7 +53,7 @@ const TEXTAREA =
 // Philosophy: honest labeling (most start oracle-attested/hybrid; graduate with artifacts/ ceremonies).
 // Reference: vision doc §4.1-4.10 for primitives, Kaspa core, per-game props, DeFi, privacy, 20+ compute, 15+ data feeds, gating, etc.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-export const ZK_CIRCUIT_TYPES = [
+const ZK_CIRCUIT_TYPES_RAW = [
   // ═══════════════════════════════════════════
   // GAME CIRCUITS + PROPERTY PROOFS (expanded per §4.3 to ~90+ incl. per-game + shared)
   // "only active player clock decrements; <30s red; zero = auto-resolve + submit to oracle"
@@ -317,6 +317,27 @@ export const ZK_CIRCUIT_TYPES = [
   // ═══════════════════════════════════════════
   { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and verifier key. Reality depends on your artifacts. Full flexibility for novel covenant types. Use cases: anything not covered. Compose in Covenant Studio per vision (vision sections 4 plus 5).', circuit: 'custom', accent: '#E8AF34', category: 'custom', reality: 'oracle-attested' },
 ];
+
+// HONEST REALITY CORRECTION (audit fix). A circuit may only advertise 'full-zk' if it
+// actually ships a served proving key (.zkey) AND a working in-browser prover. On disk
+// only merkle_membership and range_proof have a served zkey, and range_proof's browser
+// prover is broken (MiMC7/wasm mismatch), so merkle_membership is the ONLY circuit that
+// proves end-to-end today. Every other 'full-zk' label was aspirational. Rather than
+// overstate it, downgrade the unbacked ones to 'oracle-attested' (their real resolution
+// path) and scrub the "Full ZK" prose from their descriptions, so the badge AND the copy
+// match what a user can actually do. Re-promote a circuit by adding its id here once its
+// served artifacts + generator are real and verified.
+const VERIFIED_FULL_ZK = new Set(['merkle_membership']);
+const scrubZkProse = (d) =>
+  (d || '')
+    .replace(/^Full ZK:\s*/i, 'ZK-capable (oracle-attested today, in-browser prover pending): ')
+    .replace(/Reality:\s*full-zk/gi, 'Reality: oracle-attested')
+    .replace(/Real artifacts/gi, 'Artifacts pending');
+export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.map((c) =>
+  c.reality === 'full-zk' && !VERIFIED_FULL_ZK.has(c.id)
+    ? { ...c, reality: 'oracle-attested', artifacts: false, zkPending: true, description: scrubZkProse(c.description) }
+    : c
+);
 
 // Backward-compat alias
 export const GAME_TYPES = ZK_CIRCUIT_TYPES;

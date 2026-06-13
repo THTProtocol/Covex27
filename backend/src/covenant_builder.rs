@@ -302,12 +302,43 @@ fn resolve_signing_key(
 
 #[derive(Deserialize)]
 pub struct RedeemSpec {
-    /// "singlesig" or "hashlock"
+    /// "singlesig" | "hashlock" | "timelock" | "multisig"
     pub kind: String,
     /// hashlock only: the secret preimage as hex. blake2b256(preimage) becomes the
     /// lock hash. The preimage is NEVER stored - the spender re-supplies it.
     #[serde(default)]
     pub preimage_hex: Option<String>,
+    /// timelock only: the absolute DAA score before which the funds stay locked.
+    #[serde(default)]
+    pub lock_daa: Option<u64>,
+    /// multisig only: the member x-only pubkeys (hex). If absent in dev mode, the two
+    /// dev wallets are used (2-of-2).
+    #[serde(default)]
+    pub pubkeys_hex: Option<Vec<String>>,
+    /// multisig only: how many signatures are required (defaults to all members).
+    #[serde(default)]
+    pub required: Option<usize>,
+}
+
+/// The two testnet dev-wallet secret keys for a network (used as default multisig
+/// members and signers in dev-mode demos). Never reachable on mainnet.
+fn dev_keys(network: &str) -> BResult<Vec<[u8; 32]>> {
+    let (k1, k2) = if network == "testnet-10" {
+        (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10, dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10)
+    } else {
+        (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12, dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12)
+    };
+    let dec = |h: &str| -> BResult<[u8; 32]> {
+        hex::decode(h.trim()).ok().and_then(|b| b.try_into().ok()).ok_or_else(|| "bad dev key".to_string())
+    };
+    Ok(vec![dec(k1)?, dec(k2)?])
+}
+
+fn decode_xonly_hex(h: &str) -> BResult<[u8; 32]> {
+    hex::decode(h.trim().trim_start_matches("0x"))
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or_else(|| format!("bad x-only pubkey hex '{h}' (need 64 hex chars)"))
 }
 
 #[derive(Deserialize)]
@@ -362,7 +393,51 @@ pub async fn p2sh_deploy_handler(
                 Err(e) => return err(e),
             }
         }
-        other => return err(format!("unknown redeem kind '{other}' (singlesig|hashlock)")),
+        "timelock" => {
+            let lock_daa = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("timelock requires lock_daa".into()),
+            };
+            match redeem_timelock(lock_daa, &xonly) {
+                // Encode lock_daa into the stored kind so the spend can set tx.lock_time.
+                Ok(r) => (r, format!("timelock:{lock_daa}")),
+                Err(e) => return err(e),
+            }
+        }
+        "multisig" => {
+            let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &req.redeem.pubkeys_hex {
+                let mut v = Vec::new();
+                for p in pks {
+                    match decode_xonly_hex(p) {
+                        Ok(x) => v.push(x),
+                        Err(e) => return err(e),
+                    }
+                }
+                v
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => {
+                        let mut v = Vec::new();
+                        for k in &ks {
+                            match xonly_from_seckey(k) {
+                                Ok(x) => v.push(x),
+                                Err(e) => return err(e),
+                            }
+                        }
+                        v
+                    }
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("multisig requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into());
+            };
+            let required = req.redeem.required.unwrap_or(pubkeys.len());
+            match redeem_multisig(&pubkeys, required) {
+                Ok(r) => (r, "multisig".to_string()),
+                Err(e) => return err(e),
+            }
+        }
+        other => return err(format!("unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig)")),
     };
 
     let p2sh_spk = p2sh_script_pubkey(&redeem);
@@ -495,6 +570,10 @@ pub struct P2shSpendRequest {
     /// hashlock only: the preimage (hex) that satisfies the lock.
     #[serde(default)]
     pub preimage_hex: Option<String>,
+    /// multisig only: the `required` member secret keys (hex), in pubkey order. If
+    /// absent in dev mode, the two dev wallets are used.
+    #[serde(default)]
+    pub signer_keys_hex: Option<Vec<String>>,
 }
 
 /// POST /covenant/p2sh/spend - redeem a P2SH covenant by satisfying its script.
@@ -515,15 +594,11 @@ pub async fn p2sh_spend_handler(
         Ok(b) => b,
         Err(e) => return err(format!("corrupt stored redeem script: {e}")),
     };
-    let (seckey, _addr) =
-        match resolve_signing_key(&req.network, &req.destination_addr, &req.private_key_hex, req.use_dev_mode) {
-            Ok(v) => v,
-            Err(e) => return err(e),
-        };
-    let keypair = match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &seckey) {
-        Ok(k) => k,
-        Err(e) => return err(format!("bad key: {e}")),
-    };
+    // Redeem-kind dispatch: multisig (N keys), timelock (single owner key + lock_time),
+    // singlesig/hashlock (single owner key).
+    let is_multisig = cov.redeem_kind == "multisig";
+    let lock_daa: Option<u64> =
+        cov.redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
 
     // Extra satisfier pushes (after the sig): the preimage for a hashlock.
     let extra: Vec<Vec<u8>> = if cov.redeem_kind == "hashlock" {
@@ -537,6 +612,46 @@ pub async fn p2sh_spend_handler(
         }
     } else {
         vec![]
+    };
+
+    // Resolve the signing key(s). Multisig needs `required` keys; the single-key kinds
+    // are signed by the covenant OWNER (the deployer who can satisfy the redeem).
+    let keypairs: Vec<secp256k1::Keypair> = if is_multisig {
+        let seckeys: Vec<[u8; 32]> = if let Some(keys) = &req.signer_keys_hex {
+            let mut v = Vec::new();
+            for k in keys {
+                match hex::decode(k.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                    Some(b) => v.push(b),
+                    None => return err("bad signer key hex (need 64 hex chars)".into()),
+                }
+            }
+            v
+        } else if req.use_dev_mode {
+            match dev_keys(&req.network) {
+                Ok(ks) => ks,
+                Err(e) => return err(e),
+            }
+        } else {
+            return err("multisig spend requires signer_keys_hex (or use_dev_mode)".into());
+        };
+        let mut kps = Vec::new();
+        for sk in &seckeys {
+            match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, sk) {
+                Ok(k) => kps.push(k),
+                Err(e) => return err(format!("bad signer key: {e}")),
+            }
+        }
+        kps
+    } else {
+        let (seckey, _addr) =
+            match resolve_signing_key(&req.network, &cov.owner_addr, &req.private_key_hex, req.use_dev_mode) {
+                Ok(v) => v,
+                Err(e) => return err(e),
+            };
+        match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &seckey) {
+            Ok(k) => vec![k],
+            Err(e) => return err(format!("bad key: {e}")),
+        }
     };
 
     let client = match client_for_network(&req.network).await {
@@ -582,11 +697,14 @@ pub async fn p2sh_spend_handler(
     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
     // so the crawler does not misread a redeem spend as a new covenant.
     let spend_payload = b"covex-p2sh-spend".to_vec();
+    // Timelock spends must set lock_time >= lock_daa (and the chain must have reached
+    // it, else the node rejects the tx as non-final). We set it exactly to lock_daa.
+    let spend_lock_time = lock_daa.unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
         outputs,
-        0,
+        spend_lock_time,
         SubnetworkId::from_bytes([0u8; 20]),
         0,
         spend_payload,
@@ -598,9 +716,16 @@ pub async fn p2sh_spend_handler(
         is_coinbase: utxo.utxo_entry.is_coinbase,
     }];
     let mut signable = SignableTransaction::with_entries(unsigned, entries);
-    let sig_script = match build_p2sh_signature_script(&signable, 0, &keypair, &redeem, &extra) {
-        Ok(s) => s,
-        Err(e) => return err(format!("build spend script: {e}")),
+    let sig_script = if is_multisig {
+        match build_p2sh_multisig_signature_script(&signable, 0, &keypairs, &redeem) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build multisig spend script: {e}")),
+        }
+    } else {
+        match build_p2sh_signature_script(&signable, 0, &keypairs[0], &redeem, &extra) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build spend script: {e}")),
+        }
     };
     signable.tx.inputs[0].signature_script = sig_script;
     signable.tx.finalize();

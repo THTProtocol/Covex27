@@ -365,6 +365,13 @@ pub async fn p2sh_deploy_handler(
         sig_op_count: 1,
     }];
 
+    // A non-empty payload is REQUIRED: the TN12 node hashes the payload into each
+    // input's sighash, so an empty payload yields a "false stack entry" signature
+    // mismatch (see vendor/kaspa-consensus-core sighash::payload_hash). The envelope
+    // is the aa20 P2SH marker followed by the locked redeem-script hash, which also
+    // makes the covenant discoverable by the crawler's payload-prefix scan.
+    let mut deploy_payload = vec![0xaa, 0x20];
+    deploy_payload.extend_from_slice(&blake2b256(&redeem));
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
@@ -372,7 +379,7 @@ pub async fn p2sh_deploy_handler(
         0,
         SubnetworkId::from_bytes([0u8; 20]),
         0,
-        vec![], // no payload: the P2SH output script IS the covenant
+        deploy_payload,
     );
     let entries = vec![UtxoEntry {
         amount: best.utxo_entry.amount,
@@ -516,6 +523,9 @@ pub async fn p2sh_spend_handler(
         sig_op_count: 1,
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
+    // so the crawler does not misread a redeem spend as a new covenant.
+    let spend_payload = b"covex-p2sh-spend".to_vec();
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
@@ -523,7 +533,7 @@ pub async fn p2sh_spend_handler(
         0,
         SubnetworkId::from_bytes([0u8; 20]),
         0,
-        vec![],
+        spend_payload,
     );
     let entries = vec![UtxoEntry {
         amount,

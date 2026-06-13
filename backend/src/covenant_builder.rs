@@ -621,8 +621,37 @@ pub async fn p2sh_deploy_handler(
                 Err(e) => return err(e),
             }
         }
+        "oracle_escrow" => {
+            // 2-player pot: the chain requires the oracle's co-signature AND the winning
+            // player's signature. The oracle co-signs only the actual winner (D1, games).
+            let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
+            let (pa, pb) = if let Some(pks) = &req.redeem.pubkeys_hex {
+                if pks.len() >= 2 {
+                    match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
+                        (Ok(a), Ok(b)) => (a, b),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    }
+                } else {
+                    return err("oracle_escrow needs pubkeys_hex=[player_a, player_b]".into());
+                }
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
+                        (Ok(a), Ok(b)) => (a, b),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    },
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("oracle_escrow requires pubkeys_hex=[player_a, player_b] (or use_dev_mode)".into());
+            };
+            match redeem_oracle_escrow(&oracle_xonly, &pa, &pb) {
+                Ok(r) => (r, "oracle_escrow".to_string()),
+                Err(e) => return err(e),
+            }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow)"
         )),
     };
 
@@ -1045,9 +1074,12 @@ pub async fn oracle_payout_handler(
         Some(c) => c,
         None => return err(format!("no covenant for {}", req.deploy_tx_id)),
     };
-    if !cov.redeem_kind.starts_with("oracle:") {
-        return err("not an oracle-enforced covenant (deploy with redeem.kind=oracle_enforced)".into());
+    if !cov.redeem_kind.starts_with("oracle") {
+        return err("not an oracle-enforced covenant (deploy with redeem.kind=oracle_enforced or oracle_escrow)".into());
     }
+    let is_escrow = cov.redeem_kind == "oracle_escrow";
+    // For an escrow, the outcome picks the winner: 0 -> player A (IF), 1 -> player B (ELSE).
+    let winner_is_a = req.requested_outcome != Some(1);
     if let Some(s) = &cov.spent_tx_id {
         return err(format!("already paid out in {s}"));
     }
@@ -1073,11 +1105,29 @@ pub async fn oracle_payout_handler(
         Ok(b) => b,
         Err(e) => return err(format!("corrupt stored redeem: {e}")),
     };
-    let (winner_seckey, _addr) =
+    // Resolve the winning party's key. oracle:2 -> the deployer/winner (via the
+    // destination's dev resolution). oracle_escrow -> the WINNING player: dev wallet 1
+    // (A) or 2 (B) in dev mode, else the explicit private_key_hex.
+    let winner_seckey: [u8; 32] = if is_escrow {
+        if !req.private_key_hex.trim().is_empty() {
+            match hex::decode(req.private_key_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                Some(b) => b,
+                None => return err("bad winning-player key (need 64 hex chars)".into()),
+            }
+        } else if req.use_dev_mode {
+            match dev_keys(&req.network) {
+                Ok(ks) => ks[if winner_is_a { 0 } else { 1 }],
+                Err(e) => return err(e),
+            }
+        } else {
+            return err("oracle_escrow payout requires the winning player's private_key_hex (or use_dev_mode)".into());
+        }
+    } else {
         match resolve_signing_key(&req.network, &req.destination_addr, &req.private_key_hex, req.use_dev_mode) {
-            Ok(v) => v,
+            Ok((sk, _)) => sk,
             Err(e) => return err(e),
-        };
+        }
+    };
     let winner_kp = match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &winner_seckey) {
         Ok(k) => k,
         Err(e) => return err(format!("bad winner key: {e}")),
@@ -1119,7 +1169,9 @@ pub async fn oracle_payout_handler(
         },
         signature_script: vec![],
         sequence: 0,
-        sig_op_count: 2, // 2-of-2 oracle multisig
+        // oracle:2 multisig counts 2 pubkeys; oracle_escrow counts the static sig ops
+        // in the redeem (OpCheckSigVerify + both branches' OpCheckSig = 3).
+        sig_op_count: if is_escrow { 3 } else { 2 },
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
     let unsigned = Transaction::new_non_finalized(
@@ -1138,11 +1190,18 @@ pub async fn oracle_payout_handler(
         is_coinbase: utxo.utxo_entry.is_coinbase,
     }];
     let mut signable = SignableTransaction::with_entries(unsigned, entries);
-    // Sigs in pubkey order: [oracle, winner] (redeem = multisig([oracle, winner], 2)).
-    let keypairs = [crate::oracle::oracle_keypair(), winner_kp];
-    let sig_script = match build_p2sh_multisig_signature_script(&signable, 0, &keypairs, &redeem) {
-        Ok(s) => s,
-        Err(e) => return err(format!("build oracle payout script: {e}")),
+    let oracle_kp = crate::oracle::oracle_keypair();
+    let sig_script = if is_escrow {
+        match build_oracle_escrow_signature_script(&signable, 0, &oracle_kp, &winner_kp, winner_is_a, &redeem) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build oracle escrow payout script: {e}")),
+        }
+    } else {
+        // Sigs in pubkey order: [oracle, winner] (redeem = multisig([oracle, winner], 2)).
+        match build_p2sh_multisig_signature_script(&signable, 0, &[oracle_kp, winner_kp], &redeem) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build oracle payout script: {e}")),
+        }
     };
     signable.tx.inputs[0].signature_script = sig_script;
     signable.tx.finalize();

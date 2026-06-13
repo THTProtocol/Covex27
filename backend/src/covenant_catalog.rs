@@ -162,6 +162,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "A 2-of-2 of [oracle, winner]. The chain requires the disclosed oracle's co-signature, and the oracle co-signs only a verified outcome - on-chain-enforced oracle resolution.",
     },
     CatalogEntry {
+        id: "oracle_escrow",
+        label: "Oracle escrow (2-player pot)",
+        category: "Verifiable Games (ZK/Oracle)",
+        reality: EnforcementReality::Hybrid,
+        builder: "covenant_builder",
+        params: &["stake_kas", "circuit_type", "player_a_pubkey", "player_b_pubkey"],
+        summary: "A 2-player pot the chain releases only to the oracle-declared winner: requires the oracle co-signature AND the winning player's signature on their branch.",
+    },
+    CatalogEntry {
         id: "oracle_game",
         label: "Oracle-resolved game / market (off-chain)",
         category: "Verifiable Games (ZK/Oracle)",

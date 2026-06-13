@@ -827,6 +827,17 @@ pub async fn p2sh_deploy_handler(
     // makes the covenant discoverable by the crawler's payload-prefix scan.
     let mut deploy_payload = vec![0xaa, 0x20];
     deploy_payload.extend_from_slice(&blake2b256(&redeem));
+    // TRUSTLESS RECOVERY (full fix for the "redeem unrecoverable if the server vanishes"
+    // gap): embed the FULL redeem script on-chain, immediately after the aa20<hash>
+    // marker. The redeem is NOT a secret - it is required to spend and is safe to publish
+    // - so embedding it means a holder can reconstruct and wallet-sign their spend from
+    // the CHAIN ALONE, with no Covex server and no saved deploy response. Recovery format:
+    //   payload[0..2]   = 0xaa 0x20 (the existing P2SH discovery marker)
+    //   payload[2..34]  = blake2b256(redeem)
+    //   payload[34..]   = the redeem script (validate blake2b256 of it equals [2..34])
+    // The marker/prefix is unchanged so crawler discovery still works, and the P2SH
+    // address is derived from the hash, so the locked funds are completely unaffected.
+    deploy_payload.extend_from_slice(&redeem);
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,

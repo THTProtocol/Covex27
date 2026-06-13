@@ -33,7 +33,9 @@ use kaspa_consensus_core::tx::{
 };
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
-use kaspa_txscript::opcodes::codes::{OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpEqualVerify};
+use kaspa_txscript::opcodes::codes::{
+    OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpElse, OpEndIf, OpEqualVerify, OpFalse, OpIf, OpTrue,
+};
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
 use rusqlite::Connection;
@@ -67,6 +69,10 @@ pub enum RedeemKind {
     /// N-of-M multisig (`OP_required <pk..> OP_total OpCheckMultiSig`): spend
     /// requires `required` of the listed keys. DAO treasuries, 2-of-3 escrow.
     Multisig { pubkeys: Vec<[u8; 32]>, required: usize },
+    /// HTLC (atomic swap): either the RECEIVER claims by revealing a preimage +
+    /// signing, OR the SENDER refunds after `lock_daa` by signing. The two halves of
+    /// a cross-chain or cross-party atomic swap.
+    Htlc { hash: [u8; 32], receiver_pubkey: [u8; 32], lock_daa: u64, sender_pubkey: [u8; 32] },
 }
 
 impl RedeemKind {
@@ -77,6 +83,9 @@ impl RedeemKind {
             RedeemKind::HashLock { hash, xonly_pubkey } => redeem_hashlock(hash, xonly_pubkey),
             RedeemKind::Timelock { lock_daa, xonly_pubkey } => redeem_timelock(*lock_daa, xonly_pubkey),
             RedeemKind::Multisig { pubkeys, required } => redeem_multisig(pubkeys, *required),
+            RedeemKind::Htlc { hash, receiver_pubkey, lock_daa, sender_pubkey } => {
+                redeem_htlc(hash, receiver_pubkey, *lock_daa, sender_pubkey)
+            }
         }
     }
 }
@@ -148,6 +157,65 @@ pub fn build_p2sh_multisig_signature_script(
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("p2sh multisig signature script: {e}"))
+}
+
+/// Redeem script for an HTLC (atomic swap):
+/// `OP_IF  OpBlake2b <hash> OpEqualVerify <receiver> OpCheckSig
+///  OP_ELSE <lock_daa> OpCheckLockTimeVerify <sender> OpCheckSig  OP_ENDIF`.
+/// The IF branch is the receiver's claim (reveal preimage + sign); the ELSE branch
+/// is the sender's refund after the timelock elapses.
+pub fn redeem_htlc(
+    hash32: &[u8; 32],
+    receiver_pubkey: &[u8; 32],
+    lock_daa: u64,
+    sender_pubkey: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    b.add_op(OpIf).map_err(|e| format!("htlc OpIf: {e}"))?;
+    b.add_op(OpBlake2b).map_err(|e| format!("htlc OpBlake2b: {e}"))?;
+    b.add_data(hash32).map_err(|e| format!("htlc hash: {e}"))?;
+    b.add_op(OpEqualVerify).map_err(|e| format!("htlc OpEqualVerify: {e}"))?;
+    b.add_data(receiver_pubkey).map_err(|e| format!("htlc receiver: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("htlc claim OpCheckSig: {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("htlc OpElse: {e}"))?;
+    b.add_lock_time(lock_daa).map_err(|e| format!("htlc add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("htlc CLTV: {e}"))?;
+    b.add_data(sender_pubkey).map_err(|e| format!("htlc sender: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("htlc refund OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("htlc OpEndIf: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Build the input `idx` signature_script that spends an HTLC.
+/// `claim`=true takes the receiver's preimage branch (satisfier: sig, preimage,
+/// OP_TRUE); `claim`=false takes the sender's refund branch (satisfier: sig,
+/// OP_FALSE) - the spend tx must then set lock_time >= lock_daa and a non-final
+/// sequence. The `keypair` must be the receiver (claim) or sender (refund) key.
+pub fn build_htlc_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    keypair: &secp256k1::Keypair,
+    redeem: &[u8],
+    claim: bool,
+    preimage: Option<&[u8]>,
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    if claim {
+        let p = preimage.ok_or_else(|| "HTLC claim requires a preimage".to_string())?;
+        let mut b = ScriptBuilder::new();
+        b.add_data(p).map_err(|e| format!("htlc preimage push: {e}"))?;
+        satisfier.extend_from_slice(&b.drain());
+        satisfier.push(OpTrue); // select the IF (claim) branch
+    } else {
+        satisfier.push(OpFalse); // select the ELSE (refund) branch
+    }
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("htlc signature script: {e}"))
 }
 
 /// blake2b-256 of a preimage, matching the hash OpBlake2b computes on-chain. Used
@@ -942,6 +1010,49 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1, outsider], &redeem).unwrap()),
             "a signature from a non-member key must be rejected"
+        );
+    }
+
+    #[test]
+    fn htlc_claim_and_refund_branches() {
+        let receiver = test_keypair(71);
+        let sender = test_keypair(72);
+        let rpk = receiver.x_only_public_key().0.serialize();
+        let spk = sender.x_only_public_key().0.serialize();
+        let preimage = b"atomic-swap-secret".to_vec();
+        let hash = blake2b256(&preimage);
+        let lock_daa: u64 = 2_000_000;
+        let redeem = redeem_htlc(&hash, &rpk, lock_daa, &spk).unwrap();
+
+        // CLAIM: receiver reveals the correct preimage and signs (lock_time irrelevant).
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, true, Some(&preimage)).unwrap()),
+            "receiver claim with correct preimage must pass"
+        );
+        // CLAIM with a wrong preimage fails (OpEqualVerify).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, true, Some(b"wrong")).unwrap()),
+            "claim with wrong preimage must fail"
+        );
+        // CLAIM with the correct preimage but the SENDER key fails (OpCheckSig in IF branch).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(s, 0, &sender, &redeem, true, Some(&preimage)).unwrap()),
+            "claim branch requires the receiver key"
+        );
+        // REFUND: sender signs after the timelock (lock_time >= lock_daa, non-final input).
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(s, 0, &sender, &redeem, false, None).unwrap()),
+            "sender refund after the timelock must pass"
+        );
+        // REFUND before the timelock fails (CLTV).
+        assert!(
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_htlc_signature_script(s, 0, &sender, &redeem, false, None).unwrap()),
+            "refund before the timelock must fail"
+        );
+        // REFUND branch with the RECEIVER key fails (OpCheckSig in ELSE branch).
+        assert!(
+            !run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, false, None).unwrap()),
+            "refund branch requires the sender key"
         );
     }
 }

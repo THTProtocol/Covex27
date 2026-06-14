@@ -64,7 +64,7 @@ export default function EnforcedDeploy() {
     setError(null);
     const stakeKas = parseFloat(stake);
     if (!(stakeKas > 0)) { setError('Enter a stake greater than 0.'); return; }
-    if (!usesDevWallets && !canSign) { setError('Connect a testnet key below to sign the deploy.'); return; }
+    if (!usesDevWallets && !canSign) { setError('Connect the key that holds the funds below - it signs the deploy in your browser (non-custodial).'); return; }
 
     const redeem = { kind };
     let preimage = null;
@@ -76,12 +76,41 @@ export default function EnforcedDeploy() {
       redeem.lock_daa = tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10));
     }
 
-    const body = usesDevWallets
-      ? { network: net, deployer_addr: address || '', use_dev_mode: true, stake_kas: stakeKas, redeem }
-      : { network: net, deployer_addr: address, use_dev_mode: false, private_key_hex: devMode.privateKeyHex, stake_kas: stakeKas, redeem };
-
     setBusy(true);
     try {
+      // NON-CUSTODIAL DEPLOY (the trustless path, works on mainnet too): for a single-signer
+      // covenant whose key we hold in this browser, fund it by signing the funding tx's
+      // sighash HERE - the private key never leaves the device. prepare-deploy builds the
+      // unsigned funding tx and returns the sighash; we sign it; submit-deploy broadcasts.
+      if (!usesDevWallets && canSign) {
+        const myKey = devMode.privateKeyHex;
+        const prep = await fetch('/api/covenant/p2sh/prepare-deploy', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ network: net, deployer_addr: address, stake_kas: stakeKas, redeem }),
+        }).then((r) => r.json());
+        if (!prep.success) { setError(prep.error || 'Could not prepare the deploy.'); return; }
+        const myXonly = bytesToHex(schnorr.getPublicKey(myKey));
+        if (prep.signer_xonly && prep.signer_xonly !== myXonly) {
+          setError('The connected key does not match the funding address. Reconnect the wallet that owns the funds.');
+          return;
+        }
+        const signatureHex = bytesToHex(schnorr.sign(prep.sighash, myKey)); // BIP340 over the funding sighash
+        const sub = await fetch('/api/covenant/p2sh/submit-deploy', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: prep.session_id, signature_hex: signatureHex }),
+        }).then((r) => r.json());
+        if (!sub.success) { setError(sub.error || 'Deploy broadcast failed.'); return; }
+        setMine((m) => [{
+          tx: sub.deploy_tx_id, p2sh: sub.p2sh_address, kind: sub.redeem_kind, kas: sub.locked_kas,
+          redeem_script_hex: sub.redeem_script_hex || prep.redeem_script_hex || null,
+          preimage, dev: false, nonCustodialDeploy: true, lock_daa: redeem.lock_daa || null, spent: null,
+        }, ...m]);
+        return;
+      }
+
+      // Server-assisted fallback: the multisig demo locks to the two dev wallets, so it is
+      // funded + signed server-side with use_dev_mode (testnet only).
+      const body = { network: net, deployer_addr: address || '', use_dev_mode: true, stake_kas: stakeKas, redeem };
       const res = await fetch('/api/covenant/p2sh/deploy', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
@@ -89,10 +118,6 @@ export default function EnforcedDeploy() {
       if (!j.success) { setError(j.error || 'Deploy failed.'); return; }
       setMine((m) => [{
         tx: j.deploy_tx_id, p2sh: j.p2sh_address, kind: j.redeem_kind, kas: j.locked_kas,
-        // Keep the redeem script: it is REQUIRED to spend and is the only thing that
-        // makes the covenant recoverable without trusting Covex. Also re-servable from
-        // GET /api/covenants/<tx>:0 (redeem_script_hex), but save it here so the user
-        // has it immediately.
         redeem_script_hex: j.redeem_script_hex || null,
         preimage, dev: usesDevWallets, lock_daa: redeem.lock_daa || null, spent: null,
       }, ...m]);
@@ -246,7 +271,9 @@ export default function EnforcedDeploy() {
       {isMainnet && (
         <div className="glass-panel p-4 border-amber-500/30 bg-amber-500/[0.05]">
           <p className="text-sm text-amber-200">
-            You are on mainnet. Enforced deploys here need wallet-side signing (coming soon). Switch to a testnet to try them now.
+            You are on mainnet. Single-key, hashlock, and timelock covenants deploy non-custodially here:
+            connect the key that holds the funds and it signs the funding transaction in your browser - the key is never sent.
+            Mainnet covenants activate at the Toccata hard fork, so the deploy stays gated until then.
           </p>
         </div>
       )}
@@ -294,13 +321,15 @@ export default function EnforcedDeploy() {
 
         {!usesDevWallets && !canSign ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm text-gray-300 mb-3">Connect a testnet key to sign the deploy (real on-chain transaction).</p>
+            <p className="text-sm text-gray-300 mb-3">
+              Connect the key that holds the funds to sign the deploy. It signs the funding transaction in your browser - the key is never sent to the server (non-custodial).
+            </p>
             <DevConnectPanel compact />
           </div>
         ) : (
           <button onClick={deploy} disabled={busy}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all disabled:opacity-60">
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} Lock {stake} KAS into a {kind} covenant
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} Lock {stake} KAS into a {kind} covenant{!usesDevWallets ? ' (non-custodial)' : ''}
           </button>
         )}
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -316,6 +345,7 @@ export default function EnforcedDeploy() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase">on-chain</span>
+                    {c.nonCustodialDeploy && <span className="px-2 py-0.5 rounded-md border border-kaspa-green/30 bg-kaspa-green/10 text-kaspa-green text-[10px] font-bold uppercase" title="Funded by a signature made in your browser; the key never reached the server">non-custodial</span>}
                     <span className="text-sm font-semibold text-white">{c.kind}</span>
                     <span className="text-xs text-gray-400">{c.kas} KAS locked</span>
                   </div>

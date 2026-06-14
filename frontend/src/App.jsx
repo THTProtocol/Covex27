@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate } from 'react-router-dom';
 import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
@@ -58,8 +58,11 @@ function SmartDeployLink() {
       .catch(() => setIsPaid(false));
   }, [address]);
 
-  const to = isPaid ? '/premium' : '/deploy';
-  return <NavLink to={to} className={NL}>Deploy</NavLink>;
+  // One trustless deploy path for everyone: the enforced (script-locked P2SH) flow.
+  // The old decorative /deploy is redirected there. (isPaid kept only to gate the
+  // separate paid "Terminal" builder link, not the deploy destination.)
+  void isPaid;
+  return <NavLink to="/deploy/enforced" className={NL}>Deploy</NavLink>;
 }
 
 function SmartTerminalLink() {
@@ -198,7 +201,6 @@ export default function App() {
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
-                <NavLink to="/deploy/enforced" className={NL}>Enforced</NavLink>
                 <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
@@ -228,7 +230,6 @@ export default function App() {
                   <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>Kaspa</NavLink>
                   <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <SmartDeployLink />
-                  <NavLink to="/deploy/enforced" className={NL} onClick={() => setMobileMenuOpen(false)}>Enforced</NavLink>
                   <div className="pt-2 border-t border-white/10 light:border-slate-200">
                     <NetworkSwitcher />
                   </div>
@@ -253,7 +254,9 @@ export default function App() {
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/terms" element={<Terms />} />
-              <Route path="/deploy" element={<Deploy />} />
+              {/* The old decorative /deploy is gone: every deploy is now the trustless,
+                  script-enforced (P2SH) flow. /deploy redirects to it. */}
+              <Route path="/deploy" element={<Navigate to="/deploy/enforced" replace />} />
               <Route path="/deploy/enforced" element={<EnforcedDeploy />} />
               <Route path="/deploy/paid" element={<PaidDeploy />} />
               <Route path="/paid-builder" element={<PaidBuilder />} />

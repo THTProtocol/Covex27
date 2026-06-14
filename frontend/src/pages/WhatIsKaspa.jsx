@@ -284,8 +284,8 @@ export default function WhatIsKaspaPage() {
         </section>
 
         <div className="pt-8 border-t border-white/10 text-center">
-          <a href="/deploy" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#49EACB] text-black font-bold hover:bg-[#3cd8b6] transition-colors">
-            Deploy Your First Free Covenant <Terminal size={18} />
+          <a href="/deploy/enforced" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#49EACB] text-black font-bold hover:bg-[#3cd8b6] transition-colors">
+            Deploy Your First Trustless Covenant <Terminal size={18} />
           </a>
           <p className="text-[10px] text-gray-500 mt-3">No payment required. Upgrade that specific covenant later if you want rich UI + Terminal.</p>
         </div>

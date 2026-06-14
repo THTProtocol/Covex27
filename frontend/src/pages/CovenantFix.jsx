@@ -388,7 +388,7 @@ export default function CovenantFix() {
         <h1 className="text-3xl font-semibold tracking-tight mb-3">No covenants for this wallet</h1>
         <p className="text-gray-400 mb-8">Deploy a covenant first (from Deploy or Paid Builder). Once created with this address you will see it here for quick visual fixes and stake setup.</p>
         <div className="flex gap-3 justify-center">
-          <Link to="/deploy" className="px-5 py-2.5 rounded-xl border border-white/15 text-sm">Deploy</Link>
+          <Link to="/deploy/enforced" className="px-5 py-2.5 rounded-xl border border-white/15 text-sm">Deploy</Link>
           <Link to="/paid-builder" className="px-5 py-2.5 rounded-xl bg-white text-black text-sm font-semibold">Paid Studio</Link>
         </div>
         <Link to="/" className="mt-10 block text-xs text-gray-500 hover:text-gray-400">Return to registry</Link>

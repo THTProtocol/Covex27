@@ -19,8 +19,12 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
   live endpoint minted a real on-chain covenant (0.2 KAS locked to P2SH on TN12) that renders
   `enforcement_reality: on-chain`, spendable, with the redeem script published for trustless
   recovery; `/premium` runs commit 3fea2d5 with a clean console.
-- **1.2 ☐ Migrate `/deploy/paid` (PaidDeploy) to enforced P2SH.** Same change: the paste-a-bundle
-  paid flow deploys a P2SH covenant, not a metadata commitment. *Verify:* same as 1.1.
+- **1.2 ☑ Migrate `/deploy/paid` (PaidDeploy) to enforced P2SH.** DONE (commit c3756b2). The deploy
+  locks the stake in a real enforced P2SH covenant (singlesig/timelock/hashlock) keyed at `<tx>:0`;
+  the authored SilverScript is attached as declared logic + the pasted UI as interface via
+  `terminal-config` (ownership-signed); honest mainnet gate. *Verified:* shipped bundle calls
+  p2sh/deploy (decorative sign-and-broadcast removed), enforcement label present, `/deploy/paid`
+  loads clean on commit c3756b2.
 - **1.3 ☐ Remove the orphaned decorative `Deploy.jsx`** (now unrouted) + its dead visual-builder /
   random-hex paths, and drop the unused lazy import in App.jsx. *Verify:* build clean, no dead refs.
 - **1.4 ☐ Extend non-custodial signing to the multi-party kinds** (multisig, channel, oracle-escrow):

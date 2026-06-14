@@ -18,7 +18,6 @@ const AdvancedComposer = lazy(() => import('./pages/AdvancedComposer'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Terms = lazy(() => import('./pages/Terms'));
-const Deploy = lazy(() => import('./pages/Deploy'));
 const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
 const PaidDeploy = lazy(() => import('./pages/PaidDeploy'));
 const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));

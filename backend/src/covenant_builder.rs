@@ -399,6 +399,127 @@ pub fn build_p2sh_signature_script(
         .map_err(|e| format!("p2sh signature script: {e}"))
 }
 
+/// Parse the 32-byte x-only pubkeys pushed in a redeem script. Pubkeys are pushed via
+/// OpData32 (0x20) + 32 bytes. `checksig_only` keeps ONLY pushes immediately followed by
+/// OpCheckSig (0xac) or OpCheckSigVerify (0xad) - this excludes a hashlock/HTLC hash push
+/// (followed by OpEqualVerify), so HTLC yields [receiver, sender] and channel yields
+/// [p1, p2, p1]. With `checksig_only=false` every 0x20<32> push is returned (used for an
+/// N-of-M multisig, whose `<m> pk1..pkn <n> OpCheckMultiSig` has no hash and whose pubkeys
+/// are NOT each directly followed by a checksig op).
+fn parse_redeem_pubkeys(redeem: &[u8], checksig_only: bool) -> Vec<[u8; 32]> {
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i + 33 <= redeem.len() {
+        if redeem[i] == 0x20 {
+            let is_pubkey = if checksig_only {
+                let next = redeem.get(i + 33).copied();
+                matches!(next, Some(0xac) | Some(0xad))
+            } else {
+                true
+            };
+            if is_pubkey {
+                let mut pk = [0u8; 32];
+                pk.copy_from_slice(&redeem[i + 1..i + 33]);
+                out.push(pk);
+                i += 33;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+fn push65(sig: &[u8; 64]) -> Vec<u8> {
+    std::iter::once(65u8).chain(sig.iter().copied()).chain([SIG_HASH_ALL.to_u8()]).collect()
+}
+
+/// Assemble the input signature_script for a multi-party P2SH spend from EXTERNALLY
+/// produced BIP340 signatures (the non-custodial path: each signature was made in a user's
+/// wallet over the prepared sighash; no key ever touches the server). The byte layout is
+/// IDENTICAL to the custodial build_* satisfiers - only the signatures' provenance differs.
+///
+/// - `members`: pubkeys parsed from the redeem in SCRIPT order (multisig: [pk1..pkn];
+///   channel: [p1, p2, p1]; htlc: [receiver, sender]).
+/// - `sigs`: signer x-only pubkey hex -> 64-byte signature, as each wallet produced it.
+/// - `solo`: the single signature for one-signer kinds (singlesig/hashlock/timelock and the
+///   single-signer HTLC/channel branches), when the caller passed `signature_hex`.
+fn assemble_noncustodial_satisfier(
+    kind_base: &str,
+    branch_refund: bool,
+    redeem: &[u8],
+    members: &[[u8; 32]],
+    sigs: &std::collections::HashMap<String, [u8; 64]>,
+    solo: Option<&[u8; 64]>,
+    preimage: Option<&[u8]>,
+) -> BResult<Vec<u8>> {
+    let need_solo = || solo.ok_or_else(|| "this spend needs one signature (signature_hex)".to_string());
+    let sig_for = |pk: &[u8; 32]| -> Option<[u8; 64]> { sigs.get(&hex::encode(pk)).copied() };
+    let preimage_push = |p: &[u8]| -> BResult<Vec<u8>> {
+        let mut b = ScriptBuilder::new();
+        b.add_data(p).map_err(|e| format!("preimage push: {e}"))?;
+        Ok(b.drain())
+    };
+
+    let mut satisfier: Vec<u8> = Vec::new();
+    match kind_base {
+        "singlesig" | "timelock" => {
+            satisfier.extend(push65(need_solo()?));
+        }
+        "hashlock" => {
+            satisfier.extend(push65(need_solo()?));
+            let p = preimage.ok_or_else(|| "hashlock spend requires preimage_hex".to_string())?;
+            satisfier.extend(preimage_push(p)?);
+        }
+        "htlc" => {
+            // claim = receiver sig + preimage + OP_TRUE; refund = sender sig + OP_FALSE.
+            satisfier.extend(push65(need_solo()?));
+            if branch_refund {
+                satisfier.push(OpFalse);
+            } else {
+                let p = preimage.ok_or_else(|| "HTLC claim requires preimage_hex".to_string())?;
+                satisfier.extend(preimage_push(p)?);
+                satisfier.push(OpTrue);
+            }
+        }
+        "multisig" => {
+            // Push each present member's sig in pubkey (script) order; OpCheckMultiSig pops
+            // them in that order. Missing members are skipped (an m-of-n subset).
+            let mut count = 0;
+            for pk in members {
+                if let Some(sig) = sig_for(pk) {
+                    satisfier.extend(push65(&sig));
+                    count += 1;
+                }
+            }
+            if count == 0 {
+                return Err("multisig spend needs signatures[] from the signing members".into());
+            }
+        }
+        "channel" => {
+            if branch_refund {
+                // refund: p1 (members[0]) sig then OP_FALSE.
+                let s = members.first().and_then(|p| sig_for(p)).or_else(|| solo.copied())
+                    .ok_or_else(|| "channel refund needs the funder (player1) signature".to_string())?;
+                satisfier.extend(push65(&s));
+                satisfier.push(OpFalse);
+            } else {
+                // cooperative close: bottom->top sig_p2, sig_p1, OP_TRUE.
+                let p1 = members.first().ok_or_else(|| "channel redeem missing player1".to_string())?;
+                let p2 = members.get(1).ok_or_else(|| "channel redeem missing player2".to_string())?;
+                let s2 = sig_for(p2).ok_or_else(|| "channel close needs player2's signature".to_string())?;
+                let s1 = sig_for(p1).ok_or_else(|| "channel close needs player1's signature".to_string())?;
+                satisfier.extend(push65(&s2));
+                satisfier.extend(push65(&s1));
+                satisfier.push(OpTrue);
+            }
+        }
+        other => return Err(format!("non-custodial assembly does not support '{other}'")),
+    }
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("assemble signature script: {e}"))
+}
+
 /// Derive the x-only public key (32 bytes) from a 32-byte secp256k1 secret key.
 pub fn xonly_from_seckey(seckey: &[u8; 32]) -> BResult<[u8; 32]> {
     let kp = secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, seckey)
@@ -1579,9 +1700,17 @@ struct PendingWalletSpend {
     redeem: Vec<u8>,
     /// The covenant's tx_id, so submit-signed can mark it spent in the DB.
     deploy_tx_id: String,
-    /// The redeem kind (singlesig | hashlock | timelock:<daa>) so submit-signed
-    /// assembles the correct satisfier (e.g. appends the preimage for a hashlock).
+    /// The redeem kind (singlesig | hashlock | timelock:<daa> | multisig:<n> | htlc:<daa>
+    /// | channel:<daa>) so submit-signed assembles the correct satisfier.
     kind: String,
+    /// For HTLC/channel: which branch the prepared sighash committed to. true = the
+    /// timeout/refund branch (lock_time set), false = claim/cooperative close. Single-sig
+    /// kinds ignore this.
+    branch_refund: bool,
+    /// Member x-only pubkeys parsed from the redeem in script order (multisig: [pk1..pkn];
+    /// channel: [p1, p2, p1]; htlc: [receiver, sender]). Lets submit-signed order the
+    /// supplied signatures correctly without re-parsing.
+    member_pubkeys: Vec<[u8; 32]>,
     created_at: i64,
 }
 
@@ -1597,11 +1726,20 @@ pub struct WalletPrepareRequest {
     pub network: String,
     pub deploy_tx_id: String,
     pub destination_addr: String,
-    /// External covenant (not in our DB): supply the single-sig redeem script.
+    /// External covenant (not in our DB): supply the redeem script.
     #[serde(default)]
     pub redeem_script_hex: Option<String>,
+    /// External covenant: its redeem kind (singlesig | hashlock | timelock:<daa> |
+    /// multisig:<n> | htlc:<daa> | channel:<daa>). Defaults to singlesig when omitted.
+    #[serde(default)]
+    pub redeem_kind: Option<String>,
     #[serde(default)]
     pub outpoint_index: Option<u32>,
+    /// For HTLC/channel: which branch to spend. HTLC "claim" (default) | "refund";
+    /// channel "close" (default) | "refund". Determines the committed lock_time, so it is
+    /// fixed at prepare time and the wallet signs that exact sighash.
+    #[serde(default)]
+    pub branch: Option<String>,
 }
 
 /// POST /covenant/p2sh/prepare-spend - build the unsigned spend + return the sighash the
@@ -1632,28 +1770,46 @@ pub async fn prepare_spend_handler(
                     Ok(a) => a.to_string(),
                     Err(e) => return err(e),
                 };
-                (rh, "singlesig".to_string(), req.deploy_tx_id.clone(), req.outpoint_index.unwrap_or(0), addr)
+                let extkind = req.redeem_kind.clone().filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "singlesig".to_string());
+                (rh, extkind, req.deploy_tx_id.clone(), req.outpoint_index.unwrap_or(0), addr)
             }
         };
-    // Non-custodial wallet signing covers the SINGLE-SIGNER kinds: singlesig, hashlock,
-    // and timelock. Each is satisfied by ONE signature over the sighash (hashlock also
-    // pushes a preimage; timelock also needs the tx lock_time), with NO key on the
-    // server. HTLC/multisig/channel/oracle need branch selection or multiple signers and
-    // use the server-assisted /spend until the multi-sig wallet flow lands.
+    // Non-custodial wallet signing now covers EVERY deterministic primitive: the
+    // single-signer kinds (singlesig / hashlock / timelock) and the multi-party kinds
+    // (multisig N-of-M, HTLC claim/refund, channel close/refund). Each party signs the
+    // prepared sighash in their own wallet and only the SIGNATURES are sent - no key ever
+    // touches the server. (oracle_enforced / oracle_escrow still co-sign with the Covex
+    // oracle key server-side by design and use /covenant/oracle-payout.)
     let kind_base = redeem_kind.split(':').next().unwrap_or(&redeem_kind).to_string();
-    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock") {
+    if kind_base.starts_with("oracle") {
         return err(format!(
-            "non-custodial wallet signing currently supports singlesig, hashlock, and timelock; '{redeem_kind}' uses the server-assisted spend"
+            "'{redeem_kind}' needs the Covex oracle co-signature; use /covenant/oracle-payout, not the non-custodial spend"
         ));
     }
+    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel") {
+        return err(format!("non-custodial wallet signing does not support '{redeem_kind}'"));
+    }
     let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
+    let multisig_total: u8 = redeem_kind.strip_prefix("multisig:").and_then(|s| s.parse::<u8>().ok()).unwrap_or(1);
+    let htlc_lock_daa: Option<u64> = redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
+    let channel_lock_daa: Option<u64> = redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
+    // Branch selection (committed in the sighash via lock_time): HTLC claim(default)/refund,
+    // channel close(default)/refund.
+    let branch = req.branch.as_deref().unwrap_or("").to_lowercase();
+    let branch_refund = matches!(kind_base.as_str(), "htlc" | "channel") && branch == "refund";
     let redeem = match hex::decode(&redeem_hex) {
         Ok(b) => b,
         Err(e) => return err(format!("corrupt redeem: {e}")),
     };
-    // The signer key is the x-only pubkey pushed right before the final OpCheckSig
-    // (0xac) - true for singlesig, hashlock, AND timelock redeems (they all end with
-    // `<0x20><pubkey32> OpCheckSig`, regardless of what precedes it).
+    // Parse the redeem's member pubkeys: multisig keeps every 0x20<32> push; htlc/channel
+    // keep only those followed by a checksig op (so an HTLC hash push is excluded).
+    let member_pubkeys: Vec<[u8; 32]> = if kind_base == "multisig" {
+        parse_redeem_pubkeys(&redeem, false)
+    } else {
+        parse_redeem_pubkeys(&redeem, true)
+    };
+    // The single-signer kinds end with `<0x20><pubkey32> OpCheckSig`; surface that as the
+    // signer the wallet must use (multi-party kinds report required_signers instead).
     let signer_xonly = if redeem.len() >= 34
         && redeem[redeem.len() - 1] == 0xac
         && redeem[redeem.len() - 34] == 0x20
@@ -1661,6 +1817,28 @@ pub async fn prepare_spend_handler(
         hex::encode(&redeem[redeem.len() - 33..redeem.len() - 1])
     } else {
         String::new()
+    };
+    // The signatures the wallet(s) must produce, in the order/role the satisfier needs.
+    let required_signers: Vec<serde_json::Value> = match kind_base.as_str() {
+        "multisig" => member_pubkeys.iter().enumerate()
+            .map(|(i, pk)| serde_json::json!({ "role": format!("member{}", i + 1), "xonly": hex::encode(pk) }))
+            .collect(),
+        "htlc" => {
+            let idx = if branch_refund { 1 } else { 0 };
+            let role = if branch_refund { "sender (refund)" } else { "receiver (claim)" };
+            member_pubkeys.get(idx).map(|pk| vec![serde_json::json!({ "role": role, "xonly": hex::encode(pk) })]).unwrap_or_default()
+        }
+        "channel" => {
+            if branch_refund {
+                member_pubkeys.first().map(|pk| vec![serde_json::json!({ "role": "funder (refund)", "xonly": hex::encode(pk) })]).unwrap_or_default()
+            } else {
+                let mut v = Vec::new();
+                if let Some(pk) = member_pubkeys.first() { v.push(serde_json::json!({ "role": "player1", "xonly": hex::encode(pk) })); }
+                if let Some(pk) = member_pubkeys.get(1) { v.push(serde_json::json!({ "role": "player2", "xonly": hex::encode(pk) })); }
+                v
+            }
+        }
+        _ => if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": "signer", "xonly": signer_xonly.clone() })] },
     };
 
     let client = match client_for_network(&req.network).await {
@@ -1689,20 +1867,29 @@ pub async fn prepare_spend_handler(
         Ok(s) => s,
         Err(e) => return err(e),
     };
+    // sig_op_count is committed in the sighash and must cover the redeem's sig ops or the
+    // node rejects "script units exceeded": multisig counts one per listed pubkey, the
+    // channel redeem has 3 (CheckSigVerify + CheckSig in IF, CheckSig in ELSE), others 1.
+    // Mirrors the custodial /spend handler exactly so the same sighash is produced.
+    let sig_op_count: u8 = if kind_base == "multisig" { multisig_total } else if kind_base == "channel" { 3 } else { 1 };
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
             index: utxo.outpoint.index,
         },
         signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
+        sequence: 0, // non-final, required for any CLTV (timelock / htlc-refund / channel-refund) spend
+        sig_op_count,
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
-    // A timelock spend MUST carry lock_time = lock_daa (with a non-final input sequence,
-    // set to 0 above) so OpCheckLockTimeVerify passes; the chain must also have reached
-    // that DAA or the node rejects the tx as non-final. Other single-signer kinds use 0.
-    let spend_lock_time = timelock_daa.unwrap_or(0);
+    // A spend that takes a CLTV branch MUST carry lock_time = lock_daa (with a non-final
+    // input sequence, set above) so OpCheckLockTimeVerify passes, and the chain must have
+    // reached that DAA. This applies to a timelock covenant, an HTLC refund, and a channel
+    // refund. Claims / cooperative closes / other single-signer kinds use 0.
+    let spend_lock_time = timelock_daa
+        .or(if kind_base == "htlc" && branch_refund { htlc_lock_daa } else { None })
+        .or(if kind_base == "channel" && branch_refund { channel_lock_daa } else { None })
+        .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
@@ -1730,39 +1917,66 @@ pub async fn prepare_spend_handler(
         s.retain(|_, v| v.created_at > now_ts - 600); // drop sessions older than 10 min
         s.insert(
             session_id.clone(),
-            PendingWalletSpend { network: req.network.clone(), unsigned_tx: unsigned, entry, redeem, deploy_tx_id: src_tx_id.clone(), kind: redeem_kind.clone(), created_at: now_ts },
+            PendingWalletSpend {
+                network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
+                deploy_tx_id: src_tx_id.clone(), kind: redeem_kind.clone(),
+                branch_refund, member_pubkeys, created_at: now_ts,
+            },
         );
     }
+    // A hashlock spend, and an HTLC CLAIM, must also reveal the preimage in submit-signed.
+    let needs_preimage = kind_base == "hashlock" || (kind_base == "htlc" && !branch_refund);
+    let is_multi = matches!(kind_base.as_str(), "multisig" | "channel") && !(kind_base == "channel" && branch_refund);
     Json(serde_json::json!({
         "success": true,
         "session_id": session_id,
         "sighash": sighash_hex,
         "sign_scheme": "bip340-schnorr-secp256k1",
         "signer_xonly": signer_xonly,
+        "required_signers": required_signers,
+        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else { None },
         "p2sh_address": p2sh_address,
         "amount_sompi": amount,
         "destination": req.destination_addr,
         "redeem_kind": redeem_kind,
-        // A hashlock spend must also reveal the preimage in submit-signed.
-        "needs_preimage": kind_base == "hashlock",
-        "note": "Sign the sighash (BIP340 Schnorr) with the covenant key in your wallet, then POST {session_id, signature_hex} (plus preimage_hex for a hashlock) to /covenant/p2sh/submit-signed. No key is sent to the server."
+        "needs_preimage": needs_preimage,
+        "note": if is_multi {
+            "Each required signer signs this exact sighash (BIP340 Schnorr) in their own wallet, then POST {session_id, signatures:[{signer_xonly, signature_hex}], ...} to /covenant/p2sh/submit-signed. No key is sent to the server."
+        } else {
+            "Sign the sighash (BIP340 Schnorr) with the covenant key in your wallet, then POST {session_id, signature_hex} (plus preimage_hex for a hashlock or HTLC claim) to /covenant/p2sh/submit-signed. No key is sent to the server."
+        }
     }))
+}
+
+/// One member's signature in a multi-party non-custodial submit.
+#[derive(Deserialize)]
+pub struct WalletSigEntry {
+    /// The signer's x-only pubkey (hex), matching a member of the redeem script.
+    pub signer_xonly: String,
+    /// That signer's 64-byte BIP340 Schnorr signature (hex) over the prepared sighash.
+    pub signature_hex: String,
 }
 
 #[derive(Deserialize)]
 pub struct WalletSubmitRequest {
     pub session_id: String,
+    /// Single-signer kinds (singlesig/hashlock/timelock, HTLC, channel-refund): the one
     /// 64-byte BIP340 Schnorr signature (hex) over the prepared sighash.
-    pub signature_hex: String,
-    /// For a hashlock covenant: the preimage P such that blake2b256(P) == the locked
-    /// hash. Pushed after the signature in the satisfier. Not a secret to the server
-    /// beyond this single spend (it is revealed on-chain anyway).
+    #[serde(default)]
+    pub signature_hex: Option<String>,
+    /// Multi-party kinds (multisig, channel cooperative close): one entry per signing
+    /// member. Each signature is over the SAME prepared sighash; the server orders them by
+    /// the redeem's pubkey order. No key is ever sent - only signatures.
+    #[serde(default)]
+    pub signatures: Option<Vec<WalletSigEntry>>,
+    /// For a hashlock covenant or an HTLC claim: the preimage P. Pushed into the satisfier.
+    /// Not a server secret (it is revealed on-chain by the spend anyway).
     #[serde(default)]
     pub preimage_hex: Option<String>,
 }
 
-/// POST /covenant/p2sh/submit-signed - assemble the wallet's signature into the satisfier
-/// and broadcast. The server never had the key; it only relays the signed tx.
+/// POST /covenant/p2sh/submit-signed - assemble the wallet signature(s) into the satisfier
+/// and broadcast. The server never had any key; it only relays the signed tx.
 pub async fn submit_signed_handler(
     Extension(db): Extension<Arc<Mutex<Connection>>>,
     Json(req): Json<WalletSubmitRequest>,
@@ -1775,34 +1989,40 @@ pub async fn submit_signed_handler(
             None => return err("unknown or expired session_id (call prepare-spend first; sessions last 10 minutes)".into()),
         }
     };
-    let sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x"))
-        .ok()
-        .and_then(|b| b.try_into().ok())
-    {
-        Some(b) => b,
-        None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
+    let parse_sig = |h: &str| -> Option<[u8; 64]> {
+        hex::decode(h.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok())
     };
-    // Satisfier: OpData65 <sig || sighash-type>, then (hashlock only) the preimage push,
-    // then the redeem-script push. This is byte-identical to the custodial
-    // build_p2sh_signature_script - the only difference is the signature came from the
-    // user's wallet, not the server. Timelock needs no extra push (its lock_time is
-    // already baked into the prepared, signed transaction).
-    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
-    let kind_base = pending.kind.split(':').next().unwrap_or(&pending.kind);
-    if kind_base == "hashlock" {
-        let preimage = match req.preimage_hex.as_ref().and_then(|p| hex::decode(p.trim()).ok()) {
-            Some(b) => b,
-            None => return err("hashlock spend requires preimage_hex (the secret P with blake2b256(P) == the locked hash)".into()),
-        };
-        let mut b = ScriptBuilder::new();
-        if let Err(e) = b.add_data(&preimage) {
-            return err(format!("satisfier preimage push: {e}"));
+    // The single signature (single-signer kinds) and/or the per-member map (multi-party).
+    let solo: Option<[u8; 64]> = match req.signature_hex.as_deref().filter(|s| !s.trim().is_empty()) {
+        Some(h) => match parse_sig(h) {
+            Some(s) => Some(s),
+            None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
+        },
+        None => None,
+    };
+    let mut sigs: std::collections::HashMap<String, [u8; 64]> = std::collections::HashMap::new();
+    if let Some(list) = &req.signatures {
+        for e in list {
+            match parse_sig(&e.signature_hex) {
+                Some(s) => { sigs.insert(e.signer_xonly.trim().trim_start_matches("0x").to_lowercase(), s); }
+                None => return err(format!("bad signature_hex for signer {}", e.signer_xonly)),
+            }
         }
-        satisfier.extend_from_slice(&b.drain());
     }
-    let sig_script = match kaspa_txscript::pay_to_script_hash_signature_script(pending.redeem.clone(), satisfier) {
+    let kind_base = pending.kind.split(':').next().unwrap_or(&pending.kind).to_string();
+    let preimage: Option<Vec<u8>> = match req.preimage_hex.as_ref().and_then(|p| hex::decode(p.trim()).ok()) {
+        Some(b) => Some(b),
+        None => None,
+    };
+    // Assemble the satisfier from the externally-produced signature(s). Byte-identical to
+    // the custodial build_* satisfiers; only the signatures' provenance differs (wallet,
+    // not server).
+    let sig_script = match assemble_noncustodial_satisfier(
+        &kind_base, pending.branch_refund, &pending.redeem, &pending.member_pubkeys,
+        &sigs, solo.as_ref(), preimage.as_deref(),
+    ) {
         Ok(s) => s,
-        Err(e) => return err(format!("assemble signature script: {e}")),
+        Err(e) => return err(e),
     };
     let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
     signable.tx.inputs[0].signature_script = sig_script;
@@ -2115,6 +2335,147 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(s, 0, &wrong, None, false, &redeem).unwrap()),
             "only the funder can refund the channel"
+        );
+    }
+
+    // ── Non-custodial multi-party assembly (1.4): prove the satisfier built from
+    // EXTERNALLY-produced signatures (each "wallet" signs the sighash, the server only
+    // assembles + relays) satisfies the SAME consensus script engine. ──
+    fn sighash_msg(signable: &SignableTransaction) -> secp256k1::Message {
+        let mut reused = SigHashReusedValues::new();
+        let h = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+        secp256k1::Message::from_digest_slice(h.as_bytes().as_slice()).unwrap()
+    }
+    fn ext_sigs(signable: &SignableTransaction, kps: &[&Keypair]) -> std::collections::HashMap<String, [u8; 64]> {
+        let msg = sighash_msg(signable);
+        let mut m = std::collections::HashMap::new();
+        for kp in kps {
+            let sig: [u8; 64] = *kp.sign_schnorr(msg).as_ref();
+            m.insert(hex::encode(kp.x_only_public_key().0.serialize()), sig);
+        }
+        m
+    }
+    fn ext_solo(signable: &SignableTransaction, kp: &Keypair) -> [u8; 64] {
+        *kp.sign_schnorr(sighash_msg(signable)).as_ref()
+    }
+    fn empty_sigs() -> std::collections::HashMap<String, [u8; 64]> { std::collections::HashMap::new() }
+
+    #[test]
+    fn noncustodial_multisig_2of2() {
+        let kp1 = test_keypair(31);
+        let kp2 = test_keypair(32);
+        let x1 = kp1.x_only_public_key().0.serialize();
+        let x2 = kp2.x_only_public_key().0.serialize();
+        let redeem = redeem_multisig(&[x1, x2], 2).unwrap();
+        let members = parse_redeem_pubkeys(&redeem, false);
+        assert_eq!(members, vec![x1, x2], "multisig pubkey parse must keep both members in order");
+        // Both members sign in their own wallet -> valid 2-of-2 spend.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let sigs = ext_sigs(s, &[&kp1, &kp2]);
+                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None).unwrap()
+            }),
+            "2-of-2 non-custodial multisig must satisfy the lock"
+        );
+        // Only one signature -> the engine rejects (needs both).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let sigs = ext_sigs(s, &[&kp1]);
+                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None).unwrap()
+            }),
+            "a single signature must not satisfy a 2-of-2"
+        );
+    }
+
+    #[test]
+    fn noncustodial_htlc_claim_and_refund() {
+        let receiver = test_keypair(41);
+        let sender = test_keypair(42);
+        let xr = receiver.x_only_public_key().0.serialize();
+        let xs = sender.x_only_public_key().0.serialize();
+        let preimage = b"non-custodial-htlc-secret";
+        let hash = blake2b256(preimage);
+        let lock_daa = 555u64;
+        let redeem = redeem_htlc(&hash, &xr, lock_daa, &xs).unwrap();
+        let members = parse_redeem_pubkeys(&redeem, true);
+        assert_eq!(members, vec![xr, xs], "htlc parse must yield [receiver, sender]");
+        // Claim: receiver signs + reveals the preimage, lock_time 0.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let solo = ext_solo(s, &receiver);
+                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(preimage)).unwrap()
+            }),
+            "non-custodial HTLC claim must satisfy"
+        );
+        // Claim with the WRONG preimage -> OpEqualVerify fails.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let solo = ext_solo(s, &receiver);
+                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(b"wrong")).unwrap()
+            }),
+            "HTLC claim with a wrong preimage must fail"
+        );
+        // Refund: sender signs, lock_time = lock_daa.
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, |s| {
+                let solo = ext_solo(s, &sender);
+                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+            }),
+            "non-custodial HTLC refund at lock_daa must satisfy"
+        );
+        // Refund before the timelock elapses -> not finalized.
+        assert!(
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| {
+                let solo = ext_solo(s, &sender);
+                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+            }),
+            "HTLC refund before lock_daa must fail"
+        );
+    }
+
+    #[test]
+    fn noncustodial_channel_close_and_refund() {
+        let p1 = test_keypair(51);
+        let p2 = test_keypair(52);
+        let wrong = test_keypair(99);
+        let xp1 = p1.x_only_public_key().0.serialize();
+        let xp2 = p2.x_only_public_key().0.serialize();
+        let lock_daa = 777u64;
+        let redeem = redeem_channel(&xp1, &xp2, lock_daa).unwrap();
+        let members = parse_redeem_pubkeys(&redeem, true);
+        assert_eq!(members, vec![xp1, xp2, xp1], "channel parse must yield [p1, p2, p1]");
+        // Cooperative close: both players sign the agreed payout, lock_time 0.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let sigs = ext_sigs(s, &[&p1, &p2]);
+                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None).unwrap()
+            }),
+            "non-custodial channel cooperative close must satisfy"
+        );
+        // Close with a wrong player2 signature -> rejected.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let mut sigs = ext_sigs(s, &[&p1]);
+                sigs.insert(hex::encode(xp2), ext_solo(s, &wrong));
+                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None).unwrap()
+            }),
+            "channel close with a forged player2 signature must fail"
+        );
+        // Refund: funder (p1) signs, lock_time = lock_daa.
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, |s| {
+                let solo = ext_solo(s, &p1);
+                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+            }),
+            "non-custodial channel refund by the funder must satisfy"
+        );
+        // Refund signed by a non-funder -> rejected.
+        assert!(
+            !run_spend_generic(&redeem, lock_daa, 0, |s| {
+                let solo = ext_solo(s, &wrong);
+                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+            }),
+            "only the funder can refund the channel (non-custodial)"
         );
     }
 }

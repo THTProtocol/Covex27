@@ -5,10 +5,11 @@ import {
   Terminal, Code, ShieldCheck, AlertTriangle, ArrowLeft, Send,
   CheckCircle2, ExternalLink, Key, Wallet, Zap, Cpu, BookOpen,
   Palette, Gauge, Link2, Lock, Repeat, Percent, ArrowRight,
-  Sparkles, Play, Copy, Check
+  Sparkles, Play, Copy, Check, KeyRound, Clock
 } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
 import { GAME_TYPES, generateSilverScriptForConfig } from '../components/CovexTerminal';
+import { signCovenantOwnership } from '../lib/ownership';
 
 const SILVERSCRIPT_TEMPLATE = `contract SimpleWinnerTakesAll {
     state {
@@ -54,6 +55,26 @@ export default function PaidDeploy() {
   const [generatedFromConfig, setGeneratedFromConfig] = useState('');
   const [copiedGen, setCopiedGen] = useState(false);
   const [useCompiled, setUseCompiled] = useState(true); // compiled (recommended) vs legacy raw source
+
+  // === ON-CHAIN ENFORCEMENT (1.2: real script-locked custody, no decorative deploy) ===
+  // The deploy locks the stake into a real enforced P2SH primitive (the genuinely
+  // trustless custody). The SilverScript above is attached as the covenant's DECLARED
+  // higher-level logic + the pasted UI is its interface - silverc opcode enforcement is
+  // still maturing, so custody is what the chain enforces today.
+  const net0 = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+  const isMainnet = net0 === 'mainnet' || net0 === 'mainnet-1';
+  const [enforceKind, setEnforceKind] = useState('singlesig');
+  const [stakeKas, setStakeKas] = useState('1.0');
+  const [lockBlocks, setLockBlocks] = useState('100');
+  const [tipDaa, setTipDaa] = useState(null);
+  const canSign = isDevMode && devMode?.privateKeyHex;
+
+  useEffect(() => {
+    fetch('/api/status').then(r => r.json()).then(j => {
+      const n = j.node_sync && j.node_sync[net0];
+      if (n && n.tip_daa) setTipDaa(n.tip_daa);
+    }).catch(() => {});
+  }, [net0]);
 
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
@@ -118,74 +139,104 @@ export default function PaidDeploy() {
 
   useEffect(() => { fetchBalance(); }, [fetchBalance]);
 
-  // Auto-redirect to Terminal after successful deploy
+  // Auto-redirect to Terminal after successful deploy (use the enforced <tx>:0 id)
   useEffect(() => {
-    if (status === 'success' && result?.txid && !result.txid.startsWith('pending')) {
+    if (status === 'success' && result?.covId) {
       const timer = setTimeout(() => {
-        navigate(`/covenant/${encodeURIComponent(result.txid)}?tab=terminal`);
-      }, 1500);
+        navigate(`/covenant/${encodeURIComponent(result.covId)}?tab=terminal`);
+      }, 2500);
       return () => clearTimeout(timer);
     }
   }, [status, result, navigate]);
 
-  // Deploy using the paid tier
+  // Deploy (1.2 - everything trustless): lock the stake into a REAL script-enforced P2SH
+  // covenant, then attach the authored SilverScript (declared logic) + custom UI on top.
+  // No decorative /api/sign-and-broadcast. Funds lock to a Kaspa script hash and are
+  // redeemable non-custodially by the creator's own key - no Covex key in the payout path.
   const handleDeploy = useCallback(async () => {
-    if (!address || !code.trim()) return;
+    if (!address) return;
     setStatus('deploying');
     setResult(null);
 
     try {
-      const scriptHex = textToHex(code.trim());
-      let signature = 'dev-mode-skip';
-      try { signature = await signMessage(`DEPLOY_COVENANT:${code.trim()}`); } catch (_) {}
-
-      let txid = null;
-
-      if (isDevMode && devMode?.privateKeyHex) {
-        const scriptName = code.trim().split('\n')[0].replace(/\/\/\s*/, '').trim()
-          || code.trim().split('\n')[0].split(' ')[1]
-          || 'SilverScript Covenant';
-
-        const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
-        const bodyPayload = {
-          private_key_hex: devMode.privateKeyHex,
-          deployer_addr: address,
-          script_hex: scriptHex,
-          tier: paidTier,
-          covenant_name: scriptName,
-          use_dev_mode: false,
-          network: net,
-        };
-
-        // When compiled mode is on, send dsl_source so backend uses silverc
-        if (useCompiled && code.trim().startsWith(';;')) {
-          bodyPayload.dsl_source = code.trim();
-        }
-
-        const resp = await fetch('/api/sign-and-broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyPayload),
-        });
-
-        const data = await resp.json();
-        if (!data.success) throw new Error(data.error || 'Backend sign-and-broadcast rejected');
-        txid = data.tx_id;
-      } else if (window.kasware && window.kasware.sendTransaction) {
-        try {
-          const resp = await window.kasware.sendTransaction({ to: address, amount: (100_000_000).toString(), data: code.trim() });
-          txid = typeof resp === 'string' ? resp : resp?.txid || resp?.transactionId;
-        } catch (kasErr) { /* console.warn('KasWare sendTransaction failed:', kasErr.message); */ } // cleaned for prod
-      } else {
-        throw new Error('No deployment-capable wallet. Use the "Connect Dev Wallet" button below to derive a test wallet from a mnemonic (testnets only). For mainnet, use your real wallet extension.');
+      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      const mainnet = net === 'mainnet' || net === 'mainnet-1';
+      if (mainnet) throw new Error('Enforced on-chain deploy on mainnet needs wallet-side funding (coming soon). Switch to a testnet to deploy a real script-enforced covenant now.');
+      if (!(isDevMode && devMode?.privateKeyHex)) {
+        throw new Error('Connect a testnet key (Connect Dev Wallet) to sign the real on-chain deploy.');
       }
 
-      if (!txid) throw new Error('No transaction ID returned.');
+      const stakeAmt = parseFloat(stakeKas);
+      if (!(stakeAmt > 0)) throw new Error('Enter a stake greater than 0 KAS to lock.');
+
+      // Build the enforced redeem for the chosen primitive. All lock to the deployer's
+      // own key, redeemable only by the deployer (reproducible from the on-chain redeem
+      // script with recover-covenant.mjs).
+      const redeem = { kind: enforceKind };
+      let preimage = null;
+      if (enforceKind === 'hashlock') {
+        const b = new Uint8Array(24);
+        (window.crypto || window.msCrypto).getRandomValues(b);
+        preimage = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
+        redeem.preimage_hex = preimage;
+      } else if (enforceKind === 'timelock') {
+        if (!tipDaa) throw new Error('Could not read the chain DAA score yet. Try again in a moment.');
+        redeem.lock_daa = tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10));
+      }
+
+      const deployRes = await fetch('/api/covenant/p2sh/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          network: net,
+          deployer_addr: address,
+          use_dev_mode: false,
+          private_key_hex: devMode.privateKeyHex,
+          stake_kas: stakeAmt,
+          redeem,
+        }),
+      });
+      const deployJson = await deployRes.json();
+      if (!deployJson.success) throw new Error(deployJson.error || 'Enforced deploy failed');
+      const txid = deployJson.deploy_tx_id;
+      const covId = `${txid}:0`;
+
+      const scriptName = code.trim().split('\n')[0].replace(/\/\/\s*/, '').trim()
+        || code.trim().split('\n')[0].split(' ')[1]
+        || `${enforceKind} covenant`;
+
+      // Attach the authored SilverScript (declared logic) + the pasted custom UI to the
+      // enforced covenant via terminal-config. The enforced covenant is indexed at once
+      // with the creator address, so the save needs an ownership signature over <tx>:0.
+      let ownerProof = { signer_address: address };
+      try { ownerProof = await signCovenantOwnership(covId, address, signMessage); } catch (_) { /* not yet protected */ }
+      const termRes = await fetch(`/api/terminal-config/${encodeURIComponent(covId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: scriptName,
+          description: `Script-enforced ${enforceKind} covenant (${stakeAmt} KAS locked). Declared logic (SilverScript):\n${code.trim()}`,
+          fee_percent: feePercent,
+          reusable,
+          allow_topups: allowTopups,
+          custom_ui_code: customUICode || null,
+          resolution_mode: resolutionMode,
+          zk_circuit: zkCircuit || null,
+          zk_verifier_key: zkVerifierKey || null,
+          custom_oracle_key: resolutionMode === 'custom_oracle' ? (customOracleKey || null) : null,
+          ...ownerProof,
+        }),
+      });
+      const termJson = await termRes.json().catch(() => ({}));
 
       setResult({
         success: true, script: code.trim(),
-        signature: (signature || 'ok').slice(0, 50) + '...',
-        txid, deployer: address, tier: paidTier,
+        txid, covId, deployer: address, tier: paidTier,
+        p2sh: deployJson.p2sh_address,
+        redeem_script_hex: deployJson.redeem_script_hex,
+        preimage, lock_daa: redeem.lock_daa || null,
+        enforceKind, lockedKas: stakeAmt,
+        terminalSaved: !!termJson.success,
         timestamp: new Date().toISOString(),
       });
       setStatus('success');
@@ -193,10 +244,12 @@ export default function PaidDeploy() {
       setResult({ success: false, error: err.message || 'Deployment failed', timestamp: new Date().toISOString() });
       setStatus('error');
     }
-  }, [address, code, signMessage, isDevMode, devMode, paidTier, useCompiled]);
+  }, [address, code, signMessage, isDevMode, devMode, paidTier, enforceKind, stakeKas, lockBlocks, tipDaa, feePercent, reusable, allowTopups, customUICode, resolutionMode, zkCircuit, zkVerifierKey, customOracleKey]);
 
   const isConnected = !!address;
-  const canDeploy = isConnected && code.trim().length > 0 && status !== 'deploying';
+  // The enforced primitive is the custody; the SilverScript is optional declared logic,
+  // so a deploy only needs a connected key + a positive stake.
+  const canDeploy = isConnected && parseFloat(stakeKas) > 0 && status !== 'deploying';
 
   return (
     <div className="relative z-10 max-w-6xl mx-auto px-6 py-12 animate-in fade-in duration-300">
@@ -421,6 +474,48 @@ export default function PaidDeploy() {
 
             {/* Deploy button */}
             <div className="px-6 pb-6">
+              {/* On-chain enforcement (1.2): the deploy locks real funds in a script-enforced primitive */}
+              <div className="mb-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5">
+                <div className="flex items-center gap-2 mb-2 text-xs uppercase tracking-widest text-emerald-300/90 font-mono"><ShieldCheck size={14} /> On-chain enforcement (real script-locked custody)</div>
+                <p className="text-[11px] text-gray-300 mb-4">Your deploy locks the stake into a Kaspa script hash enforced by consensus, redeemable non-custodially by your own key. The SilverScript above is attached as the covenant's declared logic and the pasted UI as its interface.</p>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {[
+                    { id: 'singlesig', label: 'Single-key', icon: KeyRound, blurb: 'Redeemable only by your key.' },
+                    { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Unlocks at a future DAA score.' },
+                    { id: 'hashlock', label: 'Hashlock', icon: Lock, blurb: 'Reveal a secret + sign to release.' },
+                  ].map(k => {
+                    const Icon = k.icon; const active = enforceKind === k.id;
+                    return (
+                      <button key={k.id} type="button" onClick={() => setEnforceKind(k.id)} className={`text-left p-3 rounded-xl border transition ${active ? 'border-emerald-400/50 bg-emerald-400/[0.06]' : 'border-white/10 hover:border-white/20 bg-black/30'}`}>
+                        <Icon size={16} className={active ? 'text-emerald-400' : 'text-gray-300'} />
+                        <div className="mt-1.5 text-sm font-semibold text-white">{k.label}</div>
+                        <div className="text-[10px] text-gray-300 mt-0.5 leading-snug">{k.blurb}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <label className="block text-sm">
+                    <span className="text-xs text-gray-300">Stake to lock (KAS)</span>
+                    <input value={stakeKas} onChange={e => setStakeKas(e.target.value)} inputMode="decimal" className="mt-1 w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 font-mono text-white" />
+                  </label>
+                  {enforceKind === 'timelock' && (
+                    <label className="block text-sm">
+                      <span className="text-xs text-gray-300">Lock for (DAA blocks){tipDaa ? ` - unlocks at ${tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10))}` : ''}</span>
+                      <input value={lockBlocks} onChange={e => setLockBlocks(e.target.value)} inputMode="numeric" className="mt-1 w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 font-mono text-white" />
+                    </label>
+                  )}
+                </div>
+                {enforceKind === 'hashlock' && <p className="text-[11px] text-gray-300 mt-2">A random secret is generated at deploy and shown once. Save it - it is required to redeem and is never stored on the server.</p>}
+                {isMainnet ? (
+                  <p className="text-[11px] text-amber-300 mt-3">On mainnet, enforced deploys need wallet-side funding (coming soon). Switch to a testnet to deploy a real covenant now.</p>
+                ) : !canSign ? (
+                  <p className="text-[11px] text-amber-300 mt-3">Connect a testnet key (Connect Dev Wallet) below to sign the real on-chain deploy.</p>
+                ) : (
+                  <p className="text-[11px] text-emerald-300/80 mt-3">Ready to lock {stakeKas} KAS into a real {enforceKind} covenant, redeemable non-custodially by your key.</p>
+                )}
+              </div>
+
               <div className="flex gap-3 mb-4">
                 <button onClick={() => setUseCompiled(!useCompiled)}
                   className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition ${
@@ -443,7 +538,7 @@ export default function PaidDeploy() {
                     Building TX and Broadcasting...
                   </span>
                 ) : (
-                  <span className="flex items-center gap-2"><Send size={20} /> Deploy {paidTier} Covenant</span>
+                  <span className="flex items-center gap-2"><Lock size={20} /> Lock {stakeKas} KAS &amp; Deploy {paidTier} Covenant</span>
                 )}
               </button>
 
@@ -452,21 +547,37 @@ export default function PaidDeploy() {
                   <div className="flex items-center gap-3 mb-3">
                     {result.success ? <CheckCircle2 size={20} className="text-emerald-400" /> : <AlertTriangle size={20} className="text-red-400" />}
                     <p className={`text-sm font-semibold ${result.success ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {result.success ? 'COVENANT DEPLOYED AND BROADCAST' : 'DEPLOYMENT FAILED'}
+                      {result.success ? 'SCRIPT-ENFORCED COVENANT DEPLOYED ON-CHAIN' : 'DEPLOYMENT FAILED'}
                     </p>
                   </div>
                   {result.success ? (
                     <div className="space-y-2 text-xs font-mono">
+                      <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">Enforcement</span><span className="text-emerald-400 font-bold">on-chain ({result.enforceKind})</span></div>
+                      <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">Locked</span><span className="text-[#49EACB]">{result.lockedKas} KAS</span></div>
                       <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">TXID</span><span className="text-[#49EACB]">{result.txid.length > 30 ? result.txid.slice(0, 30) + '...' : result.txid}</span></div>
+                      {result.p2sh && <div className="flex justify-between py-1 border-b border-white/5 gap-3"><span className="text-gray-300 shrink-0">P2SH</span><span className="text-[#49EACB] break-all text-right">{result.p2sh}</span></div>}
                       <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">Tier</span><span className="text-[#49EACB] font-bold">{result.tier}</span></div>
-                      <div className="flex justify-between py-1 border-b border-white/5"><span className="text-gray-300">Deployer</span><span className="text-gray-300">{result.deployer.slice(0, 22)}...</span></div>
-                      <div className="flex justify-between py-1"><span className="text-gray-300">Redirecting to Terminal...</span><span className="text-emerald-400 animate-pulse">Z K + O R A C L E</span></div>
+                      <div className="flex justify-between py-1"><span className="text-gray-300">Custom UI / logic saved</span><span className="text-emerald-400">{result.terminalSaved ? 'yes' : 'pending'}</span></div>
+                      <div className="flex justify-between py-1"><span className="text-gray-300">Opening Terminal...</span><span className="text-emerald-400 animate-pulse">NON-CUSTODIAL</span></div>
                     </div>
                   ) : (
                     <p className="text-xs text-red-400/80 whitespace-pre-wrap">{result.error}</p>
                   )}
-                  {result.success && result.txid && (
+                  {result.success && result.redeem_script_hex && (
+                    <div className="mt-3 text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2">
+                      <span className="font-sans font-semibold">Save your redeem script</span> - required to spend this covenant and what makes it recoverable without trusting Covex (also re-servable from the covenant page):
+                      <div className="mt-1">{result.redeem_script_hex}</div>
+                    </div>
+                  )}
+                  {result.success && result.preimage && (
+                    <div className="mt-2 text-[11px] text-amber-300 font-mono break-all">secret (save to redeem): {result.preimage}</div>
+                  )}
+                  {result.success && result.lock_daa && (
+                    <div className="mt-2 text-[11px] text-gray-300">unlocks at DAA {result.lock_daa}{tipDaa ? (tipDaa >= result.lock_daa ? ' (elapsed - redeemable now)' : ` (~${result.lock_daa - tipDaa} blocks to go)`) : ''}</div>
+                  )}
+                  {result.success && result.covId && (
                     <div className="mt-4 pt-3 border-t border-emerald-500/10 flex gap-4">
+                      <a href={`/covenant/${encodeURIComponent(result.covId)}`} className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />View Covenant</a>
                       <a href={`https://tn12.kaspa.stream/tx/${result.txid}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />TN12 Explorer</a>
                     </div>
                   )}

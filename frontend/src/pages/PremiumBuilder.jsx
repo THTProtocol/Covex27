@@ -4,7 +4,8 @@ import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import {
   ArrowLeft, Sparkles, Cpu, Zap, Code, Layers, Shield, Terminal, ChevronRight,
-  Plus, Check, Copy, Loader2, Play, Palette, Users, Clock, Coins, Eye, Award, Crown, Star, Send
+  Plus, Check, Copy, Loader2, Play, Palette, Users, Clock, Coins, Eye, Award, Crown, Star, Send,
+  Lock, ShieldCheck, KeyRound
 } from 'lucide-react';
 import { ZK_CIRCUIT_TYPES } from '../components/CovexTerminal';
 
@@ -30,7 +31,7 @@ function getTreasuryForNet(net) {
 
 export default function PremiumBuilder() {
   const navigate = useNavigate();
-  const { address, DevConnectPanel, signMessage } = useWallet();
+  const { address, DevConnectPanel, signMessage, isDevMode, devMode } = useWallet();
 
   // === SERVER AUTH (ONLY source of truth - no localStorage bypass) ===
   const [auth, setAuth] = useState({ token: null, tier: null, address: null, loading: true, error: null });
@@ -91,6 +92,21 @@ export default function PremiumBuilder() {
   const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
   const isMainnet = net === 'mainnet' || net === 'mainnet-1';
   const treasury = getTreasuryForNet(net);
+
+  // === ON-CHAIN ENFORCEMENT (1.1: real script-locked custody, no decorative deploy) ===
+  const [enforceKind, setEnforceKind] = useState('singlesig');
+  const [stakeKas, setStakeKas] = useState('1.0');
+  const [lockBlocks, setLockBlocks] = useState('100');
+  const [tipDaa, setTipDaa] = useState(null);
+  const canSign = isDevMode && devMode?.privateKeyHex;
+
+  // Live chain DAA score (needed to compute a timelock unlock height).
+  useEffect(() => {
+    fetch('/api/status').then(r => r.json()).then(j => {
+      const n = j.node_sync && j.node_sync[net];
+      if (n && n.tip_daa) setTipDaa(n.tip_daa);
+    }).catch(() => {});
+  }, [net]);
 
   // Library + selection
   const [search, setSearch] = useState('');
@@ -160,60 +176,74 @@ export default function PremiumBuilder() {
     setGeneratedDef(def);
   };
 
-  // THE KEY: deploy on-chain + save custom UI (two-step flow from premium-covenant-workflow.md)
+  // THE KEY (1.1 - everything trustless): deploy a REAL script-enforced P2SH covenant,
+  // then layer the premium custom UI on top. The stake locks to a Kaspa script hash and
+  // is redeemable non-custodially by the creator's own key - no Covex key in the payout
+  // path, no decorative metadata commitment. The look/branding is unchanged; only the
+  // deploy primitive became genuinely consensus-enforced.
   const handleCreateAndDeploy = async () => {
     if (!auth.token) { alert('No valid auth token. Pay first.'); return; }
     if (!address) { alert('Connect your wallet first.'); return; }
+    if (isMainnet) {
+      setDeployResult({ success: false, error: 'Enforced on-chain deploy on mainnet needs wallet-side funding (coming soon). Switch to a testnet to deploy a real script-enforced covenant now.' });
+      return;
+    }
+    if (!canSign) {
+      setDeployResult({ success: false, error: 'Connect a testnet key (in the On-chain Enforcement panel) to sign the real on-chain deploy.' });
+      return;
+    }
     setDeploying(true);
     try {
       const def = generateCovenantDef();
       const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
 
-      // Deploy on-chain via sign-and-broadcast (no SilverScript - backend generates valid covenant)
-      const deployBody = {
-        deployer_addr: address,
-        tier: auth.tier || 'BUILDER',
-        covenant_name: def.name,
-        description: def.description,
-        covenant_type: def.circuit?.id || 'custom',
-        category: def.circuit?.category || 'game',
-        accent: def.theme.accent,
-        ui_preset: def.theme.preset,
-        use_dev_mode: true,
-        network: net,
-        custom_ui_config: {
-          circuit: def.circuit,
-          theme: def.theme,
-          disclosedWallets: def.disclosedWallets,
-          resolution: def.resolution,
-          customBases,
-          params,
-          lookPreset,
-          // Preserve the advanced-composer config (time locks, multi-party approvals,
-          // dispute settings, multi-oracle) so it is not silently lost at deploy.
-          ...(pendingConfig ? { advanced: pendingConfig } : {}),
-        },
-      };
-      const deployRes = await fetch('/api/sign-and-broadcast', {
+      // Build the enforced redeem for the chosen primitive. singlesig/timelock/hashlock
+      // all lock to the deployer's OWN key, so the deployer (and only the deployer) can
+      // redeem - reproducible from the on-chain redeem script with recover-covenant.mjs.
+      const stakeAmt = parseFloat(stakeKas);
+      if (!(stakeAmt > 0)) throw new Error('Enter a stake greater than 0 KAS to lock.');
+      const redeem = { kind: enforceKind };
+      let preimage = null;
+      if (enforceKind === 'hashlock') {
+        const b = new Uint8Array(24);
+        (window.crypto || window.msCrypto).getRandomValues(b);
+        preimage = Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
+        redeem.preimage_hex = preimage;
+      } else if (enforceKind === 'timelock') {
+        if (!tipDaa) throw new Error('Could not read the chain DAA score yet. Try again in a moment.');
+        redeem.lock_daa = tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10));
+      }
+
+      const deployRes = await fetch('/api/covenant/p2sh/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deployBody),
+        body: JSON.stringify({
+          network: net,
+          deployer_addr: address,
+          use_dev_mode: false,
+          private_key_hex: devMode.privateKeyHex,
+          stake_kas: stakeAmt,
+          redeem,
+        }),
       });
       const deployJson = await deployRes.json();
-      if (!deployJson.success) throw new Error(deployJson.error || 'Deploy failed');
-      const txid = deployJson.tx_id;
+      if (!deployJson.success) throw new Error(deployJson.error || 'Enforced deploy failed');
+      const txid = deployJson.deploy_tx_id;
+      // Enforced covenants are indexed immediately at "<tx>:0" - key all custom UI +
+      // metadata there so the covenant page (/covenant/<tx>:0) renders the premium look.
+      const covId = `${txid}:0`;
 
-      // 4. Generate custom interactive UI (self-contained HTML for srcDoc iframe)
-      const customUiHtml = generateCustomUiHtml(def, txid);
+      // Generate the self-contained custom UI (premium look) for the covenant iframe.
+      const customUiHtml = generateCustomUiHtml(def, txid, deployJson);
 
-      // 5. Save terminal config with custom UI. Sign the ownership challenge so
-      // the save is authorized even if the crawler has already indexed the new
-      // covenant (a fresh deploy is otherwise un-indexed and would be allowed).
+      // Save terminal config (custom UI). The enforced covenant is indexed at once WITH
+      // the creator address, so the save requires an ownership signature over the
+      // "<tx>:0" challenge - sign it with the same wallet that deployed.
       let ownerProof = { signer_address: address };
       try {
-        ownerProof = await signCovenantOwnership(txid, address, signMessage);
-      } catch { /* not yet indexed: backend allows the initial save without a signature */ }
-      const termRes = await fetch(`/api/terminal-config/${txid}`, {
+        ownerProof = await signCovenantOwnership(covId, address, signMessage);
+      } catch { /* fall through: backend allows the first save if not yet protected */ }
+      const termRes = await fetch(`/api/terminal-config/${encodeURIComponent(covId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -232,12 +262,12 @@ export default function PremiumBuilder() {
       });
       const termJson = await termRes.json();
 
-      // 6. Persist covenant metadata
-      const metaRes = await fetch('/api/covenant-metadata', {
+      // Persist covenant metadata (theme, disclosed wallets, circuit) on the same id.
+      await fetch('/api/covenant-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tx_id: txid,
+          tx_id: covId,
           name: def.name,
           description: def.description,
           disclosed_wallets: def.disclosedWallets,
@@ -251,12 +281,17 @@ export default function PremiumBuilder() {
 
       setDeployResult({
         success: true,
-        message: `Covenant recorded on-chain (decorative tier - the chain does not enforce its payout; use the Enforced/P2SH deploy for consensus enforcement). Custom interactive UI saved.`,
+        message: `Stake of ${stakeAmt} KAS locked in a real script-enforced ${enforceKind} covenant. Kaspa consensus enforces custody and it is redeemable non-custodially by your key - no Covex key in the payout path. Custom premium UI saved.`,
         def,
         txid,
+        covId,
+        p2sh: deployJson.p2sh_address,
+        redeem_script_hex: deployJson.redeem_script_hex,
+        preimage,
+        lock_daa: redeem.lock_daa || null,
         terminalSaved: termJson.success,
         metadataSaved: true,
-        next: `View your covenant at /covenant/${txid}?tab=terminal`,
+        next: `View your covenant at /covenant/${covId}?tab=terminal`,
       });
 
       // Clear token from memory (consumed server-side)
@@ -269,8 +304,9 @@ export default function PremiumBuilder() {
   };
 
   // Generate self-contained interactive HTML for the covenant iframe
-  function generateCustomUiHtml(def, txid) {
+  function generateCustomUiHtml(def, txid, deploy = {}) {
     const accent = def.theme.accent;
+    const p2sh = deploy.p2sh_address || '';
     return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -296,7 +332,7 @@ export default function PremiumBuilder() {
 <body>
 <div class="card">
   <div class="header">
-    <span class="badge">PAID VERIFIED</span>
+    <span class="badge">ON-CHAIN ENFORCED</span>
     <span class="badge">${def.resolution.toUpperCase()}</span>
     <span class="badge">${def.network.toUpperCase()}</span>
   </div>
@@ -304,18 +340,19 @@ export default function PremiumBuilder() {
   <p>${def.description}</p>
   <div class="features">
     <div class="feature">🎮 Circuit: ${def.circuit?.name || 'Custom'}</div>
-    <div class="feature">🔐 ${def.circuit?.reality || 'hybrid'} resolution</div>
-    <div class="feature">⚡ Top Visibility</div>
+    <div class="feature">🔒 Script-enforced custody</div>
+    <div class="feature">🔑 Non-custodial redeem</div>
     <div class="feature">📋 Full Disclosure</div>
     <div class="feature">👥 ${params.players} Players</div>
     <div class="feature">⏱ ${params.turnTimerSec}s Turn Timer</div>
   </div>
+  ${p2sh ? `<div class="tx-link">Locked to P2SH: ${p2sh}</div>` : ''}
   <div class="disclosure">
     <div style="font-weight:700;margin-bottom:8px;color:#cbd5e1;">Full Wallet Disclosure (Transparent)</div>
     ${def.disclosedWallets.map(w => `<div class="disclosure-row"><span class="label">${w.role}</span><span class="value">${w.addr}</span></div>`).join('')}
   </div>
   <div class="tx-link">Covenant: ${txid}</div>
-  <div class="footer">Deployed via Covex Premium Terminal · All information transparent and permanent</div>
+  <div class="footer">Script-enforced P2SH covenant on Kaspa · redeemable non-custodially by the creator's key · transparent and permanent</div>
 </div>
 </body>
 </html>`;
@@ -481,8 +518,55 @@ export default function PremiumBuilder() {
             <div className="font-bold text-lg" style={{ color: previewAccent }}>{previewName}</div>
             <div className="text-sm text-gray-300 mt-1 line-clamp-2">{covenantDesc || customDesc}</div>
             <div className="mt-3 text-[10px] text-gray-500">Disclosed wallets: {disclosedWallets.map(w => w.role).join(' • ')}</div>
-            <div className="mt-1 text-[10px] font-mono text-emerald-400">PAID VERIFIED • TOP VISIBILITY</div>
+            <div className="mt-1 text-[10px] font-mono text-emerald-400">ON-CHAIN ENFORCED • NON-CUSTODIAL</div>
           </div>
+        </div>
+      </section>
+
+      {/* ON-CHAIN ENFORCEMENT - real script-locked custody (1.1: no decorative deploy) */}
+      <section className="mb-8">
+        <div className="text-xs uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2"><ShieldCheck size={14} className="text-emerald-400" /> On-chain Enforcement (real script-locked custody)</div>
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5">
+          <p className="text-[11px] text-gray-400 mb-4">Your deploy locks the stake into a Kaspa script hash enforced by consensus itself - no oracle, no Covex key. It is redeemable non-custodially by your own key, so the funds move even if Covex disappears.</p>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {[
+              { id: 'singlesig', label: 'Single-key', icon: KeyRound, blurb: 'Redeemable only by your key.' },
+              { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Unlocks at a future DAA score.' },
+              { id: 'hashlock', label: 'Hashlock', icon: Lock, blurb: 'Reveal a secret + sign to release.' },
+            ].map(k => {
+              const Icon = k.icon; const active = enforceKind === k.id;
+              return (
+                <button key={k.id} type="button" onClick={() => setEnforceKind(k.id)} className={`text-left p-3 rounded-xl border transition ${active ? 'border-emerald-400/50 bg-emerald-400/[0.06]' : 'border-white/10 hover:border-white/20 bg-black/30'}`}>
+                  <Icon size={16} className={active ? 'text-emerald-400' : 'text-gray-300'} />
+                  <div className="mt-1.5 text-sm font-semibold text-white">{k.label}</div>
+                  <div className="text-[10px] text-gray-400 mt-0.5 leading-snug">{k.blurb}</div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="block text-sm">
+              <span className="text-xs text-gray-400">Stake to lock (KAS)</span>
+              <input value={stakeKas} onChange={e => setStakeKas(e.target.value)} inputMode="decimal" className="mt-1 w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 font-mono text-white" />
+            </label>
+            {enforceKind === 'timelock' && (
+              <label className="block text-sm">
+                <span className="text-xs text-gray-400">Lock for (DAA blocks){tipDaa ? ` - unlocks at ${tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10))}` : ''}</span>
+                <input value={lockBlocks} onChange={e => setLockBlocks(e.target.value)} inputMode="numeric" className="mt-1 w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 font-mono text-white" />
+              </label>
+            )}
+          </div>
+          {enforceKind === 'hashlock' && <p className="text-[11px] text-gray-400 mt-2">A random secret is generated at deploy and shown once. Save it - it is required to redeem and is never stored on the server.</p>}
+          {isMainnet ? (
+            <p className="text-[11px] text-amber-300 mt-3">On mainnet, enforced deploys need wallet-side funding (coming soon). Switch to a testnet to deploy a real covenant now.</p>
+          ) : !canSign ? (
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="text-sm text-gray-300 mb-3">Connect a testnet key to sign the real on-chain deploy.</p>
+              <DevConnectPanel compact />
+            </div>
+          ) : (
+            <p className="text-[11px] text-emerald-300/80 mt-3">Ready to lock {stakeKas} KAS into a real {enforceKind} covenant, redeemable non-custodially by your key.</p>
+          )}
         </div>
       </section>
 
@@ -504,20 +588,35 @@ export default function PremiumBuilder() {
         <div className={`mt-4 p-4 rounded-2xl border ${deployResult.success ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
           {deployResult.success ? (
             <div>
-              <div className="text-emerald-400 font-bold mb-1">Covenant Deployed on-chain</div>
+              <div className="text-emerald-400 font-bold mb-1 flex items-center gap-2"><ShieldCheck size={16} /> Script-enforced covenant deployed on-chain</div>
               <div className="text-sm text-gray-200">{deployResult.message}</div>
               {deployResult.txid && (
                 <div className="mt-2">
                   <div className="text-xs text-gray-400 mb-1">TX: <span className="font-mono text-[#49EACB]">{deployResult.txid}</span></div>
+                  {deployResult.p2sh && (
+                    <div className="text-xs text-gray-400 mb-1">P2SH: <span className="font-mono text-[#49EACB] break-all">{deployResult.p2sh}</span></div>
+                  )}
                   <div className="flex gap-3 mt-3">
-                    <a href={`/covenant/${encodeURIComponent(deployResult.txid)}`} className="px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition-all">
+                    <a href={`/covenant/${encodeURIComponent(deployResult.covId || deployResult.txid)}`} className="px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition-all">
                       <Eye size={14} className="inline mr-1" /> View Covenant
                     </a>
-                    <a href={`/covenant/${encodeURIComponent(deployResult.txid)}?tab=terminal`} className="px-4 py-2 rounded-xl bg-kaspa-green/20 border border-kaspa-green/30 text-kaspa-green text-sm font-semibold hover:bg-kaspa-green/30 transition-all">
+                    <a href={`/covenant/${encodeURIComponent(deployResult.covId || deployResult.txid)}?tab=terminal`} className="px-4 py-2 rounded-xl bg-kaspa-green/20 border border-kaspa-green/30 text-kaspa-green text-sm font-semibold hover:bg-kaspa-green/30 transition-all">
                       <Terminal size={14} className="inline mr-1" /> Open Terminal
                     </a>
                   </div>
-                  <div className="text-xs text-gray-400 mt-2">Custom UI saved{deployResult.terminalSaved ? ' ✓' : ' (warning: UI save may have failed)'}</div>
+                  {deployResult.redeem_script_hex && (
+                    <div className="mt-3 text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2">
+                      <span className="font-sans font-semibold">Save your redeem script</span> - required to spend this covenant and what makes it recoverable without trusting Covex (also re-servable from the covenant page):
+                      <div className="mt-1">{deployResult.redeem_script_hex}</div>
+                    </div>
+                  )}
+                  {deployResult.preimage && (
+                    <div className="mt-2 text-[11px] text-amber-300 font-mono break-all">secret (save to redeem): {deployResult.preimage}</div>
+                  )}
+                  {deployResult.lock_daa && (
+                    <div className="mt-2 text-[11px] text-gray-400">unlocks at DAA {deployResult.lock_daa}{tipDaa ? (tipDaa >= deployResult.lock_daa ? ' (elapsed - redeemable now)' : ` (~${deployResult.lock_daa - tipDaa} blocks to go)`) : ''}</div>
+                  )}
+                  <div className="text-xs text-gray-400 mt-2">Custom UI saved{deployResult.terminalSaved ? ' ✓' : ' (warning: UI save may have failed - re-save from the covenant Terminal)'}</div>
                 </div>
               )}
             </div>

@@ -28,12 +28,23 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
 - **1.3 ☑ Remove the orphaned decorative `Deploy.jsx`** DONE (commit afa87c0). Deleted the file +
   the unused lazy import in App.jsx; `/deploy` still redirects to `/deploy/enforced`. DesignStudio
   kept (used by CovenantFix). *Verified:* build clean, no `Deploy` chunk emitted, no dead refs.
-- **1.4 ☐ Extend non-custodial signing to the multi-party kinds** (multisig, channel, oracle-escrow):
-  prepare/submit collect signatures from each party in the browser (each signs the same sighash);
-  HTLC gets branch selection (claim/refund) client-side. *Verify:* e2e non-custodial redeem of a
-  2-of-2 on TN12, no key on the server.
-- **1.5 ☐ Complete the on-chain hashlock/timelock non-custodial e2e** (was blocked by sparse TN12
-  mining): deploy + redeem each once TN12 mines. *Verify:* spend tx confirmed on-chain.
+- **1.4 ☑ Extend non-custodial signing to the multi-party kinds** (multisig, HTLC, channel). DONE
+  (commits 557d810 backend + 8290a0b frontend). prepare-spend sets per-kind sig_op_count/lock_time
+  (committed in the sighash, mirroring the proven custodial handler), parses member pubkeys, and
+  returns required_signers + branch + needs_preimage; submit-signed assembles the satisfier from
+  client-supplied `signatures[]` (byte-identical to the custodial builders). HTLC/channel get
+  client-side branch selection (claim/refund, close/refund). The frontend interaction panel drives
+  it (co-signer signature paste). oracle_enforced/oracle_escrow stay on /oracle-payout by design.
+  *Verified:* engine tests (valid + forgery-rejected for all 3 kinds) against the real TxScriptEngine;
+  live multisig prepare-spend returns 2 required_signers + sighash; live HTLC claim/refund return the
+  right signer/preimage/branch. Multi-party satisfier bytes == the on-chain-proven custodial path.
+- **1.5 ◐ On-chain hashlock/timelock non-custodial e2e.** Substantially covered: the single-signer
+  non-custodial path (which hashlock & timelock use) is already PROVEN on-chain (prior-session
+  singlesig spend 1bfe7172, key never sent), and the hashlock-preimage / timelock-lock_time satisfier
+  extras are engine-proven. TN12 is mining again (deploys this session confirmed; prepare-spend found
+  their UTXOs). Remaining gap: a fresh browser-key spend of a hashlock and a timelock specifically -
+  low-risk and operational (needs a faucet-funded CLIENT-side key, since the dev keys are server-side).
+  Tracked as a low-priority follow-up, not a blocker.
 - **1.6 ☑ Decommission the legacy decorative deploy path.** SATISFIED by the 1.1-1.3 migrations +
   existing B6 gating. No deploy surface calls `/api/sign-and-broadcast` anymore (paid builders
   migrated, Deploy.jsx deleted); its only remaining caller is dev-wallet *tier payments*

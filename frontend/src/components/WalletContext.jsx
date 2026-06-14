@@ -54,6 +54,7 @@ const WALLET_LOGOS = {
   Kaspium:  'https://kaspium.io/favicon.ico',
   KaspaCom: 'https://wallet.kaspa.com/favicon.ico',
   Tangem:   'https://tangem.com/favicon.ico',
+  OneKey:   'https://onekey.so/favicon.ico',
 };
 
 const WALLET_INSTALL_URLS = {
@@ -65,6 +66,7 @@ const WALLET_INSTALL_URLS = {
   Kaspium:  'https://kaspium.io',
   KaspaCom: 'https://wallet.kaspa.com',
   Tangem:   'https://tangem.com/kaspa',
+  OneKey:   'https://chromewebstore.google.com/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
 };
 
 // ── Detection logic matching THTProtocol/27 _det() ──
@@ -80,6 +82,7 @@ function detectWallet(name) {
     case 'Kaspium':  return !!(w.kaspium || w.KaspiumWallet);
     case 'KaspaCom': return !!(w.kaspacom || (w.kaspa && typeof w.kaspa.connect === 'function'));
     case 'Tangem':   return !!(w.tangem || w.tangemWallet);
+    case 'OneKey':   return !!((w.$onekey && w.$onekey.kaspa) || w.onekeyKaspa);
     default:         return false;
   }
 }
@@ -96,6 +99,7 @@ function getProvider(name) {
     case 'Kaspium':  return w.kaspium || w.KaspiumWallet;
     case 'KaspaCom': return w.kaspacom || w.kaspa;
     case 'Tangem':   return w.tangem || w.tangemWallet;
+    case 'OneKey':   return (w.$onekey && w.$onekey.kaspa) ? w.$onekey.kaspa : (w.onekeyKaspa || null);
     default:         return null;
   }
 }
@@ -107,7 +111,7 @@ function kasToSompi(amountKas) {
   return BigInt(whole) * 100_000_000n + BigInt(paddedFrac);
 }
 
-const DESKTOP_WALLETS = ['KasWare', 'Kastle', 'Kasperia', 'OKX', 'KaspaCom'];
+const DESKTOP_WALLETS = ['KasWare', 'Kastle', 'Kasperia', 'OneKey', 'OKX', 'KaspaCom'];
 const MOBILE_WALLETS = ['Kasanova', 'Kaspium', 'OKX', 'KaspaCom', 'Tangem'];
 function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent); }
 
@@ -121,6 +125,7 @@ const ALL_WALLETS = [
   { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', detect: () => detectWallet('Kaspium'), provider: () => getProvider('Kaspium') },
   { id: 'KaspaCom', name: 'Kaspa Web Wallet', url: WALLET_INSTALL_URLS.KaspaCom, logo: WALLET_LOGOS.KaspaCom, sub: 'Web · Mobile', detect: () => detectWallet('KaspaCom'), provider: () => getProvider('KaspaCom') },
   { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
+  { id: 'OneKey', name: 'OneKey', url: WALLET_INSTALL_URLS.OneKey, logo: WALLET_LOGOS.OneKey, sub: 'Chrome · Desktop', detect: () => detectWallet('OneKey'), provider: () => getProvider('OneKey') },
 ];
 
 let _wasmModuleCtx = null;

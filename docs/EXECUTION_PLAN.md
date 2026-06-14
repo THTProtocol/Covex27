@@ -72,9 +72,17 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
 - **3.1 ☐ Wallet-funded enforced deploy on mainnet** (today the enforced deploy says "coming soon" on
   mainnet because it needs a wallet-funded prepare/submit, not the dev key). Build the funding
   prepare→sign→submit so mainnet deploys are non-custodial end to end.
-- **3.2 ☐ GATE 1 hardening before flipping `COVEX_MAINNET_COVENANTS_ENABLED`:** indexer HA on the
-  mainnet node, auth on `/oracle/verify-and-sign`, anti-replay nonce on signed outcomes.
-- **3.3 ☐ Pre-launch checklist + off-site covex.db backups.**
+- **3.2 ◐ GATE 1 hardening before flipping `COVEX_MAINNET_COVENANTS_ENABLED`.** Mostly done already:
+  oracle `/verify-and-sign` auth (✓ task #42), frozen-watermark + tip-liveness watchdogs (✓ #46/#47),
+  resolver failover (✓), gate-flip path tested (✓ #49). Remaining: indexer HA (the single WSL mainnet
+  node is a SPOF - operational, needs a 2nd node), and an explicit anti-replay review of signed
+  outcomes (on-chain oracle payouts are already UTXO-replay-protected).
+- **3.3 ☑ Backups.** DONE + verified (commit 72906f6). FOUND + FIXED a real bug: nightly backups had
+  FAILED since 2026-06-14 because backup-covex.sh still pointed at the pre-move DB path. Now DB_PATH=
+  `/opt/covex-db/covex.db`, BACKUP_ROOT on the data volume (cross-device from the live DB); backup +
+  weekly restore-drill both PASS (70,247 covenants restored), paths baked into the service units +
+  installer. **Remaining (needs operator creds):** sync `/mnt/.../covex-backups` OFF-BOX (rclone/S3)
+  so a full-box loss is survivable - the config tarball already supports a bare-metal rebuild.
 
 ## PHASE 4 — THE VISUAL PERFECTION PASS (godlike — the finale)
 Only after 1–3. Done with a live see-change-see loop (browser screenshots each step). The north

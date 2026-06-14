@@ -11,11 +11,14 @@ Status legend: ☐ todo · ◐ in progress · ☑ done+verified
 ## PHASE 1 — Finish trustlessness (no decorative deploys anywhere)
 The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
 
-- **1.1 ☐ Migrate `/premium` (PremiumBuilder) to enforced P2SH.** Today it does the decorative
-  `sign-and-broadcast`. Change its deploy to `POST /api/covenant/p2sh/deploy` (lock the stake in a
-  real script-enforced covenant), then attach the custom UI via `terminal-config` on top. The visual
-  builder stays; only the deploy primitive changes. *Verify:* deploy from /premium → covenant shows
-  `enforcement_reality: on-chain`, redeemable non-custodially.
+- **1.1 ☑ Migrate `/premium` (PremiumBuilder) to enforced P2SH.** DONE (commit 3fea2d5). The deploy
+  now calls `POST /api/covenant/p2sh/deploy` (singlesig/timelock/hashlock), locking the stake in a
+  real script-enforced covenant keyed at `<tx>:0`, with the premium custom UI + metadata layered on
+  top via `terminal-config` (ownership-signed). Honest mainnet gate (wallet-side funding coming
+  soon). *Verified live:* shipped bundle calls p2sh/deploy (decorative sign-and-broadcast removed);
+  live endpoint minted a real on-chain covenant (0.2 KAS locked to P2SH on TN12) that renders
+  `enforcement_reality: on-chain`, spendable, with the redeem script published for trustless
+  recovery; `/premium` runs commit 3fea2d5 with a clean console.
 - **1.2 ☐ Migrate `/deploy/paid` (PaidDeploy) to enforced P2SH.** Same change: the paste-a-bundle
   paid flow deploys a P2SH covenant, not a metadata commitment. *Verify:* same as 1.1.
 - **1.3 ☐ Remove the orphaned decorative `Deploy.jsx`** (now unrouted) + its dead visual-builder /

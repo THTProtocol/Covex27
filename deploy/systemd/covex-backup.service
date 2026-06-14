@@ -1,11 +1,15 @@
 [Unit]
-Description=Covex nightly SQLite backup (crash-consistent snapshot to /var/backups/covex)
+Description=Covex nightly SQLite backup (crash-consistent snapshot to the data volume)
 Documentation=file:/mnt/HC_Volume_105579109/Covex27/deploy/backup-covex.sh
 RequiresMountsFor=/mnt/HC_Volume_105579109
 OnFailure=covex-alert@%n.service
 
 [Service]
 Type=oneshot
+# The live covex.db lives on the root disk (/opt) since the 2026-06-13 move, so
+# back it up TO the data volume (sdb) for cross-device safety.
+Environment=DB_PATH=/opt/covex-db/covex.db
+Environment=BACKUP_ROOT=/mnt/HC_Volume_105579109/covex-backups
 ExecStart=/usr/local/bin/backup-covex.sh
 TimeoutStartSec=1h
 Nice=10

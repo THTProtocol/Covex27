@@ -23,8 +23,10 @@ install -m 644 systemd/covex-restore-drill.service /etc/systemd/system/covex-res
 install -m 644 systemd/covex-restore-drill.timer   /etc/systemd/system/covex-restore-drill.timer
 install -m 644 systemd/covex-alert@.service        /etc/systemd/system/covex-alert@.service
 
-mkdir -p /var/backups/covex/daily /var/backups/covex/weekly
-chmod 700 /var/backups/covex
+# Backups land on the data volume (different device from the live DB on /opt).
+BACKUP_ROOT="${BACKUP_ROOT:-/mnt/HC_Volume_105579109/covex-backups}"
+mkdir -p "$BACKUP_ROOT/daily" "$BACKUP_ROOT/weekly"
+chmod 700 "$BACKUP_ROOT"
 
 systemctl daemon-reload
 systemctl enable --now covex-backup.timer covex-restore-drill.timer
@@ -35,6 +37,6 @@ systemctl list-timers 'covex-*' --no-pager
 echo
 echo "Run one backup + drill now to verify:"
 echo "  systemctl start covex-backup.service && systemctl start covex-restore-drill.service"
-echo "  cat /var/backups/covex/last-backup.txt /var/backups/covex/last-restore-drill.txt"
+echo "  cat $BACKUP_ROOT/last-backup.txt $BACKUP_ROOT/last-restore-drill.txt"
 echo
 echo "Optional out-of-band failure pings: echo 'WEBHOOK_URL=https://...' > /etc/covex/alert.env"

@@ -11,8 +11,10 @@
 # (including the oracle key drop-in) rides along so a bare-metal rebuild has
 # everything it needs.
 #
-# Backups land on the ROOT DISK (/var/backups/covex by default), deliberately
-# a different device from the Hetzner volume that holds the live covex.db.
+# The live covex.db was relocated to /opt (root disk / sda1) during the 2026-06-13
+# disk crisis, so backups now land on the DATA VOLUME (/mnt/HC_Volume_105579109/
+# covex-backups by default) - deliberately a different device from the root disk
+# that holds the live DB. The covex-backup.service paths.conf drop-in pins both.
 #
 # Outcome goes to $BACKUP_ROOT/last-backup.txt. The file is pessimistically
 # initialized to FAIL at the start of every run, so a run killed by SIGKILL,
@@ -24,8 +26,8 @@
 
 set -euo pipefail
 
-DB_PATH="${DB_PATH:-/mnt/HC_Volume_105579109/Covex27/covex.db}"
-BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/covex}"
+DB_PATH="${DB_PATH:-/opt/covex-db/covex.db}"
+BACKUP_ROOT="${BACKUP_ROOT:-/mnt/HC_Volume_105579109/covex-backups}"
 DAILY_KEEP="${DAILY_KEEP:-7}"
 WEEKLY_KEEP="${WEEKLY_KEEP:-8}"
 MIN_FREE_MB="${MIN_FREE_MB:-5000}"

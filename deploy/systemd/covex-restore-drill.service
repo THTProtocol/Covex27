@@ -7,6 +7,7 @@ OnFailure=covex-alert@%n.service
 
 [Service]
 Type=oneshot
+Environment=BACKUP_ROOT=/mnt/HC_Volume_105579109/covex-backups
 ExecStart=/usr/local/bin/restore-drill-covex.sh
 TimeoutStartSec=30min
 Nice=10

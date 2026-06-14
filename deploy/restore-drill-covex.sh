@@ -22,7 +22,7 @@
 
 set -euo pipefail
 
-BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/covex}"
+BACKUP_ROOT="${BACKUP_ROOT:-/mnt/HC_Volume_105579109/covex-backups}"
 MIN_COVENANTS="${MIN_COVENANTS:-1000}"
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }

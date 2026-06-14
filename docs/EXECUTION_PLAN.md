@@ -69,9 +69,17 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
   labels honest until then.
 
 ## PHASE 3 — Mainnet readiness (Toccata, June 30)
-- **3.1 ☐ Wallet-funded enforced deploy on mainnet** (today the enforced deploy says "coming soon" on
-  mainnet because it needs a wallet-funded prepare/submit, not the dev key). Build the funding
-  prepare→sign→submit so mainnet deploys are non-custodial end to end.
+- **3.1 ☑ Wallet-funded enforced deploy on mainnet.** DONE (commits 2038b3d backend + 8bce0ae
+  frontend). New `prepare-deploy`/`submit-deploy`: the server builds the unsigned funding tx (locks
+  the stake to the P2SH + aa20+redeem payload) and returns its sighash; the wallet signs it
+  in-browser; submit-deploy assembles the P2PK `push65(sig)`, broadcasts, and indexes at `<tx>:0`.
+  No key is sent, so the single-signer kinds (singlesig/hashlock/timelock) deploy non-custodially on
+  mainnet too (gated behind COVEX_MAINNET_COVENANTS_ENABLED until Toccata, surfaced honestly). The
+  "coming soon" banner is gone. *Verified:* engine test (funding spend valid + forgery rejected);
+  live prepare-deploy builds the funding tx from real UTXOs; live submit-deploy assembled + broadcast
+  to the node (bogus sig rejected by consensus, proving the full path); mainnet refused pre-Toccata;
+  page renders clean. (A valid-sig broadcast needs a faucet-funded client-side key - inherent test
+  limit; the funding tx == the on-chain-proven custodial deploy + a standard engine-proven P2PK spend.)
 - **3.2 ◐ GATE 1 hardening before flipping `COVEX_MAINNET_COVENANTS_ENABLED`.** Mostly done already:
   oracle `/verify-and-sign` auth (✓ task #42), frozen-watermark + tip-liveness watchdogs (✓ #46/#47),
   resolver failover (✓), gate-flip path tested (✓ #49). Remaining: indexer HA (the single WSL mainnet

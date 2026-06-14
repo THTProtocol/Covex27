@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@kasflow/wallet-connector": "^0.1.4",
+    "@noble/curves": "1.8.1",
+    "@noble/hashes": "1.8.0",
     "@onekeyfe/kaspa-wasm": "^1.0.2",
     "@radix-ui/react-slot": "^1.2.5",
     "@react-three/drei": "^10.0.0",

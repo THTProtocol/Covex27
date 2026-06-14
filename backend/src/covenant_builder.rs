@@ -450,7 +450,17 @@ async fn client_for_network(network: &str) -> BResult<Arc<KaspaRpcClient>> {
     };
     let c = KaspaRpcClient::new(kaspa_wrpc_client::WrpcEncoding::Borsh, Some(&wrpc), None, None, None)
         .map_err(|e| format!("wRPC client create failed for {network}: {e}"))?;
-    let _ = c.connect(None).await;
+    // BOUND the connect: the default ConnectOptions block-and-retry would hang FOREVER
+    // if the node is down (this exact hang took out prepare-spend during a node outage).
+    // Cap it so the handler returns a clear error instead of blocking the request.
+    match tokio::time::timeout(std::time::Duration::from_secs(12), c.connect(None)).await {
+        Ok(_) => {}
+        Err(_) => {
+            return Err(format!(
+                "wRPC connect to the {network} node timed out (the node may be down or syncing) - try again shortly"
+            ))
+        }
+    }
     Ok(Arc::new(c))
 }
 
@@ -1567,6 +1577,8 @@ struct PendingWalletSpend {
     unsigned_tx: Transaction,
     entry: UtxoEntry,
     redeem: Vec<u8>,
+    /// The covenant's tx_id, so submit-signed can mark it spent in the DB.
+    deploy_tx_id: String,
     created_at: i64,
 }
 
@@ -1699,7 +1711,7 @@ pub async fn prepare_spend_handler(
         s.retain(|_, v| v.created_at > now_ts - 600); // drop sessions older than 10 min
         s.insert(
             session_id.clone(),
-            PendingWalletSpend { network: req.network.clone(), unsigned_tx: unsigned, entry, redeem, created_at: now_ts },
+            PendingWalletSpend { network: req.network.clone(), unsigned_tx: unsigned, entry, redeem, deploy_tx_id: src_tx_id.clone(), created_at: now_ts },
         );
     }
     Json(serde_json::json!({
@@ -1725,7 +1737,7 @@ pub struct WalletSubmitRequest {
 /// POST /covenant/p2sh/submit-signed - assemble the wallet's signature into the satisfier
 /// and broadcast. The server never had the key; it only relays the signed tx.
 pub async fn submit_signed_handler(
-    Extension(_db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
     Json(req): Json<WalletSubmitRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -1758,11 +1770,15 @@ pub async fn submit_signed_handler(
     };
     let rpc_tx = RpcTransaction::from(&signable.tx);
     match client.submit_transaction(rpc_tx, false).await {
-        Ok(tx_id) => Json(serde_json::json!({
-            "success": true,
-            "spend_tx_id": tx_id.to_string(),
-            "note": "Wallet-signed spend broadcast; no key touched the server."
-        })),
+        Ok(tx_id) => {
+            // Mark the covenant spent so the explorer/API stops showing it spendable.
+            let _ = crate::db::mark_p2sh_spent(&db, &pending.deploy_tx_id, &tx_id.to_string());
+            Json(serde_json::json!({
+                "success": true,
+                "spend_tx_id": tx_id.to_string(),
+                "note": "Wallet-signed spend broadcast; no key touched the server."
+            }))
+        }
         Err(e) => err(format!(
             "broadcast rejected: {e} (a wrong signature, or the wallet signing a different sighash, fails the script)"
         )),

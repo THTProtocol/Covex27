@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { schnorr } from '@noble/curves/secp256k1';
+import { bytesToHex } from '@noble/hashes/utils';
 import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 
@@ -99,15 +101,42 @@ export default function EnforcedDeploy() {
 
   async function redeem(c) {
     setError(null);
-    const body = {
-      network: net, deploy_tx_id: c.tx, destination_addr: c.dev ? (address || '') : address,
-    };
-    if (c.dev) body.use_dev_mode = true;
-    else { body.use_dev_mode = false; body.private_key_hex = devMode.privateKeyHex; }
-    if (c.kind === 'hashlock') body.preimage_hex = c.preimage;
-
     setBusy(true);
     try {
+      const myKey = devMode?.privateKeyHex;
+      // NON-CUSTODIAL redeem (the trustless path): for a single-key covenant whose
+      // key we hold in this browser, fetch the unsigned sighash, sign it HERE with a
+      // BIP340 Schnorr signature, and send ONLY the 64-byte signature. The private key
+      // never leaves the device, and Covex merely relays the broadcast - so funds are
+      // spendable even if Covex is fully removed (anyone can reproduce this with the
+      // published redeem script + tools/recover-covenant.mjs).
+      if (c.kind === 'singlesig' && myKey) {
+        const prep = await fetch('/api/covenant/p2sh/prepare-spend', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ network: net, deploy_tx_id: c.tx, destination_addr: c.dev ? (address || '') : address }),
+        }).then((r) => r.json());
+        if (!prep.success) { setError(prep.error || 'Could not prepare the spend.'); return; }
+        const myXonly = bytesToHex(schnorr.getPublicKey(myKey));
+        if (prep.signer_xonly && myXonly === prep.signer_xonly) {
+          const signatureHex = bytesToHex(schnorr.sign(prep.sighash, myKey)); // 64-byte BIP340 over the exact sighash
+          const sub = await fetch('/api/covenant/p2sh/submit-signed', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: prep.session_id, signature_hex: signatureHex }),
+          }).then((r) => r.json());
+          if (!sub.success) { setError(sub.error || 'Submit failed.'); return; }
+          setMine((m) => m.map((x) => (x.tx === c.tx ? { ...x, spent: sub.spend_tx_id, nonCustodial: true } : x)));
+          return;
+        }
+        // Our in-browser key does not match this covenant's lock; fall through to the
+        // server-assisted path below rather than signing the wrong thing.
+      }
+      // Server-assisted fallback (non-singlesig kinds, dev-wallet covenants, or a key
+      // we do not hold). For non-dev covenants this still hands the key to the server -
+      // the non-custodial path above is preferred wherever it applies.
+      const body = { network: net, deploy_tx_id: c.tx, destination_addr: c.dev ? (address || '') : address };
+      if (c.dev) body.use_dev_mode = true;
+      else { body.use_dev_mode = false; body.private_key_hex = myKey; }
+      if (c.kind === 'hashlock') body.preimage_hex = c.preimage;
       const res = await fetch('/api/covenant/p2sh/spend', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
@@ -214,7 +243,7 @@ export default function EnforcedDeploy() {
                     <span className="text-xs text-gray-400">{c.kas} KAS locked</span>
                   </div>
                   {c.spent
-                    ? <span className="text-xs text-emerald-400 font-mono">redeemed {String(c.spent).slice(0, 12)}...</span>
+                    ? <span className="text-xs text-emerald-400 font-mono">redeemed {String(c.spent).slice(0, 12)}...{c.nonCustodial ? ' (non-custodial: signed in your browser, key never sent)' : ''}</span>
                     : <button onClick={() => redeem(c)} disabled={busy}
                         className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60">Redeem</button>}
                 </div>

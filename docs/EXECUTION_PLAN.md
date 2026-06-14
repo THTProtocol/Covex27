@@ -25,16 +25,21 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
   `terminal-config` (ownership-signed); honest mainnet gate. *Verified:* shipped bundle calls
   p2sh/deploy (decorative sign-and-broadcast removed), enforcement label present, `/deploy/paid`
   loads clean on commit c3756b2.
-- **1.3 ☐ Remove the orphaned decorative `Deploy.jsx`** (now unrouted) + its dead visual-builder /
-  random-hex paths, and drop the unused lazy import in App.jsx. *Verify:* build clean, no dead refs.
+- **1.3 ☑ Remove the orphaned decorative `Deploy.jsx`** DONE (commit afa87c0). Deleted the file +
+  the unused lazy import in App.jsx; `/deploy` still redirects to `/deploy/enforced`. DesignStudio
+  kept (used by CovenantFix). *Verified:* build clean, no `Deploy` chunk emitted, no dead refs.
 - **1.4 ☐ Extend non-custodial signing to the multi-party kinds** (multisig, channel, oracle-escrow):
   prepare/submit collect signatures from each party in the browser (each signs the same sighash);
   HTLC gets branch selection (claim/refund) client-side. *Verify:* e2e non-custodial redeem of a
   2-of-2 on TN12, no key on the server.
 - **1.5 ☐ Complete the on-chain hashlock/timelock non-custodial e2e** (was blocked by sparse TN12
   mining): deploy + redeem each once TN12 mines. *Verify:* spend tx confirmed on-chain.
-- **1.6 ☐ Decommission the legacy decorative backend path** (`signer.rs` sign-and-broadcast) or keep
-  it only behind `acknowledge_unenforced` for non-covenant markers. *Verify:* no UI reaches it.
+- **1.6 ☑ Decommission the legacy decorative deploy path.** SATISFIED by the 1.1-1.3 migrations +
+  existing B6 gating. No deploy surface calls `/api/sign-and-broadcast` anymore (paid builders
+  migrated, Deploy.jsx deleted); its only remaining caller is dev-wallet *tier payments*
+  (`WalletContext.sendPayment`), a legitimate real-payment rail. Any covenant-like record it creates
+  is honestly labeled `decorative` (metadata-only) by `reality_for_script` and refused on mainnet
+  unless `acknowledge_unenforced:true`. *Verified:* grep shows zero deploy-surface callers.
 
 ## PHASE 2 — ZK circuits genuinely usable in the browser
 37 circuits have live, verified proving keys (done). Make each provable from a user's browser.

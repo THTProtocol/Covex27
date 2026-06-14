@@ -2749,16 +2749,9 @@ mod tests {
         // fund the lock; its signature_script is push65(sig) verified against
         // `<pubkey> OpCheckSig`. Prove that exact funding spend executes, and that a wrong
         // key fails (so a forged funding signature cannot move the deployer's coins).
-        use kaspa_consensus_core::tx::ScriptPublicKey;
-        let kp = test_keypair(61);
-        let xonly = kp.x_only_public_key().0.serialize();
-        let mut p2pk = Vec::with_capacity(34);
-        p2pk.push(0x20);
-        p2pk.extend_from_slice(&xonly);
-        p2pk.push(0xac);
-        let p2pk_spk = ScriptPublicKey::new(0, p2pk.as_slice().into());
-
-        let run = |sig_script: Vec<u8>| -> bool {
+        use kaspa_consensus_core::tx::{ScriptPublicKey, ScriptVec};
+        // Mirror run_spend_generic's borrow structure (a plain fn) but for a P2PK input.
+        fn run_p2pk(p2pk_spk: &ScriptPublicKey, make_sig: impl Fn(&SignableTransaction) -> Vec<u8>) -> bool {
             let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([9u8; 32]), index: 0 };
             let tx = Transaction::new(
                 0,
@@ -2768,6 +2761,7 @@ mod tests {
             );
             let entries = vec![UtxoEntry { amount: 100_000_000, script_public_key: p2pk_spk.clone(), block_daa_score: 1, is_coinbase: false }];
             let mut signable = SignableTransaction::with_entries(tx, entries);
+            let sig_script = make_sig(&signable);
             signable.tx.inputs[0].signature_script = sig_script;
             let verifiable = signable.as_verifiable();
             let (input, entry) = verifiable.populated_inputs().next().unwrap();
@@ -2775,25 +2769,22 @@ mod tests {
             let cache = Cache::new(10_000);
             let mut engine = TxScriptEngine::from_transaction_input(&verifiable, input, 0, entry, &mut reused, &cache).unwrap();
             engine.execute().is_ok()
-        };
-        // Sign the funding sighash with the deployer key (as a wallet would).
-        let sighash = {
-            let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([9u8; 32]), index: 0 };
-            let tx = Transaction::new(
-                0,
-                vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence: 0, sig_op_count: 1 }],
-                vec![TransactionOutput { value: 90_000_000, script_public_key: p2pk_spk.clone() }],
-                0, SubnetworkId::from_bytes([0u8; 20]), 0, vec![0xaa, 0x20, 1, 2, 3],
-            );
-            let entries = vec![UtxoEntry { amount: 100_000_000, script_public_key: p2pk_spk.clone(), block_daa_score: 1, is_coinbase: false }];
-            let signable = SignableTransaction::with_entries(tx, entries);
+        }
+        let kp = test_keypair(61);
+        let xonly = kp.x_only_public_key().0.serialize();
+        let mut p2pk = Vec::with_capacity(34);
+        p2pk.push(0x20);
+        p2pk.extend_from_slice(&xonly);
+        p2pk.push(0xac);
+        let p2pk_spk = ScriptPublicKey::new(0, ScriptVec::from_slice(&p2pk));
+        let sign = |s: &SignableTransaction, k: &Keypair| -> [u8; 64] {
             let mut reused = SigHashReusedValues::new();
-            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused)
+            let h = calc_schnorr_signature_hash(&s.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+            let msg = secp256k1::Message::from_digest_slice(h.as_bytes().as_slice()).unwrap();
+            *k.sign_schnorr(msg).as_ref()
         };
-        let msg = secp256k1::Message::from_digest_slice(sighash.as_bytes().as_slice()).unwrap();
-        let good: [u8; 64] = *kp.sign_schnorr(msg).as_ref();
-        assert!(run(push65(&good)), "non-custodial deploy funding P2PK spend must execute");
-        let wrong: [u8; 64] = *test_keypair(62).sign_schnorr(msg).as_ref();
-        assert!(!run(push65(&wrong)), "a wrong key must not satisfy the funding P2PK spend");
+        assert!(run_p2pk(&p2pk_spk, |s| push65(&sign(s, &kp))), "non-custodial deploy funding P2PK spend must execute");
+        let wrong = test_keypair(62);
+        assert!(!run_p2pk(&p2pk_spk, |s| push65(&sign(s, &wrong))), "a wrong key must not satisfy the funding P2PK spend");
     }
 }

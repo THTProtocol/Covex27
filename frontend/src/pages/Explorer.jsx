@@ -272,13 +272,13 @@ export default function Explorer() {
     <>
       {/* HERO */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-4 px-4 sm:px-6 text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15]">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
-        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6">
+        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden">
+        <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total.toLocaleString() },
             { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount },

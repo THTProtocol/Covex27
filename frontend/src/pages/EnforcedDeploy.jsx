@@ -47,7 +47,7 @@ export default function EnforcedDeploy() {
   // External-covenant interaction: spend ANY single-signer P2SH covenant (even ones not
   // created on Covex) with only your key + its redeem script. Kept subtle at the bottom.
   const [extOpen, setExtOpen] = useState(false);
-  const [ext, setExt] = useState({ redeem_script_hex: '', tx: '', outpoint: '0', kind: 'singlesig', dest: '', preimage: '' });
+  const [ext, setExt] = useState({ redeem_script_hex: '', tx: '', outpoint: '0', kind: 'singlesig', dest: '', preimage: '', branch: '', cosigs: '' });
 
   useEffect(() => {
     fetch('/api/covenant/catalog').then((r) => r.json()).then((j) => setCatalog(j.catalog || [])).catch(() => {});
@@ -110,29 +110,56 @@ export default function EnforcedDeploy() {
       const myKey = devMode?.privateKeyHex;
       const dest = (c.destOverride && c.destOverride.trim()) || (c.dev ? (address || '') : address);
       const kindBase = String(c.kind || 'singlesig').split(':')[0];
-      const NONCUSTODIAL = ['singlesig', 'hashlock', 'timelock'];
+      // Every DETERMINISTIC primitive is now non-custodially redeemable in the browser:
+      // the single-signer kinds AND the multi-party kinds (multisig, HTLC, channel). The
+      // chain enforces them and Covex only relays the signed tx. oracle_* still co-sign
+      // server-side (the oracle key is consensus-required by design).
+      const NONCUSTODIAL = ['singlesig', 'hashlock', 'timelock', 'multisig', 'htlc', 'channel'];
       // External (non-Covex) covenants carry their own redeem script + outpoint so the
       // server can build the spend with no stored record.
       const external = c.redeem_script_hex
         ? { redeem_script_hex: c.redeem_script_hex, outpoint_index: c.outpoint_index || 0, redeem_kind: c.kind }
         : {};
-      // NON-CUSTODIAL redeem (the trustless path): for a single-signer covenant
-      // (singlesig / hashlock / timelock) whose key we hold in this browser, fetch the
-      // unsigned sighash, sign it HERE with a BIP340 Schnorr signature, and send ONLY the
-      // 64-byte signature (plus the preimage for a hashlock). The private key never leaves
-      // the device, and Covex merely relays the broadcast - so funds are spendable even if
-      // Covex is fully removed (reproducible with the published redeem + recover-covenant.mjs).
+      // NON-CUSTODIAL redeem (the trustless path): fetch the unsigned sighash, sign it HERE
+      // with a BIP340 Schnorr signature for every required signer whose key we hold (and
+      // graft in any pasted co-signer signatures), then send ONLY the 64-byte signatures
+      // (plus a preimage for hashlock / HTLC claim). No private key ever leaves the device,
+      // so funds are spendable even if Covex is fully removed (reproducible with the
+      // published redeem + recover-covenant.mjs).
       if (NONCUSTODIAL.includes(kindBase) && myKey) {
         const prep = await fetch('/api/covenant/p2sh/prepare-spend', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ network: net, deploy_tx_id: c.tx, destination_addr: dest, ...external }),
+          body: JSON.stringify({ network: net, deploy_tx_id: c.tx, destination_addr: dest, branch: c.branch || undefined, ...external }),
         }).then((r) => r.json());
         if (!prep.success) { setError(prep.error || 'Could not prepare the spend.'); return; }
-        const myXonly = bytesToHex(schnorr.getPublicKey(myKey));
-        if (prep.signer_xonly && myXonly === prep.signer_xonly) {
-          const signatureHex = bytesToHex(schnorr.sign(prep.sighash, myKey)); // 64-byte BIP340 over the exact sighash
-          const subBody = { session_id: prep.session_id, signature_hex: signatureHex };
-          if (kindBase === 'hashlock') subBody.preimage_hex = c.preimage;
+        const myXonly = bytesToHex(schnorr.getPublicKey(myKey)).toLowerCase();
+        // Required signers (multi-party) or the single signer (single-signer kinds).
+        const required = (prep.required_signers && prep.required_signers.length)
+          ? prep.required_signers
+          : (prep.signer_xonly ? [{ role: 'signer', xonly: prep.signer_xonly }] : []);
+        // Collect signatures: our in-browser key signs the sighash for any required signer
+        // it matches; pasted co-signer signatures cover the rest.
+        const sigMap = {};
+        (c.cosigs || []).forEach((cs) => { if (cs.xonly && cs.sig) sigMap[cs.xonly.toLowerCase().replace(/^0x/, '')] = cs.sig; });
+        const mySig = bytesToHex(schnorr.sign(prep.sighash, myKey)); // 64-byte BIP340 over the exact sighash
+        let signedAny = false;
+        required.forEach((r) => {
+          const x = (r.xonly || '').toLowerCase().replace(/^0x/, '');
+          if (x && x === myXonly) { sigMap[x] = mySig; signedAny = true; }
+        });
+        const missing = required.filter((r) => !sigMap[(r.xonly || '').toLowerCase().replace(/^0x/, '')]);
+        if (required.length > 0 && (signedAny || (c.cosigs || []).length)) {
+          if (missing.length) {
+            setError(`Need signature(s) from: ${missing.map((m) => m.role || m.xonly.slice(0, 10)).join(', ')}. Paste each co-signer's signature in the co-signer field.`);
+            return;
+          }
+          const subBody = { session_id: prep.session_id };
+          if (required.length <= 1) {
+            subBody.signature_hex = sigMap[(required[0].xonly || '').toLowerCase().replace(/^0x/, '')] || mySig;
+          } else {
+            subBody.signatures = required.map((r) => ({ signer_xonly: r.xonly, signature_hex: sigMap[(r.xonly || '').toLowerCase().replace(/^0x/, '')] }));
+          }
+          if (prep.needs_preimage) subBody.preimage_hex = c.preimage;
           const sub = await fetch('/api/covenant/p2sh/submit-signed', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(subBody),
@@ -141,8 +168,8 @@ export default function EnforcedDeploy() {
           setMine((m) => m.map((x) => (x.tx === c.tx ? { ...x, spent: sub.spend_tx_id, nonCustodial: true } : x)));
           return;
         }
-        // Our in-browser key does not match this covenant's lock; fall through to the
-        // server-assisted path below rather than signing the wrong thing.
+        // Our in-browser key matches no required signer and no co-signer sigs were
+        // supplied; fall through to the server-assisted path rather than signing nothing.
       }
       // Server-assisted fallback (HTLC/multisig/channel kinds, dev-wallet covenants, or a
       // key we do not hold). The non-custodial path above is preferred wherever it applies.
@@ -171,11 +198,23 @@ export default function EnforcedDeploy() {
       setError('Supply the redeem script hex and the funding tx id.');
       return;
     }
+    // Parse pasted co-signer signatures: one "xonly:signature" (or "xonly sig") per line.
+    const cosigs = ext.cosigs
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [xonly, sig] = l.split(/[:\s,]+/);
+        return { xonly: (xonly || '').trim(), sig: (sig || '').trim() };
+      })
+      .filter((cs) => cs.xonly && cs.sig);
     const c = {
       tx: ext.tx.trim(),
       kind: ext.kind.trim() || 'singlesig',
       dev: false,
       preimage: ext.preimage.trim() || null,
+      branch: ext.branch.trim() || null,
+      cosigs,
       outpoint_index: Number(ext.outpoint) || 0,
       redeem_script_hex: ext.redeem_script_hex.trim(),
       destOverride: ext.dest.trim() || null,
@@ -340,8 +379,9 @@ export default function EnforcedDeploy() {
         {extOpen && (
           <div className="mt-4 space-y-2.5">
             <p className="text-[11px] text-gray-500">
-              Any single-signer Kaspa P2SH covenant (singlesig / hashlock / timelock) is spendable here with ONLY your
-              key and its redeem script - no Covex record needed. Your key signs in this browser; only the signature is sent.
+              Any deterministic Kaspa P2SH covenant - single-signer (singlesig / hashlock / timelock) OR multi-party
+              (multisig:N / htlc:DAA / channel:DAA) - is spendable here with ONLY the redeem script and the signers' keys.
+              No Covex record needed. Each key signs in its own browser; only signatures are sent, never a key.
             </p>
             <textarea
               value={ext.redeem_script_hex}
@@ -352,11 +392,27 @@ export default function EnforcedDeploy() {
             <div className="grid sm:grid-cols-2 gap-2">
               <input value={ext.tx} onChange={(e) => setExt((x) => ({ ...x, tx: e.target.value }))} placeholder="funding tx id" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
               <input value={ext.outpoint} onChange={(e) => setExt((x) => ({ ...x, outpoint: e.target.value }))} placeholder="outpoint index (0)" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
-              <input value={ext.kind} onChange={(e) => setExt((x) => ({ ...x, kind: e.target.value }))} placeholder="kind: singlesig | hashlock | timelock:DAA" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
+              <input value={ext.kind} onChange={(e) => setExt((x) => ({ ...x, kind: e.target.value }))} placeholder="kind: singlesig | hashlock | timelock:DAA | multisig:N | htlc:DAA | channel:DAA" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
               <input value={ext.dest} onChange={(e) => setExt((x) => ({ ...x, dest: e.target.value }))} placeholder="destination address (default: you)" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
             </div>
-            {ext.kind.trim().startsWith('hashlock') && (
-              <input value={ext.preimage} onChange={(e) => setExt((x) => ({ ...x, preimage: e.target.value }))} placeholder="preimage hex (required for hashlock)" className="w-full font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
+            {(ext.kind.trim().startsWith('hashlock') || (ext.kind.trim().startsWith('htlc') && ext.branch !== 'refund')) && (
+              <input value={ext.preimage} onChange={(e) => setExt((x) => ({ ...x, preimage: e.target.value }))} placeholder="preimage hex (required for hashlock / HTLC claim)" className="w-full font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
+            )}
+            {(ext.kind.trim().startsWith('htlc') || ext.kind.trim().startsWith('channel')) && (
+              <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                <span>branch:</span>
+                {(ext.kind.trim().startsWith('htlc') ? ['claim', 'refund'] : ['close', 'refund']).map((b) => (
+                  <button key={b} onClick={() => setExt((x) => ({ ...x, branch: b }))} className={`px-2.5 py-1 rounded-md border ${ext.branch === b || (!ext.branch && (b === 'claim' || b === 'close')) ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/10 text-gray-300'}`}>{b}</button>
+                ))}
+              </div>
+            )}
+            {(ext.kind.trim().startsWith('multisig') || (ext.kind.trim().startsWith('channel') && ext.branch !== 'refund')) && (
+              <textarea
+                value={ext.cosigs}
+                onChange={(e) => setExt((x) => ({ ...x, cosigs: e.target.value }))}
+                placeholder={'co-signer signatures (one per line: <signer_xonly>:<signature_hex>). Your in-browser key signs its own slot automatically; paste the OTHER members\' signatures here. Each signs the SAME sighash returned by prepare-spend.'}
+                className="w-full h-16 font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white resize-y"
+              />
             )}
             <button onClick={interactExternal} disabled={busy} className="text-xs px-4 py-2 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60">
               {busy ? 'Working...' : 'Spend this covenant (non-custodial)'}

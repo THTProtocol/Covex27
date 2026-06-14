@@ -1,0 +1,10 @@
+{
+  "name": "covex-recovery-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone, server-independent recovery tools for Covex enforced (P2SH) covenants. Run: npm i, then node recover-covenant.mjs --payload <hex> (or --txid <id> --api <kaspa_rest_base>).",
+  "dependencies": {
+    "@noble/hashes": "^1.8.0"
+  }
+}

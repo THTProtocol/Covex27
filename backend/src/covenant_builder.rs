@@ -1579,6 +1579,9 @@ struct PendingWalletSpend {
     redeem: Vec<u8>,
     /// The covenant's tx_id, so submit-signed can mark it spent in the DB.
     deploy_tx_id: String,
+    /// The redeem kind (singlesig | hashlock | timelock:<daa>) so submit-signed
+    /// assembles the correct satisfier (e.g. appends the preimage for a hashlock).
+    kind: String,
     created_at: i64,
 }
 
@@ -1632,18 +1635,30 @@ pub async fn prepare_spend_handler(
                 (rh, "singlesig".to_string(), req.deploy_tx_id.clone(), req.outpoint_index.unwrap_or(0), addr)
             }
         };
-    if redeem_kind != "singlesig" {
+    // Non-custodial wallet signing covers the SINGLE-SIGNER kinds: singlesig, hashlock,
+    // and timelock. Each is satisfied by ONE signature over the sighash (hashlock also
+    // pushes a preimage; timelock also needs the tx lock_time), with NO key on the
+    // server. HTLC/multisig/channel/oracle need branch selection or multiple signers and
+    // use the server-assisted /spend until the multi-sig wallet flow lands.
+    let kind_base = redeem_kind.split(':').next().unwrap_or(&redeem_kind).to_string();
+    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock") {
         return err(format!(
-            "wallet-side signing currently supports single-sig covenants; '{redeem_kind}' needs the multi-party flow"
+            "non-custodial wallet signing currently supports singlesig, hashlock, and timelock; '{redeem_kind}' uses the server-assisted spend"
         ));
     }
+    let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
     let redeem = match hex::decode(&redeem_hex) {
         Ok(b) => b,
         Err(e) => return err(format!("corrupt redeem: {e}")),
     };
-    // The signer key is the singlesig redeem's pushed x-only pubkey (<0x20><32B> OpCheckSig).
-    let signer_xonly = if redeem.len() == 34 && redeem[0] == 0x20 {
-        hex::encode(&redeem[1..33])
+    // The signer key is the x-only pubkey pushed right before the final OpCheckSig
+    // (0xac) - true for singlesig, hashlock, AND timelock redeems (they all end with
+    // `<0x20><pubkey32> OpCheckSig`, regardless of what precedes it).
+    let signer_xonly = if redeem.len() >= 34
+        && redeem[redeem.len() - 1] == 0xac
+        && redeem[redeem.len() - 34] == 0x20
+    {
+        hex::encode(&redeem[redeem.len() - 33..redeem.len() - 1])
     } else {
         String::new()
     };
@@ -1684,11 +1699,15 @@ pub async fn prepare_spend_handler(
         sig_op_count: 1,
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    // A timelock spend MUST carry lock_time = lock_daa (with a non-final input sequence,
+    // set to 0 above) so OpCheckLockTimeVerify passes; the chain must also have reached
+    // that DAA or the node rejects the tx as non-final. Other single-signer kinds use 0.
+    let spend_lock_time = timelock_daa.unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
         outputs,
-        0,
+        spend_lock_time,
         SubnetworkId::from_bytes([0u8; 20]),
         0,
         b"covex-p2sh-spend".to_vec(),
@@ -1711,7 +1730,7 @@ pub async fn prepare_spend_handler(
         s.retain(|_, v| v.created_at > now_ts - 600); // drop sessions older than 10 min
         s.insert(
             session_id.clone(),
-            PendingWalletSpend { network: req.network.clone(), unsigned_tx: unsigned, entry, redeem, deploy_tx_id: src_tx_id.clone(), created_at: now_ts },
+            PendingWalletSpend { network: req.network.clone(), unsigned_tx: unsigned, entry, redeem, deploy_tx_id: src_tx_id.clone(), kind: redeem_kind.clone(), created_at: now_ts },
         );
     }
     Json(serde_json::json!({
@@ -1723,7 +1742,10 @@ pub async fn prepare_spend_handler(
         "p2sh_address": p2sh_address,
         "amount_sompi": amount,
         "destination": req.destination_addr,
-        "note": "Sign the sighash (BIP340 Schnorr) with the covenant key in your wallet, then POST {session_id, signature_hex} to /covenant/p2sh/submit-signed. No key is sent to the server."
+        "redeem_kind": redeem_kind,
+        // A hashlock spend must also reveal the preimage in submit-signed.
+        "needs_preimage": kind_base == "hashlock",
+        "note": "Sign the sighash (BIP340 Schnorr) with the covenant key in your wallet, then POST {session_id, signature_hex} (plus preimage_hex for a hashlock) to /covenant/p2sh/submit-signed. No key is sent to the server."
     }))
 }
 
@@ -1732,6 +1754,11 @@ pub struct WalletSubmitRequest {
     pub session_id: String,
     /// 64-byte BIP340 Schnorr signature (hex) over the prepared sighash.
     pub signature_hex: String,
+    /// For a hashlock covenant: the preimage P such that blake2b256(P) == the locked
+    /// hash. Pushed after the signature in the satisfier. Not a secret to the server
+    /// beyond this single spend (it is revealed on-chain anyway).
+    #[serde(default)]
+    pub preimage_hex: Option<String>,
 }
 
 /// POST /covenant/p2sh/submit-signed - assemble the wallet's signature into the satisfier
@@ -1755,8 +1782,24 @@ pub async fn submit_signed_handler(
         Some(b) => b,
         None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
     };
-    // Single-sig satisfier: OpData65 <sig || sighash-type> then the redeem-script push.
-    let satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    // Satisfier: OpData65 <sig || sighash-type>, then (hashlock only) the preimage push,
+    // then the redeem-script push. This is byte-identical to the custodial
+    // build_p2sh_signature_script - the only difference is the signature came from the
+    // user's wallet, not the server. Timelock needs no extra push (its lock_time is
+    // already baked into the prepared, signed transaction).
+    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let kind_base = pending.kind.split(':').next().unwrap_or(&pending.kind);
+    if kind_base == "hashlock" {
+        let preimage = match req.preimage_hex.as_ref().and_then(|p| hex::decode(p.trim()).ok()) {
+            Some(b) => b,
+            None => return err("hashlock spend requires preimage_hex (the secret P with blake2b256(P) == the locked hash)".into()),
+        };
+        let mut b = ScriptBuilder::new();
+        if let Err(e) = b.add_data(&preimage) {
+            return err(format!("satisfier preimage push: {e}"));
+        }
+        satisfier.extend_from_slice(&b.drain());
+    }
     let sig_script = match kaspa_txscript::pay_to_script_hash_signature_script(pending.redeem.clone(), satisfier) {
         Ok(s) => s,
         Err(e) => return err(format!("assemble signature script: {e}")),

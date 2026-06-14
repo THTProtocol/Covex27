@@ -37,7 +37,15 @@
    DARK MODE (default) - Rich cypherpunk: deep blacks, neon green accents
    ═══════════════════════════════════════════════════════════════ */
 body {
-  background: radial-gradient(circle at 50% 0%, #11111a 0%, rgb(var(--background)) 100%);
+  /* Layered cypherpunk depth: subtle brand-green + gold glows over the base radial.
+     Pure background (bottom-most layer), so it never touches layout, content z-index,
+     or a covenant's own background image (which sits above the body). */
+  background:
+    radial-gradient(55% 45% at 50% -8%, rgba(73, 234, 203, 0.09) 0%, transparent 60%),
+    radial-gradient(45% 38% at 92% 8%, rgba(232, 175, 52, 0.055) 0%, transparent 62%),
+    radial-gradient(50% 45% at 8% 30%, rgba(73, 234, 203, 0.045) 0%, transparent 60%),
+    radial-gradient(circle at 50% 0%, #11111a 0%, rgb(var(--background)) 100%);
+  background-attachment: fixed;
   color: rgb(var(--foreground));
   font-family: var(--font-sans);
 }

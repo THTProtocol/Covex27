@@ -32,16 +32,24 @@ recoverable without us.
 
 ## 2. What's LEFT for "100%" — with concrete plans
 
-### 2.1 ZK circuits: make them all genuinely work  *(biggest remaining lift)*
-Today only `merkle_membership` proves end-to-end in-browser. The rest ship a verifier key but no
-proving key, so they can't generate proofs (now labeled honestly as oracle-attested).
-**Plan to actually deliver them:**
-1. Re-fetch a `pot16` Powers-of-Tau (`.ptau`) ceremony file (~73MB; was deleted during the disk
-   crunch — the disk now has 97G free, so this is unblocked).
-2. Per circuit: `snarkjs groth16 setup circuit.r1cs pot16.ptau circuit_0000.zkey` →
-   contribute → export `circuit_final.zkey` + `circuit_vkey.json`.
-3. Serve `circuit.wasm` + `circuit_final.zkey` under `frontend/public/zk/<circuit>/`.
-4. Add an in-browser generator branch (mirror `merkle_membership`'s `fullProve`).
+### 2.1 ZK circuits: make them all genuinely work
+**UPDATE 2026-06-14 — the proving keys are now GENERATED + VERIFIED.** Ran the ceremony
+(`zk/setup_live_zk.sh`, re-runnable + idempotent): **37 circuits now have live Groth16
+`_final.zkey` + `_vkey.json`** generated from their real r1cs via the pot10 ceremony (all of these
+circuits are <1024 constraints, so no pot16 download was needed). Only 3 failed (connect4_v1,
+tictactoe_v1, privacy_mixer_v1 — larger, need pot16). End-to-end VERIFIED (real proof generates +
+`snarkjs.groth16.verify` passes against the new vkey) for `relative_timelock`,
+`basic_utxo_ownership`, and `merkle_membership`. The oracle verifiers (`verify_*.js`) now have real
+vkeys, so the backend can verify real proofs for these circuits. **The disk-blocked foundation is
+done.** Keys are server-only + gitignored (regenerate with `setup_live_zk.sh`).
+
+**Remaining to make each one usable from a user's browser:**
+1. Serve `circuit.wasm` + `circuit_final.zkey` + `circuit_vkey.json` under
+   `frontend/public/zk/<circuit>/` (currently only merkle/range are served).
+2. Add a per-circuit in-browser generator branch (mirror `merkle_membership`'s `fullProve`) that
+   constructs that circuit's inputs (the `zk/prove_*.js` scripts are the reference for inputs).
+3. Only then promote each circuit to `full-zk` in `VERIFIED_FULL_ZK` (CovexTerminal.jsx) — the
+   label stays honest (oracle-attested) until a real in-browser proof verifies.
 5. **Fix `range_proof`**: its in-browser MiMC7 commitment doesn't match the circuit's hasher — use
    the circuit's own `hasher.out` from the witness (drop `mimc_test.wasm`), then re-verify a sample.
 6. Promote a circuit's reality label to `full-zk` ONLY after a sample proof verifies (the

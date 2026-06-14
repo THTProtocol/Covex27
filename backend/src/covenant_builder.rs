@@ -2048,12 +2048,276 @@ pub async fn submit_signed_handler(
     }
 }
 
+// ── Non-custodial wallet-FUNDED deploy (3.1): the deploy-side analog of
+// prepare-spend/submit-spend. The server builds the unsigned funding tx (locking the
+// stake to the P2SH and carrying the aa20+redeem payload) and returns its sighash; the
+// deployer's WALLET signs it; submit-deploy assembles the P2PK signature_script and
+// broadcasts. The deployer's private key never touches the server, so a mainnet covenant
+// can be deployed trustlessly (no dev key, no key upload). The redeem locks to the
+// deployer's own x-only pubkey, derived from their address. ──
+
+/// Build (redeem, redeem_kind) for a non-custodial deploy from the spec + the deployer's
+/// x-only pubkey (extracted from their address - no secret key needed). Mirrors the
+/// custodial p2sh_deploy_handler dispatch. oracle_* are intentionally unsupported here
+/// (they put the Covex oracle key in the path; not part of the trustless wallet flow).
+fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<(Vec<u8>, String)> {
+    match spec.kind.as_str() {
+        "singlesig" => Ok((redeem_singlesig(owner_xonly)?, "singlesig".to_string())),
+        "hashlock" => {
+            let p = spec.preimage_hex.as_ref().ok_or("hashlock requires preimage_hex")?;
+            let preimage = hex::decode(p.trim()).map_err(|e| format!("bad preimage_hex: {e}"))?;
+            Ok((redeem_hashlock(&blake2b256(&preimage), owner_xonly)?, "hashlock".to_string()))
+        }
+        "timelock" => {
+            let lock = spec.lock_daa.ok_or("timelock requires lock_daa")?;
+            Ok((redeem_timelock(lock, owner_xonly)?, format!("timelock:{lock}")))
+        }
+        "multisig" => {
+            let pks = spec.pubkeys_hex.as_ref().ok_or("multisig requires pubkeys_hex")?;
+            let mut v = Vec::new();
+            for p in pks { v.push(decode_xonly_hex(p)?); }
+            if v.is_empty() { return Err("multisig requires at least one pubkey".into()); }
+            let required = spec.required.unwrap_or(v.len());
+            Ok((redeem_multisig(&v, required)?, format!("multisig:{}", v.len())))
+        }
+        "htlc" => {
+            let p = spec.preimage_hex.as_ref().ok_or("htlc requires preimage_hex")?;
+            let preimage = hex::decode(p.trim()).map_err(|e| format!("bad preimage_hex: {e}"))?;
+            let lock = spec.lock_daa.ok_or("htlc requires lock_daa")?;
+            let receiver = match &spec.receiver_pubkey_hex { Some(s) => decode_xonly_hex(s)?, None => *owner_xonly };
+            let sender = match &spec.sender_pubkey_hex { Some(s) => decode_xonly_hex(s)?, None => *owner_xonly };
+            Ok((redeem_htlc(&blake2b256(&preimage), &receiver, lock, &sender)?, format!("htlc:{lock}")))
+        }
+        "channel" => {
+            let pks = spec.pubkeys_hex.as_ref().ok_or("channel requires pubkeys_hex=[p1,p2]")?;
+            if pks.len() < 2 { return Err("channel needs pubkeys_hex=[p1,p2]".into()); }
+            let lock = spec.lock_daa.ok_or("channel requires lock_daa")?;
+            Ok((redeem_channel(&decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?, lock)?, format!("channel:{lock}")))
+        }
+        other => Err(format!("non-custodial deploy does not support kind '{other}' (oracle covenants use the server oracle path)")),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct PrepareDeployRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    /// The deployer's address (a 32-byte schnorr P2PK address). Funds the lock and, for the
+    /// single-signer kinds, becomes the redeem key. The key itself is NEVER sent.
+    pub deployer_addr: String,
+    pub stake_kas: f64,
+    pub redeem: RedeemSpec,
+}
+
+struct PendingDeploy {
+    network: String,
+    unsigned_tx: Transaction,
+    entry: UtxoEntry,
+    redeem: Vec<u8>,
+    redeem_kind: String,
+    p2sh_address: String,
+    deployer_addr: String,
+    stake_sompi: u64,
+    created_at: i64,
+}
+
+fn deploy_sessions() -> &'static Mutex<std::collections::HashMap<String, PendingDeploy>> {
+    static S: std::sync::OnceLock<Mutex<std::collections::HashMap<String, PendingDeploy>>> =
+        std::sync::OnceLock::new();
+    S.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+/// POST /covenant/p2sh/prepare-deploy - build the unsigned funding tx + return the sighash
+/// the deployer's wallet must sign. No key touches the server.
+pub async fn prepare_deploy_handler(
+    Extension(_db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<PrepareDeployRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let is_mainnet = req.network.starts_with("mainnet");
+    // Pre-Toccata, Kaspa mainnet does not enforce covenant scripts, so gate mainnet deploys
+    // behind the same flag the operator flips at activation. Testnets are always open.
+    if is_mainnet && !crate::crawler::mainnet_covenants_enabled() {
+        return err("mainnet covenants activate at the Toccata hard fork (set COVEX_MAINNET_COVENANTS_ENABLED=true once it is live). Deploy on a testnet until then.".into());
+    }
+    // The deployer's x-only pubkey IS the payload of a 32-byte schnorr P2PK address.
+    let owner_addr = match Address::try_from(req.deployer_addr.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("invalid deployer address: {e}")),
+    };
+    let owner_xonly: [u8; 32] = match owner_addr.payload.as_slice().try_into() {
+        Ok(x) => x,
+        Err(_) => return err("deployer must be a 32-byte schnorr P2PK address (kaspa:q.../kaspatest:q...)".into()),
+    };
+    let (redeem, redeem_kind) = match build_redeem_from_spec(&req.redeem, &owner_xonly) {
+        Ok(v) => v,
+        Err(e) => return err(e),
+    };
+    let p2sh_spk = p2sh_script_pubkey(&redeem);
+    let p2sh_addr = match p2sh_address(&redeem, prefix_for_network(&req.network)) {
+        Ok(a) => a.to_string(),
+        Err(e) => return err(e),
+    };
+    let stake_sompi = (req.stake_kas * 100_000_000.0).round() as u64;
+    if stake_sompi == 0 {
+        return err("stake_kas must be > 0".into());
+    }
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![owner_addr.clone()]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    if utxos.is_empty() {
+        return err("no UTXOs for the deployer address (fund it first)".into());
+    }
+    let best = utxos.iter().max_by_key(|u| u.utxo_entry.amount).unwrap();
+    let total_input = best.utxo_entry.amount;
+    let total_cost = stake_sompi + TX_FEE;
+    if total_input < total_cost {
+        return err(format!("insufficient balance in the largest UTXO: have {total_input} sompi, need {total_cost}. Consolidate UTXOs or lower the stake."));
+    }
+    let deployer_script = best.utxo_entry.script_public_key.clone();
+    let change = total_input - total_cost;
+    let mut outputs = vec![TransactionOutput { value: stake_sompi, script_public_key: p2sh_spk }];
+    if change > 0 {
+        outputs.push(TransactionOutput { value: change, script_public_key: deployer_script });
+    }
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint { transaction_id: best.outpoint.transaction_id, index: best.outpoint.index },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: 1,
+    }];
+    // Same aa20 + blake2b(redeem) + full-redeem payload as the custodial deploy (required
+    // for the sighash, crawler-discoverable, and trustless on-chain recovery).
+    let mut deploy_payload = vec![0xaa, 0x20];
+    deploy_payload.extend_from_slice(&blake2b256(&redeem));
+    deploy_payload.extend_from_slice(&redeem);
+    let unsigned = Transaction::new_non_finalized(
+        0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, deploy_payload,
+    );
+    let entry = UtxoEntry {
+        amount: best.utxo_entry.amount,
+        script_public_key: best.utxo_entry.script_public_key.clone(),
+        block_daa_score: best.utxo_entry.block_daa_score,
+        is_coinbase: best.utxo_entry.is_coinbase,
+    };
+    let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+    let sighash_hex = hex::encode(sig_hash.as_bytes());
+
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let now_ts = chrono::Utc::now().timestamp();
+    {
+        let mut s = deploy_sessions().lock().unwrap();
+        s.retain(|_, v| v.created_at > now_ts - 600);
+        s.insert(session_id.clone(), PendingDeploy {
+            network: req.network.clone(), unsigned_tx: unsigned, entry, redeem: redeem.clone(),
+            redeem_kind: redeem_kind.clone(), p2sh_address: p2sh_addr.clone(),
+            deployer_addr: req.deployer_addr.clone(), stake_sompi, created_at: now_ts,
+        });
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "session_id": session_id,
+        "sighash": sighash_hex,
+        "sign_scheme": "bip340-schnorr-secp256k1",
+        "signer_xonly": hex::encode(owner_xonly),
+        "p2sh_address": p2sh_addr,
+        "redeem_script_hex": hex::encode(&redeem),
+        "redeem_kind": redeem_kind,
+        "stake_sompi": stake_sompi,
+        "locked_kas": stake_sompi as f64 / 100_000_000.0,
+        "note": "Sign this sighash (BIP340 Schnorr) with your wallet key, then POST {session_id, signature_hex} to /covenant/p2sh/submit-deploy. Your key never leaves your device."
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct SubmitDeployRequest {
+    pub session_id: String,
+    /// 64-byte BIP340 Schnorr signature (hex) over the prepared funding sighash.
+    pub signature_hex: String,
+}
+
+/// POST /covenant/p2sh/submit-deploy - assemble the deployer's signature into the funding
+/// tx and broadcast, then index the new covenant. The server never had the key.
+pub async fn submit_deploy_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<SubmitDeployRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let pending = {
+        let mut s = deploy_sessions().lock().unwrap();
+        match s.remove(&req.session_id) {
+            Some(p) => p,
+            None => return err("unknown or expired session_id (call prepare-deploy first; sessions last 10 minutes)".into()),
+        }
+    };
+    let sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+        Some(b) => b,
+        None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
+    };
+    // The funding input spends a 32-byte schnorr P2PK output; its signature_script is just
+    // the 65-byte (sig||sighashtype) push.
+    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
+    signable.tx.inputs[0].signature_script = push65(&sig);
+    signable.tx.finalize();
+    let client = match client_for_network(&pending.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let rpc_tx = RpcTransaction::from(&signable.tx);
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => {
+            let tx_id_str = tx_id.to_string();
+            let redeem_hex = hex::encode(&pending.redeem);
+            // Same bookkeeping as the custodial deploy: persist the p2sh record + index the
+            // covenant immediately at "<txid>:0" so it shows on-chain at once.
+            let _ = db::insert_p2sh_covenant(
+                &db, &tx_id_str, &pending.network, &pending.p2sh_address, &redeem_hex,
+                &pending.redeem_kind, pending.stake_sompi, 0, &pending.deployer_addr,
+            );
+            let p2sh_script_hex = hex::encode(p2sh_script_pubkey(&pending.redeem).script());
+            let cid = format!("{}:0", tx_id_str);
+            let recv = serde_json::to_string(&vec![pending.p2sh_address.clone()]).unwrap_or_default();
+            let kind_base = pending.redeem_kind.split(':').next().unwrap_or(&pending.redeem_kind);
+            let ctype = format!("p2sh-{kind_base}");
+            let summary = format!("Script-enforced {} covenant, {} KAS locked", kind_base, pending.stake_sompi as f64 / 1e8);
+            let _ = db::insert_covenant(
+                &db, &cid, &pending.p2sh_address, pending.stake_sompi, &crate::compute_script_hash(&p2sh_script_hex),
+                &p2sh_script_hex, &ctype, "P2SH Commitments", &pending.deployer_addr, &summary, 0,
+                "EXPLORER", &summary, &recv, &pending.network,
+            );
+            info!("Non-custodial P2SH deploy: tx={} kind={} addr={} locked={} sompi", tx_id_str, pending.redeem_kind, pending.p2sh_address, pending.stake_sompi);
+            Json(serde_json::json!({
+                "success": true,
+                "deploy_tx_id": tx_id_str,
+                "p2sh_address": pending.p2sh_address,
+                "redeem_script_hex": redeem_hex,
+                "redeem_kind": pending.redeem_kind,
+                "outpoint": format!("{}:0", tx_id_str),
+                "locked_sompi": pending.stake_sompi,
+                "locked_kas": pending.stake_sompi as f64 / 100_000_000.0,
+                "enforcement_reality": "on-chain",
+                "note": "Wallet-signed deploy broadcast; no key touched the server. Funds are locked to the script hash."
+            }))
+        }
+        Err(e) => err(format!("broadcast rejected: {e} (a wrong signature, or signing a different sighash, fails the funding input)")),
+    }
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
         .route("/covenant/p2sh/prepare-spend", post(prepare_spend_handler))
         .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))
+        .route("/covenant/p2sh/prepare-deploy", post(prepare_deploy_handler))
+        .route("/covenant/p2sh/submit-deploy", post(submit_deploy_handler))
         .route("/covenant/oracle-payout", post(oracle_payout_handler))
 }
 
@@ -2477,5 +2741,59 @@ mod tests {
             }),
             "only the funder can refund the channel (non-custodial)"
         );
+    }
+
+    #[test]
+    fn noncustodial_deploy_funding_p2pk_spend() {
+        // The wallet-funded deploy (3.1) spends the deployer's 32-byte schnorr P2PK UTXO to
+        // fund the lock; its signature_script is push65(sig) verified against
+        // `<pubkey> OpCheckSig`. Prove that exact funding spend executes, and that a wrong
+        // key fails (so a forged funding signature cannot move the deployer's coins).
+        use kaspa_consensus_core::tx::ScriptPublicKey;
+        let kp = test_keypair(61);
+        let xonly = kp.x_only_public_key().0.serialize();
+        let mut p2pk = Vec::with_capacity(34);
+        p2pk.push(0x20);
+        p2pk.extend_from_slice(&xonly);
+        p2pk.push(0xac);
+        let p2pk_spk = ScriptPublicKey::new(0, p2pk.as_slice().into());
+
+        let run = |sig_script: Vec<u8>| -> bool {
+            let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([9u8; 32]), index: 0 };
+            let tx = Transaction::new(
+                0,
+                vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence: 0, sig_op_count: 1 }],
+                vec![TransactionOutput { value: 90_000_000, script_public_key: p2pk_spk.clone() }],
+                0, SubnetworkId::from_bytes([0u8; 20]), 0, vec![0xaa, 0x20, 1, 2, 3],
+            );
+            let entries = vec![UtxoEntry { amount: 100_000_000, script_public_key: p2pk_spk.clone(), block_daa_score: 1, is_coinbase: false }];
+            let mut signable = SignableTransaction::with_entries(tx, entries);
+            signable.tx.inputs[0].signature_script = sig_script;
+            let verifiable = signable.as_verifiable();
+            let (input, entry) = verifiable.populated_inputs().next().unwrap();
+            let mut reused = SigHashReusedValues::new();
+            let cache = Cache::new(10_000);
+            let mut engine = TxScriptEngine::from_transaction_input(&verifiable, input, 0, entry, &mut reused, &cache).unwrap();
+            engine.execute().is_ok()
+        };
+        // Sign the funding sighash with the deployer key (as a wallet would).
+        let sighash = {
+            let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([9u8; 32]), index: 0 };
+            let tx = Transaction::new(
+                0,
+                vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence: 0, sig_op_count: 1 }],
+                vec![TransactionOutput { value: 90_000_000, script_public_key: p2pk_spk.clone() }],
+                0, SubnetworkId::from_bytes([0u8; 20]), 0, vec![0xaa, 0x20, 1, 2, 3],
+            );
+            let entries = vec![UtxoEntry { amount: 100_000_000, script_public_key: p2pk_spk.clone(), block_daa_score: 1, is_coinbase: false }];
+            let signable = SignableTransaction::with_entries(tx, entries);
+            let mut reused = SigHashReusedValues::new();
+            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused)
+        };
+        let msg = secp256k1::Message::from_digest_slice(sighash.as_bytes().as_slice()).unwrap();
+        let good: [u8; 64] = *kp.sign_schnorr(msg).as_ref();
+        assert!(run(push65(&good)), "non-custodial deploy funding P2PK spend must execute");
+        let wrong: [u8; 64] = *test_keypair(62).sign_schnorr(msg).as_ref();
+        assert!(!run(push65(&wrong)), "a wrong key must not satisfy the funding P2PK spend");
     }
 }

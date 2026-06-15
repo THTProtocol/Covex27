@@ -197,6 +197,7 @@ const Pricing = () => {
     const needWallet = p.needWallet && !address;
     return (
       <div className="relative z-10 max-w-3xl mx-auto px-6 py-16 text-center">
+        <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 520, height: 300, maxWidth: '90vw' }} />
         <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
           <ArrowLeft size={16} /> Cancel
         </button>
@@ -220,7 +221,7 @@ const Pricing = () => {
             <DevConnectPanel compact />
           </div>
         )}
-        <Card className="max-w-xl mx-auto mb-8">
+        <Card className="max-w-xl mx-auto mb-8 detail-hero-enhanced">
           <CardContent className="p-6">
             <div className="flex justify-between py-3 border-b border-white/10">
               <span className="text-gray-300">Tier</span>
@@ -252,7 +253,7 @@ const Pricing = () => {
               {paymentStatus.message}
             </div>
           )}
-          <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg">
+          <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg btn-shimmer">
             {paymentStatus?.type === 'sending' ? 'Sending...' : `Send ${p.price.toLocaleString()} KAS Now`}
           </Button>
           <button onClick={cancelPayment} className="w-full py-3 text-sm text-gray-200 hover:text-white transition">Cancel</button>
@@ -263,12 +264,13 @@ const Pricing = () => {
 
   return (
     <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+      <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 660, height: 300, maxWidth: '90vw' }} />
       {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reason') === 'advanced' && (
         <div className="max-w-2xl mx-auto mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm text-center">
           The Advanced Composer is part of the paid Terminal. Pick a tier below to unlock it.
         </div>
       )}
-      <div className="text-center max-w-2xl mx-auto mb-12">
+      <div className="relative z-10 text-center max-w-2xl mx-auto mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Deploy Interactive Covenants</h1>
         <p className="text-base md:text-lg text-gray-300 leading-relaxed">
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
@@ -280,11 +282,13 @@ const Pricing = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <Card key={tier.id} className={`flex flex-col pricing-tier-card ${!isFree ? 'border-2' : ''}`} style={!isFree ? { borderColor: tier.accent + '40' } : {}}>
+            <Card key={tier.id} className={`relative overflow-hidden flex flex-col pricing-tier-card hover-lift ${!isFree ? 'border-2' : ''}`}
+              style={!isFree ? { borderColor: tier.accent + '40', boxShadow: tier.id === 'PRO' ? `0 0 0 1px ${tier.accent}55, 0 22px 55px -24px ${tier.accent}77` : undefined } : {}}>
+              {!isFree && <div className="absolute top-0 inset-x-0 h-[3px]" aria-hidden="true" style={{ background: `linear-gradient(90deg, transparent, ${tier.accent}, transparent)` }} />}
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -293,6 +297,7 @@ const Pricing = () => {
                     {tier.id === 'PRO' && <Star size={22} style={{ color: tier.accent }} />}
                     {tier.id === 'MAX' && <Crown size={22} style={{ color: tier.accent }} />}
                     <CardTitle>{tier.name}</CardTitle>
+                    {tier.id === 'PRO' && <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: '#0b0d14', background: tier.accent }}>Popular</span>}
                   </div>
                   <Badge variant={tier.variant}>{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
                 </div>
@@ -315,10 +320,10 @@ const Pricing = () => {
                 </div>
               </CardContent>
               <div className="p-6 pt-0">
-                <Button 
-                  onClick={() => handlePay(tier)} 
+                <Button
+                  onClick={() => handlePay(tier)}
                   variant={isFree ? 'outline' : 'default'}
-                  className="w-full"
+                  className={`w-full ${isFree ? '' : 'btn-shimmer'}`}
                 >
                   {tier.cta}
                 </Button>

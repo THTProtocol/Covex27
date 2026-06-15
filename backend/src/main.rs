@@ -848,12 +848,21 @@ async fn covenant_by_id_handler(
     match db::get_covenant_by_txid(&db, &covenant_id) {
         Ok(Some(c)) => {
             let ui = db::get_generated_ui_for(&db, &c.tx_id).unwrap_or_default();
-            let (custom_ui_html, ui_cfg_raw) = ui.unwrap_or_default();
+            let (custom_ui_html, ui_cfg_raw, ui_source_tier) = ui.unwrap_or_default();
             let custom_ui_config = serde_json::from_str::<serde_json::Value>(&ui_cfg_raw)
                 .unwrap_or_else(|_| db::ui_config_for_tier(&c.verified_tier));
             let mut v = covenant_summary_json(&c, !custom_ui_html.is_empty(), custom_ui_config);
             v["script_hex"] = json!(c.script_hex);
             v["custom_ui_html"] = json!(custom_ui_html);
+            // Distinguish a genuine creator-published UI (saved via terminal-config,
+            // tier "TERMINAL") from an auto-generated blob. The frontend renders the
+            // iframe ONLY for creator UIs and shows a clean native panel otherwise,
+            // so an auto-generated "basic UI" never speaks for the covenant.
+            v["custom_ui_source"] = json!(if ui_source_tier == "TERMINAL" {
+                "creator"
+            } else {
+                "auto"
+            });
             v["receiving_addresses"] = json!(c.receiving_addresses);
             // TRUSTLESS RECOVERY: for an enforced P2SH covenant, surface the full redeem
             // script + spend metadata so the owner (or anyone) can reconstruct and sign the

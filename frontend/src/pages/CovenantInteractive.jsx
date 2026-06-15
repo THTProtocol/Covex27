@@ -504,8 +504,10 @@ export default function CovenantInteractive() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        // Optimistically update local covenant so the nice UI appears immediately for preview
-        setCovenant((c) => ({ ...c, custom_ui_html: html }));
+        // Optimistically update local covenant so the nice UI appears immediately for preview.
+        // Mark it creator-sourced so hasCreatorUI lights up the iframe right away (the backend
+        // persists this as a TERMINAL-tier row, which reads back as custom_ui_source 'creator').
+        setCovenant((c) => ({ ...c, custom_ui_html: html, custom_ui_source: 'creator' }));
         localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
         setToast({ type: 'success', msg: 'Custom transparent UI published! All viewers now see the nice view (no terminal).' });
         setActiveTab('interact');
@@ -517,7 +519,7 @@ export default function CovenantInteractive() {
       // The update did NOT reach the backend - do not claim it published. Save the
       // config locally for the creator's own preview, but be explicit it is not live.
       localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
-      setCovenant((c) => ({ ...c, custom_ui_html: html }));
+      setCovenant((c) => ({ ...c, custom_ui_html: html, custom_ui_source: 'creator' }));
       setToast({ type: 'error', msg: `Publish failed: ${e.message || 'could not reach the backend'}. Saved locally for your preview only - viewers do NOT see this yet.` });
       return false;
     }
@@ -543,6 +545,16 @@ export default function CovenantInteractive() {
   }
 
   const verified = isVerified(covenant);
+
+  // Only a GENUINE creator-published UI (saved via the Fix/terminal-config flow,
+  // backend marks custom_ui_source === 'creator') earns the iframe. The auto-
+  // generated "basic UI" blob (custom_ui_source === 'auto') is NOT rendered - it
+  // would otherwise speak for the covenant (e.g. calling a consensus-enforced
+  // covenant "dangerous"). Those viewers get the clean native interact panel below.
+  const hasCreatorUI =
+    covenant?.custom_ui_source === 'creator' &&
+    typeof covenant?.custom_ui_html === 'string' &&
+    covenant.custom_ui_html.length > 10;
 
   // Preview style based on config
   const previewStyle = {
@@ -951,8 +963,9 @@ export default function CovenantInteractive() {
                   </div>
                 )}
 
-                {/* Custom UI iframe for non-chess or when published (transparent) */}
-                {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && !isCreator && !isChess && (
+                {/* Custom UI iframe ONLY for a genuine creator-published UI. Auto-generated
+                    blobs are skipped so the clean native panel below speaks for the covenant. */}
+                {hasCreatorUI && !isCreator && !isChess && (
                   <div className="mb-4">
                     <div className="text-xs uppercase tracking-widest text-kaspa-green/80 mb-1">Creator-Published Custom Interface</div>
                     <div className="rounded-2xl overflow-hidden border border-kaspa-green/20 bg-black/60">
@@ -1190,8 +1203,9 @@ export default function CovenantInteractive() {
         </motion.div>
       </div>
 
-      {/* Custom UI Rendering: creator published transparent view (via Fix page) */}
-      {covenant?.custom_ui_html && covenant.custom_ui_html.length > 10 && (
+      {/* Custom UI Rendering: creator published transparent view (via Fix page).
+          Reserved for genuine creator UIs - auto-generated blobs are never framed here. */}
+      {hasCreatorUI && (
         <div className="mt-8 w-full">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30">
@@ -1291,8 +1305,8 @@ export default function CovenantInteractive() {
         </div>
       )}
 
-      {/* Fullscreen Modal for Custom UI */}
-      {fullscreenUI && covenant?.custom_ui_html && (
+      {/* Fullscreen Modal for Custom UI (genuine creator UIs only) */}
+      {fullscreenUI && hasCreatorUI && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-sm"
           onClick={() => setFullscreenUI(false)}

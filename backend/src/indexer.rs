@@ -191,6 +191,14 @@ pub async fn run_indexer(
                             let gen_hash = script_hash.clone();
                             let gen_addr = address.clone();
                             let gen_tier = tier.clone();
+                            // Honest enforcement label from the on-chain script, so the
+                            // auto-generated UI's trust banner can't call a consensus-
+                            // enforced covenant "dangerous". (Mirrors the detail page.)
+                            let gen_reality = crate::covenant_catalog::reality_for_script(
+                                &script_hex,
+                            )
+                            .as_str()
+                            .to_string();
                             tokio::spawn(async move {
                                 let params = crate::ui_generator::extract_parameters_from_script(
                                     "aa20", &gen_hash,
@@ -208,6 +216,7 @@ pub async fn run_indexer(
                                         "full".into()
                                     },
                                     creator_addr: gen_addr,
+                                    enforcement_reality: gen_reality,
                                 };
                                 let ui_html = crate::ui_generator::generate_basic_ui(&config);
                                 let slug = format!("covenant-{}", &gen_tx_id[..16]);

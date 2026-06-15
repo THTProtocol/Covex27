@@ -1,39 +1,79 @@
 use crate::covenant_types::{UiGenerationConfig, UiParameter};
 
 /// Basic UI for FREE/EXPLORER tier covenants.
-/// Includes danger banner, limited fields (tx_id, script_hash, amount, type, timestamp only).
+/// Limited fields (tx_id, script_hash, amount, type, timestamp only).
+///
+/// Trust banner is ENFORCEMENT-AWARE (mirrors the left-panel banner in
+/// CovenantInteractive.jsx, commit 13258e2): a consensus-enforced ("on-chain")
+/// covenant is the STRONGEST guarantee Kaspa offers, so it gets a positive
+/// "ON-CHAIN ENFORCED" banner even on the free tier - the unpaid "verified tier"
+/// only adds extra creator disclosure, it is NOT what backs the funds. Only a
+/// metadata-only / decorative covenant - which the chain does NOT enforce - gets
+/// the caution banner.
 pub fn generate_basic_ui(config: &UiGenerationConfig) -> String {
     let form_html = build_form_html(&config.parameters);
-    let danger_banner = r#"<div class="danger-banner">
+    let on_chain = config.enforcement_reality == "on-chain";
+
+    let (title_suffix, badge_class, badge_label) = if on_chain {
+        ("On-Chain Enforced", "badge-onchain", "ON-CHAIN")
+    } else {
+        ("Unverified", "badge-danger", "UNVERIFIED")
+    };
+
+    let trust_banner = if on_chain {
+        r#"<div class="onchain-banner">
+  <div class="onchain-icon">&#10003;</div>
+  <div class="onchain-text">
+    <strong>ON-CHAIN ENFORCED</strong>
+    <p>Kaspa consensus enforces this covenant - the strongest guarantee. Funds lock to a script hash and move only by satisfying it, with no oracle and no trust in Covex. The paid "verified tier" only adds extra creator-published disclosure; it is separate from enforcement.</p>
+  </div>
+</div>"#
+    } else {
+        r#"<div class="danger-banner">
   <div class="danger-icon">!</div>
   <div class="danger-text">
-    <strong>DANGEROUS / UNVERIFIED COVENANT</strong>
-    <p>This covenant has NOT been verified by its creator via on-chain payment. Limited disclosure only. Use at your own risk.</p>
+    <strong>METADATA ONLY - NOT CONSENSUS-ENFORCED</strong>
+    <p>The chain records this covenant but does NOT enforce its stated logic, and disclosure is limited. Review the on-chain facts and the creator before sending funds.</p>
   </div>
-</div>"#;
+</div>"#
+    };
+
+    let disclosure_heading = if on_chain {
+        "On-Chain Facts (Consensus-Enforced)"
+    } else {
+        "Limited Disclosure (Free Tier)"
+    };
+
+    let disclosure_note = if on_chain {
+        r#"<div class="disclosure-note disclosure-note-ok">
+      <p>This covenant is already script-locked on Kaspa - that enforcement is maximal and free. The optional paid tier only unlocks additional creator-published disclosure (logic summary, branding); it does NOT change how the funds are secured.</p>
+    </div>"#
+    } else {
+        r#"<div class="disclosure-note">
+      <p>Full parameter breakdown, receiving addresses, and logic summary are only available for verified (paid) covenants.</p>
+      <p>The covenant creator can verify by sending the tier payment from this creator address to the Covex treasury.</p>
+    </div>"#
+    };
 
     format!(
         r#"<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>{name} | Covex (Unverified)</title>
+<title>{name} | Covex ({title_suffix})</title>
 <style>{css}</style></head><body>
   <div class="glass-panel">
     <div class="header"><h1>{name}</h1>
-      <div class="badge-row"><span class="badge badge-category">{category}</span><span class="badge badge-danger">UNVERIFIED</span></div>
+      <div class="badge-row"><span class="badge badge-category">{category}</span><span class="badge {badge_class}">{badge_label}</span></div>
       <div class="script-hash">Script: {shorthash}</div>
     </div>
-    {danger_banner}
+    {trust_banner}
     <div class="limited-disclosure">
-      <h3>Limited Disclosure (FREE Tier)</h3>
+      <h3>{disclosure_heading}</h3>
       <div class="field-row"><span>TX ID</span><span class="mono-truncate">{covenant_id}</span></div>
       <div class="field-row"><span>Category</span><span>{category}</span></div>
       <div class="field-row"><span>Type</span><span>{ctype}</span></div>
       <div class="field-row"><span>Script Hash</span><span class="mono-truncate">{script_hash}</span></div>
     </div>
-    <div class="disclosure-note">
-      <p>Full parameter breakdown, receiving addresses, and logic summary are only available for verified (paid) covenants.</p>
-      <p>The covenant creator can verify by sending the tier payment from this creator address to the Covex treasury.</p>
-    </div>
+    {disclosure_note}
     <form id="covenant-form">{form_html}
       <button type="submit" class="btn btn-primary" id="interact-btn" disabled>Connect Wallet to Interact</button>
     </form>
@@ -43,9 +83,14 @@ pub fn generate_basic_ui(config: &UiGenerationConfig) -> String {
 {interact_script}
 </body></html>"#,
         name = config.covenant_name,
+        title_suffix = title_suffix,
         category = config.category,
+        badge_class = badge_class,
+        badge_label = badge_label,
         shorthash = &config.script_hash[..16.min(config.script_hash.len())],
-        danger_banner = danger_banner,
+        trust_banner = trust_banner,
+        disclosure_heading = disclosure_heading,
+        disclosure_note = disclosure_note,
         covenant_id = config.covenant_id,
         ctype = "covenant",
         script_hash = config.script_hash,
@@ -169,9 +214,13 @@ body{background:radial-gradient(circle at 50% 0%,#11111a 0%,#05050A 100%);backgr
 .badge-category{background:rgba(73,234,203,0.08);color:#49EACB;border:1px solid rgba(73,234,203,0.2)}
 .badge-danger{background:rgba(239,68,68,0.08);color:#EF4444;border:1px solid rgba(239,68,68,0.25)}
 .badge-verified{background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.25)}
-.danger-banner{background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:14px;padding:18px 22px;display:flex;align-items:center;gap:14px;margin-bottom:28px}
-.danger-icon{width:44px;height:44px;border-radius:12px;background:rgba(239,68,68,0.12);color:#EF4444;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0}
-.danger-text strong{color:#EF4444;font-size:13px}.danger-text p{color:#FCA5A5;font-size:11px;margin-top:3px}
+.badge-onchain{background:rgba(16,185,129,0.08);color:#34D399;border:1px solid rgba(16,185,129,0.25)}
+.danger-banner{background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);border-radius:14px;padding:18px 22px;display:flex;align-items:center;gap:14px;margin-bottom:28px}
+.danger-icon{width:44px;height:44px;border-radius:12px;background:rgba(245,158,11,0.12);color:#F59E0B;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0}
+.danger-text strong{color:#F59E0B;font-size:13px}.danger-text p{color:#FCD34D;font-size:11px;margin-top:3px}
+.onchain-banner{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:18px 22px;display:flex;align-items:center;gap:14px;margin-bottom:28px}
+.onchain-icon{width:44px;height:44px;border-radius:12px;background:rgba(16,185,129,0.14);color:#34D399;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0}
+.onchain-text strong{color:#34D399;font-size:13px}.onchain-text p{color:#6EE7B7;font-size:11px;margin-top:3px}
 .limited-disclosure,.full-disclosure{margin-bottom:24px}
 .limited-disclosure h3,.full-disclosure h3{font-size:13px;color:#9CA3AF;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
 .field-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px}
@@ -179,6 +228,7 @@ body{background:radial-gradient(circle at 50% 0%,#11111a 0%,#05050A 100%);backgr
 .field-row span:last-child{color:#D1D5DB}
 .mono-truncate{font-family:monospace;font-size:10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .disclosure-note{margin-bottom:24px;padding:12px 16px;border-radius:10px;background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);font-size:11px;color:#FBBF24}
+.disclosure-note-ok{background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);color:#6EE7B7}
 .disclosure-note p{margin-top:4px}
 .field{margin-bottom:20px}
 .field label{display:block;font-size:12px;font-weight:500;color:#9CA3AF;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}

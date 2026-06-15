@@ -391,6 +391,12 @@ pub async fn run_crawler(
                             tier,
                             &stored_script[..40.min(stored_script.len())]
                         );
+                        // Honest enforcement label from the on-chain script, so the
+                        // auto-generated UI's trust banner can't call a consensus-
+                        // enforced covenant "dangerous". (Mirrors the detail page.)
+                        let greality = crate::covenant_catalog::reality_for_script(&covenant_script)
+                            .as_str()
+                            .to_string();
                         let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
                             Arc::clone(&db),
                             tid.clone(),
@@ -416,6 +422,7 @@ pub async fn run_crawler(
                                     "full".into()
                                 },
                                 creator_addr: gcreator,
+                                enforcement_reality: greality,
                             };
                             let html = ui_generator::generate_basic_ui(&cfg);
                             let slug = format!("covenant-{}", &gid[..16]);

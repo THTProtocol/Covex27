@@ -853,17 +853,25 @@ pub fn platform_stats(
     }))
 }
 
-/// Custom UI lookup for a single covenant (html, config) without loading the full map.
+/// Custom UI lookup for a single covenant (html, config, source_tier) without
+/// loading the full map. `source_tier` is the `tier` column of the row that
+/// supplied the html: "TERMINAL" marks a genuine creator-published UI (saved via
+/// the protected terminal-config endpoint), whereas "FREE"/"EXPLORER"/"PRO"/... mark
+/// an auto-generated blob. Callers use it to reserve the iframe for real creator UIs.
 pub fn get_generated_ui_for(
     db: &Mutex<Connection>,
     covenant_id: &str,
-) -> anyhow::Result<Option<(String, String)>> {
+) -> anyhow::Result<Option<(String, String, String)>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT ui_html, ui_config FROM generated_uis WHERE covenant_id = ?1 ORDER BY ui_generated_at DESC LIMIT 1",
+        "SELECT ui_html, ui_config, tier FROM generated_uis WHERE covenant_id = ?1 ORDER BY ui_generated_at DESC LIMIT 1",
     )?;
     let mut rows = stmt.query_map(params![covenant_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
     })?;
     Ok(rows.next().transpose()?)
 }

@@ -375,6 +375,12 @@ pub struct UiGenerationConfig {
     pub disclosure_level: String,
     #[serde(default)]
     pub creator_addr: String,
+    /// Honest on-chain enforcement label (covenant_catalog::reality_for_script):
+    /// "on-chain" | "hybrid" | "oracle-attested" | "decorative" (empty = unknown).
+    /// Drives the basic-UI trust banner: a consensus-enforced (on-chain) covenant is
+    /// the STRONGEST guarantee and must NOT be labeled "dangerous/unverified".
+    #[serde(default)]
+    pub enforcement_reality: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -160,6 +160,16 @@ pub async fn run_payment_verifier(
                                                 .as_ref()
                                                 .map(|c| c.script_hash.clone())
                                                 .unwrap_or_default();
+                                            let gen_reality = matched_covenant
+                                                .as_ref()
+                                                .map(|c| {
+                                                    crate::covenant_catalog::reality_for_script(
+                                                        &c.script_hex,
+                                                    )
+                                                    .as_str()
+                                                    .to_string()
+                                                })
+                                                .unwrap_or_default();
                                             let gen_addr = from_address.clone();
                                             tokio::spawn(async move {
                                                 let params = crate::ui_generator::extract_parameters_from_script("aa20", &gen_hash);
@@ -173,6 +183,7 @@ pub async fn run_payment_verifier(
                                                         is_enhanced: true,
                                                         disclosure_level: "full".into(),
                                                         creator_addr: gen_addr,
+                                                        enforcement_reality: gen_reality,
                                                     };
                                                 let ui_html =
                                                     crate::ui_generator::generate_enhanced_ui(

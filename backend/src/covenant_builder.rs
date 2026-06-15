@@ -125,6 +125,23 @@ impl RedeemKind {
             RedeemKind::OracleEscrow { .. } => "oracle_escrow".to_string(),
         }
     }
+
+    /// The `covenant_catalog::CATALOG` id for this kind. The match is exhaustive, so
+    /// adding a RedeemKind variant forces giving it a catalog id - and the catalog test
+    /// `catalog_has_an_entry_for_every_builder_kind` then forces an actual CATALOG row,
+    /// so a deployable kind can never silently go missing from the explorer/wizard.
+    pub fn catalog_id(&self) -> &'static str {
+        match self {
+            RedeemKind::SingleSig { .. } => "p2sh_singlesig",
+            RedeemKind::HashLock { .. } => "p2sh_hashlock",
+            RedeemKind::Timelock { .. } => "p2sh_timelock",
+            RedeemKind::Multisig { .. } => "p2sh_multisig",
+            RedeemKind::Htlc { .. } => "p2sh_htlc",
+            RedeemKind::Channel { .. } => "p2sh_channel",
+            RedeemKind::OracleEnforced { .. } => "oracle_enforced",
+            RedeemKind::OracleEscrow { .. } => "oracle_escrow",
+        }
+    }
 }
 
 /// A covenant's spend-time shape, recovered from the persisted `redeem_kind` string

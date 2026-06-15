@@ -153,6 +153,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "Receiver claims by revealing a preimage; sender refunds after a timelock. Cross-party / cross-chain atomic swaps.",
     },
     CatalogEntry {
+        id: "p2sh_channel",
+        label: "State-channel pot (2-player, trustless)",
+        category: "State Channels",
+        reality: EnforcementReality::OnChain,
+        builder: "covenant_builder",
+        params: &["stake_kas", "pubkeys_hex", "lock_daa"],
+        summary: "A 2-of-2 cooperative-close pot with a funder refund after a timelock. The chain pays the agreed winner; no oracle, and Covex is never in the payout path.",
+    },
+    CatalogEntry {
         id: "oracle_enforced",
         label: "Oracle-enforced (on-chain co-sign)",
         category: "Verifiable Games (ZK/Oracle)",
@@ -269,6 +278,33 @@ mod tests {
             .collect();
         for id in ["p2sh_singlesig", "p2sh_hashlock", "p2sh_timelock", "p2sh_multisig"] {
             assert!(onchain.contains(&id), "missing OnChain primitive {id}");
+        }
+    }
+
+    /// Drift guard: every covenant_builder RedeemKind variant must have a CATALOG row, so
+    /// a deployable covenant type can never go missing from the explorer/wizard. The
+    /// RedeemKind::catalog_id() match is exhaustive, so a new variant forces a new id here.
+    #[test]
+    fn catalog_has_an_entry_for_every_builder_kind() {
+        use crate::covenant_builder::RedeemKind;
+        let a = [1u8; 32];
+        let kinds = [
+            RedeemKind::SingleSig { xonly_pubkey: a },
+            RedeemKind::HashLock { hash: a, xonly_pubkey: a },
+            RedeemKind::Timelock { lock_daa: 1, xonly_pubkey: a },
+            RedeemKind::Multisig { pubkeys: vec![a, a], required: 2 },
+            RedeemKind::Htlc { hash: a, receiver_pubkey: a, lock_daa: 1, sender_pubkey: a },
+            RedeemKind::Channel { p1: a, p2: a, lock_daa: 1 },
+            RedeemKind::OracleEnforced { oracle: a, winner: a },
+            RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
+        ];
+        let ids: Vec<&str> = CATALOG.iter().map(|e| e.id).collect();
+        for k in &kinds {
+            assert!(
+                ids.contains(&k.catalog_id()),
+                "CATALOG has no entry for builder kind '{}'",
+                k.catalog_id()
+            );
         }
     }
 }

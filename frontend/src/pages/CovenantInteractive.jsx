@@ -9,6 +9,26 @@ import { signCovenantOwnership } from '../lib/ownership';
 import { explorerTxUrl } from '../lib/explorer';
 import CovexTerminal from '../components/CovexTerminal';
 import FullScreenChess from '../components/FullScreenChess';
+import FullScreenPoker from '../components/FullScreenPoker';
+import FullScreenReversi from '../components/FullScreenReversi';
+import FullScreenConnect4 from '../components/FullScreenConnect4';
+import FullScreenCheckers from '../components/FullScreenCheckers';
+import FullScreenTicTacToe from '../components/FullScreenTicTacToe';
+import FullScreenRPS from '../components/FullScreenRPS';
+import FullScreenBlackjack from '../components/FullScreenBlackjack';
+
+// Every game covenant is playable from its detail page (not just chess). Each FullScreen* arena
+// shares the prop shape { stake, onClose, covenantId, feePercent, potReturnPercent }.
+const GAME_REGISTRY = {
+  chess: { Component: FullScreenChess, label: 'Chess', stake: 50 },
+  poker: { Component: FullScreenPoker, label: 'Poker', stake: 100 },
+  reversi: { Component: FullScreenReversi, label: 'Reversi', stake: 40 },
+  connect4: { Component: FullScreenConnect4, label: 'Connect Four', stake: 30 },
+  checkers: { Component: FullScreenCheckers, label: 'Checkers', stake: 50 },
+  tictactoe: { Component: FullScreenTicTacToe, label: 'Tic-Tac-Toe', stake: 20 },
+  rps: { Component: FullScreenRPS, label: 'Rock Paper Scissors', stake: 25 },
+  blackjack: { Component: FullScreenBlackjack, label: 'Blackjack', stake: 100 },
+};
 import { Chessboard } from 'react-chessboard';
 import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -182,19 +202,31 @@ export default function CovenantInteractive() {
   const [fullscreenUI, setFullscreenUI] = useState(false);
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
-  // Robust chess detection for full pro arena experience (covers type, category, name, desc, 10min rules)
-  const isChess = useMemo(() => {
-    if (!covenant) return false;
-    const hay = [
-      covenant.covenant_type,
-      covenant.category,
-      covenant.name,
-      covenant.description,
-      covenant.desc,
-      covenant.full_logic_summary
-    ].filter(Boolean).join(' ').toLowerCase();
-    return hay.includes('chess') || hay.includes('10 min') || hay.includes('10min') || hay.includes('winner-takes-all') || hay.includes('winner takes all');
+  const [showGameArena, setShowGameArena] = useState(false);
+  // Detect WHICH game this covenant is. Prefer the explicit deployed game_type; fall back to text
+  // heuristics for older/crawled covenants. Specific games are matched before the loose chess
+  // fallback so a poker covenant that says "winner takes all" isn't mis-detected as chess.
+  const gameType = useMemo(() => {
+    if (!covenant) return null;
+    const cfg = covenant.custom_ui_config || {};
+    const explicit = (covenant.game_type || cfg.game_type || '').toLowerCase();
+    const hay = (explicit + ' ' + [
+      covenant.covenant_type, covenant.category, covenant.name,
+      covenant.description, covenant.desc, covenant.full_logic_summary,
+      cfg.name, cfg.description,
+    ].filter(Boolean).join(' ')).toLowerCase();
+    if (/poker|hold.?em/.test(hay)) return 'poker';
+    if (/blackjack/.test(hay)) return 'blackjack';
+    if (/checkers|draughts/.test(hay)) return 'checkers';
+    if (/connect.?4|connect.?four/.test(hay)) return 'connect4';
+    if (/reversi|othello/.test(hay)) return 'reversi';
+    if (/tic.?tac.?toe/.test(hay)) return 'tictactoe';
+    if (/rock.?paper|\brps\b/.test(hay)) return 'rps';
+    if (/chess/.test(hay) || hay.includes('10 min') || hay.includes('10min') || hay.includes('winner-takes-all') || hay.includes('winner takes all')) return 'chess';
+    return null;
   }, [covenant]);
+  const isChess = gameType === 'chess';
+  const isOtherGame = !!gameType && gameType !== 'chess';
 
   const handleUpgrade = async (tier) => {
     setUpgradeTier(tier);
@@ -328,6 +360,7 @@ export default function CovenantInteractive() {
     const onMsg = (e) => {
       if (e?.data?.type !== 'COVENANT_EXECUTE') return;
       if (isChess) setShowChessArena(true);
+      else if (isOtherGame) setShowGameArena(true);
       else handleExecute();
     };
     window.addEventListener('message', onMsg);
@@ -873,7 +906,7 @@ export default function CovenantInteractive() {
               }`}
             >
               <Terminal size={14} />
-              {isChess ? 'Arena / Play' : 'Interact'}
+              {gameType ? 'Arena / Play' : 'Interact'}
             </button>
             {/* Fix tab visible to creator only. Renders full clean Customization Garage + exactly 1 section for stake amount + rules + Publish. No paid nags. */}
             {isCreator && (
@@ -978,6 +1011,35 @@ export default function CovenantInteractive() {
                         STAKE AND PLAY
                       </button>
                       <div className="text-center text-xs text-gray-500 mt-2">Launches the full interactive pro arena with real timers, moves, resign and oracle.</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Generic game lobby for every non-chess game covenant (poker, reversi, connect4, ...). */}
+                {isOtherGame && (
+                  <div className="flex flex-col items-center justify-center py-6">
+                    <div className="text-center mb-5">
+                      <div className="text-emerald-400 text-sm tracking-[3px] font-bold">WINNER TAKES POT • {GAME_REGISTRY[gameType].label.toUpperCase()} ARENA</div>
+                      <div className="text-3xl font-semibold text-white mt-1">{GAME_REGISTRY[gameType].label}</div>
+                      <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed">
+                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine, oracle-attested result, winner takes the pot minus the creator fee. Non-custodial, direct to the covenant on Kaspa.
+                      </p>
+                    </div>
+                    <div className="w-full max-w-md">
+                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
+                      <input
+                        type="number"
+                        value={chessStake}
+                        onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full text-center text-5xl font-mono p-4 rounded-3xl bg-black/60 border-2 border-emerald-500/40 focus:border-emerald-500 mb-3"
+                      />
+                      <button
+                        onClick={() => setShowGameArena(true)}
+                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xl rounded-3xl active:scale-[0.985] shadow-lg"
+                      >
+                        STAKE AND PLAY
+                      </button>
+                      <div className="text-center text-xs text-gray-500 mt-2">Launches the full interactive arena with real moves and oracle resolution.</div>
                     </div>
                   </div>
                 )}
@@ -1096,11 +1158,23 @@ export default function CovenantInteractive() {
                   <FullScreenChess 
                     stake={chessStake} 
                     onClose={() => setShowChessArena(false)} 
-                    covenantId={covenant.tx_id} 
+                    covenantId={covenant.tx_id}
                     creatorAddr={covenant.creator_addr}
                     feePercent={2}
                   />
                 )}
+                {showGameArena && isOtherGame && (() => {
+                  const G = GAME_REGISTRY[gameType].Component;
+                  return (
+                    <G
+                      stake={chessStake}
+                      onClose={() => setShowGameArena(false)}
+                      covenantId={covenant.tx_id}
+                      feePercent={2}
+                      potReturnPercent={2}
+                    />
+                  );
+                })()}
               </div>
             ) : activeTab === 'fix' && isCreator ? (
               /* FIX TAB INLINE: super clean, lots of space, big text, minimal labels. Exactly the Customization Garage grid + ONE section for stake amount and all of that. Reuses the generator and publish. Focused on this covenant. */

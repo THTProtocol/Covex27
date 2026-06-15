@@ -68,7 +68,7 @@ impl EnforcementReality {
 fn is_exact_p2sh(script_hex: &str) -> bool {
     let s = script_hex.trim().to_ascii_lowercase();
     let raw_len = s.len() / 2;
-    s.starts_with("aa20") && s.ends_with("87") && (34..=36).contains(&raw_len)
+    s.starts_with("aa20") && s.ends_with("87") && raw_len == 35
 }
 
 /// Classify a covenant's HONEST enforcement reality from its on-chain script.
@@ -240,6 +240,17 @@ mod tests {
         let hash = "11".repeat(32);
         let p2sh = format!("aa20{hash}87");
         assert_eq!(reality_for_script(&p2sh), EnforcementReality::OnChain);
+    }
+
+    #[test]
+    fn malformed_length_aa20_87_is_not_onchain() {
+        // A valid Kaspa P2SH is EXACTLY 35 bytes (the 0x20 push is fixed-width). A 34- or
+        // 36-byte aa20..87 is malformed and must NEVER be labeled OnChain (the OnChain
+        // label is the honesty-critical one - it claims "the chain enforces this").
+        let short = format!("aa20{}87", "11".repeat(31)); // 34 bytes
+        let long = format!("aa20{}87", "11".repeat(33)); // 36 bytes
+        assert_ne!(reality_for_script(&short), EnforcementReality::OnChain);
+        assert_ne!(reality_for_script(&long), EnforcementReality::OnChain);
     }
 
     #[test]

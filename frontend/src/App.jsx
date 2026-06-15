@@ -24,14 +24,10 @@ const WhatIsKaspaPage = lazy(() => import('./pages/WhatIsKaspa'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary'));
 const AdvancedComposer = lazy(() => import('./pages/AdvancedComposer'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Terms = lazy(() => import('./pages/Terms'));
 const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
-const PaidDeploy = lazy(() => import('./pages/PaidDeploy'));
 const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));
 const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
-const DemoCovenant = lazy(() => import('./pages/DemoCovenant'));
 const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
 const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Whitepaper = lazy(() => import('./pages/Whitepaper'));
@@ -290,31 +286,35 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Explorer />} />
               <Route path="/fix" element={<CovenantFix />} />
-              <Route path="/covenant" element={<DemoCovenant />} />
+              {/* /covenant was leftover demo scaffolding ("Demo not found" with no param);
+                  send it to the real deploy flow. */}
+              <Route path="/covenant" element={<Navigate to="/deploy/enforced" replace />} />
               <Route path="/covenant/:id" element={<CovenantInteractive />} />
               <Route path="/covenant/:id/fix" element={<CovenantFix />} />
               <Route path="/kaspa" element={<WhatIsKaspaPage />} />
               <Route path="/pricing" element={<Pricing />} />
-              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/terms" element={<Terms />} />
               {/* The old decorative /deploy is gone: every deploy is now the trustless,
                   script-enforced (P2SH) flow. /deploy redirects to it. */}
               <Route path="/deploy" element={<Navigate to="/deploy/enforced" replace />} />
               <Route path="/deploy/enforced" element={<EnforcedDeploy />} />
-              <Route path="/deploy/paid" element={<PaidDeploy />} />
+              {/* /deploy/paid was an orphan duplicate builder; the live paid path is
+                  Pricing -> /premium. Redirect to the canonical enforced deploy. */}
+              <Route path="/deploy/paid" element={<Navigate to="/deploy/enforced" replace />} />
               <Route path="/paid-builder" element={<PaidBuilder />} />
               <Route path="/premium" element={<PremiumBuilder />} />
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/sandbox" element={<Sandbox />} />
               <Route path="/readme" element={<Readme />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
-              <Route path="/analytics" element={<Analytics />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />
               <Route path="/docs" element={<ApiDocs />} />
               <Route path="/whitepaper" element={<Whitepaper />} />
               <Route path="/treasury" element={<Treasury />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/covenant/:id/studio" element={<CovenantStudio />} />
+              {/* Catch-all: any unknown path (incl. removed stubs) -> home, never a blank page. */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>
             </RouteErrorBoundary>

@@ -413,7 +413,7 @@ export default function CovenantFix() {
             </div>
           </div>
         </div>
-        <Link to="/covenant" className="text-xs px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5">New Covenant</Link>
+        <Link to="/deploy/enforced" className="text-xs px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5">New Covenant</Link>
       </div>
 
       {/* My Covenants - simple list to pick from */}

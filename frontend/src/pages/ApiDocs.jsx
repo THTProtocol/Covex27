@@ -23,10 +23,10 @@ const EXAMPLE_RESPONSE = `{
       "timestamp": 1750000638
     }
   ],
-  "total": 9624,
+  "total": 12000,
   "limit": 60,
   "offset": 0,
-  "stats": { "total": 9624, "paid": 2, "tvl_kas": 38191234.5 }
+  "stats": { "total": 12000, "paid": 5, "tvl_kas": 1000000 }
 }`;
 
 export default function ApiDocs() {
@@ -77,7 +77,7 @@ export default function ApiDocs() {
           ['Networks', <>The <code className="text-white">network=</code> query accepts <span className="text-white">testnet-12</span> (default), <span className="text-white">testnet-10</span>, and <span className="text-white">mainnet</span>. Mainnet is configured and indexing-ready but returns <span className="text-white">0 covenants until the Toccata upgrade (2026)</span> activates on-chain covenants - that is expected, not an error.</>],
           ['Auth & limits', <>No API key for reads. Requests are rate-limited per IP (a burst returns <code className="text-white">429</code> "rate limit exceeded"). Lists paginate with <code className="text-white">limit</code> (max 200, default 60) and <code className="text-white">offset</code>.</>],
           ['Search', <>Keyword search supports OR alternatives with a pipe: <code className="text-white">q=chess|poker</code>. Fetch a single covenant by txid at <code className="text-white">/covenants/&lt;txid&gt;</code>.</>],
-          ['Honesty', <>Every covenant carries an <code className="text-white">enforcement_reality</code> (on-chain / hybrid / oracle-attested / metadata-only). The API never claims more enforcement than the chain provides.</>],
+          ['Honesty', <>Every covenant carries an <code className="text-white">enforcement_reality</code>, one of <span className="text-white">on-chain</span> / <span className="text-white">hybrid</span> / <span className="text-white">oracle-attested</span> / <span className="text-white">decorative</span> (a metadata-only marker). The finer "zero-knowledge" label in the UI is a resolution-trust badge for the proof-verified circuits, layered on top - not a separate API value. The API never claims more enforcement than the chain provides.</>],
         ].map(([title, body]) => (
           <div key={title} className="glass-panel rounded-2xl p-4 border border-white/[0.06] hover-lift">
             <p className="text-[10px] font-bold uppercase tracking-widest text-kaspa-green mb-2">{title}</p>

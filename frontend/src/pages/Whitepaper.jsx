@@ -103,7 +103,7 @@ export default function Whitepaper() {
       <div className="z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl" style={{ position: 'sticky', top: '4rem' }}>
         <span className="kicker w-full mb-0.5">Contents</span>
         {SECTIONS.map((s) => (
-          <a key={s.id} href={`#${s.id}`}
+          <a key={s.id} href={`#${s.id}`} onClick={() => setActiveId(s.id)}
             className={`transition-colors ${activeId === s.id ? 'text-kaspa-green font-semibold' : 'text-gray-400 hover:text-kaspa-green'}`}>
             {s.n}
           </a>

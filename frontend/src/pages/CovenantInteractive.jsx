@@ -903,7 +903,7 @@ export default function CovenantInteractive() {
           </div>
 
           {/* Details grid */}
-          <div className="grid grid-cols-2 gap-3 mt-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
             {[
               ['Covenant Type', covenant.covenant_type || 'Unknown'],
               ['Script Hash', (covenant.script_hash || '').slice(0, 20) + '...'],
@@ -997,7 +997,7 @@ export default function CovenantInteractive() {
                       <div className="flex-1">
                         <Chessboard
                           position="start"
-                          boardWidth={580}
+                          boardWidth={Math.min(580, (typeof window !== 'undefined' ? window.innerWidth : 580) - 48)}
                           customDarkSquareStyle={{ backgroundColor: '#b58863' }}
                           customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
                           customBoardStyle={{ borderRadius: '6px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
@@ -1257,7 +1257,7 @@ export default function CovenantInteractive() {
                 {/* Garage grid - templates that turn into nice preview (customisation garage) */}
                 <div>
                   <div className="text-xs uppercase tracking-[2px] text-gray-400 mb-3">CHOOSE A LOOK (TEMPLATES)</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {COVENANT_TEMPLATES.map((tpl) => {
                       const active = selectedTemplate?.id === tpl.id;
                       return (

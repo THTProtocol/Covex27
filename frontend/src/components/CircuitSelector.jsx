@@ -32,7 +32,7 @@ export default function CircuitSelector({ circuits, selectedId, onSelect }) {
   }, [circuits, q, cat]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/30 p-4 flex flex-col" style={{ maxHeight: 640 }}>
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4 flex flex-col" style={{ maxHeight: 'clamp(320px, 60vh, 640px)' }}>
       <div className="flex items-center gap-2 mb-3 px-1">
         <Search size={14} className="text-gray-400 shrink-0" />
         <input

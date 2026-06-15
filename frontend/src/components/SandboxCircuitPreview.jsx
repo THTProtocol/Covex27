@@ -145,7 +145,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
               {copied ? (<><Check size={12} className="text-kaspa-green" /> Copied</>) : (<><Copy size={12} /> Copy</>)}
             </button>
           </div>
-          <pre className="text-[10.5px] leading-relaxed text-gray-300 font-mono p-4 overflow-auto" style={{ maxHeight: 280 }}>{exampleScript}</pre>
+          <pre className="text-[10.5px] leading-relaxed text-gray-300 font-mono p-4 overflow-auto whitespace-pre-wrap break-words" style={{ maxHeight: 280 }}>{exampleScript}</pre>
           <div className="px-4 py-2 border-t border-white/[0.06] text-[10px] text-gray-500 leading-relaxed">
             This is the declared, human-readable logic. What the chain enforces today is shown in "How it resolves" above.
           </div>

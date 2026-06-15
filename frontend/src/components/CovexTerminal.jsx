@@ -2348,7 +2348,7 @@ ${gameMeta.outcomeBranches}
 
           {/* Circuit Grid - hidden by default to keep the UI clean.
               User presses "Show all ZK circuits" to reveal the full list. */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {(() => {
               const popular = [
                 // Games (oracle-attested, live)
@@ -2937,7 +2937,7 @@ ${gameMeta.outcomeBranches}
                 </div>
 
                 <div className="text-xs uppercase tracking-widest text-gray-300 mb-1 font-semibold">ON-CHAIN PAYOUT BREAKDOWN</div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div className="p-2 rounded bg-black/40 border border-white/10">
                     <div className="text-gray-400">Platform ({payoutResult.fee_percent}%)</div>
                     <div className="font-bold text-rose-400 tabular-nums">{payoutResult.platform_fee_kas} KAS</div>

@@ -414,7 +414,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         <div className="text-sm text-gray-300 text-center max-w-sm tracking-wide">{phaseText}</div>
 
         {/* ── Premium glass choice tiles with idle float + LOCKED padlock badge ── */}
-        <div className="flex gap-3 sm:gap-4">
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
           {CHOICES.map((c, i) => {
             const disabled = !myCommitPhase || !isMyTurn || !!result || status !== 'active';
             return (

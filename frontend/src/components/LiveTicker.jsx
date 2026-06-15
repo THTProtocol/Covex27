@@ -24,6 +24,10 @@ function ago(ts) {
  */
 export default function LiveTicker({ network }) {
   const [events, setEvents] = useState([]);
+  // Pause the scroll on ANY interaction so a live covenant is always clickable. CSS :hover
+  // pausing alone is desktop-only - on touch there is no hover, so a moving link is impossible
+  // to tap. touchstart pauses the marquee, then the tap lands on a now-stationary link.
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -78,7 +82,14 @@ export default function LiveTicker({ network }) {
 
   return (
     <div className="w-full max-w-3xl mx-auto mb-5">
-      <div className="ticker-shell group">
+      <div
+        className="ticker-shell group"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={() => setPaused(true)}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={() => setPaused(false)}
+      >
         <div className="ticker-badge">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 animate-ping" />
@@ -87,7 +98,7 @@ export default function LiveTicker({ network }) {
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-kaspa-green">Live</span>
         </div>
         <div className="ticker-mask">
-          <div className="ticker-track">
+          <div className="ticker-track" style={{ animationPlayState: paused ? 'paused' : 'running' }}>
             {events.map((e) => <Item key={`a-${e.id}`} e={e} />)}
             {events.map((e) => <Item key={`b-${e.id}`} e={e} />)}
           </div>

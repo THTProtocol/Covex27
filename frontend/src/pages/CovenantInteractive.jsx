@@ -11,6 +11,7 @@ import FullScreenChess from '../components/FullScreenChess';
 import { Chessboard } from 'react-chessboard';
 import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
+import DevWalletModal from '../components/DevWalletModal';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -175,6 +176,7 @@ export default function CovenantInteractive() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeTier, setUpgradeTier] = useState(null);
   const [upgradeQr, setUpgradeQr] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [upgradePaid, setUpgradePaid] = useState(false);
   const [fullscreenUI, setFullscreenUI] = useState(false);
   const [chessStake, setChessStake] = useState(50);
@@ -213,23 +215,29 @@ export default function CovenantInteractive() {
   };
 
   const handleUpgradePay = async (tier) => {
+    // No wallet: never fake a payment and never open a dead protocol tab. Show the scannable
+    // payment URI/QR (which leads somewhere real) and offer the connect modal.
+    if (!address) {
+      setUpgradeQr(true);
+      setWalletModalOpen(true);
+      return;
+    }
     try {
-      if (address) {
-        const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
-        if (result && result.success) {
-          setUpgradePaid(true);
-        } else {
-          const msg = (result && result.error) ? result.error : 'Payment failed to broadcast';
-          if (typeof setToast === 'function') setToast({ type: 'error', msg });
-          window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
+      const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
+      if (result && result.success) {
+        setUpgradePaid(true);
+        if (typeof setToast === 'function') {
+          setToast({ type: 'success', msg: `${tier.label} tier payment broadcast${result.txid ? ': ' + String(result.txid).slice(0, 16) + '…' : ''}` });
         }
       } else {
-        window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
-        setUpgradePaid(true);
+        const msg = (result && result.error) ? result.error : 'Payment failed to broadcast';
+        if (typeof setToast === 'function') setToast({ type: 'error', msg });
+        // Fall back to the scannable URI panel instead of a blank tab.
+        setUpgradeQr(true);
       }
     } catch (e) {
       if (typeof setToast === 'function') setToast({ type: 'error', msg: e?.message || 'Payment error' });
-      window.open(`kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`, '_blank');
+      setUpgradeQr(true);
     }
   };
 
@@ -283,29 +291,30 @@ export default function CovenantInteractive() {
     if (address) {
       setExecuting(true);
       try {
-        await sendPayment(covenant.address || DEPLOYER, amount, {
+        // sendPayment resolves to {success:false, error} on a rejected broadcast (it does NOT
+        // throw on the dev/backend path), so check the result rather than assuming success.
+        const res = await sendPayment(covenant.address || DEPLOYER, amount, {
           scriptHash: covenant.script_hash,
         });
-        setToast({ type: 'success', msg: 'Transaction sent to your wallet for signing.' });
+        if (res && res.success === false) {
+          setToast({ type: 'error', msg: `Transaction failed: ${res.error || 'wallet rejected the transaction'}` });
+        } else {
+          setToast({
+            type: 'success',
+            msg: res?.txid ? `Transaction broadcast: ${String(res.txid).slice(0, 16)}…` : 'Transaction sent to your wallet for signing.',
+          });
+        }
       } catch (e) {
-        setToast({
-          type: 'error',
-          msg: `Wallet rejected or failed: ${e?.message || 'unknown error'}. Opening payment URI instead.`,
-        });
-        if (deployUri) window.open(deployUri, '_blank');
+        setToast({ type: 'error', msg: `Transaction failed: ${e?.message || 'unknown error'}` });
       } finally {
         setExecuting(false);
       }
-    } else if (deployUri) {
-      setToast({
-        type: 'info',
-        msg: 'No wallet connected. Opening a payment URI; connect KasWare or Kastle for one-click execution.',
-      });
-      window.open(deployUri, '_blank');
     } else {
-      setToast({ type: 'error', msg: 'No Kaspa wallet detected. Install KasWare or Kastle to interact.' });
+      // No wallet: never open a dead protocol tab. Prompt the connect modal — that leads somewhere.
+      setToast({ type: 'info', msg: 'Connect a Kaspa wallet to interact with this covenant.' });
+      setWalletModalOpen(true);
     }
-  }, [covenant, amount, address, deployUri, sendPayment]);
+  }, [covenant, amount, address, sendPayment]);
 
   // BRIDGE: published/preview/fullscreen covenant UIs render inside a sandboxed
   // iframe (sandbox="allow-scripts", opaque 'null' origin) whose call-to-action posts
@@ -1285,8 +1294,12 @@ export default function CovenantInteractive() {
                 if (layer.type === 'button' && layer.props.action) {
                   if (layer.props.action.includes('stake') || layer.props.action.includes('join')) {
                     try {
-                      await sendPayment(covenant.address || covenant.creator_addr, 10, {memo: `stake:${id}`});
-                      alert('Stake sent (real tx on testnet)!');
+                      const res = await sendPayment(covenant.address || covenant.creator_addr, 10, {memo: `stake:${id}`});
+                      if (res && res.success === false) {
+                        alert(res.needsWallet ? 'Connect a Kaspa wallet to stake.' : ('Stake failed: ' + (res.error || 'transaction rejected')));
+                      } else {
+                        alert('Stake sent (real tx on testnet)!');
+                      }
                     } catch(e) { alert('Stake failed: ' + e.message); }
                   } else {
                     // Only stake/join are wired to a real on-chain action. Be honest
@@ -1476,6 +1489,8 @@ export default function CovenantInteractive() {
           </div>
         </div>
       )}
+
+      <DevWalletModal isOpen={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
     </div>
   );
 }

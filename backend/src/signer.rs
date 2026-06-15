@@ -438,6 +438,23 @@ pub async fn sign_and_broadcast_handler(
         hex::decode(payload.script_hex.trim()).unwrap_or_default()
     };
 
+    // ── TOCCATA SIGHASH GUARD: never broadcast an empty-payload tx ──────────────
+    // TN12+ (Toccata HF) folds the tx payload hash into EVERY input's sighash. A tx with an
+    // EMPTY payload makes the signer and the node disagree on the sighash, so the signature
+    // fails verification ("false stack entry at end of script execution") and the broadcast is
+    // rejected. This bit the pure-tier-payment path, which carried no payload. Guarantee a
+    // non-empty payload on every tx: a fee-only payment gets a small branded marker. Any
+    // non-empty bytes work (signer and node hash the SAME payload); the marker deliberately
+    // does NOT use the aa20..87 P2SH shape, so the crawler never mistakes a fee payment for a
+    // covenant deploy.
+    let covenant_payload: Vec<u8> = if covenant_payload.is_empty() {
+        let mut marker = b"covex:pay:".to_vec();
+        marker.extend_from_slice(tier.unwrap_or("free").as_bytes());
+        marker
+    } else {
+        covenant_payload
+    };
+
     // Use 1 largest UTXO to keep mass under 500K cap
     let max_inputs = 1usize;
     let chosen_utxos: Vec<&RpcUtxosByAddressesEntry> = if utxos.len() <= max_inputs {

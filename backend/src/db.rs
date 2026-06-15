@@ -389,15 +389,18 @@ pub fn insert_covenant(
             |_| Ok(true),
         )
         .unwrap_or(false);
-    // DEDUP BY (network, script_hex): a covenant IS its P2SH script/address. Re-deposits
-    // (or re-mints) to the SAME address share the EXACT script, so they are the SAME
-    // covenant - not a new one. Without this guard a single popular covenant (one address
-    // funded by thousands of txs) gets one row PER deposit and inflates the count by its
-    // deposit count (e.g. one TN10 address counted 224k times). If this is a NEW tx_id but
+    // DEDUP BY (network, script_hex): a popular P2SH address funded by thousands of deposit
+    // txs would otherwise get one covenant row PER deposit and inflate the count by its
+    // deposit count (e.g. one TN10 address counted 224k times). When this is a NEW tx_id but
     // a covenant with this exact non-empty script already exists on this network, skip the
-    // insert - the covenant is already indexed under another tx. (Covex's own deploys lock
-    // to a unique redeem script, so they never collide here.)
-    if !already && script_hex.len() > 10 {
+    // insert - the address is already indexed.
+    //
+    // SAFETY: this guard ONLY collapses crawler-discovered FREE/EXPLORER re-deposits. A PAID
+    // covenant (BUILDER/PRO/MAX) is ALWAYS inserted, never skipped - paid deploys can legally
+    // share a script with a crawled row (e.g. decorative self-pay deploys reuse the creator's
+    // address), and an over-eager dedup once wrongly deleted real paid covenants. Never again.
+    let is_paid = matches!(verified_tier, "BUILDER" | "PRO" | "MAX");
+    if !already && !is_paid && script_hex.len() > 10 {
         let dup: bool = conn
             .query_row(
                 "SELECT 1 FROM covenants WHERE network = ?1 AND script_hex = ?2 LIMIT 1",

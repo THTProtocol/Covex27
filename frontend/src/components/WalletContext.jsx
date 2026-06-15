@@ -717,9 +717,12 @@ function WalletBridge({ children }) {
         return { success: true, method: 'kasflow', txid: result.txId };
       } catch (_) {}
     }
+    // No wallet available to sign (no dev mode, no extension, no kasflow connection). Do NOT
+    // open a dead protocol tab: a kaspatest:/kaspa: URI has no browser handler, so window.open
+    // just renders a blank page. Return the payable URI + a needsWallet flag so the caller can
+    // show a scannable QR / connect prompt instead of a broken redirect.
     const uri = buildUri(recipient, amountKas, meta);
-    window.open(uri, '_blank');
-    return { success: true, method: 'uri', uri };
+    return { success: false, error: 'No wallet connected to sign this transaction.', uri, needsWallet: true, method: 'uri' };
   }, [activeAddress, activeWalletId, devMode, devSendTransaction, kf, buildUri]);
 
   const signMessage = useCallback(async (message) => {

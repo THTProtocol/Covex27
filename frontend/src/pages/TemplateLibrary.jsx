@@ -202,10 +202,16 @@ export default function TemplateLibrary() {
           (!q || `${t.name} ${t.description} ${t.category} ${t.id}`.toLowerCase().includes(q))
         );
         const ENFORCED_KINDS = ['singlesig', 'hashlock', 'timelock', 'multisig'];
-        const hrefFor = (t) => ENFORCED_KINDS.includes(t.kind)
-          ? `/deploy/enforced?kind=${t.kind}`
-          : t.kind === 'game' || t.category === 'Games' ? '/explorer'
-          : '/deploy/enforced';
+        const hrefFor = (t) => {
+          // Genuine on-chain primitives → the free enforced-deploy builder.
+          if (ENFORCED_KINDS.includes(t.kind)) return `/deploy/enforced?kind=${t.kind}`;
+          // Games → the live arena explorer (where you stake & play).
+          if (t.kind === 'game' || t.category === 'Games') return '/explorer';
+          // ZK proofs, oracle markets and advanced patterns → the sandbox with the
+          // matching circuit preloaded (real build destination, no more dead-end).
+          const p = new URLSearchParams({ circuit: t.id || '', kind: t.kind || '', name: t.name || '' });
+          return `/sandbox?${p.toString()}`;
+        };
         return (
         <div className="mt-12">
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">

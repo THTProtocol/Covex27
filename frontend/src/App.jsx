@@ -38,6 +38,7 @@ const Whitepaper = lazy(() => import('./pages/Whitepaper'));
 const Treasury = lazy(() => import('./pages/Treasury'));
 const Stats = lazy(() => import('./pages/Stats'));
 const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
+const Sandbox = lazy(() => import('./pages/Sandbox'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X } from 'lucide-react';
@@ -203,8 +204,9 @@ export default function App() {
               {/* Desktop Nav */}
               <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
+                <NavLink to="/sandbox" className={NL}>Sandbox</NavLink>
                 <SmartTerminalLink />
-                <NavLink to="/fix" className={NL}>Fix</NavLink> 
+                <NavLink to="/fix" className={NL}>Fix</NavLink>
                 {/* Full visual editor, covenant composer, and best-covenant tools are in paid Terminal only. */}
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
@@ -233,6 +235,7 @@ export default function App() {
               <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 text-sm">
                   <NavLink to="/" end className={NL} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
+                  <NavLink to="/sandbox" className={NL} onClick={() => setMobileMenuOpen(false)}>Sandbox</NavLink>
                   <SmartTerminalLink />
                   <NavLink to="/fix" className={NL} onClick={() => setMobileMenuOpen(false)}>Fix</NavLink>
                   <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>Kaspa</NavLink>
@@ -271,6 +274,7 @@ export default function App() {
               <Route path="/paid-builder" element={<PaidBuilder />} />
               <Route path="/premium" element={<PremiumBuilder />} />
               <Route path="/templates" element={<TemplateLibrary />} />
+              <Route path="/sandbox" element={<Sandbox />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />

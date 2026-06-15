@@ -343,6 +343,66 @@ export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.map((c) =>
 // Backward-compat alias
 export const GAME_TYPES = ZK_CIRCUIT_TYPES;
 
+// ── Template → circuit resolver ───────────────────────────────────────────────
+// The official template catalog (backend /api/marketplace/templates) ships ids like
+// `zk-merkle-membership`, `market-binary`, `gate-age-gate`, `compute-vrf-fair`. The
+// sandbox/terminal preloads the closest real ZK circuit so "Use Template" lands on a
+// preconfigured builder instead of a dead-end. Honest by construction: it resolves to
+// an actual circuit that already exists, never invents one. Explicit overrides first
+// (for the ones fuzzy matching can't get right), then normalization, then a kind default.
+const TEMPLATE_CIRCUIT_OVERRIDES = {
+  // ZK proofs & claims
+  'zk-merkle-membership': 'merkle_membership', 'zk-merkle-airdrop': 'merkle_airdrop',
+  'zk-merkle-dao-vote': 'merkle_dao', 'zk-range-proof': 'range_proof',
+  'zk-range-collateral': 'range_collateral', 'zk-solvency-proof': 'range_proof',
+  'zk-age-verification': 'age_verification', 'zk-hash-preimage': 'hash_preimage',
+  'zk-nullifier-unique': 'nullifier_set', 'zk-anon-credential': 'anon_credential',
+  'zk-private-balance': 'confidential_collateral', 'zk-acl-zk': 'private_group_member',
+  'zk-private-prediction': 'private_prediction', 'zk-mixer': 'privacy_mixer_v1',
+  // Oracle & markets
+  'market-binary': 'prediction_market', 'market-ternary': 'prediction_market',
+  'market-multi-outcome': 'prediction_market', 'market-dutch-auction': 'auction_dutch',
+  'market-english-auction': 'auction_english', 'market-parametric-insurance': 'parametric_insurance',
+  'market-price-settle': 'feed_price_kas', 'market-sports-settle': 'oracle_single',
+  'market-multi-oracle': 'oracle_multi_threshold',
+  // DeFi (the oracle-resolved ones; multisig/timelock defi route to /deploy/enforced)
+  'defi-revenue-share': 'oracle_single', 'defi-collateral-loan': 'collateral_loan',
+  'defi-tip-jar': 'oracle_single', 'defi-subscription': 'oracle_single',
+  'defi-royalty-split': 'oracle_single', 'defi-fee-pot-split': 'oracle_single',
+  'defi-crowdfund': 'oracle_single',
+  // Identity & gating
+  'gate-age-gate': 'age_verification', 'gate-anti-sybil': 'anti_sybil',
+  'gate-membership-claim': 'registry_member', 'gate-kyc-attest': 'kyc_alternative',
+  'gate-reputation-gate': 'reputation_threshold', 'gate-allowlist': 'merkle_membership',
+  // Compute & cross-chain
+  'compute-graph-reach': 'compute_graph_reach', 'compute-supply-provenance': 'supply_provenance',
+  'compute-risc0-compute': 'oracle_exec_proof', 'compute-cross-chain-attest': 'cross_asset_claim',
+  'compute-vrf-fair': 'vrf_random',
+};
+
+export function resolveCircuit(raw, kind) {
+  if (!raw) return null;
+  const key = String(raw).trim();
+  if (TEMPLATE_CIRCUIT_OVERRIDES[key]) return TEMPLATE_CIRCUIT_OVERRIDES[key];
+  const ids = new Set(ZK_CIRCUIT_TYPES.map((c) => c.id));
+  if (ids.has(key)) return key; // already a circuit id
+  // normalize: strip family prefix, dashes → underscores
+  const n = key.toLowerCase().replace(/^(zk|market|gate|compute|defi|game)-/, '').replace(/-/g, '_');
+  if (ids.has(n)) return n;
+  let hit = ZK_CIRCUIT_TYPES.find((c) => c.id.includes(n) || n.includes(c.id));
+  if (hit) return hit.id;
+  // token overlap
+  const toks = n.split('_').filter(Boolean);
+  let best = null, bestScore = 0;
+  for (const c of ZK_CIRCUIT_TYPES) {
+    const ctoks = c.id.split('_');
+    const score = toks.filter((t) => ctoks.includes(t)).length;
+    if (score > bestScore) { bestScore = score; best = c.id; }
+  }
+  if (best && bestScore > 0) return best;
+  return kind === 'oracle' ? 'oracle_single' : 'merkle_membership';
+}
+
 // ── Standalone SilverScript Generator (exported for PaidBuilder / premium flow) ──
 export function generateSilverScriptForConfig(cfg) {
   const {
@@ -767,6 +827,39 @@ export default function CovexTerminal({ covenant }) {
       .catch(() => setPaidStatus({ highest_tier: 'FREE' }))
       .finally(() => setCheckingPaid(false));
   }, [connectedAddress, kaspaNetwork]);
+
+  // Preload a circuit + metadata from URL params (?circuit=, ?kind=, ?name=, ?desc=).
+  // The official template catalog links into the sandbox this way, so "Use Template"
+  // opens a preconfigured builder with the right ZK circuit / oracle already selected.
+  // Runs once on mount. Harmless for users without the paid editor (the visible
+  // "starting point" banner lives on the Sandbox page itself).
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const rawCircuit = params.get('circuit');
+      const kindParam = params.get('kind') || '';
+      const nameParam = params.get('name');
+      const descParam = params.get('desc');
+      if (nameParam) setName(nameParam);
+      if (descParam) setDescription(descParam);
+      if (rawCircuit) {
+        const cid = resolveCircuit(rawCircuit, kindParam);
+        if (cid) {
+          setShowAllZK(true);
+          setVisualConfig((prev) => ({
+            ...prev,
+            selectedCircuits: [cid],
+            resolutionMode: kindParam === 'oracle' ? 'oracle' : prev.resolutionMode,
+          }));
+          setTimeout(() => {
+            const el = document.getElementById('builder-circuits');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 400);
+        }
+      }
+    } catch (_) { /* ignore malformed params */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const TIERS = [
     { id: 'BUILDER', name: 'BUILDER', price: 100, accent: '#3B82F6', desc: 'Interactive UIs, standard circuits' },
@@ -2137,7 +2230,7 @@ ${gameMeta.outcomeBranches}
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+            <div id="builder-circuits" className="p-4 rounded-2xl bg-black/40 border border-white/5 scroll-mt-24">
               <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> RESOLUTION &amp; CIRCUITS
               </div>

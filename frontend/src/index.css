@@ -1380,3 +1380,15 @@ input[type="range"]:active::-moz-range-thumb { transform: scale(1.24); }
   input[type="range"]::-webkit-slider-thumb,
   input[type="range"]::-moz-range-thumb { transition: none; }
 }
+
+/* Kaspa BlockDAG hero visual: flowing selected-parent chain + pulsing tip blocks. */
+@keyframes dag-flow { to { stroke-dashoffset: -24; } }
+@keyframes dag-node-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; filter: drop-shadow(0 0 7px rgba(73,234,203,0.85)); }
+}
+.dag-edge-flow { stroke-dasharray: 5 7; animation: dag-flow 1.1s linear infinite; }
+.dag-node-pulse { animation: dag-node-pulse 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .dag-edge-flow, .dag-node-pulse { animation: none; }
+}

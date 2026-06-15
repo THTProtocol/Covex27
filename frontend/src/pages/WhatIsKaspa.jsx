@@ -1,10 +1,49 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award, Timer, TrendingUp, Coins, Fingerprint, Calendar, CheckCircle2, Code2, FileCode, Scissors, FlaskConical } from 'lucide-react';
 
+// A stylized, honest Kaspa BlockDAG: blocks are produced in parallel ("columns" = time),
+// every block references multiple parents, and GHOSTDAG picks one selected-parent chain
+// (the brighter, flowing path). Decorative + reduced-motion-safe + dual-mode.
+function BlockDagViz() {
+  const X = [55, 150, 245, 340, 435, 530];
+  const COLS = [[110], [70, 150], [50, 110, 170], [70, 150], [50, 110, 170], [110]];
+  const SEL = [0, 0, 1, 0, 1, 0]; // selected-parent index in each column
+  const nodes = [];
+  COLS.forEach((ys, c) => ys.forEach((y, i) => nodes.push({ x: X[c], y, selected: SEL[c] === i })));
+  const edges = [];
+  for (let c = 1; c < COLS.length; c++) {
+    COLS[c].forEach((y, i) => {
+      COLS[c - 1].forEach((py, pi) => {
+        edges.push({ x1: X[c - 1], y1: py, x2: X[c], y2: y, onChain: SEL[c] === i && SEL[c - 1] === pi });
+      });
+    });
+  }
+  return (
+    <svg viewBox="0 0 585 220" className="w-full h-auto" role="img"
+      aria-label="A Kaspa BlockDAG: blocks produced in parallel, ordered by the GHOSTDAG selected-parent chain">
+      <g stroke="#49EACB" fill="none">
+        {edges.map((e, k) => (
+          <line key={k} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+            strokeWidth={e.onChain ? 2 : 1} strokeOpacity={e.onChain ? 0.75 : 0.16}
+            className={e.onChain ? 'dag-edge-flow' : ''} />
+        ))}
+      </g>
+      {nodes.map((n, k) => (
+        <g key={k} className={n.selected ? 'dag-node-pulse' : ''}>
+          <rect x={n.x - 15} y={n.y - 11} width="30" height="22" rx="6"
+            fill={n.selected ? 'rgba(73,234,203,0.16)' : 'rgba(73,234,203,0.05)'}
+            stroke="#49EACB" strokeOpacity={n.selected ? 0.95 : 0.4} strokeWidth={n.selected ? 1.6 : 1} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export default function WhatIsKaspaPage() {
   return (
-    <div className="min-h-screen pt-16 pb-20">
-      <div className="max-w-5xl mx-auto px-5 sm:px-6">
+    <div className="min-h-screen pt-16 pb-20 relative">
+      <div className="covex-aurora" aria-hidden="true" style={{ top: '-4rem' }} />
+      <div className="max-w-5xl mx-auto px-5 sm:px-6 relative z-10">
 
         <header className="mb-12">
           <div className="flex items-center gap-3 mb-4">
@@ -26,6 +65,23 @@ export default function WhatIsKaspaPage() {
             <a href="https://explorer.kaspa.org" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs hover:border-[#49EACB]/40 text-gray-300 hover:text-white transition-colors"><ExternalLink size={12} /> Mainnet Explorer</a>
           </div>
         </header>
+
+        {/* Featured visual: the BlockDAG itself */}
+        <section className="mb-12">
+          <div className="glass-panel rounded-2xl p-6 border border-[#49EACB]/15 relative overflow-hidden detail-hero-enhanced">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[#49EACB] font-bold flex items-center gap-2"><GitBranch size={14} /> The BlockDAG, live in spirit</div>
+              <div className="text-[10px] text-gray-400 font-mono">parallel blocks · GHOSTDAG selected chain</div>
+            </div>
+            <BlockDagViz />
+            <p className="text-xs text-gray-400 mt-3 leading-relaxed max-w-3xl">
+              Every block references several parents at once, so honest work is never orphaned. GHOSTDAG
+              then chooses one selected-parent chain (the brighter, flowing path) and a total order over
+              the whole graph, which is what lets Kaspa run at 10+ blocks per second without sacrificing
+              Bitcoin-grade security.
+            </p>
+          </div>
+        </section>
 
         {/* What is Kaspa - Core Thesis */}
         <section className="mb-12">
@@ -55,7 +111,7 @@ export default function WhatIsKaspaPage() {
               { icon: Zap, title: "10+ Blocks Per Second Today", body: "Mainnet runs at 10 BPS since the Crescendo hard fork (2025). Sub-second block times with practical finality in 5-10 seconds under GHOSTDAG ordering." },
               { icon: Cpu, title: "Future: 100+ BPS with DAGKNIGHT", body: "DAGKNIGHT removes all manual parameter tuning. It auto-adapts to real network latency in real time, safely enabling orders-of-magnitude higher throughput." },
             ].map((item, i) => (
-              <Card key={i} className="border-white/5 hover:border-white/10 transition-colors">
+              <Card key={i} className="border-white/5 hover:border-white/10 transition-colors hover-lift">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg"><item.icon size={18} className="text-[#49EACB]" />{item.title}</CardTitle>
                 </CardHeader>

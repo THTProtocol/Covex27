@@ -6,6 +6,7 @@ import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
+import { explorerTxUrl } from '../lib/explorer';
 import CovexTerminal from '../components/CovexTerminal';
 import FullScreenChess from '../components/FullScreenChess';
 import { Chessboard } from 'react-chessboard';
@@ -364,6 +365,7 @@ export default function CovenantInteractive() {
     const creator = ESC(cov.creator_addr || 'Unknown');
     const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
     const tx = ESC(cov.tx_id || '');
+    const explorerTx = ESC(explorerTxUrl(cov.tx_id, cov.network)); // network-accurate explorer URL
     const cat = ESC(cov.category || 'General');
     const tier = ESC(cov.verified_tier || cov.tier || 'FREE');
     const verified = isVerified(cov);
@@ -419,7 +421,7 @@ export default function CovenantInteractive() {
         ${vision ? `<p style="max-width:580px; margin: 0 auto 28px; color:#CBD5E1; font-size:15px;">${vision}</p>` : ''}
         <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
           <button onclick="document.getElementById('interact').scrollIntoView({behavior:'smooth'})" class="btn">Interact with Covenant</button>
-          <a href="https://explorer.kaspa.org/tx/${tx}" target="_blank" class="btn btn-outline">View on Explorer →</a>
+          <a href="${explorerTx}" target="_blank" class="btn btn-outline">View on Explorer →</a>
         </div>
       </div>
     `;
@@ -479,7 +481,7 @@ export default function CovenantInteractive() {
     // Footer
     blocksHTML += `
       <div class="footer">
-        Published by the covenant creator • Powered by Covex on Kaspa • <a href="https://explorer.kaspa.org/tx/${tx}" target="_blank" style="color:inherit;">Verify on Explorer</a>
+        Published by the covenant creator • Powered by Covex on Kaspa • <a href="${explorerTx}" target="_blank" style="color:inherit;">Verify on Explorer</a>
       </div>
     `;
 
@@ -1045,7 +1047,7 @@ export default function CovenantInteractive() {
                 )}
 
                 <a
-                  href={`https://explorer.kaspa.org/tx/${covenant.tx_id}`}
+                  href={explorerTxUrl(covenant.tx_id, covenant.network)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 text-xs text-gray-300 hover:text-kaspa-green transition-colors font-mono"

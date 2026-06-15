@@ -11,6 +11,7 @@ import DevWalletModal from '../components/DevWalletModal';
 import { GAME_TYPES, generateSilverScriptForConfig } from '../components/CovexTerminal';
 import { signCovenantOwnership } from '../lib/ownership';
 import { CircuitGlyph } from '../lib/circuitIcon';
+import { explorerTxUrl } from '../lib/explorer';
 
 const SILVERSCRIPT_TEMPLATE = `contract SimpleWinnerTakesAll {
     state {
@@ -579,7 +580,7 @@ export default function PaidDeploy() {
                   {result.success && result.covId && (
                     <div className="mt-4 pt-3 border-t border-emerald-500/10 flex gap-4">
                       <a href={`/covenant/${encodeURIComponent(result.covId)}`} className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />View Covenant</a>
-                      <a href={`https://tn12.kaspa.stream/tx/${result.txid}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />TN12 Explorer</a>
+                      <a href={explorerTxUrl(result.txid, net0)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-xs text-[#49EACB] hover:underline"><ExternalLink size={12} />Block Explorer</a>
                     </div>
                   )}
                 </div>

@@ -3,6 +3,7 @@ import DesignStudio from '../components/DesignStudio';
 import { useParams, Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
+import { explorerTxUrl } from '../lib/explorer';
 import { ArrowLeft, Save, Palette, Eye, Wallet, Check, ExternalLink } from 'lucide-react';
 
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -39,6 +40,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
   const creator = ESC(cov.creator_addr || 'Unknown');
   const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
   const tx = ESC(cov.tx_id || '');
+  const explorerTx = ESC(explorerTxUrl(cov.tx_id, cov.network)); // network-accurate explorer URL
   const cat = ESC(cov.category || cov.covenant_type || 'General');
   const tier = ESC(cov.verified_tier || cov.tier || 'FREE');
   const ts = ESC(cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent');
@@ -145,7 +147,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
       <p class="sub">${desc}</p>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
         <button onclick="document.getElementById('interact').scrollIntoView({behavior:'smooth'})" class="btn">Interact</button>
-        <a href="https://explorer.kaspa.org/tx/${tx}" target="_blank" class="btn" style="background:transparent;border:1px solid #fff;color:#fff">View on Explorer</a>
+        <a href="${explorerTx}" target="_blank" class="btn" style="background:transparent;border:1px solid #fff;color:#fff">View on Explorer</a>
       </div>
     </div>
 
@@ -173,7 +175,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
     </div>
 
     <div style="text-align:center;padding:30px 0 10px;color:#475569;font-size:11px">
-      Published by the creator • Fully transparent on Kaspa • <a href="https://explorer.kaspa.org/tx/${tx}" target="_blank" style="color:inherit">Verify</a>
+      Published by the creator • Fully transparent on Kaspa • <a href="${explorerTx}" target="_blank" style="color:inherit">Verify</a>
     </div>
   </div>
 </body></html>`;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { explorerAddressUrl } from '../lib/explorer';
 import { Link } from 'react-router-dom';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork } from './WalletContext';
 import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
@@ -94,7 +95,7 @@ export default function WalletButton() {
                   <i.icon size={15} className="text-[#49EACB]" /> {i.label}
                 </Link>
               ))}
-              <a href={`https://explorer.kaspa.org/addresses/${address}`} target="_blank" rel="noreferrer"
+              <a href={explorerAddressUrl(address)} target="_blank" rel="noreferrer"
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-gray-300 light:text-slate-700 hover:bg-[#49EACB]/[0.07] hover:text-white transition-colors">
                 <ExternalLink size={15} className="text-[#49EACB]" /> View on Kaspa Explorer
               </a>

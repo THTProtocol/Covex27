@@ -1755,7 +1755,13 @@ ${gameMeta.outcomeBranches}
 
   // ── Load saved config from API on mount ──
   useEffect(() => {
-    if (!covenantId) return;
+    if (!covenantId) {
+      // No specific covenant to edit (e.g. the public /sandbox builder, which mounts
+      // the terminal with externalCircuit only). There's nothing to fetch, so render
+      // immediately with defaults instead of spinning on "Loading terminal..." forever.
+      setConfigLoaded(true);
+      return;
+    }
     fetch(`/api/terminal-config/${covenantId}`)
       .then((r) => r.json())
       .then((data) => {

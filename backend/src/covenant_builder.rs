@@ -34,8 +34,8 @@ use kaspa_consensus_core::tx::{
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
 use kaspa_txscript::opcodes::codes::{
-    OpBlake2b, OpCheckLockTimeVerify, OpCheckSig, OpCheckSigVerify, OpElse, OpEndIf, OpEqualVerify, OpFalse,
-    OpIf, OpTrue,
+    OpBlake2b, OpCheckLockTimeVerify, OpCheckSequenceVerify, OpCheckSig, OpCheckSigVerify, OpElse, OpEndIf,
+    OpEqualVerify, OpFalse, OpIf, OpTrue,
 };
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
@@ -250,6 +250,22 @@ pub fn redeem_timelock(lock_daa: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8
     b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("redeem timelock CLTV: {e}"))?;
     b.add_data(xonly_pubkey).map_err(|e| format!("redeem timelock pubkey: {e}"))?;
     b.add_op(OpCheckSig).map_err(|e| format!("redeem timelock OpCheckSig: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Redeem script for a RELATIVE timelock (CSV): `<min_sequence> OpCheckSequenceVerify
+/// <xonly> OpCheckSig`. The CSV opcode requires the spend input's `sequence` field to
+/// encode a relative lock >= `min_sequence`. Like Kaspa's CLTV, OpCheckSequenceVerify POPS
+/// its operand, so there is NO OpDrop. The engine test proves the OPCODE comparison; whether
+/// the NODE additionally enforces the real aging delay (BIP68 relative-locktime) is a
+/// separate consensus property - validated by a live-node e2e BEFORE this is exposed as a
+/// deployable enforced type (so it is intentionally not yet in the catalog / deploy dispatch).
+pub fn redeem_relative_timelock(min_sequence: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    b.add_lock_time(min_sequence).map_err(|e| format!("rel-timelock add seq: {e}"))?;
+    b.add_op(OpCheckSequenceVerify).map_err(|e| format!("rel-timelock CSV: {e}"))?;
+    b.add_data(xonly_pubkey).map_err(|e| format!("rel-timelock pubkey: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("rel-timelock OpCheckSig: {e}"))?;
     Ok(b.drain())
 }
 
@@ -2878,6 +2894,32 @@ mod tests {
         assert_eq!(
             SpendKind::parse(&RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.kind_str()),
             Some(SpendKind::Deadman { lock_daa: 8000 })
+        );
+    }
+
+    #[test]
+    fn relative_timelock_csv_opcode_compares_sequence() {
+        let kp = test_keypair(95);
+        let xonly = kp.x_only_public_key().0.serialize();
+        let min_seq: u64 = 100;
+        let redeem = redeem_relative_timelock(min_seq, &xonly).unwrap();
+        // The CSV opcode passes iff the spend input's sequence >= the script's min_sequence.
+        assert!(
+            run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap()),
+            "CSV passes when input.sequence == required"
+        );
+        assert!(
+            run_spend_generic(&redeem, 0, min_seq + 50, |s| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap()),
+            "CSV passes when input.sequence > required"
+        );
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap()),
+            "CSV fails when input.sequence < required"
+        );
+        let wrong = test_keypair(96);
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(s, 0, &wrong, &redeem, &[]).unwrap()),
+            "wrong key must fail regardless of sequence"
         );
     }
 

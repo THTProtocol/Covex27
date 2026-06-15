@@ -386,6 +386,48 @@ pub fn build_htlc_signature_script(
         .map_err(|e| format!("htlc signature script: {e}"))
 }
 
+/// Redeem script for a dead-man's-switch / inheritance covenant:
+/// `OP_IF <owner> OpCheckSig OP_ELSE <lock_daa> OpCheckLockTimeVerify <heir> OpCheckSig OP_ENDIF`.
+/// IF = the owner can spend (or refresh by re-locking) at ANY time. ELSE = once the chain
+/// DAA score reaches `lock_daa`, the heir can claim - so funds pass on if the owner goes
+/// silent, while the owner can always reclaim/refresh before then. No oracle, no third party.
+pub fn redeem_deadman(owner: &[u8; 32], heir: &[u8; 32], lock_daa: u64) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    b.add_op(OpIf).map_err(|e| format!("deadman OpIf: {e}"))?;
+    b.add_data(owner).map_err(|e| format!("deadman owner: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("deadman owner OpCheckSig: {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("deadman OpElse: {e}"))?;
+    b.add_lock_time(lock_daa).map_err(|e| format!("deadman add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("deadman CLTV: {e}"))?;
+    b.add_data(heir).map_err(|e| format!("deadman heir: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("deadman heir OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("deadman OpEndIf: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Build the input `idx` signature_script that spends a dead-man's-switch.
+/// `owner_branch`=true takes the IF branch (owner spends anytime: satisfier sig, OP_TRUE).
+/// `owner_branch`=false takes the ELSE branch (heir claims after the timelock: satisfier
+/// sig, OP_FALSE) - the spend tx must then set lock_time >= lock_daa and a non-final
+/// sequence. `keypair` is the owner (IF) or the heir (ELSE) key.
+pub fn build_deadman_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    keypair: &secp256k1::Keypair,
+    redeem: &[u8],
+    owner_branch: bool,
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    satisfier.push(if owner_branch { OpTrue } else { OpFalse });
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("deadman signature script: {e}"))
+}
+
 /// Redeem script for a trustless 2-player game channel (no oracle key):
 /// `OP_IF  <p1> OpCheckSigVerify <p2> OpCheckSig
 ///  OP_ELSE <lock_daa> OpCheckLockTimeVerify <p1> OpCheckSig  OP_ENDIF`.
@@ -2717,6 +2759,42 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, false, None).unwrap()),
             "refund branch requires the sender key"
+        );
+    }
+
+    #[test]
+    fn deadman_owner_anytime_heir_after_timelock() {
+        let owner = test_keypair(91);
+        let heir = test_keypair(92);
+        let ox = owner.x_only_public_key().0.serialize();
+        let hx = heir.x_only_public_key().0.serialize();
+        let lock_daa: u64 = 3_000_000;
+        let redeem = redeem_deadman(&ox, &hx, lock_daa).unwrap();
+
+        // OWNER spends via the IF branch at any time (no timelock on that branch).
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_deadman_signature_script(s, 0, &owner, &redeem, true).unwrap()),
+            "owner must be able to spend anytime via the IF branch"
+        );
+        // The HEIR key on the IF branch fails (OpCheckSig wants the owner key).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_deadman_signature_script(s, 0, &heir, &redeem, true).unwrap()),
+            "the IF branch requires the owner key"
+        );
+        // HEIR spends via the ELSE branch after the timelock (lock_time >= lock_daa, non-final input).
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(s, 0, &heir, &redeem, false).unwrap()),
+            "heir must be able to claim after the timelock"
+        );
+        // HEIR before the timelock fails (CLTV).
+        assert!(
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_deadman_signature_script(s, 0, &heir, &redeem, false).unwrap()),
+            "heir claim before the timelock must fail"
+        );
+        // The OWNER key on the ELSE branch fails (OpCheckSig wants the heir key).
+        assert!(
+            !run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(s, 0, &owner, &redeem, false).unwrap()),
+            "the ELSE branch requires the heir key"
         );
     }
 

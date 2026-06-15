@@ -243,6 +243,7 @@ pub async fn verify_payment(
 }
 
 #[derive(Debug, serde::Serialize)]
+#[allow(dead_code)]
 pub struct PaymentStatus {
     pub tx_id: String,
     pub confirmed: bool,

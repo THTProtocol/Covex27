@@ -16,14 +16,19 @@ use tracing_subscriber::{fmt, EnvFilter};
 use rusqlite::params;
 
 mod broadcast;
+// Stable library modules below keep some helpers/types for the full feature set that are
+// not all wired into the running binary today; silence their dead_code noise at the module.
+#[allow(dead_code)]
 mod game_engine;
 mod games;
 mod live;
 mod compiler;
 mod covenant_builder;
 mod covenant_catalog;
+#[allow(dead_code)]
 mod covenant_types;
 mod crawler;
+#[allow(dead_code)]
 mod db;
 mod dev_wallets;
 mod indexer;
@@ -1724,6 +1729,7 @@ struct ComputePayoutInput {
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)]
 struct ComputePayoutOutput {
     success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

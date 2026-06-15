@@ -25,6 +25,40 @@ const KAS = (n, d = 2) =>
 // Approximate Kaspa network fee for a single-output spend (labelled estimate, NOT a Covex cut).
 const NETWORK_FEE_KAS = 0.0001;
 
+// Hoisted to module scope on purpose: if these were defined inside the component, every
+// re-render (e.g. each tick while dragging a slider) would create a new component identity,
+// remounting the <input> and KILLING the drag gesture. Stable identity = draggable sliders.
+function Stat({ label, value, unit, accent, sub }) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-3 py-2.5">
+      <div className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-gray-500 light:text-slate-400">{label}</div>
+      <div className="flex items-baseline gap-1 mt-0.5">
+        <span className="text-lg font-black tabular-nums leading-none" style={{ color: accent || 'inherit' }}>{value}</span>
+        {unit && <span className="text-[10px] font-bold text-gray-400 light:text-slate-500">{unit}</span>}
+      </div>
+      {sub && <div className="text-[9px] text-gray-500 light:text-slate-400 mt-1 leading-tight">{sub}</div>}
+    </div>
+  );
+}
+
+function Slider({ label, value, set, min, max, step, fmt, accent }) {
+  const pct = max > min ? Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100)) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 light:text-slate-500">{label}</span>
+        <span className="text-[11px] font-black tabular-nums" style={{ color: accent || '#49EACB' }}>{fmt ? fmt(value) : value}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => set(Number(e.target.value))}
+        className="payout-range w-full"
+        style={{ '--range-accent': accent || '#49EACB', '--range-pct': `${pct}%` }}
+      />
+    </div>
+  );
+}
+
 export default function ResolutionSimulator({
   config,
   feePercent,
@@ -111,32 +145,6 @@ export default function ResolutionSimulator({
 
   // ── Split bar segments (configured display model) ──────────────────────────────────────
   const seg = (v) => `${m.pot > 0 ? (v / m.pot) * 100 : 0}%`;
-
-  const Stat = ({ label, value, unit, accent, sub }) => (
-    <div className="rounded-xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-3 py-2.5">
-      <div className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-gray-500 light:text-slate-400">{label}</div>
-      <div className="flex items-baseline gap-1 mt-0.5">
-        <span className="text-lg font-black tabular-nums leading-none" style={{ color: accent || 'inherit' }}>{value}</span>
-        {unit && <span className="text-[10px] font-bold text-gray-400 light:text-slate-500">{unit}</span>}
-      </div>
-      {sub && <div className="text-[9px] text-gray-500 light:text-slate-400 mt-1 leading-tight">{sub}</div>}
-    </div>
-  );
-
-  const Slider = ({ label, value, set, min, max, step, fmt, accent }) => (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 light:text-slate-500">{label}</span>
-        <span className="text-[11px] font-black tabular-nums" style={{ color: accent || '#49EACB' }}>{fmt ? fmt(value) : value}</span>
-      </div>
-      <input
-        type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => set(Number(e.target.value))}
-        className="payout-range w-full"
-        style={{ '--range-accent': accent || '#49EACB', '--range-pct': `${max > min ? Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100)) : 0}%` }}
-      />
-    </div>
-  );
 
   const isDraw = outcome === 'draw';
 

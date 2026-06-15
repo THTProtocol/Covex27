@@ -59,9 +59,10 @@ export default function Sandbox() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pt-24 pb-16">
+    <div className="max-w-7xl mx-auto px-4 pt-24 pb-16 relative">
+      <div className="covex-aurora hidden sm:block" style={{ top: 48, left: -30, width: 420, height: 260 }} aria-hidden="true" />
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-3 mb-2">
+      <div className="relative flex flex-wrap items-center gap-3 mb-2">
         <div className="flex items-center gap-2 text-kaspa-green">
           <Terminal size={22} />
           <h1 className="text-2xl font-bold text-white">Covenant Sandbox</h1>
@@ -93,7 +94,7 @@ export default function Sandbox() {
                 <span className="text-white font-semibold">{tplName || circuit.name}</span>
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
                   {circuit.reality === 'full-zk' && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/40 shadow-[0_0_12px_rgba(73,234,203,0.35)] tracking-wide">
+                    <span className="zk-live-glow inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/40 tracking-wide">
                       <Sparkles size={11} /> LIVE GROTH16
                     </span>
                   )}

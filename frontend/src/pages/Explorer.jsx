@@ -315,7 +315,8 @@ export default function Explorer() {
     <>
       {/* HERO */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-16 sm:pt-20 pb-6 px-4 sm:px-6 text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-5 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
+        <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
+        <h1 className="relative text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-5 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">

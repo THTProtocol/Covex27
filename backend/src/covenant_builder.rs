@@ -311,6 +311,63 @@ pub fn build_p2sh_multisig_signature_script(
         .map_err(|e| format!("p2sh multisig signature script: {e}"))
 }
 
+/// Redeem script for a TIME-DECAYING multisig (threshold relaxes after a timeout):
+/// `OP_IF <req_now-of-n multisig> OP_ELSE <lock_daa> OpCheckLockTimeVerify
+/// <req_after-of-n multisig> OP_ENDIF`. Before `lock_daa`, `req_now` of the N keys are
+/// needed; once the chain reaches `lock_daa`, only `req_after` are (req_after < req_now).
+/// Treasury recovery / inheritance: e.g. 3-of-5 normally, 2-of-5 if keyholders are lost.
+/// Each branch is a real kaspa-txscript multisig, spliced into the IF/ELSE. Like CLTV
+/// elsewhere, OpCheckLockTimeVerify pops its operand, so no OpDrop.
+pub fn redeem_timedecay_multisig(
+    pubkeys: &[[u8; 32]],
+    req_now: usize,
+    req_after: usize,
+    lock_daa: u64,
+) -> BResult<Vec<u8>> {
+    let ms_now = redeem_multisig(pubkeys, req_now)?;
+    let ms_after = redeem_multisig(pubkeys, req_after)?;
+    // Encode the CLTV lock value exactly as redeem_timelock does (a sub-builder), then
+    // splice everything into the IF/ELSE around the two multisig sub-scripts.
+    let mut ltb = ScriptBuilder::new();
+    ltb.add_lock_time(lock_daa).map_err(|e| format!("timedecay add_lock_time: {e}"))?;
+    let lt_bytes = ltb.drain();
+    let mut r: Vec<u8> = Vec::new();
+    r.push(OpIf);
+    r.extend_from_slice(&ms_now);
+    r.push(OpElse);
+    r.extend_from_slice(&lt_bytes);
+    r.push(OpCheckLockTimeVerify);
+    r.extend_from_slice(&ms_after);
+    r.push(OpEndIf);
+    Ok(r)
+}
+
+/// Build the input `idx` signature_script for a time-decaying multisig spend.
+/// `after_timeout`=false takes the IF branch (req_now sigs + OP_TRUE); `after_timeout`=true
+/// takes the ELSE branch (req_after sigs + OP_FALSE) and the spend tx must set
+/// `lock_time >= lock_daa` with a non-final input sequence. `keypairs` are the signing
+/// members IN PUBKEY ORDER (req_now of them for IF, req_after for ELSE).
+pub fn build_timedecay_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    keypairs: &[secp256k1::Keypair],
+    redeem: &[u8],
+    after_timeout: bool,
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let mut satisfier: Vec<u8> = Vec::new();
+    for kp in keypairs {
+        let sig: [u8; 64] = *kp.sign_schnorr(msg).as_ref();
+        satisfier.extend(push65(&sig));
+    }
+    satisfier.push(if after_timeout { OpFalse } else { OpTrue });
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("timedecay signature script: {e}"))
+}
+
 /// Redeem script for an HTLC (atomic swap):
 /// `OP_IF  OpBlake2b <hash> OpEqualVerify <receiver> OpCheckSig
 ///  OP_ELSE <lock_daa> OpCheckLockTimeVerify <sender> OpCheckSig  OP_ENDIF`.
@@ -2949,6 +3006,42 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(s, 0, &wrong, &redeem, &[]).unwrap()),
             "wrong key must fail regardless of sequence"
+        );
+    }
+
+    #[test]
+    fn timedecay_multisig_now_and_after_timeout() {
+        let k1 = test_keypair(101);
+        let k2 = test_keypair(102);
+        let k3 = test_keypair(103);
+        let pks = [
+            k1.x_only_public_key().0.serialize(),
+            k2.x_only_public_key().0.serialize(),
+            k3.x_only_public_key().0.serialize(),
+        ];
+        let lock_daa: u64 = 4_000_000;
+        // 2-of-3 now, 1-of-3 after the timeout.
+        let redeem = redeem_timedecay_multisig(&pks, 2, 1, lock_daa).unwrap();
+
+        // NOW: any 2 of the 3 satisfy the IF branch (lock_time irrelevant).
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_timedecay_signature_script(s, 0, &[k1, k2], &redeem, false).unwrap()),
+            "2-of-3 on the IF branch must pass"
+        );
+        // NOW with only 1 signature fails (needs 2).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_timedecay_signature_script(s, 0, &[k1], &redeem, false).unwrap()),
+            "1 signature on the 2-of-3 IF branch must fail"
+        );
+        // AFTER the timeout: just 1 of the 3 satisfies the ELSE branch (lock_time >= lock_daa).
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_timedecay_signature_script(s, 0, &[k3], &redeem, true).unwrap()),
+            "1-of-3 after the timeout must pass"
+        );
+        // The ELSE branch BEFORE the timeout fails (CLTV).
+        assert!(
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_timedecay_signature_script(s, 0, &[k3], &redeem, true).unwrap()),
+            "the ELSE branch before the timeout must fail"
         );
     }
 

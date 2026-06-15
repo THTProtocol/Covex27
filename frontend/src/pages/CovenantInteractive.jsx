@@ -269,6 +269,11 @@ export default function CovenantInteractive() {
     [covenant, amount, buildUri]
   );
 
+  // Local in-flight flag for the EXECUTE action only. The button must NOT be gated on the
+  // ambient `connecting` flag from useWallet (the kasflow auto-reconnect keeps it true when
+  // no wallet is present), which left a public viewer's button stuck on "PROCESSING..."
+  // forever. This is set true only while a user-initiated execute is actually running.
+  const [executing, setExecuting] = useState(false);
   const handleExecute = useCallback(async () => {
     if (!covenant) return;
     if (!amount || Number(amount) <= 0) {
@@ -276,6 +281,7 @@ export default function CovenantInteractive() {
       return;
     }
     if (address) {
+      setExecuting(true);
       try {
         await sendPayment(covenant.address || DEPLOYER, amount, {
           scriptHash: covenant.script_hash,
@@ -287,6 +293,8 @@ export default function CovenantInteractive() {
           msg: `Wallet rejected or failed: ${e?.message || 'unknown error'}. Opening payment URI instead.`,
         });
         if (deployUri) window.open(deployUri, '_blank');
+      } finally {
+        setExecuting(false);
       }
     } else if (deployUri) {
       setToast({
@@ -1006,11 +1014,11 @@ export default function CovenantInteractive() {
 
                     <button
                       onClick={handleExecute}
-                      disabled={connecting}
-                      className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-50 flex items-center justify-center gap-3 uppercase tracking-wide"
+                      disabled={executing}
+                      className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-3 uppercase tracking-wide"
                     >
-                      {address ? <ShieldCheck size={24} /> : <Lock size={24} />}
-                      {connecting ? 'PROCESSING...' : address ? 'Sign & Execute' : 'Open Wallet to Execute'}
+                      {executing ? null : address ? <ShieldCheck size={24} /> : <Lock size={24} />}
+                      {executing ? 'Processing...' : address ? 'Sign & Execute' : 'Interact with this covenant'}
                     </button>
 
                     {deployUri && (

@@ -72,11 +72,13 @@ function LearnMenu() {
   );
 }
 
+// Active-link wayfinding: a kaspa-green underline that is full-width on the active route
+// and grows in on hover for the others. Reduced-motion users just get the static underline.
 const NL = ({ isActive }) =>
-  `text-sm font-medium transition-colors ${
+  `relative text-sm font-medium transition-colors after:absolute after:-bottom-1.5 after:left-0 after:h-[2px] after:rounded-full after:bg-kaspa-green after:transition-all after:duration-300 motion-reduce:after:transition-none ${
     isActive
-      ? 'text-kaspa-green'
-      : 'text-gray-200 hover:text-white dark:text-gray-200 dark:hover:text-white'
+      ? 'text-kaspa-green after:w-full'
+      : 'text-gray-200 hover:text-white dark:text-gray-200 dark:hover:text-white after:w-0 hover:after:w-full'
   }`;
 
 function SmartDeployLink() {
@@ -198,8 +200,12 @@ function LiveStatus() {
   if (!info) return null;
 
   return (
-    <div className="text-[10px] opacity-50 tracking-widest">
-      Covex {info}
+    <div className="text-[10px] opacity-60 tracking-widest flex items-center justify-center gap-1.5">
+      <span className="relative inline-flex h-1.5 w-1.5" aria-hidden="true">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 motion-safe:animate-ping" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
+      </span>
+      <span>Covex {info}</span>
     </div>
   );
 }

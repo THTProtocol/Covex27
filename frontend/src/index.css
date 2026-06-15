@@ -116,6 +116,8 @@ body {
 .light .bg-zinc-800,
 .light .bg-\[\#0a0a0a\],
 .light .bg-\[\#0A0A0D\],
+.light .bg-\[\#0f0f14\],
+.light .bg-\[\#050507\],
 .light .bg-black\/10,
 .light .bg-black\/20,
 .light .bg-black\/30,
@@ -145,10 +147,16 @@ body {
 .light .bg-\[\#1a1a1a\],
 .light .bg-\[\#0c0c12\],
 .light .bg-\[\#11111a\],
+.light .bg-\[\#0d0d0d\],
+.light .bg-\[\#141414\],
+.light .bg-\[\#06080B\],
 .light .bg-\[\#05050A\] {
   background: #f1f5f9 !important;
   border-color: #e2e8f0 !important;
 }
+/* Dark hardcoded borders that vanish/clash on light surfaces (code editors, modals). */
+.light .border-\[\#2a2a2a\],
+.light .border-\[\#1a1a1a\] { border-color: #e2e8f0 !important; }
 
 /* Dark gradient FADES (content fading down to the dark page bg) must fade to a LIGHT
    surface in light mode, otherwise they leave a dark strip over light cards - e.g. the

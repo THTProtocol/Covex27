@@ -263,8 +263,8 @@ export default function ResolutionSimulator({
         </div>
         {isDraw ? (
           <div className="rounded-lg overflow-hidden h-9 flex border border-white/10 light:border-slate-200">
-            <div className="flex items-center justify-center text-[10px] font-bold text-black" style={{ width: '50%', background: 'rgba(73,234,203,0.55)' }}>Player A · {KAS(m.refundEach)} KAS</div>
-            <div className="flex items-center justify-center text-[10px] font-bold text-black" style={{ width: '50%', background: 'rgba(73,234,203,0.32)' }}>Player B · {KAS(m.refundEach)} KAS</div>
+            <div className="flex items-center justify-center text-[10px] font-bold text-black overflow-hidden whitespace-nowrap px-1" style={{ width: '50%', background: 'rgba(73,234,203,0.55)' }}>A · {KAS(m.refundEach)}</div>
+            <div className="flex items-center justify-center text-[10px] font-bold text-black overflow-hidden whitespace-nowrap px-1" style={{ width: '50%', background: 'rgba(73,234,203,0.32)' }}>B · {KAS(m.refundEach)}</div>
           </div>
         ) : (
           <>

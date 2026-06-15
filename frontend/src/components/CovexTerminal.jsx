@@ -731,7 +731,9 @@ export default function CovexTerminal({ covenant }) {
   // Circuits / pro features only after verified payment from the SAME wallet address.
   const [paidStatus, setPaidStatus] = useState(null);
   const [checkingPaid, setCheckingPaid] = useState(false);
-  const currentTier = paidStatus?.highest_tier || localStorage.getItem('covex_paid_tier') || 'FREE';
+  // Tier access is decided ONLY by the backend (paidStatus from /api/paid-status), never by
+  // client-side localStorage — trusting localStorage let anyone self-grant a paid tier.
+  const currentTier = paidStatus?.highest_tier || 'FREE';
   const hasPaidAccess = currentTier !== 'FREE';
 
   // For reliable unlock after real tier payment tx
@@ -851,38 +853,31 @@ export default function CovexTerminal({ covenant }) {
         setPayingTier(null);
         return;
       }
-      // Success: real tx broadcast. Immediately unlock paid features in this terminal (local mark for testnet dev).
-      // The tx "goes through" via backend signer + we mark paid locally so gate disappears and full tools (visual editor, circuits, custom UI, etc.) appear.
-      localStorage.setItem('covex_paid_tier', tier.id);
-      setPaidStatus({ highest_tier: tier.id });
+      // The tx broadcast succeeded (the backend signer credited the payer's account synchronously
+      // via insert_payment + upgrade_account). Show the confirmation card and let the BACKEND be
+      // the source of truth for tier access: poll /api/paid-status, which sets paidStatus from the
+      // server. We do NOT write covex_paid_tier to localStorage — feature access must never trust
+      // client storage (that was a self-grant hole).
       setPayingTier(null);
       setPaymentSuccess({ tier: tier.id, txid });
-      sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
-        tier: tier.name || tier.id, 
-        id: tier.id, 
+      sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({
+        tier: tier.name || tier.id,
+        id: tier.id,
         address: connectedAddress,
         txid,
         broadcastAt: Date.now()
       }));
+      // Poll the backend a few times to reflect the credited tier (signer credits synchronously).
       setTimeout(checkPaymentNow, 300);
-      // User stays in terminal - the !hasPaidAccess gate will hide on re-render, revealing the full paid content including the live visual editor with side add-ons.
+      setTimeout(checkPaymentNow, 1500);
+      setTimeout(checkPaymentNow, 4000);
     } catch (e) {
-      // On error, still try to unlock if user confirms they saw a tx (for dev testnet reliability).
-      const proceed = window.confirm('Dev payment call errored: ' + (e?.message || e) + '\n\nIf the TX was broadcast (check your node or logs for txid), click OK to unlock the terminal now. Otherwise Cancel.');
-      localStorage.setItem('covex_paid_tier', tier.id);
-      setPaidStatus({ highest_tier: tier.id });
+      // NEVER self-grant a tier on error. If the tx really did broadcast, the backend credited it
+      // and the paid-status poll will unlock the terminal; otherwise the user simply retries.
       setPayingTier(null);
-      setPaymentSuccess({ tier: tier.id, txid });
-      sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
-        tier: tier.name || tier.id, 
-        id: tier.id, 
-        address: connectedAddress,
-        txid,
-        broadcastAt: Date.now()
-      }));
-      if (proceed) {
-        // unlock in place
-      }
+      alert('Payment failed: ' + (e?.message || e) + '\n\nNo tier was granted. If your transaction did broadcast, the terminal will unlock automatically once the backend confirms it.');
+      setTimeout(checkPaymentNow, 1500);
+      setTimeout(checkPaymentNow, 5000);
     }
   };
 

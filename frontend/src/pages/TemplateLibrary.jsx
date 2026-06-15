@@ -209,6 +209,13 @@ export default function TemplateLibrary() {
                 : t.reality === 'hybrid'
                 ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
                 : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+              // Route each official template to where it is actually built/played: P2SH primitives
+              // preselect their kind on the enforced-deploy page; games go to the arena.
+              const KIND = { 'p2sh-singlesig': 'singlesig', 'p2sh-hashlock': 'hashlock', 'htlc-swap': 'hashlock', 'p2sh-timelock': 'timelock', 'p2sh-multisig': 'multisig' };
+              const href = KIND[t.id]
+                ? `/deploy/enforced?kind=${KIND[t.id]}`
+                : (t.category === 'Games' || t.category === 'Verifiable Games') ? '/explorer'
+                : '/deploy/enforced';
               return (
                 <div key={t.id || idx} className="glass-panel rounded-2xl p-5 flex flex-col border border-white/[0.06] hover:border-kaspa-green/30 transition-all">
                   <div className="flex items-center justify-between mb-1.5">
@@ -218,7 +225,7 @@ export default function TemplateLibrary() {
                   <div className="font-bold text-white mb-1">{t.name || t.id}</div>
                   <p className="text-xs text-gray-400 mb-3 leading-relaxed line-clamp-3 flex-1">{t.description}</p>
                   <div className="text-[10px] text-gray-500 mb-3">by {t.author || 'Covex Official'}</div>
-                  <a href="/deploy"
+                  <a href={href}
                     className="text-center py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:brightness-110 transition-all">
                     Use Template
                   </a>

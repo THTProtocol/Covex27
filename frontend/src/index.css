@@ -1188,3 +1188,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .anim-drop, .anim-flip, .anim-deal, .anim-pop { animation: none; }
   .clock-active { animation: none; }
 }
+
+/* ── Audit fixes: light-mode SVG contrast + mobile touch targets ────────────── */
+/* SVG <text> uses fill-* classes the light-mode .text-* remaps don't cover, so chart
+   axis labels/gridlines were near-invisible (WCAG fail) on the white simulator card. */
+.light svg .fill-gray-400 { fill: #475569 !important; }
+.light svg .fill-gray-500 { fill: #334155 !important; }
+.light svg .fill-gray-600 { fill: #1e293b !important; }
+
+@media (max-width: 640px) {
+  /* The payout-simulator range thumbs were 15px — below the ~44px touch-target guideline. */
+  .payout-range::-webkit-slider-thumb { width: 20px !important; height: 20px !important; }
+  .payout-range::-moz-range-thumb { width: 20px !important; height: 20px !important; }
+  /* Vertical divider grids (e.g. the explorer hero stats) read as dead space when stacked. */
+  .grid.divide-x > * + * { border-right: none !important; border-top: 1px solid rgba(255,255,255,0.06) !important; }
+  .light .grid.divide-x > * + * { border-top-color: #e2e8f0 !important; }
+}

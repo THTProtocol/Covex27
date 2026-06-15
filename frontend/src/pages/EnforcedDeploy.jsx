@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
 import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download } from 'lucide-react';
@@ -38,7 +39,13 @@ export default function EnforcedDeploy() {
   const canSign = isDevMode && devMode?.privateKeyHex;
 
   const [catalog, setCatalog] = useState([]);
-  const [kind, setKind] = useState('singlesig');
+  const [searchParams] = useSearchParams();
+  // Preselect a primitive from ?kind= (used by template "Use Template" links). Falls back to singlesig.
+  const initialKind = (() => {
+    const k = (searchParams.get('kind') || '').toLowerCase();
+    return KINDS.some((x) => x.id === k) ? k : 'singlesig';
+  })();
+  const [kind, setKind] = useState(initialKind);
   const [stake, setStake] = useState('1.0');
   const [lockBlocks, setLockBlocks] = useState('100');
   const [tipDaa, setTipDaa] = useState(null);

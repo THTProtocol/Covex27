@@ -679,6 +679,11 @@ fn assemble_noncustodial_satisfier(
                 satisfier.push(OpTrue);
             }
         }
+        "deadman" => {
+            // owner (IF, default) = owner sig + OP_TRUE; heir (ELSE, after lock_daa) = heir sig + OP_FALSE.
+            satisfier.extend(push65(need_solo()?));
+            satisfier.push(if branch_refund { OpFalse } else { OpTrue });
+        }
         other => return Err(format!("non-custodial assembly does not support '{other}'")),
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
@@ -1955,16 +1960,20 @@ pub async fn prepare_spend_handler(
             "'{redeem_kind}' needs the Covex oracle co-signature; use /covenant/oracle-payout, not the non-custodial spend"
         ));
     }
-    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel") {
+    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel" | "deadman") {
         return err(format!("non-custodial wallet signing does not support '{redeem_kind}'"));
     }
     let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
     let htlc_lock_daa: Option<u64> = redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
     let channel_lock_daa: Option<u64> = redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
+    let deadman_lock_daa: Option<u64> = redeem_kind.strip_prefix("deadman:").and_then(|s| s.parse::<u64>().ok());
     // Branch selection (committed in the sighash via lock_time): HTLC claim(default)/refund,
     // channel close(default)/refund.
     let branch = req.branch.as_deref().unwrap_or("").to_lowercase();
-    let branch_refund = matches!(kind_base.as_str(), "htlc" | "channel") && branch == "refund";
+    // The "refund/ELSE" CLTV branch (needs lock_time = lock_daa): HTLC/channel refund, or
+    // the dead-man's heir branch (requested as "heir" or "refund").
+    let branch_refund = (matches!(kind_base.as_str(), "htlc" | "channel") && branch == "refund")
+        || (kind_base == "deadman" && (branch == "heir" || branch == "refund"));
     let redeem = match hex::decode(&redeem_hex) {
         Ok(b) => b,
         Err(e) => return err(format!("corrupt redeem: {e}")),
@@ -2005,6 +2014,12 @@ pub async fn prepare_spend_handler(
                 if let Some(pk) = member_pubkeys.get(1) { v.push(serde_json::json!({ "role": "player2", "xonly": hex::encode(pk) })); }
                 v
             }
+        }
+        "deadman" => {
+            // owner spends the IF branch; heir spends the ELSE branch after the timelock.
+            let idx = if branch_refund { 1 } else { 0 };
+            let role = if branch_refund { "heir (after timelock)" } else { "owner" };
+            member_pubkeys.get(idx).map(|pk| vec![serde_json::json!({ "role": role, "xonly": hex::encode(pk) })]).unwrap_or_default()
         }
         _ => if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": "signer", "xonly": signer_xonly.clone() })] },
     };
@@ -2057,6 +2072,7 @@ pub async fn prepare_spend_handler(
     let spend_lock_time = timelock_daa
         .or(if kind_base == "htlc" && branch_refund { htlc_lock_daa } else { None })
         .or(if kind_base == "channel" && branch_refund { channel_lock_daa } else { None })
+        .or(if kind_base == "deadman" && branch_refund { deadman_lock_daa } else { None })
         .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
@@ -2102,7 +2118,7 @@ pub async fn prepare_spend_handler(
         "sign_scheme": "bip340-schnorr-secp256k1",
         "signer_xonly": signer_xonly,
         "required_signers": required_signers,
-        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else { None },
+        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else if kind_base == "deadman" { Some(if branch_refund { "heir" } else { "owner" }) } else { None },
         "p2sh_address": p2sh_address,
         "amount_sompi": amount,
         "destination": req.destination_addr,
@@ -2261,6 +2277,13 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
             if pks.len() < 2 { return Err("channel needs pubkeys_hex=[p1,p2]".into()); }
             let lock = spec.lock_daa.ok_or("channel requires lock_daa")?;
             Ok((redeem_channel(&decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?, lock)?, format!("channel:{lock}")))
+        }
+        "deadman" => {
+            // owner = the deployer (owner_xonly); pubkeys_hex=[heir] claims after lock_daa.
+            let pks = spec.pubkeys_hex.as_ref().ok_or("deadman requires pubkeys_hex=[heir]")?;
+            let heir = pks.first().ok_or("deadman requires pubkeys_hex=[heir]")?;
+            let lock = spec.lock_daa.ok_or("deadman requires lock_daa")?;
+            Ok((redeem_deadman(owner_xonly, &decode_xonly_hex(heir)?, lock)?, format!("deadman:{lock}")))
         }
         other => Err(format!("non-custodial deploy does not support kind '{other}' (oracle covenants use the server oracle path)")),
     }

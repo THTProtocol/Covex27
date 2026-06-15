@@ -105,38 +105,16 @@ impl CovenantCategory {
             return CovenantCategory::CommunityPool;
         }
 
-        // aa20 patterns (the most common for custom logic, games, claims)
+        // aa20 = the STANDARD Kaspa P2SH lock (OP_BLAKE2B, push-32, <hash>, OP_EQUAL). The 32-byte
+        // script hash is cryptographically OPAQUE until the redeem script is revealed at spend
+        // time, so the bytes inside it tell us NOTHING about what the covenant actually does.
+        // Classifying it as "Predictive"/"VerifiableSkill"/"Skill" from incidental hash bytes (the
+        // presence of 0x51/0x52/0x53) was fabrication — every such "covenant" is really just a P2SH
+        // commitment. Label it honestly. The genuine type is only known when the covenant is
+        // deployed THROUGH Covex (which records its real type) or its redeem script is revealed.
         if has_aa20 {
-            // Predictive / binary markets
-            if script_hex.contains("52") || script_hex.contains("53") {
-                return CovenantCategory::Predictive;
-            }
-
-            // Structured settlement / timelock (long complex scripts)
-            if raw_len > 120 {
-                return CovenantCategory::Structured;
-            }
-
-            // Verifiable / ZK-enabled skill games (chess, poker etc.)
-            // Heuristic: presence of 51 (OP_1 = player outcome) + longer payload typical of game logic
-            // Real ZK config is attached later in Terminal, but we tag as VerifiableSkill for modern interactive covenants.
-            if script_hex.contains("51") && raw_len > 90 {
-                return CovenantCategory::VerifiableSkill;
-            }
-
-            // Membership / claim style (merkle, range proofs, eligibility) — often shorter + specific markers
-            if raw_len < 140 && (script_hex.contains("51") || script_hex.len() > 60) {
-                // Could be a claim covenant; we can refine further with metadata later
-                return CovenantCategory::MembershipClaim;
-            }
-
-            // Classic single-outcome skill contest / game
-            if script_hex.contains("51") {
-                return CovenantCategory::Skill;
-            }
-
-            // Default aa20 complex covenant → treat as verifiable skill / game for current focus
-            return CovenantCategory::VerifiableSkill;
+            let _ = raw_len;
+            return CovenantCategory::P2sh;
         }
 
         CovenantCategory::General
@@ -175,14 +153,9 @@ impl CovenantCategory {
             return "community-pool-covenant".into();
         }
         if script_hex.contains("aa20") {
-            let len = script_hex.len() / 2;
-            if len > 140 {
-                return "complex-interactive-covenant".into(); // games, ZK, rich logic
-            }
-            if script_hex.contains("51") {
-                return "verifiable-skill-covenant".into();
-            }
-            return "skill-covenant".into();
+            // aa20 commitment we can't further classify from opaque bytes — label honestly as a
+            // P2SH commitment rather than guessing "skill"/"verifiable-skill" from random hash bytes.
+            return "p2sh-commitment".into();
         }
         // Best-effort for raw / any opcode presence (to surface EVERY covenant from the chain)
         if script_hex.contains("aa20") || script_hex.contains("aa21") || script_hex.contains("aa22") || script_hex.contains("aa23") {

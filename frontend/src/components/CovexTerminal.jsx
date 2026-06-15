@@ -2223,10 +2223,21 @@ ${gameMeta.outcomeBranches}
               User presses "Show all ZK circuits" to reveal the full list. */}
           <div className="grid grid-cols-3 gap-2">
             {(() => {
-              const popular = ['chess_v1', 'chess_blitz', 'chess_bullet', 'poker_v1', 'poker_6max', 'blackjack_v1', 'merkle_membership', 'range_proof', 'connect4_v1', 'tictactoe_v1', 'checkers_v1', 'reversi_v1'];
+              const popular = [
+                // Games (oracle-attested, live)
+                'chess_v1', 'chess_blitz', 'poker_v1', 'blackjack_v1', 'checkers_v1', 'connect4_v1', 'tictactoe_v1', 'reversi_v1',
+                // Real ZK / crypto primitives (Groth16-backed)
+                'merkle_membership', 'range_proof', 'hash_preimage', 'age_verification', 'escrow_2party', 'timelock_absolute', 'privacy_mixer_v1',
+                // DeFi / oracle covenants
+                'prediction_market', 'pot_distribution', 'auction_dutch', 'parametric_insurance', 'anti_sybil',
+              ];
               const list = showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => popular.includes(c.id));
               return list.map((gt) => {
-                const disabled = !hasPaidAccess;
+                // Circuits are usable on every tier on TESTNET (experiment freely): the outcome
+                // resolves via the live oracle-attested path (a real BIP340 oracle signature),
+                // which is honest and works for free users. On MAINNET the paid tier still unlocks
+                // the full circuit set + the in-browser ZK proving experience.
+                const disabled = isMainnet && !hasPaidAccess;
                 const selected = gameType === gt.id;
                 const circuitDescriptions = {
                   chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',

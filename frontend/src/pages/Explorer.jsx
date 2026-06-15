@@ -626,9 +626,9 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`group block rounded-2xl border transition-all duration-300 overflow-hidden ${
-        isPaid ? `${cfg.border} ${cfg.glow} hover:-translate-y-0.5 hover:shadow-xl` : 'border-white/8 hover:border-white/15'
-      } bg-[#0c0c12] min-h-[300px] flex flex-col`}
+      className={`group block rounded-2xl border transition-all duration-300 overflow-hidden hover:-translate-y-0.5 ${
+        isPaid ? `${cfg.border} ${cfg.glow} hover:shadow-xl` : 'border-white/10 hover:border-[#49EACB]/25 hover:shadow-lg hover:shadow-[#49EACB]/[0.06]'
+      } bg-gradient-to-b from-[#13131c] to-[#0a0a0e] min-h-[300px] flex flex-col`}
     >
       {/* VISUAL HEADER - tier + category gradient stripe */}
       <div className="relative h-16 overflow-hidden">

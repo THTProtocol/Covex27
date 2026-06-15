@@ -2728,6 +2728,73 @@ pub async fn submit_deploy_handler(
     }
 }
 
+#[derive(serde::Deserialize)]
+pub struct ClaimCovenantInput {
+    pub covenant_id: String,
+    pub redeem_script_hex: String,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub owner_addr: Option<String>,
+}
+
+/// POST /covenant/p2sh/claim — "Claim & activate" an elsewhere-created covenant.
+///
+/// The caller supplies the covenant's REDEEM SCRIPT (and optional metadata). We recompute the P2SH
+/// lock from it and require it to MATCH the covenant's on-chain commitment, so a claim is impossible
+/// without genuinely knowing the script (which is secret until a spend reveals it). On success the
+/// covenant becomes fully interactable on Covex: redeemable (a p2sh_covenants row) + richly
+/// displayed (metadata). Fully trustless — no key, no trust, just a hash match.
+pub async fn claim_covenant_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(input): Json<ClaimCovenantInput>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "ok": false, "error": m }));
+    let redeem = match hex::decode(input.redeem_script_hex.trim().trim_start_matches("0x")) {
+        Ok(b) if !b.is_empty() => b,
+        _ => return err("redeem_script_hex must be non-empty hex".into()),
+    };
+    let cov = match db::get_covenant_by_txid(&db, &input.covenant_id) {
+        Some(c) => c,
+        None => return err("covenant not found".into()),
+    };
+    // The covenant's on-chain lock is aa20<blake2b256(redeem)>87. Recompute it from the supplied
+    // redeem script; it MUST equal the indexed script for the claim to be valid.
+    let expected_lock = hex::encode(p2sh_script_pubkey(&redeem).script());
+    if !expected_lock.eq_ignore_ascii_case(cov.script_hex.trim()) {
+        return err(format!(
+            "this redeem script does not produce the covenant's on-chain commitment (lock mismatch: indexed {}, from your script {})",
+            cov.script_hex, expected_lock
+        ));
+    }
+    // Verified. Persist the redeem script + metadata so the covenant is fully interactable.
+    let txid = input.covenant_id.split(':').next().unwrap_or(&input.covenant_id).to_string();
+    let outpoint: u32 = input.covenant_id.split(':').nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let kind = input.kind.clone().filter(|k| !k.trim().is_empty()).unwrap_or_else(|| "singlesig".into());
+    let owner = input.owner_addr.clone().filter(|o| !o.trim().is_empty()).unwrap_or_else(|| cov.creator_addr.clone());
+    let redeem_lc = input.redeem_script_hex.trim().trim_start_matches("0x").to_lowercase();
+    let _ = db::insert_p2sh_covenant(&db, &txid, &cov.network, &cov.address, &redeem_lc, &kind, cov.amount_sompi, outpoint, &owner);
+    let kind_base = kind.split(':').next().unwrap_or(&kind).to_string();
+    let ctype = format!("p2sh-{kind_base}");
+    let nm = input.name.clone().filter(|n| !n.trim().is_empty());
+    let base_desc = input.description.clone().filter(|d| !d.trim().is_empty())
+        .unwrap_or_else(|| format!("Claimed {kind_base} covenant — redeem script verified on-chain, now fully interactable on Covex."));
+    let desc = match nm { Some(n) => format!("{n} — {base_desc}"), None => base_desc };
+    let _ = db::set_claimed_metadata(&db, &input.covenant_id, &desc, &ctype);
+    info!("Covenant claimed + activated: {} kind={} (lock verified)", input.covenant_id, kind);
+    Json(serde_json::json!({
+        "ok": true,
+        "covenant_id": input.covenant_id,
+        "redeem_kind": kind,
+        "p2sh_address": cov.address,
+        "message": "Verified: this redeem script matches the on-chain commitment. The covenant is now redeemable and fully interactable.",
+    }))
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
@@ -2736,6 +2803,7 @@ pub fn p2sh_routes() -> Router {
         .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))
         .route("/covenant/p2sh/prepare-deploy", post(prepare_deploy_handler))
         .route("/covenant/p2sh/submit-deploy", post(submit_deploy_handler))
+        .route("/covenant/p2sh/claim", post(claim_covenant_handler))
         .route("/covenant/oracle-payout", post(oracle_payout_handler))
 }
 

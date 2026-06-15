@@ -203,6 +203,11 @@ export default function CovenantInteractive() {
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
   const [showGameArena, setShowGameArena] = useState(false);
+  // Claim & Activate: provide an elsewhere-created covenant's redeem script (+ metadata) to make it
+  // fully interactable. Verified trustlessly by the backend (the script must hash to the commitment).
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [claimForm, setClaimForm] = useState({ redeem_script_hex: '', kind: 'singlesig', name: '', description: '' });
+  const [claimBusy, setClaimBusy] = useState(false);
   // Detect WHICH game this covenant is. Prefer the explicit deployed game_type; fall back to text
   // heuristics for older/crawled covenants. Specific games are matched before the loose chess
   // fallback so a poker covenant that says "winner takes all" isn't mis-detected as chess.
@@ -227,6 +232,31 @@ export default function CovenantInteractive() {
   }, [covenant]);
   const isChess = gameType === 'chess';
   const isOtherGame = !!gameType && gameType !== 'chess';
+
+  // Claim & Activate: verify a supplied redeem script against the on-chain commitment, then the
+  // covenant becomes redeemable + richly displayed. Refetch so the new UI appears immediately.
+  const submitClaim = async () => {
+    if (!claimForm.redeem_script_hex.trim()) { setToast({ type: 'error', msg: 'Paste the covenant redeem script (hex).' }); return; }
+    setClaimBusy(true);
+    try {
+      const r = await fetch('/api/covenant/p2sh/claim', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ covenant_id: id, ...claimForm }),
+      });
+      const d = await r.json();
+      if (d && d.ok) {
+        setToast({ type: 'success', msg: 'Verified on-chain — this covenant is now fully interactable.' });
+        setClaimOpen(false);
+        fetch(`/api/covenants/${encodeURIComponent(id)}`).then(x => x.ok ? x.json() : null).then(x => x && setCovenant(x.covenant || null)).catch(() => {});
+      } else {
+        setToast({ type: 'error', msg: d?.error || 'The redeem script did not match this covenant.' });
+      }
+    } catch (e) {
+      setToast({ type: 'error', msg: e?.message || 'Claim failed.' });
+    } finally {
+      setClaimBusy(false);
+    }
+  };
 
   const handleUpgrade = async (tier) => {
     setUpgradeTier(tier);
@@ -1083,6 +1113,35 @@ export default function CovenantInteractive() {
                         >
                           <ShieldCheck size={16} /> Redeem / spend with my key
                         </Link>
+                      </div>
+                    )}
+                    {!covenant.redeem_kind && (covenant.script_hex || '').startsWith('aa20') && (
+                      <div className="rounded-2xl bg-blue-500/[0.05] border border-blue-500/25 overflow-hidden">
+                        <button onClick={() => setClaimOpen(o => !o)} className="w-full flex items-center justify-between gap-2 p-4 text-left">
+                          <div className="flex items-center gap-2">
+                            <BadgeCheck size={16} className="text-blue-300" />
+                            <span className="text-sm font-bold text-white">Claim &amp; activate this covenant</span>
+                          </div>
+                          <span className="text-[10px] text-blue-300/70 font-mono">{claimOpen ? 'hide' : 'is this yours?'}</span>
+                        </button>
+                        {claimOpen && (
+                          <div className="px-4 pb-4 space-y-3">
+                            <p className="text-xs text-gray-300 leading-relaxed">
+                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below — Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. Fully trustless.
+                            </p>
+                            <textarea value={claimForm.redeem_script_hex} onChange={e => setClaimForm(f => ({ ...f, redeem_script_hex: e.target.value }))} placeholder="Redeem script (hex)" rows={3} className="w-full text-xs font-mono bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus:border-blue-400/50 outline-none" spellCheck={false} />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <select value={claimForm.kind} onChange={e => setClaimForm(f => ({ ...f, kind: e.target.value }))} className="text-sm bg-black/50 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-blue-400/50">
+                                {['singlesig','hashlock','timelock','multisig','htlc','channel','oracle_escrow','oracle_enforced'].map(k => <option key={k} value={k} className="bg-[#0c0c12]">{k}</option>)}
+                              </select>
+                              <input value={claimForm.name} onChange={e => setClaimForm(f => ({ ...f, name: e.target.value }))} placeholder="Name (optional)" className="text-sm bg-black/50 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-blue-400/50" />
+                            </div>
+                            <input value={claimForm.description} onChange={e => setClaimForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" className="w-full text-sm bg-black/50 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-blue-400/50" />
+                            <button onClick={submitClaim} disabled={claimBusy} className="w-full py-2.5 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-400 transition-colors disabled:opacity-60">
+                              {claimBusy ? 'Verifying on-chain…' : 'Verify & activate'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {covenant.enforcement_reality === 'decorative' && !covenant.redeem_kind && (

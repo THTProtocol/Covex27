@@ -1386,6 +1386,22 @@ pub fn insert_p2sh_covenant(
     Ok(())
 }
 
+/// Attach creator-supplied metadata to a covenant being CLAIMED (an elsewhere-created covenant
+/// whose redeem script the claimer has just proven). Makes it display + filter as a real covenant.
+pub fn set_claimed_metadata(
+    db: &Mutex<Connection>,
+    covenant_id: &str,
+    description: &str,
+    covenant_type: &str,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE covenants SET description = ?2, full_logic_summary = ?2, covenant_type = ?3, category = 'Claimed Covenants', is_active = 1 WHERE tx_id = ?1",
+        params![covenant_id, description, covenant_type],
+    )?;
+    Ok(())
+}
+
 pub fn get_p2sh_covenant(db: &Mutex<Connection>, tx_id: &str) -> Option<P2shCovenant> {
     let conn = db.lock().unwrap();
     conn.query_row(

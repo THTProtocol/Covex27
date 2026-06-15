@@ -629,10 +629,20 @@ pub fn query_covenants(
     category: Option<&str>,
     limit: i64,
     offset: i64,
+    genuine_only: bool,
 ) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
     let conn = db.lock().unwrap();
     let mut where_clauses: Vec<String> = vec!["is_active = 1".to_string()];
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    // Curated default: show covenants Covex can say something REAL about — a paid tier or a
+    // genuine creator/builder description. Bare crawled P2SH commitments (opaque until spend,
+    // empty description) are hidden behind the explorer's "Show all" toggle, never deleted.
+    if genuine_only {
+        where_clauses.push(
+            "(verified_tier IN ('BUILDER','PRO','MAX') OR (TRIM(description) <> '' AND description <> 'unknown'))"
+                .to_string(),
+        );
+    }
     if let Some(net) = network {
         args.push(Box::new(net.to_string()));
         where_clauses.push(format!("network = ?{}", args.len()));

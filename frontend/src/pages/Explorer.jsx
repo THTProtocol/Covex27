@@ -120,6 +120,7 @@ export default function Explorer() {
   const [searchError, setSearchError] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
+  const [includeRaw, setIncludeRaw] = useState(false);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
@@ -140,8 +141,11 @@ export default function Explorer() {
     let url = `/api/covenants?network=${kaspaNetwork}&limit=${PAGE_SIZE}&offset=${off}`;
     const catQ = CATEGORY_QUERY[activeCategory];
     if (activeCategory !== 'All' && catQ) url += `&q=${encodeURIComponent(catQ)}`;
+    // By default the backend curates to covenants with real metadata (paid tier / genuine
+    // description) and hides bare opaque crawled P2SH commitments. "Show all" reveals them.
+    if (includeRaw) url += '&include_raw=1';
     return url;
-  }, [kaspaNetwork, activeCategory]);
+  }, [kaspaNetwork, activeCategory, includeRaw]);
 
   useEffect(() => {
     setLoading(true);
@@ -532,13 +536,20 @@ export default function Explorer() {
             )}
             {!loading && covenants.length > 0 && (
               <>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-widest text-kaspa-green flex items-center gap-1.5">
-                      <Layers size={12} />All Covenants
+                      <Layers size={12} />{includeRaw ? 'All Commitments' : 'Covenants'}
                     </span>
-                    <span className="text-[10px] text-gray-500 font-mono">{stats.total.toLocaleString()} total - PAID at top</span>
+                    <span className="text-[10px] text-gray-500 font-mono">{stats.total.toLocaleString()} {includeRaw ? 'total - PAID at top' : 'curated - PAID at top'}</span>
                   </div>
+                  <button
+                    onClick={() => setIncludeRaw(v => !v)}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${includeRaw ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}
+                    title="Bare P2SH commitments are opaque until spend; curated view hides them"
+                  >
+                    {includeRaw ? 'Showing all on-chain commitments' : 'Show all on-chain commitments'}
+                  </button>
                 </div>
                 {filteredCovenants.length === 0 ? (
                   <div className="glass-panel rounded-2xl py-14 text-center">

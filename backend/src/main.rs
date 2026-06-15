@@ -437,7 +437,7 @@ async fn address_summary_handler(
 ) -> Json<serde_json::Value> {
     let network = params.get("network").map(|s| s.as_str());
     let (covs, total) =
-        db::query_covenants(&db, network, Some(addr.as_str()), None, None, 100, 0)
+        db::query_covenants(&db, network, Some(addr.as_str()), None, None, 100, 0, false)
             .unwrap_or((vec![], 0));
     let ui_ids = db::get_custom_ui_id_set(&db).unwrap_or_default();
     let list: Vec<serde_json::Value> = covs
@@ -802,8 +802,14 @@ async fn covenants_handler(
         .unwrap_or(0)
         .max(0);
 
+    // Curate by default: hide bare crawled P2SH commitments unless the caller explicitly searches
+    // (q), filters by category/creator, or passes include_raw=1 (the explorer "Show all" toggle).
+    let genuine_only = q.is_none()
+        && category.is_none()
+        && creator.is_none()
+        && params.get("include_raw").map(|v| v != "1").unwrap_or(true);
     let (records, total) =
-        match db::query_covenants(&db, network_filter, creator, q, category, limit, offset) {
+        match db::query_covenants(&db, network_filter, creator, q, category, limit, offset, genuine_only) {
             Ok(r) => r,
             Err(e) => {
                 error!("Failed to query covenants: {}", e);

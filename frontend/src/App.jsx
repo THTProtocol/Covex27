@@ -39,6 +39,7 @@ const Treasury = lazy(() => import('./pages/Treasury'));
 const Stats = lazy(() => import('./pages/Stats'));
 const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
+const Readme = lazy(() => import('./pages/Readme'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X } from 'lucide-react';
@@ -209,6 +210,7 @@ export default function App() {
                 <NavLink to="/fix" className={NL}>Fix</NavLink>
                 {/* Full visual editor, covenant composer, and best-covenant tools are in paid Terminal only. */}
                 <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
+                <NavLink to="/readme" className={NL}>How it Works</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <SmartDeployLink />
                 <NetworkSwitcher />
@@ -239,6 +241,7 @@ export default function App() {
                   <SmartTerminalLink />
                   <NavLink to="/fix" className={NL} onClick={() => setMobileMenuOpen(false)}>Fix</NavLink>
                   <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>Kaspa</NavLink>
+                  <NavLink to="/readme" className={NL} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
                   <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <SmartDeployLink />
                   <div className="pt-2 border-t border-white/10 light:border-slate-200">
@@ -275,6 +278,7 @@ export default function App() {
               <Route path="/premium" element={<PremiumBuilder />} />
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/sandbox" element={<Sandbox />} />
+              <Route path="/readme" element={<Readme />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />
@@ -292,6 +296,8 @@ export default function App() {
             <div className="max-w-6xl mx-auto text-center space-y-1">
               <div>
                 Non-custodial. Keys stay in your wallet.
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/readme" className="hover:text-kaspa-green transition-colors">How it Works</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/docs" className="hover:text-kaspa-green transition-colors">API</Link>
                 <span className="mx-2 opacity-30">|</span>

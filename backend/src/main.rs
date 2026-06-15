@@ -1653,17 +1653,11 @@ async fn compute_payout_handler(
         }));
     }
 
-    // 2. Look up covenant config for fee/pot-return percentages
-    let (fee_percent, pot_return_percent) = match db::get_generated_ui_by_covenant(&db, &covenant_id) {
-        Ok(Some(ui)) => {
-            let config_str = ui.get("ui_config").and_then(|v| v.as_str()).unwrap_or("{}");
-            let config: serde_json::Value = serde_json::from_str(config_str).unwrap_or(json!({}));
-            let fee = config["fee_percent"].as_f64().unwrap_or(2.0);
-            let pot = config["pot_return_percent"].as_f64().unwrap_or(2.0);
-            (fee, pot)
-        }
-        _ => (2.0, 2.0), // defaults
-    };
+    // 2. NO RAKE. The enforced on-chain payout sends the WHOLE pot to the winner (a single
+    // output minus the network TX_FEE) - Covex takes no percentage. The product is a flat
+    // builder/SaaS subscription, not an operator's cut of pots (the legal trigger). So the
+    // computed breakdown shows 0% platform fee / 0% pot-return, matching what the chain does.
+    let (fee_percent, pot_return_percent) = (0.0_f64, 0.0_f64);
 
     // 3. Determine total pot
     let total_pot = input.total_stake_kas.unwrap_or(
@@ -1688,9 +1682,7 @@ async fn compute_payout_handler(
         "Covenant ID: {}\nOutcome: {}\nOracle Signature (BIP340 schnorr): {}\nOracle Pubkey (x-only): {}\nSigned Message: {}\nTimestamp: {}\n\n\
          To unlock: include this signature as witness data in your Kaspa spend transaction.\n\
          The covenant script verifies this Schnorr signature against the oracle pubkey (OpCheckSig at Toccata) and releases funds.\n\
-         Winner receives: {} KAS\n\
-         Platform fee: {} KAS (to treasury)\n\
-         Pot return: {} KAS (back to covenant for reuse)",
+         Winner receives: {} KAS (the full pot minus the network fee - Covex takes no cut)",
         covenant_id,
         input.outcome,
         input.oracle_signature,
@@ -1698,8 +1690,6 @@ async fn compute_payout_handler(
         message,
         input.oracle_timestamp.unwrap_or(0),
         format!("{:.2}", winner_share),
-        format!("{:.2}", platform_fee),
-        format!("{:.2}", pot_return),
     );
 
     let payout = PayoutBreakdown {

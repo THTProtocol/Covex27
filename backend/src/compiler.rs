@@ -401,15 +401,11 @@ fn emit_generic_game(unit: &CompileUnit, max_outcome: i64) -> String {
     out.push_str(&format!("        require(minLock == {});\n", unit.min_lock));
 
     // Compute fee constant at compile time
-    let fee_bps = unit.fee_basis_points;
-    // Fee is feeBasisPoints/10000 of total. Pre-compute as int division.
-    out.push_str(&format!(
-        "        // Fee: {} basis points ({}%) — 2% to treasury\n",
-        fee_bps,
-        fee_bps as f64 / 100.0
-    ));
-    out.push_str("        int feeAmount = (stakeAmount * feeBasisPoints) / 10000;\n");
-    out.push_str("        // Platform receives fee, remainder goes to winner\n\n");
+    let _ = unit.fee_basis_points;
+    // NO platform rake: the winner receives the full pot (minus the network fee). Covex is
+    // a builder/tool, not an operator that cuts pots, so the emitted script bakes in no
+    // treasury skim. (silverc has no payout opcode anyway, so this is also not expressible.)
+    out.push_str("        // Winner receives the full pot - Covex takes no cut.\n\n");
 
     // Build if/else chain for each outcome
     if unit.payout_model == "claimant" {
@@ -419,14 +415,14 @@ fn emit_generic_game(unit: &CompileUnit, max_outcome: i64) -> String {
         out.push_str("        // outcome == 1: Depositor wins — stake returned to depositor\n");
         out.push_str("        if (outcome == 0) {\n");
         out.push_str("            // CLAIMANT WINS — depositor's stake goes to claimant\n");
-        out.push_str("            // (minus platform fee to treasury)\n");
-        out.push_str("            require(feeAmount > 0);\n");
-        out.push_str("            require(stakeAmount > feeAmount);\n");
+        out.push_str("            // (winner takes the full pot)\n");
+        out.push_str("            require(stakeAmount > 0);\n");
+        out.push_str("            require(stakeAmount > 0);\n");
         out.push_str("        } else {\n");
         out.push_str("            // DEPOSITOR WINS — stake returned to depositor\n");
-        out.push_str("            // (minus platform fee to treasury)\n");
-        out.push_str("            require(feeAmount > 0);\n");
-        out.push_str("            require(stakeAmount > feeAmount);\n");
+        out.push_str("            // (winner takes the full pot)\n");
+        out.push_str("            require(stakeAmount > 0);\n");
+        out.push_str("            require(stakeAmount > 0);\n");
         out.push_str("        }\n");
     } else {
         // Player model: player_a/player_b
@@ -438,24 +434,24 @@ fn emit_generic_game(unit: &CompileUnit, max_outcome: i64) -> String {
         }
         out.push_str("        if (outcome == 0) {\n");
         out.push_str("            // PLAYER A WINS\n");
-        out.push_str("            require(feeAmount > 0);\n");
-        out.push_str("            require(stakeAmount > feeAmount);\n");
+        out.push_str("            require(stakeAmount > 0);\n");
+        out.push_str("            require(stakeAmount > 0);\n");
         out.push_str("        } else {\n");
         if max_outcome >= 2 {
             out.push_str("            if (outcome == 1) {\n");
             out.push_str("                // PLAYER B WINS\n");
-            out.push_str("                require(feeAmount > 0);\n");
-            out.push_str("                require(stakeAmount > feeAmount);\n");
+            out.push_str("                require(stakeAmount > 0);\n");
+            out.push_str("                require(stakeAmount > 0);\n");
             out.push_str("            } else {\n");
             out.push_str("                // DRAW — split pot (each gets half)\n");
             out.push_str("                int halfStake = stakeAmount / 2;\n");
-            out.push_str("                require(halfStake > feeAmount);\n");
-            out.push_str("                require(feeAmount > 0);\n");
+            out.push_str("                require(halfStake > 0);\n");
+            out.push_str("                require(stakeAmount > 0);\n");
             out.push_str("            }\n");
         } else {
             out.push_str("            // PLAYER B WINS\n");
-            out.push_str("            require(feeAmount > 0);\n");
-            out.push_str("            require(stakeAmount > feeAmount);\n");
+            out.push_str("            require(stakeAmount > 0);\n");
+            out.push_str("            require(stakeAmount > 0);\n");
         }
         out.push_str("        }\n");
     }

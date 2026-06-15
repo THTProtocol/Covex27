@@ -886,8 +886,11 @@ pub fn get_generated_ui_for(
     covenant_id: &str,
 ) -> anyhow::Result<Option<(String, String, String)>> {
     let conn = db.lock().unwrap();
+    // Exclude the TRUSTED trust-config rows (written by save_ui_trust_config with an EMPTY
+    // ui_html): they are config-only and read separately by get_ui_trust_config. Without
+    // this, a newer trust row wins the ORDER BY and BLANKS the published page for visitors.
     let mut stmt = conn.prepare(
-        "SELECT ui_html, ui_config, tier FROM generated_uis WHERE covenant_id = ?1 ORDER BY ui_generated_at DESC LIMIT 1",
+        "SELECT ui_html, ui_config, tier FROM generated_uis WHERE covenant_id = ?1 AND NOT (tier = 'TRUSTED' AND ui_html = '') ORDER BY ui_generated_at DESC LIMIT 1",
     )?;
     let mut rows = stmt.query_map(params![covenant_id], |row| {
         Ok((

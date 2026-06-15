@@ -52,8 +52,17 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
   is honestly labeled `decorative` (metadata-only) by `reality_for_script` and refused on mainnet
   unless `acknowledge_unenforced:true`. *Verified:* grep shows zero deploy-surface callers.
 
-## PHASE 2 — ZK circuits genuinely usable in the browser
-37 circuits have live, verified proving keys (done). Make each provable from a user's browser.
+## PHASE 2 — ZK, repositioned to its HONEST role (a real v2 — AFTER mainnet + visuals)
+**Reframe (per the user, 2026-06-15):** Kaspa has no pairing precompile, so the chain CANNOT verify a
+SNARK on-chain at Toccata. So **script enforcement is the trustless layer; ZK lives INSIDE the
+oracle-attested tier** (the proof is checked OFF-chain by the oracle, which then signs). ZK is NOT
+dropped — it is a genuinely good feature, labeled + sequenced honestly. Real jobs: **privacy** (prove
+a fact without revealing the data), **succinct verification of off-chain work**, and the powerful one,
+**shrinking the oracle** (require a valid proof BEFORE the oracle signs → "trust the oracle to be
+honest" becomes "trust it to be live + the math valid"). ZK can NEVER make a covenant
+trustless/on-chain on Kaspa, so the honest label is **"oracle-attested + ZK-private," never "full-zk /
+trustless / on-chain."** **This phase ships as a v2 AFTER mainnet + the visual finale — it does NOT
+take the pre-Toccata slot.** Only 2.1 (the relabel) is in-scope NOW, inside the trust/legal honesty pass.
 
 - **2.1 ☐ Serve the verified circuits' artifacts** (`<c>.wasm` + `<c>_final.zkey` + `<c>_vkey.json`)
   under `frontend/public/zk/<c>/`, and commit them (un-ignore like merkle/range — they're public
@@ -65,8 +74,11 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
   generate a real proof in-browser → oracle verifies + signs → label is honest.
 - **2.3 ☐ Fix `range_proof`'s broken in-browser prover** (MiMC7 commitment mismatch) — use the
   circuit's own hasher output, drop `mimc_test.wasm`. *Verify:* a real range proof verifies.
-- **2.4 ☐ Promote each circuit to `full-zk` in `VERIFIED_FULL_ZK`** ONLY after 2.2 verifies it. Keep
-  labels honest until then.
+- **2.4 ☐ (v2) The "shrinking oracle" wiring:** make the oracle REQUIRE a valid ZK proof before it
+  co-signs the outcome — the genuine trust-minimization ZK earns. NEVER promote anything to "full-zk /
+  trustless / on-chain"; the strongest honest label stays "oracle-attested + ZK-private." Keep only the
+  ~6 Kaspa-essential circuits real (merkle/range/timelock/utxo-ownership/pot_split/escrow_2party); kill
+  or clearly mark the ~37 costume circuits (prebaked proof + vkey, no real proving key).
 
 ## PHASE 3 — Mainnet readiness (Toccata, June 30)
 - **3.1 ☑ Wallet-funded enforced deploy on mainnet.** DONE (commits 2038b3d backend + 8bce0ae

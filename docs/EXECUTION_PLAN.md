@@ -96,11 +96,14 @@ The primary `/deploy` is already the trustless P2SH flow (done). Close the rest.
 Only after 1–3. Done with a live see-change-see loop (browser screenshots each step). The north
 star: **perfect spacing, perfect rhythm, premium depth, flawless light+dark, buttery motion.**
 
-- **4.1 ☐ Lock the design system.** One spacing scale (4/8px rhythm), one type ramp, tokenized
-  colors/shadows/radii. Audit + de-dupe the CSS (e.g. duplicate `::selection`). Everything derives
-  from tokens so spacing is consistent everywhere.
-- **4.2 ☐ Explorer / landing.** Hero proportions, generous whitespace, a refined covenant-card with
-  consistent padding/elevation/hover, perfect grid gutters, a real "value locked" hero stat.
+- **4.1 ◐ Lock the design system.** In progress. The audit FOUND + FIXED a real launch bug: the
+  service worker (sw.js) served a stale `index.html` after every deploy, so users never saw updates
+  (commit a1388d4 - now network-first shell, cache-first immutable assets, cache rotated). Remaining:
+  spacing-scale/token de-dupe pass.
+- **4.2 ◐ Explorer / landing.** First pass shipped (commit 4d5057c): covenant cards decluttered (the
+  cramped 4-field footer → a quiet `creator · date` line + a prominent `View →`), more breathing room
+  under the description, more hero top padding + heading spacing. Verified live. Remaining: activity
+  ticker density, deeper card-elevation/hover polish if desired.
 - **4.3 ☐ Covenant detail page.** Lifecycle timeline, trust badge, interact panel, background-image
   treatment — spacing + hierarchy perfected.
 - **4.4 ☐ Deploy (enforced) flow.** The kind picker, forms, the "interact with any covenant" panel —

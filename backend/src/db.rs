@@ -36,7 +36,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         -- NOTE: the (network, script_hex) dedup index is intentionally NOT created here.
         -- On a fresh DB the covenants table above has no `network` column yet — it is added
         -- by the migration further down. Creating the index inside this batch would fail with
-        -- "no such column: network" and the process would never bind. It is created right
+        -- a no-such-column error and the process would never bind. It is created right
         -- after the network-column migration instead (see below).
 
         CREATE TABLE IF NOT EXISTS payments (

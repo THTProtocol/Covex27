@@ -42,7 +42,38 @@ const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
 import { ThemeProvider } from './components/ThemeProvider';
 import ThemeToggle from './components/ThemeToggle';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
+
+// Grouped "Learn" menu so the nav stays clean: informational pages live here instead of
+// crowding the top bar. Opens on hover (desktop).
+function LearnMenu() {
+  const [open, setOpen] = useState(false);
+  const items = [
+    ['How it Works', '/readme'],
+    ['What is Kaspa', '/kaspa'],
+    ['API Docs', '/docs'],
+    ['Whitepaper', '/whitepaper'],
+  ];
+  return (
+    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button className="text-sm font-medium text-gray-200 hover:text-white inline-flex items-center gap-1 transition-colors">
+        Learn <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 z-50">
+          <div className="min-w-[176px] rounded-xl border border-white/10 bg-[#0c0c12]/95 backdrop-blur-xl shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)] py-1.5 light:bg-white/98 light:border-slate-200">
+            {items.map(([label, to]) => (
+              <NavLink key={to} to={to} onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-200 hover:text-kaspa-green hover:bg-white/5 light:text-slate-700 light:hover:bg-slate-100 transition-colors">
+                {label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const NL = ({ isActive }) =>
   `text-sm font-medium transition-colors ${
@@ -206,13 +237,8 @@ export default function App() {
               <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
                 <NavLink to="/sandbox" className={NL}>Sandbox</NavLink>
-                <SmartTerminalLink />
-                <NavLink to="/fix" className={NL}>Fix</NavLink>
-                {/* Full visual editor, covenant composer, and best-covenant tools are in paid Terminal only. */}
-                <NavLink to="/kaspa" className={NL}>Kaspa</NavLink>
-                <NavLink to="/readme" className={NL}>How it Works</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
-                <SmartDeployLink />
+                <LearnMenu />
                 <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
@@ -238,12 +264,12 @@ export default function App() {
                 <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 text-sm">
                   <NavLink to="/" end className={NL} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
                   <NavLink to="/sandbox" className={NL} onClick={() => setMobileMenuOpen(false)}>Sandbox</NavLink>
-                  <SmartTerminalLink />
-                  <NavLink to="/fix" className={NL} onClick={() => setMobileMenuOpen(false)}>Fix</NavLink>
-                  <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>Kaspa</NavLink>
-                  <NavLink to="/readme" className={NL} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
                   <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
-                  <SmartDeployLink />
+                  <div className="mt-1 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
+                  <NavLink to="/readme" className={NL} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
+                  <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
+                  <NavLink to="/docs" className={NL} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
+                  <NavLink to="/whitepaper" className={NL} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
                   <div className="pt-2 border-t border-white/10 light:border-slate-200">
                     <NetworkSwitcher />
                   </div>

@@ -25,7 +25,12 @@
 
 ---
 
-> **Status (2026-06-12):** Kaspa mainnet runs at 10 BPS since the Crescendo hard fork (May 2025). Native L1 **covenants** arrive with the **Toccata** hard fork, scheduled for the **June 5 to 20, 2026** mainnet activation window (KIP-16/17/20/21). Covex runs a real mainnet node today and is indexing for that activation: **the mainnet covenant explorer is honestly empty until the first real covenant lands**. No placeholder data, ever. Covenants are live now on Toccata **Testnet-12**, where Covex already indexes 7,800+ of them.
+> **Status (2026-06-15):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled for mainnet activation in **2026**. Covex runs a real mainnet node today: **the mainnet covenant explorer is honestly empty until the first real covenant lands — no placeholder data, ever.** Covenants are live now on the Toccata **Testnet-12** network, where Covex indexes 8,000+ and where every primitive below is verified against the real consensus transaction-script engine before any value moves.
+
+**What's new (2026-06-15)**
+- **Unified Sandbox** — one window where a free, searchable circuit library drives a live preview (enforcement reality, resolution flow, an accurate dual-reality payout simulator, and the actual SilverScript) and the builder, then deploys it non-custodially. See **[How it Works](https://hightable.pro/readme)** for the full, factual blueprint.
+- **Real, verifying zero-knowledge** — `merkle_membership`, `range_proof`, `age_verification`, and `escrow_2party` now have Groth16 proofs that generate and verify end-to-end (the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires). Other catalog circuits stay honestly labelled oracle-attested until their keys ship; the setup is a dev ceremony, not yet a production MPC.
+- **Trustless in-app wallet generation** — new users can generate a fresh Kaspa wallet in the browser (24-word phrase, fund it from any exchange) and use it non-custodially. The private key is generated client-side and **never transmitted to the server**.
 
 ---
 

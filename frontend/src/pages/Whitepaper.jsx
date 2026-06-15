@@ -13,7 +13,7 @@ const SECTIONS = [
     id: 'background', n: '1 · Background: covenants on Kaspa',
     body: [
       "Kaspa is a proof-of-work BlockDAG using the GHOSTDAG / DAGKNIGHT ordering protocol. Since the Crescendo hard fork (mainnet, ~May 2025) it produces 10 blocks per second while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped KIP-10 transaction-introspection opcodes, the first step toward covenants.",
-      "The Toccata hard fork completes the covenant story. Scheduled to activate on mainnet in the June 5 to 20, 2026 window, it bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (zero-knowledge verification opcodes with Groth16 and RISC Zero STARK precompiles for on-chain proof checking), and KIP-21 (partitioned sequencing commitments enabling based ZK applications).",
+      "The Toccata hard fork completes the covenant story. Scheduled to activate on mainnet in 2026 (no confirmed calendar day), it bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (zero-knowledge verification opcodes with Groth16 and RISC Zero STARK precompiles for on-chain proof checking), and KIP-21 (partitioned sequencing commitments enabling based ZK applications).",
       "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. It is currently experimental and valid on Testnet-12; mainnet validity arrives with Toccata. Covex builds directly on this stack.",
     ],
   },
@@ -55,7 +55,7 @@ const SECTIONS = [
   {
     id: 'why-now', n: '6 · Why now',
     body: [
-      "The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex already indexes 7,800+ covenants on Testnet-12 and runs a real mainnet node today, ready for the Toccata activation window.",
+      "The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex already indexes 13,000+ covenants across its testnets and runs a real mainnet node today, ready for the Toccata activation window.",
       "The goal of this codebase is to be ready - correct, honest, and complete - on day one of covenants on Kaspa mainnet.",
     ],
   },
@@ -74,7 +74,7 @@ export default function Whitepaper() {
         </div>
         <div>
           <h1 className="text-3xl font-black text-white">Covex Whitepaper</h1>
-          <p className="text-sm text-gray-400">A Covenant Explorer and Studio for Kaspa Mainnet · v1.0 · 2026</p>
+          <p className="text-sm text-gray-400">A Covenant Explorer and Studio for Kaspa Mainnet · v1.0 · June 2026</p>
         </div>
       </div>
 

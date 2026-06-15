@@ -252,7 +252,7 @@ timeline
     section Testnet era
         2025 to 2026 : SilverScript covenants live on Testnet-12 : Covex ships explorer, studio, arenas, oracle : 11,000+ covenants indexed across TN12 and TN10
     section Toccata
-        June 30, 2026 : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
+        2026 : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
     section Trustless era
         After activation : Mainnet covenants indexed from the first one : resolutions migrate to on-chain Groth16 and STARK verification : multi-oracle threshold signing, KCC-20 indexing, pay-per-call API
 ```
@@ -272,7 +272,7 @@ The full phased plan lives in [docs/COVEX_MASTER_BUILD_PLAN.md](docs/COVEX_MASTE
 
 Kaspa is a proof-of-work BlockDAG using the GHOSTDAG/DAGKNIGHT ordering protocol. Since the **Crescendo** hard fork (mainnet, ~May 2025) it produces **10 blocks per second** while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped **KIP-10** transaction-introspection opcodes, the first step toward covenants.
 
-The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet on **June 30, 2026**, it bundles four improvement proposals:
+The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet in **2026** (no confirmed calendar day), it bundles four improvement proposals:
 
 - **KIP-17**: extended script-engine opcodes, the covenant backbone.
 - **KIP-20**: covenant IDs, stable identity and lineage across a covenant's spends.
@@ -334,7 +334,7 @@ A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verif
 
 #### 7.6 Why now
 
-The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex already indexes 7,800+ covenants on Testnet-12 and runs a real mainnet node today, ready for the Toccata activation window. The goal of this codebase is to be ready, correct, honest, and complete, on day one of covenants on Kaspa mainnet.
+The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex already indexes 13,000+ covenants across its testnets and runs a real mainnet node today, ready for the Toccata activation window. The goal of this codebase is to be ready, correct, honest, and complete, on day one of covenants on Kaspa mainnet.
 
 ---
 

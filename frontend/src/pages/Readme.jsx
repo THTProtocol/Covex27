@@ -38,12 +38,12 @@ function Script({ children }) {
 const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
-  { name: 'On-chain ZK', icon: Cpu, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
-    trust: 'Proof is the key', desc: 'A real Groth16 zero-knowledge proof is verified (fail-closed) before release. Knowing the secret witness lets you spend, and nothing else does.' },
+  { name: 'Zero-knowledge', icon: Cpu, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
+    trust: 'Proof is the key', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed before release; a valid proof is the only thing that spends. Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
   { name: 'Hybrid', icon: Layers, cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10',
-    trust: 'Script + named oracle', desc: 'Part of the rule is consensus-enforced by the P2SH script (e.g. a 2-of-2 multisig), and part is attested by a disclosed oracle whose signature the chain still requires.' },
+    trust: 'Proof + named oracle', desc: 'A real ZK proof covers part of the logic and a disclosed oracle attests the rest. The chain requires both before it releases the funds. Reserved for circuits whose Groth16 proof body is genuinely required (not optional).' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10',
-    trust: 'Named oracle', desc: 'An off-chain outcome (a game result, a market event, a data feed) is signed by the Covex oracle. Trust sits with that named, publicly-keyed oracle; the settlement itself is on-chain.' },
+    trust: 'Named oracle', desc: 'An off-chain outcome (a game result, a market event, a data feed) is signed by the Covex oracle, whose co-signature the chain still requires via the redeem script. Trust sits with that named, publicly-keyed oracle; the settlement itself is on-chain.' },
 ];
 
 // ── The real primitives (redeem scripts straight from covenant_builder.rs) ─────
@@ -66,9 +66,9 @@ const PRIMITIVES = [
     what: 'Owner can always spend or refresh; an heir can claim only after the owner goes silent past a deadline.' },
   { name: 'Time-Decaying Multisig', reality: 'on-chain', script: 'OP_IF <ms_now>\nOP_ELSE <lock_daa> OP_CHECKLOCKTIMEVERIFY <ms_after> OP_ENDIF',
     what: 'A high quorum spends now; a lower quorum unlocks after a deadline. Treasury recovery / inheritance.' },
-  { name: 'Oracle-Enforced 2-of-2', reality: 'hybrid', script: '2-of-2 multisig of [ oracle_xonly , winner ]',
+  { name: 'Oracle-Enforced 2-of-2', reality: 'oracle-attested', script: '2-of-2 multisig of [ oracle_xonly , winner ]',
     what: 'The chain requires the oracle’s signature AND the winner’s. The oracle only signs a verified outcome, and its co-sign is consensus-required.' },
-  { name: 'Oracle Escrow (game pot)', reality: 'hybrid', script: '<oracle> OP_CHECKSIGVERIFY\nOP_IF <playerA> OP_CHECKSIG OP_ELSE <playerB> OP_CHECKSIG OP_ENDIF',
+  { name: 'Oracle Escrow (game pot)', reality: 'oracle-attested', script: '<oracle> OP_CHECKSIGVERIFY\nOP_IF <playerA> OP_CHECKSIG OP_ELSE <playerB> OP_CHECKSIG OP_ENDIF',
     what: 'The chain pays the pot only to the oracle-declared winner: the oracle co-signs, the winning player signs their branch.' },
 ];
 
@@ -80,7 +80,6 @@ const KIP10 = [
 
 const ZK_VERIFIED = [
   { name: 'Merkle Membership', what: 'Prove a committed value exists under a MiMC7 commitment without revealing it. Whitelists, airdrops, private eligibility.' },
-  { name: 'Range Proof', what: 'Prove a committed value lies in a 64-bit range without revealing it. Collateral, solvency, age bands.' },
   { name: 'Age Verification', what: 'Prove age ≥ a threshold from a committed birth year, revealing nothing else. A zero-knowledge KYC alternative.' },
   { name: '2-Party Escrow', what: 'Prove the timeout-vs-claim branch of an escrow without trusting an operator.' },
 ];
@@ -201,15 +200,15 @@ export default function Readme() {
       <Section kicker="The building blocks" title="Real, consensus-enforced primitives">
         <p className="text-sm text-gray-300 leading-relaxed max-w-3xl mb-6">
           These are the actual redeem scripts Covex builds and verifies against Kaspa’s <span className="text-white">TxScriptEngine</span>{' '}
-          before any value is locked. Nine are pure on-chain (the chain alone enforces them); two are hybrid (the script gates
-          release and a disclosed oracle co-signs a verified outcome).
+          before any value is locked. Nine are pure on-chain (the chain alone enforces them); two are oracle-attested (the
+          script still requires a disclosed oracle's co-signature over the declared outcome).
         </p>
         <div className="grid md:grid-cols-2 gap-4">
           {PRIMITIVES.map((p) => (
             <Card key={p.name}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h3 className="text-white font-bold">{p.name}</h3>
-                <span className={`shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${p.reality === 'on-chain' ? 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10' : 'text-amber-300 border-amber-500/40 bg-amber-500/10'}`}>{p.reality}</span>
+                <span className={`shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${p.reality === 'on-chain' ? 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10' : p.reality === 'oracle-attested' ? 'text-sky-300 border-sky-500/40 bg-sky-500/10' : 'text-amber-300 border-amber-500/40 bg-amber-500/10'}`}>{p.reality}</span>
               </div>
               <Script>{p.script}</Script>
               <p className="text-xs text-gray-300 mt-2.5 leading-relaxed">{p.what}</p>
@@ -238,8 +237,8 @@ export default function Readme() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              These four circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
-              zero-knowledge as their proving keys ship. Honest caveat: the current trusted setup is a single-contributor dev
+              These three circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
+              zero-knowledge as their proving keys ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev
               ceremony. High-value mainnet covenants warrant an independent multi-party ceremony first.
             </p>
           </div>
@@ -309,7 +308,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             <p className="text-xs text-gray-400 mt-3">Absolute (CLTV) and relative (CSV / BIP68) timelocks are also live and consensus-enforced, scored by Kaspa’s DAA.</p>
           </Card>
           <Card>
-            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, June 30 2026</div>
+            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, 2026</div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
               The <strong className="text-white">Toccata hard fork</strong> (KIP-16/17/20/21) adds the rest of the covenant
               toolkit to mainnet, including on-chain ZK-verifier opcodes, covenant lineage, and extended scripting. Covex is

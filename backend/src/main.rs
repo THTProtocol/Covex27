@@ -31,6 +31,9 @@ mod kaspa_msg;
 mod mixer;
 mod node_status;
 mod poker;
+// oracle.rs keeps a library of per-circuit verify_* helpers; some are intentionally
+// retained for reference/future wiring and are not all called today.
+#[allow(dead_code)]
 mod oracle;
 mod oracle_verifier;
 mod payment_verifier;

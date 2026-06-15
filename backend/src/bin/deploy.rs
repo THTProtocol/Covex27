@@ -5,7 +5,7 @@
 //!
 //! Usage: cargo run --bin deploy MAX
 
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

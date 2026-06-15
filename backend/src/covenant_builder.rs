@@ -29,7 +29,7 @@ use kaspa_consensus_core::sign::sign_with_multiple_v2;
 use kaspa_consensus_core::subnets::SubnetworkId;
 use kaspa_consensus_core::tx::{
     ScriptPublicKey, ScriptVec, SignableTransaction, Transaction, TransactionInput,
-    TransactionOutpoint, TransactionOutput, UtxoEntry, VerifiableTransaction,
+    TransactionOutpoint, TransactionOutput, UtxoEntry,
 };
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;

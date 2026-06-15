@@ -638,7 +638,7 @@ pub async fn sign_and_broadcast_handler(
             } else {
                 "SilverScript Covenant"
             });
-            let covenant_type = if tier_fee > 0 {
+            let _covenant_type = if tier_fee > 0 {
                 covenant_name.to_string()
             } else {
                 "SilverScript Covenant".to_string()

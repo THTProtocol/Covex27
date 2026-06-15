@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
 
@@ -253,6 +253,40 @@ export default function EnforcedDeploy() {
     redeem(c);
   }
 
+  // Hand the user EVERYTHING needed to spend this covenant if Covex disappears: the redeem
+  // script + outpoint + secret, plus instructions to broadcast through ANY Kaspa node. The
+  // literal acid test of trustlessness, downloaded at deploy time so it survives a closed tab.
+  function downloadRecoveryBundle(c) {
+    const bundle = {
+      _README: [
+        'Covex self-recovery bundle. This is everything required to SPEND this covenant',
+        'WITHOUT Covex. The redeem script is not a secret; it is required to spend and is',
+        'safe to keep. To recover: reconstruct + sign the spend with your own key using',
+        'tools/spend-covenant.mjs (or any Kaspa script tooling) and broadcast it to ANY',
+        'Kaspa node (e.g. api.kaspa.org or your own kaspad) - you do NOT need Covex.',
+        c.preimage ? 'KEEP the preimage safe: a hashlock cannot be spent without it.' : null,
+      ].filter(Boolean),
+      network: net,
+      deploy_tx_id: String(c.tx || '').split(':')[0],
+      outpoint_index: c.outpoint_index || 0,
+      p2sh_address: c.p2sh,
+      redeem_kind: c.kind,
+      redeem_script_hex: c.redeem_script_hex,
+      signer_xonly: c.signer_xonly || null,
+      lock_daa: c.lock_daa || null,
+      preimage_hex: c.preimage || null,
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `covex-recovery-${bundle.deploy_tx_id.slice(0, 12)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   const KindIcon = KINDS.find((k) => k.id === kind)?.icon || ShieldCheck;
 
   return (
@@ -366,7 +400,13 @@ export default function EnforcedDeploy() {
                 </div>
                 {c.redeem_script_hex && !c.spent && (
                   <div className="text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2 mt-1">
-                    <span className="font-sans font-semibold not-italic">Save your redeem script</span> - it is REQUIRED to spend this covenant and is what makes it recoverable without trusting Covex (also re-servable from the covenant page):
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-sans font-semibold not-italic">Save your redeem script</span>
+                      <button onClick={() => downloadRecoveryBundle(c)} className="font-sans inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-amber-400/40 bg-amber-400/10 text-amber-200 hover:bg-amber-400/20 shrink-0">
+                        <Download size={11} /> recovery bundle
+                      </button>
+                    </div>
+                    It is REQUIRED to spend this covenant and is what makes it recoverable without trusting Covex. The downloadable bundle has everything to spend through ANY Kaspa node (also re-servable from the covenant page):
                     <div className="mt-1">{c.redeem_script_hex} <CopyBtn text={c.redeem_script_hex} /></div>
                   </div>
                 )}

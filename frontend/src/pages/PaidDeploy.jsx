@@ -10,6 +10,7 @@ import {
 import DevWalletModal from '../components/DevWalletModal';
 import { GAME_TYPES, generateSilverScriptForConfig } from '../components/CovexTerminal';
 import { signCovenantOwnership } from '../lib/ownership';
+import { CircuitGlyph } from '../lib/circuitIcon';
 
 const SILVERSCRIPT_TEMPLATE = `contract SimpleWinnerTakesAll {
     state {
@@ -308,9 +309,9 @@ export default function PaidDeploy() {
               <button
                 key={gt.id}
                 onClick={() => handleGameTypeChange(gt.id)}
-                className={`p-4 rounded-xl border text-left transition-all flex flex-col ${gameType === gt.id ? 'border-[#49EACB] bg-[#49EACB]/[0.06] ring-1 ring-[#49EACB]/30' : 'border-white/[0.06] bg-black/30 hover:border-white/10'}`}
+                className={`p-4 rounded-xl border text-left transition-all flex flex-col gap-2 ${gameType === gt.id ? 'border-[#49EACB] bg-[#49EACB]/[0.06] ring-1 ring-[#49EACB]/30' : 'border-white/[0.06] bg-black/30 hover:border-white/10 hover:-translate-y-0.5'}`}
               >
-                <div className="text-2xl mb-1">{gt.name[0]}</div>
+                <CircuitGlyph type={gt} size={38} />
                 <div className="text-sm font-semibold text-white">{gt.name}</div>
                 <div className="text-[10px] text-gray-300 mt-0.5 line-clamp-2">{gt.description}</div>
               </button>

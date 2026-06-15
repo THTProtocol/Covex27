@@ -8,6 +8,7 @@ import {
   Lock, ShieldCheck, KeyRound
 } from 'lucide-react';
 import { ZK_CIRCUIT_TYPES } from '../components/CovexTerminal';
+import { CircuitGlyph } from '../lib/circuitIcon';
 
 // Dynamic icon fallback
 const getIcon = (id) => {
@@ -426,12 +427,11 @@ export default function PremiumBuilder() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filtered.slice(0, 24).map(c => {
-            const Icon = getIcon(c.id);
             const isSel = selectedCircuitId === c.id;
             return (
-              <button key={c.id} onClick={() => { setSelectedCircuitId(c.id); }} className={`text-left p-4 rounded-xl border transition ${isSel ? 'border-white/40 bg-white/5' : 'border-white/10 hover:border-white/20 bg-black/30'}`}>
+              <button key={c.id} onClick={() => { setSelectedCircuitId(c.id); }} className={`text-left p-4 rounded-xl border transition ${isSel ? 'border-white/40 bg-white/5' : 'border-white/10 hover:border-white/20 hover:-translate-y-0.5 bg-black/30'}`}>
                 <div className="flex gap-3">
-                  <div className="mt-0.5" style={{ color: c.accent }}><Icon size={18} /></div>
+                  <CircuitGlyph type={c} size={36} />
                   <div className="min-w-0">
                     <div className="font-semibold text-sm flex items-center gap-2">{c.name} {c.variant && <span className="text-[9px] px-1.5 py-px rounded bg-white/10">variant</span>} {c.artifacts && <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">artifact</span>}</div>
                     <div className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{c.description}</div>

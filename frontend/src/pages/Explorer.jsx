@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Database, Search, Sparkles, Play,
@@ -106,6 +106,45 @@ const ALL_CATEGORIES = [
   // Advanced / specialized
   'Yield & Compounding', 'Auctions', 'Lotteries & Pots', 'Privacy Mixers', 'Timelocks',
   'Milestone Escrows', 'Membership Claims', 'Multi-sig', 'Prediction Pools', 'Custom Logic', 'P2SH Commitments', 'Vesting & Timelocks', 'Atomic Swaps', 'Multi-sig Safes'];
+
+// Animate a stat from 0 up to its REAL value once, the first time it loads (easeOutCubic).
+// Honest: it always lands on the real indexed number. Reduced-motion users (and live +1
+// increments after the first load) see the value snap, not re-animate. A setTimeout guard
+// guarantees the final value even if requestAnimationFrame is throttled (background tabs).
+function useCountUp(target, duration = 950) {
+  const [val, setVal] = useState(0);
+  const animated = useRef(false);
+  useEffect(() => {
+    const t = Number(target) || 0;
+    const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (animated.current || reduce || !t) { setVal(t); if (t) animated.current = true; return; }
+    animated.current = true;
+    let raf = 0, start = 0, done = false;
+    const finish = () => { if (!done) { done = true; setVal(t); } };
+    const tick = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min(1, (ts - start) / duration);
+      setVal(t * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) raf = requestAnimationFrame(tick); else finish();
+    };
+    raf = requestAnimationFrame(tick);
+    const guard = setTimeout(finish, duration + 500);
+    return () => { cancelAnimationFrame(raf); clearTimeout(guard); };
+  }, [target, duration]);
+  return val;
+}
+
+function CountUpStat({ icon: Icon, label, value, fmt }) {
+  const n = useCountUp(value);
+  return (
+    <div className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] transition-colors">
+      <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 font-mono uppercase tracking-[0.18em]">
+        <Icon size={11} className="text-kaspa-green/80" />{label}
+      </p>
+      <p className="text-lg sm:text-xl font-black bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent tabular-nums">{fmt(n)}</p>
+    </div>
+  );
+}
 
 export default function Explorer() {
   const { address } = useWallet();
@@ -322,18 +361,13 @@ export default function Explorer() {
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
+        <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
-            { icon: Layers, label: `${netLabel} Covenants`, value: stats.total.toLocaleString() },
-            { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount },
-            { icon: Coins, label: 'Total TVL', value: formatKaspa(stats.totalTVL) },
+            { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: (n) => Math.round(n).toLocaleString() },
+            { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount, fmt: (n) => Math.round(n).toLocaleString() },
+            { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
           ].map((s, i) => (
-            <div key={i} className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] transition-colors">
-              <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 font-mono uppercase tracking-[0.18em]">
-                <s.icon size={11} className="text-kaspa-green/80" />{s.label}
-              </p>
-              <p className="text-lg sm:text-xl font-black bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent tabular-nums">{s.value}</p>
-            </div>
+            <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} />
           ))}
         </div>
 
@@ -424,7 +458,7 @@ export default function Explorer() {
                   autoFocus spellCheck={false} autoComplete="off"
                 />
                 <button type="submit" disabled={searchLoading || !searchQuery.trim()}
-                  className="px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                  className="btn-shimmer px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
                   {searchLoading ? <span className="inline-block w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><Search size={12} /> Search</>}
                 </button>
@@ -614,7 +648,7 @@ export default function Explorer() {
                     <button
                       onClick={loadMore}
                       disabled={loadingMore}
-                      className="px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-colors disabled:opacity-50"
+                      className="btn-shimmer px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-colors disabled:opacity-50"
                     >
                       {loadingMore ? 'Loading...' : `Load more (${stats.total.toLocaleString()} total)`}
                     </button>

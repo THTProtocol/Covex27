@@ -33,9 +33,11 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         CREATE INDEX IF NOT EXISTS idx_covenants_active ON covenants(is_active);
         CREATE INDEX IF NOT EXISTS idx_covenants_verified ON covenants(verified_tier);
         CREATE INDEX IF NOT EXISTS idx_covenants_creator ON covenants(creator_addr);
-        -- Fast dedup lookup: a covenant is its (network, script) pair; re-deposits to the
-        -- same P2SH share the script and must not be counted as new covenants.
-        CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);
+        -- NOTE: the (network, script_hex) dedup index is intentionally NOT created here.
+        -- On a fresh DB the covenants table above has no `network` column yet — it is added
+        -- by the migration further down. Creating the index inside this batch would fail with
+        -- "no such column: network" and the process would never bind. It is created right
+        -- after the network-column migration instead (see below).
 
         CREATE TABLE IF NOT EXISTS payments (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -244,6 +246,13 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
              CREATE INDEX IF NOT EXISTS idx_covenants_network ON covenants(network);"
         )?;
     }
+    // Fast dedup lookup: a covenant is its (network, script) pair; re-deposits to the same
+    // P2SH share the script and must not be counted as new covenants. Created here — AFTER the
+    // network column is guaranteed to exist (just added above, or already present on an
+    // already-migrated DB) — so a fresh-DB cold start does not fail with "no such column".
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);"
+    )?;
 
     // ── Migration: add 'network' column to payments if missing ──
     let has_payments_network: bool = conn

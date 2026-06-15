@@ -33,6 +33,9 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         CREATE INDEX IF NOT EXISTS idx_covenants_active ON covenants(is_active);
         CREATE INDEX IF NOT EXISTS idx_covenants_verified ON covenants(verified_tier);
         CREATE INDEX IF NOT EXISTS idx_covenants_creator ON covenants(creator_addr);
+        -- Fast dedup lookup: a covenant is its (network, script) pair; re-deposits to the
+        -- same P2SH share the script and must not be counted as new covenants.
+        CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);
 
         CREATE TABLE IF NOT EXISTS payments (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -386,6 +389,26 @@ pub fn insert_covenant(
             |_| Ok(true),
         )
         .unwrap_or(false);
+    // DEDUP BY (network, script_hex): a covenant IS its P2SH script/address. Re-deposits
+    // (or re-mints) to the SAME address share the EXACT script, so they are the SAME
+    // covenant - not a new one. Without this guard a single popular covenant (one address
+    // funded by thousands of txs) gets one row PER deposit and inflates the count by its
+    // deposit count (e.g. one TN10 address counted 224k times). If this is a NEW tx_id but
+    // a covenant with this exact non-empty script already exists on this network, skip the
+    // insert - the covenant is already indexed under another tx. (Covex's own deploys lock
+    // to a unique redeem script, so they never collide here.)
+    if !already && script_hex.len() > 10 {
+        let dup: bool = conn
+            .query_row(
+                "SELECT 1 FROM covenants WHERE network = ?1 AND script_hex = ?2 LIMIT 1",
+                params![network, script_hex],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if dup {
+            return Ok(());
+        }
+    }
     conn.execute(
         "INSERT INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses, network)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13, ?14)

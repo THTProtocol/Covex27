@@ -120,7 +120,10 @@ export default function Explorer() {
   const [searchError, setSearchError] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
-  const [includeRaw, setIncludeRaw] = useState(false);
+  // Default to showing ALL on-chain commitments (the full, thriving count). Covenants are honestly
+  // LABELED now (no fabricated types), so there's no reason to hide them — "Verified only" is an
+  // opt-in filter for users who want just paid + real-description covenants.
+  const [includeRaw, setIncludeRaw] = useState(true);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
@@ -575,22 +578,22 @@ export default function Explorer() {
                 <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-widest text-kaspa-green flex items-center gap-1.5">
-                      <Layers size={12} />{includeRaw ? 'All Commitments' : 'Covenants'}
+                      <Layers size={12} />{includeRaw ? 'All Covenants' : 'Verified Covenants'}
                     </span>
                     <span className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
                       <span className="relative flex h-1.5 w-1.5" title="Live — updates as new covenants are indexed">
                         <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 animate-ping" />
                         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
                       </span>
-                      {stats.total.toLocaleString()} {includeRaw ? 'total' : 'live'} - PAID at top
+                      {stats.total.toLocaleString()} {includeRaw ? 'live - PAID at top' : 'verified - PAID at top'}
                     </span>
                   </div>
                   <button
                     onClick={() => setIncludeRaw(v => !v)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${includeRaw ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}
-                    title="Bare P2SH commitments are opaque until spend; curated view hides them"
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${!includeRaw ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}
+                    title="Verified = paid tiers + covenants with a real description. All = every on-chain P2SH commitment (opaque until spend)."
                   >
-                    {includeRaw ? 'Showing all on-chain commitments' : 'Show all on-chain commitments'}
+                    {includeRaw ? 'Verified only' : 'Showing verified — show all'}
                   </button>
                 </div>
                 {filteredCovenants.length === 0 ? (

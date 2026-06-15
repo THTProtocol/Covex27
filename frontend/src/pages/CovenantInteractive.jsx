@@ -704,7 +704,11 @@ export default function CovenantInteractive() {
             </div>
           )}
 
-          {/* Verification / Transparency badge - for chess always full transparent pro view, no paid nag, no limited text */}
+          {/* Trust banner - honest about what actually backs the covenant. ON-CHAIN
+              enforcement is the STRONGEST guarantee (Kaspa consensus), so a script-enforced
+              covenant gets a positive banner even when the creator never paid for the
+              "verified tier" (a separate disclosure feature). Only metadata-only covenants -
+              which the chain does NOT enforce - get the caution banner. */}
           {isChess || verified ? (
             <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
               <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
@@ -717,13 +721,23 @@ export default function CovenantInteractive() {
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-red-500/[0.06] border border-red-500/25 flex items-center gap-3">
-              <AlertTriangle size={20} className="text-red-400 shrink-0" />
+          ) : covenant?.enforcement_reality === 'on-chain' ? (
+            <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
+              <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-red-400">DANGER / UNVERIFIED COVENANT</p>
-                <p className="text-xs text-red-400/70">
-                  Limited disclosure: tx_id, script_hash, amount only. Use at your own risk. Full details require verified payment by covenant creator.
+                <p className="text-sm font-semibold text-emerald-400">ON-CHAIN ENFORCED</p>
+                <p className="text-xs text-emerald-400/70">
+                  Kaspa consensus enforces this covenant - the strongest guarantee. Funds lock to a script hash and move only by satisfying it, with no oracle and no trust in Covex. (The paid "verified tier" only adds extra creator-published disclosure; it is separate from enforcement.)
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6 px-5 py-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 flex items-center gap-3">
+              <AlertTriangle size={20} className="text-amber-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-400">Metadata only - not consensus-enforced</p>
+                <p className="text-xs text-amber-400/80">
+                  The chain records this covenant but does not enforce its stated logic, and disclosure is limited to tx_id, script_hash, and amount. Review the on-chain facts and the creator before sending funds.
                 </p>
               </div>
             </div>

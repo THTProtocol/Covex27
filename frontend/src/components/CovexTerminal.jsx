@@ -415,6 +415,9 @@ export function generateSilverScriptForConfig(cfg) {
     zkVerifierKey = '',
     reusable = true,
     allowTopups = false,
+    // Passed in by callers (defaults to full). This was previously read from
+    // component scope, so this standalone export always threw a ReferenceError.
+    hasPaidAccess = true,
   } = cfg || {};
 
   const feeBasis = Math.round(feePercent * 100);

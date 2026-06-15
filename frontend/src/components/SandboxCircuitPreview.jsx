@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
-import { Eye, FileSearch, Sparkles, ArrowRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check } from 'lucide-react';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
+import { generateSilverScriptForConfig } from './CovexTerminal';
 
 // SandboxCircuitPreview: a FREE, no-wallet, read-only deep-dive for the circuit a visitor
 // picked in the sandbox. It explains, honestly, how the covenant resolves (keyed to its real
@@ -73,6 +74,38 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
     };
   }, [circuit, kind]);
 
+  // The declared, human-readable covenant logic (SilverScript) for this circuit. Updates
+  // live as you pick a circuit. This is the DECLARED logic — the real enforcement is the
+  // "how it resolves" flow above (SilverScript opcode enforcement is still maturing; custody
+  // is what the chain enforces today).
+  const exampleScript = useMemo(() => {
+    if (!circuit) return null;
+    try {
+      return generateSilverScriptForConfig({
+        gameType: circuit.id,
+        zkCircuit: circuit.id,
+        feePercent: 2,
+        potReturnPercent: 2,
+        resolutionMode: circuit.reality === 'full-zk' ? 'zk' : (circuit.reality === 'hybrid' ? 'hybrid' : 'oracle'),
+        reusable: true,
+        allowTopups: false,
+        hasPaidAccess: true,
+      });
+    } catch (_) {
+      return null;
+    }
+  }, [circuit]);
+
+  const [copied, setCopied] = useState(false);
+  const copyScript = async () => {
+    if (!exampleScript) return;
+    try {
+      await navigator.clipboard.writeText(exampleScript);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (_) { /* clipboard unavailable */ }
+  };
+
   if (!circuit) return null;
   const flow = RESOLUTION_FLOW[circuit.reality] || RESOLUTION_FLOW['oracle-attested'];
 
@@ -100,6 +133,24 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
         </ol>
         <p className="text-xs text-gray-400 mt-4 pt-3 border-t border-white/[0.06] leading-relaxed">{flow.note}</p>
       </div>
+
+      {/* Example covenant logic (SilverScript) — declared logic, regenerated live per circuit */}
+      {exampleScript && (
+        <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
+            <Code2 size={13} className="text-kaspa-green" />
+            <span className="text-[11px] uppercase tracking-wider text-gray-300">Example covenant logic</span>
+            <span className="text-[10px] text-gray-500">SilverScript · declared</span>
+            <button onClick={copyScript} className="ml-auto inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-kaspa-green transition-colors">
+              {copied ? (<><Check size={12} className="text-kaspa-green" /> Copied</>) : (<><Copy size={12} /> Copy</>)}
+            </button>
+          </div>
+          <pre className="text-[10.5px] leading-relaxed text-gray-300 font-mono p-4 overflow-auto" style={{ maxHeight: 280 }}>{exampleScript}</pre>
+          <div className="px-4 py-2 border-t border-white/[0.06] text-[10px] text-gray-500 leading-relaxed">
+            This is the declared, human-readable logic. What the chain enforces today is shown in "How it resolves" above.
+          </div>
+        </div>
+      )}
 
       {/* Payout simulator (interactive, faithful to on-chain math) */}
       {showSimulator && (

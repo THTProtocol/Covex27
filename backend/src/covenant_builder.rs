@@ -91,6 +91,10 @@ pub enum RedeemKind {
     /// OpCheckLockTimeVerify <heir> OpCheckSig OP_ENDIF`. The owner spends/refreshes at any
     /// time; the heir can claim only once the chain reaches `lock_daa`. No oracle.
     Deadman { owner: [u8; 32], heir: [u8; 32], lock_daa: u64 },
+    /// Relative timelock (CSV): `<min_sequence> OpCheckSequenceVerify <xonly> OpCheckSig`.
+    /// Node-enforced (BIP68): a live TN12 spend of a fresh UTXO is rejected with
+    /// "one of the transaction sequence locks conditions was not met".
+    RelativeTimelock { min_sequence: u64, xonly_pubkey: [u8; 32] },
 }
 
 impl RedeemKind {
@@ -111,6 +115,9 @@ impl RedeemKind {
                 redeem_oracle_escrow(oracle, player_a, player_b)
             }
             RedeemKind::Deadman { owner, heir, lock_daa } => redeem_deadman(owner, heir, *lock_daa),
+            RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey } => {
+                redeem_relative_timelock(*min_sequence, xonly_pubkey)
+            }
         }
     }
 
@@ -129,6 +136,7 @@ impl RedeemKind {
             RedeemKind::OracleEnforced { .. } => "oracle:2".to_string(),
             RedeemKind::OracleEscrow { .. } => "oracle_escrow".to_string(),
             RedeemKind::Deadman { lock_daa, .. } => format!("deadman:{lock_daa}"),
+            RedeemKind::RelativeTimelock { min_sequence, .. } => format!("rcsv:{min_sequence}"),
         }
     }
 
@@ -147,6 +155,7 @@ impl RedeemKind {
             RedeemKind::OracleEnforced { .. } => "oracle_enforced",
             RedeemKind::OracleEscrow { .. } => "oracle_escrow",
             RedeemKind::Deadman { .. } => "p2sh_deadman",
+            RedeemKind::RelativeTimelock { .. } => "p2sh_rcsv",
         }
     }
 }
@@ -169,6 +178,8 @@ pub enum SpendKind {
     OracleEscrow,
     /// `deadman:N` - dead-man's-switch (owner IF branch; heir ELSE branch after lock_daa N).
     Deadman { lock_daa: u64 },
+    /// `rcsv:N` - relative timelock; the spend input's sequence must be >= N.
+    RelativeTimelock { min_sequence: u64 },
 }
 
 impl SpendKind {
@@ -191,6 +202,7 @@ impl SpendKind {
             }),
             "oracle_escrow" => Some(SpendKind::OracleEscrow),
             "deadman" => Some(SpendKind::Deadman { lock_daa: param?.parse().ok()? }),
+            "rcsv" => Some(SpendKind::RelativeTimelock { min_sequence: param?.parse().ok()? }),
             _ => None,
         }
     }
@@ -210,6 +222,7 @@ impl SpendKind {
             SpendKind::OracleEscrow => 3,
             // IF <owner> CheckSig  ELSE  CLTV <heir> CheckSig  ENDIF = 2 static sig ops.
             SpendKind::Deadman { .. } => 2,
+            SpendKind::RelativeTimelock { .. } => 1,
         }
     }
 }
@@ -256,10 +269,9 @@ pub fn redeem_timelock(lock_daa: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8
 /// Redeem script for a RELATIVE timelock (CSV): `<min_sequence> OpCheckSequenceVerify
 /// <xonly> OpCheckSig`. The CSV opcode requires the spend input's `sequence` field to
 /// encode a relative lock >= `min_sequence`. Like Kaspa's CLTV, OpCheckSequenceVerify POPS
-/// its operand, so there is NO OpDrop. The engine test proves the OPCODE comparison; whether
-/// the NODE additionally enforces the real aging delay (BIP68 relative-locktime) is a
-/// separate consensus property - validated by a live-node e2e BEFORE this is exposed as a
-/// deployable enforced type (so it is intentionally not yet in the catalog / deploy dispatch).
+/// its operand, so there is NO OpDrop. The engine test proves the OPCODE comparison, and a
+/// live TN12 e2e CONFIRMED the node enforces the aging delay (BIP68): spending a fresh UTXO
+/// is rejected with "one of the transaction sequence locks conditions was not met".
 pub fn redeem_relative_timelock(min_sequence: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
     b.add_lock_time(min_sequence).map_err(|e| format!("rel-timelock add seq: {e}"))?;
@@ -644,7 +656,7 @@ fn assemble_noncustodial_satisfier(
 
     let mut satisfier: Vec<u8> = Vec::new();
     match kind_base {
-        "singlesig" | "timelock" => {
+        "singlesig" | "timelock" | "rcsv" => {
             satisfier.extend(push65(need_solo()?));
         }
         "hashlock" => {
@@ -1076,8 +1088,17 @@ pub async fn p2sh_deploy_handler(
             };
             RedeemKind::Deadman { owner: xonly, heir, lock_daa }
         }
+        "relative_timelock" => {
+            // Relative timelock (CSV; node-enforced). Reuses the lock_daa request field as the
+            // required min_sequence; the owner is the deployer.
+            let min_sequence = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("relative_timelock requires lock_daa (used as min_sequence)".into()),
+            };
+            RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey: xonly }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock)"
         )),
     };
 
@@ -1480,13 +1501,16 @@ pub async fn p2sh_spend_handler(
     };
     let p2sh_spk = p2sh_script_pubkey(&redeem);
 
+    // For a relative timelock (rcsv:N), the spend input's sequence must satisfy
+    // OpCheckSequenceVerify (input.sequence >= N). Every other kind uses 0 (non-final).
+    let spend_sequence: u64 = cov.redeem_kind.strip_prefix("rcsv:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
             index: utxo.outpoint.index,
         },
         signature_script: vec![],
-        sequence: 0, // non-final, required for CLTV timelock spends
+        sequence: spend_sequence, // rcsv: satisfies OpCheckSequenceVerify; others 0 (non-final)
         // Kaspa counts a CheckMultiSig as one sig-op per listed pubkey; the declared
         // count must cover the redeem's actual sig ops or the node rejects with
         // "script units exceeded". The channel redeem has 3 sig ops across its branches
@@ -1976,10 +2000,11 @@ pub async fn prepare_spend_handler(
             "'{redeem_kind}' needs the Covex oracle co-signature; use /covenant/oracle-payout, not the non-custodial spend"
         ));
     }
-    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel" | "deadman") {
+    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel" | "deadman" | "rcsv") {
         return err(format!("non-custodial wallet signing does not support '{redeem_kind}'"));
     }
     let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
+    let rcsv_min_seq: u64 = redeem_kind.strip_prefix("rcsv:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
     let htlc_lock_daa: Option<u64> = redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
     let channel_lock_daa: Option<u64> = redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
     let deadman_lock_daa: Option<u64> = redeem_kind.strip_prefix("deadman:").and_then(|s| s.parse::<u64>().ok());
@@ -2077,7 +2102,7 @@ pub async fn prepare_spend_handler(
             index: utxo.outpoint.index,
         },
         signature_script: vec![],
-        sequence: 0, // non-final, required for any CLTV (timelock / htlc-refund / channel-refund) spend
+        sequence: rcsv_min_seq, // rcsv: satisfies OpCheckSequenceVerify; all others 0 (non-final)
         sig_op_count,
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
@@ -2271,6 +2296,10 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
         "timelock" => {
             let lock = spec.lock_daa.ok_or("timelock requires lock_daa")?;
             Ok((redeem_timelock(lock, owner_xonly)?, format!("timelock:{lock}")))
+        }
+        "relative_timelock" => {
+            let seq = spec.lock_daa.ok_or("relative_timelock requires lock_daa (min_sequence)")?;
+            Ok((redeem_relative_timelock(seq, owner_xonly)?, format!("rcsv:{seq}")))
         }
         "multisig" => {
             let pks = spec.pubkeys_hex.as_ref().ok_or("multisig requires pubkeys_hex")?;

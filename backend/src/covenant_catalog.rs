@@ -171,6 +171,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "The owner spends or refreshes at any time; the heir can claim only after the timelock DAA, so funds pass on if the owner goes silent. No oracle.",
     },
     CatalogEntry {
+        id: "p2sh_rcsv",
+        label: "Relative timelock (CSV)",
+        category: "Vesting & Timelocks",
+        reality: EnforcementReality::OnChain,
+        builder: "covenant_builder",
+        params: &["stake_kas", "lock_daa"],
+        summary: "Spendable only once the funds have aged a relative number of units, via OpCheckSequenceVerify on the input sequence. Node-enforced (BIP68): the node rejects an early spend.",
+    },
+    CatalogEntry {
         id: "oracle_enforced",
         label: "Oracle-enforced (on-chain co-sign)",
         category: "Verifiable Games (ZK/Oracle)",
@@ -318,6 +327,7 @@ mod tests {
             RedeemKind::OracleEnforced { oracle: a, winner: a },
             RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
             RedeemKind::Deadman { owner: a, heir: a, lock_daa: 1 },
+            RedeemKind::RelativeTimelock { min_sequence: 1, xonly_pubkey: a },
         ];
         let ids: Vec<&str> = CATALOG.iter().map(|e| e.id).collect();
         for k in &kinds {

@@ -104,15 +104,22 @@ star: **perfect spacing, perfect rhythm, premium depth, flawless light+dark, but
   cramped 4-field footer → a quiet `creator · date` line + a prominent `View →`), more breathing room
   under the description, more hero top padding + heading spacing. Verified live. Remaining: activity
   ticker density, deeper card-elevation/hover polish if desired.
-- **4.3 ☐ Covenant detail page.** Lifecycle timeline, trust badge, interact panel, background-image
-  treatment — spacing + hierarchy perfected.
+- **4.3 ◐ Covenant detail page.** FIXED a contradictory trust banner (commit 13258e2): a singlesig
+  P2SH covenant showed "ON-CHAIN ENFORCED" AND a red "DANGER / UNVERIFIED COVENANT". Now three honest
+  states - VERIFIED (paid, green), ON-CHAIN ENFORCED (consensus, emerald positive), or "Metadata only
+  - not consensus-enforced" (amber, only for covenants the chain does NOT enforce). Verified live.
+  Remaining (flagged as a spawned task): the right-panel iframe still shows the same legacy
+  "DANGEROUS/UNVERIFIED" text from stored EXPLORER-tier UI blobs (backend regen / stop rendering
+  auto-blobs as creator-published).
 - **4.4 ☐ Deploy (enforced) flow.** The kind picker, forms, the "interact with any covenant" panel —
   aligned, breathing, premium.
 - **4.5 ☐ Game arenas.** Board framing, clocks, pot UI — chess.com-tier polish, consistent.
 - **4.6 ☐ Chrome: nav, wallet modal, footer, toasts, modals.** Consistent paddings, focus rings,
   motion.
-- **4.7 ☐ Light + dark parity + responsive/mobile** — every page perfect in both themes and at every
-  width.
+- **4.7 ◐ Light + dark parity + responsive/mobile.** Light mode spot-checked live on the landing
+  (commit-current): clean white surface, hero gradient holds, decluttered card footer + tier-tinted
+  card backgrounds carry over - solid parity, no glaring issues (builds on prior light-mode work,
+  tasks #11/#48). Remaining: per-page light sweep on detail/deploy/games + a mobile-width pass.
 - **4.8 ☐ Final QA sweep** with full-page screenshots of every route, in both themes.
 
 ---

@@ -1,5 +1,14 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Link, NavLink, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+// Route-level boundary: catches a single page's render/chunk-load error (e.g. a stale
+// dynamic import right after a redeploy) so it shows a graceful recovery instead of the
+// root boundary nuking the whole shell; resets when the route changes.
+function RouteErrorBoundary({ children }) {
+  const location = useLocation();
+  return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
+}
 import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
@@ -238,6 +247,7 @@ export default function App() {
           </nav>
 
           <div className="relative z-10 pt-16">
+            <RouteErrorBoundary>
             <Suspense fallback={
               <div className="flex items-center justify-center py-32">
                 <div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" />
@@ -271,6 +281,7 @@ export default function App() {
               <Route path="/covenant/:id/studio" element={<CovenantStudio />} />
             </Routes>
             </Suspense>
+            </RouteErrorBoundary>
           </div>
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">

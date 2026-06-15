@@ -258,6 +258,22 @@ body {
   color: #0f172a;
 }
 
+/* Dark base for .cyber-input (only a .light variant existed, so the headline
+   "Amount to Lock" + other .cyber-input fields were borderless/unstyled in dark mode). */
+.cyber-input {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.625rem;
+  color: #e5e7eb;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.cyber-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.cyber-input:focus {
+  outline: none;
+  border-color: #49EACB;
+  box-shadow: 0 0 0 3px rgba(73, 234, 203, 0.15);
+}
+
 /* Inputs - clean white, dark text, brand focus */
 .light .cyber-input,
 .light .shadcn-input,

@@ -256,7 +256,11 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
   }, [mode, phrase, hexKey, onConnect, network]);
 
   const isMainnet = network === 'mainnet' || network === 'mainnet-1';
-  const accentColor = isMainnet ? 'red' : 'yellow';
+  // Static literal class strings (Tailwind v4 PURGES interpolated `${x}-600/30` classes,
+  // so the panel + Connect CTA rendered unstyled). Only two accents exist.
+  const A = isMainnet
+    ? { wrap: 'border-red-600/30 bg-red-600/[0.04]', dot: 'bg-red-500', label: 'text-red-400', tabOn: 'bg-red-600/20 text-red-400', btn: 'bg-red-600/80 hover:bg-red-600' }
+    : { wrap: 'border-yellow-600/30 bg-yellow-600/[0.04]', dot: 'bg-yellow-500', label: 'text-yellow-400', tabOn: 'bg-yellow-600/20 text-yellow-400', btn: 'bg-yellow-600/80 hover:bg-yellow-600' };
   if (isMainnet) {
     return (
       <div className={`rounded-xl border border-red-500/20 bg-red-500/[0.03] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
@@ -272,10 +276,10 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
   }
 
   return (
-    <div className={`rounded-xl border border-${accentColor}-600/30 bg-${accentColor}-600/[0.04] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
+    <div className={`rounded-xl border ${A.wrap} ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
       <div className="flex items-center gap-2 mb-3">
-        <div className={`w-2.5 h-2.5 rounded-full bg-${accentColor}-500 animate-pulse`} />
-        <span className={`text-xs font-mono text-${accentColor}-400 uppercase tracking-wider`}>{netLabel} Dev Connect</span>
+        <div className={`w-2.5 h-2.5 rounded-full ${A.dot} animate-pulse`} />
+        <span className={`text-xs font-mono ${A.label} uppercase tracking-wider`}>{netLabel} Dev Connect</span>
       </div>
       <p className="text-xs text-gray-300 mb-3 leading-relaxed">
         Connect via mnemonic or hex private key. Keys are derived locally and never leave your browser.
@@ -285,13 +289,13 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
           <button
             onClick={() => { setMode('mnemonic'); setError(null); }}
             className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-              mode === 'mnemonic' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
+              mode === 'mnemonic' ? A.tabOn : 'text-gray-300 hover:text-white'
             }`}
           >Mnemonic</button>
           <button
             onClick={() => { setMode('hex'); setError(null); }}
             className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-              mode === 'hex' ? `bg-${accentColor}-600/20 text-${accentColor}-400` : 'text-gray-300 hover:text-white'
+              mode === 'hex' ? A.tabOn : 'text-gray-300 hover:text-white'
             }`}
           >Hex Key</button>
         </div>
@@ -321,7 +325,7 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
         <button
           onClick={handleDerive}
           disabled={deriving}
-          className={`mt-3 w-full px-4 py-2.5 bg-${accentColor}-600/80 hover:bg-${accentColor}-600 text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+          className={`mt-3 w-full px-4 py-2.5 ${A.btn} text-white text-sm font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
         >
           {deriving ? (
             <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

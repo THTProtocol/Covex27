@@ -66,16 +66,21 @@ export default function Whitepaper() {
   // Highlight the section you're reading in the (sticky) contents bar.
   const [activeId, setActiveId] = useState(SECTIONS[0].id);
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const vis = entries.filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (vis[0]) setActiveId(vis[0].target.id);
-      },
-      { rootMargin: '-20% 0px -65% 0px', threshold: 0 }
-    );
-    SECTIONS.forEach((s) => { const el = document.getElementById(s.id); if (el) obs.observe(el); });
-    return () => obs.disconnect();
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      let current = SECTIONS[0].id;
+      for (const s of SECTIONS) {
+        const el = document.getElementById(s.id);
+        // The last section whose top has scrolled above the sticky bar is the one you're reading.
+        if (el && el.getBoundingClientRect().top <= 130) current = s.id;
+      }
+      setActiveId(current);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(compute); };
+    compute();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
   }, []);
 
   return (
@@ -95,7 +100,7 @@ export default function Whitepaper() {
         </div>
       </div>
 
-      <div className="sticky top-16 z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl">
+      <div className="z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl" style={{ position: 'sticky', top: '4rem' }}>
         <span className="kicker w-full mb-0.5">Contents</span>
         {SECTIONS.map((s) => (
           <a key={s.id} href={`#${s.id}`}

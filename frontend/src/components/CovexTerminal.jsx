@@ -328,7 +328,10 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // path) and scrub the "Full ZK" prose from their descriptions, so the badge AND the copy
 // match what a user can actually do. Re-promote a circuit by adding its id here once its
 // served artifacts + generator are real and verified.
-const VERIFIED_FULL_ZK = new Set(['merkle_membership']);
+// Circuits whose Groth16 artifacts are served + whose proofs actually verify (dev pot10
+// ceremony). Only these are shown as full-zk; every other 'full-zk'-declared circuit is
+// honestly downgraded to oracle-attested + zkPending until its key ships and a proof verifies.
+const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
 const scrubZkProse = (d) =>
   (d || '')
     .replace(/^Full ZK:\s*/i, 'ZK-capable (oracle-attested today, in-browser prover pending): ')

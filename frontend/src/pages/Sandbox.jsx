@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, Wrench } from 'lucide-react';
+import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, Wrench, Sparkles } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import CircuitSelector from '../components/CircuitSelector';
@@ -91,11 +91,18 @@ export default function Sandbox() {
                 <Boxes size={18} className="text-kaspa-green" />
                 <span className="text-xs uppercase tracking-widest text-gray-400">Selected</span>
                 <span className="text-white font-semibold">{tplName || circuit.name}</span>
-                {reality && (
-                  <span className={`ml-auto inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
-                    <reality.Icon size={12} /> {reality.label}
-                  </span>
-                )}
+                <div className="ml-auto flex items-center gap-2 flex-wrap">
+                  {circuit.reality === 'full-zk' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/40 shadow-[0_0_12px_rgba(73,234,203,0.35)] tracking-wide">
+                      <Sparkles size={11} /> LIVE GROTH16
+                    </span>
+                  )}
+                  {reality && (
+                    <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
+                      <reality.Icon size={12} /> {reality.label}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="px-5 py-4 grid md:grid-cols-3 gap-4 text-sm">
                 <div className="md:col-span-2 min-w-0">

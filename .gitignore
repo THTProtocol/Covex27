@@ -95,3 +95,9 @@ tmp*
 
 # Committed-by-mistake node_modules (regenerated via `cd zk && npm ci`)
 zk/node_modules/
+
+# Real verified ZK served artifacts (iter: age_verification + escrow_2party, dev pot10 Groth16, proofs verify)
+!frontend/public/zk/age_verification/age_verification.wasm
+!frontend/public/zk/age_verification/age_verification_final.zkey
+!frontend/public/zk/escrow_2party/escrow_2party.wasm
+!frontend/public/zk/escrow_2party/escrow_2party_final.zkey

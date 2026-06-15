@@ -536,7 +536,10 @@ function WalletBridge({ children }) {
       const net = (typeof localStorage !== 'undefined' && localStorage.getItem('kaspaNetwork')) || appNetwork || 'testnet-12';
       const r = await fetch(`/api/balance/${encodeURIComponent(addr)}?network=${encodeURIComponent(net)}`);
       const d = await r.json();
-      if (d && typeof d.balance_sompi === 'number') setActiveBalance(d.balance_sompi);
+      // GET /balance/:address returns { balance: <sompi> } (broadcast.rs get_balance_by_address).
+      const sompi = (d && typeof d.balance === 'number') ? d.balance
+        : (d && typeof d.balance_sompi === 'number') ? d.balance_sompi : null;
+      if (sompi != null) setActiveBalance(sompi);
     } catch (_) { /* node briefly unreachable; keep last known balance */ }
   }
 

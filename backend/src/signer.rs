@@ -231,60 +231,6 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
     Ok(Arc::new(c))
 }
 
-/// GET /balance/:addr?network=testnet-12
-///
-/// Returns the spendable balance for any Kaspa address by summing its UTXOs straight from the
-/// node. This is the ONLY way a dev-mode (mnemonic/hex) wallet can show a balance, because it
-/// has no browser-extension provider to query getBalance() on. Extension wallets can use this
-/// too as a fallback. Read-only, no keys, no DB writes.
-pub async fn balance_handler(
-    axum::extract::Path(addr): axum::extract::Path<String>,
-    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
-) -> Json<serde_json::Value> {
-    let network = params
-        .get("network")
-        .map(|s| s.as_str())
-        .unwrap_or("testnet-12");
-    let address = match Address::try_from(addr.as_str()) {
-        Ok(a) => a,
-        Err(e) => {
-            return Json(serde_json::json!({
-                "address": addr, "network": network, "ok": false,
-                "error": format!("invalid address: {}", e),
-                "balance_sompi": 0u64, "balance_kas": 0.0,
-            }))
-        }
-    };
-    let client = match client_for_network(network).await {
-        Ok(c) => c,
-        Err(e) => {
-            return Json(serde_json::json!({
-                "address": addr, "network": network, "ok": false,
-                "error": format!("node unavailable: {}", e),
-                "balance_sompi": 0u64, "balance_kas": 0.0,
-            }))
-        }
-    };
-    match client.get_utxos_by_addresses(vec![address]).await {
-        Ok(entries) => {
-            let total: u64 = entries.iter().map(|u| u.utxo_entry.amount).sum();
-            Json(serde_json::json!({
-                "address": addr,
-                "network": network,
-                "ok": true,
-                "balance_sompi": total,
-                "balance_kas": total as f64 / 100_000_000.0,
-                "utxo_count": entries.len(),
-            }))
-        }
-        Err(e) => Json(serde_json::json!({
-            "address": addr, "network": network, "ok": false,
-            "error": format!("utxo fetch failed: {}", e),
-            "balance_sompi": 0u64, "balance_kas": 0.0,
-        })),
-    }
-}
-
 pub async fn sign_and_broadcast_handler(
     Extension(db): Extension<Arc<Mutex<Connection>>>,
     Json(payload): Json<SignAndBroadcastRequest>,
@@ -773,7 +719,9 @@ pub async fn sign_and_broadcast_handler(
 }
 
 pub fn signer_routes() -> Router {
-    Router::new()
-        .route("/sign-and-broadcast", post(sign_and_broadcast_handler))
-        .route("/balance/:addr", axum::routing::get(balance_handler))
+    Router::new().route("/sign-and-broadcast", post(sign_and_broadcast_handler))
+    // NOTE: GET /balance/:address is already provided by broadcast_routes() (broadcast.rs),
+    // which returns {"balance": <sompi>} via get_balance_by_address. We deliberately do NOT
+    // register a second balance route here — axum rejects two routes that differ only in their
+    // path-param name (/balance/:addr vs /balance/:address) with a startup panic.
 }

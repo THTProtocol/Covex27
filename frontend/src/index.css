@@ -1266,3 +1266,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 @media (prefers-reduced-motion: reduce) { .holo-border { animation: none; } }
 @media (max-width: 640px) { .hover-lift-premium:hover { transform: none; } }
+
+/* Toast notifications: branded, non-blocking replacement for alert().
+   Slide+fade in from the right, fade out, with an auto-dismiss progress bar. */
+@keyframes covex-toast-in {
+  from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes covex-toast-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(24px) scale(0.96); }
+}
+@keyframes covex-toast-bar { from { width: 100%; } to { width: 0%; } }
+.covex-toast-in  { animation: covex-toast-in 0.26s cubic-bezier(0.16,1,0.3,1) both; }
+.covex-toast-out { animation: covex-toast-out 0.2s ease forwards; }
+.covex-toast-bar { animation: covex-toast-bar linear forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .covex-toast-in, .covex-toast-out { animation: none; }
+  .covex-toast-bar { animation: none; width: 0; }
+}

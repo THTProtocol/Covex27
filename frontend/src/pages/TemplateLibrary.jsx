@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '../components/ToastContext';
 import { 
   COVENANT_TEMPLATES, 
   TEMPLATE_CATEGORIES, 
@@ -38,7 +39,7 @@ export default function TemplateLibrary() {
 
   const handleUseTemplate = (template) => {
     if (!address) {
-      alert("Please connect your wallet first to use templates.");
+      toast.error("Please connect your wallet first to use templates.");
       return;
     }
 

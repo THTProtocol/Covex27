@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from './ToastContext';
 import { useNavigate } from 'react-router-dom';
 import {
   Terminal, Settings, Code2, Gavel, Save, ExternalLink,
@@ -951,7 +952,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   const payWithDevWallet = async (tier) => {
     if (!sendPayment || !connectedAddress) {
-      alert('Dev send not available');
+      toast.error('Dev send not available');
       return;
     }
     const treasury = netConfig.treasury;
@@ -961,7 +962,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       const res = await sendPayment(treasury, tier.price, { memo });
       if (res && res.txid) txid = res.txid;
       if (res && res.success === false) {
-        alert('Dev payment broadcast failed: ' + (res.error || 'Unknown error from signer. Check balance/UTXOs on TN12 and that your mnemonic has funds.'));
+        toast.error('Dev payment broadcast failed: ' + (res.error || 'Unknown error from signer. Check balance/UTXOs on TN12 and that your mnemonic has funds.'));
         setPayingTier(null);
         return;
       }
@@ -987,7 +988,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       // NEVER self-grant a tier on error. If the tx really did broadcast, the backend credited it
       // and the paid-status poll will unlock the terminal; otherwise the user simply retries.
       setPayingTier(null);
-      alert('Payment failed: ' + (e?.message || e) + '\n\nNo tier was granted. If your transaction did broadcast, the terminal will unlock automatically once the backend confirms it.');
+      toast.error('Payment failed: ' + (e?.message || e) + '\n\nNo tier was granted. If your transaction did broadcast, the terminal will unlock automatically once the backend confirms it.');
       setTimeout(checkPaymentNow, 1500);
       setTimeout(checkPaymentNow, 5000);
     }
@@ -1618,7 +1619,7 @@ ${gameMeta.outcomeBranches}
 
   const submitChessResultToOracle = useCallback(async () => {
     if (!chessResult || !covenantId) {
-      alert('Configure your covenant and finish the game first, then submit the result to the oracle.');
+      toast.info('Configure your covenant and finish the game first, then submit the result to the oracle.');
       return;
     }
 
@@ -1669,12 +1670,12 @@ ${gameMeta.outcomeBranches}
         // attestation or a live CLAIM button. Surface the real error and keep
         // chessZkVerified=false so the claim path stays gated.
         setChessZkVerified(false);
-        alert('Oracle verification failed' + (data && data.error ? ': ' + data.error : '') + '. Please try again.');
+        toast.error('Oracle verification failed' + (data && data.error ? ': ' + data.error : '') + '. Please try again.');
       }
     } catch (e) {
       // Network/parse error: never fabricate a signature. Keep verified=false.
       setChessZkVerified(false);
-      alert('Network error submitting result to the oracle. Check your connection and try again.');
+      toast.error('Network error submitting result to the oracle. Check your connection and try again.');
     }
   }, [chessResult, chessGame, covenantId, chessProvingMode, buildTimelockConfig]);
 
@@ -1682,7 +1683,7 @@ ${gameMeta.outcomeBranches}
   const claimPayout = useCallback(async () => {
     if (!covenantId || !chessOracleResult) {
       // Fallback: reset if no oracle result available
-      alert('No oracle attestation found. Submit the result to the oracle first, then claim.');
+      toast.info('No oracle attestation found. Submit the result to the oracle first, then claim.');
       return;
     }
 
@@ -3248,7 +3249,7 @@ ${gameMeta.outcomeBranches}
                   {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<div key={i} className="py-0.5 border-b border-white/5 last:border-none">{i + 1}. {m.trim()}</div>)) : <div className="text-gray-500 italic">No moves yet</div>}
                 </div>
                 <div className="mt-3 flex flex-col gap-2 w-full">
-                  {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button onClick={() => { alert('Draw offered (demo)'); }} className="w-full py-2 rounded-xl border border-white/20 text-xs">OFFER DRAW</button></>)}
+                  {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button onClick={() => { toast.info('Draw offers are not wired into the on-chain result yet. You can resign or play on.'); }} className="w-full py-2 rounded-xl border border-white/20 text-xs">OFFER DRAW</button></>)}
                   {chessMatchState === 'finished' && !chessZkVerified && (<button onClick={submitChessResultToOracle} className="w-full py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_30px_rgba(73,234,203,0.35)]">SUBMIT RESULT TO ORACLE</button>)}
                   {chessZkVerified && (
                     <div className="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">
@@ -3271,7 +3272,7 @@ ${gameMeta.outcomeBranches}
                 {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<span key={i} className="inline-block mr-3">{i + 1}. {m.trim()}</span>)) : <div className="text-gray-500 italic text-center">Drag pieces to play</div>}
               </div>
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
-                {chessMatchState === 'playing' ? (<><button onClick={() => resignGame(chessPlayerColor)} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button><button onClick={() => { alert('Draw offered'); }} className="flex-1 py-2 rounded-xl border border-white/20 text-[11px]">DRAW</button></>) : chessMatchState === 'finished' && !chessZkVerified ? (<button onClick={submitChessResultToOracle} className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_25px_rgba(73,234,203,0.3)]">SUBMIT TO ORACLE</button>) : chessZkVerified ? (
+                {chessMatchState === 'playing' ? (<><button onClick={() => resignGame(chessPlayerColor)} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button><button onClick={() => { toast.info('Draw offers are not wired into the on-chain result yet. You can resign or play on.'); }} className="flex-1 py-2 rounded-xl border border-white/20 text-[11px]">DRAW</button></>) : chessMatchState === 'finished' && !chessZkVerified ? (<button onClick={submitChessResultToOracle} className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_25px_rgba(73,234,203,0.3)]">SUBMIT TO ORACLE</button>) : chessZkVerified ? (
                     <div className="flex-1 p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">
                       <div className="text-[10px] text-emerald-400 font-mono text-center">SIGNATURE RECEIVED</div>
                       <div className="text-[9px] text-gray-300 flex justify-around mt-1">
@@ -4066,7 +4067,7 @@ ${gameMeta.outcomeBranches}
             if (studioUrl) {
               window.open(studioUrl, '_blank');
             } else {
-              alert('Configure your covenant first, then try again.');
+              toast.info('Configure your covenant first, then try again.');
             }
           }}
           className="w-full mt-2 py-3 rounded-xl bg-[#49EACB] text-black font-bold flex items-center justify-center gap-2 hover:bg-[#3dd9b8] active:scale-[0.985] transition-all"

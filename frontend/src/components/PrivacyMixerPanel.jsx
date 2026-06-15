@@ -80,15 +80,18 @@ export default function PrivacyMixerPanel({ covenantId = 'demo-mixer' }) {
 
   return (
     <div className="rounded-xl border border-violet-500/30 bg-[#0a0e1a] p-4 space-y-4">
-      <div className="flex items-center gap-2 text-violet-300">
+      <div className="flex items-center gap-2 text-violet-300 flex-wrap">
         <Shield className="w-4 h-4" />
-        <span className="font-semibold text-sm">Privacy Mixer (ZK)</span>
+        <span className="font-semibold text-sm">Privacy Mixer</span>
         <span className="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/30 text-violet-200">privacy_mixer_v1</span>
+        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-200" title="Withdrawal proofs are verified by the Covex oracle (fail-closed), not yet by on-chain consensus.">oracle-attested</span>
       </div>
 
       <p className="text-[11px] text-gray-400 leading-relaxed">
-        Deposit KAS into the pool, save your secret note offline, then withdraw with a Groth16 proof.
-        Unlinkability depends on pool size. Nullifiers prevent double-spend (oracle-enforced).
+        Deposits build a real Merkle pool; you keep your secret note offline. To withdraw, you generate a
+        Groth16 proof locally and submit it to the oracle, which verifies it fail-closed before co-signing.
+        Nullifiers are recorded to flag reuse. Unlinkability depends on pool size. Fully on-chain, trustless
+        privacy (no oracle in the spend path) is on the roadmap as Kaspa covenant support matures.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">

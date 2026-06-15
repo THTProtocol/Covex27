@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import {
@@ -183,8 +184,8 @@ export default function PremiumBuilder() {
   // path, no decorative metadata commitment. The look/branding is unchanged; only the
   // deploy primitive became genuinely consensus-enforced.
   const handleCreateAndDeploy = async () => {
-    if (!auth.token) { alert('No valid auth token. Pay first.'); return; }
-    if (!address) { alert('Connect your wallet first.'); return; }
+    if (!auth.token) { toast.error('No valid auth token. Pay first.'); return; }
+    if (!address) { toast.error('Connect your wallet first.'); return; }
     if (isMainnet) {
       setDeployResult({ success: false, error: 'Enforced on-chain deploy on mainnet needs wallet-side funding (coming soon). Switch to a testnet to deploy a real script-enforced covenant now.' });
       return;

@@ -41,6 +41,7 @@ const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
 import { ThemeProvider } from './components/ThemeProvider';
+import { ToastProvider } from './components/ToastContext';
 import ThemeToggle from './components/ThemeToggle';
 import { Menu, X, ChevronDown } from 'lucide-react';
 
@@ -224,6 +225,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <ToastProvider>
       <WalletProvider>
         <BrowserRouter>
           <DagBackground />
@@ -342,6 +344,7 @@ export default function App() {
           </footer>
         </BrowserRouter>
       </WalletProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

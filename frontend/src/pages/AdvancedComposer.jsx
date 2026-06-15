@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '../components/ToastContext';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 import { useNavigate } from 'react-router-dom';
@@ -54,7 +55,7 @@ export default function AdvancedComposer() {
 
   const handleSaveAndUse = () => {
     if (!address) {
-      alert("Connect wallet first");
+      toast.error("Connect wallet first");
       return;
     }
 

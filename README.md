@@ -29,7 +29,7 @@
 
 **What's new (2026-06-15)**
 - **Unified Sandbox** — one window where a free, searchable circuit library drives a live preview (enforcement reality, resolution flow, an accurate dual-reality payout simulator, and the actual SilverScript) and the builder, then deploys it non-custodially. See **[How it Works](https://hightable.pro/readme)** for the full, factual blueprint.
-- **Real, verifying zero-knowledge** — `merkle_membership`, `range_proof`, `age_verification`, and `escrow_2party` now have Groth16 proofs that generate and verify end-to-end (the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires). Other catalog circuits stay honestly labelled oracle-attested until their keys ship; the setup is a dev ceremony, not yet a production MPC.
+- **Real, verifying zero-knowledge** — `merkle_membership`, `age_verification`, and `escrow_2party` now have Groth16 proofs that generate and verify end-to-end (the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires). Other catalog circuits stay honestly labelled oracle-attested until their keys ship; the setup is a dev ceremony, not yet a production MPC.
 - **Trustless in-app wallet generation** — new users can generate a fresh Kaspa wallet in the browser (24-word phrase, fund it from any exchange) and use it non-custodially. The private key is generated client-side and **never transmitted to the server**.
 
 ---

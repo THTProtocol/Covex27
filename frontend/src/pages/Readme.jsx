@@ -41,7 +41,7 @@ const REALITIES = [
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
     trust: 'Proof is the key', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed before release; a valid proof is the only thing that spends. Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
   { name: 'Hybrid', icon: Layers, cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10',
-    trust: 'Proof + named oracle', desc: 'A real ZK proof covers part of the logic and a disclosed oracle attests the rest. The chain requires both before it releases the funds. Reserved for circuits whose Groth16 proof body is genuinely required (not optional).' },
+    trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10',
     trust: 'Named oracle', desc: 'An off-chain outcome (a game result, a market event, a data feed) is signed by the Covex oracle, whose co-signature the chain still requires via the redeem script. Trust sits with that named, publicly-keyed oracle; the settlement itself is on-chain.' },
 ];

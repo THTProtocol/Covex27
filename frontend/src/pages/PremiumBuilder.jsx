@@ -479,7 +479,7 @@ export default function PremiumBuilder() {
             </div>
             <div>
               <div className="text-xs text-gray-400 mb-1">Payout curve (winner / treasury)</div>
-              <input type="range" min="70" max="98" value={params.winnerPct} onChange={e => setParams(p => ({...p, winnerPct: +e.target.value}))} className="w-full" />
+              <input type="range" min="70" max="98" value={params.winnerPct} onChange={e => setParams(p => ({...p, winnerPct: +e.target.value}))} className="w-full" style={{ '--range-pct': `${((params.winnerPct - 70) / 28) * 100}%` }} />
               <div className="text-[10px] text-gray-500 flex justify-between"><div>{params.winnerPct}% winner</div><div>{params.treasuryPct}% treasury</div></div>
             </div>
           </div>

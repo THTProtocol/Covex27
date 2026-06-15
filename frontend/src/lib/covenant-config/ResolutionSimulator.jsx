@@ -133,7 +133,7 @@ export default function ResolutionSimulator({
         type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => set(Number(e.target.value))}
         className="payout-range w-full"
-        style={{ accentColor: accent || '#49EACB' }}
+        style={{ '--range-accent': accent || '#49EACB', '--range-pct': `${max > min ? Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100)) : 0}%` }}
       />
     </div>
   );

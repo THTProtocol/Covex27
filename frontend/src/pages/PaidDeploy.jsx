@@ -392,7 +392,7 @@ export default function PaidDeploy() {
           <div className="lg:col-span-2 bg-[#0a0a0a]/95 border border-[#1f1f1f] rounded-2xl p-6 space-y-4">
             <div>
               <div className="flex justify-between text-xs mb-1.5"><span className="text-gray-300">Platform Fee</span><span className="font-mono text-[#49EACB]">{feePercent}%</span></div>
-              <input type="range" min="0" max="10" step="0.5" value={feePercent} onChange={e => setFeePercent(parseFloat(e.target.value))} className="w-full accent-[#49EACB]" />
+              <input type="range" min="0" max="10" step="0.5" value={feePercent} onChange={e => setFeePercent(parseFloat(e.target.value))} className="w-full" style={{ '--range-pct': `${(feePercent / 10) * 100}%` }} />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setReusable(!reusable)} className={`flex-1 px-3 py-2 rounded-lg text-xs border ${reusable ? 'border-[#49EACB] bg-[#49EACB]/10' : 'border-white/10'}`}>Reusable: {reusable ? 'ON' : 'OFF'}</button>

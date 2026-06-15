@@ -2272,7 +2272,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1 text-gray-300"><span>Platform Fee</span><span className="font-mono text-[#49EACB]">{visualConfig.feePercent}%</span></div>
-                <input type="range" min="0" max="10" step="0.5" value={visualConfig.feePercent} onChange={e => updateVisual({ feePercent: parseFloat(e.target.value) })} className="w-full accent-[#49EACB]" />
+                <input type="range" min="0" max="10" step="0.5" value={visualConfig.feePercent} onChange={e => updateVisual({ feePercent: parseFloat(e.target.value) })} className="w-full" style={{ '--range-pct': `${(visualConfig.feePercent / 10) * 100}%` }} />
               </div>
             </div>
 

@@ -712,8 +712,8 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                         type="range" min={minTo} max={maxTo} value={Math.min(Math.max(raiseTo, minTo), maxTo)}
                         onChange={(e) => setRaiseTo(parseInt(e.target.value || '0', 10))}
                         disabled={busy}
-                        className="flex-1 accent-[#49EACB] cursor-pointer"
-                        style={{ height: 6 }}
+                        className="flex-1 cursor-pointer"
+                        style={{ '--range-pct': `${maxTo > minTo ? ((Math.min(Math.max(raiseTo, minTo), maxTo) - minTo) / (maxTo - minTo)) * 100 : 0}%` }}
                       />
                       <input
                         type="number" min={minTo} max={maxTo} value={raiseTo}

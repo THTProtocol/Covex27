@@ -3,6 +3,7 @@ import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
 import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
+import DeployDisclosure from '../components/DeployDisclosure';
 
 // The four genuinely on-chain-enforced covenant primitives (covenant_builder).
 const KINDS = [
@@ -318,6 +319,8 @@ export default function EnforcedDeploy() {
         {kind === 'multisig' && (
           <p className="text-[11px] text-gray-400">This demo locks to a 2-of-2 of the testnet dev wallets and redeems with both. Custom member keys are supported via the API.</p>
         )}
+
+        <DeployDisclosure reality="on-chain" />
 
         {!usesDevWallets && !canSign ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">

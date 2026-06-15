@@ -46,7 +46,7 @@ export default function Sandbox() {
         <span className="text-[10px] px-2 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-widest">FREE TO EXPLORE</span>
       </div>
       <p className="text-sm text-gray-300 max-w-3xl mb-6">
-        Build, preview and simulate any covenant — every primitive, ZK proof, oracle market and game.
+        Build, preview and simulate any covenant: every primitive, ZK proof, oracle market and game.
         Basic SilverScript is free; the advanced visual editor and deploy unlock with a tier. Nothing here
         overstates what the chain enforces: each starting point carries its real enforcement reality.
       </p>

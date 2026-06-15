@@ -159,8 +159,12 @@ const Pricing = () => {
             broadcastAt: Date.now()
           }));
         }
-        // Mark local immediately for dev flows (PaidBuilder effects will force the UI)
-        try { localStorage.setItem('covex_paid_tier', payingTier.id); } catch (_) {}
+        // NOTE: we intentionally do NOT write a paid tier to localStorage here.
+        // localStorage is attacker-writable, so trusting it for tier = a self-grant hole.
+        // Tier access is decided ONLY by the backend (/api/auth-session, /api/paid-status),
+        // which confirms the real on-chain payment. The sessionStorage 'payment_broadcast_tx'
+        // marker above is just a same-session hint that a real tx was broadcast (so the dev
+        // wallet can skip the indexer confirmation wait); it never grants tier by itself.
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);

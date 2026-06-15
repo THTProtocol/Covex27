@@ -42,14 +42,19 @@ export default function PaidDeploy() {
   const [devWalletOpen, setDevWalletOpen] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  const paidTier = localStorage.getItem('covex_paid_tier') || 'BUILDER';
+  // Paid tier comes ONLY from the backend (which confirms the real on-chain payment),
+  // never from localStorage. The old `localStorage.getItem('covex_paid_tier') || 'BUILDER'`
+  // not only trusted attacker-writable storage, it DEFAULTED to BUILDER, so this paid
+  // deploy was usable by anyone, on any network, with no payment at all.
+  const [auth, setAuth] = useState({ tier: 'FREE', loading: true });
+  const paidTier = auth.tier;
 
   // ── Full Covex Terminal State (embedded for premium paid experience) ──
   const [gameType, setGameType] = useState('chess_v1');
   const [resolutionMode, setResolutionMode] = useState('zk');
   const [customOracleKey, setCustomOracleKey] = useState('');
   const [zkCircuit, setZkCircuit] = useState('chess_v1');
-  const [zkVerifierKey, setZkVerifierKey] = useState('0xCHESSv1_8x8_STANDARD_AUDITED');
+  const [zkVerifierKey, setZkVerifierKey] = useState('0xCHESSv1_8x8_STANDARD');
   const [customUICode, setCustomUICode] = useState('');
   const [feePercent, setFeePercent] = useState(2);
   const [reusable, setReusable] = useState(true);
@@ -71,6 +76,21 @@ export default function PaidDeploy() {
   const [tipDaa, setTipDaa] = useState(null);
   const canSign = isDevMode && devMode?.privateKeyHex;
 
+  // Server auth session is the sole source of truth for paid access.
+  useEffect(() => {
+    if (!address) { setAuth({ tier: 'FREE', loading: false }); return; }
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    setAuth(p => ({ ...p, loading: true }));
+    fetch('/api/auth-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, network: net }),
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(data => setAuth({ tier: (data?.token && data?.tier && data.tier !== 'FREE') ? data.tier : 'FREE', loading: false }))
+      .catch(() => setAuth({ tier: 'FREE', loading: false }));
+  }, [address]);
+
   useEffect(() => {
     fetch('/api/status').then(r => r.json()).then(j => {
       const n = j.node_sync && j.node_sync[net0];
@@ -85,13 +105,13 @@ export default function PaidDeploy() {
       setResolutionMode('zk');
       setZkCircuit(gt.circuit);
       if (gt.circuit === 'chess_v1') {
-        setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
+        setZkVerifierKey('0xCHESSv1_8x8_STANDARD');
       } else if (gt.circuit === 'merkle_generic') {
-        setZkVerifierKey('0xMERKLE_GENERIC_AUDITED_V1');
+        setZkVerifierKey('0xMERKLE_GENERIC_V1');
       } else if (gt.circuit === 'bulletproofs_v1') {
-        setZkVerifierKey('0xBULLETPROOFS_V1_AUDITED');
+        setZkVerifierKey('0xBULLETPROOFS_V1');
       } else if (gt.circuit === 'age_verify_v1') {
-        setZkVerifierKey('0xAGE_VERIFY_V1_AUDITED');
+        setZkVerifierKey('0xAGE_VERIFY_V1');
       } else if (gt.circuit === 'risc0_generic') {
         setZkVerifierKey('0xRISC0_GENERIC_V1');
       } else {
@@ -122,12 +142,13 @@ export default function PaidDeploy() {
     setTimeout(() => setCopiedGen(false), 1500);
   };
 
-  // Redirect FREE users back to Pricing
+  // Redirect users the backend says are NOT paid (only after the auth check resolves,
+  // so a paid user isn't bounced during the in-flight request).
   useEffect(() => {
-    if (paidTier === 'FREE' || !paidTier) {
+    if (!auth.loading && (paidTier === 'FREE' || !paidTier)) {
       navigate('/pricing', { replace: true });
     }
-  }, [paidTier, navigate]);
+  }, [auth.loading, paidTier, navigate]);
 
   const fetchBalance = useCallback(async () => {
     if (!address) return;

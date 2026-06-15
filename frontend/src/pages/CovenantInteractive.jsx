@@ -149,10 +149,21 @@ export default function CovenantInteractive() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplatePreview, setShowTemplatePreview] = useState(null); // for modal full preview
 
-  // Anti-bypass: paid tier from localStorage
-  const [covexPaidTier, setCovexPaidTier] = useState(() =>
-    typeof window !== 'undefined' ? localStorage.getItem('covex_paid_tier') : null
-  );
+  // Paid tier comes from the backend (real verified on-chain payment), NOT attacker-writable
+  // localStorage. Starts null (FREE); populated by the auth-session fetch below.
+  const [covexPaidTier, setCovexPaidTier] = useState(null);
+  useEffect(() => {
+    if (!address) { setCovexPaidTier(null); return; }
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    fetch('/api/auth-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, network: net }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setCovexPaidTier((data?.token && data?.tier && data.tier !== 'FREE') ? data.tier : null))
+      .catch(() => setCovexPaidTier(null));
+  }, [address]);
 
   // isCreator computed early (wallet + covenant creator_addr match). Only creator can deploy/set custom UI or see Terminal/Builder.
   // Fix tab and looks/stake always available to creator after wallet login. No paid required for basic Fix or chess arena.
@@ -245,7 +256,7 @@ export default function CovenantInteractive() {
       });
       const d = await r.json();
       if (d && d.ok) {
-        setToast({ type: 'success', msg: 'Verified on-chain — this covenant is now fully interactable.' });
+        setToast({ type: 'success', msg: 'Verified on-chain. This covenant is now fully interactable.' });
         setClaimOpen(false);
         fetch(`/api/covenants/${encodeURIComponent(id)}`).then(x => x.ok ? x.json() : null).then(x => x && setCovenant(x.covenant || null)).catch(() => {});
       } else {
@@ -373,7 +384,7 @@ export default function CovenantInteractive() {
         setExecuting(false);
       }
     } else {
-      // No wallet: never open a dead protocol tab. Prompt the connect modal — that leads somewhere.
+      // No wallet: never open a dead protocol tab. Prompt the connect modal, which leads somewhere.
       setToast({ type: 'info', msg: 'Connect a Kaspa wallet to interact with this covenant.' });
       setWalletModalOpen(true);
     }
@@ -1096,7 +1107,7 @@ export default function CovenantInteractive() {
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono uppercase">{String(covenant.redeem_kind).split(':')[0]}</span>
                         </div>
                         <p className="text-xs text-gray-300 mb-3 leading-relaxed">
-                          This is a script-enforced P2SH covenant. Spend it non-custodially with your own key — you provide the unlock condition (preimage / timelock / cosigners) on the next step. Covex never holds the funds.
+                          This is a script-enforced P2SH covenant. Spend it non-custodially with your own key. You provide the unlock condition (preimage / timelock / cosigners) on the next step. Covex never holds the funds.
                         </p>
                         <Link
                           to="/deploy/enforced"
@@ -1127,7 +1138,7 @@ export default function CovenantInteractive() {
                         {claimOpen && (
                           <div className="px-4 pb-4 space-y-3">
                             <p className="text-xs text-gray-300 leading-relaxed">
-                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below — Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. Fully trustless.
+                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. Fully trustless.
                             </p>
                             <textarea value={claimForm.redeem_script_hex} onChange={e => setClaimForm(f => ({ ...f, redeem_script_hex: e.target.value }))} placeholder="Redeem script (hex)" rows={3} className="w-full text-xs font-mono bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus:border-blue-400/50 outline-none" spellCheck={false} />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1146,7 +1157,7 @@ export default function CovenantInteractive() {
                     )}
                     {covenant.enforcement_reality === 'decorative' && !covenant.redeem_kind && (
                       <div className="p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 text-xs text-amber-200/90 leading-relaxed">
-                        <strong>Heads up:</strong> this covenant is metadata-only (not consensus-enforced). "Lock" sends KAS to the creator's address — there is no on-chain script forcing a payout back to you. Only interact if you trust the creator.
+                        <strong>Heads up:</strong> this covenant is metadata-only (not consensus-enforced). "Lock" sends KAS to the creator's address. There is no on-chain script forcing a payout back to you. Only interact if you trust the creator.
                         {covenant.creator_addr && (
                           <> <Link to={`/address/${encodeURIComponent(covenant.creator_addr)}`} className="underline text-amber-300">View creator</Link>.</>
                         )}

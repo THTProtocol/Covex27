@@ -27,15 +27,18 @@ export default function PaidBuilder() {
   const tierAccent = { BUILDER: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#6B7280';
   const tierBadge = { BUILDER: 'BUILDER', PRO: 'PRO', MAX: 'MAX' }[paidTier] || 'UNKNOWN';
 
-  // Safe force grant for testnet dev after real broadcast via dev pk (bypasses indexer 6-conf wait)
+  // Dev convenience: skip the indexer confirmation wait after a REAL dev-wallet payment.
+  // Gated on isDevMode (an actual dev wallet is connected); it does NOT persist any tier
+  // flag to attacker-writable localStorage. On mainnet none of the dev paths fire, so the
+  // backend (/api/auth-session) is the sole authority there.
   const forceGrantTestnetDev = useCallback((tierId = 'BUILDER', tierName = null, txid = null) => {
+    if (!isDevMode) return;
     const tName = tierName || tierId;
     setAuth({ token: 'dev-testnet-force', tier: tName, address, loading: false, error: null });
     try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
     try { sessionStorage.setItem('payment_just_confirmed', JSON.stringify({ tier: tName, id: tierId, address, txid })); } catch (_) {}
     setJustPaid({ tier: tName, id: tierId, address, txid });
-    localStorage.setItem('covex_paid_tier', tierId);
-  }, [address]);
+  }, [address, isDevMode]);
 
   // Read justPaid marker from session (from Pricing or payWithDevWallet)
   useEffect(() => {
@@ -53,26 +56,30 @@ export default function PaidBuilder() {
     }
   }, []);
 
-  // IMMEDIATE dev unlock effect: as soon as we have address + (justPaid or local tier) on testnet, grant paid UI
-  // This runs independently of the server /api/auth-session result.
+  // IMMEDIATE dev unlock: a TESTNET-ONLY developer convenience to skip the indexer
+  // confirmation wait after a real dev-wallet payment. Gated on isDevMode + a same-session
+  // sessionStorage marker; NO persistent localStorage grant. SCOPE: this only unlocks paid
+  // *UI features* on testnet (where KAS is free faucet money) — it never moves funds, and on
+  // MAINNET it never fires (the backend /api/auth-session is the sole authority for real
+  // value). The marker is still client-set, so the COMPLETE fix is a backend endpoint that
+  // verifies the marker's txid is a genuine treasury payment (works before the 6-conf index
+  // lag) — tracked as the next iteration; until then this stays testnet-scoped on purpose.
   useEffect(() => {
-    if (!address) return;
+    if (!address || !isDevMode) return;
     const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
     if (!isTestnetNetwork(net)) return;
 
     const hasMarker = !!justPaid?.txid || !!justPaid?.id || !!sessionStorage.getItem('payment_broadcast_tx');
-    const localTier = localStorage.getItem('covex_paid_tier');
-    if (hasMarker || localTier) {
-      const tierId = justPaid?.id || localTier || 'BUILDER';
+    if (hasMarker) {
+      const tierId = justPaid?.id || 'BUILDER';
       const tierName = justPaid?.tier || tierId;
       const txid = justPaid?.txid || null;
-      // Grant without waiting for server
+      // Grant without waiting for server (real dev-wallet tx already broadcast)
       setAuth({ token: 'dev-testnet-effect', tier: tierName, address, loading: false, error: null });
       try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
       setJustPaid({ tier: tierName, id: tierId, address, txid });
-      localStorage.setItem('covex_paid_tier', tierId);
     }
-  }, [address, justPaid]);
+  }, [address, justPaid, isDevMode]);
 
   // (justPaid markers are read in the dedicated effect above + the robust dev unlock effects)
 
@@ -94,55 +101,53 @@ export default function PaidBuilder() {
       .then(data => {
         const serverTier = (data?.tier && data.tier !== 'FREE') ? data.tier : null;
         const netNow = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-        const hasDevMarker = isTestnetNetwork(netNow) && (justPaid?.id || localStorage.getItem('covex_paid_tier') || sessionStorage.getItem('payment_broadcast_tx'));
+        const hasDevMarker = isDevMode && isTestnetNetwork(netNow) && (justPaid?.id || sessionStorage.getItem('payment_broadcast_tx'));
         if (serverTier) {
           setAuth({ token: data.token, tier: serverTier, address, loading: false, error: null });
         } else if (hasDevMarker) {
           // Dev testnet real-tx payment marker present: grant paid UI even if server has not indexed yet
-          const tierId = justPaid?.id || localStorage.getItem('covex_paid_tier') || 'BUILDER';
+          const tierId = justPaid?.id || 'BUILDER';
           const tierName = justPaid?.tier || tierId;
           setAuth({ token: 'dev-testnet-server-override', tier: tierName, address, loading: false, error: null });
           try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
-          localStorage.setItem('covex_paid_tier', tierId);
           setJustPaid(prev => prev || { tier: tierName, id: tierId, address });
         } else {
           setAuth({ token: null, tier: 'FREE', address, loading: false, error: data?.error || 'No paid tier found' });
         }
       })
       .catch(err => {
-        // On network error, still allow testnet dev marker to unlock
+        // On network error, still allow a real testnet dev-wallet marker to unlock
         const netNow = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-        const hasDevMarker = isTestnetNetwork(netNow) && (justPaid?.id || localStorage.getItem('covex_paid_tier') || sessionStorage.getItem('payment_broadcast_tx'));
+        const hasDevMarker = isDevMode && isTestnetNetwork(netNow) && (justPaid?.id || sessionStorage.getItem('payment_broadcast_tx'));
         if (hasDevMarker) {
-          const tierId = justPaid?.id || localStorage.getItem('covex_paid_tier') || 'BUILDER';
+          const tierId = justPaid?.id || 'BUILDER';
           const tierName = justPaid?.tier || tierId;
           setAuth({ token: 'dev-testnet-catch', tier: tierName, address, loading: false, error: null });
           try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
-          localStorage.setItem('covex_paid_tier', tierId);
           setJustPaid(prev => prev || { tier: tierName, id: tierId, address });
         } else {
           setAuth({ token: null, tier: 'FREE', address, loading: false, error: err.message });
         }
       });
-  }, [address, justPaid]);
+  }, [address, justPaid, isDevMode]);
 
-  // If after auth we are still FREE but have a dev testnet marker, force grant (covers races)
+  // If after auth we are still FREE but a real dev-wallet marker exists, force grant (covers races).
+  // isDevMode-gated + sessionStorage-only (no persistent localStorage tier).
   useEffect(() => {
     if (auth.loading) return;
     if (auth.token && auth.tier && auth.tier !== 'FREE') return;
-    if (!address) return;
+    if (!address || !isDevMode) return;
     const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
     if (!isTestnetNetwork(net)) return;
-    const hasMarker = justPaid?.id || localStorage.getItem('covex_paid_tier') || sessionStorage.getItem('payment_broadcast_tx');
+    const hasMarker = justPaid?.id || sessionStorage.getItem('payment_broadcast_tx');
     if (hasMarker) {
-      const tierId = justPaid?.id || localStorage.getItem('covex_paid_tier') || 'BUILDER';
+      const tierId = justPaid?.id || 'BUILDER';
       const tierName = justPaid?.tier || tierId;
       setAuth({ token: 'dev-testnet-post-auth', tier: tierName, address, loading: false, error: null });
       try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
-      localStorage.setItem('covex_paid_tier', tierId);
       setJustPaid(prev => prev || { tier: tierName, id: tierId, address });
     }
-  }, [auth.loading, auth.token, auth.tier, address, justPaid]);
+  }, [auth.loading, auth.token, auth.tier, address, justPaid, isDevMode]);
 
   const fetchMyCovenants = useCallback(() => {
     if (!address) return;
@@ -206,8 +211,7 @@ export default function PaidBuilder() {
   if (!auth.token || auth.tier === 'FREE') {
     const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
     const onTestnet = isTestnetNetwork(net);
-    const localTier = localStorage.getItem('covex_paid_tier');
-    const hasAnyMarker = justPaid || localTier || sessionStorage.getItem('payment_broadcast_tx');
+    const hasAnyMarker = justPaid || sessionStorage.getItem('payment_broadcast_tx');
     return (
       <div className="p-16 text-center max-w-xl mx-auto">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
@@ -218,10 +222,10 @@ export default function PaidBuilder() {
           {auth.error || 'Paid tier access requires verified on-chain payment.'}
         </p>
 
-        {onTestnet && hasAnyMarker && (
+        {onTestnet && isDevMode && hasAnyMarker && (
           <div className="mb-6">
             <Button
-              onClick={() => forceGrantTestnetDev(localTier || justPaid?.id || 'BUILDER', justPaid?.tier, justPaid?.txid)}
+              onClick={() => forceGrantTestnetDev(justPaid?.id || 'BUILDER', justPaid?.tier, justPaid?.txid)}
               size="lg"
               className="mx-auto flex items-center gap-2"
             >

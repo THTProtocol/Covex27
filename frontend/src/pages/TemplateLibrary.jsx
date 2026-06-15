@@ -42,21 +42,24 @@ export default function TemplateLibrary() {
       return;
     }
 
-    // Generate the config
+    // Generate the rich starting config and hand it to the sandbox/terminal.
     const config = template.generateConfig(address);
-
-    // Store in session so Terminal can pick it up (shared config integration)
     sessionStorage.setItem('pending_covenant_config', JSON.stringify(config));
     sessionStorage.setItem('selected_template_id', template.id);
 
-    // Navigate to Terminal with template pre-loaded
-    // Paid users go to their paid builder area; free users go to free deploy
-    const tier = localStorage.getItem('covex_paid_tier');
-    if (tier && tier !== 'FREE') {
-      navigate('/premium?template=' + template.id);
-    } else {
-      navigate('/deploy?template=' + template.id);
+    // Games open the live arena explorer; everything else opens the public Sandbox with the
+    // matching circuit preloaded (consistent with the official catalog routing). No localStorage
+    // tier check here: that was a self-grant hole, and the Sandbox is free to explore while the
+    // builder enforces paid access against the backend.
+    if (template.category === 'Games') {
+      navigate('/explorer');
+      return;
     }
+    const res = config?.resolution || {};
+    const kind = res.mode === 'zk' ? 'zk' : 'oracle';
+    const ctype = res.circuit?.type;
+    const circuit = (ctype && ctype !== 'custom') ? ctype : (kind === 'zk' ? 'merkle_membership' : 'oracle_single');
+    navigate(`/sandbox?${new URLSearchParams({ circuit, kind, name: template.name }).toString()}`);
   };
 
   const handlePreview = (template) => {
@@ -193,7 +196,7 @@ export default function TemplateLibrary() {
         </div>
       )}
 
-      {/* Official Covex templates from the backend marketplace — a comprehensive, searchable catalog. */}
+      {/* Official Covex templates from the backend marketplace: a comprehensive, searchable catalog. */}
       {communityTemplates.length > 0 && (() => {
         const cats = ['All', ...Array.from(new Set(communityTemplates.map(t => t.category).filter(Boolean)))];
         const q = tplSearch.trim().toLowerCase();
@@ -261,7 +264,7 @@ export default function TemplateLibrary() {
             })}
           </div>
           )}
-          <p className="text-[10px] text-center text-gray-500 mt-4">Showing {shown.length} of {communityTemplates.length} official templates — each labeled with its real on-chain / hybrid / oracle-attested enforcement.</p>
+          <p className="text-[10px] text-center text-gray-500 mt-4">Showing {shown.length} of {communityTemplates.length} official templates, each labeled with its real on-chain / hybrid / oracle-attested enforcement.</p>
         </div>
         );
       })()}

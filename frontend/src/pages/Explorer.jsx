@@ -271,8 +271,8 @@ export default function Explorer() {
   return (
     <>
       {/* HERO */}
-      <section className="relative z-10 flex flex-col items-center justify-center pt-12 pb-4 px-4 sm:px-6 text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-4 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
+      <section className="relative z-10 flex flex-col items-center justify-center pt-16 sm:pt-20 pb-6 px-4 sm:px-6 text-center">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-5 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
@@ -682,7 +682,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         </div>
 
         {/* Description */}
-        <p className="text-xs text-gray-400 mb-3 leading-relaxed line-clamp-2 flex-1">
+        <p className="text-xs text-gray-400 mb-4 leading-relaxed line-clamp-2 flex-1">
           {covenantDesc}
         </p>
 
@@ -714,14 +714,15 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           </div>
         )}
 
-        {/* Data grid - all available covenant info */}
-        <div className="mt-auto pt-3 border-t border-white/5 grid grid-cols-2 gap-y-1 gap-x-2 text-[10px] text-gray-500 font-mono">
-          <span>Creator: <span className="text-gray-400">{creatorName.slice(0, 12)}...</span></span>
-          <span>Script: <span className="text-gray-400">{scriptShort}...</span></span>
-          <span>Type: <span className="text-gray-400">{c.covenant_type || 'N/A'}</span></span>
-          <span className="text-right">{timestamp}</span>
-          <span className={`col-span-2 ${isPaid ? cfg.text : 'text-gray-500'} group-hover:translate-x-0.5 transition-transform text-right`}>
-            View covenant {'→'}
+        {/* Footer - quiet provenance on the left, the action on the right */}
+        <div className="mt-auto pt-3.5 border-t border-white/5 flex items-center justify-between gap-2 text-[10px] font-mono">
+          <span className="text-gray-500 truncate">
+            <span className="text-gray-400">{creatorName.slice(0, 10)}…</span>
+            <span className="mx-1.5 text-white/15">·</span>
+            {timestamp}
+          </span>
+          <span className={`shrink-0 inline-flex items-center gap-1 font-semibold ${isPaid ? cfg.text : 'text-kaspa-green/90'} group-hover:gap-1.5 transition-all`}>
+            View <span className="group-hover:translate-x-0.5 transition-transform">{'→'}</span>
           </span>
         </div>
       </div>

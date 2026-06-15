@@ -333,16 +333,36 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // ceremony). Only these are shown as full-zk; every other 'full-zk'-declared circuit is
 // honestly downgraded to oracle-attested + zkPending until its key ships and a proof verifies.
 const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
+// Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
+// a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
+// honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
+// covers part of the logic". The backend's other tier, `HybridGroth16`, is "Groth16 when supplied,
+// else oracle-attested" - i.e. it can be spent with NO proof (the oracle attests the outcome), so
+// its honest floor is 'oracle-attested', not 'hybrid'. Kept in sync with build_registry().
+const STRICT_GROTH16 = new Set([
+  'merkle_membership', 'merkle_dao', 'merkle_airdrop', 'range_proof', 'range_collateral',
+  'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification', 'age_verify_v1',
+  'escrow_2party', 'relative_timelock', 'vrf_dice_roll', 'basic_utxo_ownership', 'nullifier_set',
+]);
 const scrubZkProse = (d) =>
   (d || '')
     .replace(/^Full ZK:\s*/i, 'ZK-capable (oracle-attested today, in-browser prover pending): ')
-    .replace(/Reality:\s*full-zk/gi, 'Reality: oracle-attested')
+    .replace(/^Hybrid:\s*/i, 'Oracle-attested: ')
+    .replace(/Reality:\s*(full-zk|hybrid)/gi, 'Reality: oracle-attested')
     .replace(/Real artifacts/gi, 'Artifacts pending');
-export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.map((c) =>
-  c.reality === 'full-zk' && !VERIFIED_FULL_ZK.has(c.id)
-    ? { ...c, reality: 'oracle-attested', artifacts: false, zkPending: true, description: scrubZkProse(c.description) }
-    : c
-);
+// Honest reality correction (audit): a label may only imply a real ZK proof when the backend
+// actually requires + verifies one. 'full-zk' needs an end-to-end in-browser prover (only the
+// VERIFIED_FULL_ZK set today); 'hybrid' needs a fail-closed backend Groth16 verifier (STRICT_GROTH16).
+// Everything else is honestly 'oracle-attested': the named oracle signs the outcome, no ZK proof
+// gates the spend. This is a pure downgrade - it never promotes a circuit's claim.
+export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.map((c) => {
+  const overclaimsFullZk = c.reality === 'full-zk' && !VERIFIED_FULL_ZK.has(c.id);
+  const overclaimsHybrid = c.reality === 'hybrid' && !STRICT_GROTH16.has(c.id);
+  if (overclaimsFullZk || overclaimsHybrid) {
+    return { ...c, reality: 'oracle-attested', artifacts: false, zkPending: true, description: scrubZkProse(c.description) };
+  }
+  return c;
+});
 
 // Backward-compat alias
 export const GAME_TYPES = ZK_CIRCUIT_TYPES;

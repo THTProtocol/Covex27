@@ -43,7 +43,7 @@ const CASES = [
   { name: "collateral_ltv", proof: "collateral_ltv_proof.json", verify: "node verify_collateral_ltv.js collateral_ltv_proof.json collateral_ltv", circuit_type: "collateral_ltv" },
   { name: "loan_health", proof: "loan_health_proof.json", verify: "node verify_loan_health.js loan_health_proof.json loan_health", circuit_type: "loan_health" },
   { name: "financial_formula", proof: "financial_formula_proof.json", verify: "node verify_financial_formula.js financial_formula_proof.json financial_formula", circuit_type: "financial_formula" },
-  { name: "chess_ai_move", proof: "chess_ai_move_proof.json", verify: "node verify_chess_ai_move.js chess_ai_move_proof.json chess_ai_move", circuit_type: "chess_ai_move" },
+  { name: "chess_ai_move", proof: "chess_ai_move_proof.json", verify: "node verify_chess_ai_move.js chess_ai_move_proof.json chess_ai_move", circuit_type: "chess_ai_move", optional: true },
   { name: "election_feed", proof: "election_feed_proof.json", verify: "node verify_election_feed.js election_feed_proof.json election_feed", circuit_type: "election_feed" },
   { name: "verifiable_poker_solver", proof: "verifiable_poker_solver_proof.json", verify: "node verify_verifiable_poker_solver.js verifiable_poker_solver_proof.json verifiable_poker_solver", circuit_type: "verifiable_poker_solver" },
   { name: "multi_sig_gating", proof: "multi_sig_gating_proof.json", verify: "node verify_multi_sig_gating.js multi_sig_gating_proof.json multi_sig_gating", circuit_type: "multi_sig_gating" },

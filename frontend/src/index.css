@@ -1392,3 +1392,8 @@ input[type="range"]:active::-moz-range-thumb { transform: scale(1.24); }
 @media (prefers-reduced-motion: reduce) {
   .dag-edge-flow, .dag-node-pulse { animation: none; }
 }
+
+/* Covenant lifecycle timeline: connectors draw themselves left-to-right on mount. */
+@keyframes timeline-fill { from { width: 0; } to { width: 100%; } }
+.timeline-fill { width: 100%; animation: timeline-fill 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+@media (prefers-reduced-motion: reduce) { .timeline-fill { animation: none; width: 100%; } }

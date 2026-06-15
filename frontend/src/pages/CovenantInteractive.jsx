@@ -690,8 +690,11 @@ export default function CovenantInteractive() {
           className="glass-panel detail-hero-enhanced p-8 sm:p-10 rounded-3xl flex flex-col"
         >
           <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
-              <Cpu size={32} />
+            <div className="relative">
+              <div className="covex-aurora" aria-hidden="true" style={{ top: -28, left: -28, width: 132, height: 116 }} />
+              <div className="relative z-10 p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
+                <Cpu size={32} />
+              </div>
             </div>
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -761,7 +764,11 @@ export default function CovenantInteractive() {
                       <span className={`text-[11px] font-semibold ${st.done ? 'text-white' : 'text-gray-500'}`}>{st.label}</span>
                       <span className="text-[9px] text-gray-500 font-mono">{st.sub}</span>
                     </div>
-                    {i < arr.length - 1 && <div className={`h-px w-10 sm:w-16 mx-1 mb-7 ${st.done ? 'bg-kaspa-green/40' : 'bg-white/10'}`} />}
+                    {i < arr.length - 1 && (
+                      <div className={`relative h-px w-10 sm:w-16 mx-1 mb-7 overflow-hidden ${st.done ? 'bg-kaspa-green/15' : 'bg-white/10'}`}>
+                        {st.done && <div className="absolute inset-y-0 left-0 bg-kaspa-green/60 timeline-fill" style={{ animationDelay: `${i * 180}ms` }} />}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -828,7 +835,7 @@ export default function CovenantInteractive() {
               </div>
             </div>
           ) : covenant?.enforcement_reality === 'on-chain' ? (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
+            <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3 zk-live-glow">
               <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-emerald-400">ON-CHAIN ENFORCED</p>
@@ -1194,7 +1201,7 @@ export default function CovenantInteractive() {
                     <button
                       onClick={handleExecute}
                       disabled={executing}
-                      className="w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-3 uppercase tracking-wide"
+                      className="btn-shimmer w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-3 uppercase tracking-wide"
                     >
                       {executing ? null : address ? <ShieldCheck size={24} /> : <Lock size={24} />}
                       {executing ? 'Processing...' : address ? 'Sign & Execute' : 'Interact with this covenant'}

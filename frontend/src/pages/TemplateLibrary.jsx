@@ -19,8 +19,10 @@ export default function TemplateLibrary() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [communityTemplates, setCommunityTemplates] = useState([]);
+  const [tplSearch, setTplSearch] = useState('');
+  const [tplCat, setTplCat] = useState('All');
 
-  const filteredTemplates = selectedCategory === 'All' 
+  const filteredTemplates = selectedCategory === 'All'
     ? COVENANT_TEMPLATES 
     : getTemplatesByCategory(selectedCategory);
 
@@ -29,8 +31,7 @@ export default function TemplateLibrary() {
     fetch('/api/marketplace/templates')
       .then(r => r.ok ? r.json() : { templates: [] })
       .then(data => {
-        const list = (data.templates || []).slice(0, 12);
-        setCommunityTemplates(list);
+        setCommunityTemplates(data.templates || []);
       })
       .catch(() => setCommunityTemplates([]));
   }, []);
@@ -192,30 +193,51 @@ export default function TemplateLibrary() {
         </div>
       )}
 
-      {/* Official Covex templates from the backend marketplace — honest, previewable starting points. */}
-      {communityTemplates.length > 0 && (
+      {/* Official Covex templates from the backend marketplace — a comprehensive, searchable catalog. */}
+      {communityTemplates.length > 0 && (() => {
+        const cats = ['All', ...Array.from(new Set(communityTemplates.map(t => t.category).filter(Boolean)))];
+        const q = tplSearch.trim().toLowerCase();
+        const shown = communityTemplates.filter(t =>
+          (tplCat === 'All' || t.category === tplCat) &&
+          (!q || `${t.name} ${t.description} ${t.category} ${t.id}`.toLowerCase().includes(q))
+        );
+        const ENFORCED_KINDS = ['singlesig', 'hashlock', 'timelock', 'multisig'];
+        const hrefFor = (t) => ENFORCED_KINDS.includes(t.kind)
+          ? `/deploy/enforced?kind=${t.kind}`
+          : t.kind === 'game' || t.category === 'Games' ? '/explorer'
+          : '/deploy/enforced';
+        return (
         <div className="mt-12">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div>
-              <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COVEX OFFICIAL</div>
+              <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COVEX OFFICIAL · {communityTemplates.length} TEMPLATES</div>
               <h2 className="text-2xl font-bold text-white">Official Covenant Templates</h2>
             </div>
-            <div className="text-xs text-gray-500">Curated starting points</div>
+            <input
+              value={tplSearch}
+              onChange={e => setTplSearch(e.target.value)}
+              placeholder="Search templates…"
+              className="text-sm bg-black/40 border border-white/10 rounded-xl px-3 py-2 w-full sm:w-64 outline-none focus:border-kaspa-green/40"
+            />
           </div>
+          <div className="flex flex-wrap gap-1.5 mb-5">
+            {cats.map(c => (
+              <button key={c} onClick={() => setTplCat(c)}
+                className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors ${tplCat === c ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+          {shown.length === 0 ? (
+            <div className="glass-panel rounded-2xl py-10 text-center border border-white/[0.06]"><p className="text-gray-400 text-sm">No templates match your search.</p></div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {communityTemplates.map((t, idx) => {
+            {shown.map((t, idx) => {
               const realityStyle = t.reality === 'on-chain'
                 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                 : t.reality === 'hybrid'
                 ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
                 : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-              // Route each official template to where it is actually built/played: P2SH primitives
-              // preselect their kind on the enforced-deploy page; games go to the arena.
-              const KIND = { 'p2sh-singlesig': 'singlesig', 'p2sh-hashlock': 'hashlock', 'htlc-swap': 'hashlock', 'p2sh-timelock': 'timelock', 'p2sh-multisig': 'multisig' };
-              const href = KIND[t.id]
-                ? `/deploy/enforced?kind=${KIND[t.id]}`
-                : (t.category === 'Games' || t.category === 'Verifiable Games') ? '/explorer'
-                : '/deploy/enforced';
               return (
                 <div key={t.id || idx} className="glass-panel rounded-2xl p-5 flex flex-col border border-white/[0.06] hover:border-kaspa-green/30 transition-all">
                   <div className="flex items-center justify-between mb-1.5">
@@ -224,8 +246,7 @@ export default function TemplateLibrary() {
                   </div>
                   <div className="font-bold text-white mb-1">{t.name || t.id}</div>
                   <p className="text-xs text-gray-400 mb-3 leading-relaxed line-clamp-3 flex-1">{t.description}</p>
-                  <div className="text-[10px] text-gray-500 mb-3">by {t.author || 'Covex Official'}</div>
-                  <a href={href}
+                  <a href={hrefFor(t)}
                     className="text-center py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:brightness-110 transition-all">
                     Use Template
                   </a>
@@ -233,9 +254,11 @@ export default function TemplateLibrary() {
               );
             })}
           </div>
-          <p className="text-[10px] text-center text-gray-500 mt-3">Official Covex templates, each labeled with its real on-chain / hybrid / oracle-attested enforcement.</p>
+          )}
+          <p className="text-[10px] text-center text-gray-500 mt-4">Showing {shown.length} of {communityTemplates.length} official templates — each labeled with its real on-chain / hybrid / oracle-attested enforcement.</p>
         </div>
-      )}
+        );
+      })()}
 
       <div className="mt-16 text-center text-xs text-gray-500">
         Templates use the official Covex shared configuration protocol.<br />

@@ -2759,8 +2759,8 @@ pub async fn claim_covenant_handler(
         _ => return err("redeem_script_hex must be non-empty hex".into()),
     };
     let cov = match db::get_covenant_by_txid(&db, &input.covenant_id) {
-        Some(c) => c,
-        None => return err("covenant not found".into()),
+        Ok(Some(c)) => c,
+        _ => return err("covenant not found".into()),
     };
     // The covenant's on-chain lock is aa20<blake2b256(redeem)>87. Recompute it from the supplied
     // redeem script; it MUST equal the indexed script for the claim to be valid.

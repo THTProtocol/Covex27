@@ -492,7 +492,7 @@ export function generateSilverScriptForConfig(cfg) {
   }
   switch (effectiveResolution) {
     case 'zk':
-      resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0xCHESSv1_8x8_STANDARD_AUDITED'} ;; circuit: ${zkCircuit}`;
+      resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0xCHESSv1_8x8_STANDARD'} ;; circuit: ${zkCircuit}`;
       break;
     case 'custom_oracle':
       resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Key: ${(customOracleKey || '').slice(0, 16)}...`;
@@ -971,13 +971,13 @@ contract VisualCovenant {
       setZkCircuit(gt.circuit);
       // Pre-fill verifier key for known circuits
       if (gt.circuit === 'chess_v1') {
-        setZkVerifierKey('0xCHESSv1_8x8_STANDARD_AUDITED');
+        setZkVerifierKey('0xCHESSv1_8x8_STANDARD');
       } else if (gt.circuit === 'merkle_generic') {
-        setZkVerifierKey('0xMERKLE_GENERIC_AUDITED_V1');
+        setZkVerifierKey('0xMERKLE_GENERIC_V1');
       } else if (gt.circuit === 'bulletproofs_v1') {
-        setZkVerifierKey('0xBULLETPROOFS_V1_AUDITED');
+        setZkVerifierKey('0xBULLETPROOFS_V1');
       } else if (gt.circuit === 'age_verify_v1') {
-        setZkVerifierKey('0xAGE_VERIFY_V1_AUDITED');
+        setZkVerifierKey('0xAGE_VERIFY_V1');
       } else if (gt.circuit === 'risc0_generic') {
         setZkVerifierKey('0xRISC0_GENERIC_V1');
       } else {
@@ -1777,7 +1777,7 @@ ${gameMeta.outcomeBranches}
         resolution_mode: resolutionMode,
         custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
         zk_circuit: zkCircuit,
-        zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1_AUDITED' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_AUDITED_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1_AUDITED' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
+        zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
         ...(zkCircuit === 'chess_v1' ? { proving_mode: chessProvingMode } : {}),
         timelock: buildTimelockConfig(),
         oracle_proof: JSON.stringify(proofObj),
@@ -2304,10 +2304,10 @@ ${gameMeta.outcomeBranches}
                   <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15">
                     <span className="text-[10px] text-gray-200 font-mono">Auto-suggested Verifier Key</span>
                     <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded truncate max-w-[280px]">
-                      {zkVerifierKey || activeCircuit.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD_AUDITED' :
-                       activeCircuit.circuit === 'merkle_generic' ? '0xMERKLE_GENERIC_AUDITED_V1' :
-                       activeCircuit.circuit === 'bulletproofs_v1' ? '0xBULLETPROOFS_V1_AUDITED' :
-                       activeCircuit.circuit === 'age_verify_v1' ? '0xAGE_VERIFY_V1_AUDITED' :
+                      {zkVerifierKey || activeCircuit.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD' :
+                       activeCircuit.circuit === 'merkle_generic' ? '0xMERKLE_GENERIC_V1' :
+                       activeCircuit.circuit === 'bulletproofs_v1' ? '0xBULLETPROOFS_V1' :
+                       activeCircuit.circuit === 'age_verify_v1' ? '0xAGE_VERIFY_V1' :
                        activeCircuit.circuit === 'risc0_generic' ? '0xRISC0_GENERIC_V1' :
                        activeCircuit.circuit === 'custom' ? '(manual entry required)' :
                        'CIRCUIT_VERIFIER_KEY'}
@@ -2338,7 +2338,7 @@ ${gameMeta.outcomeBranches}
                       return {
                         circuitName: 'Chess v1 (FIDE Complete)',
                         circuitId: 'chess_v1',
-                        verifierKey: zkVerifierKey || '0xCHESSv1_8x8_STANDARD_AUDITED',
+                        verifierKey: zkVerifierKey || '0xCHESSv1_8x8_STANDARD',
                         publicInputs: ['PGN game transcript (moves in algebraic notation)', 'Final FEN position', 'Player A pubkey hash', 'Player B pubkey hash'],
                         privateWitness: ['Full move-by-move board state', 'Castling rights vector', 'En passant target square', '50-move rule counter', 'Threefold repetition hash chain'],
                         whatItProves: 'Every move in the PGN is a legal chess move according to FIDE rules, the final position matches the claimed outcome, and the outcome is one of: Win/Loss/Draw.',
@@ -2349,7 +2349,7 @@ ${gameMeta.outcomeBranches}
                       return {
                         circuitName: 'Merkle Membership Proof',
                         circuitId: 'merkle_generic',
-                        verifierKey: zkVerifierKey || '0xMERKLE_GENERIC_AUDITED_V1',
+                        verifierKey: zkVerifierKey || '0xMERKLE_GENERIC_V1',
                         publicInputs: ['Merkle root (32 bytes)', 'Key hash (32 bytes)', 'Value hash (32 bytes)'],
                         privateWitness: ['Sibling hash at each tree level', 'Direction bit (left=0, right=1) for each sibling'],
                         whatItProves: 'A specific (key, value) pair exists in the tree represented by the committed Merkle root. The tree depth and the exact sibling data remain private.',
@@ -2360,7 +2360,7 @@ ${gameMeta.outcomeBranches}
                       return {
                         circuitName: 'Range Proof (Bulletproofs)',
                         circuitId: 'bulletproofs_v1',
-                        verifierKey: zkVerifierKey || '0xBULLETPROOFS_V1_AUDITED',
+                        verifierKey: zkVerifierKey || '0xBULLETPROOFS_V1',
                         publicInputs: ['Pedersen commitment C', 'Lower bound L', 'Upper bound U'],
                         privateWitness: ['Actual value v (scalar)', 'Blinding factor r (scalar)'],
                         whatItProves: 'The committed value v satisfies L ≤ v ≤ U. Neither v nor the blinding factor are revealed. Proof size is logarithmic in the range width.',
@@ -2371,7 +2371,7 @@ ${gameMeta.outcomeBranches}
                       return {
                         circuitName: 'Age Verification (ZK-KYC)',
                         circuitId: 'age_verify_v1',
-                        verifierKey: zkVerifierKey || '0xAGE_VERIFY_V1_AUDITED',
+                        verifierKey: zkVerifierKey || '0xAGE_VERIFY_V1',
                         publicInputs: ['Birthdate commitment C', 'Threshold years N', 'Reference timestamp T'],
                         privateWitness: ['Actual birthdate (day/month/year)', 'Blinding factor r'],
                         whatItProves: 'birthdate + N years ≤ T, meaning the subject is at least N years old at time T. The exact birthdate is never revealed.',
@@ -3565,7 +3565,7 @@ ${gameMeta.outcomeBranches}
                 </div>
                 <p className="text-[11px] text-gray-200 leading-relaxed">
                   {zkCircuit === 'chess_v1' &&
-                    'Standard 8×8 chess verifier. Reports Win/Loss/Draw with BLAKE3 commitments. Fully audited, production ready.'}
+                    'Chess outcome is oracle-attested: the server replays the move log (shakmaty) to decide the winner and co-signs it. Not an on-chain ZK proof - no third-party audit is claimed.'}
                   {zkCircuit === 'merkle_generic' &&
                     'Proves a key/value pair exists in a committed Merkle tree. Used for whitelists, airdrop eligibility, DAO voting.'}
                   {zkCircuit === 'bulletproofs_v1' &&
@@ -3587,13 +3587,13 @@ ${gameMeta.outcomeBranches}
                   onChange={(e) => setZkVerifierKey(e.target.value)}
                   placeholder={
                     zkCircuit === 'chess_v1'
-                      ? '0xCHESSv1_8x8_STANDARD_AUDITED'
+                      ? '0xCHESSv1_8x8_STANDARD'
                       : zkCircuit === 'merkle_generic'
-                      ? '0xMERKLE_GENERIC_AUDITED_V1'
+                      ? '0xMERKLE_GENERIC_V1'
                       : zkCircuit === 'bulletproofs_v1'
-                      ? '0xBULLETPROOFS_V1_AUDITED'
+                      ? '0xBULLETPROOFS_V1'
                       : zkCircuit === 'age_verify_v1'
-                      ? '0xAGE_VERIFY_V1_AUDITED'
+                      ? '0xAGE_VERIFY_V1'
                       : zkCircuit === 'risc0_generic'
                       ? '0xRISC0_GENERIC_V1'
                       : '0x... (paste your verifier key)'

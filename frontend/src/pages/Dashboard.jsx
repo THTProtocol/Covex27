@@ -35,9 +35,10 @@ export default function Dashboard() {
       fetch(`/api/covenants?creator=${encodeURIComponent(address)}&limit=50&network=${localStorage.getItem('kaspaNetwork') || 'testnet-12'}`)
         .then(r => r.json())
         .then(data => {
-          if (Array.isArray(data)) {
-            setGeneratedUis(data);
-          }
+          // /api/covenants returns { covenants: [...], total } - NOT a bare array, so the
+          // old Array.isArray(data) guard was always false and the list stayed empty.
+          const list = Array.isArray(data) ? data : (data && Array.isArray(data.covenants) ? data.covenants : []);
+          setGeneratedUis(list);
         })
         .catch(() => {});
     }

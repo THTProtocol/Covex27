@@ -16,8 +16,16 @@ export default function PrivacyMixerPanel({ covenantId = 'demo-mixer' }) {
   const [busy, setBusy] = useState(false);
 
   const generateNote = useCallback(() => {
-    const s = (BigInt(Math.floor(Math.random() * 1e12)) + 100000n).toString();
-    const nk = (BigInt(Math.floor(Math.random() * 1e12)) + 200000n).toString();
+    // The secret + nullifier are the ONLY thing protecting deposited funds and
+    // unlinkability - they MUST be cryptographically random, not Math.random (~40-bit,
+    // brute-forceable). Use 256-bit CSPRNG values.
+    const rand256 = () => {
+      const b = new Uint8Array(32);
+      (window.crypto || window.msCrypto).getRandomValues(b);
+      return BigInt('0x' + Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('')).toString();
+    };
+    const s = rand256();
+    const nk = rand256();
     setSecret(s);
     setNullifierKey(nk);
     setNoteJson(JSON.stringify({ secret: s, nullifier_key: nk, amount, covenant_id: covenantId }, null, 2));

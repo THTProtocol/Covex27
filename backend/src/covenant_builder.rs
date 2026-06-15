@@ -95,6 +95,10 @@ pub enum RedeemKind {
     /// Node-enforced (BIP68): a live TN12 spend of a fresh UTXO is rejected with
     /// "one of the transaction sequence locks conditions was not met".
     RelativeTimelock { min_sequence: u64, xonly_pubkey: [u8; 32] },
+    /// Time-decaying multisig: `req_now`-of-n now, `req_after`-of-n after `lock_daa`
+    /// (req_after < req_now). Treasury recovery / inheritance. Built via
+    /// redeem_timedecay_multisig (two real multisigs spliced into an IF/ELSE).
+    TimeDecay { pubkeys: Vec<[u8; 32]>, req_now: usize, req_after: usize, lock_daa: u64 },
 }
 
 impl RedeemKind {
@@ -118,6 +122,9 @@ impl RedeemKind {
             RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey } => {
                 redeem_relative_timelock(*min_sequence, xonly_pubkey)
             }
+            RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
+                redeem_timedecay_multisig(pubkeys, *req_now, *req_after, *lock_daa)
+            }
         }
     }
 
@@ -137,6 +144,9 @@ impl RedeemKind {
             RedeemKind::OracleEscrow { .. } => "oracle_escrow".to_string(),
             RedeemKind::Deadman { lock_daa, .. } => format!("deadman:{lock_daa}"),
             RedeemKind::RelativeTimelock { min_sequence, .. } => format!("rcsv:{min_sequence}"),
+            RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
+                format!("timedecay:{}:{req_now}:{req_after}:{lock_daa}", pubkeys.len())
+            }
         }
     }
 
@@ -156,6 +166,7 @@ impl RedeemKind {
             RedeemKind::OracleEscrow { .. } => "oracle_escrow",
             RedeemKind::Deadman { .. } => "p2sh_deadman",
             RedeemKind::RelativeTimelock { .. } => "p2sh_rcsv",
+            RedeemKind::TimeDecay { .. } => "p2sh_timedecay",
         }
     }
 }
@@ -180,6 +191,9 @@ pub enum SpendKind {
     Deadman { lock_daa: u64 },
     /// `rcsv:N` - relative timelock; the spend input's sequence must be >= N.
     RelativeTimelock { min_sequence: u64 },
+    /// `timedecay:{n}:{req_now}:{req_after}:{lock_daa}` - n members; sig_op_count = 2*n
+    /// (two multisigs). The spend handler reads req_now/req_after/lock_daa directly.
+    TimeDecay { n: u8 },
 }
 
 impl SpendKind {
@@ -203,6 +217,7 @@ impl SpendKind {
             "oracle_escrow" => Some(SpendKind::OracleEscrow),
             "deadman" => Some(SpendKind::Deadman { lock_daa: param?.parse().ok()? }),
             "rcsv" => Some(SpendKind::RelativeTimelock { min_sequence: param?.parse().ok()? }),
+            "timedecay" => Some(SpendKind::TimeDecay { n: param?.split(':').next()?.parse().ok()? }),
             _ => None,
         }
     }
@@ -223,6 +238,8 @@ impl SpendKind {
             // IF <owner> CheckSig  ELSE  CLTV <heir> CheckSig  ENDIF = 2 static sig ops.
             SpendKind::Deadman { .. } => 2,
             SpendKind::RelativeTimelock { .. } => 1,
+            // Two multisigs (IF + ELSE), each counting one sig-op per listed pubkey.
+            SpendKind::TimeDecay { n } => 2 * *n,
         }
     }
 }
@@ -892,6 +909,9 @@ pub struct RedeemSpec {
     /// multisig only: how many signatures are required (defaults to all members).
     #[serde(default)]
     pub required: Option<usize>,
+    /// timedecay only: the relaxed threshold that applies after lock_daa (< `required`).
+    #[serde(default)]
+    pub req_after: Option<usize>,
     /// htlc/timelock: absolute DAA lock (htlc refund branch / timelock).
     /// htlc only: the receiver (claim) and sender (refund) x-only pubkeys. If absent
     /// in dev mode, receiver=dev wallet 2, sender=dev wallet 1.
@@ -1154,8 +1174,52 @@ pub async fn p2sh_deploy_handler(
             };
             RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey: xonly }
         }
+        "timedecay" => {
+            // Time-decaying multisig: pubkeys_hex = the n members; `required` = req_now;
+            // `req_after` = the relaxed threshold after lock_daa. dev mode uses the two
+            // dev wallets (n=2). Engine-proven; spends via the non-default custodial arm.
+            let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &req.redeem.pubkeys_hex {
+                let mut v = Vec::new();
+                for p in pks {
+                    match decode_xonly_hex(p) {
+                        Ok(x) => v.push(x),
+                        Err(e) => return err(e),
+                    }
+                }
+                v
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => {
+                        let mut v = Vec::new();
+                        for k in &ks {
+                            match xonly_from_seckey(k) {
+                                Ok(x) => v.push(x),
+                                Err(e) => return err(e),
+                            }
+                        }
+                        v
+                    }
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("timedecay requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into());
+            };
+            let req_now = req.redeem.required.unwrap_or(pubkeys.len());
+            let req_after = match req.redeem.req_after {
+                Some(r) => r,
+                None => return err("timedecay requires req_after (the relaxed threshold valid after lock_daa)".into()),
+            };
+            let lock_daa = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("timedecay requires lock_daa (when the relaxed threshold activates)".into()),
+            };
+            if req_after == 0 || req_now == 0 || req_after > pubkeys.len() || req_now > pubkeys.len() {
+                return err("timedecay thresholds must satisfy 0 < req_after,req_now <= n".into());
+            }
+            RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock|timedecay)"
         )),
     };
 
@@ -1337,6 +1401,10 @@ pub struct P2shSpendRequest {
     /// (the funder reclaims via the timeout branch after lock_daa).
     #[serde(default)]
     pub channel_mode: Option<String>,
+    /// timedecay only: "now" (the req_now-of-n IF branch, default) or "after" (the
+    /// relaxed req_after-of-n ELSE branch, valid once lock_daa is reached).
+    #[serde(default)]
+    pub timedecay_mode: Option<String>,
     /// UNIVERSAL INTERACTION (covenant NOT created on Covex): supply the redeem script
     /// (hex) that hashes to the on-chain P2SH, its kind (singlesig | hashlock |
     /// timelock:<daa> | multisig:<total> | htlc:<lock_daa>), and the funding outpoint
@@ -1417,6 +1485,19 @@ pub async fn p2sh_spend_handler(
     // Channel close mode: "cooperative" (both players co-sign the IF branch, the default)
     // or "refund" (the funder p1 reclaims via the ELSE timeout branch after lock_daa).
     let channel_cooperative = req.channel_mode.as_deref() != Some("refund");
+    // Time-decaying multisig: kind = "timedecay:{n}:{req_now}:{req_after}:{lock_daa}".
+    // "now" spends the req_now-of-n IF branch; "after" spends the relaxed req_after-of-n
+    // ELSE branch (valid once lock_daa is reached - it carries the tx lock_time).
+    let is_timedecay = cov.redeem_kind.starts_with("timedecay:");
+    let td_parts: Vec<u64> = cov
+        .redeem_kind
+        .strip_prefix("timedecay:")
+        .map(|s| s.split(':').filter_map(|x| x.parse::<u64>().ok()).collect())
+        .unwrap_or_default();
+    let td_req_now = td_parts.get(1).copied().unwrap_or(1) as usize;
+    let td_req_after = td_parts.get(2).copied().unwrap_or(1) as usize;
+    let td_lock_daa = td_parts.get(3).copied().unwrap_or(0);
+    let td_after = req.timedecay_mode.as_deref() == Some("after");
 
     // Extra satisfier pushes (after the sig): the preimage for a hashlock.
     let extra: Vec<Vec<u8>> = if cov.redeem_kind == "hashlock" {
@@ -1451,6 +1532,35 @@ pub async fn p2sh_spend_handler(
             }
         } else {
             return err("multisig spend requires signer_keys_hex (or use_dev_mode)".into());
+        };
+        let mut kps = Vec::new();
+        for sk in &seckeys {
+            match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, sk) {
+                Ok(k) => kps.push(k),
+                Err(e) => return err(format!("bad signer key: {e}")),
+            }
+        }
+        kps
+    } else if is_timedecay {
+        // The present members sign (req_now of n for "now", req_after for "after").
+        // Explicit via signer_keys_hex, else the dev wallets. The sig-script arm slices
+        // this to the branch's required count.
+        let seckeys: Vec<[u8; 32]> = if let Some(keys) = &req.signer_keys_hex {
+            let mut v = Vec::new();
+            for k in keys {
+                match hex::decode(k.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                    Some(b) => v.push(b),
+                    None => return err("bad signer key hex (need 64 hex chars)".into()),
+                }
+            }
+            v
+        } else if req.use_dev_mode {
+            match dev_keys(&req.network) {
+                Ok(ks) => ks,
+                Err(e) => return err(e),
+            }
+        } else {
+            return err("timedecay spend requires signer_keys_hex (or use_dev_mode)".into());
         };
         let mut kps = Vec::new();
         for sk in &seckeys {
@@ -1584,6 +1694,7 @@ pub async fn p2sh_spend_handler(
     let spend_lock_time = lock_daa
         .or(if is_htlc && !htlc_claim { htlc_lock_daa } else { None })
         .or(if is_channel && !channel_cooperative { channel_lock_daa } else { None })
+        .or(if is_timedecay && td_after { Some(td_lock_daa) } else { None })
         .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
@@ -1628,6 +1739,20 @@ pub async fn p2sh_spend_handler(
         match build_channel_signature_script(&signable, 0, kp1, kp2, channel_cooperative, &redeem) {
             Ok(s) => s,
             Err(e) => return err(format!("build channel spend script: {e}")),
+        }
+    } else if is_timedecay {
+        let take = if td_after { td_req_after } else { td_req_now };
+        if keypairs.len() < take {
+            return err(format!(
+                "timedecay {} branch needs {} signer key(s), got {}",
+                if td_after { "after" } else { "now" },
+                take,
+                keypairs.len()
+            ));
+        }
+        match build_timedecay_signature_script(&signable, 0, &keypairs[..take], &redeem, td_after) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build timedecay spend script: {e}")),
         }
     } else {
         match build_p2sh_signature_script(&signable, 0, &keypairs[0], &redeem, &extra) {

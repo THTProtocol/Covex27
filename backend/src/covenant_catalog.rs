@@ -180,6 +180,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "Spendable only once the funds have aged a relative number of units, via OpCheckSequenceVerify on the input sequence. Node-enforced (BIP68): the node rejects an early spend.",
     },
     CatalogEntry {
+        id: "p2sh_timedecay",
+        label: "Time-decaying multisig",
+        category: "Vesting & Timelocks",
+        reality: EnforcementReality::OnChain,
+        builder: "covenant_builder",
+        params: &["stake_kas", "pubkeys", "req_now", "req_after", "lock_daa"],
+        summary: "req_now-of-n now, relaxing to req_after-of-n after an absolute DAA deadline (OpCheckLockTimeVerify). Treasury recovery / inheritance: a high quorum spends immediately, a lower quorum unlocks after the timeout. Two real multisigs spliced into an IF/ELSE - node-enforced on both branches.",
+    },
+    CatalogEntry {
         id: "oracle_enforced",
         label: "Oracle-enforced (on-chain co-sign)",
         category: "Verifiable Games (ZK/Oracle)",
@@ -328,6 +337,7 @@ mod tests {
             RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
             RedeemKind::Deadman { owner: a, heir: a, lock_daa: 1 },
             RedeemKind::RelativeTimelock { min_sequence: 1, xonly_pubkey: a },
+            RedeemKind::TimeDecay { pubkeys: vec![a, a], req_now: 2, req_after: 1, lock_daa: 1 },
         ];
         let ids: Vec<&str> = CATALOG.iter().map(|e| e.id).collect();
         for k in &kinds {

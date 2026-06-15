@@ -127,6 +127,64 @@ impl RedeemKind {
     }
 }
 
+/// A covenant's spend-time shape, recovered from the persisted `redeem_kind` string
+/// alone (the member pubkeys live in the redeem script, fetched separately). This is the
+/// single place the spend `sig_op_count` rule lives: every spend path (custodial /spend,
+/// /oracle-payout, and non-custodial prepare-spend) derives the count from here, so the
+/// consensus-critical value can never drift between the three handlers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpendKind {
+    SingleSig,
+    HashLock,
+    Timelock { lock_daa: u64 },
+    Multisig { total: u8 },
+    Htlc { lock_daa: u64 },
+    Channel { lock_daa: u64 },
+    /// `oracle:N` - the oracle-enforced N-of-N multisig (the oracle is one of the N).
+    OracleEnforced { total: u8 },
+    OracleEscrow,
+}
+
+impl SpendKind {
+    /// Parse the persisted `redeem_kind` string (e.g. `singlesig`, `multisig:3`,
+    /// `channel:8000`, `oracle:2`, `oracle_escrow`). Numeric params ride after ':'.
+    /// Returns `None` for an unrecognized or malformed kind.
+    pub fn parse(kind_str: &str) -> Option<SpendKind> {
+        let (base, param) = kind_str
+            .split_once(':')
+            .map_or((kind_str, None), |(b, p)| (b, Some(p)));
+        match base {
+            "singlesig" => Some(SpendKind::SingleSig),
+            "hashlock" => Some(SpendKind::HashLock),
+            "timelock" => Some(SpendKind::Timelock { lock_daa: param?.parse().ok()? }),
+            "multisig" => Some(SpendKind::Multisig { total: param?.parse().ok()? }),
+            "htlc" => Some(SpendKind::Htlc { lock_daa: param?.parse().ok()? }),
+            "channel" => Some(SpendKind::Channel { lock_daa: param?.parse().ok()? }),
+            "oracle" => Some(SpendKind::OracleEnforced {
+                total: param.and_then(|s| s.parse().ok()).unwrap_or(2),
+            }),
+            "oracle_escrow" => Some(SpendKind::OracleEscrow),
+            _ => None,
+        }
+    }
+
+    /// The input `sig_op_count` to commit in the spend's sighash. Kaspa counts a
+    /// CheckMultiSig as one sig-op per listed pubkey, and each CheckSig / CheckSigVerify
+    /// as one; too low a count is rejected by the node ("script units exceeded").
+    pub fn sig_op_count(&self) -> u8 {
+        match self {
+            SpendKind::SingleSig
+            | SpendKind::HashLock
+            | SpendKind::Timelock { .. }
+            | SpendKind::Htlc { .. } => 1,
+            SpendKind::Multisig { total } => *total,
+            SpendKind::Channel { .. } => 3,
+            SpendKind::OracleEnforced { total } => *total,
+            SpendKind::OracleEscrow => 3,
+        }
+    }
+}
+
 /// Redeem script for a single-signature P2SH covenant: `<xonly_pubkey> OpCheckSig`.
 pub fn redeem_singlesig(xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
@@ -1149,8 +1207,6 @@ pub async fn p2sh_spend_handler(
     // Redeem-kind dispatch: multisig (N keys), timelock (single owner key + lock_time),
     // singlesig/hashlock (single owner key).
     let is_multisig = cov.redeem_kind.starts_with("multisig");
-    let multisig_total: u8 =
-        cov.redeem_kind.strip_prefix("multisig:").and_then(|s| s.parse::<u8>().ok()).unwrap_or(1);
     let lock_daa: Option<u64> =
         cov.redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
     let is_htlc = cov.redeem_kind.starts_with("htlc:");
@@ -1315,7 +1371,7 @@ pub async fn p2sh_spend_handler(
         // count must cover the redeem's actual sig ops or the node rejects with
         // "script units exceeded". The channel redeem has 3 sig ops across its branches
         // (CheckSigVerify + CheckSig in IF, CheckSig in ELSE). Single-key redeems use 1.
-        sig_op_count: if is_multisig { multisig_total } else if is_channel { 3 } else { 1 },
+        sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(1, |k| k.sig_op_count()),
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
@@ -1645,7 +1701,7 @@ pub async fn oracle_payout_handler(
         sequence: 0,
         // oracle:2 multisig counts 2 pubkeys; oracle_escrow counts the static sig ops
         // in the redeem (OpCheckSigVerify + both branches' OpCheckSig = 3).
-        sig_op_count: if is_escrow { 3 } else { 2 },
+        sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(2, |k| k.sig_op_count()),
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
     let unsigned = Transaction::new_non_finalized(
@@ -1804,7 +1860,6 @@ pub async fn prepare_spend_handler(
         return err(format!("non-custodial wallet signing does not support '{redeem_kind}'"));
     }
     let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
-    let multisig_total: u8 = redeem_kind.strip_prefix("multisig:").and_then(|s| s.parse::<u8>().ok()).unwrap_or(1);
     let htlc_lock_daa: Option<u64> = redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
     let channel_lock_daa: Option<u64> = redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
     // Branch selection (committed in the sighash via lock_time): HTLC claim(default)/refund,
@@ -1885,7 +1940,7 @@ pub async fn prepare_spend_handler(
     // node rejects "script units exceeded": multisig counts one per listed pubkey, the
     // channel redeem has 3 (CheckSigVerify + CheckSig in IF, CheckSig in ELSE), others 1.
     // Mirrors the custodial /spend handler exactly so the same sighash is produced.
-    let sig_op_count: u8 = if kind_base == "multisig" { multisig_total } else if kind_base == "channel" { 3 } else { 1 };
+    let sig_op_count: u8 = SpendKind::parse(&redeem_kind).map_or(1, |k| k.sig_op_count());
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
@@ -2410,6 +2465,52 @@ mod tests {
         assert_eq!(RedeemKind::Channel { p1: a, p2: b, lock_daa: 8000 }.kind_str(), "channel:8000");
         assert_eq!(RedeemKind::OracleEnforced { oracle: a, winner: b }.kind_str(), "oracle:2");
         assert_eq!(RedeemKind::OracleEscrow { oracle: a, player_a: b, player_b: c }.kind_str(), "oracle_escrow");
+    }
+
+    /// Phase 1: SpendKind is the single source of truth for the consensus-critical spend
+    /// sig_op_count. parse() must accept every string kind_str() emits, and sig_op_count()
+    /// must reproduce the values the three spend handlers previously computed inline.
+    #[test]
+    fn spendkind_parse_and_sig_op_count() {
+        assert_eq!(SpendKind::parse("singlesig"), Some(SpendKind::SingleSig));
+        assert_eq!(SpendKind::parse("hashlock"), Some(SpendKind::HashLock));
+        assert_eq!(SpendKind::parse("timelock:123"), Some(SpendKind::Timelock { lock_daa: 123 }));
+        assert_eq!(SpendKind::parse("multisig:3"), Some(SpendKind::Multisig { total: 3 }));
+        assert_eq!(SpendKind::parse("htlc:9"), Some(SpendKind::Htlc { lock_daa: 9 }));
+        assert_eq!(SpendKind::parse("channel:8000"), Some(SpendKind::Channel { lock_daa: 8000 }));
+        assert_eq!(SpendKind::parse("oracle:2"), Some(SpendKind::OracleEnforced { total: 2 }));
+        assert_eq!(SpendKind::parse("oracle_escrow"), Some(SpendKind::OracleEscrow));
+        assert_eq!(SpendKind::parse("nonsense"), None);
+        assert_eq!(SpendKind::parse("timelock"), None); // missing the required lock_daa param
+
+        // sig_op_count reproduces the previously-inline values at the three spend sites.
+        assert_eq!(SpendKind::parse("singlesig").unwrap().sig_op_count(), 1);
+        assert_eq!(SpendKind::parse("hashlock").unwrap().sig_op_count(), 1);
+        assert_eq!(SpendKind::parse("timelock:1").unwrap().sig_op_count(), 1);
+        assert_eq!(SpendKind::parse("htlc:1").unwrap().sig_op_count(), 1);
+        assert_eq!(SpendKind::parse("multisig:5").unwrap().sig_op_count(), 5);
+        assert_eq!(SpendKind::parse("channel:1").unwrap().sig_op_count(), 3);
+        assert_eq!(SpendKind::parse("oracle:2").unwrap().sig_op_count(), 2);
+        assert_eq!(SpendKind::parse("oracle_escrow").unwrap().sig_op_count(), 3);
+
+        // Every kind RedeemKind can persist must parse back into a SpendKind.
+        let a = [7u8; 32];
+        let kinds = [
+            RedeemKind::SingleSig { xonly_pubkey: a },
+            RedeemKind::HashLock { hash: a, xonly_pubkey: a },
+            RedeemKind::Timelock { lock_daa: 10, xonly_pubkey: a },
+            RedeemKind::Multisig { pubkeys: vec![a, a, a], required: 2 },
+            RedeemKind::Htlc { hash: a, receiver_pubkey: a, lock_daa: 10, sender_pubkey: a },
+            RedeemKind::Channel { p1: a, p2: a, lock_daa: 10 },
+            RedeemKind::OracleEnforced { oracle: a, winner: a },
+            RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
+        ];
+        for rk in &kinds {
+            assert!(SpendKind::parse(&rk.kind_str()).is_some(), "kind_str '{}' must parse", rk.kind_str());
+        }
+        // A 3-member multisig's kind_str round-trips to sig_op_count 3.
+        let ms = RedeemKind::Multisig { pubkeys: vec![a, a, a], required: 2 };
+        assert_eq!(SpendKind::parse(&ms.kind_str()).unwrap().sig_op_count(), 3);
     }
 
     /// Build a 1-input P2SH spend tx with the given lock_time/sequence, let `make_sig`

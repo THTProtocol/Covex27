@@ -63,9 +63,10 @@ pub enum RedeemKind {
     /// release: spend requires revealing a preimage P with blake2b256(P)==hash
     /// AND a valid signature. The building block for HTLC / commit-reveal escrow.
     HashLock { hash: [u8; 32], xonly_pubkey: [u8; 32] },
-    /// `<lock_daa> OpCheckLockTimeVerify OpDrop <xonly_pubkey> OpCheckSig` - an
-    /// absolute timelock (vesting cliff / dispute window): spendable only once the
-    /// chain DAA score reaches `lock_daa`, then by the key holder.
+    /// `<lock_daa> OpCheckLockTimeVerify <xonly_pubkey> OpCheckSig` - an absolute
+    /// timelock (vesting cliff / dispute window): spendable only once the chain DAA
+    /// score reaches `lock_daa`, then by the key holder. (No OpDrop: Kaspa's CLTV pops
+    /// its operand, unlike Bitcoin's.)
     Timelock { lock_daa: u64, xonly_pubkey: [u8; 32] },
     /// N-of-M multisig (`OP_required <pk..> OP_total OpCheckMultiSig`): spend
     /// requires `required` of the listed keys. DAO treasuries, 2-of-3 escrow.
@@ -74,10 +75,23 @@ pub enum RedeemKind {
     /// signing, OR the SENDER refunds after `lock_daa` by signing. The two halves of
     /// a cross-chain or cross-party atomic swap.
     Htlc { hash: [u8; 32], receiver_pubkey: [u8; 32], lock_daa: u64, sender_pubkey: [u8; 32] },
+    /// Trustless 2-player state-channel pot (no oracle key): `OP_IF <p1> OpCheckSigVerify
+    /// <p2> OpCheckSig OP_ELSE <lock_daa> OpCheckLockTimeVerify <p1> OpCheckSig OP_ENDIF`.
+    /// IF = cooperative 2-of-2 close (pays the agreed winner); ELSE = funder refund after
+    /// `lock_daa`. Covex is never in the payout path.
+    Channel { p1: [u8; 32], p2: [u8; 32], lock_daa: u64 },
+    /// Oracle-enforced payout (D1): a 2-of-2 multisig of `[oracle, winner]`, so the chain
+    /// itself requires the disclosed oracle's co-signature on the winner's claim.
+    OracleEnforced { oracle: [u8; 32], winner: [u8; 32] },
+    /// Oracle-enforced 2-player escrow / game pot: `<oracle> OpCheckSigVerify OP_IF
+    /// <player_a> OpCheckSig OP_ELSE <player_b> OpCheckSig OP_ENDIF`. The chain requires
+    /// the oracle's co-signature AND the winning player's signature on their branch.
+    OracleEscrow { oracle: [u8; 32], player_a: [u8; 32], player_b: [u8; 32] },
 }
 
 impl RedeemKind {
-    /// Serialize this kind into its Kaspa redeem script bytes.
+    /// Serialize this kind into its Kaspa redeem script bytes (the single source of truth;
+    /// the deploy handler and the spend path both route through here).
     pub fn redeem_script(&self) -> BResult<Vec<u8>> {
         match self {
             RedeemKind::SingleSig { xonly_pubkey } => redeem_singlesig(xonly_pubkey),
@@ -87,6 +101,28 @@ impl RedeemKind {
             RedeemKind::Htlc { hash, receiver_pubkey, lock_daa, sender_pubkey } => {
                 redeem_htlc(hash, receiver_pubkey, *lock_daa, sender_pubkey)
             }
+            RedeemKind::Channel { p1, p2, lock_daa } => redeem_channel(p1, p2, *lock_daa),
+            RedeemKind::OracleEnforced { oracle, winner } => redeem_multisig(&[*oracle, *winner], 2),
+            RedeemKind::OracleEscrow { oracle, player_a, player_b } => {
+                redeem_oracle_escrow(oracle, player_a, player_b)
+            }
+        }
+    }
+
+    /// The canonical `redeem_kind` string persisted with the covenant. Numeric params
+    /// (lock DAA, multisig member total) ride after a ':' so the spend path can rebuild
+    /// tx.lock_time / the input sig_op_count. This is the exact inverse of the deploy
+    /// dispatch (kept byte-identical so existing rows keep round-tripping).
+    pub fn kind_str(&self) -> String {
+        match self {
+            RedeemKind::SingleSig { .. } => "singlesig".to_string(),
+            RedeemKind::HashLock { .. } => "hashlock".to_string(),
+            RedeemKind::Timelock { lock_daa, .. } => format!("timelock:{lock_daa}"),
+            RedeemKind::Multisig { pubkeys, .. } => format!("multisig:{}", pubkeys.len()),
+            RedeemKind::Htlc { lock_daa, .. } => format!("htlc:{lock_daa}"),
+            RedeemKind::Channel { lock_daa, .. } => format!("channel:{lock_daa}"),
+            RedeemKind::OracleEnforced { .. } => "oracle:2".to_string(),
+            RedeemKind::OracleEscrow { .. } => "oracle_escrow".to_string(),
         }
     }
 }
@@ -713,11 +749,8 @@ pub async fn p2sh_deploy_handler(
         Ok(x) => x,
         Err(e) => return err(e),
     };
-    let (redeem, redeem_kind) = match req.redeem.kind.as_str() {
-        "singlesig" => match redeem_singlesig(&xonly) {
-            Ok(r) => (r, "singlesig".to_string()),
-            Err(e) => return err(e),
-        },
+    let kind: RedeemKind = match req.redeem.kind.as_str() {
+        "singlesig" => RedeemKind::SingleSig { xonly_pubkey: xonly },
         "hashlock" => {
             let preimage_hex = match &req.redeem.preimage_hex {
                 Some(p) => p,
@@ -728,21 +761,14 @@ pub async fn p2sh_deploy_handler(
                 Err(e) => return err(format!("bad preimage_hex: {e}")),
             };
             let hash = blake2b256(&preimage);
-            match redeem_hashlock(&hash, &xonly) {
-                Ok(r) => (r, "hashlock".to_string()),
-                Err(e) => return err(e),
-            }
+            RedeemKind::HashLock { hash, xonly_pubkey: xonly }
         }
         "timelock" => {
             let lock_daa = match req.redeem.lock_daa {
                 Some(d) => d,
                 None => return err("timelock requires lock_daa".into()),
             };
-            match redeem_timelock(lock_daa, &xonly) {
-                // Encode lock_daa into the stored kind so the spend can set tx.lock_time.
-                Ok(r) => (r, format!("timelock:{lock_daa}")),
-                Err(e) => return err(e),
-            }
+            RedeemKind::Timelock { lock_daa, xonly_pubkey: xonly }
         }
         "multisig" => {
             let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &req.redeem.pubkeys_hex {
@@ -772,13 +798,7 @@ pub async fn p2sh_deploy_handler(
                 return err("multisig requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into());
             };
             let required = req.redeem.required.unwrap_or(pubkeys.len());
-            match redeem_multisig(&pubkeys, required) {
-                // Encode the member TOTAL so the spend can set the input sig_op_count
-                // (Kaspa counts a CheckMultiSig as one sig-op per listed pubkey; too
-                // low a sig_op_count yields a "script units exceeded" rejection).
-                Ok(r) => (r, format!("multisig:{}", pubkeys.len())),
-                Err(e) => return err(e),
-            }
+            RedeemKind::Multisig { pubkeys, required }
         }
         "htlc" => {
             let preimage_hex = match &req.redeem.preimage_hex {
@@ -813,10 +833,7 @@ pub async fn p2sh_deploy_handler(
             } else {
                 return err("htlc requires receiver_pubkey_hex + sender_pubkey_hex (or use_dev_mode)".into());
             };
-            match redeem_htlc(&hash, &receiver, lock_daa, &sender) {
-                Ok(r) => (r, format!("htlc:{lock_daa}")),
-                Err(e) => return err(e),
-            }
+            RedeemKind::Htlc { hash, receiver_pubkey: receiver, lock_daa, sender_pubkey: sender }
         }
         "oracle_enforced" => {
             // 2-of-2 [oracle, winner]: the chain itself requires the disclosed oracle's
@@ -824,10 +841,7 @@ pub async fn p2sh_deploy_handler(
             // upgrades an oracle covenant from "trust the oracle off-chain" to "the chain
             // enforced that the disclosed oracle signed". Member order: [oracle, winner=deployer].
             let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
-            match redeem_multisig(&[oracle_xonly, xonly], 2) {
-                Ok(r) => (r, "oracle:2".to_string()),
-                Err(e) => return err(e),
-            }
+            RedeemKind::OracleEnforced { oracle: oracle_xonly, winner: xonly }
         }
         "oracle_escrow" => {
             // 2-player pot: the chain requires the oracle's co-signature AND the winning
@@ -853,10 +867,7 @@ pub async fn p2sh_deploy_handler(
             } else {
                 return err("oracle_escrow requires pubkeys_hex=[player_a, player_b] (or use_dev_mode)".into());
             };
-            match redeem_oracle_escrow(&oracle_xonly, &pa, &pb) {
-                Ok(r) => (r, "oracle_escrow".to_string()),
-                Err(e) => return err(e),
-            }
+            RedeemKind::OracleEscrow { oracle: oracle_xonly, player_a: pa, player_b: pb }
         }
         "channel" => {
             // Trustless 2-player game channel: cooperative 2-of-2 close OR a funder
@@ -885,15 +896,18 @@ pub async fn p2sh_deploy_handler(
                 Some(d) => d,
                 None => return err("channel requires lock_daa (the refund deadline)".into()),
             };
-            match redeem_channel(&p1k, &p2k, lock_daa) {
-                Ok(r) => (r, format!("channel:{lock_daa}")),
-                Err(e) => return err(e),
-            }
+            RedeemKind::Channel { p1: p1k, p2: p2k, lock_daa }
         }
         other => return err(format!(
             "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel)"
         )),
     };
+
+    let redeem = match kind.redeem_script() {
+        Ok(r) => r,
+        Err(e) => return err(e),
+    };
+    let redeem_kind = kind.kind_str();
 
     let p2sh_spk = p2sh_script_pubkey(&redeem);
     let p2sh_addr = match p2sh_address(&redeem, prefix_for_network(&req.network)) {
@@ -2334,6 +2348,68 @@ mod tests {
     fn test_keypair(seed: u8) -> Keypair {
         let sk = [seed.max(1); 32];
         Keypair::from_seckey_slice(secp256k1::SECP256K1, &sk).unwrap()
+    }
+
+    /// Phase 1: `RedeemKind` is the single source of truth. Its `redeem_script()` must be
+    /// byte-identical to calling the underlying builder directly (so routing the deploy
+    /// handler through the enum can never change a covenant's locking script), and its
+    /// `kind_str()` must reproduce the exact strings the deploy handler persists (so the
+    /// spend path keeps round-tripping existing rows, including `oracle:2`).
+    #[test]
+    fn redeemkind_is_byte_identical_and_round_trips_kind_str() {
+        let a = [11u8; 32];
+        let b = [22u8; 32];
+        let c = [33u8; 32];
+        let h = [44u8; 32];
+
+        // redeem_script() routes to the exact same builder bytes as the free functions.
+        assert_eq!(
+            RedeemKind::SingleSig { xonly_pubkey: a }.redeem_script().unwrap(),
+            redeem_singlesig(&a).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::HashLock { hash: h, xonly_pubkey: a }.redeem_script().unwrap(),
+            redeem_hashlock(&h, &a).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::Timelock { lock_daa: 5000, xonly_pubkey: a }.redeem_script().unwrap(),
+            redeem_timelock(5000, &a).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::Multisig { pubkeys: vec![a, b], required: 2 }.redeem_script().unwrap(),
+            redeem_multisig(&[a, b], 2).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::Htlc { hash: h, receiver_pubkey: a, lock_daa: 7000, sender_pubkey: b }
+                .redeem_script()
+                .unwrap(),
+            redeem_htlc(&h, &a, 7000, &b).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::Channel { p1: a, p2: b, lock_daa: 8000 }.redeem_script().unwrap(),
+            redeem_channel(&a, &b, 8000).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::OracleEnforced { oracle: a, winner: b }.redeem_script().unwrap(),
+            redeem_multisig(&[a, b], 2).unwrap()
+        );
+        assert_eq!(
+            RedeemKind::OracleEscrow { oracle: a, player_a: b, player_b: c }.redeem_script().unwrap(),
+            redeem_oracle_escrow(&a, &b, &c).unwrap()
+        );
+
+        // kind_str() reproduces the exact strings the deploy handler persisted pre-refactor.
+        assert_eq!(RedeemKind::SingleSig { xonly_pubkey: a }.kind_str(), "singlesig");
+        assert_eq!(RedeemKind::HashLock { hash: h, xonly_pubkey: a }.kind_str(), "hashlock");
+        assert_eq!(RedeemKind::Timelock { lock_daa: 5000, xonly_pubkey: a }.kind_str(), "timelock:5000");
+        assert_eq!(RedeemKind::Multisig { pubkeys: vec![a, b, c], required: 2 }.kind_str(), "multisig:3");
+        assert_eq!(
+            RedeemKind::Htlc { hash: h, receiver_pubkey: a, lock_daa: 7000, sender_pubkey: b }.kind_str(),
+            "htlc:7000"
+        );
+        assert_eq!(RedeemKind::Channel { p1: a, p2: b, lock_daa: 8000 }.kind_str(), "channel:8000");
+        assert_eq!(RedeemKind::OracleEnforced { oracle: a, winner: b }.kind_str(), "oracle:2");
+        assert_eq!(RedeemKind::OracleEscrow { oracle: a, player_a: b, player_b: c }.kind_str(), "oracle_escrow");
     }
 
     /// Build a 1-input P2SH spend tx with the given lock_time/sequence, let `make_sig`

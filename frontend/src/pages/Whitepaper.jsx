@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, ExternalLink } from 'lucide-react';
 
@@ -62,14 +63,30 @@ const SECTIONS = [
 ];
 
 export default function Whitepaper() {
+  // Highlight the section you're reading in the (sticky) contents bar.
+  const [activeId, setActiveId] = useState(SECTIONS[0].id);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const vis = entries.filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (vis[0]) setActiveId(vis[0].target.id);
+      },
+      { rootMargin: '-20% 0px -65% 0px', threshold: 0 }
+    );
+    SECTIONS.forEach((s) => { const el = document.getElementById(s.id); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, []);
+
   return (
     <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-10">
-      <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-kaspa-green mb-8">
+      <div className="covex-aurora" aria-hidden="true" style={{ top: 24, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 460, height: 240, maxWidth: '90vw' }} />
+      <Link to="/" className="relative z-10 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-kaspa-green mb-8">
         <ArrowLeft size={14} /> Back to Explorer
       </Link>
 
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+      <div className="relative z-10 glass-panel detail-hero-enhanced rounded-2xl p-5 mb-8 flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">
           <FileText size={22} className="text-kaspa-green" />
         </div>
         <div>
@@ -78,17 +95,23 @@ export default function Whitepaper() {
         </div>
       </div>
 
-      <div className="glass-panel rounded-2xl p-5 border border-white/[0.06] mb-8 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        <span className="kicker w-full mb-1">Contents</span>
+      <div className="sticky top-16 z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl">
+        <span className="kicker w-full mb-0.5">Contents</span>
         {SECTIONS.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className="text-gray-400 hover:text-kaspa-green transition-colors">{s.n}</a>
+          <a key={s.id} href={`#${s.id}`}
+            className={`transition-colors ${activeId === s.id ? 'text-kaspa-green font-semibold' : 'text-gray-400 hover:text-kaspa-green'}`}>
+            {s.n}
+          </a>
         ))}
       </div>
 
       <article className="space-y-10">
         {SECTIONS.map((s) => (
           <section key={s.id} id={s.id} className="scroll-mt-24">
-            <h2 className="text-xl font-bold text-white mb-3 pb-2 border-b border-white/[0.08]">{s.n}</h2>
+            <h2 className="relative text-xl font-bold text-white mb-3 pb-2">
+              {s.n}
+              <span className="absolute bottom-0 left-0 h-[2px] w-20 rounded-full" aria-hidden="true" style={{ background: 'linear-gradient(90deg, #49EACB, transparent)' }} />
+            </h2>
             <div className="space-y-3">
               {s.body.map((p, i) => (
                 <p key={i} className="text-sm text-gray-300 leading-relaxed">{p}</p>
@@ -109,8 +132,9 @@ export default function Whitepaper() {
             ['Mainnet activation window', 'https://kas.live/'],
             ['rusty-kaspa node & SDK', 'https://github.com/kaspanet/rusty-kaspa'],
           ].map(([label, url]) => (
-            <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-kaspa-green hover:underline">
-              <ExternalLink size={11} /> {label}
+            <a key={url} href={url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-gray-300 hover:text-kaspa-green rounded-lg px-2 py-1 -mx-2 border border-transparent hover:border-kaspa-green/30 hover:bg-kaspa-green/[0.05] hover:-translate-y-px transition-all">
+              <ExternalLink size={11} className="text-kaspa-green" /> {label}
             </a>
           ))}
         </div>

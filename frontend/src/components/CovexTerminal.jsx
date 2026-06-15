@@ -705,7 +705,7 @@ function ResolutionCard({ icon: Icon, title, desc, selected, onClick, accent = '
   );
 }
 
-export default function CovexTerminal({ covenant }) {
+export default function CovexTerminal({ covenant, externalCircuit }) {
   const navigate = useNavigate();
 
   // ── Wallet (for signing ownership challenges) ──
@@ -860,6 +860,19 @@ export default function CovexTerminal({ covenant }) {
     } catch (_) { /* ignore malformed params */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Live-sync the builder's selected circuit to an external selector (the unified Sandbox's
+  // free circuit library). When the visitor picks a circuit up top, the builder below follows
+  // — one window, one selection. Runs whenever the prop changes (not just on mount).
+  useEffect(() => {
+    if (!externalCircuit) return;
+    setShowAllZK(true);
+    setVisualConfig((prev) =>
+      prev.selectedCircuits.length === 1 && prev.selectedCircuits[0] === externalCircuit
+        ? prev
+        : { ...prev, selectedCircuits: [externalCircuit] }
+    );
+  }, [externalCircuit]);
 
   const TIERS = [
     { id: 'BUILDER', name: 'BUILDER', price: 100, accent: '#3B82F6', desc: 'Interactive UIs, standard circuits' },

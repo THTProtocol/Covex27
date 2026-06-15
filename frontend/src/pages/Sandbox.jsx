@@ -1,15 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, BookOpen } from 'lucide-react';
+import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, Wrench } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
+import CircuitSelector from '../components/CircuitSelector';
 
-// Public Sandbox: the full Covex builder/terminal, reachable without a wallet so anyone
-// can explore every covenant primitive, ZK circuit and oracle market. Templates from the
-// catalog deep-link here (?circuit=&kind=&name=) and the terminal preloads the matching
-// circuit. The advanced editor + deploy stay gated exactly as before (the terminal handles
-// that); this page only adds a public home + an honest "starting point" banner so a visitor
-// always sees what they picked and its real enforcement, with no wallet required to look.
+// Unified Sandbox: ONE window where the free circuit library (left) drives a live preview
+// (right) and the builder/terminal (below) all at once. Pick any circuit and the enforcement
+// reality, the "how it resolves" flow, the payout simulator, and the builder's selection update
+// together — no reload, no wallet to explore. Templates still deep-link here (?circuit=&kind=).
 
 const REALITY = {
   'on-chain': { label: 'On-chain enforced', cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10', Icon: ShieldCheck,
@@ -22,22 +21,45 @@ const REALITY = {
     note: 'Resolved by a signed oracle attestation of an off-chain outcome. Trust is in the named oracle, on-chain payout.' },
 };
 
+// A friendly kind for the preview/simulator gating, derived from the circuit's category.
+function kindForCircuit(c) {
+  if (!c) return '';
+  if (c.category === 'game') return 'game';
+  if (c.category === 'oracle' || c.category === 'defi') return 'oracle';
+  return 'zk';
+}
+
+const DEFAULT_CIRCUIT = 'prediction_market';
+
 export default function Sandbox() {
-  const [params] = useSearchParams();
-  const rawCircuit = params.get('circuit');
-  const kind = params.get('kind') || '';
-  const tplName = params.get('name') || '';
+  const [params, setParams] = useSearchParams();
 
-  const circuit = useMemo(() => {
-    if (!rawCircuit) return null;
-    const cid = resolveCircuit(rawCircuit, kind);
-    return ZK_CIRCUIT_TYPES.find((c) => c.id === cid) || null;
-  }, [rawCircuit, kind]);
+  // Initial selection: from a template deep-link (?circuit=), else a representative default.
+  const [selectedId, setSelectedId] = useState(() => {
+    const raw = params.get('circuit');
+    const resolved = raw ? resolveCircuit(raw, params.get('kind') || '') : null;
+    return (resolved && ZK_CIRCUIT_TYPES.some((c) => c.id === resolved)) ? resolved : DEFAULT_CIRCUIT;
+  });
+  // Template name only applies to the very first (deep-linked) selection.
+  const [tplName, setTplName] = useState(() => params.get('name') || '');
 
+  const circuit = useMemo(() => ZK_CIRCUIT_TYPES.find((c) => c.id === selectedId) || null, [selectedId]);
+  const kind = kindForCircuit(circuit);
   const reality = circuit ? (REALITY[circuit.reality] || REALITY['oracle-attested']) : null;
 
+  const select = (id) => {
+    setSelectedId(id);
+    setTplName(''); // a manual pick supersedes the template's name
+    const c = ZK_CIRCUIT_TYPES.find((x) => x.id === id);
+    const next = new URLSearchParams(params);
+    next.set('circuit', id);
+    next.set('kind', kindForCircuit(c));
+    next.delete('name');
+    setParams(next, { replace: true });
+  };
+
   return (
-    <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
+    <div className="max-w-7xl mx-auto px-4 pt-24 pb-16">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 mb-2">
         <div className="flex items-center gap-2 text-kaspa-green">
@@ -47,53 +69,66 @@ export default function Sandbox() {
         <span className="text-[10px] px-2 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-widest">FREE TO EXPLORE</span>
       </div>
       <p className="text-sm text-gray-300 max-w-3xl mb-6">
-        Build, preview and simulate any covenant: every primitive, ZK proof, oracle market and game.
-        Basic SilverScript is free; the advanced visual editor and deploy unlock with a tier. Nothing here
-        overstates what the chain enforces: each starting point carries its real enforcement reality.
+        Pick any covenant on the left and preview everything live: its real enforcement, how it resolves, and the
+        payout math. The builder below follows your selection. Basic SilverScript is free; the advanced editor and
+        deploy unlock with a tier. Nothing here overstates what the chain enforces.
       </p>
 
-      {/* Selected starting point banner (always visible, no wallet needed) */}
-      {circuit ? (
-        <div className="mb-8 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center gap-3">
-            <Boxes size={18} className="text-kaspa-green" />
-            <span className="text-xs uppercase tracking-widest text-gray-400">Starting point</span>
-            <span className="text-white font-semibold">{tplName || circuit.name}</span>
-            {reality && (
-              <span className={`ml-auto inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
-                <reality.Icon size={12} /> {reality.label}
-              </span>
-            )}
+      {/* One window: circuit library (left) drives the live preview (right) */}
+      <div className="grid lg:grid-cols-[320px_1fr] gap-5 mb-8 items-start">
+        <div>
+          <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2">
+            <Boxes size={13} className="text-kaspa-green" /> Circuit library
           </div>
-          <div className="px-5 py-4 grid md:grid-cols-3 gap-4 text-sm">
-            <div className="md:col-span-2">
-              <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Circuit</div>
-              <div className="text-white font-mono text-xs mb-2">{circuit.id}</div>
-              <p className="text-gray-300 leading-relaxed">{circuit.description}</p>
-            </div>
-            <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3">
-              <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">What enforcement means</div>
-              <p className="text-gray-300 text-xs leading-relaxed">{reality?.note}</p>
-            </div>
-          </div>
-          <div className="px-5 py-3 border-t border-white/10 flex items-center gap-3 text-xs text-gray-400">
-            <ArrowDown size={14} className="text-kaspa-green animate-bounce" />
-            The builder below is preloaded with this circuit. Configure economics, oracles and looks, then deploy.
-          </div>
+          <CircuitSelector circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
         </div>
-      ) : (
-        <div className="mb-8 rounded-2xl border border-white/10 bg-black/40 p-5 flex flex-wrap items-center gap-3 text-sm text-gray-300">
-          <BookOpen size={16} className="text-kaspa-green" />
-          Start from scratch below, or pick a preconfigured starting point from the
-          <Link to="/templates" className="text-kaspa-green hover:underline">template library</Link>.
+
+        <div className="space-y-4 min-w-0">
+          {/* Selected starting point banner */}
+          {circuit && (
+            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center gap-3">
+                <Boxes size={18} className="text-kaspa-green" />
+                <span className="text-xs uppercase tracking-widest text-gray-400">Selected</span>
+                <span className="text-white font-semibold">{tplName || circuit.name}</span>
+                {reality && (
+                  <span className={`ml-auto inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
+                    <reality.Icon size={12} /> {reality.label}
+                  </span>
+                )}
+              </div>
+              <div className="px-5 py-4 grid md:grid-cols-3 gap-4 text-sm">
+                <div className="md:col-span-2 min-w-0">
+                  <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Circuit</div>
+                  <div className="text-white font-mono text-xs mb-2 break-all">{circuit.id}</div>
+                  <p className="text-gray-300 leading-relaxed">{circuit.description}</p>
+                </div>
+                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3">
+                  <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">What enforcement means</div>
+                  <p className="text-gray-300 text-xs leading-relaxed">{reality?.note}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Live preview: how it resolves + payout simulator (remounts on circuit change) */}
+          {circuit && <SandboxCircuitPreview key={circuit.id} circuit={circuit} kind={kind} />}
         </div>
-      )}
+      </div>
 
-      {/* FREE read-only preview: how it resolves + interactive payout simulator (no wallet) */}
-      {circuit && <SandboxCircuitPreview circuit={circuit} kind={kind} />}
+      {/* Configure & deploy: the real builder, synced to the selection above */}
+      <div>
+        <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+          <Wrench size={13} className="text-kaspa-green" /> Configure &amp; deploy
+          <span className="text-[10px] text-gray-500 normal-case tracking-normal">preloaded with your selected circuit</span>
+          <ArrowDown size={13} className="text-kaspa-green animate-bounce" />
+        </div>
+        <CovexTerminal externalCircuit={selectedId} />
+      </div>
 
-      {/* The real builder/terminal */}
-      <CovexTerminal />
+      <div className="mt-8 text-center text-xs text-gray-500">
+        Or browse ready-made starting points in the <Link to="/templates" className="text-kaspa-green hover:underline">template library</Link>.
+      </div>
     </div>
   );
 }

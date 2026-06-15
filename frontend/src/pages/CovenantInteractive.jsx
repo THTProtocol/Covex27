@@ -996,6 +996,41 @@ export default function CovenantInteractive() {
                 {/* General Amount to Lock + execute ONLY for non-chess covenants. For chess the pro arena panel above is the complete simple experience. */}
                 {!isChess && (
                   <>
+                    {covenant.redeem_kind && covenant.redeem_script_hex && (
+                      <div className="p-4 rounded-2xl bg-purple-500/[0.06] border border-purple-500/25">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <ShieldCheck size={16} className="text-purple-300" />
+                          <span className="text-sm font-bold text-white">Redeem this covenant</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono uppercase">{String(covenant.redeem_kind).split(':')[0]}</span>
+                        </div>
+                        <p className="text-xs text-gray-300 mb-3 leading-relaxed">
+                          This is a script-enforced P2SH covenant. Spend it non-custodially with your own key — you provide the unlock condition (preimage / timelock / cosigners) on the next step. Covex never holds the funds.
+                        </p>
+                        <Link
+                          to="/deploy/enforced"
+                          onClick={() => {
+                            const parts = String(covenant.tx_id || '').split(':');
+                            sessionStorage.setItem('redeem_covenant', JSON.stringify({
+                              redeem_script_hex: covenant.redeem_script_hex,
+                              tx: parts[0],
+                              outpoint: parts[1] || '0',
+                              kind: covenant.redeem_kind,
+                            }));
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-200 text-sm font-bold hover:bg-purple-500/25 transition-colors"
+                        >
+                          <ShieldCheck size={16} /> Redeem / spend with my key
+                        </Link>
+                      </div>
+                    )}
+                    {covenant.enforcement_reality === 'decorative' && !covenant.redeem_kind && (
+                      <div className="p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 text-xs text-amber-200/90 leading-relaxed">
+                        <strong>Heads up:</strong> this covenant is metadata-only (not consensus-enforced). "Lock" sends KAS to the creator's address — there is no on-chain script forcing a payout back to you. Only interact if you trust the creator.
+                        {covenant.creator_addr && (
+                          <> <Link to={`/address/${encodeURIComponent(covenant.creator_addr)}`} className="underline text-amber-300">View creator</Link>.</>
+                        )}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
                         Amount to Lock (KAS)

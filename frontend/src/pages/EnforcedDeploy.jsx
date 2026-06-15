@@ -65,6 +65,27 @@ export default function EnforcedDeploy() {
     }).catch(() => {});
   }, [net]);
 
+  // Redeem hand-off: a covenant detail page sets sessionStorage['redeem_covenant'] with the
+  // covenant's redeem script + outpoint, then routes here so the user can spend it with their key.
+  // We prefill the external-spend panel and open it so they don't re-type the redeem script.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('redeem_covenant');
+      if (!raw) return;
+      sessionStorage.removeItem('redeem_covenant');
+      const r = JSON.parse(raw);
+      if (!r?.redeem_script_hex) return;
+      setExt((prev) => ({
+        ...prev,
+        redeem_script_hex: r.redeem_script_hex || '',
+        tx: r.tx || '',
+        outpoint: String(r.outpoint ?? '0'),
+        kind: (r.kind || 'singlesig').split(':')[0],
+      }));
+      setExtOpen(true);
+    } catch { /* ignore malformed hand-off */ }
+  }, []);
+
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
   const usesDevWallets = kind === 'multisig';
 

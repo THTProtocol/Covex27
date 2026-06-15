@@ -486,8 +486,12 @@ function WalletBridge({ children }) {
   // ── Dev mode connect (persists to localStorage, per-network for TN10/TN12) ──
   const connectDevMode = useCallback((devState) => {
     const isMain = appNetwork === 'mainnet' || appNetwork === 'mainnet-1';
-    if (isMain) {
-      setError('Dev mode (mnemonic/hex) is disabled on mainnet. Use a real wallet extension (KasWare etc.) with real KAS.');
+    // Hardcoded dev wallets (which carry neither their own phrase nor hex) stay blocked on
+    // mainnet. A wallet the user GENERATED or imported here carries its own phrase/hexKey and
+    // is their own real wallet — allowed on mainnet. Its private key is held only in this
+    // browser and is never transmitted (sendPayment refuses the custodial path on mainnet).
+    if (isMain && !devState?.phrase && !devState?.hexKey) {
+      setError('Hardcoded dev wallets are disabled on mainnet. Generate a new wallet or connect a wallet extension.');
       return;
     }
     setDevMode(devState);
@@ -695,6 +699,14 @@ function WalletBridge({ children }) {
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
     if (devMode && activeAddress) {
       const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+      // TRUSTLESS GUARANTEE: a generated/imported wallet's private key must NEVER be transmitted
+      // on mainnet. The custodial /api/sign-and-broadcast path below posts the key, so it is
+      // refused on mainnet. On mainnet, covenant deploy/spend uses the non-custodial
+      // prepare/submit flow (the key signs locally in the browser); for tier payments use a
+      // wallet extension. (Testnet keeps the custodial path — test money only.)
+      if (net === 'mainnet' || net === 'mainnet-1') {
+        return { success: false, error: 'This wallet never sends its key off your device. On mainnet, deploy covenants non-custodially (your key signs locally) or use a wallet extension for tier payments.' };
+      }
       // Map amount to tier for backend signer - the backend constructs real TXs
       // with actual UTXOs from kaspad, schnorr signs, and broadcasts via wRPC.
       const tier = amountKas >= 1000 ? 'MAX' : amountKas >= 500 ? 'PRO' : amountKas >= 100 ? 'BUILDER' : null;

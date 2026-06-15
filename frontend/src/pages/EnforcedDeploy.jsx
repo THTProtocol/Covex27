@@ -225,6 +225,15 @@ export default function EnforcedDeploy() {
         // Our in-browser key matches no required signer and no co-signer sigs were
         // supplied; fall through to the server-assisted path rather than signing nothing.
       }
+      // TRUSTLESS GUARANTEE: the server-assisted fallback below would post private_key_hex.
+      // On mainnet a generated/imported wallet's key must NEVER leave the device, so refuse
+      // the fallback there (only the non-custodial local-signing path above is allowed; for
+      // covenant types it doesn't cover, redeem with a wallet extension). Testnet (dev/test
+      // money) keeps the convenience fallback.
+      if ((net === 'mainnet' || net === 'mainnet-1') && !c.dev) {
+        setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
+        return;
+      }
       // Server-assisted fallback (HTLC/multisig/channel kinds, dev-wallet covenants, or a
       // key we do not hold). The non-custodial path above is preferred wherever it applies.
       const body = { network: net, deploy_tx_id: c.tx, destination_addr: dest, ...external };

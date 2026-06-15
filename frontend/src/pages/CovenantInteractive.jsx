@@ -686,7 +686,7 @@ export default function CovenantInteractive() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass-panel p-8 sm:p-10 rounded-3xl flex flex-col"
+          className="glass-panel detail-hero-enhanced p-8 sm:p-10 rounded-3xl flex flex-col"
         >
           <div className="flex items-center gap-4 mb-6">
             <div className="p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">

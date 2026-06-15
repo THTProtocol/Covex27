@@ -1245,3 +1245,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .btn-shimmer:hover::after { transform: translateX(130%); }
 @media (prefers-reduced-motion: reduce) { .btn-shimmer::after { transition: none; } }
+
+/* ── Covenant "out of this world" polish ───────────────────────────────────────
+   Animated holographic border for paid covenants, premium hover-lift, detail glow.
+   Reduced-motion + mobile guarded. */
+@property --holo-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.holo-border {
+  border: 1.5px solid transparent !important;
+  background:
+    linear-gradient(#0b0b12, #0b0b12) padding-box,
+    conic-gradient(from var(--holo-angle), rgba(73,234,203,0.95), rgba(168,85,247,0.85), rgba(232,175,52,0.85), rgba(73,234,203,0.95)) border-box;
+  animation: holo-rotate 7s linear infinite;
+}
+@keyframes holo-rotate { to { --holo-angle: 360deg; } }
+.hover-lift-premium { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s ease, border-color 0.25s ease; }
+.hover-lift-premium:hover { transform: translateY(-6px) scale(1.012); box-shadow: 0 0 42px rgba(73,234,203,0.22), 0 30px 60px -18px rgba(73,234,203,0.18); }
+.detail-hero-enhanced {
+  border-color: rgba(73,234,203,0.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 16px 50px -24px rgba(73,234,203,0.28), 0 0 0 1px rgba(73,234,203,0.08) !important;
+}
+@media (prefers-reduced-motion: reduce) { .holo-border { animation: none; } }
+@media (max-width: 640px) { .hover-lift-premium:hover { transform: none; } }

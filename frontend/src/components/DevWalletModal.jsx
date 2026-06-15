@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm } from './WalletContext';
-import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink } from 'lucide-react';
+import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink, ShieldCheck } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
 // Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
@@ -335,9 +335,98 @@ export default function DevWalletModal({ isOpen, onClose }) {
   );
 }
 
-// ── Mainnet Wallet Modal - real wallet extensions only, no dev mnemonic/hex ──
+// ── Trustless in-app wallet generator (client-side keygen; key never leaves the browser) ──
+function GenerateWalletSection({ connectDevMode, onConnected }) {
+  const [phase, setPhase] = useState('idle'); // idle | generated
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [phrase, setPhrase] = useState('');
+  const [address, setAddress] = useState('');
+  const [pk, setPk] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [copied, setCopied] = useState(null);
+  const [ack1, setAck1] = useState(false);
+  const [ack2, setAck2] = useState(false);
+
+  const generate = useCallback(async () => {
+    setErr(null); setBusy(true);
+    try {
+      const ph = await generateRandomMnemonic();               // Mnemonic.random(24), client-side
+      const { privateKeyHex, address } = await deriveFromMnemonic(ph, 'mainnet'); // derived locally
+      setPhrase(ph); setAddress(address); setPk(privateKeyHex); setPhase('generated');
+    } catch (e) { setErr(e.message || 'Generation failed'); }
+    finally { setBusy(false); }
+  }, []);
+
+  const copy = async (text, which) => {
+    try { await navigator.clipboard.writeText(text); setCopied(which); setTimeout(() => setCopied(null), 1400); } catch (_) {}
+  };
+
+  const useThis = () => {
+    if (!ack1 || !ack2) return;
+    connectDevMode({ phrase, privateKeyHex: pk, address }); // stored in-browser only; never POSTed
+    onConnected?.();
+  };
+
+  if (phase === 'idle') {
+    return (
+      <div className="rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.03] p-4">
+        <div className="flex items-center gap-2 text-white font-semibold text-sm mb-1"><Wand2 size={15} className="text-kaspa-green" /> No wallet yet? Generate one</div>
+        <p className="text-[11px] text-gray-300 leading-relaxed mb-3">Create a brand-new Kaspa mainnet wallet right here. It starts at 0 KAS, so fund it by sending KAS from any exchange. Your keys are generated in your browser and never leave it.</p>
+        <button onClick={generate} disabled={busy} className="btn-shimmer w-full px-4 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2">
+          {busy ? <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <Wand2 size={15} />} Generate a new wallet
+        </button>
+        {err && <p className="text-[11px] text-red-300 mt-2">{err}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-kaspa-green/25 bg-black/40 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-kaspa-green font-bold text-sm"><ShieldCheck size={15} /> Your new wallet</div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] uppercase tracking-wider text-gray-400">Recovery phrase (24 words)</span>
+          <button onClick={() => copy(phrase, 'phrase')} className="text-[10px] text-kaspa-green hover:underline">{copied === 'phrase' ? 'Copied' : 'Copy'}</button>
+        </div>
+        <div className="grid grid-cols-3 gap-1 text-[11px] font-mono">
+          {phrase.split(' ').map((w, i) => (
+            <div key={i} className="px-1.5 py-1 rounded bg-white/[0.03] border border-white/10 text-gray-200"><span className="text-gray-500 mr-1">{i + 1}</span>{w}</div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] uppercase tracking-wider text-gray-400">Your address (fund it from a CEX)</span>
+          <button onClick={() => copy(address, 'addr')} className="text-[10px] text-kaspa-green hover:underline">{copied === 'addr' ? 'Copied' : 'Copy'}</button>
+        </div>
+        <p className="text-[11px] font-mono text-kaspa-green break-all bg-black/40 border border-white/10 rounded-lg p-2">{address}</p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button onClick={() => setShowKey(v => !v)} className="text-[10px] text-gray-400 hover:text-gray-200">{showKey ? 'Hide' : 'Show'} private key (advanced)</button>
+        {showKey && <button onClick={() => copy(pk, 'pk')} className="text-[10px] text-kaspa-green hover:underline">{copied === 'pk' ? 'Copied' : 'Copy key'}</button>}
+      </div>
+      {showKey && <p className="text-[10px] font-mono text-amber-300 break-all bg-black/40 border border-amber-500/20 rounded-lg p-2">{pk}</p>}
+
+      <div className="rounded-lg bg-red-500/[0.06] border border-red-500/20 p-3">
+        <p className="text-[11px] text-red-200 leading-relaxed">Save your recovery phrase offline now. Anyone with it can spend your funds. Covex cannot recover it, and clearing this browser without the phrase loses the funds forever.</p>
+      </div>
+
+      <label className="flex items-start gap-2 text-[11px] text-gray-300 cursor-pointer"><input type="checkbox" checked={ack1} onChange={e => setAck1(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I have saved my recovery phrase somewhere safe and offline.</label>
+      <label className="flex items-start gap-2 text-[11px] text-gray-300 cursor-pointer"><input type="checkbox" checked={ack2} onChange={e => setAck2(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I understand Covex cannot recover a lost phrase, and that browser-generated wallets are best for getting started (use a hardware wallet or extension for large amounts).</label>
+
+      <button onClick={useThis} disabled={!ack1 || !ack2} className="w-full px-4 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Use this wallet</button>
+      <p className="text-[10px] text-gray-500 text-center">Generated in your browser via the Kaspa WASM SDK. Your key is held only on this device and is never sent to Covex.</p>
+    </div>
+  );
+}
+
+// ── Mainnet Wallet Modal - real wallet extensions + trustless in-app wallet generation ──
 function MainnetWalletModal({ walletContext, onClose }) {
-  const { wallets, connect, connecting, error, clearError } = walletContext;
+  const { wallets, connect, connecting, error, clearError, connectDevMode } = walletContext;
 
   const handleClick = async (wallet) => {
     const detected = wallet.detect ? wallet.detect() : false;
@@ -434,6 +523,13 @@ function MainnetWalletModal({ walletContext, onClose }) {
               <p className="text-sm text-red-400 animate-pulse">Connecting to wallet...</p>
             </div>
           )}
+
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[10px] uppercase tracking-widest text-gray-500">or</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+          <GenerateWalletSection connectDevMode={connectDevMode} onConnected={onClose} />
         </div>
 
         {/* Footer */}

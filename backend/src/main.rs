@@ -1521,23 +1521,32 @@ async fn analytics_handler(
 
 // ── Marketplace handlers (Phase 18) ─────────────────────────────
 
-async fn marketplace_templates_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
-) -> Json<serde_json::Value> {
-    let uis = db::get_generated_uis(&db, None).unwrap_or_default();
-    let publishable: Vec<serde_json::Value> = uis
-        .into_iter()
-        .filter(|ui| ui.get("is_published").and_then(|v| v.as_bool()).unwrap_or(false))
-        .map(|ui| json!({
-            "id": ui.get("covenant_id").and_then(|v| v.as_str()).unwrap_or(""),
-            "name": ui.get("slug").and_then(|v| v.as_str()).unwrap_or("Untitled Template"),
-            "description": "",
-            "author": ui.get("owner_address").and_then(|v| v.as_str()).unwrap_or("unknown"),
-            "price_kas": 0,
-            "downloads": 0
-        }))
-        .collect();
-    Json(json!({"templates": publishable, "total": publishable.len()}))
+async fn marketplace_templates_handler() -> Json<serde_json::Value> {
+    // Curated OFFICIAL Covex templates — honest, previewable starting points, each with its real
+    // enforcement reality (on-chain / hybrid / oracle-attested). These are clearly authored by
+    // "Covex Official" (not faked as community uploads). Community-published creator templates can
+    // join this list later once a real publish flow lands.
+    let t = |id: &str, name: &str, category: &str, reality: &str, desc: &str| {
+        json!({
+            "id": id, "name": name, "category": category, "reality": reality,
+            "description": desc, "author": "Covex Official", "price_kas": 0,
+            "downloads": 0, "official": true,
+        })
+    };
+    let templates = json!([
+        t("p2sh-singlesig", "Single-Key P2SH Vault", "P2SH Commitments", "on-chain", "Funds lock to a script hash, spendable only by the key holder. The minimal real covenant."),
+        t("p2sh-hashlock", "Hashlock Release", "Atomic Swaps & HTLC", "on-chain", "Release on revealing a secret preimage plus a signature. Building block for swaps."),
+        t("p2sh-timelock", "Absolute Timelock Vault", "Vesting & Timelocks", "on-chain", "Spendable only after a target DAA score. Cliff vesting and time-locked savings."),
+        t("p2sh-multisig", "2-of-3 Multisig Escrow", "Multi-sig", "on-chain", "Two of three keys release the funds. Treasuries, escrow and shared custody."),
+        t("htlc-swap", "HTLC Atomic Swap", "Atomic Swaps & HTLC", "on-chain", "Receiver claims with the preimage; sender refunds after a timelock. Cross-party swaps."),
+        t("oracle-escrow-game", "Oracle Escrow (2 players)", "Verifiable Games", "hybrid", "Chain releases the pot to the oracle-declared winner (oracle co-sign plus winner signature)."),
+        t("chess-oracle", "Chess Match", "Games", "oracle-attested", "FIDE chess for stakes. Oracle attests the result; winner takes the pot minus fee."),
+        t("binary-market", "Binary Prediction Market", "Prediction & Markets", "oracle-attested", "Yes/No event resolved by the oracle at a deadline. Winners split the pool."),
+        t("merkle-airdrop", "Merkle Airdrop Claim", "ZK Proofs & Claims", "on-chain", "Eligible addresses prove Merkle membership to claim — a genuine Groth16 ZK proof."),
+        t("revenue-share", "Revenue Share Pool", "Financial Tools", "oracle-attested", "Members receive a proportional split on an oracle-attested distribution event."),
+    ]);
+    let len = templates.as_array().map(|a| a.len()).unwrap_or(0);
+    Json(json!({ "templates": templates, "total": len }))
 }
 
 #[derive(Deserialize)]

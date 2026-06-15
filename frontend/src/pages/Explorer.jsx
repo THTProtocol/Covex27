@@ -168,6 +168,42 @@ export default function Explorer() {
       .catch(() => { setError('Could not load covenants'); setLoading(false); });
   }, [kaspaNetwork, activeCategory, buildListUrl]);
 
+  // Realtime: new covenants stream in over the websocket as the chain is indexed. Prepend them to
+  // the top of the grid and bump the live count, so the explorer updates without a page refresh.
+  useEffect(() => {
+    if (activeCategory !== 'All') return; // only live-stream in the default browse view
+    let ws; let mounted = true;
+    try {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          const d = msg?.data;
+          if (!mounted || !d || d.event_type !== 'covenant_discovered') return;
+          if (d.network && d.network !== kaspaNetwork) return;
+          const cov = {
+            tx_id: d.covenant_id,
+            covenant_type: d.detail || 'p2sh-commitment',
+            category: 'P2SH Commitments',
+            amount_kaspa: d.amount_kaspa || 0,
+            network: d.network || kaspaNetwork,
+            verified_tier: 'EXPLORER',
+            timestamp: d.timestamp || Math.floor(Date.now() / 1000),
+            description: '',
+            _isNew: true,
+          };
+          setCovenants((prev) => {
+            if (!cov.tx_id || prev.some((c) => c.tx_id === cov.tx_id)) return prev;
+            return [cov, ...prev].slice(0, 240);
+          });
+          setStats((prev) => ({ ...prev, total: (prev.total || 0) + 1 }));
+        } catch { /* ignore non-JSON frames */ }
+      };
+    } catch { /* ws unavailable; the page-load fetch still shows recent covenants */ }
+    return () => { mounted = false; try { ws && ws.close(); } catch {} };
+  }, [kaspaNetwork, activeCategory]);
+
   // Live matchmaking: waiting matches from the persistent games API.
   useEffect(() => {
     let mounted = true;
@@ -541,7 +577,13 @@ export default function Explorer() {
                     <span className="text-xs font-bold uppercase tracking-widest text-kaspa-green flex items-center gap-1.5">
                       <Layers size={12} />{includeRaw ? 'All Commitments' : 'Covenants'}
                     </span>
-                    <span className="text-[10px] text-gray-500 font-mono">{stats.total.toLocaleString()} {includeRaw ? 'total - PAID at top' : 'curated - PAID at top'}</span>
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
+                      <span className="relative flex h-1.5 w-1.5" title="Live — updates as new covenants are indexed">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 animate-ping" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
+                      </span>
+                      {stats.total.toLocaleString()} {includeRaw ? 'total' : 'live'} - PAID at top
+                    </span>
                   </div>
                   <button
                     onClick={() => setIncludeRaw(v => !v)}
@@ -652,6 +694,9 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         }} />
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c12] to-transparent" />
         <div className="absolute top-2 left-3 flex items-center gap-2">
+          {c._isNew && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-kaspa-green/25 text-kaspa-green border border-kaspa-green/40 font-mono font-bold animate-pulse backdrop-blur-sm">NEW</span>
+          )}
           {isPaid && (
             <span className={`text-[9px] px-2 py-0.5 rounded-full border ${cfg.badge} font-mono font-bold flex items-center gap-1 backdrop-blur-sm`}>
               <IconComponent size={10} />{cfg.label}

@@ -192,43 +192,41 @@ export default function TemplateLibrary() {
         </div>
       )}
 
-      {/* Real community published custom UIs from the backend marketplace (paid creators publish via Fix/Terminal) */}
+      {/* Official Covex templates from the backend marketplace — honest, previewable starting points. */}
       {communityTemplates.length > 0 && (
         <div className="mt-12">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COMMUNITY PUBLISHED</div>
-              <h2 className="text-2xl font-bold text-white">Custom UIs from Real Creators</h2>
+              <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COVEX OFFICIAL</div>
+              <h2 className="text-2xl font-bold text-white">Official Covenant Templates</h2>
             </div>
-            <div className="text-xs text-gray-500">Pulled live from published covenants</div>
+            <div className="text-xs text-gray-500">Curated starting points</div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {communityTemplates.map((t, idx) => (
-              <div key={idx} className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-5 flex flex-col">
-                <div className="text-xs text-emerald-400 mb-1">PUBLISHED CUSTOM UI</div>
-                <div className="font-bold text-white mb-1 truncate">{t.name || t.id || 'Untitled Published'}</div>
-                <div className="text-xs text-gray-400 mb-3">by {t.author || 'creator'}</div>
-                <div className="mt-auto flex gap-2">
-                  <a 
-                    href={t.id && t.id.length > 20 ? `/covenant/${encodeURIComponent(t.id)}` : '#'} 
-                    className="flex-1 text-center py-2 rounded-xl border border-white/20 text-sm hover:bg-white/5"
-                  >
-                    View Covenant
+            {communityTemplates.map((t, idx) => {
+              const realityStyle = t.reality === 'on-chain'
+                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                : t.reality === 'hybrid'
+                ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+              return (
+                <div key={t.id || idx} className="glass-panel rounded-2xl p-5 flex flex-col border border-white/[0.06] hover:border-kaspa-green/30 transition-all">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500">{t.category || 'Covenant'}</div>
+                    {t.reality && <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold uppercase ${realityStyle}`}>{t.reality}</span>}
+                  </div>
+                  <div className="font-bold text-white mb-1">{t.name || t.id}</div>
+                  <p className="text-xs text-gray-400 mb-3 leading-relaxed line-clamp-3 flex-1">{t.description}</p>
+                  <div className="text-[10px] text-gray-500 mb-3">by {t.author || 'Covex Official'}</div>
+                  <a href="/deploy"
+                    className="text-center py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:brightness-110 transition-all">
+                    Use Template
                   </a>
-                  <button 
-                    onClick={() => {
-                      if (t.id) sessionStorage.setItem('highlight_covenant', t.id);
-                      window.location.href = t.id && t.id.length > 20 ? `/covenant/${encodeURIComponent(t.id)}` : '/templates';
-                    }}
-                    className="flex-1 py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold"
-                  >
-                    Open
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <p className="text-[10px] text-center text-gray-500 mt-3">These are real custom interfaces published by paid-tier creators using the advanced builder.</p>
+          <p className="text-[10px] text-center text-gray-500 mt-3">Official Covex templates, each labeled with its real on-chain / hybrid / oracle-attested enforcement.</p>
         </div>
       )}
 
@@ -248,7 +246,9 @@ function CommunityPublished() {
   useEffect(() => {
     fetch('/api/marketplace/templates')
       .then((r) => r.json())
-      .then((d) => setItems(Array.isArray(d.templates) ? d.templates : []))
+      // Only genuine community-published covenants (have a covenant_id) belong here; the official
+      // Covex templates (id-only) render in the "Official Covenant Templates" section above.
+      .then((d) => setItems(Array.isArray(d.templates) ? d.templates.filter((t) => t.covenant_id) : []))
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);

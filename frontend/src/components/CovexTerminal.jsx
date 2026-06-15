@@ -23,6 +23,7 @@ import PrivacyMixerPanel from './PrivacyMixerPanel';
 // Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
+import { explorerTxUrl } from '../lib/explorer';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 
@@ -2094,8 +2095,27 @@ ${gameMeta.outcomeBranches}
       )}
 
       {paymentSuccess && (
-        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-sm">
-          <span className="text-emerald-400 font-semibold">Payment TX fully broadcast:</span> <span className="font-mono text-emerald-300">{paymentSuccess.txid}</span>. The terminal (Live SilverScript Editor with side add-ons + all tools for the best covenant) is now unlocked for this wallet on this network.
+        <div className="mb-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-500/[0.12] to-[#49EACB]/[0.05] border border-emerald-500/30 shadow-[0_0_34px_-12px_rgba(16,185,129,0.45)] animate-[slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
+          <div className="flex items-start gap-3.5">
+            <div className="h-11 w-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={22} className="text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base font-bold text-white">{paymentSuccess.tier} tier unlocked</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold tracking-wide">PAID</span>
+              </div>
+              <p className="text-xs text-gray-300 mt-1 leading-relaxed">
+                Payment broadcast on-chain. The full terminal — live SilverScript editor, ZK circuits, custom UI designer, oracles and game arenas — is now unlocked for this wallet on this network.
+              </p>
+              {paymentSuccess.txid && (
+                <a href={explorerTxUrl(paymentSuccess.txid, kaspaNetwork)} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-emerald-300 hover:text-emerald-200 hover:border-emerald-500/50 transition-colors">
+                  <ExternalLink size={12} /> View transaction: {String(paymentSuccess.txid).slice(0, 20)}…
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

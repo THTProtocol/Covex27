@@ -634,12 +634,13 @@ pub fn query_covenants(
     let conn = db.lock().unwrap();
     let mut where_clauses: Vec<String> = vec!["is_active = 1".to_string()];
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    // Curated default: show covenants Covex can say something REAL about — a paid tier or a
-    // genuine creator/builder description. Bare crawled P2SH commitments (opaque until spend,
-    // empty description) are hidden behind the explorer's "Show all" toggle, never deleted.
+    // Curated default: show covenants Covex can say something REAL about — a paid tier, a genuine
+    // creator/builder description, OR anything discovered in the last 24h so the explorer always
+    // shows live on-chain activity (new covenants) instead of looking frozen. Older bare crawled
+    // P2SH commitments (opaque until spend, empty description) sit behind the "Show all" toggle.
     if genuine_only {
         where_clauses.push(
-            "(verified_tier IN ('BUILDER','PRO','MAX') OR (TRIM(description) <> '' AND description <> 'unknown'))"
+            "(verified_tier IN ('BUILDER','PRO','MAX') OR (TRIM(description) <> '' AND description <> 'unknown') OR timestamp > (unixepoch() - 86400))"
                 .to_string(),
         );
     }

@@ -162,6 +162,15 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "A 2-of-2 cooperative-close pot with a funder refund after a timelock. The chain pays the agreed winner; no oracle, and Covex is never in the payout path.",
     },
     CatalogEntry {
+        id: "p2sh_deadman",
+        label: "Dead-man's switch / inheritance",
+        category: "Vesting & Timelocks",
+        reality: EnforcementReality::OnChain,
+        builder: "covenant_builder",
+        params: &["stake_kas", "pubkeys_hex", "lock_daa"],
+        summary: "The owner spends or refreshes at any time; the heir can claim only after the timelock DAA, so funds pass on if the owner goes silent. No oracle.",
+    },
+    CatalogEntry {
         id: "oracle_enforced",
         label: "Oracle-enforced (on-chain co-sign)",
         category: "Verifiable Games (ZK/Oracle)",
@@ -308,6 +317,7 @@ mod tests {
             RedeemKind::Channel { p1: a, p2: a, lock_daa: 1 },
             RedeemKind::OracleEnforced { oracle: a, winner: a },
             RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
+            RedeemKind::Deadman { owner: a, heir: a, lock_daa: 1 },
         ];
         let ids: Vec<&str> = CATALOG.iter().map(|e| e.id).collect();
         for k in &kinds {

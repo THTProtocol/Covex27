@@ -87,6 +87,10 @@ pub enum RedeemKind {
     /// <player_a> OpCheckSig OP_ELSE <player_b> OpCheckSig OP_ENDIF`. The chain requires
     /// the oracle's co-signature AND the winning player's signature on their branch.
     OracleEscrow { oracle: [u8; 32], player_a: [u8; 32], player_b: [u8; 32] },
+    /// Dead-man's-switch / inheritance: `OP_IF <owner> OpCheckSig OP_ELSE <lock_daa>
+    /// OpCheckLockTimeVerify <heir> OpCheckSig OP_ENDIF`. The owner spends/refreshes at any
+    /// time; the heir can claim only once the chain reaches `lock_daa`. No oracle.
+    Deadman { owner: [u8; 32], heir: [u8; 32], lock_daa: u64 },
 }
 
 impl RedeemKind {
@@ -106,6 +110,7 @@ impl RedeemKind {
             RedeemKind::OracleEscrow { oracle, player_a, player_b } => {
                 redeem_oracle_escrow(oracle, player_a, player_b)
             }
+            RedeemKind::Deadman { owner, heir, lock_daa } => redeem_deadman(owner, heir, *lock_daa),
         }
     }
 
@@ -123,6 +128,7 @@ impl RedeemKind {
             RedeemKind::Channel { lock_daa, .. } => format!("channel:{lock_daa}"),
             RedeemKind::OracleEnforced { .. } => "oracle:2".to_string(),
             RedeemKind::OracleEscrow { .. } => "oracle_escrow".to_string(),
+            RedeemKind::Deadman { lock_daa, .. } => format!("deadman:{lock_daa}"),
         }
     }
 
@@ -140,6 +146,7 @@ impl RedeemKind {
             RedeemKind::Channel { .. } => "p2sh_channel",
             RedeemKind::OracleEnforced { .. } => "oracle_enforced",
             RedeemKind::OracleEscrow { .. } => "oracle_escrow",
+            RedeemKind::Deadman { .. } => "p2sh_deadman",
         }
     }
 }
@@ -160,6 +167,8 @@ pub enum SpendKind {
     /// `oracle:N` - the oracle-enforced N-of-N multisig (the oracle is one of the N).
     OracleEnforced { total: u8 },
     OracleEscrow,
+    /// `deadman:N` - dead-man's-switch (owner IF branch; heir ELSE branch after lock_daa N).
+    Deadman { lock_daa: u64 },
 }
 
 impl SpendKind {
@@ -181,6 +190,7 @@ impl SpendKind {
                 total: param.and_then(|s| s.parse().ok()).unwrap_or(2),
             }),
             "oracle_escrow" => Some(SpendKind::OracleEscrow),
+            "deadman" => Some(SpendKind::Deadman { lock_daa: param?.parse().ok()? }),
             _ => None,
         }
     }
@@ -198,6 +208,8 @@ impl SpendKind {
             SpendKind::Channel { .. } => 3,
             SpendKind::OracleEnforced { total } => *total,
             SpendKind::OracleEscrow => 3,
+            // IF <owner> CheckSig  ELSE  CLTV <heir> CheckSig  ENDIF = 2 static sig ops.
+            SpendKind::Deadman { .. } => 2,
         }
     }
 }
@@ -1015,8 +1027,36 @@ pub async fn p2sh_deploy_handler(
             };
             RedeemKind::Channel { p1: p1k, p2: p2k, lock_daa }
         }
+        "deadman" => {
+            // Dead-man's-switch / inheritance: the DEPLOYER is the owner (spends/refreshes
+            // anytime); pubkeys_hex=[heir] claims the funds only after lock_daa. No oracle.
+            let heir = if let Some(pks) = &req.redeem.pubkeys_hex {
+                match pks.first() {
+                    Some(h) => match decode_xonly_hex(h) {
+                        Ok(x) => x,
+                        Err(e) => return err(e),
+                    },
+                    None => return err("deadman requires pubkeys_hex=[heir]".into()),
+                }
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => match xonly_from_seckey(&ks[1]) {
+                        Ok(x) => x,
+                        Err(e) => return err(e),
+                    },
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("deadman requires pubkeys_hex=[heir] (or use_dev_mode for the 2nd dev wallet)".into());
+            };
+            let lock_daa = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("deadman requires lock_daa (the inheritance deadline)".into()),
+            };
+            RedeemKind::Deadman { owner: xonly, heir, lock_daa }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman)"
         )),
     };
 
@@ -2795,6 +2835,26 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(s, 0, &owner, &redeem, false).unwrap()),
             "the ELSE branch requires the heir key"
+        );
+    }
+
+    #[test]
+    fn deadman_kind_wiring() {
+        let a = [11u8; 32];
+        let b = [22u8; 32];
+        // redeem_script routes to the proven builder; kind_str / catalog_id are stable.
+        assert_eq!(
+            RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.redeem_script().unwrap(),
+            redeem_deadman(&a, &b, 8000).unwrap()
+        );
+        assert_eq!(RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.kind_str(), "deadman:8000");
+        assert_eq!(RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.catalog_id(), "p2sh_deadman");
+        // SpendKind parses the persisted string and reports 2 sig ops (IF + ELSE CheckSig).
+        assert_eq!(SpendKind::parse("deadman:8000"), Some(SpendKind::Deadman { lock_daa: 8000 }));
+        assert_eq!(SpendKind::parse("deadman:8000").unwrap().sig_op_count(), 2);
+        assert_eq!(
+            SpendKind::parse(&RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.kind_str()),
+            Some(SpendKind::Deadman { lock_daa: 8000 })
         );
     }
 

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, BookOpen } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
+import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 
 // Public Sandbox: the full Covex builder/terminal, reachable without a wallet so anyone
 // can explore every covenant primitive, ZK circuit and oracle market. Templates from the
@@ -87,6 +88,9 @@ export default function Sandbox() {
           <Link to="/templates" className="text-kaspa-green hover:underline">template library</Link>.
         </div>
       )}
+
+      {/* FREE read-only preview: how it resolves + interactive payout simulator (no wallet) */}
+      {circuit && <SandboxCircuitPreview circuit={circuit} kind={kind} />}
 
       {/* The real builder/terminal */}
       <CovexTerminal />

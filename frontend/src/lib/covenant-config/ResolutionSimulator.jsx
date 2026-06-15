@@ -20,7 +20,7 @@ import React, { useMemo, useState, useRef, useCallback } from 'react';
  */
 
 const KAS = (n, d = 2) =>
-  Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 }) : '—';
+  Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 }) : '-';
 
 // Approximate Kaspa network fee for a single-output spend (labelled estimate, NOT a Covex cut).
 const NETWORK_FEE_KAS = 0.0001;
@@ -170,7 +170,7 @@ export default function ResolutionSimulator({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         <Stat label="Total pot" value={KAS(m.pot)} unit="KAS" accent="#fff" sub={`${nPlayers} × ${KAS(stake)} KAS`} />
         <Stat label="Winner (on-chain)" value={KAS(m.winnerEnforced)} unit="KAS" accent="#49EACB" sub={`${KAS(m.multEnforced, 2)}× your stake`} />
-        <Stat label="Break-even win-rate" value={m.breakevenEnforced != null ? KAS(m.breakevenEnforced * 100, 1) : '—'} unit="%" accent="#E8AF34" sub={`${nPlayers}-way: 1 / ${nPlayers}`} />
+        <Stat label="Break-even win-rate" value={m.breakevenEnforced != null ? KAS(m.breakevenEnforced * 100, 1) : '-'} unit="%" accent="#E8AF34" sub={`${nPlayers}-way: 1 / ${nPlayers}`} />
         <Stat label={`Your EV @ ${winProb}%`} value={KAS(m.evEnforced, 2)} unit="KAS" accent={m.evEnforced >= 0 ? '#4ade80' : '#f87171'} sub={isDraw ? 'draw: stake returned' : 'per session'} />
       </div>
 
@@ -281,7 +281,7 @@ export default function ResolutionSimulator({
             </div>
             {showConfigured && m.rakeDelta > 0 && (
               <div className="text-[9.5px] text-amber-400/80 mt-1.5 leading-snug">
-                The {KAS(m.rakeDelta)} KAS gold slice is the <strong>configured display model</strong> only. On-chain today the winner receives the <strong>whole {KAS(m.pot)} KAS pot</strong> (minus ~{NETWORK_FEE_KAS} KAS network fee) — Covex takes 0.
+                The {KAS(m.rakeDelta)} KAS gold slice is the <strong>configured display model</strong> only. On-chain today the winner receives the <strong>whole {KAS(m.pot)} KAS pot</strong> (minus ~{NETWORK_FEE_KAS} KAS network fee), and Covex takes 0.
               </div>
             )}
           </>
@@ -301,7 +301,7 @@ export default function ResolutionSimulator({
 
       <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
         Win-rate <em>p</em> is your own assumption, not a Covex prediction. EV = p × winner share − your stake; break-even is where EV crosses zero.
-        Configured fee / pot-return drive the SilverScript display model and are <strong>not</strong> taken on-chain — the enforced payout sends the full pot to the verified winner.
+        Configured fee / pot-return drive the SilverScript display model and are <strong>not</strong> taken on-chain. The enforced payout sends the full pot to the verified winner.
       </p>
     </div>
   );

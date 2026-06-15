@@ -365,6 +365,7 @@ function WalletBridge({ children }) {
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [activeAddress, setActiveAddress] = useState(null);
   const [activeBalance, setActiveBalance] = useState(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
   const [activeWalletNetwork, setActiveWalletNetwork] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
@@ -504,8 +505,10 @@ function WalletBridge({ children }) {
     }
   }, [appNetwork]);
 
+  // Returns true if a balance was actually obtained from the provider, so callers can fall back
+  // to the backend endpoint when an extension wallet has no getBalance() support.
   async function refreshBalanceForProvider(provider) {
-    if (!provider) return;
+    if (!provider) return false;
     try {
       let bal;
       if (typeof provider.getBalance === 'function') {
@@ -517,9 +520,41 @@ function WalletBridge({ children }) {
         const available = bal.available !== undefined ? Number(bal.available)
           : bal.confirmed !== undefined ? Number(bal.confirmed)
           : null;
-        setActiveBalance(available);
+        if (available != null) { setActiveBalance(available); return true; }
       }
     } catch (_) {}
+    return false;
+  }
+
+  // Read an address's on-chain balance from the backend (sums UTXOs at the node). This is the
+  // balance source for dev-mode (mnemonic/hex) wallets — which have no extension provider — and a
+  // fallback for extension wallets whose provider does not expose getBalance(). Works for ANY
+  // address. Returns sompi (integer); WalletButton divides by 1e8 for KAS display.
+  async function fetchBackendBalance(addr) {
+    if (!addr) return;
+    try {
+      const net = (typeof localStorage !== 'undefined' && localStorage.getItem('kaspaNetwork')) || appNetwork || 'testnet-12';
+      const r = await fetch(`/api/balance/${encodeURIComponent(addr)}?network=${encodeURIComponent(net)}`);
+      const d = await r.json();
+      if (d && typeof d.balance_sompi === 'number') setActiveBalance(d.balance_sompi);
+    } catch (_) { /* node briefly unreachable; keep last known balance */ }
+  }
+
+  // Unified balance refresh: extension provider first, backend fallback, dev-mode straight to backend.
+  async function refreshAnyBalance() {
+    if (!activeAddress) return;
+    setBalanceLoading(true);
+    try {
+      if (devMode) {
+        await fetchBackendBalance(activeAddress);
+      } else {
+        const provider = getActiveProvider();
+        const got = provider ? await refreshBalanceForProvider(provider) : false;
+        if (!got) await fetchBackendBalance(activeAddress);
+      }
+    } finally {
+      setBalanceLoading(false);
+    }
   }
 
   const disconnectWallet = useCallback(async () => {
@@ -558,17 +593,18 @@ function WalletBridge({ children }) {
     prevNetworkRef.current = appNetwork;
   }, [appNetwork, activeWalletId, devMode, disconnectWallet]);
 
+  // Live balance polling. Extension wallets report via their provider (backend fallback if the
+  // provider has no getBalance); dev-mode wallets read straight from the backend. Refreshes
+  // immediately on connect, then every 15s.
   useEffect(() => {
     if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);
-    if (!activeAddress || devMode) return;
-    balanceTimerRef.current = setInterval(() => {
-      const provider = getActiveProvider();
-      if (provider) refreshBalanceForProvider(provider);
-    }, 15000);
+    if (!activeAddress) return;
+    refreshAnyBalance();
+    balanceTimerRef.current = setInterval(() => { refreshAnyBalance(); }, 15000);
     return () => {
       if (balanceTimerRef.current) clearInterval(balanceTimerRef.current);
     };
-  }, [activeAddress, activeWalletId, devMode]);
+  }, [activeAddress, activeWalletId, devMode, appNetwork]);
 
   // Auto-connect on mount (load dev wallet for the initial network)
   useEffect(() => {
@@ -743,6 +779,7 @@ function WalletBridge({ children }) {
     activeWalletId,
     address: activeAddress,
     balance: activeBalance,
+    balanceLoading,
     connecting,
     error,
     network: activeWalletNetwork || (appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'mainnet' : 'kaspatest'),
@@ -775,11 +812,7 @@ function WalletBridge({ children }) {
       throw new Error('sendKaspa not supported');
     },
     buildUri,
-    refreshBalance: async () => {
-      if (devMode) return;
-      const provider = getActiveProvider();
-      if (provider) await refreshBalanceForProvider(provider);
-    },
+    refreshBalance: async () => { await refreshAnyBalance(); },
     clearError: () => setError(null),
   };
 

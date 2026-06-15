@@ -4,7 +4,7 @@ import { useWallet, NETWORK_LABELS, getCurrentNetwork } from './WalletContext';
 import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
 
 export default function WalletButton() {
-  const { address, balance, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect, refreshBalance } = useWallet();
+  const { address, balance, balanceLoading, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect, refreshBalance } = useWallet();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -49,9 +49,11 @@ export default function WalletButton() {
             ? <img src={meta.logo} alt="" className="w-4 h-4 rounded-sm" />
             : <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB]" />}
           <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
-          {balance !== null && (
-            <span className="text-gray-300 light:text-slate-600 text-xs">{(balance / 1e8).toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS</span>
-          )}
+          {balance !== null ? (
+            <span className="text-gray-300 light:text-slate-600 text-xs tabular-nums">{(balance / 1e8).toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS</span>
+          ) : balanceLoading ? (
+            <span className="text-gray-500 text-xs animate-pulse">···</span>
+          ) : null}
         </button>
 
         {panel && (

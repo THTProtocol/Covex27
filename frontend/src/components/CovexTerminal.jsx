@@ -2672,16 +2672,16 @@ ${gameMeta.outcomeBranches}
             </div>
             <div className="text-right pl-3 border-l border-white/10">
               <div className="text-[10px] uppercase tracking-widest text-gray-400">PAYOUT BREAKDOWN</div>
-              <div className="text-xs font-mono text-gray-300 leading-relaxed">
-                <div>Winner: {((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS ({(100 - feePercent - potReturnPercent).toFixed(1)}%)</div>
-                <div>Creator: {((chessStake + opponentStake) * feePercent / 100).toFixed(1)} KAS ({feePercent}%)</div>
-                <div className="text-kaspa-green">Pot return: {((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)} KAS ({potReturnPercent}%)</div>
+              <div className="text-xs font-mono text-gray-300 leading-relaxed tabular-nums">
+                <div className="border-r-2 border-[#49EACB]/60 pr-1.5">Winner: {((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS ({(100 - feePercent - potReturnPercent).toFixed(1)}%)</div>
+                <div className="border-r-2 border-[#E8AF34]/50 pr-1.5">Creator: {((chessStake + opponentStake) * feePercent / 100).toFixed(1)} KAS ({feePercent}%)</div>
+                <div className="text-kaspa-green border-r-2 border-[#49EACB]/30 pr-1.5">Pot return: {((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)} KAS ({potReturnPercent}%)</div>
               </div>
             </div>
           </div>
 
           {/* The Professional Board (chess.com quality via react-chessboard) */}
-          <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#111] p-3">
+          <div className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#15151d] to-[#0c0c11] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] p-3">
             <div className="flex justify-between items-center mb-2 px-1">
               <div className="font-mono text-xs text-gray-400 flex items-center gap-3">
                 <span>{chessMatchState === 'idle' && 'POST STAKE TO OPEN A MATCH'}
@@ -2725,7 +2725,7 @@ ${gameMeta.outcomeBranches}
 
             {/* Move list + status */}
             <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
-              <div className="md:col-span-3 p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300 overflow-auto max-h-[72px]">
+              <div className="md:col-span-3 p-2.5 rounded-lg bg-black/40 border border-white/[0.08] font-mono text-[11px] text-gray-300 overflow-auto max-h-[72px] shadow-[inset_0_8px_12px_-12px_rgba(0,0,0,0.85)]">
                 {chessGame.pgn() || 'No moves yet. Drag pieces on the board (only legal moves allowed).'}
               </div>
               <div className="md:col-span-2">
@@ -3893,7 +3893,14 @@ ${gameMeta.outcomeBranches}
 
         {studioConfig && (
           <div className="my-3">
-            <ResolutionSimulator config={studioConfig} />
+            <ResolutionSimulator
+              config={studioConfig}
+              feePercent={feePercent}
+              potReturnPercent={potReturnPercent}
+              minStake={visualConfig.minStake}
+              maxStake={visualConfig.maxStake}
+              players={2}
+            />
           </div>
         )}
 

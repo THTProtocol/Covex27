@@ -66,21 +66,21 @@ export default function Whitepaper() {
   // Highlight the section you're reading in the (sticky) contents bar.
   const [activeId, setActiveId] = useState(SECTIONS[0].id);
   useEffect(() => {
-    let raf = 0;
+    // Direct (rAF-free) scrollspy: the last section whose top has scrolled above the
+    // sticky bar is the one you're reading. setActiveId no-ops when the value is unchanged,
+    // so re-renders only happen when you actually cross a section boundary.
     const compute = () => {
-      raf = 0;
       let current = SECTIONS[0].id;
       for (const s of SECTIONS) {
         const el = document.getElementById(s.id);
-        // The last section whose top has scrolled above the sticky bar is the one you're reading.
         if (el && el.getBoundingClientRect().top <= 130) current = s.id;
       }
       setActiveId(current);
     };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(compute); };
     compute();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+    window.addEventListener('scroll', compute, { passive: true });
+    window.addEventListener('resize', compute, { passive: true });
+    return () => { window.removeEventListener('scroll', compute); window.removeEventListener('resize', compute); };
   }, []);
 
   return (

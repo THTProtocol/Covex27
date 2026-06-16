@@ -164,10 +164,15 @@ export default function CovenantPreview({ config, covenant, children, className 
       {/* Children slot (for buttons, interaction panels, etc.) */}
       {children}
 
-      {/* Default Button if no children */}
+      {/* Default Button if no children. This is a visual mock of the covenant's own action
+          button (the preview shows how the deployed card will look), so it is intentionally
+          non-interactive here: type=button (never submits) + aria-hidden + not tab-focusable. */}
       {!children && (
         <button
-          className={`w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${
+          type="button"
+          tabIndex={-1}
+          aria-hidden="true"
+          className={`w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wide cursor-default ${
             config.buttonStyle === 'outline' ? 'bg-transparent border-2' :
             config.buttonStyle === 'ghost' ? 'bg-transparent' :
             config.buttonStyle === 'pill' ? 'rounded-full' : ''

@@ -53,7 +53,7 @@ export default function TemplateLibrary() {
     // tier check here: that was a self-grant hole, and the Sandbox is free to explore while the
     // builder enforces paid access against the backend.
     if (template.category === 'Games') {
-      navigate('/explorer');
+      navigate('/'); // the Explorer (live game arenas) is the home route, not /explorer
       return;
     }
     const res = config?.resolution || {};

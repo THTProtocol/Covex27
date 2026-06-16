@@ -1,4 +1,6 @@
-import { ShieldCheck, Radio, ShieldQuestion, Link2 } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldCheck, Radio, ShieldQuestion, Link2, Info } from 'lucide-react';
+import TransparencyModal from './TransparencyModal';
 
 /**
  * Honest resolution-trust indicator. Driven by the covenant's server-computed
@@ -56,7 +58,8 @@ export function trustInfo(covenant) {
   };
 }
 
-export default function TrustBadge({ covenant, size = 'sm', showDesc = false }) {
+export default function TrustBadge({ covenant, size = 'sm', showDesc = false, inspect = true }) {
+  const [open, setOpen] = useState(false);
   const t = trustInfo(covenant);
   const styles = {
     onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
@@ -66,12 +69,21 @@ export default function TrustBadge({ covenant, size = 'sm', showDesc = false }) 
   }[t.kind];
   const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, decorative: ShieldQuestion }[t.kind];
   const pad = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs';
+  const inner = (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border font-bold uppercase tracking-wider ${pad} ${styles} ${inspect ? 'cursor-pointer hover:brightness-110 transition' : ''}`}>
+      <Icon size={size === 'sm' ? 11 : 14} /> {t.label}
+      {inspect && <Info size={size === 'sm' ? 10 : 12} className="opacity-50" />}
+    </span>
+  );
   return (
-    <span className="inline-flex flex-col gap-1" title={t.desc}>
-      <span className={`inline-flex items-center gap-1.5 rounded-md border font-bold uppercase tracking-wider ${pad} ${styles}`}>
-        <Icon size={size === 'sm' ? 11 : 14} /> {t.label}
-      </span>
+    <span className="inline-flex flex-col gap-1" title={inspect ? 'Press to see how this is verified' : t.desc}>
+      {inspect ? (
+        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }} className="inline-flex text-left">
+          {inner}
+        </button>
+      ) : inner}
       {showDesc && <span className="text-[11px] text-gray-400 max-w-xs leading-snug normal-case">{t.desc}</span>}
+      {open && <TransparencyModal covenant={covenant} onClose={() => setOpen(false)} />}
     </span>
   );
 }

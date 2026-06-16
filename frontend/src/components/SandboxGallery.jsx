@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight } from 'lucide-react';
+import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight, Info } from 'lucide-react';
+import TransparencyModal from './TransparencyModal';
 
 // SandboxGallery: a category-organized, progressive-disclosure picker over every covenant
 // circuit/primitive. Each category shows a curated few cards up front with a "View more" button
@@ -30,34 +31,41 @@ const GROUPS = [
 
 const INITIAL = 4; // cards shown per category before "View more" (kept compact for the stepped sandbox)
 
-function CircuitCard({ c, active, onSelect }) {
+function CircuitCard({ c, active, onSelect, onInspect }) {
   const m = rm(c.reality);
   return (
-    <button
-      onClick={() => onSelect(c.id)}
-      title={`${c.name} - ${c.reality}`}
-      className={`group relative text-left p-3 rounded-xl border overflow-hidden transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
+    <div
+      className={`group relative rounded-xl border overflow-hidden transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
         active
           ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_22px_rgba(73,234,203,0.16)]'
           : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16] hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.6)]'
       }`}
     >
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />
-      <div className="relative flex items-start justify-between gap-2">
-        <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white'}`}>{c.name}</span>
-        <span className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${m.bg} ${m.text} ${m.border}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${c.reality === 'full-zk' ? 'zk-live-glow' : ''}`} style={{ background: m.accent }} /> {m.short}
-        </span>
-      </div>
-      <p className="relative text-[11px] text-gray-400 leading-snug mt-1 line-clamp-2">{c.description}</p>
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity z-10" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />
+      <button onClick={() => onSelect(c.id)} title={`${c.name} - ${c.reality}`} className="block w-full text-left p-3">
+        <div className="relative flex items-start gap-2 pr-16">
+          <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white'}`}>{c.name}</span>
+        </div>
+        <p className="relative text-[11px] text-gray-400 leading-snug mt-1 line-clamp-2 pr-2">{c.description}</p>
+      </button>
+      {/* The reality badge is itself the inspect trigger: press it to see how this is verified + the source. */}
+      <button
+        type="button"
+        onClick={() => onInspect(c)}
+        title="How is this verified? Press to inspect the source"
+        className={`absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border transition hover:brightness-125 z-10 ${m.bg} ${m.text} ${m.border}`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${c.reality === 'full-zk' ? 'zk-live-glow' : ''}`} style={{ background: m.accent }} /> {m.short} <Info size={9} className="opacity-60" />
+      </button>
       {active && <Check size={13} className="text-kaspa-green absolute bottom-2.5 right-2.5" />}
-    </button>
+    </div>
   );
 }
 
 export default function SandboxGallery({ circuits, selectedId, onSelect }) {
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState({});
+  const [infoCircuit, setInfoCircuit] = useState(null);
 
   const grouped = useMemo(() => {
     const g = Object.fromEntries(GROUPS.map((x) => [x.key, []]));
@@ -75,6 +83,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
 
   return (
     <div>
+      {infoCircuit && <TransparencyModal circuit={infoCircuit} onClose={() => setInfoCircuit(null)} />}
       <div className="flex items-center gap-2 mb-5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 max-w-md">
         <Search size={15} className="text-gray-400 shrink-0" />
         <input
@@ -88,7 +97,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
 
       {searchResults ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {searchResults.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} />)}
+          {searchResults.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} />)}
           {searchResults.length === 0 && <div className="text-sm text-gray-500 py-8 col-span-full text-center">No covenants match your search.</div>}
         </div>
       ) : (
@@ -108,7 +117,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
                   <span className="text-[10px] text-gray-500 tabular-nums">{items.length}</span>
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {visible.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} />)}
+                  {visible.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} />)}
                 </div>
                 {items.length > INITIAL && (
                   <button

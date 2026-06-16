@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check } from 'lucide-react';
+import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check, Info } from 'lucide-react';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import { generateSilverScriptForConfig } from './CovexTerminal';
+import TransparencyModal from './TransparencyModal';
 
 // SandboxCircuitPreview: a FREE, no-wallet, read-only deep-dive for the circuit a visitor
 // picked in the sandbox. It explains, honestly, how the covenant resolves (keyed to its real
@@ -97,6 +98,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
   }, [circuit]);
 
   const [copied, setCopied] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const copyScript = async () => {
     if (!exampleScript) return;
     try {
@@ -108,9 +110,11 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
 
   if (!circuit) return null;
   const flow = RESOLUTION_FLOW[circuit.reality] || RESOLUTION_FLOW['oracle-attested'];
+  const realityLabel = { 'full-zk': 'Zero-knowledge', 'on-chain': 'On-chain', hybrid: 'Hybrid', 'oracle-attested': 'Oracle-attested', decorative: 'Metadata' }[circuit.reality] || circuit.reality;
 
   return (
     <div className="mb-8 space-y-4">
+      {showInfo && <TransparencyModal circuit={circuit} onClose={() => setShowInfo(false)} />}
       <div className="flex items-center gap-2 flex-wrap">
         <Eye size={16} className="text-kaspa-green" />
         <h2 className="text-sm font-bold text-white uppercase tracking-widest">Explore this covenant</h2>
@@ -121,7 +125,14 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
       <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
         <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
           <FileSearch size={13} className="text-kaspa-green" /> How it resolves
-          <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full border border-white/10 text-gray-300">{flow.label}</span>
+          <button
+            type="button"
+            onClick={() => setShowInfo(true)}
+            title="Press to see where this is verified and the source"
+            className="ml-auto inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/10 hover:border-kaspa-green/50 transition-colors"
+          >
+            {realityLabel} <Info size={11} className="opacity-70" />
+          </button>
         </div>
         <ol className="space-y-2.5">
           {flow.steps.map((s, i) => (

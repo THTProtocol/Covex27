@@ -251,26 +251,48 @@ pub async fn sign_and_broadcast_handler(
     let private_key_hex: String;
     let deployer_addr_str: String;
     if payload.use_dev_mode {
+        // Dev-deployer keys are read from the service environment (never from source).
+        // A missing/blank env var or a mainnet network yields a clear Err here.
         if payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12
             || payload.deployer_addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10
         {
-            if network == "testnet-10" {
-                private_key_hex = dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10.to_string();
-                deployer_addr_str = dev_wallets::DEV_WALLET_2_ADDRESS_TN10.to_string();
+            deployer_addr_str = if network == "testnet-10" {
+                dev_wallets::DEV_WALLET_2_ADDRESS_TN10
             } else {
-                private_key_hex = dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12.to_string();
-                deployer_addr_str = dev_wallets::DEV_WALLET_2_ADDRESS_TN12.to_string();
+                dev_wallets::DEV_WALLET_2_ADDRESS_TN12
             }
+            .to_string();
+            private_key_hex = match dev_wallets::dev_private_key(2, network) {
+                Ok(k) => k,
+                Err(e) => {
+                    return Json(serde_json::json!(SignAndBroadcastResponse {
+                        success: false,
+                        tx_id: None,
+                        outputs: None,
+                        error: Some(e),
+                    }))
+                }
+            };
         } else if payload.deployer_addr == dev_wallets::DEV_WALLET_1_ADDRESS_TN12
             || payload.deployer_addr == dev_wallets::DEV_WALLET_1_ADDRESS_TN10
         {
-            if network == "testnet-10" {
-                private_key_hex = dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10.to_string();
-                deployer_addr_str = dev_wallets::DEV_WALLET_1_ADDRESS_TN10.to_string();
+            deployer_addr_str = if network == "testnet-10" {
+                dev_wallets::DEV_WALLET_1_ADDRESS_TN10
             } else {
-                private_key_hex = dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12.to_string();
-                deployer_addr_str = dev_wallets::DEV_WALLET_1_ADDRESS_TN12.to_string();
+                dev_wallets::DEV_WALLET_1_ADDRESS_TN12
             }
+            .to_string();
+            private_key_hex = match dev_wallets::dev_private_key(1, network) {
+                Ok(k) => k,
+                Err(e) => {
+                    return Json(serde_json::json!(SignAndBroadcastResponse {
+                        success: false,
+                        tx_id: None,
+                        outputs: None,
+                        error: Some(e),
+                    }))
+                }
+            };
         } else {
             // Browser-derived address doesn't match any known dev wallet.
             // Use the key from the request but the address won't have UTXOs.

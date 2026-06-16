@@ -25,7 +25,15 @@ export KASPA_WRPC_URL="${KASPA_WRPC_URL:-ws://127.0.0.1:17217}"   # Change if yo
 export BIND_ADDR="0.0.0.0:3006"
 export DB_PATH="$APP_DIR/covex.db"
 export COVENANT_TREASURY_ADDRESS="kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
-export COVENANT_SEED_ADDRESSES="kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353,kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs,kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
+export COVENANT_SEED_ADDRESSES="kaspatest:qp8q6ya2txnlzsd8c6qkz9q6ew4he2ny797nejyntzkn3gkdelu270f45cmxa,kaspatest:qqtk7zesmvvm8g35e8s6amjwq3mw6j564zxuehffedz6zp450pdv7splqvmmk,kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m"
+# TESTNET dev-deployer private keys (use_dev_mode signing) are read from env, never
+# from source. Set the keys that derive the DEV_WALLET_*_ADDRESS_* constants in
+# backend/src/dev_wallets.rs. Keep these out of version control (real deploy sets
+# them in a 0600 systemd drop-in, not here). Leave unset to disable dev-mode signing.
+# export COVEX_DEV_WALLET_1_KEY_TN12="<64-hex>"
+# export COVEX_DEV_WALLET_1_KEY_TN10="<64-hex>"   # same key as TN12 (same address)
+# export COVEX_DEV_WALLET_2_KEY_TN12="<64-hex>"
+# export COVEX_DEV_WALLET_2_KEY_TN10="<64-hex>"   # same key as TN12 (same address)
 export CRAWL_START_DAA="1"
 export RUST_LOG="${RUST_LOG:-covex27_backend=info,kaspa_wrpc=warn}"
 

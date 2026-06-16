@@ -1161,12 +1161,19 @@ fn verify_terminal_ownership_signature(
     }
 
     // 2. Dev-wallet shared-secret path: SHA256(private_key_hex_bytes || message).
-    let dev_keys = [
-        (crate::dev_wallets::DEV_WALLET_1_ADDRESS, crate::dev_wallets::DEV_WALLET_1_PRIVATE_KEY),
-        (crate::dev_wallets::DEV_WALLET_2_ADDRESS, crate::dev_wallets::DEV_WALLET_2_PRIVATE_KEY),
-    ];
-    for (known_addr, known_pk) in &dev_keys {
-        if *known_addr == signer_address {
+    // The dev keys live in the environment (never source); if a dev wallet's key is
+    // not configured, the shared-secret path simply cannot verify (returns Ok(false)).
+    for wallet in [1u8, 2u8] {
+        let known_addr = if wallet == 1 {
+            crate::dev_wallets::DEV_WALLET_1_ADDRESS
+        } else {
+            crate::dev_wallets::DEV_WALLET_2_ADDRESS
+        };
+        if known_addr == signer_address {
+            let known_pk = match crate::dev_wallets::dev_private_key(wallet, "testnet-12") {
+                Ok(k) => k,
+                Err(_) => return Ok(false),
+            };
             let pk_clean = known_pk.trim_start_matches("0x");
             let pk_bytes = hex::decode(pk_clean).map_err(|_| "Invalid dev key hex".to_string())?;
             let mut hasher = Sha256::new();

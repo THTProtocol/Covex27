@@ -869,16 +869,22 @@ fn resolve_signing_key(
         return Err("dev mode is disabled on mainnet; sign with a real wallet".into());
     }
     let (hexkey, address) = if use_dev_mode {
+        // Dev-deployer keys come from the environment (never source); `?` surfaces a
+        // clear error if the env var is missing.
         if addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12 || addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10 {
-            if network == "testnet-10" {
-                (dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10.to_string(), dev_wallets::DEV_WALLET_2_ADDRESS_TN10.to_string())
+            let a = if network == "testnet-10" {
+                dev_wallets::DEV_WALLET_2_ADDRESS_TN10
             } else {
-                (dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12.to_string(), dev_wallets::DEV_WALLET_2_ADDRESS_TN12.to_string())
-            }
-        } else if network == "testnet-10" {
-            (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10.to_string(), dev_wallets::DEV_WALLET_1_ADDRESS_TN10.to_string())
+                dev_wallets::DEV_WALLET_2_ADDRESS_TN12
+            };
+            (dev_wallets::dev_private_key(2, network)?, a.to_string())
         } else {
-            (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12.to_string(), dev_wallets::DEV_WALLET_1_ADDRESS_TN12.to_string())
+            let a = if network == "testnet-10" {
+                dev_wallets::DEV_WALLET_1_ADDRESS_TN10
+            } else {
+                dev_wallets::DEV_WALLET_1_ADDRESS_TN12
+            };
+            (dev_wallets::dev_private_key(1, network)?, a.to_string())
         }
     } else {
         (private_key_hex.trim().to_string(), addr.to_string())
@@ -924,15 +930,13 @@ pub struct RedeemSpec {
 /// The two testnet dev-wallet secret keys for a network (used as default multisig
 /// members and signers in dev-mode demos). Never reachable on mainnet.
 fn dev_keys(network: &str) -> BResult<Vec<[u8; 32]>> {
-    let (k1, k2) = if network == "testnet-10" {
-        (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN10, dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN10)
-    } else {
-        (dev_wallets::DEV_WALLET_1_PRIVATE_KEY_TN12, dev_wallets::DEV_WALLET_2_PRIVATE_KEY_TN12)
-    };
+    // Read both dev-deployer keys from the environment (never source).
+    let k1 = dev_wallets::dev_private_key(1, network)?;
+    let k2 = dev_wallets::dev_private_key(2, network)?;
     let dec = |h: &str| -> BResult<[u8; 32]> {
         hex::decode(h.trim()).ok().and_then(|b| b.try_into().ok()).ok_or_else(|| "bad dev key".to_string())
     };
-    Ok(vec![dec(k1)?, dec(k2)?])
+    Ok(vec![dec(k1.as_str())?, dec(k2.as_str())?])
 }
 
 fn decode_xonly_hex(h: &str) -> BResult<[u8; 32]> {

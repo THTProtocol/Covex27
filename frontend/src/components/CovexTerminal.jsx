@@ -4274,6 +4274,7 @@ ${gameMeta.outcomeBranches}
           <div className="my-3">
             <ResolutionSimulator
               config={studioConfig}
+              circuitType={externalCircuit || gameType || zkCircuit}
               feePercent={feePercent}
               potReturnPercent={potReturnPercent}
               minStake={visualConfig.minStake}

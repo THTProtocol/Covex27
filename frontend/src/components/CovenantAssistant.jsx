@@ -58,10 +58,51 @@ const CONFIDENCE = {
   low: { label: 'Possible match', cls: 'text-gray-400 bg-white/[0.06] border-white/15' },
 };
 
+// Resolve the OpenAI-compatible base URL (…/v1) from whatever the user typed, then the /models probe.
+function modelsUrlFrom(endpoint) {
+  const base = String(endpoint || '').replace(/\/+$/, '').replace(/\/chat\/completions$/, '');
+  return base ? `${base}/models` : '';
+}
+
 // Settings for the optional local model. Module-scope so typing in the inputs does not remount them.
 function AIConfigPanel({ initial, onSave, onDisable, onClose }) {
   const [endpoint, setEndpoint] = useState(initial?.endpoint || 'http://localhost:11434/v1');
   const [model, setModel] = useState(initial?.model || '');
+  const [test, setTest] = useState({ state: 'idle', msg: '', models: [] }); // idle | testing | ok | err
+
+  // Probe the server's /v1/models so the user can confirm it's reachable AND see the exact model ids
+  // to type. Pure read; nothing is sent but the request. Honest: shows the real HTTP error on failure.
+  const testConnection = async () => {
+    const url = modelsUrlFrom(endpoint);
+    if (!url) return;
+    setTest({ state: 'testing', msg: '', models: [] });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const ids = (Array.isArray(data?.data) ? data.data : [])
+        .map((m) => (m && typeof m.id === 'string' ? m.id : null)).filter(Boolean);
+      setTest({
+        state: 'ok',
+        msg: ids.length ? `Reachable — ${ids.length} model${ids.length > 1 ? 's' : ''} found` : 'Reachable, but no models are pulled yet',
+        models: ids.slice(0, 12),
+      });
+    } catch (e) {
+      const aborted = e && e.name === 'AbortError';
+      setTest({
+        state: 'err',
+        msg: aborted
+          ? 'Timed out. Is the server running and allowed to accept this page (OLLAMA_ORIGINS=*)?'
+          : 'Could not reach it. Check the URL, that the server is running, and CORS/localhost permissions.',
+        models: [],
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   return (
     <div className="relative mb-3 rounded-xl border border-kaspa-green/25 bg-black/40 light:bg-white p-3.5">
       <div className="flex items-center gap-2 mb-2">
@@ -74,11 +115,34 @@ function AIConfigPanel({ initial, onSave, onDisable, onClose }) {
         picks are still validated against the real catalog, so it can never invent a covenant that does not exist.
       </p>
       <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Endpoint (OpenAI-compatible)</label>
-      <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="http://localhost:11434/v1"
+      <input value={endpoint} onChange={(e) => { setEndpoint(e.target.value); setTest({ state: 'idle', msg: '', models: [] }); }} placeholder="http://localhost:11434/v1"
         className="w-full mb-2 rounded-lg border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-2.5 py-1.5 text-xs text-white light:text-slate-800 font-mono outline-none focus:border-kaspa-green/40" />
       <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Model</label>
       <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. llama3.1  ·  qwen2.5  ·  mistral"
-        className="w-full mb-3 rounded-lg border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-2.5 py-1.5 text-xs text-white light:text-slate-800 font-mono outline-none focus:border-kaspa-green/40" />
+        className="w-full mb-2 rounded-lg border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-2.5 py-1.5 text-xs text-white light:text-slate-800 font-mono outline-none focus:border-kaspa-green/40" />
+
+      {/* Test connection: confirm the server is reachable and discover the exact model ids to type. */}
+      <button onClick={testConnection} disabled={!endpoint.trim() || test.state === 'testing'}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 mb-2 rounded-lg text-[11px] font-semibold border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:border-kaspa-green/40 hover:text-white disabled:opacity-40 transition-all">
+        {test.state === 'testing' ? <Loader2 size={12} className="animate-spin" /> : <Radio size={12} className="text-kaspa-green" />} Test connection
+      </button>
+      {test.state === 'ok' && (
+        <div className="mb-2 text-[11px] text-emerald-300 flex items-center gap-1.5"><Check size={12} className="shrink-0" /> {test.msg}</div>
+      )}
+      {test.state === 'err' && (
+        <div className="mb-2 text-[11px] text-red-300 flex items-start gap-1.5"><X size={12} className="shrink-0 mt-0.5" /> <span>{test.msg}</span></div>
+      )}
+      {test.models.length > 0 && (
+        <div className="mb-2.5 flex flex-wrap gap-1">
+          {test.models.map((id) => (
+            <button key={id} onClick={() => setModel(id)} title="Use this model"
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md border transition-colors ${model === id ? 'border-kaspa-green/50 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 light:border-slate-300 text-gray-300 light:text-slate-600 hover:border-kaspa-green/40 hover:text-white'}`}>
+              {id}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         <button onClick={() => onSave(endpoint, model)} disabled={!endpoint.trim() || !model.trim()}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_14px_rgba(73,234,203,0.35)] transition-all">
@@ -99,6 +163,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
   const [realityFilter, setRealityFilter] = useState('all');
   const [thinking, setThinking] = useState(false);
   const [usedAI, setUsedAI] = useState(false);
+  const [aiNote, setAiNote] = useState(null); // honest notice when configured AI was skipped/failed
   const [aiAll, setAiAll] = useState(null); // full local-model results, for client-side re-filtering
   // Local-AI config { endpoint, model } persisted to localStorage. When set, the assistant asks a
   // model running on the USER's own machine; output is still validated against the real catalog.
@@ -119,6 +184,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
     const t = (text ?? q).trim();
     if (!t) return;
     setQ(t);
+    setAiNote(null);
     if (aiReady) {
       setThinking(true);
       try {
@@ -130,8 +196,12 @@ export default function CovenantAssistant({ circuits, onSelect }) {
           setResults(realityFilter === 'all' ? ai : ai.filter((r) => matchesFilter(r.circuit.reality, realityFilter)));
           return;
         }
+        // Reached the model but it returned nothing usable (e.g. all picks failed catalog validation).
+        setAiNote('Your local model didn\'t return a usable covenant, so these are Covex\'s built-in suggestions.');
       } catch (_) {
         setThinking(false);
+        // Configured but unreachable / errored — be honest that the AI did not run.
+        setAiNote('Couldn\'t reach your local model, so these are Covex\'s built-in suggestions. Open settings to test the connection.');
       }
     }
     setUsedAI(false);
@@ -241,6 +311,11 @@ export default function CovenantAssistant({ circuits, onSelect }) {
 
       {results !== null && (
         <div className="relative mt-4 space-y-2.5">
+          {aiNote && (
+            <div className="flex items-start gap-1.5 text-[11px] text-amber-300/90 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5">
+              <Cpu size={12} className="shrink-0 mt-0.5" /> <span>{aiNote}</span>
+            </div>
+          )}
           {/* Trust-model filter: narrow to the enforcement reality you're comfortable with. */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-1">Trust</span>

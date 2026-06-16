@@ -56,15 +56,28 @@ async fn main() {
     let _ = dotenvy::dotenv();
 
     // Mainnet safety: a configured mainnet indexer MUST have a real oracle key.
-    // The compiled-in default key is for testnets only and never signs mainnet outcomes.
+    // There is no compiled-in oracle key (removed 2026-06-16); without COVEX_ORACLE_KEY
+    // the oracle fails closed everywhere, and on mainnet we refuse to even start.
     if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok()
         && std::env::var("COVEX_ORACLE_KEY").is_err()
     {
         eprintln!(
             "FATAL: KASPA_WRPC_URL_MAINNET is set but COVEX_ORACLE_KEY is not. \
-             Refusing to start with the default testnet oracle key on mainnet."
+             Refusing to start a mainnet indexer with no oracle signing key."
         );
         std::process::exit(1);
+    }
+
+    // Source-hygiene / fail-closed: there is no longer a baked-in oracle key. Surface
+    // at boot whether the oracle can sign so a missing env var is obvious immediately
+    // (the server still boots and indexes; only oracle signing fails closed).
+    if std::env::var("COVEX_ORACLE_KEY").is_ok() {
+        eprintln!("[covex] oracle signing key configured via COVEX_ORACLE_KEY.");
+    } else {
+        eprintln!(
+            "[covex] WARNING: COVEX_ORACLE_KEY is not set — the oracle will FAIL CLOSED \
+             (refuse to sign). Set a 64-hex value (throwaway is fine for local testnet)."
+        );
     }
 
     // --- Init tracing ---
@@ -643,10 +656,23 @@ fn get_git_commit() -> String {
 
 // ─── Handlers ────────────────────────────────────────────────
 
+/// Oracle identity for the public health/status JSON. Fail-closed: there is no
+/// compiled-in oracle key any more, so when COVEX_ORACLE_KEY is unset we report
+/// ("unconfigured", "unconfigured") instead of deriving a key — this keeps /health
+/// serving (rather than panicking) on an env that can't sign. When the key IS set we
+/// derive and expose the real x-only pubkey exactly as before.
+fn oracle_status_json() -> (&'static str, String) {
+    if std::env::var("COVEX_ORACLE_KEY").is_ok() {
+        ("custom", oracle::oracle_xonly_pubkey_hex())
+    } else {
+        ("unconfigured", "unconfigured".to_string())
+    }
+}
+
 async fn health_handler() -> Json<serde_json::Value> {
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
-    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    let (oracle_mode, oracle_pubkey) = oracle_status_json();
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
     let git_commit = get_git_commit();
@@ -657,7 +683,7 @@ async fn health_handler() -> Json<serde_json::Value> {
         "app": "Covex v1.0.0",
         "network": network,
         "oracle_key_mode": oracle_mode,
-        "oracle_pubkey": oracle::oracle_xonly_pubkey_hex(),
+        "oracle_pubkey": oracle_pubkey,
         "oracle_scheme": "bip340-schnorr-secp256k1",
         "git_commit": git_commit,
         "bind_addr": bind_addr,
@@ -679,7 +705,7 @@ async fn health_handler() -> Json<serde_json::Value> {
 async fn root_handler() -> Json<serde_json::Value> {
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
-    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    let (oracle_mode, oracle_pubkey) = oracle_status_json();
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
     let git_commit = get_git_commit();
@@ -690,7 +716,7 @@ async fn root_handler() -> Json<serde_json::Value> {
         "app": "Covex v1.0.0",
         "network": network,
         "oracle_key_mode": oracle_mode,
-        "oracle_pubkey": oracle::oracle_xonly_pubkey_hex(),
+        "oracle_pubkey": oracle_pubkey,
         "oracle_scheme": "bip340-schnorr-secp256k1",
         "git_commit": git_commit,
         "bind_addr": bind_addr,
@@ -717,7 +743,9 @@ async fn status_handler(
     let verified = db::count_verified_covenants(&db).unwrap_or(0);
     let network = std::env::var("KASPA_NETWORK")
         .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
-    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "default-testnet" };
+    // status reports only the mode, so don't derive the key here (keeps the prior
+    // behaviour of not touching the signing key on this endpoint).
+    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "unconfigured" };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();

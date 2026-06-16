@@ -125,15 +125,41 @@ async fn oracle_pubkey_handler() -> Json<serde_json::Value> {
     }))
 }
 
-/// The oracle signing key (DEV_WALLET_1 private key on testnet).
-/// Override with COVEX_ORACLE_KEY env var for mainnet deployment.
-const ORACLE_KEY_HEX: &str = "549cd5a5426360da67b66edd561d37b348a026708d01b519d396b868cda267c9";
+/// Placeholder ONLY — this is NOT a usable signing key. The oracle's real signing
+/// key MUST be supplied at runtime via the `COVEX_ORACLE_KEY` env var (64-hex / 32
+/// bytes). If the env var is unset the oracle fails closed (refuses to sign) rather
+/// than silently signing with a secret baked into source / git history.
+///
+/// The previous value here was the rotated, *compromised* dev-wallet-1 private key;
+/// it was removed 2026-06-16 for source hygiene (it had been committed to git
+/// history). Note the on-chain identity is `sha256(key)` -> secp256k1 (see
+/// `oracle_keypair`), so an environment that wants to reproduce the prior testnet
+/// oracle identity (for existing TN10/TN12 oracle_enforced / oracle_escrow covenants)
+/// can set `COVEX_ORACLE_KEY` to the old value as an env secret — never in source.
+const ORACLE_KEY_PLACEHOLDER: &str = "SET_COVEX_ORACLE_KEY__no_oracle_key_is_baked_into_source";
 
-/// Returns the oracle signing key, preferring COVEX_ORACLE_KEY env var.
-/// Falls back to the testnet dev key if env var is not set.
+/// Returns the oracle signing key from `COVEX_ORACLE_KEY`. Fails closed: there is no
+/// compiled-in default, so an unset / empty / placeholder value panics rather than
+/// signing with a non-secret key. (Panicking aborts only the offending request task,
+/// not the whole server — observability endpoints degrade gracefully; see main.rs.)
 fn oracle_key_bytes() -> Vec<u8> {
-    let raw = std::env::var("COVEX_ORACLE_KEY").unwrap_or_else(|_| ORACLE_KEY_HEX.to_string());
-    hex::decode(&raw).expect("COVEX_ORACLE_KEY (or default) must be valid hex")
+    let raw = match std::env::var("COVEX_ORACLE_KEY") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => panic!(
+            "COVEX_ORACLE_KEY is not set: the oracle refuses to sign with a key baked \
+             into source (fail-closed). The old compiled-in testnet default was the \
+             rotated/compromised dev-wallet-1 key and was removed 2026-06-16. Set \
+             COVEX_ORACLE_KEY=<64-hex> in this environment (a throwaway value is fine \
+             for local testnet; use the old value to keep existing TN10/TN12 covenants)."
+        ),
+    };
+    if raw == ORACLE_KEY_PLACEHOLDER {
+        panic!(
+            "COVEX_ORACLE_KEY is set to the placeholder sentinel — refusing to sign with \
+             a non-secret value. Provide a real 64-hex oracle key."
+        );
+    }
+    hex::decode(&raw).expect("COVEX_ORACLE_KEY must be valid hex (64 hex chars / 32 bytes)")
 }
 
 /// Public version for use by the claim/payout handler in main.rs
@@ -730,6 +756,12 @@ mod tests {
 
     #[test]
     fn test_oracle_schnorr_roundtrip() {
+        // The oracle now fails closed without COVEX_ORACLE_KEY (no baked-in default),
+        // so the test supplies its own throwaway key rather than relying on a secret.
+        std::env::set_var(
+            "COVEX_ORACLE_KEY",
+            "1111111111111111111111111111111111111111111111111111111111111111",
+        );
         let message = "covex-oracle:test123:0:1717000000";
         let sig = sign_outcome(message);
         // BIP340 schnorr signature: 64 bytes = 128 hex chars

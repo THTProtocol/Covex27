@@ -235,13 +235,13 @@ cd backend && cargo build --release
 #   BIND_ADDR=0.0.0.0:3006  KASPA_NETWORK=testnet-12
 #   KASPA_WRPC_URL=ws://127.0.0.1:17217  DB_PATH=./covex.db
 #   KASPA_WRPC_URL_MAINNET=ws://127.0.0.1:17310  (mainnet, via tunnel)
-#   COVEX_ORACLE_KEY=<hex>  (REQUIRED on mainnet; testnet has a dev default)
+#   COVEX_ORACLE_KEY=<hex>  (REQUIRED — no baked-in default; oracle fails closed if unset)
 
 # Frontend
 cd frontend && npm install && npm run dev   # Vite proxies /api -> :3006
 ```
 
-Mainnet refuses to start without `COVEX_ORACLE_KEY`. The compiled-in oracle key is testnet-only.
+There is no compiled-in oracle key. `COVEX_ORACLE_KEY` is required in every environment: a mainnet indexer refuses to start without it, and on any network the oracle fails closed (refuses to sign) when it is unset. For local testnet a throwaway 64-hex value is fine.
 
 ---
 

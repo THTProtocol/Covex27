@@ -3068,8 +3068,8 @@ pub async fn claim_covenant_handler(
     let ctype = format!("p2sh-{kind_base}");
     let nm = input.name.clone().filter(|n| !n.trim().is_empty());
     let base_desc = input.description.clone().filter(|d| !d.trim().is_empty())
-        .unwrap_or_else(|| format!("Claimed {kind_base} covenant — redeem script verified on-chain, now fully interactable on Covex."));
-    let desc = match nm { Some(n) => format!("{n} — {base_desc}"), None => base_desc };
+        .unwrap_or_else(|| format!("Claimed {kind_base} covenant - redeem script verified on-chain, now fully interactable on Covex."));
+    let desc = match nm { Some(n) => format!("{n} - {base_desc}"), None => base_desc };
     let _ = db::set_claimed_metadata(&db, &input.covenant_id, &desc, &ctype);
     info!("Covenant claimed + activated: {} kind={} (lock verified)", input.covenant_id, kind);
     Json(serde_json::json!({

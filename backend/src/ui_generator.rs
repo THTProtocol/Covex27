@@ -132,7 +132,7 @@ pub fn generate_enhanced_ui(config: &UiGenerationConfig, verified_tier: &str) ->
     </div>
     {verified_banner}
     <div class="full-disclosure">
-      <h3>Full Disclosure ({tier} Tier) — Everything there is to know (fully transparent)</h3>
+      <h3>Full Disclosure ({tier} Tier) - Everything there is to know (fully transparent)</h3>
       <div class="field-row"><span>TX ID</span><span class="mono-truncate">{covenant_id}</span></div>
       <div class="field-row"><span>Category</span><span>{category}</span></div>
       <div class="field-row"><span>Script Hash</span><span class="mono-truncate">{script_hash}</span></div>

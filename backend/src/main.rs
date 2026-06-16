@@ -1624,13 +1624,13 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
 
     // ── ZK proofs & claims ──
     let zk: &[(&str, &str, &str, &str)] = &[
-        ("merkle-membership", "Merkle Membership", "on-chain", "Prove a leaf is in a committed Merkle root — genuine Groth16, the one end-to-end ZK circuit live today."),
+        ("merkle-membership", "Merkle Membership", "on-chain", "Prove a leaf is in a committed Merkle root - genuine Groth16, the one end-to-end ZK circuit live today."),
         ("merkle-airdrop", "Merkle Airdrop Claim", "on-chain", "Eligible addresses prove membership to claim. No list revealed."),
         ("merkle-dao-vote", "Merkle DAO Vote", "oracle-attested", "Prove membership in a voter set to cast a private vote."),
         ("range-proof", "Range Proof", "on-chain", "Prove a committed value lies in [min, max] without revealing it."),
         ("range-collateral", "Collateral Range Proof", "oracle-attested", "Prove collateral is within a healthy band privately."),
         ("solvency-proof", "Solvency / Reserves Proof", "oracle-attested", "Prove reserves exceed a threshold without revealing the balance."),
-        ("age-verification", "Age-Over-Threshold", "on-chain", "Prove age >= a threshold — a zero-knowledge KYC alternative."),
+        ("age-verification", "Age-Over-Threshold", "on-chain", "Prove age >= a threshold - a zero-knowledge KYC alternative."),
         ("hash-preimage", "Hash Preimage Knowledge", "on-chain", "Prove knowledge of a preimage of a committed hash."),
         ("nullifier-unique", "Unique-Human Nullifier", "oracle-attested", "One claim per identity via a nullifier, without linkage."),
         ("anon-credential", "Anonymous Credential", "oracle-attested", "Prove you hold a credential without revealing which one."),
@@ -1849,7 +1849,7 @@ async fn compute_payout_handler(
     let winner_label = match input.outcome {
         0 => "Claimant (Player A / White)".to_string(),
         1 => "Depositor (Player B / Black)".to_string(),
-        2 => "Draw — both sides recover their stakes".to_string(),
+        2 => "Draw - both sides recover their stakes".to_string(),
         _ => format!("Outcome {}", input.outcome),
     };
 

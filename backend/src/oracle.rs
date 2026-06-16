@@ -464,7 +464,7 @@ async fn verify_and_sign_handler(
                     signature: None,
                     timestamp: None,
                     message: None,
-                    error: Some("Nullifier already spent — double-withdraw rejected".to_string()),
+                    error: Some("Nullifier already spent - double-withdraw rejected".to_string()),
                     public_inputs: input.public_inputs,
                     circuit_type: None,
                     covenant_hint: None,

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { X, ShieldCheck, Download, LifeBuoy, KeyRound } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight } from 'lucide-react';
 
 // Self-custody recovery kit. Every covenant Covex deploys is a script-enforced P2SH covenant:
 // the KASPA CHAIN enforces the spend rules, not Covex. On mainnet, oracle-dependent covenants are
@@ -95,7 +96,10 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
             The redeem script for this covenant is not on record yet (it was created elsewhere). Claim it on this page with its redeem script first, then the recovery kit becomes available.
           </div>
         )}
-        <p className="mt-2 text-center text-[10px] text-gray-500">A push-button recovery tool that does steps 2-3 for you is coming. Until then, this kit gives any Kaspa developer everything needed.</p>
+        <Link to="/recover" onClick={onClose} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-kaspa-green/25 bg-kaspa-green/[0.05] text-kaspa-green text-[12px] font-semibold hover:bg-kaspa-green/[0.1] hover:border-kaspa-green/40 transition-colors">
+          Open the recovery page <ArrowRight size={13} />
+        </Link>
+        <p className="mt-2 text-center text-[10px] text-gray-500">The recovery page walks you through redeeming with the kit above, independently of Covex. A push-button in-browser redeemer is in the works.</p>
       </div>
     </div>
   );

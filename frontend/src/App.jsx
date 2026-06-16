@@ -37,6 +37,7 @@ const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 const CovenantEmbed = lazy(() => import('./pages/CovenantEmbed'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
+const Recover = lazy(() => import('./pages/Recover'));
 const Markets = lazy(() => import('./pages/Markets'));
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastContext';
@@ -316,6 +317,7 @@ export default function App() {
               <Route path="/markets" element={<Markets />} />
               <Route path="/markets/:id" element={<Markets />} />
               <Route path="/readme" element={<Readme />} />
+              <Route path="/recover" element={<Recover />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />
               <Route path="/docs" element={<ApiDocs />} />
@@ -345,6 +347,8 @@ export default function App() {
                 <Link to="/whitepaper" className="hover:text-kaspa-green transition-colors">Whitepaper</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/treasury" className="hover:text-kaspa-green transition-colors">Treasury</Link>
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/recover" className="hover:text-kaspa-green transition-colors">Recover</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/stats" className="hover:text-kaspa-green transition-colors">Stats</Link>
                 <span className="mx-2 opacity-30">|</span>

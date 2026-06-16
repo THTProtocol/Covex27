@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
 
@@ -13,6 +13,13 @@ const KINDS = [
   { id: 'hashlock', label: 'Hashlock', icon: Lock, blurb: 'Release requires revealing a secret preimage plus a signature. The HTLC building block.' },
   { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting, dispute windows.' },
   { id: 'multisig', label: 'Multisig (2-of-2 demo)', icon: Users, blurb: 'Release requires 2 of 2 dev-wallet keys. DAO treasuries, 2-of-3 escrow. Demo uses the testnet dev wallets.' },
+  { id: 'htlc', label: 'HTLC (atomic swap)', icon: ArrowLeftRight, blurb: 'Receiver claims by revealing a secret; sender refunds after a timelock. The cross-party / cross-chain swap building block. Demo uses the dev wallets.' },
+  { id: 'channel', label: 'State-channel pot', icon: Network, blurb: 'A 2-of-2 cooperative-close pot with a funder refund after a timelock. The chain pays the agreed winner, no oracle. Demo uses the dev wallets.' },
+  { id: 'deadman', label: "Dead-man's switch", icon: HeartPulse, blurb: 'The owner spends or refreshes any time; the heir can claim only after the timelock, so funds pass on if the owner goes silent. Demo uses the dev wallets.' },
+  { id: 'relative_timelock', label: 'Relative timelock (CSV)', icon: Timer, blurb: 'Spendable only after the funds have aged a relative number of blocks (OpCheckSequenceVerify, BIP68). Node-enforced: an early spend is rejected.' },
+  { id: 'timedecay', label: 'Time-decaying multisig', icon: Hourglass, blurb: 'A high quorum spends now, relaxing to a lower quorum after a deadline. Treasury recovery / inheritance. Demo uses the dev wallets.' },
+  { id: 'oracle_enforced', label: 'Oracle-enforced', icon: Scale, blurb: 'A 2-of-2 of oracle + winner: the chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. On-chain-enforced oracle resolution.' },
+  { id: 'oracle_escrow', label: 'Oracle escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the oracle-declared winner: needs the oracle co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
   { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the house fee and rebate.' },
 ];
 
@@ -52,6 +59,10 @@ export default function EnforcedDeploy() {
   const [stake, setStake] = useState('1.0');
   const [lockBlocks, setLockBlocks] = useState('100');
   const [tipDaa, setTipDaa] = useState(null);
+  // Extra params for the advanced primitives.
+  const [relSeq, setRelSeq] = useState('10');   // relative_timelock min_sequence (BIP68 relative blocks)
+  const [reqNow, setReqNow] = useState('2');     // timedecay quorum now
+  const [reqAfter, setReqAfter] = useState('1'); // timedecay quorum after the deadline
   // Prediction-market params (kind === 'market'). No stake is locked at creation; the
   // market is committed and lands on its own covenant page where bets are placed.
   const [mq, setMq] = useState('');
@@ -97,7 +108,13 @@ export default function EnforcedDeploy() {
   }, []);
 
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
-  const usesDevWallets = kind === 'multisig';
+  // Multi-party / oracle primitives deploy via the testnet dev wallets (server-assisted),
+  // exactly like the multisig demo. Single-signer kinds stay fully non-custodial.
+  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow'];
+  const usesDevWallets = DEV_WALLET_KINDS.includes(kind);
+  // Kinds whose redeem needs an ABSOLUTE unlock DAA (tip + lockBlocks).
+  const ABS_LOCK_KINDS = ['timelock', 'htlc', 'channel', 'deadman', 'timedecay'];
+  const kindLabel = KINDS.find((k) => k.id === kind)?.label || kind;
 
   // Create a parimutuel prediction market. This commits the market (H_A/H_B) and inserts
   // its first-class covenant anchor server-side, so /covenant/<market_id> immediately
@@ -144,13 +161,34 @@ export default function EnforcedDeploy() {
 
     const redeem = { kind };
     let preimage = null;
+    const absLock = () => tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10));
+    if (ABS_LOCK_KINDS.includes(kind) && !tipDaa) {
+      setError('Could not read the current chain DAA score. Try again in a moment.');
+      return;
+    }
     if (kind === 'hashlock') {
       preimage = randomSecretHex();
       redeem.preimage_hex = preimage;
+    } else if (kind === 'htlc') {
+      // Receiver claims with this secret; sender (dev wallet 1) refunds after the timelock.
+      preimage = randomSecretHex();
+      redeem.preimage_hex = preimage;
+      redeem.lock_daa = absLock();
     } else if (kind === 'timelock') {
-      if (!tipDaa) { setError('Could not read the current chain DAA score. Try again in a moment.'); return; }
-      redeem.lock_daa = tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10));
+      redeem.lock_daa = absLock();
+    } else if (kind === 'channel' || kind === 'deadman') {
+      // Dev-wallet demo supplies the party keys; we only set the refund/heir timelock.
+      redeem.lock_daa = absLock();
+    } else if (kind === 'relative_timelock') {
+      // lock_daa is reused by the backend as the BIP68 relative min_sequence.
+      redeem.lock_daa = Math.max(1, parseInt(relSeq || '10', 10));
+    } else if (kind === 'timedecay') {
+      redeem.lock_daa = absLock();
+      redeem.required = Math.max(1, parseInt(reqNow || '2', 10));   // quorum now
+      redeem.req_after = Math.max(1, parseInt(reqAfter || '1', 10)); // quorum after the deadline
     }
+    // oracle_enforced / oracle_escrow: no extra params; the oracle key is server-side and
+    // the dev-wallet demo supplies the winner / player keys.
 
     setBusy(true);
     try {
@@ -462,12 +500,38 @@ export default function EnforcedDeploy() {
             </p>
           </div>
         )}
-        {kind === 'timelock' && (
+        {ABS_LOCK_KINDS.includes(kind) && (
           <label className="block">
-            <span className="text-xs text-gray-300">Lock for (DAA blocks from now){tipDaa ? ` - unlocks at DAA ${tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10))}` : ''}</span>
+            <span className="text-xs text-gray-300">
+              {kind === 'timelock' ? 'Lock for (DAA blocks from now)'
+                : kind === 'timedecay' ? 'Lower quorum unlocks after (DAA blocks from now)'
+                : 'Refund / claim timelock (DAA blocks from now)'}
+              {tipDaa ? ` - at DAA ${tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10))}` : ''}
+            </span>
             <input value={lockBlocks} onChange={(e) => setLockBlocks(e.target.value)} inputMode="numeric"
               className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
           </label>
+        )}
+        {kind === 'relative_timelock' && (
+          <label className="block">
+            <span className="text-xs text-gray-300">Relative age before spend (blocks, BIP68 / OpCheckSequenceVerify)</span>
+            <input value={relSeq} onChange={(e) => setRelSeq(e.target.value)} inputMode="numeric"
+              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+          </label>
+        )}
+        {kind === 'timedecay' && (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs text-gray-300">Quorum now (of 2)</span>
+              <input value={reqNow} onChange={(e) => setReqNow(e.target.value)} inputMode="numeric"
+                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-gray-300">Quorum after deadline (of 2)</span>
+              <input value={reqAfter} onChange={(e) => setReqAfter(e.target.value)} inputMode="numeric"
+                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+            </label>
+          </div>
         )}
         {kind === 'hashlock' && (
           <p className="text-[11px] text-gray-400">A random secret is generated at deploy. Save it - it is required to redeem and is never stored on the server.</p>
@@ -475,8 +539,23 @@ export default function EnforcedDeploy() {
         {kind === 'multisig' && (
           <p className="text-[11px] text-gray-400">This demo locks to a 2-of-2 of the testnet dev wallets and redeems with both. Custom member keys are supported via the API.</p>
         )}
+        {kind === 'htlc' && (
+          <p className="text-[11px] text-gray-400">Demo HTLC: the dev-wallet receiver claims by revealing a secret generated at deploy; the dev-wallet sender refunds after the timelock above. The cross-chain atomic-swap building block.</p>
+        )}
+        {kind === 'channel' && (
+          <p className="text-[11px] text-gray-400">Demo 2-of-2 state-channel pot of the dev wallets: cooperative close pays the agreed winner, or the funder reclaims after the timelock above. No oracle, Covex is never in the payout path.</p>
+        )}
+        {kind === 'deadman' && (
+          <p className="text-[11px] text-gray-400">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
+        )}
+        {kind === 'oracle_enforced' && (
+          <p className="text-[11px] text-gray-400">A 2-of-2 of the Covex oracle and the winner (dev wallet 1). The chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. Testnet demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
+        )}
+        {kind === 'oracle_escrow' && (
+          <p className="text-[11px] text-gray-400">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Testnet demo; oracle covenants activate on mainnet at Toccata.</p>
+        )}
 
-        <DeployDisclosure reality="on-chain" />
+        <DeployDisclosure reality={kind === 'oracle_enforced' || kind === 'oracle_escrow' ? 'hybrid' : 'on-chain'} />
 
         {kind === 'market' ? (
           <button onClick={createMarket} disabled={busy}
@@ -493,7 +572,7 @@ export default function EnforcedDeploy() {
         ) : (
           <button onClick={deploy} disabled={busy}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all disabled:opacity-60">
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} Lock {stake} KAS into a {kind} covenant{!usesDevWallets ? ' (non-custodial)' : ''}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} Lock {stake} KAS into a {kindLabel} covenant{!usesDevWallets ? ' (non-custodial)' : ''}
           </button>
         )}
         {error && <p className="text-sm text-red-400">{error}</p>}

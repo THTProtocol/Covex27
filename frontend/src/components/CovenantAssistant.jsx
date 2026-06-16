@@ -2,14 +2,13 @@ import { useState } from 'react';
 import {
   Sparkles, Send, ArrowRight, ShieldCheck, Radio, Cpu, Lock, Wand2,
   Handshake, Clock, ListChecks, Fingerprint, TrendingUp, KeyRound, Gamepad2, Repeat,
-  Settings2, Loader2, Check, X,
 } from 'lucide-react';
-import { suggestCovenants, suggestCovenantsLLM } from '../lib/covenantAssistant';
+import { suggestCovenants } from '../lib/covenantAssistant';
 
 // Covenant assistant: type a plain-English goal and get a REAL, honest covenant suggestion that
 // pre-fills the builder. Grounded in the live catalog (suggestCovenants only returns circuits that
-// exist, with their true enforcement reality), so it never overclaims. A backend LLM can later
-// replace getSuggestions() with an async call returning the same shape.
+// exist, with their true enforcement reality), so it never overclaims. Pure and deterministic, with
+// no external model in the path.
 
 const REALITY_PILL = {
   'on-chain': { label: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 bg-emerald-500/12 border-emerald-500/35' },
@@ -58,182 +57,28 @@ const CONFIDENCE = {
   low: { label: 'Possible match', cls: 'text-gray-400 bg-white/[0.06] border-white/15' },
 };
 
-// Resolve the OpenAI-compatible base URL (…/v1) from whatever the user typed, then the /models probe.
-function modelsUrlFrom(endpoint) {
-  const base = String(endpoint || '').replace(/\/+$/, '').replace(/\/chat\/completions$/, '');
-  return base ? `${base}/models` : '';
-}
-
-// Settings for the optional local model. Module-scope so typing in the inputs does not remount them.
-function AIConfigPanel({ initial, onSave, onDisable, onClose }) {
-  const [endpoint, setEndpoint] = useState(initial?.endpoint || 'http://localhost:11434/v1');
-  const [model, setModel] = useState(initial?.model || '');
-  const [test, setTest] = useState({ state: 'idle', msg: '', models: [] }); // idle | testing | ok | err
-
-  // Probe the server's /v1/models so the user can confirm it's reachable AND see the exact model ids
-  // to type. Pure read; nothing is sent but the request. Honest: shows the real HTTP error on failure.
-  const testConnection = async () => {
-    const url = modelsUrlFrom(endpoint);
-    if (!url) return;
-    setTest({ state: 'testing', msg: '', models: [] });
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const ids = (Array.isArray(data?.data) ? data.data : [])
-        .map((m) => (m && typeof m.id === 'string' ? m.id : null)).filter(Boolean);
-      setTest({
-        state: 'ok',
-        msg: ids.length ? `Reachable — ${ids.length} model${ids.length > 1 ? 's' : ''} found` : 'Reachable, but no models are pulled yet',
-        models: ids.slice(0, 12),
-      });
-    } catch (e) {
-      const aborted = e && e.name === 'AbortError';
-      setTest({
-        state: 'err',
-        msg: aborted
-          ? 'Timed out. Is the server running and allowed to accept this page (OLLAMA_ORIGINS=*)?'
-          : 'Could not reach it. Check the URL, that the server is running, and CORS/localhost permissions.',
-        models: [],
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-
-  return (
-    <div className="relative mb-3 rounded-xl border border-kaspa-green/25 bg-black/40 light:bg-white p-3.5">
-      <div className="flex items-center gap-2 mb-2">
-        <Cpu size={14} className="text-kaspa-green" />
-        <span className="text-xs font-bold text-white light:text-slate-900">Local AI (runs on your computer)</span>
-        <button onClick={onClose} className="ml-auto text-gray-500 hover:text-white light:hover:text-slate-900" aria-label="Close"><X size={14} /></button>
-      </div>
-      <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed mb-2.5">
-        Point this at a local model server. Nothing leaves your machine and no API key is used. The model's
-        picks are still validated against the real catalog, so it can never invent a covenant that does not exist.
-      </p>
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Endpoint (OpenAI-compatible)</label>
-      <input value={endpoint} onChange={(e) => { setEndpoint(e.target.value); setTest({ state: 'idle', msg: '', models: [] }); }} placeholder="http://localhost:11434/v1"
-        className="w-full mb-2 rounded-lg border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-2.5 py-1.5 text-xs text-white light:text-slate-800 font-mono outline-none focus:border-kaspa-green/40" />
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Model</label>
-      <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. llama3.1  ·  qwen2.5  ·  mistral"
-        className="w-full mb-2 rounded-lg border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-2.5 py-1.5 text-xs text-white light:text-slate-800 font-mono outline-none focus:border-kaspa-green/40" />
-
-      {/* Test connection: confirm the server is reachable and discover the exact model ids to type. */}
-      <button onClick={testConnection} disabled={!endpoint.trim() || test.state === 'testing'}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 mb-2 rounded-lg text-[11px] font-semibold border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:border-kaspa-green/40 hover:text-white disabled:opacity-40 transition-all">
-        {test.state === 'testing' ? <Loader2 size={12} className="animate-spin" /> : <Radio size={12} className="text-kaspa-green" />} Test connection
-      </button>
-      {test.state === 'ok' && (
-        <div className="mb-2 text-[11px] text-emerald-300 flex items-center gap-1.5"><Check size={12} className="shrink-0" /> {test.msg}</div>
-      )}
-      {test.state === 'err' && (
-        <div className="mb-2 text-[11px] text-red-300 flex items-start gap-1.5"><X size={12} className="shrink-0 mt-0.5" /> <span>{test.msg}</span></div>
-      )}
-      {test.models.length > 0 && (
-        <div className="mb-2.5 flex flex-wrap gap-1">
-          {test.models.map((id) => (
-            <button key={id} onClick={() => setModel(id)} title="Use this model"
-              className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md border transition-colors ${model === id ? 'border-kaspa-green/50 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 light:border-slate-300 text-gray-300 light:text-slate-600 hover:border-kaspa-green/40 hover:text-white'}`}>
-              {id}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-center gap-3">
-        <button onClick={() => onSave(endpoint, model)} disabled={!endpoint.trim() || !model.trim()}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_14px_rgba(73,234,203,0.35)] transition-all">
-          <Check size={13} /> Use local AI
-        </button>
-        {initial && <button onClick={onDisable} className="text-[11px] font-semibold text-gray-400 hover:text-red-300">Turn off</button>}
-      </div>
-      <p className="text-[10px] text-gray-500 light:text-slate-400 leading-relaxed mt-2.5 border-t border-white/[0.06] light:border-slate-200 pt-2">
-        Setup: install <span className="text-gray-300 light:text-slate-600">Ollama</span>, run <span className="font-mono text-gray-300 light:text-slate-600">ollama pull llama3.1</span>, then start it with <span className="font-mono text-gray-300 light:text-slate-600">OLLAMA_ORIGINS=* ollama serve</span> so this page may reach it. Most reliable when you run Covex locally; the live HTTPS site may be blocked by browser localhost rules.
-      </p>
-    </div>
-  );
-}
-
 export default function CovenantAssistant({ circuits, onSelect }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState(null); // null = not run yet
   const [realityFilter, setRealityFilter] = useState('all');
-  const [thinking, setThinking] = useState(false);
-  const [usedAI, setUsedAI] = useState(false);
-  const [aiNote, setAiNote] = useState(null); // honest notice when configured AI was skipped/failed
-  const [aiAll, setAiAll] = useState(null); // full local-model results, for client-side re-filtering
-  // Local-AI config { endpoint, model } persisted to localStorage. When set, the assistant asks a
-  // model running on the USER's own machine; output is still validated against the real catalog.
-  const [localAI, setLocalAI] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('covex_local_ai') || 'null'); } catch { return null; }
-  });
-  const [showAIConfig, setShowAIConfig] = useState(false);
-  const aiReady = !!(localAI && localAI.endpoint && localAI.model);
 
   const compute = (text, filter) => {
     const pool = filter === 'all' ? circuits : circuits.filter((c) => matchesFilter(c.reality, filter));
     return suggestCovenants(text, pool);
   };
 
-  // Run a suggestion. If a local model is configured, ask it first (validated against the catalog) and
-  // fall back to the deterministic engine on any error / empty / all-hallucinated result.
-  const run = async (text) => {
+  const run = (text) => {
     const t = (text ?? q).trim();
     if (!t) return;
     setQ(t);
-    setAiNote(null);
-    if (aiReady) {
-      setThinking(true);
-      try {
-        const ai = await suggestCovenantsLLM(t, circuits, localAI);
-        setThinking(false);
-        if (ai && ai.length) {
-          setAiAll(ai);
-          setUsedAI(true);
-          setResults(realityFilter === 'all' ? ai : ai.filter((r) => matchesFilter(r.circuit.reality, realityFilter)));
-          return;
-        }
-        // Reached the model but it returned nothing usable (e.g. all picks failed catalog validation).
-        setAiNote('Your local model didn\'t return a usable covenant, so these are Covex\'s built-in suggestions.');
-      } catch (_) {
-        setThinking(false);
-        // Configured but unreachable / errored — be honest that the AI did not run.
-        setAiNote('Couldn\'t reach your local model, so these are Covex\'s built-in suggestions. Open settings to test the connection.');
-      }
-    }
-    setUsedAI(false);
-    setAiAll(null);
     setResults(compute(t, realityFilter));
   };
 
-  // Trust-model filter. For deterministic results it re-narrows the pool; for local-model results it
-  // filters the model's picks client-side (no second model call).
+  // Trust-model filter: re-narrows the catalog pool and re-runs the suggester.
   const setFilter = (f) => {
     setRealityFilter(f);
     if (!q.trim() || results === null) return;
-    if (usedAI && aiAll) {
-      setResults(f === 'all' ? aiAll : aiAll.filter((r) => matchesFilter(r.circuit.reality, f)));
-    } else {
-      setResults(compute(q, f));
-    }
-  };
-
-  const saveAI = (endpoint, model) => {
-    const cfg = { endpoint: (endpoint || '').trim(), model: (model || '').trim() };
-    if (!cfg.endpoint || !cfg.model) return;
-    localStorage.setItem('covex_local_ai', JSON.stringify(cfg));
-    setLocalAI(cfg);
-    setShowAIConfig(false);
-  };
-  const disableAI = () => {
-    localStorage.removeItem('covex_local_ai');
-    setLocalAI(null);
-    setUsedAI(false);
-    setAiAll(null);
-    setShowAIConfig(false);
+    setResults(compute(q, f));
   };
 
   return (
@@ -245,26 +90,10 @@ export default function CovenantAssistant({ circuits, onSelect }) {
         </span>
         <h2 className="text-base font-bold text-white light:text-slate-900">Covenant assistant</h2>
         <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green">beta</span>
-        {aiReady && (
-          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/12 text-emerald-300" title={`Local AI active: ${localAI.model}`}>
-            <Cpu size={10} /> Local AI
-          </span>
-        )}
-        <button
-          onClick={() => setShowAIConfig((v) => !v)}
-          title="Local AI settings"
-          className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-kaspa-green transition-colors"
-        >
-          <Settings2 size={13} /> {aiReady ? 'AI' : 'Local AI'}
-        </button>
       </div>
       <p className="relative text-[12px] text-gray-400 light:text-slate-500 mb-3">
         Pick a goal to start, or describe your own below. I only ever suggest circuits that actually exist, with their honest enforcement reality.
       </p>
-
-      {showAIConfig && (
-        <AIConfigPanel initial={localAI} onSave={saveAI} onDisable={disableAI} onClose={() => setShowAIConfig(false)} />
-      )}
 
       {/* One-tap goals: the obvious front door for a new user. */}
       <div className="relative flex flex-wrap gap-1.5 mb-3">
@@ -288,18 +117,12 @@ export default function CovenantAssistant({ circuits, onSelect }) {
           placeholder="e.g. an escrow that refunds the buyer after 30 days"
           className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
         />
-        <button onClick={() => run()} disabled={!q.trim() || thinking} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_14px_rgba(73,234,203,0.35)] transition-all">
-          {thinking ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} {thinking ? 'Thinking…' : 'Suggest'}
+        <button onClick={() => run()} disabled={!q.trim()} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_14px_rgba(73,234,203,0.35)] transition-all">
+          <Send size={13} /> Suggest
         </button>
       </div>
 
-      {thinking && (
-        <div className="relative mt-3 flex items-center gap-2 text-[12px] text-gray-300 light:text-slate-600 rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.05] px-3 py-2">
-          <Loader2 size={14} className="text-kaspa-green animate-spin shrink-0" /> Thinking with your local model… its picks are validated against the real catalog.
-        </div>
-      )}
-
-      {results === null && !thinking && (
+      {results === null && (
         <div className="relative mt-3 flex flex-wrap gap-1.5">
           {EXAMPLES.map((ex) => (
             <button key={ex} onClick={() => run(ex)} className="text-[11px] text-gray-300 px-2.5 py-1 rounded-lg border border-white/10 hover:border-kaspa-green/40 hover:text-white transition-colors">
@@ -311,11 +134,6 @@ export default function CovenantAssistant({ circuits, onSelect }) {
 
       {results !== null && (
         <div className="relative mt-4 space-y-2.5">
-          {aiNote && (
-            <div className="flex items-start gap-1.5 text-[11px] text-amber-300/90 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5">
-              <Cpu size={12} className="shrink-0 mt-0.5" /> <span>{aiNote}</span>
-            </div>
-          )}
           {/* Trust-model filter: narrow to the enforcement reality you're comfortable with. */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-1">Trust</span>
@@ -339,14 +157,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="text-[10px] uppercase tracking-widest text-gray-500">Suggested covenant{results.length > 1 ? 's' : ''}</div>
-                {usedAI && (
-                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 text-emerald-300" title="Picked by your local model, validated against the real catalog">
-                    <Cpu size={9} /> via local AI
-                  </span>
-                )}
-              </div>
+              <div className="text-[10px] uppercase tracking-widest text-gray-500">Suggested covenant{results.length > 1 ? 's' : ''}</div>
               {results.map((r, i) => {
                 const p = pill(r.circuit.reality);
                 return (
@@ -365,13 +176,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
                             </span>
                           )}
                         </div>
-                        {r.name && r.name !== r.circuit.name && (
-                          <p className="text-[11px] text-gray-400 mt-1"><span className="text-gray-500">Suggested name:</span> <span className="text-kaspa-green font-semibold">{r.name}</span></p>
-                        )}
                         <p className="text-[12px] text-gray-300 mt-1.5 leading-relaxed">{r.why}</p>
-                        {r.setup && (
-                          <p className="text-[11px] text-gray-300 mt-1.5 leading-relaxed"><span className="text-kaspa-green font-semibold">Setup tip:</span> {r.setup}</p>
-                        )}
                         <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed"><span className="text-gray-400 font-semibold">What the chain does:</span> {r.realityNote}</p>
                       </div>
                     </div>

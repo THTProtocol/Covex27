@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ShieldCheck, ExternalLink, Cpu, Lock, Radio, FileText, ArrowUpRight } from 'lucide-react';
 
@@ -46,8 +47,11 @@ export default function CovenantEmbed() {
   const name = cov?.name && cov.name !== cov?.covenant_type ? cov.name : (cov?.covenant_type || 'Covenant');
   const desc = (cov?.description || cov?.full_logic_summary || 'A covenant on the Kaspa BlockDAG. Open it on Covex to connect your wallet and interact non-custodially.').slice(0, 160);
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3" style={{ background: shell.bg, fontFamily: 'Inter, system-ui, sans-serif' }}>
+  // Portal to <body> so the full-bleed overlay escapes the app shell's `relative z-10`
+  // stacking context (otherwise the fixed nav at z-40 renders ABOVE it and the embed is
+  // not chrome-free). This makes the widget cover the whole frame on any external site.
+  return createPortal(
+    <div className="fixed inset-0 z-[2147483600] overflow-y-auto flex items-center justify-center p-3" style={{ background: shell.bg, fontFamily: 'Inter, system-ui, sans-serif' }}>
       <div className="covex-aurora" aria-hidden="true" style={{ top: '20%', left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 360, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
 
       <div className="relative w-full max-w-[400px] rounded-2xl border overflow-hidden" style={{ background: shell.card, borderColor: shell.cardBorder, boxShadow: dark ? '0 24px 60px -28px rgba(73,234,203,0.35)' : '0 18px 50px -24px rgba(15,23,42,0.25)' }}>
@@ -126,6 +130,7 @@ export default function CovenantEmbed() {
           </a>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -85,6 +85,7 @@ export function suggestCovenants(query, circuits) {
   return scored.slice(0, 3).map((s) => ({
     id: s.circuit.id,
     circuit: s.circuit,
+    name: s.circuit.name, // deterministic suggestions seed the builder name with the circuit name
     why: s.why,
     // Honest confidence derived from HOW the match was made: a curated intent rule (score >= 1000)
     // is a strong match; a broad keyword-overlap fallback is good (>= 3 words) or possible (2 words).
@@ -111,6 +112,13 @@ function buildCatalogIndex(circuits) {
     lines.push(`${c.id} | ${c.name} | ${c.reality} | ${desc}`);
   }
   return lines.join('\n');
+}
+
+// A safe, short covenant name from free model text (letters/digits/space/hyphen only).
+function sanitizeName(n) {
+  if (!n || typeof n !== 'string') return null;
+  const clean = n.replace(/[^\w \-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  return clean || null;
 }
 
 // Pull the first JSON array out of a model response (tolerates code fences and stray prose).
@@ -141,6 +149,8 @@ export function validateLLMSuggestions(raw, circuits) {
     out.push({
       id,
       circuit,
+      // The model may suggest an intent-specific covenant name; fall back to the circuit's name.
+      name: sanitizeName(item.name) || circuit.name,
       why: (item.why && String(item.why).trim().slice(0, 240)) || 'Suggested by your local model for this goal.',
       confidence: out.length === 0 ? 'high' : 'medium',
       realityNote: REALITY_EXPLAIN[circuit.reality] || REALITY_EXPLAIN['oracle-attested'],
@@ -165,7 +175,8 @@ export async function suggestCovenantsLLM(query, circuits, config) {
     'RULES:',
     '- Use ONLY ids that appear verbatim in the CATALOG. Never invent an id.',
     '- Be honest about enforcement reality: full-zk and on-chain are trustless; oracle-attested and hybrid rely on a disclosed oracle.',
-    '- Respond with ONLY a JSON array and nothing else: [{"id":"<catalog id>","why":"<one short sentence on why it fits>"}]',
+    '- For each pick also propose a short, specific covenant name (max 5 words, letters/spaces only) that reflects the user goal.',
+    '- Respond with ONLY a JSON array and nothing else: [{"id":"<catalog id>","name":"<short covenant name>","why":"<one short sentence on why it fits>"}]',
     '',
     'CATALOG (id | name | reality | description):',
     buildCatalogIndex(circuits),

@@ -371,7 +371,14 @@ const scrubZkProse = (d) =>
 // VERIFIED_FULL_ZK set today); 'hybrid' needs a fail-closed backend Groth16 verifier (STRICT_GROTH16).
 // Everything else is honestly 'oracle-attested': the named oracle signs the outcome, no ZK proof
 // gates the spend. This is a pure downgrade - it never promotes a circuit's claim.
-export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.map((c) => {
+// De-dupe by id (the raw list has a couple of repeats, e.g. relative_timelock / privacy_mixer_v1):
+// keep the first occurrence so React keys stay unique and the circuit list never double-renders.
+const _seenCircuitIds = new Set();
+export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.filter((c) => {
+  if (_seenCircuitIds.has(c.id)) return false;
+  _seenCircuitIds.add(c.id);
+  return true;
+}).map((c) => {
   const overclaimsFullZk = c.reality === 'full-zk' && !VERIFIED_FULL_ZK.has(c.id);
   const overclaimsHybrid = c.reality === 'hybrid' && !STRICT_GROTH16.has(c.id);
   if (overclaimsFullZk || overclaimsHybrid) {

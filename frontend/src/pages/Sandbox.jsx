@@ -60,8 +60,20 @@ export default function Sandbox() {
     next.delete('name');
     setParams(next, { replace: true });
   };
-  // The assistant's "Use this" is an explicit intent -> jump straight to the preview step.
-  const useAndConfigure = (id) => { select(id); setStep('configure'); };
+  // The assistant's "Use this" is an explicit intent -> jump straight to the preview step, carrying
+  // the suggested covenant name + the model's reasoning so the builder opens pre-named and described.
+  const useAndConfigure = (id, meta) => {
+    setSelectedId(id);
+    setTplName(meta?.name || '');
+    const c = ZK_CIRCUIT_TYPES.find((x) => x.id === id);
+    const next = new URLSearchParams(params);
+    next.set('circuit', id);
+    next.set('kind', kindForCircuit(c));
+    if (meta?.name) next.set('name', meta.name); else next.delete('name');
+    if (meta?.desc) next.set('desc', String(meta.desc).slice(0, 280)); else next.delete('desc');
+    setParams(next, { replace: true });
+    setStep('configure');
+  };
 
   const STEPS = [
     { id: 'choose', n: 1, label: 'Choose', Icon: Wand2 },

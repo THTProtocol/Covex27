@@ -290,12 +290,15 @@ export default function CovenantAssistant({ circuits, onSelect }) {
                             </span>
                           )}
                         </div>
+                        {r.name && r.name !== r.circuit.name && (
+                          <p className="text-[11px] text-gray-400 mt-1"><span className="text-gray-500">Suggested name:</span> <span className="text-kaspa-green font-semibold">{r.name}</span></p>
+                        )}
                         <p className="text-[12px] text-gray-300 mt-1.5 leading-relaxed">{r.why}</p>
                         <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed"><span className="text-gray-400 font-semibold">What the chain does:</span> {r.realityNote}</p>
                       </div>
                     </div>
                     <button
-                      onClick={() => onSelect(r.id)}
+                      onClick={() => onSelect(r.id, { name: r.name || r.circuit.name, desc: r.why })}
                       className="btn-shimmer mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-white/[0.06] border border-white/10 hover:border-kaspa-green/40 hover:bg-kaspa-green/10 text-white transition-all"
                     >
                       Use this in the builder <ArrowRight size={13} className="text-kaspa-green" />

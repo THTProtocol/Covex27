@@ -1872,10 +1872,18 @@ pub async fn p2sh_spend_handler(
             }
         } else if req.use_dev_mode {
             match dev_keys(&req.network) {
-                Ok(ks) => match bos_branch {
-                    BinarySelectBranch::RevealB => ks[1],
-                    _ => ks[0],
-                },
+                Ok(ks) => {
+                    // Pick the dev key whose x-only pubkey matches THIS branch's named winner,
+                    // so a bundle leg won by either dev wallet settles in dev mode. The redeem
+                    // layout is fixed: winner_a = redeem[37..69], winner_b = redeem[108..140].
+                    let want: Option<[u8; 32]> = match bos_branch {
+                        BinarySelectBranch::RevealA => redeem.get(37..69).and_then(|s| s.try_into().ok()),
+                        BinarySelectBranch::RevealB => redeem.get(108..140).and_then(|s| s.try_into().ok()),
+                        BinarySelectBranch::Refund => None,
+                    };
+                    want.and_then(|w| ks.iter().copied().find(|k| xonly_from_seckey(k).map(|x| x == w).unwrap_or(false)))
+                        .unwrap_or(ks[0])
+                }
                 Err(e) => return err(e),
             }
         } else {

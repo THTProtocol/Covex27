@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import {
   TrendingUp, ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
-  ExternalLink, Layers, Check, Loader2,
+  ExternalLink, Layers, Check, Loader2, Coins,
 } from 'lucide-react';
 
 // Conjoined-covenant parimutuel markets. Each market commits two outcome secrets (H_A/H_B);
@@ -152,6 +152,7 @@ function MarketDetail({ id }) {
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState(null);
   const [settleRes, setSettleRes] = useState(null);
+  const [oraclePk, setOraclePk] = useState(null);
 
   useEffect(() => { if (address && !addr) setAddr(address); }, [address]); // eslint-disable-line
 
@@ -160,6 +161,7 @@ function MarketDetail({ id }) {
     api('/covenant/market/get', { market_id: id }).then(setMarket).catch(() => {});
   }, [id]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetch('/api/oracle/pubkey').then((r) => (r.ok ? r.json() : null)).then((j) => j && setOraclePk(j.oracle_pubkey || j.pubkey || j.oracle_xonly_pubkey || null)).catch(() => {}); }, []);
 
   const act = async (label, fn) => {
     setBusy(label); setMsg(null);
@@ -212,6 +214,33 @@ function MarketDetail({ id }) {
       <div className="text-[11px] text-gray-500 mb-5">
         Funded pools: <span className="text-white">{book.funded_pool_a_kas} KAS</span> {book.outcome_a} · <span className="text-white">{book.funded_pool_b_kas} KAS</span> {book.outcome_b}
         {(book.open_pool_a_kas + book.open_pool_b_kas) > 0 && <> · open: {book.open_pool_a_kas}/{book.open_pool_b_kas} KAS</>}
+      </div>
+
+      {/* Pools — reward / hedge-rebate / fee, the HighTable-style split of the matched pool */}
+      <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
+        <div className="text-white font-semibold mb-3 flex items-center gap-2"><Coins size={16} className="text-kaspa-green" /> Pools</div>
+        {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
+          <div className="text-[12px] text-gray-500">No matched liquidity yet — the reward and hedge pools fill as bets get matched.</div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between text-[12px] mb-1"><span className="text-gray-400">Total matched</span><span className="text-white font-semibold">{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} KAS</span></div>
+            <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">House fee pool (30%)</span><span className="text-amber-300">{(0.3 * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS → treasury</span></div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => (
+                <div key={oc} className={`rounded-xl border p-3 text-[12px] ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/30 bg-kaspa-green/[0.05]' : 'border-white/10 bg-white/[0.02]'}`}>
+                  <div className="text-[11px] text-gray-400 mb-1.5">If "{lbl}" wins</div>
+                  <div className="flex items-center justify-between"><span className="text-kaspa-green">Reward pool</span><span className="text-white">{(0.7 * mine + 0.2 * opp).toFixed(2)} KAS</span></div>
+                  <div className="flex items-center justify-between"><span className="text-sky-300">Hedge / rebate pool</span><span className="text-white">{(0.5 * opp).toFixed(2)} KAS</span></div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-gray-500 leading-relaxed">
+          <span className="text-gray-300 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret — no Covex key sits in the money path.
+          {oraclePk && <> Signer <span className="font-mono text-gray-400">{String(oraclePk).slice(0, 12)}…</span>.</>}
+          {market.h_a && <> Commitments <span className="font-mono text-gray-400">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
+        </div>
       </div>
 
       {/* The honest economics warning */}
@@ -284,17 +313,23 @@ function MarketDetail({ id }) {
         )}
       </div>
 
-      {/* Resolve (operator/creator) */}
+      {/* Resolve + pay out: one click reveals the winning secret AND settles every funded leg */}
       {!resolved && (
         <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
-          <div className="text-white font-semibold mb-1">Resolve outcome</div>
-          <p className="text-[11px] text-gray-500 mb-3">When the real result is known, reveal the winning secret. Single-secret policy: the other outcome can never be revealed afterward.</p>
+          <div className="text-white font-semibold mb-1">Resolve &amp; pay out</div>
+          <p className="text-[11px] text-gray-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
           <div className="grid grid-cols-2 gap-2">
             {[book.outcome_a, book.outcome_b].map((label, i) => (
               <button key={i} disabled={!!busy}
-                onClick={() => act(`Resolved: ${label}`, () => api('/covenant/market/resolve', { market_id: id, outcome: i }))}
-                className="py-2.5 rounded-xl text-sm font-semibold border border-white/15 text-gray-200 hover:border-amber-400/40 disabled:opacity-40">
-                {busy === `Resolved: ${label}` ? <Loader2 className="animate-spin inline" size={15} /> : `"${label}" won`}
+                onClick={() => act(`Resolving ${label}`, async () => {
+                  const r = await api('/covenant/market/resolve', { market_id: id, outcome: i });
+                  if (r && r.success === false) return r;
+                  const s = await api('/covenant/market/settle', { market_id: id });
+                  setSettleRes(s);
+                  return s;
+                })}
+                className="py-2.5 rounded-xl text-sm font-semibold border border-white/15 text-gray-200 hover:border-emerald-400/40 disabled:opacity-40">
+                {busy === `Resolving ${label}` ? <Loader2 className="animate-spin inline" size={15} /> : `"${label}" won → pay out`}
               </button>
             ))}
           </div>

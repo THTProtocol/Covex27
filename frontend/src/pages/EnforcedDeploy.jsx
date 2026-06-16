@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
 
@@ -581,7 +581,10 @@ export default function EnforcedDeploy() {
       {/* This session's enforced covenants */}
       {mine.length > 0 && (
         <div className="glass-panel overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/5 text-white font-semibold">Your enforced covenants (this session)</div>
+          <div className="px-6 py-4 border-b border-white/5">
+            <div className="text-white font-semibold">Your enforced covenants (this session)</div>
+            <div className="text-xs text-gray-400 mt-0.5">Deployed and live on-chain. Next, give each one a beautiful public page in the Page Studio, then share it.</div>
+          </div>
           <div className="divide-y divide-white/[0.04]">
             {mine.map((c) => (
               <div key={c.tx} className="px-6 py-4 space-y-2">
@@ -600,9 +603,14 @@ export default function EnforcedDeploy() {
                 <div className="text-[11px] text-gray-400 font-mono break-all">
                   P2SH: {c.p2sh} <CopyBtn text={c.p2sh} />
                 </div>
-                <div className="text-[11px] text-gray-500 font-mono break-all flex items-center gap-2">
+                <div className="text-[11px] text-gray-500 font-mono break-all">
                   deploy tx: {String(c.tx).slice(0, 24)}...
-                  <a href={`/covenant/${c.tx}:0`} className="inline-flex items-center gap-1 text-gray-400 hover:text-kaspa-green"><ExternalLink size={11} /> view</a>
+                </div>
+                {/* Build -> design -> publish handoff: jump straight into the Page Studio to
+                    compose this covenant's public website, or open the live page. */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <a href={`/covenant/${c.tx}:0`} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] transition-colors"><ExternalLink size={12} /> View public page</a>
+                  <a href={`/covenant/${c.tx}:0/studio`} className="btn-shimmer inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-kaspa-green text-black font-bold hover:brightness-110 transition-all"><Palette size={12} /> Design its page</a>
                 </div>
                 {c.redeem_script_hex && !c.spent && (
                   <div className="text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2 mt-1">

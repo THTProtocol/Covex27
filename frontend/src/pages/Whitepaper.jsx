@@ -14,8 +14,8 @@ const SECTIONS = [
     id: 'background', n: '1 · Background: covenants on Kaspa',
     body: [
       "Kaspa is a proof-of-work BlockDAG using the GHOSTDAG / DAGKNIGHT ordering protocol. Since the Crescendo hard fork (mainnet, ~May 2025) it produces 10 blocks per second while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped KIP-10 transaction-introspection opcodes, the first step toward covenants.",
-      "The Toccata hard fork completes the covenant story. Scheduled to activate on mainnet in 2026 (no confirmed calendar day), it bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (zero-knowledge verification opcodes with Groth16 and RISC Zero STARK precompiles for on-chain proof checking), and KIP-21 (partitioned sequencing commitments enabling based ZK applications).",
-      "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. It is currently experimental and valid on Testnet-12; mainnet validity arrives with Toccata. Covex builds directly on this stack.",
+      "The Toccata hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet on June 30, 2026, it bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (zero-knowledge verification opcodes with Groth16 and RISC Zero STARK precompiles for on-chain proof checking), and KIP-21 (partitioned sequencing commitments enabling based ZK applications).",
+      "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. It is currently experimental and live on the Toccata testnets (Testnet-12 and Testnet-10); mainnet validity arrives with Toccata on June 30, 2026. Covex builds directly on this stack.",
     ],
   },
   {

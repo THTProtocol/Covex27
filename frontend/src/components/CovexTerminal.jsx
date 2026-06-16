@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { mimc7Commitment } from '../lib/mimc7';
+import { CovexMark } from './CovexLogo';
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
@@ -3532,12 +3533,11 @@ ${gameMeta.outcomeBranches}
 
       {/* ─── Section A: Covenant Configuration ─── */}
       <section className={SECTION_BASE}>
-        {/* New logo - the exact glowing network "C" (user image) + vector mark */}
         <div className="flex items-center gap-3 pb-2 border-b border-white/10 mb-2">
-          <img src="/covex-logo-full.jpg" alt="Covex logo" className="h-9 w-9 rounded object-cover ring-1 ring-white/10" />
+          <CovexMark size={34} />
           <div>
-            <div className="text-[10px] text-gray-400 tracking-[2px]">THE NEW COVEX LOGO</div>
-            <div className="text-xs text-kaspa-green font-mono">Glowing Network C - Kaspa BlockDAG</div>
+            <div className="text-sm font-extrabold text-white tracking-tight">Covex Terminal</div>
+            <div className="text-[11px] text-kaspa-green font-mono">Covenant configuration on the Kaspa BlockDAG</div>
           </div>
         </div>
         <div className={SECTION_HEADER}>

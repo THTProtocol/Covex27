@@ -25,7 +25,7 @@
 
 ---
 
-> **Status (2026-06-16):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled for mainnet activation in **2026**. Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands — no placeholder data, ever.** Every primitive below is already proven on the Toccata **Testnet-12** network, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs against the live consensus transaction-script engine before any value moves.
+> **Status (2026-06-16):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **June 30, 2026**. Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands — no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs against the live consensus transaction-script engine before any value moves.
 
 **What's new (2026-06-16)**
 - **Real zero-knowledge you can run in your own browser** — all three verified full-ZK circuits (`merkle_membership`, `escrow_2party`, and `age_verification`) now generate a real Groth16 proof **client-side** (snarkjs over served artifacts; age computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser), which the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires. Every other catalog circuit stays honestly labelled oracle-attested until its key ships — the setup is a dev ceremony, not yet a production MPC.
@@ -85,14 +85,14 @@ Covex is built for Kaspa **mainnet**. It runs a live mainnet node and an armed c
 | Covenants indexed | 0 — the first real covenant appears the moment one lands |
 | Provably paid covenants | 0 |
 | Total value locked | 0 KAS |
-| Toccata activation | 2026 (no confirmed calendar day) |
+| Toccata activation | June 30, 2026 |
 
 ```bash
 # verify mainnet live (0 until Toccata is the honest, expected state):
 curl "https://hightable.pro/api/covenants?network=mainnet&limit=1" | jq .stats
 ```
 
-Every primitive and circuit described below is already proven end-to-end on the Toccata **Testnet-12** network, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs today, so the mainnet indexer is correct and complete on day one rather than a work in progress. ("Provably paid" always means a covenant deployed through the Covex paid flow with an on-chain treasury payment confirmed at 6 DAA, never inferred from chain heuristics.)
+Every primitive and circuit described below is already proven end-to-end on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs today, so the mainnet indexer is correct and complete on day one rather than a work in progress. ("Provably paid" always means a covenant deployed through the Covex paid flow with an on-chain treasury payment confirmed at 6 DAA, never inferred from chain heuristics.)
 
 ---
 
@@ -106,7 +106,7 @@ flowchart TB
         direction LR
         MN["Mainnet"]
         T12["Testnet-12, Toccata"]
-        T10["Testnet-10"]
+        T10["Testnet-10, Toccata"]
     end
 
     subgraph PC["Operator PC, WSL"]
@@ -253,9 +253,9 @@ timeline
     section Crescendo era
         May 2025 : Crescendo hard fork, 10 BPS mainnet : KIP-10 introspection opcodes, first step toward covenants
     section Testnet era
-        2025 to 2026 : SilverScript covenants live on Testnet-12 : Covex ships explorer, studio, arenas, oracle : 13,000+ covenants indexed across TN12 and TN10
+        2025 to 2026 : SilverScript covenants live on Testnet-12 and Testnet-10 (both Toccata) : Covex ships explorer, studio, arenas, oracle : 13,000+ covenants indexed across TN12 and TN10
     section Toccata
-        2026 : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
+        June 30 2026 : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
     section Trustless era
         After activation : Mainnet covenants indexed from the first one : resolutions migrate to on-chain Groth16 and STARK verification : multi-oracle threshold signing, KCC-20 indexing, pay-per-call API
 ```
@@ -275,14 +275,14 @@ The full phased plan lives in [docs/COVEX_MASTER_BUILD_PLAN.md](docs/COVEX_MASTE
 
 Kaspa is a proof-of-work BlockDAG using the GHOSTDAG/DAGKNIGHT ordering protocol. Since the **Crescendo** hard fork (mainnet, ~May 2025) it produces **10 blocks per second** while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped **KIP-10** transaction-introspection opcodes, the first step toward covenants.
 
-The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet in **2026** (no confirmed calendar day), it bundles four improvement proposals:
+The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet on **June 30, 2026**, it bundles four improvement proposals:
 
 - **KIP-17**: extended script-engine opcodes, the covenant backbone.
 - **KIP-20**: covenant IDs, stable identity and lineage across a covenant's spends.
 - **KIP-16**: zero-knowledge verification opcodes with precompiles (Groth16 and RISC Zero STARK verifiers) for on-chain proof checking.
 - **KIP-21**: partitioned sequencing commitments, enabling "based" ZK applications whose proving cost scales only with their own activity.
 
-**SilverScript**, a CashScript-inspired language and compiler, lets developers author covenants and compile them to Kaspa script. It is currently experimental and valid on **Testnet-12**; mainnet validity arrives with Toccata. Covex builds directly on this stack.
+**SilverScript**, a CashScript-inspired language and compiler, lets developers author covenants and compile them to Kaspa script. It is currently experimental and valid on the Toccata testnets (**Testnet-12** and **Testnet-10**); mainnet validity arrives with Toccata on June 30, 2026. Covex builds directly on this stack.
 
 #### 7.2 Problem
 

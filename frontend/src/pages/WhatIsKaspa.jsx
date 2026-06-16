@@ -225,9 +225,9 @@ export default function WhatIsKaspaPage() {
               { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
               { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },
               { icon: Code2, label: 'Primary Node', value: 'rusty-kaspa', sub: 'Production Rust implementation, high performance', badge: null },
-              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Experimental on Toccata TN12; mainnet via Toccata hard fork (targeted 2026)', badge: 'TN12' },
+              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Live on the Toccata testnets (TN12 and TN10); mainnet via Toccata hard fork on June 30, 2026', badge: 'TN12 · TN10' },
               { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
-              { icon: FlaskConical, label: 'Active Testnet', value: 'Toccata TN12', sub: 'SilverScript development and covenant testing network', badge: 'ACTIVE' },
+              { icon: FlaskConical, label: 'Active Testnets', value: 'Toccata TN12 + TN10', sub: 'SilverScript development and covenant testing networks', badge: 'ACTIVE' },
             ].map((s, i) => (
               <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.005] p-5 hover:border-[#49EACB]/40 hover:bg-white/[0.02] hover:shadow-[0_0_25px_rgba(73,234,203,0.08)] transition-all duration-300 group">
                 <div className="flex items-start justify-between mb-2">

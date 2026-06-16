@@ -4,6 +4,7 @@ import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, Wrench, Sparkles }
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import SandboxGallery from '../components/SandboxGallery';
+import CovenantAssistant from '../components/CovenantAssistant';
 
 // Unified Sandbox: ONE window where the free circuit library (left) drives a live preview
 // (right) and the builder/terminal (below) all at once. Pick any circuit and the enforcement
@@ -74,6 +75,11 @@ export default function Sandbox() {
         payout math. The builder below follows your selection. Basic SilverScript is free; the advanced editor and
         deploy unlock with a tier. Nothing here overstates what the chain enforces.
       </p>
+
+      {/* AI-style assistant: describe a goal -> a real, honest covenant suggestion that drives the builder */}
+      <div className="relative mb-8">
+        <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={select} />
+      </div>
 
       {/* Choose a covenant: a category-organized gallery with progressive disclosure (View more) */}
       <div className="relative mb-8">

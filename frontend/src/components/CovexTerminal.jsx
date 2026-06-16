@@ -12,6 +12,7 @@ import {
 import { Chess } from 'chess.js';
 import { mimc7Commitment } from '../lib/mimc7';
 import { CovexMark } from './CovexLogo';
+import TransparencyModal from './TransparencyModal';
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
@@ -1098,6 +1099,7 @@ contract VisualCovenant {
 
   // ── Section 0: Game Type ──
   const [gameType, setGameType] = useState('chess_v1');
+  const [infoCircuit, setInfoCircuit] = useState(null); // circuit being inspected in the TransparencyModal
 
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
@@ -2550,16 +2552,19 @@ ${gameMeta.outcomeBranches}
                 const isVerifiedZk = VERIFIED_FULL_ZK.has(gt.id);
                 const hasBrowserProver = IN_BROWSER_PROVERS.has(gt.id);
                 return (
-                  <button
+                  <div
                     key={gt.id}
+                    role="button"
+                    tabIndex={disabled ? -1 : 0}
+                    aria-disabled={disabled}
                     onClick={() => !disabled && handleGameTypeChange(gt.id)}
-                    disabled={disabled}
+                    onKeyDown={(e) => { if (!disabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleGameTypeChange(gt.id); } }}
                     title={`${gt.name} - ${rm.label}`}
                     className={`group relative overflow-hidden text-left p-3 rounded-xl border transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
                       selected
                         ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_24px_rgba(73,234,203,0.18)]'
                         : 'border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.14] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.65)]'
-                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
                     {/* reality accent top-edge + soft corner glow */}
                     <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${selected ? '#49EACB' : rm.accent}, transparent)` }} />
@@ -2569,10 +2574,17 @@ ${gameMeta.outcomeBranches}
                       <span className={`text-xs font-bold leading-tight ${selected ? 'text-kaspa-green' : 'text-white'}`}>
                         {gt.name}
                       </span>
-                      <span className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${rm.bg} ${rm.text} ${rm.border}`}>
+                      {/* The reality badge is itself the inspect trigger: press to see how it is verified + the source. */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setInfoCircuit(gt); }}
+                        title="How is this verified? Press to inspect the source"
+                        className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border transition hover:brightness-125 ${rm.bg} ${rm.text} ${rm.border}`}
+                      >
                         <span className={`w-1.5 h-1.5 rounded-full ${isVerifiedZk ? 'zk-live-glow' : ''}`} style={{ background: rm.accent }} />
                         {rm.short}
-                      </span>
+                        <Info size={9} className="opacity-60" />
+                      </button>
                     </div>
 
                     <p className="relative text-[10px] text-gray-300 leading-snug line-clamp-3">
@@ -2594,10 +2606,11 @@ ${gameMeta.outcomeBranches}
                       )}
                       {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0 ml-auto" />}
                     </div>
-                  </button>
+                  </div>
                 );
               });
             })()}
+            {infoCircuit && <TransparencyModal circuit={infoCircuit} onClose={() => setInfoCircuit(null)} />}
           </div>
 
           {!showAllZK && (

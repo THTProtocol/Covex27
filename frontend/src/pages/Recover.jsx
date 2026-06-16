@@ -4,7 +4,7 @@ import {
   Upload, AlertTriangle, ArrowLeft, Coins, Loader2,
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
-import { hasPublicApi, fetchAddressBalanceSompi, sompiToKas } from '../lib/kaspaPublicApi';
+import { hasPublicApi, fetchAddressBalanceSompi, fetchAddressUtxos, sompiToKas } from '../lib/kaspaPublicApi';
 
 // Standalone, Covex-independent recovery page. Every covenant Covex deploys is a script-enforced P2SH
 // covenant: the KASPA CHAIN enforces the spend rules, not Covex. So a holder can settle directly from
@@ -60,22 +60,25 @@ export default function Recover() {
   const [kit, setKit] = useState(null);
   const [txid, setTxid] = useState('');
   const [looking, setLooking] = useState(false);
-  const [bal, setBal] = useState({ loading: false, kas: null, error: null, available: false });
+  const [bal, setBal] = useState({ loading: false, kas: null, error: null, available: false, utxos: null });
 
-  // When a kit loads, confirm the locked balance via a PUBLIC Kaspa node (read-only, never Covex).
+  // When a kit loads, confirm the locked balance + UTXOs via a PUBLIC Kaspa node (read-only, never Covex).
   useEffect(() => {
     if (!kit?.address || !hasPublicApi(kit.network)) {
-      setBal({ loading: false, kas: null, error: null, available: false });
+      setBal({ loading: false, kas: null, error: null, available: false, utxos: null });
       return undefined;
     }
     const ac = new AbortController();
-    setBal({ loading: true, kas: null, error: null, available: true });
+    setBal({ loading: true, kas: null, error: null, available: true, utxos: null });
     (async () => {
       try {
-        const sompi = await fetchAddressBalanceSompi(kit.address, kit.network, ac.signal);
-        setBal({ loading: false, kas: sompiToKas(sompi), error: null, available: true });
+        const [sompi, utxos] = await Promise.all([
+          fetchAddressBalanceSompi(kit.address, kit.network, ac.signal),
+          fetchAddressUtxos(kit.address, kit.network, ac.signal).catch(() => null),
+        ]);
+        setBal({ loading: false, kas: sompiToKas(sompi), error: null, available: true, utxos });
       } catch (e) {
-        if (e.name !== 'AbortError') setBal({ loading: false, kas: null, error: 'Could not reach a public node for this network right now.', available: true });
+        if (e.name !== 'AbortError') setBal({ loading: false, kas: null, error: 'Could not reach a public node for this network right now.', available: true, utxos: null });
       }
     })();
     return () => ac.abort();
@@ -220,6 +223,20 @@ export default function Recover() {
                       {bal.kas > 0
                         ? 'Confirmed locked at this address, ready to redeem with the script + your key.'
                         : 'This address holds 0 KAS now - the covenant appears already settled (or not yet funded).'}
+                    </div>
+                  </div>
+                )}
+                {Array.isArray(bal.utxos) && bal.utxos.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5">Coins to redeem ({bal.utxos.length} UTXO{bal.utxos.length === 1 ? '' : 's'})</div>
+                    <div className="space-y-1">
+                      {bal.utxos.slice(0, 6).map((u) => (
+                        <div key={`${u.txid}:${u.index}`} className="flex items-center justify-between gap-2 text-[10.5px]">
+                          <span className="font-mono text-gray-400 light:text-slate-500 truncate">{u.txid.slice(0, 16)}…:{u.index}</span>
+                          <span className="shrink-0 tabular-nums text-gray-200 light:text-slate-700">{sompiToKas(u.amountSompi).toLocaleString(undefined, { maximumFractionDigits: 4 })} KAS{u.daaScore != null ? <span className="text-gray-500"> · DAA {u.daaScore.toLocaleString()}</span> : null}</span>
+                        </div>
+                      ))}
+                      {bal.utxos.length > 6 && <div className="text-[10px] text-gray-500">+ {bal.utxos.length - 6} more</div>}
                     </div>
                   </div>
                 )}

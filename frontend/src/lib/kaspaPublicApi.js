@@ -28,3 +28,20 @@ export async function fetchAddressBalanceSompi(address, network, signal) {
 }
 
 export const sompiToKas = (sompi) => (Number(sompi) || 0) / 1e8;
+
+// Returns the address's UTXOs (the exact coins a redeem would spend), normalized to
+// [{ txid, index, amountSompi, daaScore }]. Read-only. Covenant P2SH addresses hold only a few.
+export async function fetchAddressUtxos(address, network, signal) {
+  const base = PUBLIC_API[network];
+  if (!base || !address) throw new Error('No public node for this network.');
+  const res = await fetch(`${base}/addresses/${encodeURIComponent(address)}/utxos`, { signal });
+  if (!res.ok) throw new Error(`Public node returned HTTP ${res.status}`);
+  const arr = await res.json();
+  if (!Array.isArray(arr)) return [];
+  return arr.map((u) => ({
+    txid: u?.outpoint?.transactionId || '',
+    index: u?.outpoint?.index ?? 0,
+    amountSompi: Number(u?.utxoEntry?.amount) || 0,
+    daaScore: Number(u?.utxoEntry?.blockDaaScore) || null,
+  }));
+}

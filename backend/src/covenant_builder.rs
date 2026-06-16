@@ -2956,6 +2956,7 @@ mod tests {
     use kaspa_consensus_core::subnets::SubnetworkId;
     use kaspa_consensus_core::tx::{
         Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry,
+        VerifiableTransaction,
     };
     use kaspa_txscript::{caches::Cache, TxScriptEngine};
     use secp256k1::Keypair;

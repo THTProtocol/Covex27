@@ -406,9 +406,15 @@ export default function CovenantInteractive() {
   // no wallet is present), which left a public viewer's button stuck on "PROCESSING..."
   // forever. This is set true only while a user-initiated execute is actually running.
   const [executing, setExecuting] = useState(false);
-  const handleExecute = useCallback(async () => {
+  const handleExecute = useCallback(async (amtOverride) => {
     if (!covenant) return;
-    if (!amount || Number(amount) <= 0) {
+    // amtOverride lets a parameterized action button suggest an amount. It is a
+    // DISPLAY amount only; the destination + scriptHash are always taken from the
+    // indexed covenant record below, never from any page input. (When wired as an
+    // onClick handler the first arg is the click event, so guard with Number().)
+    const overrideNum = Number(amtOverride);
+    const amt = Number.isFinite(overrideNum) && overrideNum > 0 ? String(overrideNum) : amount;
+    if (!amt || Number(amt) <= 0) {
       setToast({ type: 'error', msg: 'Enter an amount to lock before executing.' });
       return;
     }
@@ -417,7 +423,7 @@ export default function CovenantInteractive() {
       try {
         // sendPayment resolves to {success:false, error} on a rejected broadcast (it does NOT
         // throw on the dev/backend path), so check the result rather than assuming success.
-        const res = await sendPayment(covenant.address || DEPLOYER, amount, {
+        const res = await sendPayment(covenant.address || DEPLOYER, amt, {
           scriptHash: covenant.script_hash,
         });
         if (res && res.success === false) {
@@ -440,23 +446,43 @@ export default function CovenantInteractive() {
     }
   }, [covenant, amount, address, sendPayment]);
 
-  // BRIDGE: published/preview/fullscreen covenant UIs render inside a sandboxed
-  // iframe (sandbox="allow-scripts", opaque 'null' origin) whose call-to-action posts
-  // window.parent.postMessage({type:'COVENANT_EXECUTE'}). Nothing listened, so the
-  // headline button was a dead no-op. Route the signal to the real action: open the
-  // chess arena for a chess covenant, else run the wallet execute flow. The iframe is
-  // sandboxed without allow-same-origin, so a message is all it can do - it cannot read
-  // or drive the app, and CSP frame-ancestors 'self' blocks third-party framing.
+  // BRIDGE: creator-designed covenant UIs (the sandboxed iframe path AND the Puck
+  // page path) signal intent by posting a message; they can NEVER move funds or set
+  // a destination themselves. Two message types are accepted:
+  //   COVENANT_EXECUTE                                  - legacy headline button.
+  //   COVENANT_ACTION {action, outcome, amountKas}      - typed parameterized button.
+  // Both route to the SAME platform actions, and the real destination + scriptHash
+  // are always derived from the indexed covenant record (in handleExecute / the
+  // arena), never from the payload. The iframe is sandboxed without
+  // allow-same-origin so a message is all it can do; CSP frame-ancestors 'self'
+  // blocks third-party framing. The amountKas is treated as a suggested DISPLAY
+  // amount only and is range-checked before use.
+  const routeCovenantIntent = useCallback((action, amountKas) => {
+    const amt = Number(amountKas);
+    if (Number.isFinite(amt) && amt > 0) setAmount(String(amt));
+    // Games always open their arena (the pot is locked there, non-custodially).
+    if (isChess) { setShowChessArena(true); return; }
+    if (isOtherGame) { setShowGameArena(true); return; }
+    // 'bet' is meaningful only for markets, which render their own MarketView and
+    // never reach this Puck path; for a generic covenant we run the same safe,
+    // non-custodial lock/spend flow as 'interact' and 'spend'.
+    handleExecute(Number.isFinite(amt) && amt > 0 ? amt : undefined);
+  }, [isChess, isOtherGame, handleExecute]);
+
   useEffect(() => {
     const onMsg = (e) => {
-      if (e?.data?.type !== 'COVENANT_EXECUTE') return;
-      if (isChess) setShowChessArena(true);
-      else if (isOtherGame) setShowGameArena(true);
-      else handleExecute();
+      const d = e?.data;
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'COVENANT_EXECUTE') {
+        routeCovenantIntent('interact', null);
+      } else if (d.type === 'COVENANT_ACTION') {
+        const action = typeof d.action === 'string' ? d.action : 'interact';
+        routeCovenantIntent(action, d.amountKas);
+      }
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
-  }, [isChess, handleExecute]);
+  }, [routeCovenantIntent]);
 
   const covenantTierVal = tierValue(covenant?.verified_tier || covenant?.tier || 'FREE');
 

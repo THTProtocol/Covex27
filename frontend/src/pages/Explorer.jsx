@@ -8,7 +8,6 @@ import {
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
-import BlockDagViz from '../components/BlockDagViz';
 import TrustBadge from '../components/TrustBadge';
 import { Badge } from '../components/ui/Badge';
 
@@ -356,12 +355,6 @@ export default function Explorer() {
       {/* HERO */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-16 sm:pt-20 pb-6 px-4 sm:px-6 text-center">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
-        {/* Ambient BlockDAG motif behind the title - the product is, literally, covenants on the
-            Kaspa BlockDAG. Subtle (low opacity + radial fade), pointer-events-none, reduced-motion-safe. */}
-        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-4 w-[660px] max-w-[94vw] opacity-[0.22]"
-          style={{ maskImage: 'radial-gradient(ellipse 58% 78% at 50% 42%, #000 28%, transparent 76%)', WebkitMaskImage: 'radial-gradient(ellipse 58% 78% at 50% 42%, #000 28%, transparent 76%)' }}>
-          <BlockDagViz />
-        </div>
         <h1 className="relative text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-5 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>

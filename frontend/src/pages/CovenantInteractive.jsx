@@ -348,6 +348,49 @@ export default function CovenantInteractive() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Live refresh: keep on-chain figures (amount locked, status, activity) current so
+  // custom pages show real-time data. Polls every 20s and merges ONLY the volatile
+  // fields, so it never clobbers a creator's in-progress UI edits held in state.
+  useEffect(() => {
+    if (!id) return;
+    const tick = () => {
+      fetch(`/api/covenants/${encodeURIComponent(id)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          const f = d && d.covenant;
+          if (!f) return;
+          setCovenant((c) => (c ? { ...c, amount_kaspa: f.amount_kaspa, is_active: f.is_active, block_daa_score: f.block_daa_score, timestamp: f.timestamp } : c));
+        })
+        .catch(() => {});
+      fetch(`/api/covenants/${encodeURIComponent(id)}/actions`)
+        .then((r) => r.json())
+        .then((d) => setActions(Array.isArray(d.actions) ? d.actions : []))
+        .catch(() => {});
+    };
+    const iv = setInterval(tick, 20000);
+    return () => clearInterval(iv);
+  }, [id]);
+
+  // Live, server-derived covenant state exposed to creator-designed Puck pages as
+  // {{tokens}}. Read-only figures only; a custom page can never set a destination.
+  const liveData = useMemo(() => {
+    if (!covenant) return {};
+    const locked = Number(covenant.amount_kaspa || 0);
+    return {
+      name: covenant.name || covenant.covenant_type || 'Covenant',
+      status: covenant.is_active === false ? 'Settled' : 'Active',
+      network: covenant.network || 'testnet-12',
+      amount_kaspa: locked,
+      total_locked: `${locked.toLocaleString()} KAS`,
+      tx_count: actions.length,
+      fee_pct: covenant.fee_pct != null ? covenant.fee_pct : '',
+      rebate_pct: covenant.rebate_pct != null ? covenant.rebate_pct : '',
+      creator: TRUNC(covenant.creator_addr || covenant.address || '', 8),
+      daa_score: covenant.block_daa_score || 0,
+      verified_tier: covenant.verified_tier || 'FREE',
+    };
+  }, [covenant, actions]);
+
   const deployUri = useMemo(
     () =>
       covenant
@@ -813,10 +856,12 @@ export default function CovenantInteractive() {
             </div>
           )}
 
-          {/* Creator-designed page (Puck blocks, platform components only) */}
+          {/* Creator-designed page (Puck blocks, platform components only).
+              Live on-chain figures flow in via metadata.live; blocks resolve
+              {{tokens}} at render. No creator input ever sets a fund destination. */}
           {covenant?.custom_ui_config?.puck_data?.content?.length > 0 && (
             <div className="mb-6 rounded-2xl overflow-hidden border border-white/[0.06] bg-black/20">
-              <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} />
+              <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
             </div>
           )}
 

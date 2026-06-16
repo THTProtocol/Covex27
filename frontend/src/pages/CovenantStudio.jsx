@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Puck } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, Save, Eye, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Sparkles, Zap } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
-import puckConfig from '../lib/puckConfig';
+import puckConfig, { LIVE_TOKENS } from '../lib/puckConfig';
 
 const EMPTY_PAGE = { content: [], root: { props: {} } };
 
@@ -43,6 +43,26 @@ export default function CovenantStudio() {
   }, [id]);
 
   const isCreator = !!(address && covenant && (covenant.creator_addr === address || covenant.address === address));
+
+  // Live preview data so the creator sees real on-chain figures while designing
+  // (the same tokens resolve on the public page). Read-only; never a destination.
+  const liveData = useMemo(() => {
+    if (!covenant) return {};
+    const locked = Number(covenant.amount_kaspa || 0);
+    return {
+      name: covenant.name || covenant.covenant_type || 'Covenant',
+      status: covenant.is_active === false ? 'Settled' : 'Active',
+      network: covenant.network || 'testnet-12',
+      amount_kaspa: locked,
+      total_locked: `${locked.toLocaleString()} KAS`,
+      tx_count: covenant.tx_count || 0,
+      fee_pct: covenant.fee_pct != null ? covenant.fee_pct : '',
+      rebate_pct: covenant.rebate_pct != null ? covenant.rebate_pct : '',
+      creator: (covenant.creator_addr || covenant.address || '').slice(0, 12),
+      daa_score: covenant.block_daa_score || 0,
+      verified_tier: covenant.verified_tier || 'FREE',
+    };
+  }, [covenant]);
 
   const save = useCallback(async (data) => {
     setSaving(true);
@@ -109,6 +129,7 @@ export default function CovenantStudio() {
       <Puck
         config={puckConfig}
         data={initialData || EMPTY_PAGE}
+        metadata={{ live: liveData }}
         onPublish={save}
         overrides={{
           headerActions: ({ children }) => (
@@ -119,6 +140,24 @@ export default function CovenantStudio() {
           ),
         }}
       />
+      {/* Live token cheat sheet: shows creators the on-chain values they can drop
+          into any text field as {{token}}. They resolve live on the public page. */}
+      <details className="fixed bottom-4 left-4 z-[90] w-72 rounded-2xl border border-white/[0.1] bg-[#0A0A0D]/95 backdrop-blur shadow-2xl">
+        <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer text-xs font-bold text-kaspa-green list-none">
+          <Zap size={13} /> Live data tokens
+        </summary>
+        <div className="px-4 pb-3 max-h-64 overflow-y-auto">
+          <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">Type any token below into a text field (for example <span className="font-mono text-gray-300">{'{{total_locked}}'}</span>). It updates live from the chain.</p>
+          <ul className="space-y-1">
+            {LIVE_TOKENS.map((t) => (
+              <li key={t.token} className="flex items-center justify-between gap-2 text-[11px]">
+                <code className="text-kaspa-green font-mono">{`{{${t.token}}}`}</code>
+                <span className="text-gray-500 text-right">{t.desc}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
       {toast && (
         <div className="fixed bottom-6 right-6 z-[100]">
           <div className={`px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium ${toast.type === 'success' ? 'bg-emerald-900/60 border-emerald-500/30 text-emerald-200' : 'bg-red-900/60 border-red-500/30 text-red-200'}`}>

@@ -10,6 +10,7 @@ import {
   Download, RefreshCw,
 } from 'lucide-react';
 import { Chess } from 'chess.js';
+import { mimc7Commitment } from '../lib/mimc7';
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
@@ -36,6 +37,7 @@ const loadSnarkjs = async () => {
   }
   return snarkjsModule;
 };
+
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
@@ -333,10 +335,9 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // ceremony). Only these are shown as full-zk; every other 'full-zk'-declared circuit is
 // honestly downgraded to oracle-attested + zkPending until its key ships and a proof verifies.
 const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
-// Circuits that additionally have a WORKING in-browser Groth16 prover (real fullProve over served
-// artifacts). age_verification is full-zk but its in-browser prover is not wired yet (needs
-// circomlibjs for the MiMC7 commitment) so it is deliberately excluded here.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party']);
+// Circuits that have a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
+// age_verification computes its public commitment = MiMC7(birth_year) in-browser via a pure-JS MiMC7.
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
@@ -1220,6 +1221,14 @@ contract VisualCovenant {
     publicSignals: ["1","1000000","100","1000150","0"]
   }, null, 2);
 
+  // ── Default age_verification proof (from zk/age_verification_proof.json - bundled fallback) ──
+  // publicSignals = [valid, commitment=MiMC7(birth_year), current_year, min_age]; this proves a
+  // 1990 birth-year is >= 18 by 2026 (valid=1) without revealing the birth year.
+  const bundledAgeProof = JSON.stringify({
+    proof: {pi_a:["5619895548091576804581760492698429345849062891191744608859163905168379928693","7839288049757903982851672696890472855721483963839901554082218912274024379088","1"],pi_b:[["4044048291624416226957668696574893406681818621608843988030802900725855639731","6100628949306472358778982026802718533177795569131468773010381365087192436052"],["7679876114676165661785250331563008797335051957690885728355820952120139032780","1367335231690467297564311959019316973876860160510307767707848474899300146768"],["1","0"]],pi_c:["9918711859505021885296375199776448337071396188891224177119145403945845525994","11428623058958036795346677199997004438696653948382146737430378223361652949425","1"],protocol:"groth16",curve:"bn128"},
+    publicSignals: ["1","9200635592700100900023685259419851615264527311517926356835164316867165626887","2026","18"]
+  }, null, 2);
+
   // ── Client-side ZK proof generation state ──
   const [zkGenerating, setZkGenerating] = useState(false);
   const [zkGenError, setZkGenError] = useState('');
@@ -1346,6 +1355,45 @@ contract VisualCovenant {
       setZkGenError(`In-browser proof generation failed (${e.message || e}). Loaded the bundled valid escrow proof instead.`);
       setOracleProof(bundledEscrowProof);
       setOraclePublicInputs('1,1000000,100,1000150,0');
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real Age Verification proof in the browser. Unlike escrow, this circuit's public
+  // commitment is MiMC7(birth_year), so we compute it client-side via a pure-JS MiMC7, then fullProve
+  // over the served wasm + final zkey. The birth year is a PRIVATE witness and never leaves the
+  // browser - only the commitment + (current_year, min_age) are public.
+  // Public signals: [valid, commitment, current_year, min_age]; valid=1 iff current_year - birth_year >= min_age.
+  const generateAgeProof = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const wasm = '/zk/age_verification/age_verification.wasm';
+      const zkey = '/zk/age_verification/age_verification_final.zkey';
+
+      // A holder born in 1990 proving they are at least 18 as of 2026 (real, satisfiable scenario).
+      const birthYear = 1990;
+      const currentYear = 2026;
+      const minAge = 18;
+      // commitment = MiMC7(birth_year) computed locally in pure JS (no deps, matches the circuit).
+      const commitment = mimc7Commitment(birthYear);
+
+      const input = {
+        commitment,
+        current_year: currentYear.toString(),
+        min_age: minAge.toString(),
+        birth_year: birthYear.toString(), // PRIVATE witness - stays in the browser
+      };
+
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      // Honest fallback: a real, verifying bundled proof (NOT fabricated). Never emit a fake proof.
+      setZkGenError(`In-browser proof generation failed (${e.message || e}). Loaded the bundled valid age proof instead.`);
+      setOracleProof(bundledAgeProof);
+      setOraclePublicInputs('1,9200635592700100900023685259419851615264527311517926356835164316867165626887,2026,18');
     }
     setZkGenerating(false);
   };
@@ -3941,6 +3989,10 @@ ${gameMeta.outcomeBranches}
                     // Real, verifying bundled escrow proof (valid refund-after-timeout).
                     setOracleProof(bundledEscrowProof);
                     setOraclePublicInputs('1,1000000,100,1000150,0');
+                  } else if (gameType === 'age_verification') {
+                    // Real, verifying bundled age proof (born 1990, >= 18 by 2026).
+                    setOracleProof(bundledAgeProof);
+                    setOraclePublicInputs('1,9200635592700100900023685259419851615264527311517926356835164316867165626887,2026,18');
                   } else {
                     // age_verification, verifiable, custom - demo attested proof
                     setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'oracle_attested_demo' }, publicSignals: ['1'] }));
@@ -3949,7 +4001,7 @@ ${gameMeta.outcomeBranches}
                 }}
                 className="text-[10px] text-[#3B82F6] hover:text-[#3B82F6]/80 font-mono underline underline-offset-2"
               >
-                {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : gameType === 'range_proof' ? 'Load demo valid range proof (value inside [0,100])' : gameType === 'escrow_2party' ? 'Load bundled escrow proof (valid refund after timeout)' : 'Load demo attested proof'}
+                {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : gameType === 'range_proof' ? 'Load demo valid range proof (value inside [0,100])' : gameType === 'escrow_2party' ? 'Load bundled escrow proof (valid refund after timeout)' : gameType === 'age_verification' ? 'Load bundled age proof (born 1990, >= 18 by 2026)' : 'Load demo attested proof'}
               </button>
 
               {/* Generate real ZK proof client-side via snarkjs (circuit-specific) */}
@@ -3992,6 +4044,19 @@ ${gameMeta.outcomeBranches}
                   <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
                   {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Escrow Proof (snarkjs)'}
                 </button>
+              ) : gameType === 'age_verification' ? (
+                <button
+                  onClick={generateAgeProof}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                      : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Age Proof (snarkjs + MiMC)'}
+                </button>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
                   <Info size={14} />
@@ -4012,7 +4077,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
+              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
             </div>
 
             <button

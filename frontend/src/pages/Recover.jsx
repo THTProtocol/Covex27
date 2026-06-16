@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LifeBuoy, ShieldCheck, KeyRound, Copy, Check, ExternalLink, Search,
-  Upload, AlertTriangle, ArrowLeft,
+  Upload, AlertTriangle, ArrowLeft, Coins, Loader2,
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
+import { hasPublicApi, fetchAddressBalanceSompi, sompiToKas } from '../lib/kaspaPublicApi';
 
 // Standalone, Covex-independent recovery page. Every covenant Covex deploys is a script-enforced P2SH
 // covenant: the KASPA CHAIN enforces the spend rules, not Covex. So a holder can settle directly from
@@ -59,6 +60,26 @@ export default function Recover() {
   const [kit, setKit] = useState(null);
   const [txid, setTxid] = useState('');
   const [looking, setLooking] = useState(false);
+  const [bal, setBal] = useState({ loading: false, kas: null, error: null, available: false });
+
+  // When a kit loads, confirm the locked balance via a PUBLIC Kaspa node (read-only, never Covex).
+  useEffect(() => {
+    if (!kit?.address || !hasPublicApi(kit.network)) {
+      setBal({ loading: false, kas: null, error: null, available: false });
+      return undefined;
+    }
+    const ac = new AbortController();
+    setBal({ loading: true, kas: null, error: null, available: true });
+    (async () => {
+      try {
+        const sompi = await fetchAddressBalanceSompi(kit.address, kit.network, ac.signal);
+        setBal({ loading: false, kas: sompiToKas(sompi), error: null, available: true });
+      } catch (e) {
+        if (e.name !== 'AbortError') setBal({ loading: false, kas: null, error: 'Could not reach a public node for this network right now.', available: true });
+      }
+    })();
+    return () => ac.abort();
+  }, [kit]);
 
   const loadFromText = (text) => {
     setError('');
@@ -180,6 +201,30 @@ export default function Recover() {
             <button onClick={() => { setKit(null); setError(''); }} className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-kaspa-green transition-colors">
               <ArrowLeft size={13} /> Load a different kit
             </button>
+
+            {/* Independently-verified locked balance (read-only, via a public Kaspa node) */}
+            {bal.available && (
+              <div className="rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.05] p-4">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-1.5">
+                  <Coins size={13} className="text-kaspa-green" /> Funds locked here
+                  <span className="ml-auto normal-case tracking-normal text-[10px] text-gray-500">via {kit.network} public node, not Covex</span>
+                </div>
+                {bal.loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={14} className="animate-spin text-kaspa-green" /> Checking the chain…</div>}
+                {bal.error && <div className="text-[12px] text-amber-300">{bal.error} You can still verify on the explorer below.</div>}
+                {bal.kas != null && (
+                  <div>
+                    <div className="text-2xl font-black text-kaspa-green tabular-nums leading-none">
+                      {bal.kas.toLocaleString(undefined, { maximumFractionDigits: 4 })} <span className="text-sm font-bold">KAS</span>
+                    </div>
+                    <div className="text-[11px] text-gray-400 light:text-slate-500 mt-1">
+                      {bal.kas > 0
+                        ? 'Confirmed locked at this address, ready to redeem with the script + your key.'
+                        : 'This address holds 0 KAS now - the covenant appears already settled (or not yet funded).'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* The covenant's recovery data */}
             <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white p-4 space-y-3">

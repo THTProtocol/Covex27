@@ -202,6 +202,75 @@ fn message_digest(message: &str) -> Message {
     Message::from_digest(d)
 }
 
+// ── H4: covenant_id -> BN254 field element ──────────────────────────────────
+// The BN254 (alt_bn128 / bn128) scalar field modulus `r` that snarkjs/circom use.
+// Public signals are field elements in [0, r). We bind a covenant by committing
+// sha256(covenant_id) reduced mod r as a public input. Implemented with plain
+// 256-bit big-endian byte arithmetic (compare / subtract / div-by-10) so it needs
+// NO new bignum crate dependency.
+const BN254_R_BE: [u8; 32] = [
+    0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81, 0x58, 0x5d,
+    0x28, 0x33, 0xe8, 0x48, 0x79, 0xb9, 0x70, 0x91, 0x43, 0xe1, 0xf5, 0x93, 0xf0, 0x00, 0x00, 0x01,
+];
+
+/// big-endian 256-bit compare: a >= b ?
+fn be_ge(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    for i in 0..32 {
+        if a[i] != b[i] {
+            return a[i] > b[i];
+        }
+    }
+    true
+}
+
+/// big-endian 256-bit subtract in place: a -= b (assumes a >= b).
+fn be_sub_assign(a: &mut [u8; 32], b: &[u8; 32]) {
+    let mut borrow: i16 = 0;
+    for i in (0..32).rev() {
+        let diff = a[i] as i16 - b[i] as i16 - borrow;
+        if diff < 0 {
+            a[i] = (diff + 256) as u8;
+            borrow = 1;
+        } else {
+            a[i] = diff as u8;
+            borrow = 0;
+        }
+    }
+}
+
+/// Render a big-endian 256-bit value as a base-10 string (repeated div by 10).
+fn be_to_decimal(mut v: [u8; 32]) -> String {
+    // Fast path for zero.
+    if v.iter().all(|&x| x == 0) {
+        return "0".to_string();
+    }
+    let mut digits: Vec<u8> = Vec::with_capacity(78);
+    while v.iter().any(|&x| x != 0) {
+        let mut rem: u32 = 0;
+        for byte in v.iter_mut() {
+            let cur = (rem << 8) | (*byte as u32);
+            *byte = (cur / 10) as u8;
+            rem = cur % 10;
+        }
+        digits.push(b'0' + rem as u8);
+    }
+    digits.reverse();
+    String::from_utf8(digits).expect("ascii digits")
+}
+
+/// Compute the field element that binds a covenant: sha256(covenant_id) interpreted
+/// big-endian, reduced mod the BN254 scalar field, as a decimal string (matching how
+/// snarkjs emits public signals). A circuit binds itself to a covenant by committing
+/// this value as a public input.
+pub(crate) fn covenant_field_element(covenant_id: &str) -> String {
+    let mut acc: [u8; 32] = Sha256::digest(covenant_id.as_bytes()).into();
+    // sha256 output < 2^256 < 5*r, so a few conditional subtractions fully reduce it.
+    while be_ge(&acc, &BN254_R_BE) {
+        be_sub_assign(&mut acc, &BN254_R_BE);
+    }
+    be_to_decimal(acc)
+}
+
 /// Sign sha256(message) with the oracle key (BIP340 Schnorr; 64-byte hex sig).
 pub fn sign_outcome(message: &str) -> String {
     let kp = oracle_keypair();
@@ -622,6 +691,63 @@ async fn verify_and_sign_handler(
                 circuit_type: Some(input.circuit_type.clone()),
                 covenant_hint: None,
             });
+        }
+        // SECURITY (H4): bind the proof to THIS covenant_id to stop cross-covenant
+        // signature replay. The signed message includes the caller-supplied covenant_id,
+        // but nothing ties the *proof* to it: a proof verified for covenant A can be
+        // re-submitted with covenant_id=B and the oracle would happily sign B's message
+        // ("portable proof" replay). The binding here requires the proof's public signals
+        // to contain the field element H(covenant_id) := sha256(covenant_id) reduced mod
+        // the BN254 scalar field, so a proof can only mint a signature for the exact
+        // covenant whose id was committed as a public input at proving time.
+        //
+        // RESIDUAL RISK / why this is "partial": the existing strict circuits
+        // (merkle/range/timelock/hash/etc.) do NOT currently emit covenant_id as a public
+        // signal, so a HARD requirement would break every legitimate proof today. We
+        // therefore gate enforcement:
+        //   * If H(covenant_id) IS among the public inputs -> the proof is correctly bound;
+        //     allow (this is the sound, replay-safe path).
+        //   * If it is NOT present -> we cannot cryptographically bind. With
+        //     COVEX_REQUIRE_COVENANT_BINDING=true the oracle rejects loudly (recommended
+        //     once circuits emit the binding). By default we allow but emit a loud warning,
+        //     so merkle/range keep working. FULLY closing this requires a circuit-side
+        //     change: add a public `covenantId` signal to each non-game circuit and have
+        //     provers commit sha256(covenant_id) mod r. Until then a proof for one covenant
+        //     can still be replayed onto another covenant of the SAME circuit type when the
+        //     circuit omits the binding signal.
+        let expected_covenant_fe = covenant_field_element(&input.covenant_id);
+        let bound = input
+            .public_inputs
+            .iter()
+            .any(|s| s.trim() == expected_covenant_fe);
+        if !bound {
+            let strict = std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+            if strict {
+                return Json(OracleVerifyOutput {
+                    success: false,
+                    outcome: None,
+                    signature: None,
+                    timestamp: None,
+                    message: None,
+                    error: Some(format!(
+                        "covenant binding missing: proof for circuit '{}' does not commit covenant_id (expected public input {} = sha256(covenant_id) mod BN254). Refusing to sign to prevent cross-covenant proof replay (COVEX_REQUIRE_COVENANT_BINDING=true).",
+                        input.circuit_type, expected_covenant_fe
+                    )),
+                    public_inputs: input.public_inputs,
+                    circuit_type: Some(input.circuit_type.clone()),
+                    covenant_hint: None,
+                });
+            }
+            tracing::warn!(
+                "H4 covenant binding ABSENT for covenant {} (circuit {}): proof does not commit \
+                 sha256(covenant_id) mod BN254 ({}) as a public input. Signing anyway for \
+                 backward compatibility (legacy circuits omit the binding signal); this proof \
+                 could be replayed onto another covenant of the same circuit type. Set \
+                 COVEX_REQUIRE_COVENANT_BINDING=true once circuits emit the binding to fail closed.",
+                &input.covenant_id[..16.min(input.covenant_id.len())],
+                input.circuit_type,
+                expected_covenant_fe
+            );
         }
         // verified == true here means snarkjs accepted the proof; derive the outcome
         // from the cryptographically-bound public signals (requested_outcome ignored).

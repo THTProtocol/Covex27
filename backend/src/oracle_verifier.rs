@@ -352,23 +352,21 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "election_feed",
         VerifierSpec::HybridGroth16 { script: "verify_election_feed.js", prefix: "covex_elec" },
     );
-    m.insert(
-        "ml_inference_stub",
-        VerifierSpec::HybridGroth16 { script: "verify_ml_inference_stub.js", prefix: "covex_mli" },
-    );
+    // SECURITY (C1): ml_inference_stub has NO real circom circuit + committed vkey - its
+    // verify script was a rubber-stamp delegator to verify_attested.js. Registering it as
+    // Attested means circuit_requires_crypto_proof()==false, so the oracle handler refuses
+    // to sign its caller-supplied outcome (no crypto proof can warrant a signature).
+    m.insert("ml_inference_stub", VerifierSpec::Attested);
     m.insert(
         "weather_feed",
         VerifierSpec::HybridGroth16 { script: "verify_weather_feed.js", prefix: "covex_wf" },
     );
-    m.insert(
-        "sorting_proof",
-        VerifierSpec::HybridGroth16 { script: "verify_sorting_proof.js", prefix: "covex_sort" },
-    );
+    // SECURITY (C1): sorting_proof has NO real circom circuit + committed vkey (rubber-stamp
+    // delegator script). Attested so the oracle refuses to sign its outcome.
+    m.insert("sorting_proof", VerifierSpec::Attested);
     // (chess_ai_move removed with chess zk circuit)
-    m.insert(
-        "poker_equity",
-        VerifierSpec::HybridGroth16 { script: "verify_poker_equity.js", prefix: "covex_peq" },
-    );
+    // SECURITY (C1): poker_equity has NO real circuit (rubber-stamp delegator). Attested.
+    m.insert("poker_equity", VerifierSpec::Attested);
     m.insert(
         "collateral_ltv",
         VerifierSpec::HybridGroth16 { script: "verify_collateral_ltv.js", prefix: "covex_ltv" },
@@ -377,22 +375,16 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "loan_health",
         VerifierSpec::HybridGroth16 { script: "verify_loan_health.js", prefix: "covex_loan" },
     );
-    m.insert(
-        "multi_sig_gating",
-        VerifierSpec::HybridGroth16 { script: "verify_multi_sig_gating.js", prefix: "covex_msg" },
-    );
-    m.insert(
-        "anon_credential",
-        VerifierSpec::HybridGroth16 { script: "verify_anon_credential.js", prefix: "covex_acred" },
-    );
+    // SECURITY (C1): multi_sig_gating has NO real circuit (rubber-stamp delegator). Attested.
+    m.insert("multi_sig_gating", VerifierSpec::Attested);
+    // SECURITY (C1): anon_credential has NO real circuit (rubber-stamp delegator). Attested.
+    m.insert("anon_credential", VerifierSpec::Attested);
     m.insert(
         "financial_formula",
         VerifierSpec::HybridGroth16 { script: "verify_financial_formula.js", prefix: "covex_ff" },
     );
-    m.insert(
-        "verifiable_poker_solver",
-        VerifierSpec::HybridGroth16 { script: "verify_verifiable_poker_solver.js", prefix: "covex_pks" },
-    );
+    // SECURITY (C1): verifiable_poker_solver has NO real circuit (rubber-stamp delegator). Attested.
+    m.insert("verifiable_poker_solver", VerifierSpec::Attested);
     // Latest sub-agent Phase 0/1 circuits (relative timelock, VRF family, script constraints, pot split, turn timer)
     // Promoted Hybrid -> Strict after a live trusted setup produced matched keys and a
     // real proof verified end-to-end (tamper-rejected). Strict = always run snarkjs and

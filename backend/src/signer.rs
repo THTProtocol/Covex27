@@ -561,10 +561,9 @@ pub async fn sign_and_broadcast_handler(
     // ── DIAGNOSTIC LOGGING ───────────────────────────────────
     let first_utxo = &chosen_utxos[0];
     warn!(
-        "[SIGNER-DIAG] tx_inputs={}  utxo_entries={}  pk_prefix={}",
+        "[SIGNER-DIAG] tx_inputs={}  utxo_entries={}",
         unsigned_tx.inputs.len(),
         entries.len(),
-        &private_key_hex[..10.min(private_key_hex.len())],
     );
     warn!(
         "[SIGNER-DIAG] input[0] outpoint={}:{}",

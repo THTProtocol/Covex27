@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
     let conn = Connection::open(path)?;
@@ -249,7 +249,8 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
             resolved_at      INTEGER,
             fee_bps          INTEGER NOT NULL DEFAULT 3000,
-            rebate_bps       INTEGER NOT NULL DEFAULT 5000
+            rebate_bps       INTEGER NOT NULL DEFAULT 5000,
+            creator_address  TEXT
         );
         CREATE TABLE IF NOT EXISTS market_orders (
             order_id      TEXT PRIMARY KEY,
@@ -334,6 +335,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
     for ddl in [
         "ALTER TABLE bundle_markets ADD COLUMN fee_bps INTEGER NOT NULL DEFAULT 3000",
         "ALTER TABLE bundle_markets ADD COLUMN rebate_bps INTEGER NOT NULL DEFAULT 5000",
+        "ALTER TABLE bundle_markets ADD COLUMN creator_address TEXT",
     ] {
         let _ = conn.execute(ddl, []); // duplicate-column errors expected on already-migrated DBs
     }
@@ -1524,6 +1526,29 @@ pub fn insert_bundle_market(
     Ok(())
 }
 
+/// Bind a market to its on-chain creator address. Called immediately after
+/// insert_bundle_market so the creator can be authorised for privileged market
+/// actions (e.g. resolution) without changing insert_bundle_market's signature.
+pub fn set_bundle_market_creator(db: &Arc<Mutex<Connection>>, market_id: &str, creator: &str) -> rusqlite::Result<usize> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE bundle_markets SET creator_address = ?2 WHERE market_id = ?1",
+        params![market_id, creator],
+    )
+}
+
+/// The on-chain creator bound to a market, if one has been recorded.
+pub fn get_bundle_market_creator(db: &Arc<Mutex<Connection>>, market_id: &str) -> Option<String> {
+    let conn = db.lock().unwrap();
+    conn.query_row(
+        "SELECT creator_address FROM bundle_markets WHERE market_id = ?1",
+        params![market_id],
+        |r| r.get::<_, Option<String>>(0),
+    )
+    .ok()
+    .flatten()
+}
+
 pub fn get_bundle_market(db: &Mutex<Connection>, market_id: &str) -> Option<BundleMarket> {
     let conn = db.lock().unwrap();
     conn.query_row(
@@ -1692,10 +1717,11 @@ pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64, network: &str) 
 
 // ── Auth Token Management ─────────────────────────────────────
 
-use sha2::{Sha256, Digest};
-
 /// Create a one-time auth token for a paying address on a specific network.
-/// Token is SHA256(address + network + timestamp + random salt).
+/// Token is 32 cryptographically-random bytes (256 bits of entropy), hex-encoded.
+/// Deriving it from low-entropy fields (address/network/second-resolution timestamp)
+/// plus a 64-bit salt was guessable; an unguessable random token is required because
+/// possession of the token authorises a paid deployment.
 pub fn create_auth_token(
     db: &Mutex<Connection>,
     address: &str,
@@ -1703,17 +1729,11 @@ pub fn create_auth_token(
     tier: &str,
 ) -> anyhow::Result<String> {
     let conn = db.lock().unwrap();
-    let salt = rand::random::<u64>();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
-    let mut hasher = Sha256::new();
-    hasher.update(address.as_bytes());
-    hasher.update(network.as_bytes());
-    hasher.update(&now.to_le_bytes());
-    hasher.update(&salt.to_le_bytes());
-    let token = hex::encode(hasher.finalize());
+    let token = hex::encode(rand::random::<[u8; 32]>());
 
     conn.execute(
         "INSERT INTO auth_tokens (token, address, network, tier, created_at, expires_at)
@@ -1873,17 +1893,20 @@ pub fn mixer_nullifier_spent(db: &Mutex<Connection>, nullifier: &str) -> anyhow:
     Ok(count > 0)
 }
 
+/// Atomically record a nullifier as spent. `nullifier` is the PRIMARY KEY of
+/// mixer_nullifiers (UNIQUE), so the INSERT OR IGNORE inserts exactly one row the
+/// first time a nullifier is seen and ZERO rows on any reuse. Returns the number
+/// of rows inserted so the caller can detect a double-spend (0 == already spent).
 pub fn mixer_record_nullifier(
     db: &Mutex<Connection>,
     nullifier: &str,
     covenant_id: &str,
-) -> anyhow::Result<()> {
+) -> rusqlite::Result<usize> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR IGNORE INTO mixer_nullifiers (nullifier, covenant_id) VALUES (?1, ?2)",
         params![nullifier, covenant_id],
-    )?;
-    Ok(())
+    )
 }
 
 fn compute_mixer_root(leaves: &[String]) -> anyhow::Result<String> {

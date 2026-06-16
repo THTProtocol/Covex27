@@ -86,7 +86,10 @@ async fn main() {
     fmt().with_env_filter(filter).init();
 
     // --- Config ---
-    let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3006".to_string());
+    // Defense-in-depth: when BIND_ADDR is unset, bind loopback only so a bare-metal
+    // deploy never exposes the backend publicly. Production reaches us via local nginx;
+    // the container deploy sets BIND_ADDR=0.0.0.0:3006 explicitly (published to host loopback).
+    let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3006".to_string());
     let addr: SocketAddr = bind_addr.parse().expect("Invalid BIND_ADDR");
     let wrpc_url =
         env::var("KASPA_WRPC_URL").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string());
@@ -562,7 +565,10 @@ async fn covenant_actions_handler(
 }
 
 /// Per-IP token bucket for expensive routes. 20 burst, refills 2/sec.
-/// Keyed on X-Forwarded-For (nginx) falling back to X-Real-IP. No external deps.
+/// Keyed on X-Real-IP, which our trusted nginx sets (replace-not-append) to the real
+/// peer address. Client-supplied X-Forwarded-For is NOT trusted, since a hostile client
+/// could rotate it to evade the limit. Falls back to "unknown" when X-Real-IP is absent.
+/// No external deps.
 async fn rate_limit_middleware(
     req: axum::extract::Request,
     next: axum::middleware::Next,
@@ -583,16 +589,13 @@ async fn rate_limit_middleware(
         return next.run(req).await;
     }
 
+    // Key ONLY on X-Real-IP set by our trusted nginx. Do not consult the
+    // client-controlled X-Forwarded-For: a single attacker could otherwise mint a
+    // fresh bucket per request by rotating that header and bypass the limiter.
     let ip = req
         .headers()
-        .get("x-forwarded-for")
+        .get("x-real-ip")
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .or_else(|| {
-            req.headers()
-                .get("x-real-ip")
-                .and_then(|v| v.to_str().ok())
-        })
         .unwrap_or("unknown")
         .trim()
         .to_string();
@@ -1110,6 +1113,15 @@ async fn save_terminal_config_handler(
                     }));
                 }
             }
+            // Replay protection: the signature is valid, but the nonce must be one
+            // we issued for THIS covenant and not yet spent. Consume it atomically.
+            if !consume_ownership_nonce(nonce, &covenant_id) {
+                warn!("terminal-config nonce rejected (unknown/expired/replayed) for {}", pfx(&covenant_id));
+                return Json(json!({
+                    "success": false,
+                    "error": "Challenge nonce is invalid, expired, or already used. Request a fresh challenge and sign again."
+                }));
+            }
         }
     }
 
@@ -1223,6 +1235,52 @@ fn verify_terminal_ownership_signature(
     Ok(false)
 }
 
+// ── Single-use ownership nonce store (replay protection) ──
+//
+// Ownership signatures are over `covex-config:{covenant_id}:{nonce}`. Without a
+// server-side record of which nonces were issued, a captured signature could be
+// replayed indefinitely. We keep a self-contained in-memory store of issued
+// nonces bound to (covenant_id, expiry); each is consumed exactly once on a
+// successful ownership check. Entries are single-process and non-persistent,
+// which is acceptable: a restart only invalidates outstanding challenges, forcing
+// the client to fetch a fresh nonce — it never weakens verification.
+
+/// Time-to-live for an issued challenge nonce, in seconds.
+const OWNERSHIP_NONCE_TTL_SECS: i64 = 300;
+
+/// nonce -> (covenant_id, expiry_unix)
+fn ownership_nonce_store() -> &'static std::sync::Mutex<HashMap<String, (String, i64)>> {
+    static STORE: std::sync::OnceLock<std::sync::Mutex<HashMap<String, (String, i64)>>> =
+        std::sync::OnceLock::new();
+    STORE.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+/// Record an issued nonce, bound to `covenant_id`, valid for `OWNERSHIP_NONCE_TTL_SECS`.
+fn record_ownership_nonce(nonce: &str, covenant_id: &str) {
+    let now = chrono::Utc::now().timestamp();
+    let mut map = ownership_nonce_store().lock().unwrap();
+    // Opportunistic purge of expired entries so the map cannot grow unbounded.
+    map.retain(|_, (_, expiry)| *expiry > now);
+    map.insert(nonce.to_string(), (covenant_id.to_string(), now + OWNERSHIP_NONCE_TTL_SECS));
+}
+
+/// Atomically consume a single-use ownership nonce. Returns true only if the
+/// nonce exists, has not expired, and is bound to `covenant_id`; the entry is
+/// removed on success (and any matching-but-expired entry is dropped too).
+fn consume_ownership_nonce(nonce: &str, covenant_id: &str) -> bool {
+    let now = chrono::Utc::now().timestamp();
+    let mut map = ownership_nonce_store().lock().unwrap();
+    // Opportunistic purge of expired entries.
+    map.retain(|_, (_, expiry)| *expiry > now);
+    match map.get(nonce) {
+        Some((bound_id, expiry)) if *expiry > now && bound_id == covenant_id => {
+            map.remove(nonce);
+            true
+        }
+        _ => false,
+    }
+}
+
 /// GET /terminal-config-challenge/:covenant_id
 /// Returns a random nonce for the frontend to sign, proving wallet ownership.
 async fn terminal_config_challenge_handler(
@@ -1230,6 +1288,8 @@ async fn terminal_config_challenge_handler(
 ) -> Json<serde_json::Value> {
     let nonce = uuid::Uuid::new_v4().to_string();
     let message = format!("covex-config:{}:{}", covenant_id, nonce);
+    // Record the nonce so the matching save can consume it exactly once.
+    record_ownership_nonce(&nonce, &covenant_id);
     Json(json!({
         "nonce": nonce,
         "message": message,
@@ -1922,6 +1982,12 @@ struct CovenantMetadataInput {
     reality: Option<String>,           // 'full-zk' | 'hybrid' | 'oracle-attested'
     circuit_category: Option<String>,  // 'game' | 'crypto' | 'ownership' | 'defi' | etc.
     has_artifacts: Option<bool>,       // true if real artifacts exist in zk/
+    // Ownership proof (same scheme as terminal-config): required to set featured
+    // metadata on a covenant that has a known creator. Signature is over the
+    // `covex-config:{tx_id}:{nonce}` challenge issued by terminal_config_challenge_handler.
+    signer_address: Option<String>,
+    signature: Option<String>,
+    nonce: Option<String>,
 }
 
 /// POST /api/auth-session
@@ -2080,6 +2146,69 @@ async fn save_covenant_metadata_handler(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Json(input): Json<CovenantMetadataInput>,
 ) -> Json<serde_json::Value> {
+    fn pfx(s: &str) -> &str {
+        &s[..s.len().min(16)]
+    }
+
+    // ── Ownership enforcement ──
+    // Featured metadata gives a covenant top visibility, so it must not be writable
+    // for an arbitrary tx_id by an unauthenticated caller. Mirror the terminal-config
+    // ownership flow: if the covenant is indexed with a known creator, require a valid
+    // wallet signature over a single-use challenge nonce bound to this tx_id, with
+    // signer == creator. `featured` is only set when ownership is proven.
+    // If the covenant is unknown / has no creator, there is nothing to protect, so the
+    // save is allowed — but it is NEVER featured.
+    let mut featured = false;
+    if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &input.tx_id) {
+        if !cov.creator_addr.is_empty() {
+            let signer = input.signer_address.as_deref().unwrap_or("");
+            let sig = input.signature.as_deref().unwrap_or("");
+            let nonce = input.nonce.as_deref().unwrap_or("");
+            if signer != cov.creator_addr {
+                warn!("covenant-metadata rejected for {}: signer {} != creator {}",
+                    pfx(&input.tx_id), pfx(signer), pfx(&cov.creator_addr));
+                return Json(json!({
+                    "success": false,
+                    "error": "Only the original covenant deployer can set featured metadata for this covenant"
+                }));
+            }
+            if sig.is_empty() || nonce.is_empty() {
+                return Json(json!({
+                    "success": false,
+                    "error": "A wallet signature is required. Connect the creator wallet and approve the signature request."
+                }));
+            }
+            match verify_terminal_ownership_signature(signer, sig, nonce, &input.tx_id) {
+                Ok(true) => {}
+                Ok(false) => {
+                    warn!("covenant-metadata signature FAILED for {} by {}", pfx(&input.tx_id), pfx(signer));
+                    return Json(json!({
+                        "success": false,
+                        "error": "Signature verification failed - the provided signature does not match the signer address"
+                    }));
+                }
+                Err(e) => {
+                    warn!("covenant-metadata signature error for {}: {}", pfx(&input.tx_id), e);
+                    return Json(json!({
+                        "success": false,
+                        "error": format!("Signature error: {}", e)
+                    }));
+                }
+            }
+            // Replay protection: consume the single-use nonce bound to this tx_id.
+            if !consume_ownership_nonce(nonce, &input.tx_id) {
+                warn!("covenant-metadata nonce rejected (unknown/expired/replayed) for {}", pfx(&input.tx_id));
+                return Json(json!({
+                    "success": false,
+                    "error": "Challenge nonce is invalid, expired, or already used. Request a fresh challenge and sign again."
+                }));
+            }
+            // Ownership proven: this covenant may be featured.
+            featured = true;
+            info!("ownership signature verified for covenant-metadata {}", pfx(&input.tx_id));
+        }
+    }
+
     let metadata_json = json!({
         "name": input.name,
         "description": input.description,
@@ -2107,11 +2236,16 @@ async fn save_covenant_metadata_handler(
         "",
         &metadata_json.to_string(),
         &slug,
-        true, // featured = true for paid covenants
+        featured, // only featured when ownership was proven above
     ) {
         Ok(_) => {
-            info!("Covenant metadata saved for {}", &input.tx_id[..16]);
-            Json(json!({ "success": true, "message": "Metadata persisted. Covenant now has top visibility." }))
+            info!("Covenant metadata saved for {} (featured={})", pfx(&input.tx_id), featured);
+            let message = if featured {
+                "Metadata persisted. Covenant now has top visibility."
+            } else {
+                "Metadata persisted."
+            };
+            Json(json!({ "success": true, "message": message }))
         }
         Err(e) => Json(json!({ "success": false, "error": e.to_string() }))
     }

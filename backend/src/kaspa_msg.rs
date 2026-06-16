@@ -15,7 +15,7 @@
 //! (the library kasware is built on) - see the tests below and
 //! frontend/kaspa-msg-fixture.mjs.
 
-use kaspa_addresses::Address;
+use kaspa_addresses::{Address, Version};
 use secp256k1::{schnorr::Signature, Message, Secp256k1, XOnlyPublicKey};
 
 /// Verify that `signature_hex` is a valid Kaspa wallet signature of `message`
@@ -26,6 +26,13 @@ use secp256k1::{schnorr::Signature, Message, Secp256k1, XOnlyPublicKey};
 /// malformed (or the address is not a schnorr P2PK address).
 pub fn verify_message(address: &str, message: &str, signature_hex: &str) -> Result<bool, String> {
     let addr = Address::try_from(address).map_err(|e| format!("invalid address: {}", e))?;
+    // Only genuine schnorr P2PK addresses carry an x-only public key as payload.
+    // A ScriptHash (P2SH) or PubKeyECDSA address must never be treated as a P2PK
+    // key, even if its payload happens to parse as a valid curve point. Fail
+    // closed for any non-PubKey version (not-verified path).
+    if addr.version != Version::PubKey {
+        return Ok(false);
+    }
     let payload = addr.payload.as_slice();
     if payload.len() != 32 {
         return Err(format!(

@@ -116,6 +116,29 @@ nginx -t 2>&1
 systemctl reload nginx 2>/dev/null || systemctl start nginx
 echo "  nginx: OK"
 
+# ─── Firewall (ufw): public web + ssh only; backend & kaspad RPC stay local ──
+echo "[firewall] Configuring ufw..."
+if ! command -v ufw &>/dev/null; then
+    apt-get install -y -qq ufw 2>&1 | tail -1
+fi
+# Default deny inbound; allow only ssh + http/https from the public internet.
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+# Backend API: reached only via local nginx, never publicly.
+ufw deny 3006/tcp
+# kaspad RPC (gRPC + Borsh/wRPC): reached locally or via reverse SSH tunnel only.
+#   mainnet gRPC 16110 / Borsh 17110 ; TN10 gRPC 16211 / Borsh 17210 ; TN12 Borsh 17217
+ufw deny 16110/tcp
+ufw deny 17110/tcp
+ufw deny 16211/tcp
+ufw deny 17210/tcp
+ufw deny 17217/tcp
+ufw --force enable
+ufw status verbose 2>&1 | tail -20 || true
+
 # ─── Install systemd service ──────────────────────────────────────
 cp "${APP_DIR}/deploy/covex-backend.service" "/etc/systemd/system/covex-backend.service"
 systemctl daemon-reload

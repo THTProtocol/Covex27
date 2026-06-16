@@ -5,8 +5,11 @@
 # Builds both frontend (Vite) and backend (Rust), restarts services.
 #
 # Prerequisites:
-#   export PASSWORD="your_rotated_server_password"
-#   ./DEPLOY_TO_HIGHTABLE.sh
+#   The operator MUST install the deploy PUBLIC key in root@hightable.pro's
+#   ~/.ssh/authorized_keys (ssh-copy-id -i "${DEPLOY_SSH_KEY}.pub" root@hightable.pro).
+#   Then run:
+#     export DEPLOY_SSH_KEY="$HOME/.ssh/covex_deploy"   # path to the PRIVATE key
+#     ./DEPLOY_TO_HIGHTABLE.sh
 #
 # After running, verify triple sync:
 #   git rev-parse HEAD
@@ -15,15 +18,20 @@
 
 set -e
 
-if [ -z "${PASSWORD:-}" ]; then
-  echo "ERROR: PASSWORD environment variable is required."
-  echo "Usage: PASSWORD=your_rotated_password ./DEPLOY_TO_HIGHTABLE.sh"
+# Key-based SSH auth only. We no longer use sshpass/password auth, and we no
+# longer disable host-key checking (StrictHostKeyChecking=no is MITM-able).
+# accept-new pins the host key on first connect and refuses if it later changes.
+DEPLOY_SSH_KEY="${DEPLOY_SSH_KEY:-$HOME/.ssh/covex_deploy}"
+if [ ! -f "$DEPLOY_SSH_KEY" ]; then
+  echo "ERROR: deploy SSH private key not found at: $DEPLOY_SSH_KEY"
+  echo "Set DEPLOY_SSH_KEY to the private key whose PUBLIC half is installed in"
+  echo "root@hightable.pro:~/.ssh/authorized_keys, then re-run."
   exit 1
 fi
 
 SERVER="hightable.pro"
 HETZNER_SRC="/mnt/HC_Volume_105579109/Covex27"
-SSH_CMD="sshpass -p \"$PASSWORD\" ssh -o StrictHostKeyChecking=no root@$SERVER"
+SSH_CMD="ssh -i \"$DEPLOY_SSH_KEY\" -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes root@$SERVER"
 
 echo "=== Covex27 Full Deploy ==="
 echo "Server: $SERVER"

@@ -117,8 +117,43 @@ async fn withdraw_handler(
     Extension(db): Extension<Arc<Mutex<Connection>>>,
     Json(input): Json<MixerWithdrawInput>,
 ) -> Json<MixerWithdrawOutput> {
-    match crate::db::mixer_record_nullifier(&db, &input.nullifier, &input.covenant_id) {
-        Ok(()) => Json(MixerWithdrawOutput { success: true, error: None }),
+    // SECURITY (Finding H2): this endpoint records a withdraw nullifier but DOES NOT and
+    // MUST NOT trigger any on-chain payout. Before a real payout can ever be wired to this
+    // path, the caller MUST submit and the server MUST verify a ZK nullifier + denomination
+    // proof binding the nullifier to a specific committed deposit leaf in this pool. Until
+    // that circuit is verified here, the guards below are the minimum safety net:
+    //   (a) reject blank inputs,
+    //   (b) require the pool to contain at least one recorded deposit (no withdraws from an
+    //       empty pool — a partial bind to a real prior deposit; a full per-note bind needs
+    //       the ZK membership proof above),
+    //   (c) record the nullifier ATOMICALLY and reject any reuse (double-spend).
+    let nullifier = input.nullifier.trim();
+    let covenant_id = input.covenant_id.trim();
+    if nullifier.is_empty() || covenant_id.is_empty() {
+        return Json(MixerWithdrawOutput {
+            success: false,
+            error: Some("covenant_id and nullifier are required".to_string()),
+        });
+    }
+
+    // (b) Bind to evidence of a real prior deposit: the pool must have recorded leaves.
+    // A pool with zero deposits can never have produced a valid note, so reject outright.
+    let (_root, leaf_count) =
+        crate::db::mixer_get_root(&db, covenant_id).unwrap_or(("0".to_string(), 0));
+    if leaf_count <= 0 {
+        return Json(MixerWithdrawOutput {
+            success: false,
+            error: Some("no deposits exist for this pool".to_string()),
+        });
+    }
+
+    // (a)+(c) Atomic spend: INSERT OR IGNORE returns 0 rows if the nullifier already exists.
+    match crate::db::mixer_record_nullifier(&db, nullifier, covenant_id) {
+        Ok(0) => Json(MixerWithdrawOutput {
+            success: false,
+            error: Some("nullifier already spent".to_string()),
+        }),
+        Ok(_) => Json(MixerWithdrawOutput { success: true, error: None }),
         Err(e) => Json(MixerWithdrawOutput { success: false, error: Some(e.to_string()) }),
     }
 }

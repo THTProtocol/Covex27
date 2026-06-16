@@ -25,12 +25,14 @@ sleep 1
 # TN10 uses DIFFERENT ports from TN12:
 #   TN12: gRPC=16210, Borsh=17217
 #   TN10: gRPC=16211, Borsh=17210  (distinct, no conflict)
+# RPC (gRPC + Borsh/wRPC) binds to loopback only — reached locally or via the
+# reverse SSH tunnel, never the public interface. P2P --listen stays public.
 nohup "$KASPAD_BIN" \
   --testnet \
   --utxoindex \
   --listen=0.0.0.0:16610 \
   --rpclisten=127.0.0.1:16211 \
-  --rpclisten-borsh=0.0.0.0:17210 \
+  --rpclisten-borsh=127.0.0.1:17210 \
   --appdir="$DATA_DIR" \
   --nologfiles \
   > "$LOG_FILE" 2>&1 &

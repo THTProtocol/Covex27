@@ -23,8 +23,11 @@ if [ -n "$PIDS" ]; then
   kill $PIDS 2>/dev/null || true
   sleep 2
 fi
-# Standard mainnet ports + utxoindex + dedicated data dir
-nohup "$KASPAD_BIN"   --utxoindex   --listen=0.0.0.0:16111   --rpclisten=0.0.0.0:16110   --rpclisten-borsh=0.0.0.0:17110   --appdir="$DATA_DIR"   --nologfiles   > "$LOG_FILE" 2>&1 &
+# Standard mainnet ports + utxoindex + dedicated data dir.
+# RPC (gRPC + Borsh/wRPC) binds to loopback only — it is reached locally or via
+# the reverse SSH tunnel, never directly from the public interface. P2P --listen
+# stays public so peers can connect.
+nohup "$KASPAD_BIN"   --utxoindex   --listen=0.0.0.0:16111   --rpclisten=127.0.0.1:16110   --rpclisten-borsh=127.0.0.1:17110   --appdir="$DATA_DIR"   --nologfiles   > "$LOG_FILE" 2>&1 &
 PID=$!
 sleep 3
 if ps -p $PID > /dev/null; then

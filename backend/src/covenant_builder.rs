@@ -3383,6 +3383,10 @@ pub struct CreateMarketRequest {
     pub question: String,
     pub outcome_a: String,
     pub outcome_b: String,
+    /// The market creator's Kaspa (schnorr P2PK) address. Recorded as the only party
+    /// authorized to later resolve this market (C2): resolution requires a wallet
+    /// signature from this address.
+    pub creator_address: String,
     #[serde(default)]
     pub kickoff_utc: Option<String>,
     #[serde(default)]
@@ -3403,6 +3407,17 @@ pub async fn create_market_handler(
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
     if req.question.trim().is_empty() || req.outcome_a.trim().is_empty() || req.outcome_b.trim().is_empty() {
         return err("question, outcome_a and outcome_b are required".into());
+    }
+    let creator_address = req.creator_address.trim().to_string();
+    if creator_address.is_empty() {
+        return err("creator_address is required".into());
+    }
+    // The creator must be a schnorr P2PK (q...) address: resolution verifies a wallet
+    // signature from this exact address, which only works for a 32-byte x-only key.
+    match Address::try_from(creator_address.as_str()) {
+        Ok(a) if a.payload.as_slice().len() == 32 => {}
+        Ok(_) => return err("creator_address must be a 32-byte schnorr (q...) address".into()),
+        Err(e) => return err(format!("invalid creator_address: {e}")),
     }
     let fee_bps = req.fee_bps.unwrap_or(3000);
     let rebate_bps = req.rebate_bps.unwrap_or(5000);
@@ -3441,6 +3456,10 @@ pub async fn create_market_handler(
     ) {
         return err(format!("db insert failed: {e}"));
     }
+    // Record the creator as the sole party authorized to resolve this market (C2).
+    if let Err(e) = db::set_bundle_market_creator(&db, &market_id, &creator_address) {
+        return err(format!("db set creator failed: {e}"));
+    }
     // Surface the market as a first-class covenant in the Explorer (no separate Markets page):
     // tx_id = market_id, so /covenant/<market_id> resolves and the covenant page renders the full
     // betting website. Funds are enforced by the on-chain binary_oracle_select bundles it funds.
@@ -3474,6 +3493,13 @@ pub struct ResolveMarketRequest {
     pub market_id: String,
     /// 0 = outcome A won, 1 = outcome B won.
     pub outcome: i64,
+    /// Authorization (C2): the resolver's Kaspa address, a wallet signature, and a
+    /// caller-chosen nonce. `signer_address` MUST equal the market's recorded creator,
+    /// and `signature` must be a valid wallet signature of
+    /// `covex-market-resolve:{market_id}:{outcome}:{nonce}` by that address.
+    pub signer_address: String,
+    pub signature: String,
+    pub nonce: String,
 }
 
 /// POST /covenant/market/resolve - reveal the winning outcome's secret (single-secret
@@ -3490,6 +3516,25 @@ pub async fn resolve_market_handler(
     if req.outcome != 0 && req.outcome != 1 {
         return err("outcome must be 0 (A) or 1 (B)".into());
     }
+    // C2: authorize the reveal. Only the recorded market creator may resolve, and only
+    // with a valid wallet signature. Fail closed if no creator was recorded (legacy row).
+    let creator = match db::get_bundle_market_creator(&db, &req.market_id) {
+        Some(c) => c,
+        None => {
+            return err(
+                "market has no recorded creator and cannot be resolved (resolution is restricted to the creator)".into(),
+            )
+        }
+    };
+    if req.signer_address.trim() != creator {
+        return err("signer_address is not the market creator; only the creator may resolve".into());
+    }
+    let msg = format!("covex-market-resolve:{}:{}:{}", req.market_id, req.outcome, req.nonce);
+    match crate::kaspa_msg::verify_message(&creator, &msg, &req.signature) {
+        Ok(true) => {}
+        Ok(false) => return err("invalid creator signature for this resolution".into()),
+        Err(e) => return err(format!("signature verification failed: {e}")),
+    }
     if let Some(prev) = m.revealed_outcome {
         if prev != req.outcome {
             return err(format!(
@@ -3497,7 +3542,26 @@ pub async fn resolve_market_handler(
             ));
         }
     }
-    let secret = if req.outcome == 0 { m.secret_a.clone() } else { m.secret_b.clone() };
+    // M5 (partial): re-derive the winning secret deterministically from the oracle key +
+    // market_id (the SAME derivation create uses) instead of trusting the stored plaintext,
+    // and verify it matches the committed hash before revealing. (Fully eliminating the
+    // plaintext-at-create storage needs db schema/struct changes outside this file and the
+    // matcher path, which still requires the preimages before resolution.)
+    let okey = crate::oracle::oracle_keypair().secret_key().secret_bytes();
+    let derive = |tag: u8| -> [u8; 32] {
+        let mut s: Vec<u8> = Vec::new();
+        s.extend_from_slice(&okey);
+        s.extend_from_slice(req.market_id.as_bytes());
+        s.push(tag);
+        blake2b256(&s)
+    };
+    let secret_bytes = if req.outcome == 0 { derive(0) } else { derive(1) };
+    let secret = hex::encode(secret_bytes);
+    // Fail closed if the re-derived secret does not match the market's on-chain commitment.
+    let committed_hash = if req.outcome == 0 { &m.h_a } else { &m.h_b };
+    if hex::encode(blake2b256(&secret_bytes)) != *committed_hash {
+        return err("re-derived secret does not match the market commitment; refusing to reveal".into());
+    }
     if let Err(e) = db::resolve_bundle_market(&db, &req.market_id, req.outcome, &secret) {
         return err(format!("db resolve failed: {e}"));
     }

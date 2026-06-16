@@ -6,11 +6,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    # Publish to host loopback only; the backend is reached via the local
+    # nginx reverse proxy, never directly from the public interface.
     ports:
-      - "3006:3006"
+      - "127.0.0.1:3006:3006"
     environment:
       - KASPA_NETWORK=${KASPA_NETWORK:-testnet-12}
       - KASPA_WRPC_URL=${KASPA_WRPC_URL:-ws://host.docker.internal:17217}
+      # Bind 0.0.0.0 INSIDE the container so the published loopback mapping works.
       - BIND_ADDR=0.0.0.0:3006
       - DB_PATH=/data/covex.db
       - COVENANT_TREASURY_ADDRESS=${COVENANT_TREASURY_ADDRESS:-kaspatest:qzr8q7tq8w3n2x3a4y5z6w7x8c9d0eqqqqqqqqqqqqqqqqqqqqqqqqqq}

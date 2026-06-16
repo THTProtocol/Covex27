@@ -19,7 +19,9 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/mnt/HC_Volume_105579109/Covex27
-Environment=BIND_ADDR=0.0.0.0:3006
+# Bind to loopback only: the backend is reached exclusively via the local
+# nginx reverse proxy. Defense-in-depth so the API is never publicly exposed.
+Environment=BIND_ADDR=127.0.0.1:3006
 Environment=DB_PATH=/mnt/HC_Volume_105579109/Covex27/covex.db
 Environment=KASPA_WRPC_URL=ws://127.0.0.1:17217
 Environment=KASPA_NETWORK=testnet-12

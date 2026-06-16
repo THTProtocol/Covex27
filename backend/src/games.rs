@@ -57,6 +57,60 @@ fn check_seat_token(stored: &Option<String>, supplied: &str) -> Result<(), Strin
     }
 }
 
+/// Which seat (if any) a supplied token authenticates for.
+enum Seat {
+    Player1,
+    Player2,
+}
+
+/// Authorise a money-route caller for a covenant's match by their per-seat token
+/// (the same secret make_move/resign require). Fails CLOSED: an empty supplied
+/// token is always rejected, and unlike move-auth there is no legacy turn-only
+/// fallback - a real pot is never moved without a valid seat token. Returns which
+/// seat the token belongs to so refund-channel can additionally restrict to the
+/// funder.
+fn authorize_money_caller(
+    db: &Mutex<rusqlite::Connection>,
+    covenant_id: &str,
+    supplied: &str,
+) -> Result<Seat, String> {
+    if supplied.is_empty() {
+        return Err("a valid seat token is required to move funds for this match".to_string());
+    }
+    let (p1_token, p2_token): (Option<String>, Option<String>) = {
+        let conn = db.lock().unwrap();
+        conn.query_row(
+            "SELECT p1_token, p2_token FROM skill_games WHERE covenant_id = ?1",
+            params![covenant_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "no match for this covenant".to_string())?
+    };
+    // Reuse the exact seat-token matching used by make_move/resign. We require a
+    // POSITIVE match against a stored, non-empty token (check_seat_token returns
+    // Ok on a NULL/empty stored token, so we gate on that explicitly here to keep
+    // the money routes fail-closed).
+    if matches!(&p1_token, Some(t) if !t.is_empty()) && check_seat_token(&p1_token, supplied).is_ok()
+    {
+        return Ok(Seat::Player1);
+    }
+    if matches!(&p2_token, Some(t) if !t.is_empty()) && check_seat_token(&p2_token, supplied).is_ok()
+    {
+        return Ok(Seat::Player2);
+    }
+    Err("invalid or missing seat token - only a seated player of this match may move its funds"
+        .to_string())
+}
+
+/// Body for the no-arg money routes (settle-pot, settle-channel, refund-channel):
+/// carries the caller's per-seat token so the handler can authorise them.
+#[derive(serde::Deserialize)]
+struct AuthReq {
+    /// Per-seat secret issued at join (see make_move). Required to move funds.
+    #[serde(default)]
+    token: Option<String>,
+}
+
 /// Background sweep: finalise active matches whose side-to-move has run its clock out
 /// when neither client called claim-timeout (e.g. both closed the tab). Recorded as
 /// end_reason='abandon' - server-timed, so it may settle a real pot to the winner.
@@ -168,6 +222,11 @@ async fn lock_pot(
     Path(covenant_id): Path<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may lock funds.
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
+        return Json(json!({ "success": false, "error": e }));
+    }
     let game = match fetch_game(&db, &covenant_id) {
         Some(g) => g,
         None => return Json(json!({ "success": false, "error": "game not found" })),
@@ -212,7 +271,12 @@ async fn lock_pot(
 async fn settle_pot(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Path(covenant_id): Path<String>,
+    Json(auth): Json<AuthReq>,
 ) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may settle.
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
+        return Json(json!({ "success": false, "error": e }));
+    }
     let game = match fetch_game(&db, &covenant_id) {
         Some(g) => g,
         None => return Json(json!({ "success": false, "error": "game not found" })),
@@ -243,12 +307,30 @@ async fn settle_pot(
     };
 
     let wl = winner.to_lowercase();
-    let outcome: u32 = if winner == p1 || wl == "white" || wl == "player1" {
+    let stored_side: u32 = if winner == p1 || wl == "white" || wl == "player1" {
         0
     } else if winner == p2 || wl == "black" || wl == "player2" {
         1
     } else {
         return Json(json!({ "success": false, "error": format!("cannot map winner '{winner}' to player1/player2") }));
+    };
+    // MONEY GATE (defense in depth, mirrors settle-channel): do NOT trust the stored
+    // `winner` string to pick the destination. Re-derive the winning side from the
+    // server-authoritative engine replay (game_pot_outcome) and pay strictly to THAT
+    // side, refusing on any mismatch with the recorded winner. game_pot_outcome FAILS
+    // CLOSED on anything that is not an engine-decisive board or a server-timed timeout,
+    // so a poisoned `winner` field can never redirect the pot.
+    let outcome: u32 = match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
+        crate::covenant_builder::GamePot::Verified(o) if o == stored_side => o,
+        crate::covenant_builder::GamePot::Verified(o) => {
+            return Json(json!({ "success": false, "error": format!("recorded winner maps to side {stored_side} but the server-verified result is side {o}; refusing to settle to the wrong player") }));
+        }
+        crate::covenant_builder::GamePot::Rejected(msg) => {
+            return Json(json!({ "success": false, "error": format!("pot settle refused: {msg}") }));
+        }
+        crate::covenant_builder::GamePot::NotAGamePot => {
+            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }));
+        }
     };
     let dest = if outcome == 0 { &p1 } else { &p2 };
 
@@ -284,6 +366,11 @@ async fn lock_channel(
     Path(covenant_id): Path<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may lock funds.
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
+        return Json(json!({ "success": false, "error": e }));
+    }
     let game = match fetch_game(&db, &covenant_id) {
         Some(g) => g,
         None => return Json(json!({ "success": false, "error": "game not found" })),
@@ -339,7 +426,12 @@ async fn lock_channel(
 async fn settle_channel(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Path(covenant_id): Path<String>,
+    Json(auth): Json<AuthReq>,
 ) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may settle.
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
+        return Json(json!({ "success": false, "error": e }));
+    }
     let game = match fetch_game(&db, &covenant_id) {
         Some(g) => g,
         None => return Json(json!({ "success": false, "error": "game not found" })),
@@ -423,7 +515,18 @@ async fn settle_channel(
 async fn refund_channel(
     Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
     Path(covenant_id): Path<String>,
+    Json(auth): Json<AuthReq>,
 ) -> Json<serde_json::Value> {
+    // Auth: only a seated player may act, AND the refund branch (reclaiming the
+    // pot to the funder) is restricted to the funder = player1, who funded the
+    // channel. A valid player2 token must NOT be able to trigger a refund.
+    match authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
+        Ok(Seat::Player1) => {}
+        Ok(Seat::Player2) => {
+            return Json(json!({ "success": false, "error": "only the funder (player1) may refund the channel pot" }));
+        }
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    }
     let game = match fetch_game(&db, &covenant_id) {
         Some(g) => g,
         None => return Json(json!({ "success": false, "error": "game not found" })),

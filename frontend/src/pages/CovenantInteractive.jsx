@@ -31,7 +31,8 @@ const GAME_REGISTRY = {
   blackjack: { Component: FullScreenBlackjack, label: 'Blackjack', stake: 100 },
 };
 import { Chessboard } from 'react-chessboard';
-import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star, Share2 } from 'lucide-react';
+import ShareEmbedModal from '../components/ShareEmbedModal';
 import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
 
@@ -214,6 +215,7 @@ export default function CovenantInteractive() {
   const [fullscreenUI, setFullscreenUI] = useState(false);
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [showGameArena, setShowGameArena] = useState(false);
   // Claim & Activate: provide an elsewhere-created covenant's redeem script (+ metadata) to make it
   // fully interactable. Verified trustlessly by the backend (the script must hash to the commitment).
@@ -708,11 +710,20 @@ export default function CovenantInteractive() {
               </div>
             </div>
 
+            {/* Share + embed - available to everyone, so any covenant can be shared or
+                dropped into an external website (people interact via Covex). */}
+            <button
+              onClick={() => setShareOpen(true)}
+              className="ml-auto px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
+            >
+              <Share2 size={16} className="text-kaspa-green" /> Share
+            </button>
+
             {/* PROMINENT FIX BUTTON ON TOP for creators only, right next to title */}
             {isCreator && (
               <Link
                 to={`/covenant/${encodeURIComponent(id)}/fix`}
-                className="ml-auto px-6 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all border border-purple-400/30"
+                className="px-6 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all border border-purple-400/30"
               >
                 <Palette size={16} /> FIX LOOKS + STAKE
               </Link>
@@ -726,6 +737,8 @@ export default function CovenantInteractive() {
               </Link>
             )}
           </div>
+
+          <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} />
 
           {/* Creator-set background image behind the covenant page, dimmed for readability */}
           {(covenant?.custom_ui_config?.theme?.background_image || covenant?.custom_ui_config?.theme?.backdrop_css) && (

@@ -34,6 +34,7 @@ const Whitepaper = lazy(() => import('./pages/Whitepaper'));
 const Treasury = lazy(() => import('./pages/Treasury'));
 const Stats = lazy(() => import('./pages/Stats'));
 const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
+const CovenantEmbed = lazy(() => import('./pages/CovenantEmbed'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
 import { ThemeProvider } from './components/ThemeProvider';
@@ -319,6 +320,9 @@ export default function App() {
               <Route path="/treasury" element={<Treasury />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/covenant/:id/studio" element={<CovenantStudio />} />
+              {/* Embeddable read-only covenant widget for external sites (chrome-free fixed overlay).
+                  Framing is allowed for /embed paths via nginx (CSP frame-ancestors *). */}
+              <Route path="/embed/covenant/:id" element={<CovenantEmbed />} />
               {/* Catch-all: any unknown path (incl. removed stubs) -> home, never a blank page. */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

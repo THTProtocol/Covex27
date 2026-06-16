@@ -1551,13 +1551,16 @@ async fn analytics_handler(
         let total = db::count_covenants(&db).unwrap_or(0);
         let active = db::count_active_covenants(&db).unwrap_or(0);
         let verified = db::count_verified_covenants(&db).unwrap_or(0);
+        // Real platform-wide TVL: sum of locked KAS across active covenants, computed live
+        // (same basis as /stats tvl_kas). Never report a fabricated 0 when value exists.
+        let tvl = db::covenant_stats(&db, None).map(|(_, _, t)| t).unwrap_or(0.0);
         Json(json!({
             "total_covenants": total,
-            "total_value_kas": 0, // Platform-wide TVL would require summing all
+            "total_value_kas": (tvl * 100.0).round() / 100.0,
             "active_covenants": active,
             "verified_covenants": verified,
             "resolutions": 0,
-            "platform_note": "Global analytics require additional aggregation queries"
+            "platform_note": "Aggregated live across all indexed covenants"
         }))
     }
 }

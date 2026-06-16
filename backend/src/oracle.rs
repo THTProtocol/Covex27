@@ -833,23 +833,41 @@ mod tests {
     }
 }
 
-/// Simple liveness check using the zk stub (Phase 3 decentralized).
-/// GET /api/oracle/liveness  (public path via nginx/vite proxy stripping /api; registered as /oracle/liveness)
-/// Uses spawn_blocking per requirements to run the node stub without blocking async runtime.
-/// Requires the (enhanced) decentralized_liveness_stub.js which in turn requires oracle_liveness_stub.js
-/// and returns {liveness: true, operators: 3, threshold: 2, note: 'Phase 3 multi-oracle stub'}.
+/// GET /api/oracle/liveness : honest status of the live oracle.
+/// (public path via nginx/vite proxy stripping /api; registered as /oracle/liveness)
+///
+/// Covex runs ONE BIP340 oracle today (a single signing key, supplied via COVEX_ORACLE_KEY).
+/// There is no multi-operator federation yet, so this reports operators=1, threshold=1 and
+/// NEVER fabricates a quorum. `liveness` is true only when a real signing key is configured and
+/// derives a valid public identity; if the key is unset the oracle fails closed and we say so.
+/// A multi-oracle set with heartbeats / weights / threshold signatures is roadmap, not live.
 async fn oracle_liveness_handler() -> Json<serde_json::Value> {
-    // Phase 3 decentralized liveness stub (simplified for clean build).
-    // Direct node zk/decentralized_liveness_stub.js returns the exact {liveness:true, operators:3, threshold:2, note:...} (tested by sub-agent).
-    // POST with circuit_type=decentralized_liveness or onchain_sig_verify works via pluggable (Attested) + the route is registered.
-    // Full spawn_blocking version was in prior edits / sub-agent work; this unblocks cargo while keeping the endpoint and docs.
-    // Sprint 2/3: support ?simulate=partial|down for easy covenant dev/testing of outage scenarios (passed via env to stub).
-    // This makes connecting decentralized oracles to covenants trivial to test while keeping full compatibility.
-    let simulate = std::env::var("SIMULATE_LIVENESS").ok(); // for now, or parse query in full axum
-    if let Some(s) = simulate {
-        std::env::set_var("SIMULATE_LIVENESS", s);
-    }
-    Json(serde_json::json!({"liveness": true, "operators": 3, "threshold": 2, "note": "Phase 3 multi-oracle stub (zk/*_liveness_stub.js + sub-agent)"}))
+    // Is a usable signing key configured? (mirror oracle_key_bytes' fail-closed checks, but
+    // without panicking — this is an observability endpoint, so it must degrade gracefully).
+    let key_configured = std::env::var("COVEX_ORACLE_KEY")
+        .map(|v| {
+            let t = v.trim();
+            !t.is_empty() && t != ORACLE_KEY_PLACEHOLDER
+        })
+        .unwrap_or(false);
+    // Deriving the public identity needs the key; guard so a missing/invalid key degrades to a
+    // clean "not signing" response instead of aborting the request task.
+    let pubkey = if key_configured {
+        std::panic::catch_unwind(oracle_xonly_pubkey_hex).ok()
+    } else {
+        None
+    };
+    let live = pubkey.is_some();
+    Json(serde_json::json!({
+        "liveness": live,
+        "operators": if live { 1 } else { 0 },
+        "threshold": 1,
+        "scheme": "bip340-schnorr-secp256k1",
+        "xonly_pubkey": pubkey,
+        "signing_available": live,
+        "multi_oracle": false,
+        "note": "Single-operator oracle (one BIP340 signing key). Multi-operator federation with threshold signatures is roadmap, not live."
+    }))
 }
 
 // Phase 3 decentralized oracle wiring complete:

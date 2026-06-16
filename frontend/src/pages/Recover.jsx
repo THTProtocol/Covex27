@@ -105,8 +105,8 @@ export default function Recover() {
     r.readAsText(f);
   };
 
-  const lookup = async () => {
-    const id = txid.trim();
+  const lookup = async (idArg) => {
+    const id = String(idArg ?? txid).trim();
     if (!id) return;
     setLooking(true); setError('');
     try {
@@ -120,6 +120,14 @@ export default function Recover() {
     }
     setLooking(false);
   };
+
+  // Deep link: /recover?id=<txid> (e.g. from a covenant's Recover button) auto-loads that covenant.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const id = p.get('id') || p.get('txid');
+    if (id) { setTxid(id); lookup(id); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const kind = String(kit?.redeem_kind || '').split(':')[0] || 'p2sh';
   const hint = KIND_HINTS[kind] || KIND_HINTS.p2sh;

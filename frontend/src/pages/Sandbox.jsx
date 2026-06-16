@@ -146,7 +146,7 @@ export default function Sandbox() {
           </div>
           {circuit && (
             <div className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-2xl border border-kaspa-green/30 bg-[#0a0d12]/90 light:bg-white/90 backdrop-blur-xl px-4 py-3 shadow-[0_12px_40px_-16px_rgba(73,234,203,0.45)]">
-              <span className="text-sm text-gray-200 min-w-0 truncate"><span className="text-gray-400">Selected:</span> <span className="font-semibold text-white light:text-slate-900">{tplName || circuit.name}</span></span>
+              <span className="text-sm text-gray-200 min-w-0 truncate"><span className="text-gray-400">Selected:</span> <span className="font-semibold text-white light:text-slate-900">{circuit.name}</span></span>
               <button onClick={() => setStep('configure')} className="btn-shimmer shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-sm">
                 Preview it <ArrowRight size={15} />
               </button>

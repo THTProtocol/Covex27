@@ -205,7 +205,7 @@ function MarketDetail({ id }) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Markets</Link>
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Explorer</Link>
 
       <div className="flex items-start justify-between gap-3 mb-1">
         <h1 className="text-xl sm:text-2xl font-extrabold text-white leading-snug">{book.question}</h1>

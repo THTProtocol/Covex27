@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Sparkles, Send, ArrowRight, ShieldCheck, Radio, Cpu, Lock, Wand2 } from 'lucide-react';
+import {
+  Sparkles, Send, ArrowRight, ShieldCheck, Radio, Cpu, Lock, Wand2,
+  Handshake, Clock, ListChecks, Fingerprint, TrendingUp, KeyRound, Gamepad2, Repeat,
+} from 'lucide-react';
 import { suggestCovenants } from '../lib/covenantAssistant';
 
 // Covenant assistant: type a plain-English goal and get a REAL, honest covenant suggestion that
@@ -22,6 +25,19 @@ const EXAMPLES = [
   'Only let addresses on my whitelist claim, without revealing the list',
   'Prove a user is over 18 without revealing their birth date',
   'A prediction market that pays out on a real-world outcome',
+];
+
+// One-tap goals. Each pre-fills a representative prompt and runs the deterministic suggester, so a
+// new user never has to know what to type. Every query maps to a real circuit in the catalog.
+const INTENT_CHIPS = [
+  { label: 'Escrow', icon: Handshake, query: 'A 2-party escrow that refunds the buyer if the seller does not deliver in 30 days' },
+  { label: 'Vesting / timelock', icon: Clock, query: 'Lock these tokens and release them only after a vesting date' },
+  { label: 'Whitelist', icon: ListChecks, query: 'Only let addresses on my whitelist claim, without revealing the list' },
+  { label: 'Age proof', icon: Fingerprint, query: 'Prove a user is over 18 without revealing their birth date' },
+  { label: 'Prediction market', icon: TrendingUp, query: 'A prediction market that pays out on a real-world outcome' },
+  { label: 'Multisig', icon: KeyRound, query: 'A 2-of-3 multisig that needs two of three keys to release funds' },
+  { label: 'Game pot', icon: Gamepad2, query: 'A two-player game covenant with a staked pot for the winner' },
+  { label: 'HTLC swap', icon: Repeat, query: 'Release on revealing a secret preimage, with a timelock refund' },
 ];
 
 export default function CovenantAssistant({ circuits, onSelect }) {
@@ -49,8 +65,21 @@ export default function CovenantAssistant({ circuits, onSelect }) {
         <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green">beta</span>
       </div>
       <p className="relative text-[12px] text-gray-400 mb-3">
-        Describe what you want to build and I'll set up a real covenant for you. I only ever suggest circuits that actually exist, with their honest enforcement reality.
+        Pick a goal to start, or describe your own below. I only ever suggest circuits that actually exist, with their honest enforcement reality.
       </p>
+
+      {/* One-tap goals: the obvious front door for a new user. */}
+      <div className="relative flex flex-wrap gap-1.5 mb-3">
+        {INTENT_CHIPS.map((c) => (
+          <button
+            key={c.label}
+            onClick={() => run(c.query)}
+            className="btn-shimmer inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-kaspa-green/25 bg-kaspa-green/[0.06] text-gray-200 hover:text-white hover:border-kaspa-green/50 hover:bg-kaspa-green/[0.12] transition-all"
+          >
+            <c.icon size={13} className="text-kaspa-green" /> {c.label}
+          </button>
+        ))}
+      </div>
 
       <div className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 focus-within:border-kaspa-green/40 transition-colors">
         <Sparkles size={15} className="text-kaspa-green shrink-0" />

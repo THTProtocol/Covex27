@@ -13,7 +13,11 @@ const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
 
-const VKEY_PATH = path.join(__dirname, "range_proof", "range_proof_vkey.json");
+// Verify against the COMMITTED, SERVED frontend vkey — the one that pairs with the served
+// range_proof zkey (frontend/public/zk/range_proof/*) that real provers use. The old
+// zk/range_proof/ root vkey paired with a DIFFERENT (root) zkey, so the oracle rejected every
+// valid proof the served prover produced. Same single-source-of-truth fix as verify.js/age/escrow.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/range_proof/range_proof_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

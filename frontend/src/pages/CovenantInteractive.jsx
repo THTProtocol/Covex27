@@ -764,6 +764,18 @@ export default function CovenantInteractive() {
         </div>
       )}
 
+      {/* Creator-designed page (Puck blocks, platform components only): a full-width
+          hero section that LEADS the page, so the covenant reads like a real website.
+          Live on-chain figures flow in via metadata.live and blocks resolve {{tokens}}
+          at render. No creator input ever sets a fund destination. Images are always
+          the creator's own choice (https URLs); with none set, the blocks fall back to
+          the branded gradient look. */}
+      {covenant?.custom_ui_config?.puck_data?.content?.length > 0 && (
+        <div className="mb-10 rounded-3xl overflow-hidden border border-white/[0.06]">
+          <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left: Covenant metadata */}
         <motion.div
@@ -893,14 +905,8 @@ export default function CovenantInteractive() {
             </div>
           )}
 
-          {/* Creator-designed page (Puck blocks, platform components only).
-              Live on-chain figures flow in via metadata.live; blocks resolve
-              {{tokens}} at render. No creator input ever sets a fund destination. */}
-          {covenant?.custom_ui_config?.puck_data?.content?.length > 0 && (
-            <div className="mb-6 rounded-2xl overflow-hidden border border-white/[0.06] bg-black/20">
-              <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
-            </div>
-          )}
+          {/* The creator-designed page is hoisted to a full-width hero section at the top
+              of the page (see above the metadata grid), so it leads and has room. */}
 
           {/* On-chain activity history: everything the indexers have seen for this covenant */}
           {actions.length > 0 && (

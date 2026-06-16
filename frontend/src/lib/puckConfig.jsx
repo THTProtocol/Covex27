@@ -108,11 +108,11 @@ export const puckConfig = {
       return (
         <div className="relative" style={{ background: bg, fontFamily: font, ['--page-accent']: accentColor || '#49EACB' }}>
           {isHttpsImg(pageLogo) && (
-            <div className="flex items-center px-6 pt-6">
+            <div className="flex items-center px-6 py-4">
               <img src={pageLogo} alt="brand logo" className="h-9 max-w-[200px] object-contain" />
             </div>
           )}
-          <div className="py-3">{children}</div>
+          {children}
         </div>
       );
     },
@@ -146,7 +146,7 @@ export const puckConfig = {
           : `radial-gradient(120% 130% at 50% 0%, ${ac}28 0%, rgba(5,5,10,0.86) 55%), #0a0a0f`;
         const center = alignment !== 'left';
         return (
-          <div className={`relative overflow-hidden rounded-3xl mx-2 md:mx-4 mb-5 h-[340px] md:h-[460px] flex flex-col justify-center px-7 md:px-12 ${center ? 'items-center text-center' : 'items-start text-left'}`} style={{ background: bg }}>
+          <div className={`relative overflow-hidden mb-6 h-[340px] md:h-[480px] flex flex-col justify-center px-7 md:px-14 ${center ? 'items-center text-center' : 'items-start text-left'}`} style={{ background: bg }}>
             <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 140px 24px rgba(0,0,0,0.55)' }} />
             <h1 className="relative text-3xl md:text-5xl font-black leading-[1.05] mb-3 drop-shadow" style={{ color: ac }}>{resolveTokens(title, live)}</h1>
             {subtitle && <p className="relative text-gray-200 text-base md:text-lg max-w-2xl mb-6 leading-relaxed">{resolveTokens(subtitle, live)}</p>}
@@ -251,7 +251,7 @@ export const puckConfig = {
       defaultProps: { columns: '3', images: [{ url: '', caption: '' }, { url: '', caption: '' }, { url: '', caption: '' }] },
       render: ({ columns, images }) => {
         const imgs = (images || []).filter((i) => isHttpsImg(i.url));
-        if (imgs.length === 0) return placeholder('Add https image URLs to build a gallery');
+        if (imgs.length === 0) return placeholder('Add your own https image URLs - pictures relevant to this covenant');
         return (
           <div className={`grid grid-cols-2 ${COL_CLASS[columns] || COL_CLASS['3']} gap-3 px-2 md:px-4 mb-5`}>
             {imgs.map((im, i) => (
@@ -351,7 +351,7 @@ export const puckConfig = {
       fields: { url: { type: 'text', label: 'Image URL (https)' }, caption: { type: 'text' }, rounded: { type: 'radio', options: [{ label: 'Rounded', value: 'yes' }, { label: 'Square', value: 'no' }] } },
       defaultProps: { url: '', caption: '', rounded: 'yes' },
       render: ({ url, caption, rounded }) => {
-        if (!isHttpsImg(url)) return placeholder('Add an https image URL');
+        if (!isHttpsImg(url)) return placeholder('Add your own image URL (https) - a picture relevant to this covenant');
         return (
           <figure className="mx-4 mb-3">
             <img src={url} alt={caption || 'covenant image'} className={`w-full max-h-96 object-cover border border-white/10 ${rounded === 'yes' ? 'rounded-2xl' : ''}`} />

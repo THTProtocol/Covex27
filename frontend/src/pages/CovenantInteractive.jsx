@@ -37,6 +37,7 @@ import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
+import { MarketView } from './Markets';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -641,6 +642,13 @@ export default function CovenantInteractive() {
         </Link>
       </div>
     );
+  }
+
+  // A prediction-market covenant IS its full betting website on its own covenant page
+  // (live odds, pools, place a bet, resolve), rendered here in the Explorer flow exactly
+  // like a game arena. Markets are covenants in the Explorer, never a separate section.
+  if (covenant.covenant_type === 'prediction-market') {
+    return <MarketView marketId={id} />;
   }
 
   const verified = isVerified(covenant);

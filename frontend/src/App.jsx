@@ -242,7 +242,6 @@ export default function App() {
               {/* Desktop Nav */}
               <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
-                <NavLink to="/markets" className={NL}>Markets</NavLink>
                 <NavLink to="/sandbox" className={NL}>Sandbox</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
@@ -270,7 +269,6 @@ export default function App() {
               <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 text-sm">
                   <NavLink to="/" end className={NL} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
-                  <NavLink to="/markets" className={NL} onClick={() => setMobileMenuOpen(false)}>Markets</NavLink>
                   <NavLink to="/sandbox" className={NL} onClick={() => setMobileMenuOpen(false)}>Sandbox</NavLink>
                   <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <div className="mt-1 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>

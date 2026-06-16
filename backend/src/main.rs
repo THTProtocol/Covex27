@@ -805,8 +805,14 @@ fn covenant_summary_json(
         "network": c.network,
         "custom_ui_config": ui_config,
         // Honest enforcement label derived from the on-chain script (roadmap B4):
-        // on-chain (script-enforced) | oracle-attested | decorative.
-        "enforcement_reality": covenant_catalog::reality_for_script(&c.script_hex).as_str(),
+        // on-chain (script-enforced) | oracle-attested | decorative. A prediction-market
+        // anchor holds no script itself but its funds live in on-chain binary_oracle_select
+        // bundles, so it is honestly labeled on-chain (the outcome bit is oracle-attested).
+        "enforcement_reality": if c.covenant_type == "prediction-market" {
+            "on-chain"
+        } else {
+            covenant_catalog::reality_for_script(&c.script_hex).as_str()
+        },
     })
 }
 

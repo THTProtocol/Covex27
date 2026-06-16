@@ -77,9 +77,9 @@ function MarketsList() {
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-4 mb-6 text-[12px] text-gray-300 leading-relaxed">
         <span className="text-white font-semibold">How it works:</span> back an outcome with a YES/NO order. Orders are
         matched into mini-pools, each funded by a <span className="text-white font-semibold">conjoined bundle</span> of{' '}
-        <span className="font-mono text-white">binary_oracle_select</span> covenants — several covenants created at once. When
+        <span className="font-mono text-white">binary_oracle_select</span> covenants - several covenants created at once. When
         the result is in, one secret is revealed and the chain routes every payout, loser rebate, and fee. No Covex key sits in
-        the money path — funds are recoverable even if Covex goes down.
+        the money path - funds are recoverable even if Covex goes down.
       </div>
 
       {show && (
@@ -146,7 +146,7 @@ function OddsCard({ label, mult, accent }) {
   return (
     <div className={`rounded-xl border p-4 ${accent ? 'border-kaspa-green/25 bg-kaspa-green/[0.05]' : 'border-white/10 bg-white/[0.02]'}`}>
       <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">If "{label}" wins</div>
-      <div className={`text-2xl font-extrabold ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '—'}×</div>
+      <div className={`text-2xl font-extrabold ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '-'}×</div>
       <div className="text-[10px] text-gray-500 mt-0.5">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
     </div>
   );
@@ -193,7 +193,7 @@ function MarketDetail({ id }) {
     return <div className="flex items-center justify-center py-32 text-gray-500"><Loader2 className="animate-spin mr-2" size={18} /> Loading market…</div>;
   }
   if (book.success === false) {
-    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-gray-400">Market not found. <Link to="/markets" className="text-kaspa-green">Back to markets</Link></div>;
+    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-gray-400">Market not found. <Link to="/" className="text-kaspa-green">Back to markets</Link></div>;
   }
 
   const odds = book.odds || {};
@@ -205,7 +205,7 @@ function MarketDetail({ id }) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <Link to="/markets" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Markets</Link>
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Markets</Link>
 
       <div className="flex items-start justify-between gap-3 mb-1">
         <h1 className="text-xl sm:text-2xl font-extrabold text-white leading-snug">{book.question}</h1>
@@ -229,11 +229,11 @@ function MarketDetail({ id }) {
         {(book.open_pool_a_kas + book.open_pool_b_kas) > 0 && <> · open: {book.open_pool_a_kas}/{book.open_pool_b_kas} KAS</>}
       </div>
 
-      {/* Pools — reward / hedge-rebate / fee split of the matched pool */}
+      {/* Pools - reward / hedge-rebate / fee split of the matched pool */}
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
         <div className="text-white font-semibold mb-3 flex items-center gap-2"><Coins size={16} className="text-kaspa-green" /> Pools</div>
         {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
-          <div className="text-[12px] text-gray-500">No matched liquidity yet — the reward and hedge pools fill as bets get matched.</div>
+          <div className="text-[12px] text-gray-500">No matched liquidity yet - the reward and hedge pools fill as bets get matched.</div>
         ) : (
           <>
             <div className="flex items-center justify-between text-[12px] mb-1"><span className="text-gray-400">Total matched</span><span className="text-white font-semibold">{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} KAS</span></div>
@@ -250,7 +250,7 @@ function MarketDetail({ id }) {
           </>
         )}
         <div className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-gray-500 leading-relaxed">
-          <span className="text-gray-300 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret — no Covex key sits in the money path.
+          <span className="text-gray-300 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret - no Covex key sits in the money path.
           {oraclePk && <> Signer <span className="font-mono text-gray-400">{String(oraclePk).slice(0, 12)}…</span>.</>}
           {market.h_a && <> Commitments <span className="font-mono text-gray-400">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
         </div>
@@ -262,7 +262,7 @@ function MarketDetail({ id }) {
         <p className="text-[12px] text-amber-200/90 leading-relaxed">
           <span className="font-semibold text-amber-300">You can be right and still lose.</span> The winner multiplier is
           {' '}{(1 - f).toFixed(2)} + {(1 - f - r).toFixed(2)}×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
-          {' '}<span className="font-semibold">{breakeven.toFixed(2)}×</span> your side — the house takes {feePct}% and losers get {rebatePct}% back.
+          {' '}<span className="font-semibold">{breakeven.toFixed(2)}×</span> your side - the house takes {feePct}% and losers get {rebatePct}% back.
         </p>
       </div>
 
@@ -310,7 +310,7 @@ function MarketDetail({ id }) {
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
         <div className="text-white font-semibold mb-3">Order book</div>
         {(!book.orders || book.orders.length === 0) ? (
-          <div className="text-sm text-gray-500">No orders yet — be the first.</div>
+          <div className="text-sm text-gray-500">No orders yet - be the first.</div>
         ) : (
           <div className="space-y-1.5">
             {book.orders.map((o) => (
@@ -351,9 +351,9 @@ function MarketDetail({ id }) {
 
       {resolved && (
         <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-5 mb-5">
-          <div className="flex items-center gap-2 text-emerald-300 font-semibold mb-1.5"><Trophy size={16} /> Resolved — {wonLabel} won</div>
+          <div className="flex items-center gap-2 text-emerald-300 font-semibold mb-1.5"><Trophy size={16} /> Resolved - {wonLabel} won</div>
           <p className="text-[12px] text-gray-300 leading-relaxed mb-3">
-            The winning secret is revealed. Every funded leg can be claimed on-chain with the secret + the winner's key —
+            The winning secret is revealed. Every funded leg can be claimed on-chain with the secret + the winner's key -
             through any Kaspa node, no Covex required. Winners take the pool (minus 30% fee); losers reclaim 50%.
           </p>
           <button disabled={!!busy} onClick={doSettle}
@@ -389,4 +389,10 @@ function MarketDetail({ id }) {
 export default function Markets() {
   const { id } = useParams();
   return id ? <MarketDetail id={id} /> : <MarketsList />;
+}
+
+// Reusable market website (betting, live odds, pools, resolve), rendered on a
+// prediction-market covenant's page in the Explorer (CovenantInteractive).
+export function MarketView({ marketId }) {
+  return <MarketDetail id={marketId} />;
 }

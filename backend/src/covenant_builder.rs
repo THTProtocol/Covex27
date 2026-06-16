@@ -3441,6 +3441,17 @@ pub async fn create_market_handler(
     ) {
         return err(format!("db insert failed: {e}"));
     }
+    // Surface the market as a first-class covenant in the Explorer (no separate Markets page):
+    // tx_id = market_id, so /covenant/<market_id> resolves and the covenant page renders the full
+    // betting website. Funds are enforced by the on-chain binary_oracle_select bundles it funds.
+    let anchor_summary = format!(
+        "Parimutuel prediction market. {} vs {}. Settled on-chain by binary_oracle_select covenants. {}% house fee, {}% loser rebate.",
+        req.outcome_a.trim(), req.outcome_b.trim(), fee_bps / 100, rebate_bps / 100
+    );
+    let _ = db::insert_covenant(
+        &db, &market_id, "", 0, &market_id, "", "prediction-market", "Prediction Markets",
+        "", req.question.trim(), 0, "EXPLORER", &anchor_summary, "[]", &req.network,
+    );
     Json(serde_json::json!({
         "success": true,
         "market_id": market_id,

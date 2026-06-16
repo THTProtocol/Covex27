@@ -261,6 +261,15 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             created_at    INTEGER NOT NULL DEFAULT (unixepoch())
         );
         CREATE INDEX IF NOT EXISTS idx_orders_market ON market_orders(market_id, side, status);
+        CREATE TABLE IF NOT EXISTS market_bundles (
+            bundle_tx   TEXT PRIMARY KEY,
+            market_id   TEXT NOT NULL,
+            a_addr      TEXT NOT NULL,
+            b_addr      TEXT NOT NULL,
+            legs_json   TEXT NOT NULL,
+            created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_bundles_market ON market_bundles(market_id);
         ",
     )?;
 
@@ -699,11 +708,13 @@ pub fn query_covenants(
         // q=chess|fide matches covenants containing either term in any text field.
         let mut alts: Vec<String> = Vec::new();
         for t in term.split('|').map(str::trim).filter(|t| !t.is_empty()).take(8) {
-            let like = format!("%{}%", t.replace('%', "").replace('_', ""));
+            // Escape the LIKE wildcards (_ and %) so a literal term like "binary_oracle_select"
+            // matches by underscore instead of treating _ as "any char" (or being stripped).
+            let like = format!("%{}%", t.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
             args.push(Box::new(like));
             let i = args.len();
             alts.push(format!(
-                "covenant_type LIKE ?{i} OR description LIKE ?{i} OR category LIKE ?{i} OR tx_id LIKE ?{i} OR address LIKE ?{i}"
+                "covenant_type LIKE ?{i} ESCAPE '\\' OR description LIKE ?{i} ESCAPE '\\' OR category LIKE ?{i} ESCAPE '\\' OR tx_id LIKE ?{i} ESCAPE '\\' OR address LIKE ?{i} ESCAPE '\\'"
             ));
         }
         if !alts.is_empty() {
@@ -1613,6 +1624,37 @@ pub fn mark_order_funded(db: &Mutex<Connection>, order_id: &str, bundle_tx: &str
     let conn = db.lock().unwrap();
     conn.execute("UPDATE market_orders SET status='funded', bundle_tx=?2 WHERE order_id=?1", params![order_id, bundle_tx])?;
     Ok(())
+}
+
+/// A funded conjoined bundle (one matched mini-pool) with its carved legs stored for settlement.
+#[derive(Clone, Debug)]
+pub struct MarketBundle {
+    pub bundle_tx: String,
+    pub a_addr: String,
+    pub b_addr: String,
+    pub legs_json: String,
+}
+
+pub fn insert_market_bundle(db: &Mutex<Connection>, bundle_tx: &str, market_id: &str, a_addr: &str, b_addr: &str, legs_json: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO market_bundles (bundle_tx, market_id, a_addr, b_addr, legs_json, created_at) VALUES (?1,?2,?3,?4,?5,unixepoch())",
+        params![bundle_tx, market_id, a_addr, b_addr, legs_json],
+    )?;
+    Ok(())
+}
+
+pub fn list_market_bundles(db: &Mutex<Connection>, market_id: &str) -> Vec<MarketBundle> {
+    let conn = db.lock().unwrap();
+    let mut out = Vec::new();
+    if let Ok(mut stmt) = conn.prepare("SELECT bundle_tx, a_addr, b_addr, legs_json FROM market_bundles WHERE market_id = ?1 ORDER BY created_at ASC") {
+        if let Ok(rows) = stmt.query_map(params![market_id], |r| Ok(MarketBundle {
+            bundle_tx: r.get(0)?, a_addr: r.get(1)?, b_addr: r.get(2)?, legs_json: r.get(3)?,
+        })) {
+            out.extend(rows.flatten());
+        }
+    }
+    out
 }
 
 pub fn get_last_scanned_daa(db: &Mutex<Connection>, network: &str) -> anyhow::Result<u64> {

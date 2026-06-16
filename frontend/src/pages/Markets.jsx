@@ -114,6 +114,7 @@ function MarketDetail({ id }) {
   const [addr, setAddr] = useState('');
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState(null);
+  const [settleRes, setSettleRes] = useState(null);
 
   useEffect(() => { if (address && !addr) setAddr(address); }, [address]); // eslint-disable-line
 
@@ -129,6 +130,13 @@ function MarketDetail({ id }) {
       const r = await fn();
       setMsg(r && r.success === false ? { ok: false, text: r.error || 'failed' } : { ok: true, text: `${label} done` });
     } catch (e) { setMsg({ ok: false, text: String(e) }); }
+    setBusy(''); load();
+  };
+
+  const doSettle = async () => {
+    setBusy('Settle'); setMsg(null);
+    try { setSettleRes(await api('/covenant/market/settle', { market_id: id })); }
+    catch (e) { setMsg({ ok: false, text: String(e) }); }
     setBusy(''); load();
   };
 
@@ -252,10 +260,28 @@ function MarketDetail({ id }) {
       {resolved && (
         <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-5 mb-5">
           <div className="flex items-center gap-2 text-emerald-300 font-semibold mb-1.5"><Trophy size={16} /> Resolved — {wonLabel} won</div>
-          <p className="text-[12px] text-gray-300 leading-relaxed">
-            The winning secret is revealed. Every funded leg can now be claimed on-chain by its winner with the secret + their key —
+          <p className="text-[12px] text-gray-300 leading-relaxed mb-3">
+            The winning secret is revealed. Every funded leg can be claimed on-chain with the secret + the winner's key —
             through any Kaspa node, no Covex required. Winners take the pool (minus 30% fee); losers reclaim 50%.
           </p>
+          <button disabled={!!busy} onClick={doSettle}
+            className="btn-shimmer py-2.5 px-5 rounded-xl font-bold text-sm bg-emerald-400 text-black disabled:opacity-40 disabled:cursor-not-allowed">
+            {busy === 'Settle' ? <Loader2 className="animate-spin inline" size={15} /> : 'Settle / claim all legs'}
+          </button>
+          {settleRes && settleRes.success && (
+            <div className="mt-3 text-[12px] text-gray-300">
+              Settled <span className="text-white font-semibold">{settleRes.legs_settled}/{settleRes.legs_total}</span> legs on-chain.
+              <div className="mt-1.5 space-y-1">
+                {(settleRes.settled || []).map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 font-mono text-[11px]">
+                    <span className={s.ok ? 'text-emerald-300' : 'text-red-300'}>{s.ok ? '✓' : '×'}</span>
+                    <span className="text-gray-400 w-20">{s.role}</span>
+                    {s.spend_tx ? <span className="text-gray-500 truncate">{String(s.spend_tx).slice(0, 20)}…</span> : <span className="text-red-300/70 truncate">{String(s.error || '')}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -3332,10 +3332,13 @@ pub async fn bundle_deploy_handler(
                 let cid = format!("{tx_id_str}:{idx}");
                 let recv = serde_json::to_string(&vec![addr.clone()]).unwrap_or_default();
                 let summary = format!("Parimutuel bundle leg '{role}': {} KAS locked in a binary_oracle_select covenant", *amt as f64 / 1e8);
+                // Auto-feature: the main bet leg (win_AB) is tagged BUILDER so deployed markets
+                // surface in the explorer without a manual edit; all legs group under "Prediction Markets".
+                let leg_tier = if *role == "win_AB" { "BUILDER" } else { "EXPLORER" };
                 let _ = db::insert_covenant(
                     &db, &cid, addr, *amt, &crate::compute_script_hash(&p2sh_script_hex), &p2sh_script_hex,
-                    "p2sh-binary_oracle_select", "Verifiable Games (ZK/Oracle)", &funder_addr_str, &summary, 0,
-                    "EXPLORER", &summary, &recv, &req.network,
+                    "p2sh-binary_oracle_select", "Prediction Markets", &funder_addr_str, &summary, 0,
+                    leg_tier, &summary, &recv, &req.network,
                 );
                 legs_json.push(serde_json::json!({
                     "role": role,
@@ -3664,6 +3667,10 @@ pub async fn match_market_handler(
             let txid = res.get("deploy_tx_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let _ = db::mark_order_funded(&db, &ao.order_id, &txid);
             let _ = db::mark_order_funded(&db, &bo.order_id, &txid);
+            // Persist the carved legs (role + redeem + outpoint) so /market/settle can claim
+            // each one after resolution without recomputing the carve.
+            let legs_json = res.get("legs").map(|v| v.to_string()).unwrap_or_else(|| "[]".to_string());
+            let _ = db::insert_market_bundle(&db, &txid, &req.market_id, &ao.bettor_addr, &bo.bettor_addr, &legs_json);
             matches.push(serde_json::json!({
                 "a_order": ao.order_id, "b_order": bo.order_id,
                 "a_kas": ao.stake_sompi as f64 / 1e8, "b_kas": bo.stake_sompi as f64 / 1e8,
@@ -3730,10 +3737,98 @@ pub async fn market_book_handler(
     }))
 }
 
+#[derive(Deserialize)]
+pub struct SettleMarketRequest {
+    pub market_id: String,
+}
+
+/// POST /covenant/market/settle - after a market is RESOLVED, claim EVERY funded bundle leg
+/// on-chain via dev-mode using the revealed secret. The fee leg pays the treasury (whose key
+/// the dev wallets don't hold) so it is skipped; in production each bettor claims their own
+/// leg non-custodially. Returns the spend tx for each settled leg.
+pub async fn settle_market_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<SettleMarketRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let m = match db::get_bundle_market(&db, &req.market_id) {
+        Some(m) => m,
+        None => return err("market not found".into()),
+    };
+    let outcome = match m.revealed_outcome {
+        Some(o) => o,
+        None => return err("market is not resolved yet; reveal an outcome first".into()),
+    };
+    let secret = match &m.revealed_secret {
+        Some(s) => s.clone(),
+        None => return err("no revealed secret on record".into()),
+    };
+    let select_mode = if outcome == 0 { "reveal_a" } else { "reveal_b" };
+    let bundles = db::list_market_bundles(&db, &req.market_id);
+    let mut settled = Vec::new();
+    for b in &bundles {
+        let legs: Vec<serde_json::Value> = serde_json::from_str(&b.legs_json).unwrap_or_default();
+        for leg in &legs {
+            let role = leg.get("role").and_then(|v| v.as_str()).unwrap_or("");
+            if role == "fee" {
+                continue; // the treasury claims its own fee leg
+            }
+            // Pay each leg to its rightful winner under the resolved outcome.
+            let dest = match (role, outcome) {
+                ("win_AB", 0) | ("AA", _) => b.a_addr.clone(),
+                ("win_AB", _) => b.b_addr.clone(),
+                ("rebate_BA", 0) | ("BB", _) => b.b_addr.clone(),
+                ("rebate_BA", _) => b.a_addr.clone(),
+                _ => b.a_addr.clone(),
+            };
+            let redeem_hex = leg.get("redeem_script_hex").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if redeem_hex.is_empty() {
+                continue;
+            }
+            let kind = leg.get("redeem_kind").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let idx = leg.get("outpoint_index").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let sreq = P2shSpendRequest {
+                network: m.network.clone(),
+                deploy_tx_id: b.bundle_tx.clone(),
+                private_key_hex: String::new(),
+                use_dev_mode: true,
+                destination_addr: dest,
+                preimage_hex: Some(secret.clone()),
+                signer_keys_hex: None,
+                htlc_mode: None,
+                channel_mode: None,
+                timedecay_mode: None,
+                select_mode: Some(select_mode.to_string()),
+                redeem_script_hex: Some(redeem_hex),
+                redeem_kind: Some(kind),
+                outpoint_index: Some(idx),
+            };
+            let res = p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
+            settled.push(serde_json::json!({
+                "bundle_tx": b.bundle_tx, "role": role,
+                "ok": res.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
+                "spend_tx": res.get("spend_tx_id"),
+                "error": res.get("error"),
+            }));
+        }
+    }
+    let ok_count = settled.iter().filter(|s| s.get("ok").and_then(|v| v.as_bool()).unwrap_or(false)).count();
+    Json(serde_json::json!({
+        "success": true,
+        "market_id": req.market_id,
+        "resolved_outcome": outcome,
+        "legs_settled": ok_count,
+        "legs_total": settled.len(),
+        "settled": settled,
+        "note": "Each non-fee leg is claimed on-chain with the revealed secret; the fee leg is left for the treasury. In production each bettor claims their own leg non-custodially."
+    }))
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
         .route("/covenant/bundle/deploy", post(bundle_deploy_handler))
+        .route("/covenant/market/settle", post(settle_market_handler))
         .route("/covenant/market/create", post(create_market_handler))
         .route("/covenant/market/resolve", post(resolve_market_handler))
         .route("/covenant/market/get", post(get_market_handler))

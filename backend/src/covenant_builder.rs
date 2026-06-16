@@ -99,6 +99,23 @@ pub enum RedeemKind {
     /// (req_after < req_now). Treasury recovery / inheritance. Built via
     /// redeem_timedecay_multisig (two real multisigs spliced into an IF/ELSE).
     TimeDecay { pubkeys: Vec<[u8; 32]>, req_now: usize, req_after: usize, lock_daa: u64 },
+    /// Binary outcome selector - the per-match unit of a parimutuel bundle. Two hashlock
+    /// branches gate the two outcomes, with a relative-timelock refund tail:
+    /// `OP_IF OpBlake2b <h_a> OpEqualVerify <winner_a> OpCheckSig OP_ELSE OP_IF OpBlake2b
+    /// <h_b> OpEqualVerify <winner_b> OpCheckSig OP_ELSE <min_sequence> OpCheckSequenceVerify
+    /// <refund> OpCheckSig OP_ENDIF OP_ENDIF`. An outcome oracle commits to H_A and H_B up
+    /// front and reveals EXACTLY ONE secret at resolution: reveal s_A => winner_a claims;
+    /// reveal s_B => winner_b claims; if neither is ever revealed, the refund key reclaims
+    /// once the UTXO ages `min_sequence` units (BIP68). No Covex key is in the redeem - the
+    /// oracle only distributes a secret, it never signs a payout, so this is pure on-chain.
+    BinaryOracleSelect {
+        h_a: [u8; 32],
+        winner_a: [u8; 32],
+        h_b: [u8; 32],
+        winner_b: [u8; 32],
+        min_sequence: u64,
+        refund: [u8; 32],
+    },
 }
 
 impl RedeemKind {
@@ -125,6 +142,9 @@ impl RedeemKind {
             RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
                 redeem_timedecay_multisig(pubkeys, *req_now, *req_after, *lock_daa)
             }
+            RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund } => {
+                redeem_binary_oracle_select(h_a, winner_a, h_b, winner_b, *min_sequence, refund)
+            }
         }
     }
 
@@ -147,6 +167,9 @@ impl RedeemKind {
             RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
                 format!("timedecay:{}:{req_now}:{req_after}:{lock_daa}", pubkeys.len())
             }
+            RedeemKind::BinaryOracleSelect { min_sequence, .. } => {
+                format!("binary_oracle_select:{min_sequence}")
+            }
         }
     }
 
@@ -167,6 +190,7 @@ impl RedeemKind {
             RedeemKind::Deadman { .. } => "p2sh_deadman",
             RedeemKind::RelativeTimelock { .. } => "p2sh_rcsv",
             RedeemKind::TimeDecay { .. } => "p2sh_timedecay",
+            RedeemKind::BinaryOracleSelect { .. } => "p2sh_binary_oracle_select",
         }
     }
 }
@@ -194,6 +218,9 @@ pub enum SpendKind {
     /// `timedecay:{n}:{req_now}:{req_after}:{lock_daa}` - n members; sig_op_count = 2*n
     /// (two multisigs). The spend handler reads req_now/req_after/lock_daa directly.
     TimeDecay { n: u8 },
+    /// `binary_oracle_select:N` - two hashlock branches + a CSV refund. sig_op_count = 3
+    /// (one CheckSig per branch); the refund branch needs the spend input's sequence >= N.
+    BinaryOracleSelect { min_sequence: u64 },
 }
 
 impl SpendKind {
@@ -218,6 +245,9 @@ impl SpendKind {
             "deadman" => Some(SpendKind::Deadman { lock_daa: param?.parse().ok()? }),
             "rcsv" => Some(SpendKind::RelativeTimelock { min_sequence: param?.parse().ok()? }),
             "timedecay" => Some(SpendKind::TimeDecay { n: param?.split(':').next()?.parse().ok()? }),
+            "binary_oracle_select" => {
+                Some(SpendKind::BinaryOracleSelect { min_sequence: param?.parse().ok()? })
+            }
             _ => None,
         }
     }
@@ -238,6 +268,8 @@ impl SpendKind {
             // IF <owner> CheckSig  ELSE  CLTV <heir> CheckSig  ENDIF = 2 static sig ops.
             SpendKind::Deadman { .. } => 2,
             SpendKind::RelativeTimelock { .. } => 1,
+            // IF CheckSig / ELSE IF CheckSig / ELSE CSV CheckSig = 3 static sig ops (one per branch).
+            SpendKind::BinaryOracleSelect { .. } => 3,
             // Two multisigs (IF + ELSE), each counting one sig-op per listed pubkey.
             SpendKind::TimeDecay { n } => 2 * *n,
         }
@@ -295,6 +327,54 @@ pub fn redeem_relative_timelock(min_sequence: u64, xonly_pubkey: &[u8; 32]) -> B
     b.add_op(OpCheckSequenceVerify).map_err(|e| format!("rel-timelock CSV: {e}"))?;
     b.add_data(xonly_pubkey).map_err(|e| format!("rel-timelock pubkey: {e}"))?;
     b.add_op(OpCheckSig).map_err(|e| format!("rel-timelock OpCheckSig: {e}"))?;
+    Ok(b.drain())
+}
+
+/// Redeem script for a BINARY OUTCOME SELECTOR - the per-match unit of a parimutuel
+/// bundle. Two hashlock branches gate the two outcomes, and a relative-timelock tail
+/// returns the funds if neither secret is ever revealed:
+///   `OP_IF  OpBlake2b <h_a> OpEqualVerify <winner_a> OpCheckSig
+///    OP_ELSE OP_IF OpBlake2b <h_b> OpEqualVerify <winner_b> OpCheckSig
+///            OP_ELSE <min_sequence> OpCheckSequenceVerify <refund> OpCheckSig OP_ENDIF OP_ENDIF`.
+/// An outcome oracle commits to H_A, H_B at market creation and reveals EXACTLY ONE secret at
+/// resolution: revealing s_A (blake2b256(s_A)==h_a) lets winner_a claim; revealing s_B lets
+/// winner_b claim; if the oracle stays silent, the refund key reclaims once the UTXO has aged
+/// `min_sequence` units (BIP68, node-enforced). Crucially each branch ALSO requires a specific
+/// key's OpCheckSig, so a publicly-revealed secret does NOT let the wrong party take a branch.
+/// No Covex key is in the redeem - the chain alone enforces who can spend, so this is pure
+/// on-chain. Like CLTV/CSV elsewhere, OpCheckSequenceVerify pops its operand, so NO OpDrop.
+pub fn redeem_binary_oracle_select(
+    h_a: &[u8; 32],
+    winner_a: &[u8; 32],
+    h_b: &[u8; 32],
+    winner_b: &[u8; 32],
+    min_sequence: u64,
+    refund: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    // Branch A (outer IF): reveal preimage of H_A, signed by winner_a.
+    b.add_op(OpIf).map_err(|e| format!("bos OpIf(outer): {e}"))?;
+    b.add_op(OpBlake2b).map_err(|e| format!("bos OpBlake2b(a): {e}"))?;
+    b.add_data(h_a).map_err(|e| format!("bos h_a: {e}"))?;
+    b.add_op(OpEqualVerify).map_err(|e| format!("bos OpEqualVerify(a): {e}"))?;
+    b.add_data(winner_a).map_err(|e| format!("bos winner_a: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("bos OpCheckSig(a): {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("bos OpElse(outer): {e}"))?;
+    // Branch B (inner IF): reveal preimage of H_B, signed by winner_b.
+    b.add_op(OpIf).map_err(|e| format!("bos OpIf(inner): {e}"))?;
+    b.add_op(OpBlake2b).map_err(|e| format!("bos OpBlake2b(b): {e}"))?;
+    b.add_data(h_b).map_err(|e| format!("bos h_b: {e}"))?;
+    b.add_op(OpEqualVerify).map_err(|e| format!("bos OpEqualVerify(b): {e}"))?;
+    b.add_data(winner_b).map_err(|e| format!("bos winner_b: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("bos OpCheckSig(b): {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("bos OpElse(inner): {e}"))?;
+    // Refund (inner ELSE): relative timelock to the refund key.
+    b.add_lock_time(min_sequence).map_err(|e| format!("bos add seq: {e}"))?;
+    b.add_op(OpCheckSequenceVerify).map_err(|e| format!("bos CSV: {e}"))?;
+    b.add_data(refund).map_err(|e| format!("bos refund: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("bos OpCheckSig(refund): {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("bos OpEndIf(inner): {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("bos OpEndIf(outer): {e}"))?;
     Ok(b.drain())
 }
 
@@ -498,6 +578,65 @@ pub fn build_htlc_signature_script(
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("htlc signature script: {e}"))
+}
+
+/// Which branch of a `BinaryOracleSelect` covenant a spend takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BinarySelectBranch {
+    /// Outcome A won: reveal the preimage of H_A and sign with winner_a's key.
+    RevealA,
+    /// Outcome B won: reveal the preimage of H_B and sign with winner_b's key.
+    RevealB,
+    /// Neither secret revealed: after the relative-timelock the refund key reclaims.
+    Refund,
+}
+
+/// Build the input `idx` signature_script that spends a `BinaryOracleSelect` covenant.
+/// The witness selectors mirror the nested IF/ELSE - the OUTER condition is consumed first
+/// so it sits on TOP of the stack (pushed last). Stack order bottom->top:
+///   RevealA: <sig_a> <preimage_a> OP_TRUE                  (outer IF taken; inner never runs)
+///   RevealB: <sig_b> <preimage_b> OP_TRUE OP_FALSE         (inner TRUE, outer FALSE on top)
+///   Refund:  <sig_refund> OP_FALSE OP_FALSE                (spend input.sequence must be >= min_sequence)
+/// `keypair` is winner_a (RevealA), winner_b (RevealB), or the refund key (Refund); the
+/// preimage is required for the two reveal branches and ignored for the refund.
+pub fn build_binary_oracle_select_signature_script(
+    signable: &SignableTransaction,
+    idx: usize,
+    keypair: &secp256k1::Keypair,
+    redeem: &[u8],
+    branch: BinarySelectBranch,
+    preimage: Option<&[u8]>,
+) -> BResult<Vec<u8>> {
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+        .map_err(|e| format!("sighash->msg: {e}"))?;
+    let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let push_preimage = |s: &mut Vec<u8>, label: &str| -> BResult<()> {
+        let p = preimage.ok_or_else(|| format!("{label} requires a preimage"))?;
+        let mut b = ScriptBuilder::new();
+        b.add_data(p).map_err(|e| format!("bos preimage push: {e}"))?;
+        s.extend_from_slice(&b.drain());
+        Ok(())
+    };
+    match branch {
+        BinarySelectBranch::RevealA => {
+            push_preimage(&mut satisfier, "RevealA")?;
+            satisfier.push(OpTrue); // outer IF -> branch A (top of stack)
+        }
+        BinarySelectBranch::RevealB => {
+            push_preimage(&mut satisfier, "RevealB")?;
+            satisfier.push(OpTrue); // inner IF -> branch B
+            satisfier.push(OpFalse); // outer IF -> ELSE (top of stack)
+        }
+        BinarySelectBranch::Refund => {
+            satisfier.push(OpFalse); // inner IF -> ELSE
+            satisfier.push(OpFalse); // outer IF -> ELSE (top of stack)
+        }
+    }
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("binary_oracle_select signature script: {e}"))
 }
 
 /// Redeem script for a dead-man's-switch / inheritance covenant:
@@ -3204,6 +3343,73 @@ mod tests {
             !run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(s, 0, &wrong, &redeem, &[]).unwrap()),
             "wrong key must fail regardless of sequence"
         );
+    }
+
+    #[test]
+    fn binary_oracle_select_routes_by_revealed_secret() {
+        use BinarySelectBranch::*;
+        let winner_a = test_keypair(81);
+        let winner_b = test_keypair(82);
+        let refund = test_keypair(83);
+        let wa = winner_a.x_only_public_key().0.serialize();
+        let wb = winner_b.x_only_public_key().0.serialize();
+        let rf = refund.x_only_public_key().0.serialize();
+        let s_a = b"outcome-A-secret-v1".to_vec();
+        let s_b = b"outcome-B-secret-v1".to_vec();
+        let h_a = blake2b256(&s_a);
+        let h_b = blake2b256(&s_b);
+        let min_seq: u64 = 144;
+        let redeem = redeem_binary_oracle_select(&h_a, &wa, &h_b, &wb, min_seq, &rf).unwrap();
+
+        // A wins: reveal s_A, winner_a signs -> branch A passes.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, RevealA, Some(&s_a[..])).unwrap()),
+            "reveal s_A + winner_a sig must pass branch A"
+        );
+        // s_A is public, but the LOSER's key cannot take branch A (each branch also needs the named key's sig).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_b, &redeem, RevealA, Some(&s_a[..])).unwrap()),
+            "a public s_A must NOT let the wrong key sweep branch A"
+        );
+        // Wrong preimage on branch A fails (OpEqualVerify).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, RevealA, Some(&b"nope"[..])).unwrap()),
+            "wrong preimage must fail branch A"
+        );
+        // B wins: reveal s_B, winner_b signs -> the nested ELSE/IF branch passes.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_b, &redeem, RevealB, Some(&s_b[..])).unwrap()),
+            "reveal s_B + winner_b sig must pass branch B"
+        );
+        // Refund: no secret, refund key signs, input aged >= min_seq -> passes (BIP68/CSV).
+        assert!(
+            run_spend_generic(&redeem, 0, min_seq, |s| build_binary_oracle_select_signature_script(s, 0, &refund, &redeem, Refund, None).unwrap()),
+            "refund after the relative timelock must pass"
+        );
+        // Refund before the relative timelock fails (input.sequence < min_seq).
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| build_binary_oracle_select_signature_script(s, 0, &refund, &redeem, Refund, None).unwrap()),
+            "refund before the relative timelock must be rejected"
+        );
+        // Refund branch with a non-refund key fails (final OpCheckSig).
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, Refund, None).unwrap()),
+            "refund branch requires the refund key"
+        );
+    }
+
+    #[test]
+    fn binary_oracle_select_kind_wiring() {
+        let a = [11u8; 32];
+        let b = [22u8; 32];
+        let c = [33u8; 32];
+        let d = [44u8; 32];
+        let k = RedeemKind::BinaryOracleSelect { h_a: a, winner_a: b, h_b: c, winner_b: d, min_sequence: 144, refund: a };
+        assert_eq!(k.redeem_script().unwrap(), redeem_binary_oracle_select(&a, &b, &c, &d, 144, &a).unwrap());
+        assert_eq!(k.kind_str(), "binary_oracle_select:144");
+        assert_eq!(k.catalog_id(), "p2sh_binary_oracle_select");
+        assert_eq!(SpendKind::parse("binary_oracle_select:144"), Some(SpendKind::BinaryOracleSelect { min_sequence: 144 }));
+        assert_eq!(SpendKind::parse("binary_oracle_select:144").unwrap().sig_op_count(), 3);
     }
 
     #[test]

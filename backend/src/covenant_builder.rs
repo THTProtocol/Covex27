@@ -3073,9 +3073,291 @@ pub async fn claim_covenant_handler(
     }))
 }
 
+#[derive(Deserialize)]
+pub struct BundleDeployRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    /// Funder (pays the whole matched pool + tx fee). dev mode = dev wallet 1.
+    pub funder_addr: String,
+    #[serde(default)]
+    pub private_key_hex: String,
+    #[serde(default)]
+    pub use_dev_mode: bool,
+    /// Matched stakes: outcome-A bettor stake and outcome-B bettor stake (KAS).
+    pub a_kas: f64,
+    pub b_kas: f64,
+    /// x-only pubkeys: the A bettor (winner if A) and B bettor (winner if B). dev mode
+    /// defaults A = dev wallet 1, B = dev wallet 2.
+    #[serde(default)]
+    pub a_pubkey_hex: Option<String>,
+    #[serde(default)]
+    pub b_pubkey_hex: Option<String>,
+    /// Treasury fee beneficiary x-only pubkey; defaults to the network treasury address key.
+    #[serde(default)]
+    pub treasury_pubkey_hex: Option<String>,
+    /// Outcome secrets: H_A = blake2b256(preimage_a_hex), H_B = blake2b256(preimage_b_hex).
+    pub preimage_a_hex: String,
+    pub preimage_b_hex: String,
+    /// CSV relative-locktime (min_sequence) for every leg's refund branch.
+    pub min_sequence: u64,
+    /// House fee / loser rebate in basis points. Defaults 3000 (30%) / 5000 (50%).
+    #[serde(default)]
+    pub fee_bps: Option<u64>,
+    #[serde(default)]
+    pub rebate_bps: Option<u64>,
+}
+
+/// POST /covenant/bundle/deploy - the CONJOINED COVENANT. Carves a matched parimutuel
+/// mini-pool (stakes a on outcome A, b on outcome B) into up to FOUR binary_oracle_select
+/// P2SH UTXOs, all funded by ONE transaction and all sharing the same H_A/H_B/min_sequence.
+/// An outcome oracle later reveals exactly one secret to route the whole bundle: winners,
+/// the loser rebate, and the treasury fee each land at a key the chain enforces; silence =>
+/// every leg refunds via its CSV branch. Carve (fee f, rebate r, T=a+b):
+///   FEE   = f*T            -> treasury on both reveal branches
+///   U_AB  = (1-f)T - r*b - max(0,r(a-b))   -> A on reveal_a, B on reveal_b
+///   U_BA  = r*a - max(0,r(a-b))            -> B on reveal_a, A on reveal_b
+///   U_AA  = max(0,r(a-b))                  -> A on both (only when a>b)
+///   U_BB  = remaining - the above          -> B on both (only when a<b)
+/// They sum to T exactly; each leg names ONE key per outcome so consensus pays the right
+/// party with no introspection opcode.
+pub async fn bundle_deploy_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<BundleDeployRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+
+    let (seckey, funder_addr_str) =
+        match resolve_signing_key(&req.network, &req.funder_addr, &req.private_key_hex, req.use_dev_mode) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
+    let funder_xonly = match xonly_from_seckey(&seckey) {
+        Ok(x) => x,
+        Err(e) => return err(e),
+    };
+
+    // Beneficiary keys: A bettor (winner if A), B bettor (winner if B), treasury (fee).
+    let dec_addr_xonly = |addr: &str| -> BResult<[u8; 32]> {
+        let a = Address::try_from(addr).map_err(|e| format!("invalid address '{addr}': {e}"))?;
+        a.payload
+            .as_slice()
+            .try_into()
+            .map_err(|_| format!("address '{addr}' is not a 32-byte schnorr key"))
+    };
+    let (a_pk, b_pk) = if let (Some(ah), Some(bh)) = (&req.a_pubkey_hex, &req.b_pubkey_hex) {
+        match (decode_xonly_hex(ah), decode_xonly_hex(bh)) {
+            (Ok(a), Ok(b)) => (a, b),
+            (Err(e), _) | (_, Err(e)) => return err(e),
+        }
+    } else if req.use_dev_mode {
+        match dev_keys(&req.network) {
+            Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
+                (Ok(a), Ok(b)) => (a, b),
+                (Err(e), _) | (_, Err(e)) => return err(e),
+            },
+            Err(e) => return err(e),
+        }
+    } else {
+        return err("bundle deploy requires a_pubkey_hex + b_pubkey_hex (or use_dev_mode)".into());
+    };
+    let treasury_pk = if let Some(t) = &req.treasury_pubkey_hex {
+        match decode_xonly_hex(t) {
+            Ok(x) => x,
+            Err(e) => return err(e),
+        }
+    } else {
+        match dec_addr_xonly(dev_wallets::treasury_address_for_network(&req.network)) {
+            Ok(x) => x,
+            Err(e) => return err(e),
+        }
+    };
+
+    let pa = match hex::decode(req.preimage_a_hex.trim()) {
+        Ok(b) => b,
+        Err(e) => return err(format!("bad preimage_a_hex: {e}")),
+    };
+    let pb = match hex::decode(req.preimage_b_hex.trim()) {
+        Ok(b) => b,
+        Err(e) => return err(format!("bad preimage_b_hex: {e}")),
+    };
+    let h_a = blake2b256(&pa);
+    let h_b = blake2b256(&pb);
+    let min_seq = req.min_sequence;
+
+    // Integer-sompi carve.
+    let a_s = (req.a_kas * 100_000_000.0).round() as u64;
+    let b_s = (req.b_kas * 100_000_000.0).round() as u64;
+    if a_s == 0 || b_s == 0 {
+        return err("both a_kas and b_kas must be > 0 (a matched mini-pool has both sides)".into());
+    }
+    let t = a_s + b_s;
+    let fee_bps = req.fee_bps.unwrap_or(3000);
+    let rebate_bps = req.rebate_bps.unwrap_or(5000);
+    if fee_bps + rebate_bps >= 10000 {
+        return err("fee_bps + rebate_bps must be < 10000 (winners would be unfunded)".into());
+    }
+    let fee = t * fee_bps / 10000;
+    let remaining = t - fee; // = (1-f)T, integer-exact
+    let ra = a_s * rebate_bps / 10000;
+    let rb = b_s * rebate_bps / 10000;
+    let w1 = ra.saturating_sub(rb); // U_AA = max(0, r(a-b))
+    let w2 = remaining.saturating_sub(rb).saturating_sub(w1); // U_AB
+    let w3 = ra.saturating_sub(w1); // U_BA
+    let w4 = remaining.saturating_sub(w2).saturating_sub(w3).saturating_sub(w1); // U_BB (closes to `remaining`)
+
+    // (amount, winner_a key, winner_b key, role). refund key = funder (escrow reclaims on silence).
+    let legs: Vec<(u64, [u8; 32], [u8; 32], &str)> = vec![
+        (fee, treasury_pk, treasury_pk, "fee"),
+        (w2, a_pk, b_pk, "win_AB"),
+        (w3, b_pk, a_pk, "rebate_BA"),
+        (w1, a_pk, a_pk, "AA"),
+        (w4, b_pk, b_pk, "BB"),
+    ];
+    const MIN_LEG: u64 = 30_000; // clear dust + the eventual claim TX_FEE
+    let mut built: Vec<(u64, Vec<u8>, String, &str)> = Vec::new();
+    for (amt, wa, wb, role) in legs {
+        if amt == 0 {
+            continue;
+        }
+        if amt < MIN_LEG {
+            return err(format!(
+                "carve leg '{role}' = {amt} sompi is below the {MIN_LEG}-sompi minimum; use larger stakes"
+            ));
+        }
+        let redeem = match redeem_binary_oracle_select(&h_a, &wa, &h_b, &wb, min_seq, &funder_xonly) {
+            Ok(r) => r,
+            Err(e) => return err(e),
+        };
+        let addr = match p2sh_address(&redeem, prefix_for_network(&req.network)) {
+            Ok(a) => a.to_string(),
+            Err(e) => return err(e),
+        };
+        built.push((amt, redeem, addr, role));
+    }
+    if built.is_empty() {
+        return err("nothing to fund".into());
+    }
+
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let funder_addr = match Address::try_from(funder_addr_str.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("invalid funder address: {e}")),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![funder_addr]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    if utxos.is_empty() {
+        return err("no UTXOs for funder address".into());
+    }
+    let best = utxos.iter().max_by_key(|u| u.utxo_entry.amount).unwrap();
+    let total_input = best.utxo_entry.amount;
+    let total_locked: u64 = built.iter().map(|(a, _, _, _)| *a).sum();
+    let total_cost = total_locked + TX_FEE;
+    if total_input < total_cost {
+        return err(format!(
+            "insufficient balance: have {total_input} sompi, need {total_cost} sompi (pool T={t})"
+        ));
+    }
+    let funder_script = best.utxo_entry.script_public_key.clone();
+    let change = total_input - total_cost;
+    let mut outputs: Vec<TransactionOutput> = built
+        .iter()
+        .map(|(amt, redeem, _, _)| TransactionOutput {
+            value: *amt,
+            script_public_key: p2sh_script_pubkey(redeem),
+        })
+        .collect();
+    if change > 0 {
+        outputs.push(TransactionOutput { value: change, script_public_key: funder_script });
+    }
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint {
+            transaction_id: best.outpoint.transaction_id,
+            index: best.outpoint.index,
+        },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: 1,
+    }];
+    // Non-empty payload (sighash) + aa20 discovery marker for the first leg.
+    let mut payload = vec![0xaa, 0x20];
+    payload.extend_from_slice(&blake2b256(&built[0].1));
+    let unsigned = Transaction::new_non_finalized(
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        payload,
+    );
+    let entries = vec![UtxoEntry {
+        amount: total_input,
+        script_public_key: best.utxo_entry.script_public_key.clone(),
+        block_daa_score: best.utxo_entry.block_daa_score,
+        is_coinbase: best.utxo_entry.is_coinbase,
+    }];
+    let signable = SignableTransaction::with_entries(unsigned, entries);
+    let mut signed = match sign_with_multiple_v2(signable, &[seckey]).fully_signed() {
+        Ok(tx) => tx,
+        Err(e) => return err(format!("signing failed: {e:?}")),
+    };
+    signed.tx.finalize();
+    let rpc_tx = RpcTransaction::from(&signed.tx);
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => {
+            let tx_id_str = tx_id.to_string();
+            let redeem_kind = format!("binary_oracle_select:{min_seq}");
+            let mut legs_json = Vec::new();
+            for (i, (amt, redeem, addr, role)) in built.iter().enumerate() {
+                let idx = i as u32;
+                let redeem_hex = hex::encode(redeem);
+                let _ = db::insert_p2sh_covenant(
+                    &db, &tx_id_str, &req.network, addr, &redeem_hex, &redeem_kind, *amt, idx, &funder_addr_str,
+                );
+                let p2sh_script_hex = hex::encode(p2sh_script_pubkey(redeem).script());
+                let cid = format!("{tx_id_str}:{idx}");
+                let recv = serde_json::to_string(&vec![addr.clone()]).unwrap_or_default();
+                let summary = format!("Parimutuel bundle leg '{role}': {} KAS locked in a binary_oracle_select covenant", *amt as f64 / 1e8);
+                let _ = db::insert_covenant(
+                    &db, &cid, addr, *amt, &crate::compute_script_hash(&p2sh_script_hex), &p2sh_script_hex,
+                    "p2sh-binary_oracle_select", "Verifiable Games (ZK/Oracle)", &funder_addr_str, &summary, 0,
+                    "EXPLORER", &summary, &recv, &req.network,
+                );
+                legs_json.push(serde_json::json!({
+                    "role": role,
+                    "outpoint": cid,
+                    "p2sh_address": addr,
+                    "amount_sompi": amt,
+                    "amount_kas": *amt as f64 / 1e8,
+                }));
+            }
+            info!("Parimutuel bundle deployed: tx={tx_id_str} T={t} sompi legs={}", built.len());
+            Json(serde_json::json!({
+                "success": true,
+                "deploy_tx_id": tx_id_str,
+                "pool_total_sompi": t,
+                "pool_total_kas": t as f64 / 1e8,
+                "fee_bps": fee_bps,
+                "rebate_bps": rebate_bps,
+                "min_sequence": min_seq,
+                "legs": legs_json,
+                "enforcement_reality": "on-chain",
+                "note": "Conjoined parimutuel bundle. Reveal one outcome secret, then claim each leg via /covenant/p2sh/spend (select_mode reveal_a|reveal_b); silence => refund after the CSV delay."
+            }))
+        }
+        Err(e) => err(format!("broadcast rejected: {e}")),
+    }
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
+        .route("/covenant/bundle/deploy", post(bundle_deploy_handler))
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
         .route("/covenant/p2sh/prepare-spend", post(prepare_spend_handler))
         .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))

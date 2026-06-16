@@ -203,9 +203,10 @@ body {
   border-color: #e2e8f0 !important;
 }
 
-/* Nav/Header - light elevated bar */
+/* Top nav - light elevated bar. Scope to the actual nav only: a bare `header`
+   selector also caught in-page content <header>s (e.g. /kaspa hero) and painted
+   them as a sharp-edged elevated bar in light mode. The nav is <nav>/.fixed.top-0. */
 .light nav,
-.light header,
 .light .fixed.top-0 {
   background: rgba(248, 250, 252, 0.95) !important;
   border-bottom: 1px solid #e2e8f0 !important;
@@ -687,9 +688,8 @@ body {
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
 }
 
-/* Dark nav tweaks */
-.dark nav,
-.dark header {
+/* Dark nav tweaks - scope to the actual nav only (see the light-mode note above). */
+.dark nav {
   background: rgba(10, 10, 13, 0.85) !important;
   border-bottom-color: rgba(255, 255, 255, 0.05) !important;
 }

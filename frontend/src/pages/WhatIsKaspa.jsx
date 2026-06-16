@@ -8,7 +8,7 @@ export default function WhatIsKaspaPage() {
       <div className="covex-aurora" aria-hidden="true" style={{ top: '-4rem' }} />
       <div className="max-w-5xl mx-auto px-5 sm:px-6 relative z-10">
 
-        <header className="mb-12">
+        <header className="mb-12 glass-panel rounded-2xl p-6 sm:p-8 border border-[#49EACB]/15 relative overflow-hidden detail-hero-enhanced">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center">
               <Zap size={26} className="text-[#49EACB]" />

@@ -13,7 +13,10 @@ const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
 
-const VKEY_PATH = path.join(__dirname, "merkle_membership_vkey.json");
+// Verify against the COMMITTED, SERVED vkey (the one the in-browser prover's proofs match),
+// NOT the gitignored zk/ root vkey which drifts to a stale ceremony and rejects every real
+// proof. frontend/public/zk/<circuit>/ is the single committed source of truth for keys.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/merkle_membership/merkle_membership_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

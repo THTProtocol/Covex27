@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from '../components/ToastContext';
 import { Render as PuckRender } from '@measured/puck';
-import puckConfig from '../lib/puckConfig';
+import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
@@ -827,6 +827,17 @@ export default function CovenantInteractive() {
 
           <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} />
           <RecoveryKitModal open={recoveryOpen} onClose={() => setRecoveryOpen(false)} covenant={covenant} />
+
+          {/* Page-level branding: the creator's chosen background preset (from the Puck
+              page root) tints the whole covenant page, so the design carries beyond the
+              custom section. Skipped when a custom background image is set below. */}
+          {!covenant?.custom_ui_config?.theme?.background_image
+            && BG_PRESETS[covenant?.custom_ui_config?.puck_data?.root?.props?.backgroundPreset] && (
+            <div
+              className="fixed inset-0 -z-10 pointer-events-none"
+              style={{ background: BG_PRESETS[covenant.custom_ui_config.puck_data.root.props.backgroundPreset].css }}
+            />
+          )}
 
           {/* Creator-set background image behind the covenant page, dimmed for readability */}
           {(covenant?.custom_ui_config?.theme?.background_image || covenant?.custom_ui_config?.theme?.backdrop_css) && (

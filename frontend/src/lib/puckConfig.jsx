@@ -10,6 +10,11 @@
  * {{pool_yes}}, {{pool_no}}, {{odds_yes}}, {{odds_no}}, {{total_locked}}.
  * Tokens are resolved at render time only; creators can never inject HTML/JS
  * and never set a fund destination here (that is always derived server-side).
+ *
+ * IMAGES: image fields accept https:// (or data:image/) URLs only; anything
+ * else renders a neutral placeholder. The look (gradients, glow, glass) is
+ * built from the platform design tokens so a page reads premium even with no
+ * uploaded image at all.
  */
 
 const align = (a) => (a === 'center' ? 'text-center mx-auto' : a === 'right' ? 'text-right ml-auto' : 'text-left');
@@ -31,6 +36,42 @@ const toNum = (v, live) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const isHttpsImg = (u) => typeof u === 'string' && (u.startsWith('https://') || u.startsWith('data:image/'));
+
+// A creator-placed CTA NEVER carries a destination. It posts a typed intent the
+// covenant page validates and routes; the real address + scriptHash are always
+// derived server-side from the indexed covenant record. (See CovenantInteractive.)
+const ctaClick = (action, amount) => (e) => {
+  e.preventDefault();
+  try {
+    window.parent.postMessage({ type: 'COVENANT_ACTION', action: action || 'interact', outcome: 'yes', amountKas: amount || null }, '*');
+  } catch (_) { /* no-op */ }
+};
+
+// Curated full-page background presets: pure CSS gradients (no external images,
+// no copyright). A page looks designed before a creator adds any imagery.
+export const BG_PRESETS = {
+  'kaspa-hero': { name: 'Kaspa Hero', css: 'radial-gradient(120% 90% at 50% -10%, rgba(73,234,203,0.16) 0%, rgba(73,234,203,0.04) 38%, rgba(5,5,10,0.92) 72%), #05050A' },
+  'gold-prestige': { name: 'Gold Prestige', css: 'radial-gradient(120% 90% at 50% -10%, rgba(232,175,52,0.16) 0%, rgba(232,175,52,0.04) 38%, rgba(5,5,10,0.92) 72%), #05050A' },
+  'purple-mystic': { name: 'Purple Mystic', css: 'radial-gradient(120% 90% at 50% -10%, rgba(168,85,247,0.16) 0%, rgba(73,234,203,0.05) 42%, rgba(5,5,10,0.92) 74%), #05050A' },
+  'aurora': { name: 'Aurora', css: 'linear-gradient(135deg, rgba(73,234,203,0.10) 0%, rgba(168,85,247,0.08) 45%, rgba(5,5,10,0.95) 100%), #05050A' },
+  'midnight': { name: 'Midnight', css: '#05050A' },
+};
+const BG_PRESET_OPTIONS = Object.entries(BG_PRESETS).map(([value, v]) => ({ label: v.name, value }));
+
+// Gradient fills for the CTA banner (accent-tinted over near-black).
+const CTA_GRADS = {
+  'kaspa': 'linear-gradient(135deg, rgba(73,234,203,0.28) 0%, rgba(73,234,203,0.06) 100%), #0a0a0f',
+  'gold': 'linear-gradient(135deg, rgba(232,175,52,0.24) 0%, rgba(232,175,52,0.05) 100%), #0a0a0f',
+  'purple': 'linear-gradient(135deg, rgba(168,85,247,0.22) 0%, rgba(73,234,203,0.08) 100%), #0a0a0f',
+  'blue': 'linear-gradient(135deg, rgba(59,130,246,0.20) 0%, rgba(73,234,203,0.07) 100%), #0a0a0f',
+};
+
+const HL = { 'kaspa-green': '#49EACB', 'kaspa-gold': '#E8AF34', 'purple': '#A855F7', 'blue': '#3B82F6' };
+
+// Map a column count to literal Tailwind classes (kept as literals so JIT keeps them).
+const COL_CLASS = { '2': 'sm:grid-cols-2', '3': 'sm:grid-cols-2 lg:grid-cols-3', '4': 'sm:grid-cols-2 lg:grid-cols-4' };
+
 // Available live tokens, surfaced to creators in the Studio helper panel.
 export const LIVE_TOKENS = [
   { token: 'name', desc: 'Covenant name' },
@@ -48,15 +89,208 @@ export const LIVE_TOKENS = [
   { token: 'creator', desc: 'Creator address, short' },
 ];
 
+const placeholder = (label) => (
+  <div className="mx-4 mb-3 h-40 rounded-2xl border border-dashed border-white/15 flex items-center justify-center text-xs text-gray-500">{label}</div>
+);
+
 export const puckConfig = {
+  root: {
+    fields: {
+      pageLogo: { type: 'text', label: 'Logo URL (https, optional)' },
+      accentColor: { type: 'text', label: 'Accent hex' },
+      backgroundPreset: { type: 'select', label: 'Page background', options: BG_PRESET_OPTIONS },
+      fontFamily: { type: 'select', label: 'Font', options: [{ label: 'Inter (sans)', value: 'inter' }, { label: 'JetBrains Mono', value: 'mono' }] },
+    },
+    defaultProps: { pageLogo: '', accentColor: '#49EACB', backgroundPreset: 'kaspa-hero', fontFamily: 'inter' },
+    render: ({ children, pageLogo, accentColor, backgroundPreset, fontFamily }) => {
+      const bg = (BG_PRESETS[backgroundPreset] || BG_PRESETS['kaspa-hero']).css;
+      const font = fontFamily === 'mono' ? "'JetBrains Mono', ui-monospace, monospace" : "'Inter', system-ui, -apple-system, sans-serif";
+      return (
+        <div className="relative" style={{ background: bg, fontFamily: font, ['--page-accent']: accentColor || '#49EACB' }}>
+          {isHttpsImg(pageLogo) && (
+            <div className="flex items-center px-6 pt-6">
+              <img src={pageLogo} alt="brand logo" className="h-9 max-w-[200px] object-contain" />
+            </div>
+          )}
+          <div className="py-3">{children}</div>
+        </div>
+      );
+    },
+  },
   categories: {
+    hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner'] },
     layout: { title: 'Layout', components: ['Hero', 'Spacer', 'Divider', 'TwoColumns'] },
-    content: { title: 'Content', components: ['Heading', 'Paragraph', 'BulletList', 'FAQItem', 'ImageBlock'] },
-    covenant: { title: 'Covenant (live)', components: ['StatRow', 'OddsBar', 'PoolMeter', 'StakeCTA', 'FeeNotice'] },
+    content: { title: 'Content', components: ['Heading', 'Paragraph', 'BulletList', 'FAQItem', 'ImageBlock', 'ImageGallery', 'FeatureGrid', 'LogoStrip'] },
+    covenant: { title: 'Covenant (live)', components: ['StatRow', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
+    HeroImage: {
+      label: 'Hero (image)',
+      fields: {
+        backgroundImageUrl: { type: 'text', label: 'Background image URL (https, optional)' },
+        overlayOpacity: { type: 'select', options: [{ label: 'Light', value: '0.4' }, { label: 'Medium', value: '0.55' }, { label: 'Strong', value: '0.7' }, { label: 'Max', value: '0.82' }] },
+        title: { type: 'text' },
+        subtitle: { type: 'textarea' },
+        ctaLabel: { type: 'text', label: 'Button label (blank to hide)' },
+        ctaAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Place a bet', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
+        accentColor: { type: 'text', label: 'Accent hex' },
+        alignment: { type: 'radio', options: [{ label: 'Left', value: 'left' }, { label: 'Center', value: 'center' }] },
+      },
+      defaultProps: { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A live, on-chain Kaspa covenant. {{total_locked}} secured on {{network}}.', ctaLabel: 'Enter covenant', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' },
+      render: ({ backgroundImageUrl, overlayOpacity, title, subtitle, ctaLabel, ctaAction, accentColor, alignment, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const ac = accentColor || '#49EACB';
+        const ov = parseFloat(overlayOpacity) || 0.55;
+        const bg = isHttpsImg(backgroundImageUrl)
+          ? `linear-gradient(135deg, rgba(5,5,10,${ov}) 0%, rgba(5,5,10,${Math.min(1, ov + 0.18)}) 100%), url(${backgroundImageUrl}) center/cover no-repeat`
+          : `radial-gradient(120% 130% at 50% 0%, ${ac}28 0%, rgba(5,5,10,0.86) 55%), #0a0a0f`;
+        const center = alignment !== 'left';
+        return (
+          <div className={`relative overflow-hidden rounded-3xl mx-2 md:mx-4 mb-5 h-[340px] md:h-[460px] flex flex-col justify-center px-7 md:px-12 ${center ? 'items-center text-center' : 'items-start text-left'}`} style={{ background: bg }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 140px 24px rgba(0,0,0,0.55)' }} />
+            <h1 className="relative text-3xl md:text-5xl font-black leading-[1.05] mb-3 drop-shadow" style={{ color: ac }}>{resolveTokens(title, live)}</h1>
+            {subtitle && <p className="relative text-gray-200 text-base md:text-lg max-w-2xl mb-6 leading-relaxed">{resolveTokens(subtitle, live)}</p>}
+            {ctaLabel && (
+              <a href="#interact" onClick={ctaClick(ctaAction)} className="relative inline-block px-8 py-4 rounded-2xl bg-kaspa-green text-black font-extrabold text-base md:text-lg hover:brightness-125 transition-all cursor-pointer shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_18px_50px_-18px_rgba(73,234,203,0.5)]">
+                {resolveTokens(ctaLabel, live)}
+              </a>
+            )}
+          </div>
+        );
+      },
+    },
+    CTABanner: {
+      label: 'CTA Banner',
+      fields: {
+        headline: { type: 'text' },
+        description: { type: 'textarea' },
+        buttonLabel: { type: 'text' },
+        buttonAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Place a bet', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
+        backgroundGradient: { type: 'select', options: [{ label: 'Kaspa', value: 'kaspa' }, { label: 'Gold', value: 'gold' }, { label: 'Purple', value: 'purple' }, { label: 'Blue', value: 'blue' }] },
+      },
+      defaultProps: { headline: 'Ready to join?', description: 'Stake in your own wallet. Non-custodial, settled on-chain.', buttonLabel: 'Get started', buttonAction: 'interact', backgroundGradient: 'kaspa' },
+      render: ({ headline, description, buttonLabel, buttonAction, backgroundGradient, puck }) => {
+        const live = puck?.metadata?.live || {};
+        return (
+          <div className="relative overflow-hidden mx-2 md:mx-4 mb-5 rounded-3xl px-7 md:px-12 py-10 md:py-12 flex flex-col md:flex-row items-center justify-between gap-6" style={{ background: CTA_GRADS[backgroundGradient] || CTA_GRADS.kaspa }}>
+            <div className="text-center md:text-left">
+              <h2 className="text-2xl md:text-4xl font-black text-white leading-tight">{resolveTokens(headline, live)}</h2>
+              {description && <p className="text-gray-200 text-base mt-2 max-w-md">{resolveTokens(description, live)}</p>}
+            </div>
+            {buttonLabel && (
+              <a href="#interact" onClick={ctaClick(buttonAction)} className="shrink-0 inline-block px-8 py-3.5 rounded-2xl bg-kaspa-green text-black font-bold text-base hover:scale-105 transition-transform cursor-pointer">
+                {resolveTokens(buttonLabel, live)}
+              </a>
+            )}
+          </div>
+        );
+      },
+    },
+    StatBanner: {
+      label: 'Big Stat',
+      fields: {
+        statValue: { type: 'text', label: 'Value (supports {{tokens}})' },
+        statLabel: { type: 'text' },
+        description: { type: 'textarea' },
+        iconEmoji: { type: 'text', label: 'Emoji (optional)' },
+        highlightColor: { type: 'select', options: [{ label: 'Kaspa green', value: 'kaspa-green' }, { label: 'Gold', value: 'kaspa-gold' }, { label: 'Purple', value: 'purple' }, { label: 'Blue', value: 'blue' }] },
+      },
+      defaultProps: { statValue: '{{total_locked}}', statLabel: 'Total value locked', description: '', iconEmoji: '🔒', highlightColor: 'kaspa-green' },
+      render: ({ statValue, statLabel, description, iconEmoji, highlightColor, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const c = HL[highlightColor] || HL['kaspa-green'];
+        return (
+          <div className="mx-2 md:mx-4 mb-5 rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-8 md:p-12 flex flex-col items-center justify-center text-center">
+            {iconEmoji && <div className="text-5xl md:text-6xl mb-3">{iconEmoji}</div>}
+            <div className="text-4xl md:text-6xl font-black mb-2 leading-none" style={{ color: c }}>{resolveTokens(statValue, live)}</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">{resolveTokens(statLabel, live)}</div>
+            {description && <p className="text-gray-300 text-sm md:text-base max-w-md mt-4 leading-relaxed">{resolveTokens(description, live)}</p>}
+          </div>
+        );
+      },
+    },
+    FeatureGrid: {
+      label: 'Feature Grid',
+      fields: {
+        columns: { type: 'select', options: [{ label: '2', value: '2' }, { label: '3', value: '3' }, { label: '4', value: '4' }] },
+        features: {
+          type: 'array',
+          arrayFields: { iconEmoji: { type: 'text', label: 'Emoji' }, headline: { type: 'text' }, description: { type: 'textarea' } },
+          defaultItemProps: { iconEmoji: '✦', headline: 'Feature', description: 'Describe this feature.' },
+        },
+      },
+      defaultProps: {
+        columns: '3',
+        features: [
+          { iconEmoji: '🔒', headline: 'On-chain enforced', description: 'Funds move only by satisfying the script. No oracle, no trust in Covex.' },
+          { iconEmoji: '⚡', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' },
+          { iconEmoji: '🛡️', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' },
+        ],
+      },
+      render: ({ columns, features, puck }) => {
+        const live = puck?.metadata?.live || {};
+        return (
+          <div className={`grid grid-cols-1 ${COL_CLASS[columns] || COL_CLASS['3']} gap-4 px-2 md:px-4 mb-5`}>
+            {(features || []).map((f, i) => (
+              <div key={i} className="rounded-2xl p-6 border border-white/[0.08] bg-white/[0.02] hover-lift-premium transition-all">
+                {f.iconEmoji && <div className="w-12 h-12 rounded-xl bg-kaspa-green/10 flex items-center justify-center text-2xl mb-4">{f.iconEmoji}</div>}
+                <h3 className="text-lg font-bold text-white mb-1.5">{resolveTokens(f.headline, live)}</h3>
+                <p className="text-sm text-gray-300 leading-relaxed">{resolveTokens(f.description, live)}</p>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
+    ImageGallery: {
+      label: 'Image Gallery',
+      fields: {
+        columns: { type: 'select', options: [{ label: '2', value: '2' }, { label: '3', value: '3' }, { label: '4', value: '4' }] },
+        images: { type: 'array', arrayFields: { url: { type: 'text', label: 'Image URL (https)' }, caption: { type: 'text' } }, defaultItemProps: { url: '', caption: '' } },
+      },
+      defaultProps: { columns: '3', images: [{ url: '', caption: '' }, { url: '', caption: '' }, { url: '', caption: '' }] },
+      render: ({ columns, images }) => {
+        const imgs = (images || []).filter((i) => isHttpsImg(i.url));
+        if (imgs.length === 0) return placeholder('Add https image URLs to build a gallery');
+        return (
+          <div className={`grid grid-cols-2 ${COL_CLASS[columns] || COL_CLASS['3']} gap-3 px-2 md:px-4 mb-5`}>
+            {imgs.map((im, i) => (
+              <a key={i} href={im.url} target="_blank" rel="noopener noreferrer" className="group relative block aspect-video rounded-xl overflow-hidden border border-white/[0.08]">
+                <img src={im.url} alt={im.caption || 'gallery image'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                {im.caption && <span className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-[11px] text-gray-200 px-2 py-1.5">{im.caption}</span>}
+              </a>
+            ))}
+          </div>
+        );
+      },
+    },
+    LogoStrip: {
+      label: 'Logo Strip',
+      fields: {
+        title: { type: 'text' },
+        logos: { type: 'array', arrayFields: { url: { type: 'text', label: 'Logo URL (https)' } }, defaultItemProps: { url: '' } },
+      },
+      defaultProps: { title: 'Trusted by', logos: [{ url: '' }, { url: '' }, { url: '' }, { url: '' }] },
+      render: ({ title, logos }) => {
+        const ls = (logos || []).filter((l) => isHttpsImg(l.url));
+        return (
+          <div className="px-2 md:px-4 mb-5 py-6">
+            {title && <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-6">{title}</p>}
+            {ls.length === 0 ? placeholder('Add https logo URLs') : (
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                {ls.map((l, i) => (
+                  <div key={i} className="h-16 px-4 flex items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] transition-all">
+                    <img src={l.url} alt="logo" className="max-h-10 max-w-[120px] object-contain opacity-80 hover:opacity-100 transition-opacity" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
     Hero: {
-      label: 'Hero Banner',
+      label: 'Hero (text)',
       fields: {
         title: { type: 'text' },
         subtitle: { type: 'textarea' },
@@ -117,8 +351,7 @@ export const puckConfig = {
       fields: { url: { type: 'text', label: 'Image URL (https)' }, caption: { type: 'text' }, rounded: { type: 'radio', options: [{ label: 'Rounded', value: 'yes' }, { label: 'Square', value: 'no' }] } },
       defaultProps: { url: '', caption: '', rounded: 'yes' },
       render: ({ url, caption, rounded }) => {
-        const safe = typeof url === 'string' && (url.startsWith('https://') || url.startsWith('data:image/'));
-        if (!safe) return <div className="mx-4 mb-3 h-32 rounded-xl border border-dashed border-white/15 flex items-center justify-center text-xs text-gray-500">Add an https image URL</div>;
+        if (!isHttpsImg(url)) return placeholder('Add an https image URL');
         return (
           <figure className="mx-4 mb-3">
             <img src={url} alt={caption || 'covenant image'} className={`w-full max-h-96 object-cover border border-white/10 ${rounded === 'yes' ? 'rounded-2xl' : ''}`} />
@@ -164,7 +397,6 @@ export const puckConfig = {
         const total = a + b;
         const pctA = total > 0 ? Math.round((a / total) * 100) : 50;
         const pctB = 100 - pctA;
-        // Payout multiple for a side = total pool / that side's pool (parimutuel style).
         const oddsA = a > 0 ? (total / a) : 0;
         const oddsB = b > 0 ? (total / b) : 0;
         return (
@@ -184,6 +416,38 @@ export const puckConfig = {
                 <span>{oddsB > 0 ? `${oddsB.toFixed(2)}x` : '-'} payout</span>
               </div>
             )}
+          </div>
+        );
+      },
+    },
+    OddsHighlightCard: {
+      label: 'Odds Card (live)',
+      fields: {
+        outcomeName: { type: 'text' },
+        multiplier: { type: 'text', label: 'Payout x (supports {{tokens}})' },
+        poolSize: { type: 'text', label: 'Pool (supports {{tokens}})' },
+        isWinner: { type: 'radio', options: [{ label: 'Winner', value: 'yes' }, { label: 'Normal', value: 'no' }] },
+        accentColor: { type: 'text', label: 'Accent hex' },
+      },
+      defaultProps: { outcomeName: 'YES', multiplier: '{{odds_yes}}', poolSize: '{{pool_yes}}', isWinner: 'no', accentColor: '#49EACB' },
+      render: ({ outcomeName, multiplier, poolSize, isWinner, accentColor, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const ac = accentColor || '#49EACB';
+        const win = isWinner === 'yes';
+        return (
+          <div className="mx-4 mb-4 rounded-2xl p-6 md:p-7 border-2 transition-all"
+            style={win
+              ? { borderColor: `${ac}80`, background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', boxShadow: `0 0 24px ${ac}40, inset 0 1px 0 rgba(255,255,255,0.05)` }
+              : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+            <div className="flex items-start justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{resolveTokens(outcomeName, live)}</span>
+              {win && <span className="text-lg" style={{ color: ac }}>🏆</span>}
+            </div>
+            <div className="text-4xl md:text-5xl font-black leading-none" style={{ color: ac }}>{resolveTokens(multiplier, live)}x</div>
+            <div className="mt-4 pt-4 border-t border-white/[0.08]">
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Pool</p>
+              <p className="text-lg font-semibold text-white">{resolveTokens(poolSize, live)}</p>
+            </div>
           </div>
         );
       },
@@ -233,10 +497,6 @@ export const puckConfig = {
       defaultProps: { label: 'Stake and join', helper: 'Opens the interact panel. Non-custodial, signs in your wallet.', action: 'interact', outcome: 'yes', amount: '' },
       render: ({ label, helper, action, outcome, amount, puck }) => {
         const live = puck?.metadata?.live || {};
-        // Same-origin React render (not the sandboxed iframe), so a click posts a
-        // typed COVENANT_ACTION the covenant page validates and routes. The page
-        // ALWAYS derives the real destination + scriptHash from the indexed
-        // covenant record; this payload only carries intent (never an address).
         const onClick = (e) => {
           e.preventDefault();
           try {

@@ -297,7 +297,6 @@ const Pricing = () => {
                     {tier.id === 'PRO' && <Star size={22} style={{ color: tier.accent }} />}
                     {tier.id === 'MAX' && <Crown size={22} style={{ color: tier.accent }} />}
                     <CardTitle>{tier.name}</CardTitle>
-                    {tier.id === 'PRO' && <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: '#0b0d14', background: tier.accent }}>Popular</span>}
                   </div>
                   <Badge variant={tier.variant}>{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
                 </div>

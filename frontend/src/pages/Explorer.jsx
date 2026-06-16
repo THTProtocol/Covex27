@@ -616,7 +616,7 @@ export default function Explorer() {
                       <Layers size={12} />{includeRaw ? 'All Covenants' : 'Verified Covenants'}
                     </span>
                     <span className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
-                      <span className="relative flex h-1.5 w-1.5" title="Live — updates as new covenants are indexed">
+                      <span className="relative flex h-1.5 w-1.5" title="Live - updates as new covenants are indexed">
                         <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 animate-ping" />
                         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
                       </span>
@@ -628,7 +628,7 @@ export default function Explorer() {
                     className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${!includeRaw ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}
                     title="Verified = paid tiers + covenants with a real description. All = every on-chain P2SH commitment (opaque until spend)."
                   >
-                    {includeRaw ? 'Verified only' : 'Showing verified — show all'}
+                    {includeRaw ? 'Verified only' : 'Showing verified - show all'}
                   </button>
                 </div>
                 {filteredCovenants.length === 0 ? (

@@ -333,6 +333,10 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // ceremony). Only these are shown as full-zk; every other 'full-zk'-declared circuit is
 // honestly downgraded to oracle-attested + zkPending until its key ships and a proof verifies.
 const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
+// Circuits that additionally have a WORKING in-browser Groth16 prover (real fullProve over served
+// artifacts). age_verification is full-zk but its in-browser prover is not wired yet (needs
+// circomlibjs for the MiMC7 commitment) so it is deliberately excluded here.
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
@@ -344,6 +348,15 @@ const STRICT_GROTH16 = new Set([
   'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification', 'age_verify_v1',
   'escrow_2party', 'relative_timelock', 'vrf_dice_roll', 'basic_utxo_ownership', 'nullifier_set',
 ]);
+// Per-reality visual treatment for the circuit cards: an accent colour + a readable pill label.
+// Mirrors the honest 4-reality taxonomy (full-zk / hybrid / oracle-attested / decorative).
+const REALITY_META = {
+  'full-zk':         { label: 'Zero-knowledge', short: 'ZK',     accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
+  'hybrid':          { label: 'Hybrid proof',   short: 'Hybrid', accent: '#60a5fa', text: 'text-blue-300',    bg: 'bg-blue-500/12',    border: 'border-blue-500/35' },
+  'oracle-attested': { label: 'Oracle-attested',short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300',   bg: 'bg-amber-500/12',   border: 'border-amber-500/35' },
+  'decorative':      { label: 'Metadata',       short: 'Meta',   accent: '#9ca3af', text: 'text-gray-300',    bg: 'bg-white/[0.06]',   border: 'border-white/15' },
+};
+const realityMeta = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
 const scrubZkProse = (d) =>
   (d || '')
     .replace(/^Full ZK:\s*/i, 'ZK-capable (oracle-attested today, in-browser prover pending): ')
@@ -2443,37 +2456,53 @@ ${gameMeta.outcomeBranches}
                   verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
                   custom: 'Supply any audited circuit definition and its corresponding verifier key.',
                 };
+                const rm = realityMeta(gt.reality);
+                const isVerifiedZk = VERIFIED_FULL_ZK.has(gt.id);
+                const hasBrowserProver = IN_BROWSER_PROVERS.has(gt.id);
                 return (
                   <button
                     key={gt.id}
                     onClick={() => !disabled && handleGameTypeChange(gt.id)}
                     disabled={disabled}
-                    className={`text-left p-3 rounded-lg border transition-all duration-200 ${
+                    title={`${gt.name} - ${rm.label}`}
+                    className={`group relative overflow-hidden text-left p-3 rounded-xl border transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
                       selected
-                        ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_20px_rgba(73,234,203,0.15)]'
-                        : 'border-white/[0.05] bg-black/30 hover:border-white/[0.10] hover:bg-white/[0.03]'
+                        ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_24px_rgba(73,234,203,0.18)]'
+                        : 'border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.14] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.65)]'
                     } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold ${selected ? 'text-kaspa-green' : 'text-white'}`}>
+                    {/* reality accent top-edge + soft corner glow */}
+                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${selected ? '#49EACB' : rm.accent}, transparent)` }} />
+                    <span aria-hidden="true" className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl opacity-20 group-hover:opacity-35 transition-opacity pointer-events-none" style={{ background: selected ? '#49EACB' : rm.accent }} />
+
+                    <div className="relative flex items-start justify-between gap-2 mb-1">
+                      <span className={`text-xs font-bold leading-tight ${selected ? 'text-kaspa-green' : 'text-white'}`}>
                         {gt.name}
                       </span>
+                      <span className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${rm.bg} ${rm.text} ${rm.border}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isVerifiedZk ? 'zk-live-glow' : ''}`} style={{ background: rm.accent }} />
+                        {rm.short}
+                      </span>
                     </div>
-                    <p className="text-[10px] text-gray-200 leading-snug">
+
+                    <p className="relative text-[10px] text-gray-300 leading-snug line-clamp-3">
                       {circuitDescriptions[gt.id] || gt.description}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+
+                    <div className="relative mt-2 flex items-center gap-2">
+                      <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border truncate max-w-[55%] ${
                         selected
                           ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
-                          : 'border-white/[0.06] bg-white/[0.03] text-gray-200'
+                          : 'border-white/[0.08] bg-white/[0.03] text-gray-300'
                       }`}>
                         {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
                       </code>
-                      {gt.reality === 'full-zk' && <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">ZK</span>}
-                      {gt.reality === 'hybrid' && <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-semibold">HY</span>}
-                      {gt.reality === 'oracle-attested' && <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold">OR</span>}
-                      {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0" />}
+                      {hasBrowserProver && (
+                        <span className="inline-flex items-center gap-1 text-[8px] font-semibold text-emerald-300/90" title="Real Groth16 proof generated in your browser">
+                          <span className="w-1 h-1 rounded-full bg-emerald-400 zk-live-glow" /> in-browser prover
+                        </span>
+                      )}
+                      {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0 ml-auto" />}
                     </div>
                   </button>
                 );

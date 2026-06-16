@@ -4275,6 +4275,7 @@ ${gameMeta.outcomeBranches}
             <ResolutionSimulator
               config={studioConfig}
               circuitType={externalCircuit || gameType || zkCircuit}
+              circuitCategory={(ZK_CIRCUIT_TYPES.find((zc) => zc.id === (externalCircuit || gameType || zkCircuit) || zc.circuit === (externalCircuit || gameType || zkCircuit)) || {}).category}
               feePercent={feePercent}
               potReturnPercent={potReturnPercent}
               minStake={visualConfig.minStake}

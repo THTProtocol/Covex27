@@ -109,7 +109,7 @@ export const puckConfig = {
         <div className="relative" style={{ background: bg, fontFamily: font, ['--page-accent']: accentColor || '#49EACB' }}>
           {isHttpsImg(pageLogo) && (
             <div className="flex items-center px-6 py-4">
-              <img src={pageLogo} alt="brand logo" className="h-9 max-w-[200px] object-contain" />
+              <img src={pageLogo} alt="covenant brand logo" className="h-9 max-w-[200px] object-contain" />
             </div>
           )}
           {children}
@@ -280,7 +280,7 @@ export const puckConfig = {
               <div className="flex flex-wrap items-center justify-center gap-4">
                 {ls.map((l, i) => (
                   <div key={i} className="h-16 px-4 flex items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] transition-all">
-                    <img src={l.url} alt="logo" className="max-h-10 max-w-[120px] object-contain opacity-80 hover:opacity-100 transition-opacity" />
+                    <img src={l.url} alt="partner logo" className="max-h-10 max-w-[120px] object-contain opacity-80 hover:opacity-100 transition-opacity" />
                   </div>
                 ))}
               </div>
@@ -367,7 +367,7 @@ export const puckConfig = {
       render: ({ stats, puck }) => {
         const live = puck?.metadata?.live || {};
         return (
-          <div className="grid grid-cols-3 gap-3 px-4 mb-4">
+          <div className="grid grid-cols-3 gap-3 px-2 md:px-4 mb-5">
             {(stats || []).slice(0, 6).map((s, i) => (
               <div key={i} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-center">
                 <p className="text-[10px] uppercase tracking-widest text-gray-500">{resolveTokens(s.label, live)}</p>
@@ -400,7 +400,7 @@ export const puckConfig = {
         const oddsA = a > 0 ? (total / a) : 0;
         const oddsB = b > 0 ? (total / b) : 0;
         return (
-          <div className="mx-4 mb-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
             <div className="flex items-center justify-between mb-2 text-sm font-bold">
               <span style={{ color: colorA || '#49EACB' }}>{resolveTokens(labelA, live)} {pctA}%</span>
               <span style={{ color: colorB || '#F472B6' }}>{pctB}% {resolveTokens(labelB, live)}</span>
@@ -435,7 +435,7 @@ export const puckConfig = {
         const ac = accentColor || '#49EACB';
         const win = isWinner === 'yes';
         return (
-          <div className="mx-4 mb-4 rounded-2xl p-6 md:p-7 border-2 transition-all"
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl p-6 md:p-7 border-2 transition-all"
             style={win
               ? { borderColor: `${ac}80`, background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', boxShadow: `0 0 24px ${ac}40, inset 0 1px 0 rgba(255,255,255,0.05)` }
               : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
@@ -468,7 +468,7 @@ export const puckConfig = {
         const m = toNum(max, live);
         const pct = m > 0 ? Math.min(100, Math.round((v / m) * 100)) : 0;
         return (
-          <div className="mx-4 mb-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
             <div className="flex items-end justify-between mb-2">
               <p className="text-[10px] uppercase tracking-widest text-gray-500">{resolveTokens(label, live)}</p>
               <p className="text-lg font-black text-white">{v.toLocaleString()} <span className="text-xs font-medium text-gray-400">{suffix}</span></p>
@@ -504,7 +504,7 @@ export const puckConfig = {
           } catch (_) { /* no-op */ }
         };
         return (
-          <div className="px-4 mb-4 text-center">
+          <div className="px-2 md:px-4 mb-5 text-center">
             <a href="#interact" onClick={onClick} className="inline-block px-8 py-4 rounded-2xl bg-kaspa-green text-black font-extrabold text-lg hover:brightness-110 transition-all cursor-pointer">
               {resolveTokens(label, live)}
             </a>
@@ -518,7 +518,7 @@ export const puckConfig = {
       fields: { feeText: { type: 'textarea', label: 'Fee breakdown text' } },
       defaultProps: { feeText: 'Winner receives 96% of the pot. Creator earns 2%. 2% returns to the covenant for the next round.' },
       render: ({ feeText, puck }) => (
-        <div className="mx-4 mb-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
+        <div className="mx-2 md:mx-4 mb-5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
           <p className="text-[10px] uppercase tracking-widest text-amber-300 mb-1 font-bold">Fees, in plain words</p>
           <p className="text-xs text-amber-100/80 leading-relaxed">{resolveTokens(feeText, puck?.metadata?.live || {})}</p>
         </div>

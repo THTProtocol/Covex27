@@ -609,8 +609,8 @@ export default function EnforcedDeploy() {
                 {/* Build -> design -> publish handoff: jump straight into the Page Studio to
                     compose this covenant's public website, or open the live page. */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <a href={`/covenant/${c.tx}:0`} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] transition-colors"><ExternalLink size={12} /> View public page</a>
-                  <a href={`/covenant/${c.tx}:0/studio`} className="btn-shimmer inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-kaspa-green text-black font-bold hover:brightness-110 transition-all"><Palette size={12} /> Design its page</a>
+                  <a href={`/covenant/${encodeURIComponent(`${c.tx}:0`)}`} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] transition-colors"><ExternalLink size={12} /> View public page</a>
+                  <a href={`/covenant/${encodeURIComponent(`${c.tx}:0`)}/studio`} className="btn-shimmer inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-kaspa-green text-black font-bold hover:brightness-110 transition-all"><Palette size={12} /> Design its page</a>
                 </div>
                 {c.redeem_script_hex && !c.spent && (
                   <div className="text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2 mt-1">

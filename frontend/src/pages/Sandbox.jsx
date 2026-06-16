@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Terminal, Boxes, ShieldCheck, Radio, Cpu, Wrench, Sparkles, Check, ChevronRight, ArrowRight, ArrowLeft, Wand2, Rocket } from 'lucide-react';
+import { Terminal, Boxes, ShieldCheck, Radio, Cpu, Sparkles, Check, ChevronRight, ArrowRight, ArrowLeft, Wand2, Rocket } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import SandboxGallery from '../components/SandboxGallery';
@@ -9,7 +9,7 @@ import CovenantAssistant from '../components/CovenantAssistant';
 // Unified Sandbox: ONE window where the free circuit library (left) drives a live preview
 // (right) and the builder/terminal (below) all at once. Pick any circuit and the enforcement
 // reality, the "how it resolves" flow, the payout simulator, and the builder's selection update
-// together — no reload, no wallet to explore. Templates still deep-link here (?circuit=&kind=).
+// together  -  no reload, no wallet to explore. Templates still deep-link here (?circuit=&kind=).
 
 const REALITY = {
   'on-chain': { label: 'On-chain enforced', cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10', Icon: ShieldCheck,

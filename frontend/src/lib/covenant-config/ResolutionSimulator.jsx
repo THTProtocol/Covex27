@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 
 /**
- * ResolutionSimulator — a payout / resolution preview that ADAPTS to the covenant.
+ * ResolutionSimulator  -  a payout / resolution preview that ADAPTS to the covenant.
  *
  * Different covenants resolve in fundamentally different ways, so one model cannot fit
  * all. This picks the right archetype from the covenant's circuit/kind and renders a
@@ -63,12 +63,15 @@ function Slider({ label, value, set, min, max, step, fmt, accent }) {
 
 // ── Archetype detection ────────────────────────────────────────────────────────────────
 // Classify the covenant by its circuit/kind so we show a model that actually applies.
-function archetypeFor(circuit, payoutType) {
+function archetypeFor(circuit, payoutType, category) {
   const c = (circuit || '').toLowerCase();
-  if (/pred|market|parimutuel|tally|book|binary_oracle_select|bundle/.test(c)) return 'parimutuel';
-  if (/htlc|swap|timelock|timedecay|deadman|inherit|vesting|recover|channel|relative|rcsv|multisig|escrow|merkle|member|whitelist|age|kyc|identity|credential|gate|singlesig|hashlock/.test(c)) return 'release';
-  if (payoutType === 'parimutuel') return 'parimutuel';
-  return 'pot';
+  if (/pred|market|parimutuel|tally|book|binary_oracle_select/.test(c) || payoutType === 'parimutuel') return 'parimutuel';
+  // Winner-takes-all pots are GAMES only. Every other covenant (a proof, gate, lock, vault,
+  // oracle feed, swap, channel, escrow, mixer, compute, etc.) is a conditional RELEASE, so
+  // that is the safe default - the old default of 'pot' wrongly showed a win-rate curve for
+  // the majority of circuits that have no pot at all.
+  if (category === 'game' || /chess|poker|\bgo\b|reversi|connect|checkers|tic.?tac|\brps\b|rock.?paper|blackjack|cribbage|backgammon|dominoes|dice|\bduel\b|arena|winner.?takes/.test(c)) return 'pot';
+  return 'release';
 }
 
 // Branch descriptor for the release archetype: who can claim, under what condition, when.
@@ -280,7 +283,7 @@ function PotView({ initFee, initPotReturn, loStake, hiStake, players, perSideSta
         <div className="sm:col-span-2"><Slider label="Your assumed win-rate (p)" value={winProb} set={setWinProb} min={0} max={100} step={1} fmt={(v) => `${v}%`} /></div>
       </div>
       <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
-        Win-rate <em>p</em> is your own assumption, not a Covex prediction. EV = p × winner share − your stake. The configured fee / pot-return drive the display model and are <strong>not</strong> taken on-chain; the enforced payout sends the full pot to the verified winner.
+        Win-rate <em>p</em> is your own assumption, not a Covex prediction. EV = p × winner share - your stake. The configured fee / pot-return drive the display model and are <strong>not</strong> taken on-chain; the enforced payout sends the full pot to the verified winner.
       </p>
     </>
   );
@@ -353,7 +356,7 @@ function ParimutuelView({ initFee, loStake, hiStake }) {
         <div className="sm:col-span-2"><Slider label="Your bet" value={bet} set={setBet} min={1} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} /></div>
       </div>
       <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
-        Winner multiplier = (1 − fee) + (1 − fee − rebate) × (opposing pool ÷ your pool). Fee + rebate must stay under 100%. These economics are enforced on-chain by the conjoined binary-outcome covenants the market funds; no Covex key sits in the payout path.
+        Winner multiplier = (1 - fee) + (1 - fee - rebate) × (opposing pool ÷ your pool). Fee + rebate must stay under 100%. These economics are enforced on-chain by the conjoined binary-outcome covenants the market funds; no Covex key sits in the payout path.
       </p>
     </>
   );
@@ -414,9 +417,10 @@ const ARCH_META = {
   release: { label: 'Conditional release', chip: 'Consensus-enforced' },
 };
 
-export default function ResolutionSimulator({ config, circuitType, feePercent, potReturnPercent, minStake, maxStake, players, perSideStake }) {
+export default function ResolutionSimulator({ config, circuitType, circuitCategory, feePercent, potReturnPercent, minStake, maxStake, players, perSideStake }) {
   // Prefer the live selected circuit (circuitType) over config, which can be stale.
   const circuit = circuitType || config?.resolution?.circuit?.type || 'oracle-attested';
+  const category = circuitCategory || config?.category || '';
   const mode = config?.resolution?.mode || 'hybrid';
   const payoutType = config?.resolution?.payoutModel?.type;
   const cfgFee = config?.resolution?.payoutModel?.feeBasisPoints ?? null;
@@ -425,7 +429,7 @@ export default function ResolutionSimulator({ config, circuitType, feePercent, p
   const loStake = Math.max(0.0001, minStake ?? 10);
   const hiStake = Math.max(loStake + 1, maxStake ?? 1000);
 
-  const archetype = useMemo(() => archetypeFor(circuit, payoutType), [circuit, payoutType]);
+  const archetype = useMemo(() => archetypeFor(circuit, payoutType, category), [circuit, payoutType, category]);
   const meta = ARCH_META[archetype] || ARCH_META.pot;
 
   return (

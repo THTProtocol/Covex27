@@ -28,7 +28,7 @@ const GROUPS = [
   { key: 'other', title: 'Primitives & timelocks', icon: Lock, match: () => true },
 ];
 
-const INITIAL = 6; // cards shown per category before "View more"
+const INITIAL = 4; // cards shown per category before "View more" (kept compact for the stepped sandbox)
 
 function CircuitCard({ c, active, onSelect }) {
   const m = rm(c.reality);

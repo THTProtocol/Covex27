@@ -843,6 +843,9 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   // For hiding the huge ZK list by default: press to reveal all
   const [showAllZK, setShowAllZK] = useState(false);
+  // Separate state for the multi-select circuit-toggle list (so revealing it as organized
+  // categories doesn't also expand the single-select card grid below).
+  const [showAllToggles, setShowAllToggles] = useState(false);
 
   // Visual live editor integrated directly here (no separate page)
   const [visualConfig, setVisualConfig] = useState({
@@ -2397,19 +2400,49 @@ ${gameMeta.outcomeBranches}
                   <button key={m} onClick={() => updateVisual({ resolutionMode: m })} className={`flex-1 text-[10px] py-1.5 rounded-xl border transition ${visualConfig.resolutionMode === m ? 'border-[#49EACB] bg-[#49EACB]/10 text-white' : 'border-white/10 hover:bg-white/5'}`}>{m.toUpperCase()}</button>
                 ))}
               </div>
-              <div className="text-[10px] text-gray-300 mb-1.5">ZK Circuits (tap to toggle; click below to see all)</div>
-              <div className="flex flex-wrap gap-1">
-                {(showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => ['chess_v1','chess_blitz','poker_v1','merkle_membership','range_proof'].includes(c.id))).map(c => {
+              {(() => {
+                // One toggle pill, reused for the collapsed picks and the organized full list.
+                const Pill = (c) => {
                   const active = visualConfig.selectedCircuits.includes(c.id);
                   return (
                     <button key={c.id} onClick={() => {
                       const next = active ? visualConfig.selectedCircuits.filter(x => x !== c.id) : [...visualConfig.selectedCircuits, c.id];
                       updateVisual({ selectedCircuits: next.length ? next : ['chess_v1'] });
-                    }} className={`text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white' : 'border-white/10 hover:bg-white/5'}`}>{c.name}</button>
+                    }} className={`text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white' : 'border-white/10 hover:bg-white/5 text-gray-300'}`}>{c.name}</button>
                   );
-                })}
-              </div>
-              {!showAllZK && <button onClick={() => setShowAllZK(true)} className="mt-1.5 text-[9px] text-[#49EACB] underline">Show all ZK circuits</button>}
+                };
+                const POPULAR = ['chess_v1', 'chess_blitz', 'poker_v1', 'merkle_membership', 'range_proof'];
+                const collapsed = ZK_CIRCUIT_TYPES.filter(c => visualConfig.selectedCircuits.includes(c.id) || POPULAR.includes(c.id));
+                const TITLE = { crypto: 'Zero-knowledge & crypto', oracle: 'Oracle & prediction', defi: 'DeFi & lending', game: 'Games', identity: 'Identity & gating', gating: 'Identity & gating', compute: 'Verifiable compute', general: 'Primitives & timelocks' };
+                const groups = {};
+                for (const c of ZK_CIRCUIT_TYPES) { const k = c.category || 'other'; (groups[k] = groups[k] || []).push(c); }
+                const order = ['crypto', 'oracle', 'defi', 'game', 'identity', 'gating', 'compute', 'general'];
+                const keys = [...new Set([...order.filter(k => groups[k]), ...Object.keys(groups)])];
+                return (
+                  <>
+                    <div className="text-[10px] text-gray-300 mb-1.5 flex items-center justify-between gap-2">
+                      <span>ZK circuits &amp; primitives - tap to include ({visualConfig.selectedCircuits.length} selected)</span>
+                      <button onClick={() => setShowAllToggles(s => !s)} className="shrink-0 text-[9px] font-semibold text-[#49EACB] underline">
+                        {showAllToggles ? 'Hide list' : `Browse all ${ZK_CIRCUIT_TYPES.length}`}
+                      </button>
+                    </div>
+                    {!showAllToggles ? (
+                      <div className="flex flex-wrap gap-1">{collapsed.map(Pill)}</div>
+                    ) : (
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-2.5 max-h-[340px] overflow-y-auto space-y-3">
+                        {keys.map(k => (
+                          <div key={k}>
+                            <div className="text-[9px] uppercase tracking-widest text-[#49EACB]/80 font-semibold mb-1 sticky top-0 bg-black/60 backdrop-blur py-0.5">
+                              {TITLE[k] || k} <span className="text-gray-600 ml-1">{groups[k].length}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">{groups[k].map(Pill)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="p-4 rounded-2xl bg-black/40 border border-white/5">

@@ -3366,10 +3366,164 @@ pub async fn bundle_deploy_handler(
     }
 }
 
+// ── P3: outcome-oracle COMMIT / REVEAL service ──────────────────────────────
+// A binary market commits two secrets (H_A, H_B) up front and reveals EXACTLY ONE at
+// resolution. The secrets are derived from the oracle key + a unique market id (so they
+// are recomputable and unpredictable) AND returned to the creator at creation, so the
+// winning secret can be revealed - and the bundle settled - even if the Covex server is
+// down. The chain enforces the routing; this service only distributes the 1-bit outcome.
+
+#[derive(Deserialize)]
+pub struct CreateMarketRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    pub question: String,
+    pub outcome_a: String,
+    pub outcome_b: String,
+    #[serde(default)]
+    pub kickoff_utc: Option<String>,
+    #[serde(default)]
+    pub source_url: Option<String>,
+}
+
+/// POST /covenant/market/create - commit a binary market; returns H_A/H_B (to deploy the
+/// bundle) plus the preimages (so the creator can reveal independently of Covex).
+pub async fn create_market_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<CreateMarketRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    if req.question.trim().is_empty() || req.outcome_a.trim().is_empty() || req.outcome_b.trim().is_empty() {
+        return err("question, outcome_a and outcome_b are required".into());
+    }
+    let okey = crate::oracle::oracle_keypair().secret_key().secret_bytes();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut idseed: Vec<u8> = Vec::new();
+    idseed.extend_from_slice(&okey);
+    idseed.extend_from_slice(req.question.as_bytes());
+    idseed.extend_from_slice(req.network.as_bytes());
+    idseed.extend_from_slice(&nanos.to_le_bytes());
+    let market_id = hex::encode(&blake2b256(&idseed)[..16]);
+    // Secrets = blake2b(oracle_key || market_id || tag): recomputable, unpredictable.
+    let derive = |tag: u8| -> [u8; 32] {
+        let mut s: Vec<u8> = Vec::new();
+        s.extend_from_slice(&okey);
+        s.extend_from_slice(market_id.as_bytes());
+        s.push(tag);
+        blake2b256(&s)
+    };
+    let secret_a = derive(0);
+    let secret_b = derive(1);
+    let sa = hex::encode(secret_a);
+    let sb = hex::encode(secret_b);
+    let ha = hex::encode(blake2b256(&secret_a));
+    let hb = hex::encode(blake2b256(&secret_b));
+    if let Err(e) = db::insert_bundle_market(
+        &db, &market_id, &req.network, req.question.trim(), req.outcome_a.trim(), req.outcome_b.trim(),
+        &ha, &hb, &sa, &sb, req.kickoff_utc.as_deref(), req.source_url.as_deref(),
+    ) {
+        return err(format!("db insert failed: {e}"));
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "market_id": market_id,
+        "network": req.network,
+        "question": req.question.trim(),
+        "outcome_a": req.outcome_a.trim(),
+        "outcome_b": req.outcome_b.trim(),
+        "h_a": ha,
+        "h_b": hb,
+        "preimage_a_hex": sa,
+        "preimage_b_hex": sb,
+        "note": "Deploy the bundle covenant with preimage_a_hex/preimage_b_hex. SAVE the preimages: revealing the winning one settles the market even if Covex is down. Reveal via POST /covenant/market/resolve."
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct ResolveMarketRequest {
+    pub market_id: String,
+    /// 0 = outcome A won, 1 = outcome B won.
+    pub outcome: i64,
+}
+
+/// POST /covenant/market/resolve - reveal the winning outcome's secret (single-secret
+/// policy). After this anyone can settle the bundle legs with the secret + a Kaspa node.
+pub async fn resolve_market_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<ResolveMarketRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let m = match db::get_bundle_market(&db, &req.market_id) {
+        Some(m) => m,
+        None => return err("market not found".into()),
+    };
+    if req.outcome != 0 && req.outcome != 1 {
+        return err("outcome must be 0 (A) or 1 (B)".into());
+    }
+    if let Some(prev) = m.revealed_outcome {
+        if prev != req.outcome {
+            return err(format!(
+                "market already resolved to outcome {prev}; single-secret policy forbids revealing the other secret"
+            ));
+        }
+    }
+    let secret = if req.outcome == 0 { m.secret_a.clone() } else { m.secret_b.clone() };
+    if let Err(e) = db::resolve_bundle_market(&db, &req.market_id, req.outcome, &secret) {
+        return err(format!("db resolve failed: {e}"));
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "market_id": req.market_id,
+        "revealed_outcome": req.outcome,
+        "revealed_outcome_label": if req.outcome == 0 { m.outcome_a } else { m.outcome_b },
+        "revealed_secret": secret,
+        "select_mode": if req.outcome == 0 { "reveal_a" } else { "reveal_b" },
+        "note": "Settle each bundle leg via /covenant/p2sh/spend using this revealed_secret as preimage_hex and the matching select_mode. Anyone with the secret + a Kaspa node can do this - Covex is no longer required."
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct GetMarketRequest {
+    pub market_id: String,
+}
+
+/// POST /covenant/market/get - market state; includes the revealed secret once resolved
+/// (so an offline claimer can read it here, or recover it from the on-chain claim witness).
+pub async fn get_market_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<GetMarketRequest>,
+) -> Json<serde_json::Value> {
+    match db::get_bundle_market(&db, &req.market_id) {
+        Some(m) => Json(serde_json::json!({
+            "success": true,
+            "market_id": m.market_id,
+            "network": m.network,
+            "question": m.question,
+            "outcome_a": m.outcome_a,
+            "outcome_b": m.outcome_b,
+            "h_a": m.h_a,
+            "h_b": m.h_b,
+            "kickoff_utc": m.kickoff_utc,
+            "source_url": m.source_url,
+            "resolved": m.revealed_outcome.is_some(),
+            "revealed_outcome": m.revealed_outcome,
+            "revealed_secret": m.revealed_secret,
+            "resolved_at": m.resolved_at,
+        })),
+        None => Json(serde_json::json!({ "success": false, "error": "market not found" })),
+    }
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
         .route("/covenant/bundle/deploy", post(bundle_deploy_handler))
+        .route("/covenant/market/create", post(create_market_handler))
+        .route("/covenant/market/resolve", post(resolve_market_handler))
+        .route("/covenant/market/get", post(get_market_handler))
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
         .route("/covenant/p2sh/prepare-spend", post(prepare_spend_handler))
         .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))

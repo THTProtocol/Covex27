@@ -232,6 +232,23 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             created_at        INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_p2sh_address ON p2sh_covenants(p2sh_address);
+        CREATE TABLE IF NOT EXISTS bundle_markets (
+            market_id        TEXT PRIMARY KEY,
+            network          TEXT NOT NULL,
+            question         TEXT NOT NULL,
+            outcome_a        TEXT NOT NULL,
+            outcome_b        TEXT NOT NULL,
+            h_a              TEXT NOT NULL,
+            h_b              TEXT NOT NULL,
+            secret_a         TEXT NOT NULL,
+            secret_b         TEXT NOT NULL,
+            kickoff_utc      TEXT,
+            source_url       TEXT,
+            revealed_outcome INTEGER,
+            revealed_secret  TEXT,
+            created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
+            resolved_at      INTEGER
+        );
         ",
     )?;
 
@@ -1430,6 +1447,69 @@ pub fn mark_p2sh_spent(db: &Mutex<Connection>, tx_id: &str, spent_tx_id: &str) -
     conn.execute(
         "UPDATE p2sh_covenants SET spent_tx_id = ?2 WHERE tx_id = ?1",
         params![tx_id, spent_tx_id],
+    )?;
+    Ok(())
+}
+
+/// A binary prediction market's outcome commitment (the P3 commit/reveal oracle). The two
+/// secrets are committed as H_A/H_B at creation; exactly ONE is revealed at resolution.
+#[derive(Clone, Debug)]
+pub struct BundleMarket {
+    pub market_id: String,
+    pub network: String,
+    pub question: String,
+    pub outcome_a: String,
+    pub outcome_b: String,
+    pub h_a: String,
+    pub h_b: String,
+    pub secret_a: String,
+    pub secret_b: String,
+    pub kickoff_utc: Option<String>,
+    pub source_url: Option<String>,
+    pub revealed_outcome: Option<i64>,
+    pub revealed_secret: Option<String>,
+    pub resolved_at: Option<i64>,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn insert_bundle_market(
+    db: &Mutex<Connection>,
+    market_id: &str, network: &str, question: &str, outcome_a: &str, outcome_b: &str,
+    h_a: &str, h_b: &str, secret_a: &str, secret_b: &str,
+    kickoff_utc: Option<&str>, source_url: Option<&str>,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO bundle_markets
+         (market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, created_at, resolved_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11, NULL, NULL, unixepoch(), NULL)",
+        params![market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url],
+    )?;
+    Ok(())
+}
+
+pub fn get_bundle_market(db: &Mutex<Connection>, market_id: &str) -> Option<BundleMarket> {
+    let conn = db.lock().unwrap();
+    conn.query_row(
+        "SELECT market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at
+         FROM bundle_markets WHERE market_id = ?1",
+        params![market_id],
+        |r| Ok(BundleMarket {
+            market_id: r.get(0)?, network: r.get(1)?, question: r.get(2)?, outcome_a: r.get(3)?, outcome_b: r.get(4)?,
+            h_a: r.get(5)?, h_b: r.get(6)?, secret_a: r.get(7)?, secret_b: r.get(8)?,
+            kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?,
+        }),
+    ).ok()
+}
+
+/// Reveal exactly ONE outcome's secret (single-secret policy: the WHERE clause only updates
+/// when the market is unresolved or already resolved to the SAME outcome).
+pub fn resolve_bundle_market(db: &Mutex<Connection>, market_id: &str, outcome: i64, secret: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE bundle_markets SET revealed_outcome = ?2, revealed_secret = ?3, resolved_at = unixepoch()
+         WHERE market_id = ?1 AND (revealed_outcome IS NULL OR revealed_outcome = ?2)",
+        params![market_id, outcome, secret],
     )?;
     Ok(())
 }

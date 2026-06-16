@@ -285,7 +285,11 @@ fn infer_payouts(game_type: &str, outcome_name: &str) -> Vec<PayoutTarget> {
 pub fn emit_silverscript(unit: &CompileUnit) -> String {
     match unit.game_type.as_str() {
         "dice" => emit_dice(unit),
-        // (chess* emitters removed)
+        // chess is still a first-class, server-verifiable game (shakmaty engine in
+        // game_engine.rs). Only the chess_v1 ZK *circuit* was removed, not the game
+        // emitter — route it through emit_chess so it gets real outcome-gated payout
+        // branches (0..=2) like poker, instead of falling through to emit_generic.
+        "chess" => emit_chess(unit),
         "poker" => emit_poker(unit),
         "blackjack" => emit_blackjack(unit),
         "merkle_membership" => emit_merkle(unit),

@@ -29,7 +29,10 @@ async function main() {
     process.stdout.write("Witness: valid=" + mWitness[1].toString() + " rootHash=...\n\n");
 
     process.stdout.write("STEP 3: Generate Groth16 proof\n");
-    const zkeyPath = path.join(ZK_DIR, "merkle_membership_final.zkey");
+    // Prove against the FRONTEND committed zkey — the one paired with the vkey that
+    // zk/verify.js (production + Rust test verifier) checks against. The drifting zk-root
+    // zkey/vkey produce proofs verify.js REJECTS — that mismatch is what went stale.
+    const zkeyPath = path.join(ZK_DIR, "../frontend/public/zk/merkle_membership/merkle_membership_final.zkey");
     const { proof, publicSignals } = await snarkjs.groth16.prove(zkeyPath, memberWtns);
     process.stdout.write("Proof generated. publicSignals count=" + publicSignals.length + "\n");
     process.stdout.write("  valid=" + publicSignals[0] + "\n");
@@ -37,7 +40,7 @@ async function main() {
     fs.writeFileSync(path.join(ZK_DIR, "merkle_proof.json"), JSON.stringify({ proof, publicSignals }, null, 2));
 
     process.stdout.write("STEP 4: Verify\n");
-    const vkey = JSON.parse(fs.readFileSync(path.join(ZK_DIR, "merkle_membership_vkey.json"), "utf8"));
+    const vkey = JSON.parse(fs.readFileSync(path.join(ZK_DIR, "../frontend/public/zk/merkle_membership/merkle_membership_vkey.json"), "utf8"));
     const v = await snarkjs.groth16.verify(vkey, publicSignals, proof);
     process.stdout.write("VERIFICATION RESULT: " + (v ? "VALID OK" : "INVALID FAIL") + "\n\n");
 

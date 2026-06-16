@@ -9,7 +9,10 @@ const path = require("path");
  * Vision ref: Phase 1 VRF family + game fairness.
  * vkey: vrf_dice_roll_vkey.json (top level)
  */
-const VKEY_PATH = path.join(__dirname, "vrf_dice_roll_vkey.json");
+// Served vkey (committed, deploy-refreshed single source of truth). zk/ root *_vkey.json are
+// gitignored -> never refreshed by deploy, so a stale root key silently rejects valid proofs
+// (the P0 oracle incident, a8918b8). Verified the served vkey verifies the committed demo proof.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/vrf_dice_roll/vrf_dice_roll_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

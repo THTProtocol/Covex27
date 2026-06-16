@@ -10,7 +10,11 @@ const path = require("path");
  * References vision doc Phase 1 relative timelock + range on DAA.
  * vkey expected at relative_timelock_vkey.json (top, like timelock_absolute_vkey.json)
  */
-const VKEY_PATH = path.join(__dirname, "relative_timelock_vkey.json");
+// Load the committed, deploy-refreshed served vkey (single source of truth). The zk/ root
+// *_vkey.json are gitignored, so `git reset --hard` on deploy never refreshes them -> a stale
+// root key silently rejects valid proofs (the P0 oracle incident, fixed in a8918b8). Verified
+// the served vkey verifies this circuit's committed demo proof.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/relative_timelock/relative_timelock_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

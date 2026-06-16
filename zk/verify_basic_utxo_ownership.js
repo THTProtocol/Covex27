@@ -8,7 +8,10 @@ const path = require("path");
  * verify_basic_utxo_ownership.js — verifier stub (Covex27)
  * UTXO ownership schnorr-like. Vision Phase1 Kaspa core.
  */
-const VKEY_PATH = path.join(__dirname, "basic_utxo_ownership_vkey.json");
+// Served vkey (committed, deploy-refreshed single source of truth). zk/ root *_vkey.json are
+// gitignored -> never refreshed by deploy, so a stale root key silently rejects valid proofs
+// (the P0 oracle incident, a8918b8). Verified the served vkey verifies the committed demo proof.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/basic_utxo_ownership/basic_utxo_ownership_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

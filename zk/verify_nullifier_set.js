@@ -8,7 +8,10 @@ const path = require("path");
  * verify_nullifier_set.js — verifier for standalone nullifier_set (Covex27)
  * Double-spend / set non-membership property. Vision inventory 4.1 + privacy.
  */
-const VKEY_PATH = path.join(__dirname, "nullifier_set_vkey.json");
+// Served vkey (committed, deploy-refreshed single source of truth). zk/ root *_vkey.json are
+// gitignored -> never refreshed by deploy, so a stale root key silently rejects valid proofs
+// (the P0 oracle incident, a8918b8). Verified the served vkey verifies the committed demo proof.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/nullifier_set/nullifier_set_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

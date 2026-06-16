@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Terminal, ArrowDown, Boxes, ShieldCheck, Radio, Cpu, Wrench, Sparkles } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
-import CircuitSelector from '../components/CircuitSelector';
+import SandboxGallery from '../components/SandboxGallery';
 
 // Unified Sandbox: ONE window where the free circuit library (left) drives a live preview
 // (right) and the builder/terminal (below) all at once. Pick any circuit and the enforcement
@@ -75,53 +75,51 @@ export default function Sandbox() {
         deploy unlock with a tier. Nothing here overstates what the chain enforces.
       </p>
 
-      {/* One window: circuit library (left) drives the live preview (right) */}
-      <div className="grid lg:grid-cols-[320px_1fr] gap-5 mb-8 items-start">
-        <div>
-          <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2">
-            <Boxes size={13} className="text-kaspa-green" /> Circuit library
-          </div>
-          <CircuitSelector circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
+      {/* Choose a covenant: a category-organized gallery with progressive disclosure (View more) */}
+      <div className="relative mb-8">
+        <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+          <Boxes size={13} className="text-kaspa-green" /> Choose a covenant
         </div>
+        <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
+      </div>
 
-        <div className="space-y-4 min-w-0">
-          {/* Selected starting point banner */}
-          {circuit && (
-            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center gap-3">
-                <Boxes size={18} className="text-kaspa-green" />
-                <span className="text-xs uppercase tracking-widest text-gray-400">Selected</span>
-                <span className="text-white font-semibold">{tplName || circuit.name}</span>
-                <div className="ml-auto flex items-center gap-2 flex-wrap">
-                  {circuit.reality === 'full-zk' && (
-                    <span className="zk-live-glow inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/40 tracking-wide">
-                      <Sparkles size={11} /> LIVE GROTH16
-                    </span>
-                  )}
-                  {reality && (
-                    <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
-                      <reality.Icon size={12} /> {reality.label}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="px-5 py-4 grid md:grid-cols-3 gap-4 text-sm">
-                <div className="md:col-span-2 min-w-0">
-                  <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Circuit</div>
-                  <div className="text-white font-mono text-xs mb-2 break-all">{circuit.id}</div>
-                  <p className="text-gray-300 leading-relaxed">{circuit.description}</p>
-                </div>
-                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3">
-                  <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">What enforcement means</div>
-                  <p className="text-gray-300 text-xs leading-relaxed">{reality?.note}</p>
-                </div>
+      {/* Live preview of the selected covenant: enforcement reality + how it resolves + payout */}
+      <div className="space-y-4 mb-8 min-w-0">
+        {circuit && (
+          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center gap-3">
+              <Boxes size={18} className="text-kaspa-green" />
+              <span className="text-xs uppercase tracking-widest text-gray-400">Selected</span>
+              <span className="text-white font-semibold">{tplName || circuit.name}</span>
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                {circuit.reality === 'full-zk' && (
+                  <span className="zk-live-glow inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/40 tracking-wide">
+                    <Sparkles size={11} /> LIVE GROTH16
+                  </span>
+                )}
+                {reality && (
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
+                    <reality.Icon size={12} /> {reality.label}
+                  </span>
+                )}
               </div>
             </div>
-          )}
+            <div className="px-5 py-4 grid md:grid-cols-3 gap-4 text-sm">
+              <div className="md:col-span-2 min-w-0">
+                <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Circuit</div>
+                <div className="text-white font-mono text-xs mb-2 break-all">{circuit.id}</div>
+                <p className="text-gray-300 leading-relaxed">{circuit.description}</p>
+              </div>
+              <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3">
+                <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">What enforcement means</div>
+                <p className="text-gray-300 text-xs leading-relaxed">{reality?.note}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* Live preview: how it resolves + payout simulator (remounts on circuit change) */}
-          {circuit && <SandboxCircuitPreview key={circuit.id} circuit={circuit} kind={kind} />}
-        </div>
+        {/* Live preview: how it resolves + payout simulator (remounts on circuit change) */}
+        {circuit && <SandboxCircuitPreview key={circuit.id} circuit={circuit} kind={kind} />}
       </div>
 
       {/* Configure & deploy: the real builder, synced to the selection above */}

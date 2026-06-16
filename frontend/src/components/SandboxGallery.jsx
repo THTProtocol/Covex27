@@ -1,0 +1,145 @@
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight } from 'lucide-react';
+
+// SandboxGallery: a category-organized, progressive-disclosure picker over every covenant
+// circuit/primitive. Each category shows a curated few cards up front with a "View more" button
+// to reveal the rest, so the page reads cleanly at first glance instead of a long flat list.
+// Selecting a card drives the whole sandbox live (banner + preview + builder follow).
+
+const REALITY_META = {
+  'full-zk': { short: 'ZK', accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
+  'on-chain': { short: 'On-chain', accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
+  hybrid: { short: 'Hybrid', accent: '#60a5fa', text: 'text-blue-300', bg: 'bg-blue-500/12', border: 'border-blue-500/35' },
+  'oracle-attested': { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
+  decorative: { short: 'Meta', accent: '#9ca3af', text: 'text-gray-300', bg: 'bg-white/[0.06]', border: 'border-white/15' },
+};
+const rm = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
+
+// Curated category groups. Each circuit lands in exactly ONE group (first match wins); the final
+// catch-all group sweeps up anything uncategorised so nothing is ever hidden.
+const GROUPS = [
+  { key: 'zk', title: 'Zero-knowledge', icon: ShieldCheck, match: (c) => c.reality === 'full-zk' || c.category === 'crypto' || c.category === 'privacy' },
+  { key: 'oracle', title: 'Oracle & prediction markets', icon: Radio, match: (c) => c.category === 'oracle' },
+  { key: 'defi', title: 'DeFi & lending', icon: Coins, match: (c) => c.category === 'defi' },
+  { key: 'game', title: 'Games', icon: Gamepad2, match: (c) => c.category === 'game' },
+  { key: 'identity', title: 'Identity & gating', icon: Fingerprint, match: (c) => c.category === 'identity' || c.category === 'gating' },
+  { key: 'compute', title: 'Verifiable compute', icon: Cpu, match: (c) => c.category === 'compute' },
+  { key: 'other', title: 'Primitives & timelocks', icon: Lock, match: () => true },
+];
+
+const INITIAL = 6; // cards shown per category before "View more"
+
+function CircuitCard({ c, active, onSelect }) {
+  const m = rm(c.reality);
+  return (
+    <button
+      onClick={() => onSelect(c.id)}
+      title={`${c.name} - ${c.reality}`}
+      className={`group relative text-left p-3 rounded-xl border overflow-hidden transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
+        active
+          ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_22px_rgba(73,234,203,0.16)]'
+          : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16] hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.6)]'
+      }`}
+    >
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />
+      <div className="relative flex items-start justify-between gap-2">
+        <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white'}`}>{c.name}</span>
+        <span className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${m.bg} ${m.text} ${m.border}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${c.reality === 'full-zk' ? 'zk-live-glow' : ''}`} style={{ background: m.accent }} /> {m.short}
+        </span>
+      </div>
+      <p className="relative text-[11px] text-gray-400 leading-snug mt-1 line-clamp-2">{c.description}</p>
+      {active && <Check size={13} className="text-kaspa-green absolute bottom-2.5 right-2.5" />}
+    </button>
+  );
+}
+
+export default function SandboxGallery({ circuits, selectedId, onSelect }) {
+  const [q, setQ] = useState('');
+  const [expanded, setExpanded] = useState({});
+
+  const grouped = useMemo(() => {
+    const g = Object.fromEntries(GROUPS.map((x) => [x.key, []]));
+    for (const c of circuits) {
+      const grp = GROUPS.find((x) => x.match(c)) || GROUPS[GROUPS.length - 1];
+      g[grp.key].push(c);
+    }
+    // full-zk circuits first within each group (they're the headline)
+    for (const k in g) g[k].sort((a, b) => (b.reality === 'full-zk') - (a.reality === 'full-zk'));
+    return g;
+  }, [circuits]);
+
+  const s = q.trim().toLowerCase();
+  const searchResults = s ? circuits.filter((c) => `${c.name} ${c.id} ${c.description} ${c.category}`.toLowerCase().includes(s)) : null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 max-w-md">
+        <Search size={15} className="text-gray-400 shrink-0" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search all covenants, circuits, games…"
+          className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
+        />
+        {s && <span className="text-[10px] text-gray-500 tabular-nums shrink-0">{searchResults.length}</span>}
+      </div>
+
+      {searchResults ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {searchResults.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} />)}
+          {searchResults.length === 0 && <div className="text-sm text-gray-500 py-8 col-span-full text-center">No covenants match your search.</div>}
+        </div>
+      ) : (
+        <div className="space-y-7">
+          {GROUPS.map((grp) => {
+            const items = grouped[grp.key];
+            if (!items.length) return null;
+            const open = expanded[grp.key];
+            const visible = open ? items : items.slice(0, INITIAL);
+            return (
+              <section key={grp.key}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-lg bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+                    <grp.icon size={14} className="text-kaspa-green" />
+                  </span>
+                  <h3 className="text-sm font-bold text-white tracking-tight">{grp.title}</h3>
+                  <span className="text-[10px] text-gray-500 tabular-nums">{items.length}</span>
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {visible.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} />)}
+                </div>
+                {items.length > INITIAL && (
+                  <button
+                    onClick={() => setExpanded((m) => ({ ...m, [grp.key]: !open }))}
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-kaspa-green hover:text-kaspa-green/80 transition-colors"
+                  >
+                    {open ? 'Show less' : `View more (${items.length - INITIAL})`}
+                    <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
+              </section>
+            );
+          })}
+
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-7 h-7 rounded-lg bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+                <Layers size={14} className="text-kaspa-green" />
+              </span>
+              <h3 className="text-sm font-bold text-white tracking-tight">Templates</h3>
+            </div>
+            <Link to="/templates" className="group flex items-center justify-between gap-3 p-4 rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.04] hover:bg-kaspa-green/[0.08] hover:border-kaspa-green/40 transition-all max-w-md">
+              <div>
+                <div className="text-sm font-bold text-white">Browse ready-made templates</div>
+                <div className="text-[11px] text-gray-400 mt-0.5">Pre-configured covenants across games, ZK, oracle markets, and DeFi.</div>
+              </div>
+              <ArrowUpRight size={18} className="text-kaspa-green group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
+            </Link>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}

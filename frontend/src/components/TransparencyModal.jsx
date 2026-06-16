@@ -24,7 +24,7 @@ const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,
     what: 'Kaspa consensus enforces the spend condition. The funds are locked to a P2SH script and only a redeem script that hashes to the on-chain commitment can move them. No oracle, no trust in Covex.' },
   'full-zk': { name: 'Zero-knowledge', accent: '#34d399', Icon: ShieldCheck,
-    what: 'A real Groth16 zero-knowledge proof. You prove a statement is true without revealing the secret behind it. The proof is checked cryptographically and the result authorizes the spend.' },
+    what: 'A real Groth16 zero-knowledge proof. You prove a statement is true without revealing the secret behind it. The proof is verified off-chain by the disclosed Covex oracle (the trusted verifier), and a valid proof gates the spend. It cannot be faked, but the oracle is the trust boundary, not the chain itself.' },
   hybrid: { name: 'Hybrid', accent: '#60a5fa', Icon: Link2,
     what: 'A required Groth16 proof is verified fail-closed, and a disclosed oracle co-signs the consensus-required input. Both must check out for the covenant to release.' },
   'oracle-attested': { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,

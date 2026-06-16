@@ -56,11 +56,14 @@ export default function WalletButton() {
 
   const handleWalletClick = async (wallet) => {
     const detected = wallet.detect ? wallet.detect() : false;
-    if (detected) {
+    if (!detected) { window.open(wallet.url, '_blank'); return; }
+    clearError();
+    try {
       await connect(wallet.id);
-      setOpen(false);
-    } else {
-      window.open(wallet.url, '_blank');
+      setOpen(false); // only close on success
+    } catch (_) {
+      // connect surfaces the reason via the context `error` state shown in the drawer; keep the
+      // drawer open on failure so the user sees what went wrong instead of a silent dead-end.
     }
   };
 
@@ -94,7 +97,7 @@ export default function WalletButton() {
         </button>
 
         {panel && (
-          <div className="absolute right-0 top-[calc(100%+8px)] w-80 z-[90] rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="absolute right-0 top-[calc(100%+8px)] w-[calc(100vw-1.5rem)] sm:w-80 max-w-[20rem] z-[90] rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="p-4 border-b border-white/[0.06] light:border-slate-100 flex items-center gap-3">
               {meta?.logo
                 ? <img src={meta.logo} alt={meta?.name || 'wallet'} className="w-9 h-9 rounded-lg" />
@@ -169,17 +172,17 @@ export default function WalletButton() {
       {open && (
         <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div
-            className="absolute top-0 right-0 h-screen w-full sm:w-[420px] bg-[#0a0a0a] light:bg-white border-l border-[#1f1f1f] light:border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right-5 duration-200"
+            className="absolute top-0 right-0 h-[100dvh] max-h-[100dvh] w-full sm:w-[420px] bg-[#0a0a0a] light:bg-white border-l border-[#1f1f1f] light:border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right-5 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-6 border-b border-[#1f1f1f] light:border-slate-200 shrink-0">
-              <h2 className="text-xl font-semibold text-white light:text-slate-900">Connect Wallet</h2>
-              <button onClick={() => setOpen(false)} className="text-gray-200 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors">
-                <X size={24} />
+            <div className="flex justify-between items-center px-4 sm:px-6 py-4 sm:py-5 border-b border-[#1f1f1f] light:border-slate-200 shrink-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-white light:text-slate-900">Connect Wallet</h2>
+              <button onClick={() => setOpen(false)} className="p-1.5 -mr-1.5 rounded-lg text-gray-200 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 transition-colors" aria-label="Close">
+                <X size={22} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               <p className="text-sm text-gray-300 light:text-slate-600 mb-4">Select a Kaspa wallet to connect to Covex ({netLabel})</p>
 
               {error && (

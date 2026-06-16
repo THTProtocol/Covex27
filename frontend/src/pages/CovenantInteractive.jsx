@@ -1581,7 +1581,7 @@ export default function CovenantInteractive() {
               <p className="text-xs text-gray-300 font-mono">LIVE - buttons trigger real wallet actions where possible</p>
             </div>
           </div>
-          <div className="relative border border-kaspa-green/20 bg-black/50 rounded-2xl overflow-hidden" style={{width: 420, height: 260, margin: '0 auto'}}>
+          <div className="relative border border-kaspa-green/20 bg-black/50 rounded-2xl overflow-hidden" style={{width: '100%', maxWidth: 420, height: 260, margin: '0 auto'}}>
             {covenant.custom_ui_config.layers.map((layer, idx) => {
               const style = {
                 position: 'absolute',

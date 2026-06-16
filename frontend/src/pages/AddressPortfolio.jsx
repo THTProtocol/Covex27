@@ -53,7 +53,7 @@ export default function AddressPortfolio() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {[
               { icon: Layers, label: 'Covenants', value: data.total_covenants },
               { icon: Crown, label: 'Paid tier', value: data.paid_covenants },

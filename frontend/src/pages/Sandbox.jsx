@@ -14,8 +14,8 @@ import CovenantAssistant from '../components/CovenantAssistant';
 const REALITY = {
   'on-chain': { label: 'On-chain enforced', cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10', Icon: ShieldCheck,
     note: 'Consensus-enforced by the Kaspa P2SH commitment. The chain itself guarantees the rules.' },
-  'full-zk': { label: 'On-chain enforced', cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10', Icon: ShieldCheck,
-    note: 'A live Groth16 proof gates the spend. Trustless: the proof is the key.' },
+  'full-zk': { label: 'Zero-knowledge', cls: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10', Icon: ShieldCheck,
+    note: 'A real Groth16 proof is required and verified fail-closed by the disclosed Covex oracle, which gates the consensus-required co-signature. The proof cannot be faked; the oracle is the trusted verifier (Kaspa has no on-chain pairing verifier yet).' },
   'hybrid': { label: 'Hybrid', cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10', Icon: Cpu,
     note: 'A ZK property proof plus an oracle attestation. Part of the logic is on-chain, part attested.' },
   'oracle-attested': { label: 'Oracle-attested', cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10', Icon: Radio,

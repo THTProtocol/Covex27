@@ -35,10 +35,10 @@ function CircuitCard({ c, active, onSelect, onInspect }) {
   const m = rm(c.reality);
   return (
     <div
-      className={`group relative rounded-xl border overflow-hidden transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
+      className={`group relative rounded-xl border overflow-hidden hover-lift ${
         active
           ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_22px_rgba(73,234,203,0.16)]'
-          : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16] hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.6)]'
+          : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16]'
       }`}
     >
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity z-10" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />

@@ -28,12 +28,18 @@ const NETWORK_FEE_KAS = 0.0001;
 // Hoisted to module scope on purpose: if these were defined inside the component, every
 // re-render (e.g. each tick while dragging a slider) would create a new component identity,
 // remounting the <input> and KILLING the drag gesture. Stable identity = draggable sliders.
-function Stat({ label, value, unit, accent, sub }) {
+function Stat({ label, value, unit, accent, sub, primary }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-3 py-2.5">
-      <div className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-gray-500 light:text-slate-400">{label}</div>
+    <div className={`hover-lift rounded-xl border px-3 py-2.5 transition ${
+      primary
+        ? 'border-kaspa-green/45 bg-kaspa-green/[0.07] shadow-[0_0_24px_-8px_rgba(73,234,203,0.55)]'
+        : 'border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50'
+    }`}>
+      <div className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-gray-500 light:text-slate-400 flex items-center gap-1">
+        {primary && <span className="w-1.5 h-1.5 rounded-full bg-kaspa-green shadow-[0_0_6px_#49EACB]" />}{label}
+      </div>
       <div className="flex items-baseline gap-1 mt-0.5">
-        <span className="text-lg font-black tabular-nums leading-none" style={{ color: accent || 'inherit' }}>{value}</span>
+        <span className={`font-black tabular-nums leading-none ${primary ? 'text-xl' : 'text-lg'}`} style={{ color: accent || 'inherit' }}>{value}</span>
         {unit && <span className="text-[10px] font-bold text-gray-400 light:text-slate-500">{unit}</span>}
       </div>
       {sub && <div className="text-[9px] text-gray-500 light:text-slate-400 mt-1 leading-tight">{sub}</div>}
@@ -52,7 +58,7 @@ function Slider({ label, value, set, min, max, step, fmt, accent }) {
       <input
         type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => set(Number(e.target.value))}
-        className="payout-range w-full"
+        className="w-full"
         style={{ '--range-accent': accent || '#49EACB', '--range-pct': `${pct}%` }}
       />
     </div>
@@ -149,14 +155,11 @@ export default function ResolutionSimulator({
   const isDraw = outcome === 'draw';
 
   return (
-    <div className="glass-panel rounded-2xl p-5 text-sm relative overflow-hidden">
-      <style>{`
-        .payout-range{-webkit-appearance:none;appearance:none;height:4px;border-radius:9999px;background:rgba(255,255,255,0.12);outline:none;cursor:pointer}
-        .light .payout-range{background:rgba(15,23,42,0.12)}
-        .payout-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid currentColor;box-shadow:0 0 8px rgba(73,234,203,0.5);cursor:pointer}
-        .payout-range::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid #49EACB;cursor:pointer}
-      `}</style>
+    <div className="glass-panel detail-hero-enhanced rounded-2xl p-5 text-sm relative overflow-hidden">
+      {/* Ambient brand glow, clipped by the panel's overflow-hidden so it stays contained. */}
+      <div className="covex-aurora" style={{ top: -40, right: -30, width: 320, height: 220, opacity: 0.4 }} aria-hidden="true" />
 
+      <div className="relative z-10">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div>
@@ -177,7 +180,7 @@ export default function ResolutionSimulator({
       {/* Metric rail */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         <Stat label="Total pot" value={KAS(m.pot)} unit="KAS" accent="#fff" sub={`${nPlayers} × ${KAS(stake)} KAS`} />
-        <Stat label="Winner (on-chain)" value={KAS(m.winnerEnforced)} unit="KAS" accent="#49EACB" sub={`${KAS(m.multEnforced, 2)}× your stake`} />
+        <Stat label="Winner (on-chain)" value={KAS(m.winnerEnforced)} unit="KAS" accent="#49EACB" sub={`${KAS(m.multEnforced, 2)}× your stake`} primary />
         <Stat label="Break-even win-rate" value={m.breakevenEnforced != null ? KAS(m.breakevenEnforced * 100, 1) : '-'} unit="%" accent="#E8AF34" sub={`${nPlayers}-way: 1 / ${nPlayers}`} />
         <Stat label={`Your EV @ ${winProb}%`} value={KAS(m.evEnforced, 2)} unit="KAS" accent={m.evEnforced >= 0 ? '#4ade80' : '#f87171'} sub={isDraw ? 'draw: stake returned' : 'per session'} />
       </div>
@@ -234,7 +237,10 @@ export default function ResolutionSimulator({
           {m.breakevenEnforced != null && m.breakevenEnforced <= 1 && (
             <g>
               <line x1={xOf(m.breakevenEnforced)} y1={yZero} x2={xOf(m.breakevenEnforced)} y2={padT} stroke="#49EACB" strokeWidth="1" strokeDasharray="2 2" opacity="0.5" />
-              <circle cx={xOf(m.breakevenEnforced)} cy={yZero} r="4" fill="#49EACB" filter="url(#glow)" />
+              <circle cx={xOf(m.breakevenEnforced)} cy={yZero} r="4" fill="#49EACB" filter="url(#glow)">
+                <animate attributeName="r" values="4;6.5;4" dur="2.4s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="1;0.55;1" dur="2.4s" repeatCount="indefinite" />
+              </circle>
             </g>
           )}
           {showConfigured && m.breakevenConfigured != null && m.breakevenConfigured <= 1 && (
@@ -277,14 +283,14 @@ export default function ResolutionSimulator({
         ) : (
           <>
             <div className="rounded-lg overflow-hidden h-9 flex border border-white/10 light:border-slate-200">
-              <div className="flex items-center justify-center text-[10px] font-black text-black overflow-hidden whitespace-nowrap" style={{ width: seg(showConfigured ? m.winnerConfigured : m.winnerEnforced), background: 'linear-gradient(90deg,#49EACB,#3bd1b4)' }} title={`Winner ${KAS(showConfigured ? m.winnerConfigured : m.winnerEnforced)} KAS`}>
+              <div className="btn-shimmer relative flex items-center justify-center text-[10px] font-black text-black overflow-hidden whitespace-nowrap transition-[width] duration-500 ease-out" style={{ width: seg(showConfigured ? m.winnerConfigured : m.winnerEnforced), background: 'linear-gradient(90deg,#49EACB,#3bd1b4)', textShadow: '0 1px 1px rgba(255,255,255,0.25)' }} title={`Winner ${KAS(showConfigured ? m.winnerConfigured : m.winnerEnforced)} KAS`}>
                 Winner {KAS(showConfigured ? m.winnerConfigured : m.winnerEnforced)}
               </div>
               {showConfigured && m.creatorFee > 0 && (
-                <div className="flex items-center justify-center text-[9px] font-bold text-black overflow-hidden whitespace-nowrap" style={{ width: seg(m.creatorFee), background: '#E8AF34' }} title={`Creator fee ${KAS(m.creatorFee)} KAS`}>{m.creatorFee / m.pot > 0.06 ? `Fee ${KAS(m.creatorFee)}` : ''}</div>
+                <div className="flex items-center justify-center text-[9px] font-bold text-black overflow-hidden whitespace-nowrap transition-[width] duration-500 ease-out" style={{ width: seg(m.creatorFee), background: '#E8AF34' }} title={`Creator fee ${KAS(m.creatorFee)} KAS`}>{m.creatorFee / m.pot > 0.06 ? `Fee ${KAS(m.creatorFee)}` : ''}</div>
               )}
               {showConfigured && m.potReturnAmt > 0 && (
-                <div className="flex items-center justify-center text-[9px] font-bold text-black overflow-hidden whitespace-nowrap" style={{ width: seg(m.potReturnAmt), background: 'rgba(73,234,203,0.4)' }} title={`Pot return ${KAS(m.potReturnAmt)} KAS`}>{m.potReturnAmt / m.pot > 0.06 ? `Pot ${KAS(m.potReturnAmt)}` : ''}</div>
+                <div className="flex items-center justify-center text-[9px] font-bold text-black overflow-hidden whitespace-nowrap transition-[width] duration-500 ease-out" style={{ width: seg(m.potReturnAmt), background: 'rgba(73,234,203,0.4)' }} title={`Pot return ${KAS(m.potReturnAmt)} KAS`}>{m.potReturnAmt / m.pot > 0.06 ? `Pot ${KAS(m.potReturnAmt)}` : ''}</div>
               )}
             </div>
             {showConfigured && m.rakeDelta > 0 && (
@@ -311,6 +317,7 @@ export default function ResolutionSimulator({
         Win-rate <em>p</em> is your own assumption, not a Covex prediction. EV = p × winner share − your stake; break-even is where EV crosses zero.
         Configured fee / pot-return drive the SilverScript display model and are <strong>not</strong> taken on-chain. The enforced payout sends the full pot to the verified winner.
       </p>
+      </div>
     </div>
   );
 }

@@ -122,7 +122,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
       </div>
 
       {/* Resolution flow */}
-      <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+      <div className="rounded-2xl border border-white/10 bg-black/30 p-5 hover-lift">
         <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
           <FileSearch size={13} className="text-kaspa-green" /> How it resolves
           <button

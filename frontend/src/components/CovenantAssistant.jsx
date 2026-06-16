@@ -88,7 +88,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
               {results.map((r, i) => {
                 const p = pill(r.circuit.reality);
                 return (
-                  <div key={r.id} className={`rounded-xl border p-3.5 ${i === 0 ? 'border-kaspa-green/40 bg-kaspa-green/[0.05]' : 'border-white/10 bg-black/30'}`}>
+                  <div key={r.id} className={`rounded-xl border p-3.5 hover-lift ${i === 0 ? 'border-kaspa-green/45 bg-kaspa-green/[0.06] shadow-[0_0_26px_-8px_rgba(73,234,203,0.5)] light:bg-kaspa-green/[0.04]' : 'border-white/10 bg-black/30 light:bg-white light:border-slate-200'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -104,7 +104,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
                     </div>
                     <button
                       onClick={() => onSelect(r.id)}
-                      className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-white/[0.06] border border-white/10 hover:border-kaspa-green/40 hover:bg-kaspa-green/10 text-white transition-all"
+                      className="btn-shimmer mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-white/[0.06] border border-white/10 hover:border-kaspa-green/40 hover:bg-kaspa-green/10 text-white transition-all"
                     >
                       Use this in the builder <ArrowRight size={13} className="text-kaspa-green" />
                     </button>

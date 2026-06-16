@@ -3324,9 +3324,10 @@ pub async fn bundle_deploy_handler(
             for (i, (amt, redeem, addr, role)) in built.iter().enumerate() {
                 let idx = i as u32;
                 let redeem_hex = hex::encode(redeem);
-                let _ = db::insert_p2sh_covenant(
-                    &db, &tx_id_str, &req.network, addr, &redeem_hex, &redeem_kind, *amt, idx, &funder_addr_str,
-                );
+                // NOTE: p2sh_covenants is keyed by tx_id alone, so the legs of one bundle
+                // would collide there. Legs are spent via the trustless interaction path
+                // instead (the deploy response returns each leg's redeem_script_hex +
+                // outpoint_index), so we only index them in the explorer `covenants` table.
                 let p2sh_script_hex = hex::encode(p2sh_script_pubkey(redeem).script());
                 let cid = format!("{tx_id_str}:{idx}");
                 let recv = serde_json::to_string(&vec![addr.clone()]).unwrap_or_default();
@@ -3339,9 +3340,12 @@ pub async fn bundle_deploy_handler(
                 legs_json.push(serde_json::json!({
                     "role": role,
                     "outpoint": cid,
+                    "outpoint_index": idx,
                     "p2sh_address": addr,
                     "amount_sompi": amt,
                     "amount_kas": *amt as f64 / 1e8,
+                    "redeem_script_hex": redeem_hex,
+                    "redeem_kind": redeem_kind.clone(),
                 }));
             }
             info!("Parimutuel bundle deployed: tx={tx_id_str} T={t} sompi legs={}", built.len());

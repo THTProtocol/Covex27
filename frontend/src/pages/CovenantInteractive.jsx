@@ -795,7 +795,7 @@ export default function CovenantInteractive() {
                 {covenant.name || TRUNC(covenant.tx_id)}
               </h1>
               <div className="flex flex-wrap items-center gap-3 mt-2">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest ${({ MAX: 'tier-glow-max', PRO: 'tier-glow-pro', BUILDER: 'tier-glow-builder' }[(covenant.tier || covenant.verified_tier || '').toUpperCase()]) || ''}`}>
                   {covenant.tier || covenant.verified_tier || 'FREE'} TIER
                 </span>
                 <span className="text-sm text-gray-300 font-mono">{covenant.category || 'General'}</span>

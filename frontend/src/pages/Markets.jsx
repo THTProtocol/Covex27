@@ -144,10 +144,17 @@ function MarketsList() {
 function OddsCard({ label, mult, accent }) {
   const profit = mult >= 1;
   return (
-    <div className={`rounded-xl border p-4 ${accent ? 'border-kaspa-green/25 bg-kaspa-green/[0.05]' : 'border-white/10 bg-white/[0.02]'}`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">If "{label}" wins</div>
-      <div className={`text-2xl font-extrabold ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '-'}×</div>
-      <div className="text-[10px] text-gray-500 mt-0.5">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${accent ? 'border-kaspa-green/50 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}
+      style={accent ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 26px rgba(73,234,203,0.22), inset 0 1px 0 rgba(255,255,255,0.05)' } : undefined}
+    >
+      {accent && <span className="covex-aurora" aria-hidden="true" style={{ top: -28, right: -18, width: 120, height: 96 }} />}
+      <div className="relative flex items-center justify-between mb-1">
+        <span className="kicker">If "{label}" wins</span>
+        {accent && <Trophy size={15} className="text-kaspa-green shrink-0" />}
+      </div>
+      <div className={`relative text-3xl sm:text-4xl font-black leading-none ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-xl">×</span></div>
+      <div className="relative text-[10px] text-gray-500 mt-1">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
     </div>
   );
 }
@@ -207,16 +214,19 @@ function MarketDetail({ id }) {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Explorer</Link>
 
-      <div className="flex items-start justify-between gap-3 mb-1">
-        <h1 className="text-xl sm:text-2xl font-extrabold text-white leading-snug">{book.question}</h1>
-        {resolved
-          ? <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300"><Trophy size={12} /> {wonLabel}</span>
-          : <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green">Open</span>}
-      </div>
-      <div className="flex flex-wrap items-center gap-3 text-[12px] text-gray-400 mb-5">
-        <EnforcementBadge />
-        {market.kickoff_utc && <span className="inline-flex items-center gap-1"><Clock size={12} /> {fmtKickoff(market.kickoff_utc)}</span>}
-        {market.source_url && <a href={market.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-kaspa-green">Source <ExternalLink size={11} /></a>}
+      <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] p-6 sm:p-8 mb-5" style={{ background: 'linear-gradient(135deg, rgba(73,234,203,0.08) 0%, rgba(10,10,15,0.35) 62%)' }}>
+        <span className="covex-aurora" aria-hidden="true" style={{ top: -44, right: -34, width: 260, height: 170 }} />
+        <div className="relative flex items-start justify-between gap-3 mb-3">
+          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">{book.question}</h1>
+          {resolved
+            ? <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300"><Trophy size={12} /> {wonLabel}</span>
+            : <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green"><span className="w-1.5 h-1.5 rounded-full bg-kaspa-green zk-live-glow" /> Open</span>}
+        </div>
+        <div className="relative flex flex-wrap items-center gap-3 text-[12px] text-gray-300">
+          <EnforcementBadge />
+          {market.kickoff_utc && <span className="inline-flex items-center gap-1"><Clock size={12} className="text-kaspa-green" /> {fmtKickoff(market.kickoff_utc)}</span>}
+          {market.source_url && <a href={market.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-kaspa-green">Source <ExternalLink size={11} /></a>}
+        </div>
       </div>
 
       {/* Live odds */}
@@ -236,12 +246,13 @@ function MarketDetail({ id }) {
           <div className="text-[12px] text-gray-500">No matched liquidity yet - the reward and hedge pools fill as bets get matched.</div>
         ) : (
           <>
-            <div className="flex items-center justify-between text-[12px] mb-1"><span className="text-gray-400">Total matched</span><span className="text-white font-semibold">{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} KAS</span></div>
+            <div className="flex items-end justify-between mb-1"><span className="kicker">Total matched</span><span className="text-2xl font-black leading-none" style={{ background: 'linear-gradient(90deg,#49EACB,#E8AF34)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm">KAS</span></span></div>
             <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">House fee pool ({feePct}%)</span><span className="text-amber-300">{(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS → treasury</span></div>
             <div className="grid sm:grid-cols-2 gap-3">
               {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => (
-                <div key={oc} className={`rounded-xl border p-3 text-[12px] ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/30 bg-kaspa-green/[0.05]' : 'border-white/10 bg-white/[0.02]'}`}>
-                  <div className="text-[11px] text-gray-400 mb-1.5">If "{lbl}" wins</div>
+                <div key={oc} className={`rounded-xl border p-3.5 text-[12px] hover-lift-premium transition-all ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/50' : 'border-white/10 bg-white/[0.02]'}`}
+                  style={resolved && book.revealed_outcome === oc ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 20px rgba(73,234,203,0.20)' } : undefined}>
+                  <div className="flex items-center justify-between mb-1.5"><span className="kicker">If "{lbl}" wins</span>{resolved && book.revealed_outcome === oc && <Trophy size={13} className="text-kaspa-green" />}</div>
                   <div className="flex items-center justify-between"><span className="text-kaspa-green">Reward pool</span><span className="text-white">{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
                   <div className="flex items-center justify-between"><span className="text-sky-300">Hedge / rebate pool</span><span className="text-white">{(r * opp).toFixed(2)} KAS</span></div>
                 </div>
@@ -293,7 +304,7 @@ function MarketDetail({ id }) {
                 // conjoined bundle (several covenants) right now.
                 return await api('/covenant/market/match', { market_id: id });
               })}
-              className="btn-shimmer flex-1 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40 disabled:cursor-not-allowed">
+              className="btn-shimmer flex-1 py-3 rounded-xl font-extrabold text-sm bg-kaspa-green text-black disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)] transition-shadow">
               {busy === 'Bet placed' ? <Loader2 className="animate-spin inline" size={15} /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
             </button>
             <button disabled={!!busy} title="Match any open orders into conjoined bundles"

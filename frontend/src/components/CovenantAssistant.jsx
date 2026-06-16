@@ -40,18 +40,45 @@ const INTENT_CHIPS = [
   { label: 'HTLC swap', icon: Repeat, query: 'Release on revealing a secret preimage, with a timelock refund' },
 ];
 
+// Trust-model filter: let users narrow suggestions to the enforcement reality they trust.
+const REALITY_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'full-zk', label: 'Zero-knowledge' },
+  { key: 'on-chain', label: 'On-chain' },
+  { key: 'oracle', label: 'Oracle' },
+];
+const matchesFilter = (reality, f) =>
+  f === 'all' || reality === f || (f === 'oracle' && (reality === 'oracle-attested' || reality === 'hybrid'));
+
+// Honest confidence label, keyed to how the deterministic engine matched (curated intent vs fallback).
+const CONFIDENCE = {
+  high: { label: 'Strong match', cls: 'text-emerald-300 bg-emerald-500/12 border-emerald-500/30' },
+  medium: { label: 'Good match', cls: 'text-amber-300 bg-amber-500/12 border-amber-500/30' },
+  low: { label: 'Possible match', cls: 'text-gray-400 bg-white/[0.06] border-white/15' },
+};
+
 export default function CovenantAssistant({ circuits, onSelect }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState(null); // null = not run yet
+  const [realityFilter, setRealityFilter] = useState('all');
 
-  // LLM-READY: swap this for `await fetch('/api/assistant', ...)` returning the same [{id,why,realityNote}] shape.
-  const getSuggestions = (text) => suggestCovenants(text, circuits);
+  // LLM-READY: swap compute() for `await fetch('/api/assistant', ...)` returning the same shape.
+  const compute = (text, filter) => {
+    const pool = filter === 'all' ? circuits : circuits.filter((c) => matchesFilter(c.reality, filter));
+    return suggestCovenants(text, pool);
+  };
 
   const run = (text) => {
     const t = (text ?? q).trim();
     if (!t) return;
     setQ(t);
-    setResults(getSuggestions(t));
+    setResults(compute(t, realityFilter));
+  };
+
+  // Re-narrow the current suggestions when the trust-model filter changes.
+  const setFilter = (f) => {
+    setRealityFilter(f);
+    if (q.trim() && results !== null) setResults(compute(q, f));
   };
 
   return (
@@ -107,6 +134,23 @@ export default function CovenantAssistant({ circuits, onSelect }) {
 
       {results !== null && (
         <div className="relative mt-4 space-y-2.5">
+          {/* Trust-model filter: narrow to the enforcement reality you're comfortable with. */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-1">Trust</span>
+            {REALITY_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
+                  realityFilter === f.key
+                    ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
+                    : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
           {results.length === 0 ? (
             <div className="text-sm text-gray-400 rounded-xl border border-white/10 bg-black/30 p-4">
               I couldn't map that to a covenant yet. Try describing the outcome (escrow, timelock, whitelist, prediction, multisig, a game…), or browse the gallery below.
@@ -126,6 +170,11 @@ export default function CovenantAssistant({ circuits, onSelect }) {
                             <p.icon size={10} /> {p.label}
                           </span>
                           {i === 0 && <span className="text-[9px] font-bold uppercase tracking-wide text-kaspa-green">best fit</span>}
+                          {r.confidence && CONFIDENCE[r.confidence] && (
+                            <span className={`inline-flex items-center text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${CONFIDENCE[r.confidence].cls}`}>
+                              {CONFIDENCE[r.confidence].label}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[12px] text-gray-300 mt-1.5 leading-relaxed">{r.why}</p>
                         <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed"><span className="text-gray-400 font-semibold">What the chain does:</span> {r.realityNote}</p>

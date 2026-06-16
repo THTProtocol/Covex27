@@ -86,6 +86,9 @@ export function suggestCovenants(query, circuits) {
     id: s.circuit.id,
     circuit: s.circuit,
     why: s.why,
+    // Honest confidence derived from HOW the match was made: a curated intent rule (score >= 1000)
+    // is a strong match; a broad keyword-overlap fallback is good (>= 3 words) or possible (2 words).
+    confidence: s.score >= 1000 ? 'high' : s.score >= 3 ? 'medium' : 'low',
     realityNote: REALITY_EXPLAIN[s.circuit.reality] || REALITY_EXPLAIN['oracle-attested'],
   }));
 }

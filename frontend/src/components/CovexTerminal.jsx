@@ -1878,9 +1878,17 @@ ${gameMeta.outcomeBranches}
   }, [covenantId, covenant]);
 
   // ── Open Covenant Studio ──
+  // The visual Studio designs the PUBLIC PAGE of a live covenant, so it binds to a
+  // deployed covenant id (/covenant/:id/studio). On the sandbox (no covenant yet)
+  // there is nothing to open - guide the user to deploy first instead of navigating
+  // to a dead route that bounces back to the homepage.
   const handleOpenStudio = useCallback(() => {
-    window.open('https://hightable.pro/studio/', '_blank');
-  }, []);
+    if (!covenantId) {
+      toast.info('Deploy this covenant first - the visual Studio designs the public page of a live covenant.');
+      return;
+    }
+    navigate(`/covenant/${covenantId}/studio`);
+  }, [covenantId, navigate]);
 
   // ── Copy SilverScript ──
   const handleCopyScript = useCallback(async () => {
@@ -3630,7 +3638,7 @@ ${gameMeta.outcomeBranches}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[10px] text-kaspa-green/60 font-mono px-2 py-0.5 rounded-md bg-kaspa-green/10 border border-kaspa-green/20 group-hover:text-kaspa-green/80">
-                hightable.pro/studio
+                {covenantId ? 'Open Studio' : 'Deploy first'}
               </span>
               <ExternalLink size={16} className="text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
             </div>
@@ -4177,11 +4185,10 @@ ${gameMeta.outcomeBranches}
               }
             });
 
-            const studioUrl = exportToStudio();
-            if (studioUrl) {
-              window.open(studioUrl, '_blank');
+            if (covenantId) {
+              navigate(`/covenant/${covenantId}/studio`);
             } else {
-              toast.info('Configure your covenant first, then try again.');
+              toast.info('Deploy this covenant first - the visual Studio opens for a live covenant.');
             }
           }}
           className="w-full mt-2 py-3 rounded-xl bg-[#49EACB] text-black font-bold flex items-center justify-center gap-2 hover:bg-[#3dd9b8] active:scale-[0.985] transition-all"
@@ -4191,7 +4198,7 @@ ${gameMeta.outcomeBranches}
         </button>
 
         <p className="text-[10px] text-gray-500 mt-2 text-center">
-          This will open Covenant Studio with your current settings pre-loaded (deep link).
+          The visual Studio designs the public page of a deployed covenant.
         </p>
 
         <button

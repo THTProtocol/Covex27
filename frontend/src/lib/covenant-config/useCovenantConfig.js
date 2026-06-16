@@ -55,12 +55,10 @@ export function useCovenantConfig(initialCreatorAddress = '') {
     }
   }, []);
 
-  const exportToStudio = useCallback(() => {
-    if (!config) return null;
-    const encoded = btoa(JSON.stringify(config));
-    // This will be the deep link to Covenant Studio (update URL when Studio supports it)
-    return `https://studio.covex.pro/import?config=${encoded}`;
-  }, [config]);
+  // Deprecated: the visual Studio binds to a LIVE covenant's terminal-config
+  // (the in-app /covenant/:id/studio route), not to a config blob, so there is no
+  // external deep link. Callers navigate to the in-app Studio for a deployed covenant.
+  const exportToStudio = useCallback(() => null, []);
 
   return {
     config,

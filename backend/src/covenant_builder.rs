@@ -3517,6 +3517,199 @@ pub async fn get_market_handler(
     }
 }
 
+// ── P4: order book + matcher + market lifecycle ─────────────────────────────
+// Bettors place YES(0)/NO(1) orders on a market; the matcher pairs open orders (FIFO) into
+// mini-pools and funds a CONJOINED BUNDLE per pair (reusing bundle_deploy_handler). State
+// flows open -> funded; settlement happens when the market is resolved (P3) and each leg is
+// claimed (P2). Live parimutuel odds come from the funded pool sizes.
+
+#[derive(Deserialize)]
+pub struct PlaceOrderRequest {
+    pub market_id: String,
+    /// 0 = back outcome A, 1 = back outcome B.
+    pub side: i64,
+    pub stake_kas: f64,
+    /// The bettor's kaspatest:q... address (its 32-byte payload is the x-only key that wins).
+    pub bettor_addr: String,
+}
+
+/// POST /covenant/market/order - place a YES(0)/NO(1) order on a market.
+pub async fn place_order_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<PlaceOrderRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let m = match db::get_bundle_market(&db, &req.market_id) {
+        Some(m) => m,
+        None => return err("market not found".into()),
+    };
+    if m.revealed_outcome.is_some() {
+        return err("market already resolved; no new orders".into());
+    }
+    if req.side != 0 && req.side != 1 {
+        return err("side must be 0 (A) or 1 (B)".into());
+    }
+    let stake_sompi = (req.stake_kas * 100_000_000.0).round() as i64;
+    if stake_sompi <= 0 {
+        return err("stake_kas must be > 0".into());
+    }
+    let pk = match Address::try_from(req.bettor_addr.as_str()) {
+        Ok(a) => {
+            let p = a.payload.as_slice();
+            if p.len() != 32 {
+                return err("bettor_addr is not a 32-byte schnorr (q...) address".into());
+            }
+            hex::encode(p)
+        }
+        Err(e) => return err(format!("invalid bettor_addr: {e}")),
+    };
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut seed: Vec<u8> = Vec::new();
+    seed.extend_from_slice(req.market_id.as_bytes());
+    seed.extend_from_slice(req.bettor_addr.as_bytes());
+    seed.push(req.side as u8);
+    seed.extend_from_slice(&nanos.to_le_bytes());
+    let order_id = hex::encode(&blake2b256(&seed)[..12]);
+    if let Err(e) = db::insert_market_order(&db, &order_id, &req.market_id, req.side, stake_sompi, &req.bettor_addr, &pk) {
+        return err(format!("db insert failed: {e}"));
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "order_id": order_id,
+        "market_id": req.market_id,
+        "side": req.side,
+        "side_label": if req.side == 0 { m.outcome_a } else { m.outcome_b },
+        "stake_kas": req.stake_kas,
+        "status": "open"
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct MatchMarketRequest {
+    pub market_id: String,
+    #[serde(default)]
+    pub fee_bps: Option<u64>,
+    #[serde(default)]
+    pub rebate_bps: Option<u64>,
+}
+
+/// Refund delay (CSV min_sequence) baked into every matched bundle leg.
+const MARKET_MIN_SEQ: u64 = 200_000;
+
+/// POST /covenant/market/match - pair open A/B orders (FIFO) into mini-pools and fund a
+/// conjoined bundle covenant per pair (dev-funded escrow on testnet). Marks orders funded.
+pub async fn match_market_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<MatchMarketRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let m = match db::get_bundle_market(&db, &req.market_id) {
+        Some(m) => m,
+        None => return err("market not found".into()),
+    };
+    if m.revealed_outcome.is_some() {
+        return err("market already resolved".into());
+    }
+    let a_orders = db::list_open_orders_side(&db, &req.market_id, 0);
+    let b_orders = db::list_open_orders_side(&db, &req.market_id, 1);
+    let pairs = a_orders.len().min(b_orders.len());
+    if pairs == 0 {
+        return err("need at least one open order on EACH side to match".into());
+    }
+    let mut matches = Vec::new();
+    for i in 0..pairs {
+        let ao = &a_orders[i];
+        let bo = &b_orders[i];
+        let breq = BundleDeployRequest {
+            network: m.network.clone(),
+            funder_addr: dev_wallets::DEV_WALLET_1_ADDRESS_TN12.to_string(),
+            private_key_hex: String::new(),
+            use_dev_mode: true,
+            a_kas: ao.stake_sompi as f64 / 1e8,
+            b_kas: bo.stake_sompi as f64 / 1e8,
+            a_pubkey_hex: Some(ao.bettor_pubkey.clone()),
+            b_pubkey_hex: Some(bo.bettor_pubkey.clone()),
+            treasury_pubkey_hex: None,
+            preimage_a_hex: m.secret_a.clone(),
+            preimage_b_hex: m.secret_b.clone(),
+            min_sequence: MARKET_MIN_SEQ,
+            fee_bps: req.fee_bps,
+            rebate_bps: req.rebate_bps,
+        };
+        let res = bundle_deploy_handler(Extension(db.clone()), Json(breq)).await.0;
+        if res.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let txid = res.get("deploy_tx_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let _ = db::mark_order_funded(&db, &ao.order_id, &txid);
+            let _ = db::mark_order_funded(&db, &bo.order_id, &txid);
+            matches.push(serde_json::json!({
+                "a_order": ao.order_id, "b_order": bo.order_id,
+                "a_kas": ao.stake_sompi as f64 / 1e8, "b_kas": bo.stake_sompi as f64 / 1e8,
+                "bundle_tx": txid, "legs": res.get("legs"),
+            }));
+        } else {
+            matches.push(serde_json::json!({ "a_order": ao.order_id, "b_order": bo.order_id, "error": res.get("error") }));
+        }
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "market_id": req.market_id,
+        "matched_pairs": matches.len(),
+        "matches": matches,
+        "unmatched_a": a_orders.len().saturating_sub(pairs),
+        "unmatched_b": b_orders.len().saturating_sub(pairs),
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct MarketBookRequest {
+    pub market_id: String,
+}
+
+/// POST /covenant/market/book - the order book, funded pool sizes, and live parimutuel odds.
+pub async fn market_book_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<MarketBookRequest>,
+) -> Json<serde_json::Value> {
+    let m = match db::get_bundle_market(&db, &req.market_id) {
+        Some(m) => m,
+        None => return Json(serde_json::json!({ "success": false, "error": "market not found" })),
+    };
+    let orders = db::list_market_orders(&db, &req.market_id);
+    let (mut pa, mut pb, mut oa, mut ob) = (0i64, 0i64, 0i64, 0i64);
+    let mut order_json = Vec::new();
+    for o in &orders {
+        if o.status == "funded" {
+            if o.side == 0 { pa += o.stake_sompi } else { pb += o.stake_sompi }
+        } else if o.side == 0 {
+            oa += o.stake_sompi
+        } else {
+            ob += o.stake_sompi
+        }
+        order_json.push(serde_json::json!({
+            "order_id": o.order_id, "side": o.side, "stake_kas": o.stake_sompi as f64 / 1e8,
+            "status": o.status, "bundle_tx": o.bundle_tx,
+        }));
+    }
+    let mult = |p: i64, l: i64| if p > 0 { 0.70 + 0.20 * (l as f64 / p as f64) } else { 0.0 };
+    Json(serde_json::json!({
+        "success": true,
+        "market_id": m.market_id, "question": m.question,
+        "outcome_a": m.outcome_a, "outcome_b": m.outcome_b,
+        "resolved": m.revealed_outcome.is_some(), "revealed_outcome": m.revealed_outcome,
+        "funded_pool_a_kas": pa as f64 / 1e8, "funded_pool_b_kas": pb as f64 / 1e8,
+        "open_pool_a_kas": oa as f64 / 1e8, "open_pool_b_kas": ob as f64 / 1e8,
+        "odds": {
+            "if_a_wins_multiplier": mult(pa, pb),
+            "if_b_wins_multiplier": mult(pb, pa),
+            "note": "winner multiplier = 0.70 + 0.20*(L/P); a correct bet returns <1x when the opposing pool is < 1.5x your side"
+        },
+        "orders": order_json
+    }))
+}
+
 pub fn p2sh_routes() -> Router {
     Router::new()
         .route("/covenant/p2sh/deploy", post(p2sh_deploy_handler))
@@ -3524,6 +3717,9 @@ pub fn p2sh_routes() -> Router {
         .route("/covenant/market/create", post(create_market_handler))
         .route("/covenant/market/resolve", post(resolve_market_handler))
         .route("/covenant/market/get", post(get_market_handler))
+        .route("/covenant/market/order", post(place_order_handler))
+        .route("/covenant/market/match", post(match_market_handler))
+        .route("/covenant/market/book", post(market_book_handler))
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
         .route("/covenant/p2sh/prepare-spend", post(prepare_spend_handler))
         .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))

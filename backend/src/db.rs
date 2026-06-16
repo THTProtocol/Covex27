@@ -249,6 +249,18 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
             resolved_at      INTEGER
         );
+        CREATE TABLE IF NOT EXISTS market_orders (
+            order_id      TEXT PRIMARY KEY,
+            market_id     TEXT NOT NULL,
+            side          INTEGER NOT NULL,
+            stake_sompi   INTEGER NOT NULL,
+            bettor_addr   TEXT NOT NULL,
+            bettor_pubkey TEXT NOT NULL,
+            status        TEXT NOT NULL DEFAULT 'open',
+            bundle_tx     TEXT,
+            created_at    INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE INDEX IF NOT EXISTS idx_orders_market ON market_orders(market_id, side, status);
         ",
     )?;
 
@@ -1511,6 +1523,68 @@ pub fn resolve_bundle_market(db: &Mutex<Connection>, market_id: &str, outcome: i
          WHERE market_id = ?1 AND (revealed_outcome IS NULL OR revealed_outcome = ?2)",
         params![market_id, outcome, secret],
     )?;
+    Ok(())
+}
+
+/// A YES(side 0)/NO(side 1) order placed on a market's order book.
+#[derive(Clone, Debug)]
+pub struct MarketOrder {
+    pub order_id: String,
+    pub market_id: String,
+    pub side: i64,
+    pub stake_sompi: i64,
+    pub bettor_addr: String,
+    pub bettor_pubkey: String,
+    pub status: String,
+    pub bundle_tx: Option<String>,
+}
+
+fn row_to_order(r: &rusqlite::Row) -> rusqlite::Result<MarketOrder> {
+    Ok(MarketOrder {
+        order_id: r.get(0)?, market_id: r.get(1)?, side: r.get(2)?, stake_sompi: r.get(3)?,
+        bettor_addr: r.get(4)?, bettor_pubkey: r.get(5)?, status: r.get(6)?, bundle_tx: r.get(7)?,
+    })
+}
+
+const ORDER_COLS: &str = "order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx";
+
+pub fn insert_market_order(db: &Mutex<Connection>, order_id: &str, market_id: &str, side: i64, stake_sompi: i64, bettor_addr: &str, bettor_pubkey: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO market_orders (order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,'open',NULL,unixepoch())",
+        params![order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey],
+    )?;
+    Ok(())
+}
+
+pub fn list_market_orders(db: &Mutex<Connection>, market_id: &str) -> Vec<MarketOrder> {
+    let conn = db.lock().unwrap();
+    let sql = format!("SELECT {ORDER_COLS} FROM market_orders WHERE market_id = ?1 ORDER BY created_at ASC");
+    let mut out = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(&sql) {
+        if let Ok(rows) = stmt.query_map(params![market_id], row_to_order) {
+            out.extend(rows.flatten());
+        }
+    }
+    out
+}
+
+pub fn list_open_orders_side(db: &Mutex<Connection>, market_id: &str, side: i64) -> Vec<MarketOrder> {
+    let conn = db.lock().unwrap();
+    let sql = format!("SELECT {ORDER_COLS} FROM market_orders WHERE market_id = ?1 AND side = ?2 AND status = 'open' ORDER BY created_at ASC");
+    let mut out = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(&sql) {
+        if let Ok(rows) = stmt.query_map(params![market_id, side], row_to_order) {
+            out.extend(rows.flatten());
+        }
+    }
+    out
+}
+
+pub fn mark_order_funded(db: &Mutex<Connection>, order_id: &str, bundle_tx: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute("UPDATE market_orders SET status='funded', bundle_tx=?2 WHERE order_id=?1", params![order_id, bundle_tx])?;
     Ok(())
 }
 

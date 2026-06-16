@@ -152,6 +152,9 @@ export function validateLLMSuggestions(raw, circuits) {
       // The model may suggest an intent-specific covenant name; fall back to the circuit's name.
       name: sanitizeName(item.name) || circuit.name,
       why: (item.why && String(item.why).trim().slice(0, 240)) || 'Suggested by your local model for this goal.',
+      // Optional one-line setup guidance grounded in the user's intent (e.g. a refund window). Pure
+      // operational advice; the trust/reality claim stays in realityNote, which we control.
+      setup: item.setup ? String(item.setup).trim().slice(0, 160) : undefined,
       confidence: out.length === 0 ? 'high' : 'medium',
       realityNote: REALITY_EXPLAIN[circuit.reality] || REALITY_EXPLAIN['oracle-attested'],
       source: 'local-ai',
@@ -176,7 +179,8 @@ export async function suggestCovenantsLLM(query, circuits, config) {
     '- Use ONLY ids that appear verbatim in the CATALOG. Never invent an id.',
     '- Be honest about enforcement reality: full-zk and on-chain are trustless; oracle-attested and hybrid rely on a disclosed oracle.',
     '- For each pick also propose a short, specific covenant name (max 5 words, letters/spaces only) that reflects the user goal.',
-    '- Respond with ONLY a JSON array and nothing else: [{"id":"<catalog id>","name":"<short covenant name>","why":"<one short sentence on why it fits>"}]',
+    '- Optionally add a one-sentence "setup" tip grounded in what the user said (e.g. a refund window or condition). Do not invent trust guarantees; only practical configuration advice.',
+    '- Respond with ONLY a JSON array and nothing else: [{"id":"<catalog id>","name":"<short covenant name>","why":"<one short sentence on why it fits>","setup":"<optional one-sentence setup tip>"}]',
     '',
     'CATALOG (id | name | reality | description):',
     buildCatalogIndex(circuits),

@@ -294,6 +294,9 @@ export default function CovenantAssistant({ circuits, onSelect }) {
                           <p className="text-[11px] text-gray-400 mt-1"><span className="text-gray-500">Suggested name:</span> <span className="text-kaspa-green font-semibold">{r.name}</span></p>
                         )}
                         <p className="text-[12px] text-gray-300 mt-1.5 leading-relaxed">{r.why}</p>
+                        {r.setup && (
+                          <p className="text-[11px] text-gray-300 mt-1.5 leading-relaxed"><span className="text-kaspa-green font-semibold">Setup tip:</span> {r.setup}</p>
+                        )}
                         <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed"><span className="text-gray-400 font-semibold">What the chain does:</span> {r.realityNote}</p>
                       </div>
                     </div>

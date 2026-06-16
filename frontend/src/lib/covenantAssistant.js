@@ -92,3 +92,107 @@ export function suggestCovenants(query, circuits) {
     realityNote: REALITY_EXPLAIN[s.circuit.reality] || REALITY_EXPLAIN['oracle-attested'],
   }));
 }
+
+// ── Optional LOCAL-LLM upgrade ─────────────────────────────────────────────────────────────────
+// Runs entirely on the USER's machine: the browser talks to a local OpenAI-compatible model server
+// (Ollama at http://localhost:11434/v1, LM Studio at http://localhost:1234/v1, etc.). Nothing leaves
+// the user's computer and no API key is involved. HONESTY GUARANTEE: whatever the model returns is
+// validated against the REAL catalog (validateLLMSuggestions) so it can never surface a covenant that
+// does not exist — a hallucinated id is simply dropped. Any failure falls back to suggestCovenants().
+
+// Compact, deduped catalog the model picks from: `id | name | reality | short description`.
+function buildCatalogIndex(circuits) {
+  const seen = new Set();
+  const lines = [];
+  for (const c of circuits) {
+    if (!c || seen.has(c.id)) continue;
+    seen.add(c.id);
+    const desc = String(c.description || '').replace(/\s+/g, ' ').slice(0, 72);
+    lines.push(`${c.id} | ${c.name} | ${c.reality} | ${desc}`);
+  }
+  return lines.join('\n');
+}
+
+// Pull the first JSON array out of a model response (tolerates code fences and stray prose).
+export function extractJsonArray(text) {
+  if (!text) return null;
+  const fenced = String(text).match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = fenced ? fenced[1] : String(text);
+  const start = body.indexOf('[');
+  const end = body.lastIndexOf(']');
+  if (start === -1 || end === -1 || end < start) return null;
+  try { return JSON.parse(body.slice(start, end + 1)); } catch { return null; }
+}
+
+// Map a raw model array [{ id, why }] to validated suggestions, DROPPING any id that is not a real
+// catalog circuit. This is the trust anchor: the model can phrase things freely, but it can only ever
+// point at covenants that actually exist.
+export function validateLLMSuggestions(raw, circuits) {
+  if (!Array.isArray(raw) || !Array.isArray(circuits)) return [];
+  const byId = new Map(circuits.map((c) => [c.id, c]));
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const id = item && typeof item.id === 'string' ? item.id.trim() : null;
+    if (!id || seen.has(id)) continue;
+    const circuit = byId.get(id);
+    if (!circuit) continue; // hallucination guard
+    seen.add(id);
+    out.push({
+      id,
+      circuit,
+      why: (item.why && String(item.why).trim().slice(0, 240)) || 'Suggested by your local model for this goal.',
+      confidence: out.length === 0 ? 'high' : 'medium',
+      realityNote: REALITY_EXPLAIN[circuit.reality] || REALITY_EXPLAIN['oracle-attested'],
+      source: 'local-ai',
+    });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+// Ask the local model to choose covenants from the catalog. Resolves to validated suggestions, or
+// throws on transport/HTTP error (the caller falls back to the deterministic engine).
+export async function suggestCovenantsLLM(query, circuits, config) {
+  const q = (query || '').trim();
+  if (!q || !config || !config.endpoint || !config.model || !Array.isArray(circuits) || !circuits.length) return [];
+  const base = String(config.endpoint).replace(/\/+$/, '');
+  const url = /\/chat\/completions$/.test(base) ? base : `${base}/chat/completions`;
+
+  const system = [
+    'You are the Covex covenant assistant for the Kaspa blockchain. The user describes what they want to build.',
+    'From the CATALOG below, choose the 1 to 3 covenant circuits that best fit, best first.',
+    'RULES:',
+    '- Use ONLY ids that appear verbatim in the CATALOG. Never invent an id.',
+    '- Be honest about enforcement reality: full-zk and on-chain are trustless; oracle-attested and hybrid rely on a disclosed oracle.',
+    '- Respond with ONLY a JSON array and nothing else: [{"id":"<catalog id>","why":"<one short sentence on why it fits>"}]',
+    '',
+    'CATALOG (id | name | reality | description):',
+    buildCatalogIndex(circuits),
+  ].join('\n');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), config.timeoutMs || 45000);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.2,
+        stream: false,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: q },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`Local model returned HTTP ${res.status}`);
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content || data?.message?.content || '';
+    return validateLLMSuggestions(extractJsonArray(content), circuits);
+  } finally {
+    clearTimeout(timer);
+  }
+}

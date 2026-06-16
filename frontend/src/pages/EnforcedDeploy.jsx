@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
 
-// The four genuinely on-chain-enforced covenant primitives (covenant_builder).
+// The on-chain-enforced covenant primitives (covenant_builder), plus the parimutuel
+// prediction market, which is itself settled on-chain by conjoined oracle covenants.
 const KINDS = [
   { id: 'singlesig', label: 'Single-key', icon: KeyRound, blurb: 'Funds lock to a script hash, spendable only by your key. The minimal real covenant.' },
   { id: 'hashlock', label: 'Hashlock', icon: Lock, blurb: 'Release requires revealing a secret preimage plus a signature. The HTLC building block.' },
   { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting, dispute windows.' },
   { id: 'multisig', label: 'Multisig (2-of-2 demo)', icon: Users, blurb: 'Release requires 2 of 2 dev-wallet keys. DAO treasuries, 2-of-3 escrow. Demo uses the testnet dev wallets.' },
+  { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the house fee and rebate.' },
 ];
 
 function randomSecretHex() {
@@ -45,10 +47,18 @@ export default function EnforcedDeploy() {
     const k = (searchParams.get('kind') || '').toLowerCase();
     return KINDS.some((x) => x.id === k) ? k : 'singlesig';
   })();
+  const navigate = useNavigate();
   const [kind, setKind] = useState(initialKind);
   const [stake, setStake] = useState('1.0');
   const [lockBlocks, setLockBlocks] = useState('100');
   const [tipDaa, setTipDaa] = useState(null);
+  // Prediction-market params (kind === 'market'). No stake is locked at creation; the
+  // market is committed and lands on its own covenant page where bets are placed.
+  const [mq, setMq] = useState('');
+  const [moa, setMoa] = useState('Yes');
+  const [mob, setMob] = useState('No');
+  const [mfee, setMfee] = useState('30');
+  const [mrebate, setMrebate] = useState('50');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [mine, setMine] = useState([]); // deploys this session: {tx, p2sh, kind, kas, preimage, dev, lock_daa, spent}
@@ -89,8 +99,45 @@ export default function EnforcedDeploy() {
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
   const usesDevWallets = kind === 'multisig';
 
+  // Create a parimutuel prediction market. This commits the market (H_A/H_B) and inserts
+  // its first-class covenant anchor server-side, so /covenant/<market_id> immediately
+  // resolves to the full betting website. No funds move here and no wallet is required;
+  // betting, matching (which funds the on-chain bundles), resolve, and settle all happen
+  // on the market's covenant page. fee/rebate are creator-set economics.
+  async function createMarket() {
+    setError(null);
+    const question = mq.trim();
+    if (!question) { setError('Enter a question for the market.'); return; }
+    const feePct = parseFloat(mfee);
+    const rebatePct = parseFloat(mrebate);
+    if (!(feePct >= 0) || !(rebatePct >= 0)) { setError('Fee and rebate must be zero or positive percentages.'); return; }
+    if (feePct + rebatePct >= 100) { setError('House fee + loser rebate must be under 100% (winners would be unfunded).'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/covenant/market/create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          network: net,
+          question,
+          outcome_a: (moa.trim() || 'Yes'),
+          outcome_b: (mob.trim() || 'No'),
+          fee_bps: Math.round(feePct * 100),
+          rebate_bps: Math.round(rebatePct * 100),
+        }),
+      });
+      const j = await res.json();
+      if (!j.success || !j.market_id) { setError(j.error || 'Could not create the market.'); return; }
+      navigate(`/covenant/${j.market_id}`);
+    } catch (e) {
+      setError('Network error: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deploy() {
     setError(null);
+    if (kind === 'market') { await createMarket(); return; }
     const stakeKas = parseFloat(stake);
     if (!(stakeKas > 0)) { setError('Enter a stake greater than 0.'); return; }
     if (!usesDevWallets && !canSign) { setError('Connect the key that holds the funds below - it signs the deploy in your browser (non-custodial).'); return; }
@@ -372,11 +419,49 @@ export default function EnforcedDeploy() {
       {/* Param form */}
       <div className="glass-panel p-6 space-y-4">
         <div className="flex items-center gap-2 text-white font-semibold"><KindIcon size={16} className="text-kaspa-green" /> Parameters</div>
-        <label className="block">
-          <span className="text-xs text-gray-300">Stake to lock (KAS)</span>
-          <input value={stake} onChange={(e) => setStake(e.target.value)} inputMode="decimal"
-            className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
-        </label>
+        {kind !== 'market' && (
+          <label className="block">
+            <span className="text-xs text-gray-300">Stake to lock (KAS)</span>
+            <input value={stake} onChange={(e) => setStake(e.target.value)} inputMode="decimal"
+              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+          </label>
+        )}
+        {kind === 'market' && (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="text-xs text-gray-300">Question</span>
+              <input value={mq} onChange={(e) => setMq(e.target.value)} placeholder='e.g. "Will Brazil beat Haiti?"'
+                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs text-gray-300">Outcome A (YES)</span>
+                <input value={moa} onChange={(e) => setMoa(e.target.value)}
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+              </label>
+              <label className="block">
+                <span className="text-xs text-gray-300">Outcome B (NO)</span>
+                <input value={mob} onChange={(e) => setMob(e.target.value)}
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs text-gray-300">House fee %</span>
+                <input value={mfee} onChange={(e) => setMfee(e.target.value)} inputMode="numeric"
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+              </label>
+              <label className="block">
+                <span className="text-xs text-gray-300">Loser rebate %</span>
+                <input value={mrebate} onChange={(e) => setMrebate(e.target.value)} inputMode="numeric"
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Parimutuel YES/NO market, settled on-chain by conjoined oracle covenants: the winning side is paid trustlessly and losers receive the rebate. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle. The reveal secrets are held server-side so the market settles even if Covex is offline.
+            </p>
+          </div>
+        )}
         {kind === 'timelock' && (
           <label className="block">
             <span className="text-xs text-gray-300">Lock for (DAA blocks from now){tipDaa ? ` - unlocks at DAA ${tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10))}` : ''}</span>
@@ -393,7 +478,12 @@ export default function EnforcedDeploy() {
 
         <DeployDisclosure reality="on-chain" />
 
-        {!usesDevWallets && !canSign ? (
+        {kind === 'market' ? (
+          <button onClick={createMarket} disabled={busy}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all disabled:opacity-60">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />} Create prediction market
+          </button>
+        ) : !usesDevWallets && !canSign ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">
             <p className="text-sm text-gray-300 mb-3">
               Connect the key that holds the funds to sign the deploy. It signs the funding transaction in your browser - the key is never sent to the server (non-custodial).

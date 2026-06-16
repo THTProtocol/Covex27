@@ -38,7 +38,6 @@ const CovenantEmbed = lazy(() => import('./pages/CovenantEmbed'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
 const Recover = lazy(() => import('./pages/Recover'));
-const Markets = lazy(() => import('./pages/Markets'));
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastContext';
 import ThemeToggle from './components/ThemeToggle';
@@ -314,8 +313,6 @@ export default function App() {
               <Route path="/premium" element={<PremiumBuilder />} />
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/sandbox" element={<Sandbox />} />
-              <Route path="/markets" element={<Markets />} />
-              <Route path="/markets/:id" element={<Markets />} />
               <Route path="/readme" element={<Readme />} />
               <Route path="/recover" element={<Recover />} />
               <Route path="/advanced" element={<AdvancedComposer />} />

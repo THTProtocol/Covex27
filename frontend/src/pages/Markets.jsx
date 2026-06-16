@@ -53,7 +53,7 @@ function MarketsList() {
     setCreating(true); setCerr(null);
     try {
       const r = await api('/covenant/market/create', { network: net(), question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No'), fee_bps: Math.round((parseFloat(feePct) || 30) * 100), rebate_bps: Math.round((parseFloat(rebatePct) || 50) * 100) });
-      if (r.market_id) navigate(`/markets/${r.market_id}`);
+      if (r.market_id) navigate(`/covenant/${r.market_id}`);
       else setCerr(r.error || 'failed to create');
     } catch (e) { setCerr(String(e)); }
     setCreating(false);
@@ -114,7 +114,7 @@ function MarketsList() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {markets.map((m) => (
-            <Link key={m.market_id} to={`/markets/${m.market_id}`}
+            <Link key={m.market_id} to={`/covenant/${m.market_id}`}
               className="glass-panel rounded-2xl border border-white/[0.06] p-5 hover-lift transition-all block">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <h3 className="text-base font-bold text-white leading-snug">{m.question}</h3>

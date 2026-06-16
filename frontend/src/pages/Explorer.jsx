@@ -719,7 +719,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
       className={`group block rounded-2xl border transition-all duration-300 overflow-hidden hover:-translate-y-0.5 ${
         isPaid ? `${cfg.border} ${cfg.glow} hover:shadow-xl holo-border hover-lift-premium` : 'border-white/10 hover:border-[#49EACB]/25 hover:shadow-lg hover:shadow-[#49EACB]/[0.06] hover-lift-premium'
-      } bg-gradient-to-b from-[#13131c] to-[#0a0a0e] min-h-[300px] flex flex-col`}
+      } bg-gradient-to-b from-[#13131c] to-[#0a0a0e] light:from-white light:to-slate-50 light:border-slate-200 min-h-[300px] flex flex-col`}
     >
       {/* VISUAL HEADER - tier + category gradient stripe */}
       <div className="relative h-16 overflow-hidden">
@@ -730,7 +730,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
           backgroundSize: '16px 16px'
         }} />
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c12] to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c12] light:from-slate-50 to-transparent" />
         <div className="absolute top-2 left-3 flex items-center gap-2">
           {c._isNew && (
             <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-kaspa-green/25 text-kaspa-green border border-kaspa-green/40 font-mono font-bold animate-pulse backdrop-blur-sm">NEW</span>
@@ -746,7 +746,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             </span>
           )}
         </div>
-        <div className="absolute bottom-1 right-3 text-[10px] font-mono text-white/60">
+        <div className="absolute bottom-1 right-3 text-[10px] font-mono text-white/60 light:text-slate-500">
           {categoryLabel}
         </div>
         <div className="absolute bottom-2 left-3">
@@ -758,7 +758,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         {/* Name + Status + Amount */}
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0 pr-2">
-            <h3 className={`font-bold text-sm sm:text-base truncate ${isPaid ? cfg.text : 'text-gray-200'}`}
+            <h3 className={`font-bold text-sm sm:text-base truncate ${isPaid ? cfg.text : 'text-gray-200 light:text-slate-800'}`}
               style={isPaidVerified ? { color: themeAccent } : undefined}>
               {covenantName}
             </h3>
@@ -768,7 +768,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             </div>
           </div>
           <div className="text-right shrink-0 ml-2">
-            <div className="font-mono text-base font-bold text-white">{formatKaspa(amount)}</div>
+            <div className="font-mono text-base font-bold text-white light:text-slate-900">{formatKaspa(amount)}</div>
             {isPaid && (
               <div className={`text-[10px] font-mono mt-0.5 ${cfg.text}`}>{cfg.label} TIER</div>
             )}

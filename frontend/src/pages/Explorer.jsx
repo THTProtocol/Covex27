@@ -1,10 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import {
   Database, Search, Sparkles, Play,
   Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
-  ShieldCheck, Zap
+  ShieldCheck, Zap,
+  Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes
 } from 'lucide-react';
+
+// Distinct icon per covenant category so cards are scannable at a glance (not all the same glyph).
+const CATEGORY_ICON = {
+  game: Gamepad2, games: Gamepad2,
+  oracle: Radio,
+  predictive: TrendingUp, prediction: TrendingUp,
+  escrow: ShieldCheck,
+  tournament: Trophy,
+  structured: Layers,
+  community: Users,
+  flash: Zap,
+  governance: Landmark,
+  p2sh: Lock,
+  vesting: Clock,
+  atomic: Repeat,
+  multisig: KeyRound,
+  general: Boxes,
+};
 import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
@@ -746,7 +765,8 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             </span>
           )}
         </div>
-        <div className="absolute bottom-1 right-3 text-[10px] font-mono text-white/60 light:text-slate-500">
+        <div className="absolute bottom-1 right-3 inline-flex items-center gap-1 text-[10px] font-mono text-white/60 light:text-slate-500">
+          {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80" />; })()}
           {categoryLabel}
         </div>
         <div className="absolute bottom-2 left-3">

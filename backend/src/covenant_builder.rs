@@ -3517,6 +3517,26 @@ pub async fn get_market_handler(
     }
 }
 
+#[derive(Deserialize)]
+pub struct ListMarketsRequest {
+    #[serde(default)]
+    pub network: Option<String>,
+}
+
+/// POST /covenant/market/list - all markets (optionally filtered by network), newest first.
+pub async fn list_markets_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<ListMarketsRequest>,
+) -> Json<serde_json::Value> {
+    let markets = db::list_bundle_markets(&db, req.network.as_deref(), 100);
+    let arr: Vec<_> = markets.iter().map(|m| serde_json::json!({
+        "market_id": m.market_id, "network": m.network, "question": m.question,
+        "outcome_a": m.outcome_a, "outcome_b": m.outcome_b, "kickoff_utc": m.kickoff_utc,
+        "source_url": m.source_url, "resolved": m.revealed_outcome.is_some(), "revealed_outcome": m.revealed_outcome,
+    })).collect();
+    Json(serde_json::json!({ "success": true, "markets": arr }))
+}
+
 // ── P4: order book + matcher + market lifecycle ─────────────────────────────
 // Bettors place YES(0)/NO(1) orders on a market; the matcher pairs open orders (FIFO) into
 // mini-pools and funds a CONJOINED BUNDLE per pair (reusing bundle_deploy_handler). State
@@ -3717,6 +3737,7 @@ pub fn p2sh_routes() -> Router {
         .route("/covenant/market/create", post(create_market_handler))
         .route("/covenant/market/resolve", post(resolve_market_handler))
         .route("/covenant/market/get", post(get_market_handler))
+        .route("/covenant/market/list", post(list_markets_handler))
         .route("/covenant/market/order", post(place_order_handler))
         .route("/covenant/market/match", post(match_market_handler))
         .route("/covenant/market/book", post(market_book_handler))

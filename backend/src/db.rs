@@ -1514,6 +1514,33 @@ pub fn get_bundle_market(db: &Mutex<Connection>, market_id: &str) -> Option<Bund
     ).ok()
 }
 
+fn row_to_market(r: &rusqlite::Row) -> rusqlite::Result<BundleMarket> {
+    Ok(BundleMarket {
+        market_id: r.get(0)?, network: r.get(1)?, question: r.get(2)?, outcome_a: r.get(3)?, outcome_b: r.get(4)?,
+        h_a: r.get(5)?, h_b: r.get(6)?, secret_a: r.get(7)?, secret_b: r.get(8)?,
+        kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?,
+    })
+}
+
+const MARKET_COLS: &str = "market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at";
+
+pub fn list_bundle_markets(db: &Mutex<Connection>, network: Option<&str>, limit: i64) -> Vec<BundleMarket> {
+    let conn = db.lock().unwrap();
+    let mut out = Vec::new();
+    if let Some(net) = network {
+        let sql = format!("SELECT {MARKET_COLS} FROM bundle_markets WHERE network = ?1 ORDER BY created_at DESC LIMIT ?2");
+        if let Ok(mut stmt) = conn.prepare(&sql) {
+            if let Ok(rows) = stmt.query_map(params![net, limit], row_to_market) { out.extend(rows.flatten()); }
+        }
+    } else {
+        let sql = format!("SELECT {MARKET_COLS} FROM bundle_markets ORDER BY created_at DESC LIMIT ?1");
+        if let Ok(mut stmt) = conn.prepare(&sql) {
+            if let Ok(rows) = stmt.query_map(params![limit], row_to_market) { out.extend(rows.flatten()); }
+        }
+    }
+    out
+}
+
 /// Reveal exactly ONE outcome's secret (single-secret policy: the WHERE clause only updates
 /// when the market is unresolved or already resolved to the SAME outcome).
 pub fn resolve_bundle_market(db: &Mutex<Connection>, market_id: &str, outcome: i64, secret: &str) -> anyhow::Result<()> {

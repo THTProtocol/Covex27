@@ -3332,13 +3332,13 @@ pub async fn bundle_deploy_handler(
                 let cid = format!("{tx_id_str}:{idx}");
                 let recv = serde_json::to_string(&vec![addr.clone()]).unwrap_or_default();
                 let summary = format!("Parimutuel bundle leg '{role}': {} KAS locked in a binary_oracle_select covenant", *amt as f64 / 1e8);
-                // Auto-feature: the main bet leg (win_AB) is tagged BUILDER so deployed markets
-                // surface in the explorer without a manual edit; all legs group under "Prediction Markets".
-                let leg_tier = if *role == "win_AB" { "BUILDER" } else { "EXPLORER" };
+                // Bundle legs are internal plumbing: keep them EXPLORER tier so they do NOT
+                // spam the paid-tier top of the explorer. The MARKET is the featured unit (it
+                // lives on the /markets page); legs group under the "Prediction Markets" category.
                 let _ = db::insert_covenant(
                     &db, &cid, addr, *amt, &crate::compute_script_hash(&p2sh_script_hex), &p2sh_script_hex,
                     "p2sh-binary_oracle_select", "Prediction Markets", &funder_addr_str, &summary, 0,
-                    leg_tier, &summary, &recv, &req.network,
+                    "EXPLORER", &summary, &recv, &req.network,
                 );
                 legs_json.push(serde_json::json!({
                     "role": role,

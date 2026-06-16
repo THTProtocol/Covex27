@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import {
   TrendingUp, ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
@@ -32,31 +32,68 @@ function EnforcementBadge() {
 }
 
 function MarketsList() {
+  const navigate = useNavigate();
   const [markets, setMarkets] = useState(null);
+  const [show, setShow] = useState(false);
+  const [q, setQ] = useState('');
+  const [oa, setOa] = useState('Yes');
+  const [ob, setOb] = useState('No');
+  const [creating, setCreating] = useState(false);
+  const [cerr, setCerr] = useState(null);
   useEffect(() => {
     api('/covenant/market/list', { network: net() })
       .then((j) => setMarkets(j.markets || []))
       .catch(() => setMarkets([]));
   }, []);
 
+  const create = async () => {
+    if (!q.trim()) { setCerr('Enter a question'); return; }
+    setCreating(true); setCerr(null);
+    try {
+      const r = await api('/covenant/market/create', { network: net(), question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No') });
+      if (r.market_id) navigate(`/markets/${r.market_id}`);
+      else setCerr(r.error || 'failed to create');
+    } catch (e) { setCerr(String(e)); }
+    setCreating(false);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
-          <TrendingUp size={20} className="text-kaspa-green" />
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+            <TrendingUp size={20} className="text-kaspa-green" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-white">Prediction Markets</h1>
+            <p className="text-sm text-gray-400">Parimutuel markets settled by conjoined on-chain covenants. {net()}.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-extrabold text-white">Prediction Markets</h1>
-          <p className="text-sm text-gray-400">Parimutuel markets settled by conjoined on-chain covenants. {net()}.</p>
-        </div>
+        <button onClick={() => setShow((s) => !s)} className="btn-shimmer px-4 py-2 rounded-xl font-bold text-sm bg-kaspa-green text-black shrink-0">+ New market</button>
       </div>
 
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-4 mb-6 text-[12px] text-gray-300 leading-relaxed">
         <span className="text-white font-semibold">How it works:</span> back an outcome with a YES/NO order. Orders are
-        matched into mini-pools, each funded by a bundle of <span className="font-mono text-white">binary_oracle_select</span>{' '}
-        covenants. When the result is in, one secret is revealed and the chain routes every payout, loser rebate, and fee.
-        No Covex key sits in the money path — funds are recoverable even if Covex goes down.
+        matched into mini-pools, each funded by a <span className="text-white font-semibold">conjoined bundle</span> of{' '}
+        <span className="font-mono text-white">binary_oracle_select</span> covenants — several covenants created at once. When
+        the result is in, one secret is revealed and the chain routes every payout, loser rebate, and fee. No Covex key sits in
+        the money path — funds are recoverable even if Covex goes down.
       </div>
+
+      {show && (
+        <div className="glass-panel rounded-2xl border border-kaspa-green/25 p-5 mb-6">
+          <div className="text-white font-semibold mb-3">Create a market</div>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Question, e.g. "Will Brazil beat Haiti?"' className="w-full mb-2 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+          <div className="flex gap-2 mb-3">
+            <input value={oa} onChange={(e) => setOa(e.target.value)} placeholder="Outcome A" className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+            <input value={ob} onChange={(e) => setOb(e.target.value)} placeholder="Outcome B" className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+          </div>
+          <button disabled={creating} onClick={create} className="btn-shimmer px-5 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40">
+            {creating ? <Loader2 className="animate-spin inline" size={15} /> : 'Create market'}
+          </button>
+          {cerr && <div className="mt-2 text-[12px] text-red-300">{cerr}</div>}
+        </div>
+      )}
 
       {markets === null ? (
         <div className="flex items-center justify-center py-20 text-gray-500"><Loader2 className="animate-spin mr-2" size={18} /> Loading markets…</div>
@@ -207,16 +244,23 @@ function MarketDetail({ id }) {
           </div>
           <div className="flex gap-2">
             <button disabled={!!busy || !addr || !(parseFloat(stake) > 0)}
-              onClick={() => act('Order placed', () => api('/covenant/market/order', { market_id: id, side, stake_kas: parseFloat(stake), bettor_addr: addr.trim() }))}
+              onClick={() => act('Bet placed', async () => {
+                const o = await api('/covenant/market/order', { market_id: id, side, stake_kas: parseFloat(stake), bettor_addr: addr.trim() });
+                if (o && o.success === false) return o;
+                // Immediately match: if the opposite side has open liquidity, this funds the
+                // conjoined bundle (several covenants) right now.
+                return await api('/covenant/market/match', { market_id: id });
+              })}
               className="btn-shimmer flex-1 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40 disabled:cursor-not-allowed">
-              {busy === 'Order placed' ? <Loader2 className="animate-spin inline" size={15} /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
+              {busy === 'Bet placed' ? <Loader2 className="animate-spin inline" size={15} /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
             </button>
-            <button disabled={!!busy}
+            <button disabled={!!busy} title="Match any open orders into conjoined bundles"
               onClick={() => act('Matched', () => api('/covenant/market/match', { market_id: id }))}
               className="px-4 py-2.5 rounded-xl font-semibold text-sm border border-white/15 text-gray-200 hover:border-kaspa-green/40 disabled:opacity-40">
-              {busy === 'Matched' ? <Loader2 className="animate-spin inline" size={15} /> : 'Match & fund'}
+              {busy === 'Matched' ? <Loader2 className="animate-spin inline" size={15} /> : 'Match'}
             </button>
           </div>
+          <p className="text-[11px] text-gray-500 mt-2">A bet is an order on one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
         </div>
       )}
 

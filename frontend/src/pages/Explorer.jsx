@@ -377,9 +377,12 @@ export default function Explorer() {
         <h1 className="relative text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-5 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
-        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
+        <a href="/markets" className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-xl bg-kaspa-green/10 border border-kaspa-green/30 text-sm font-semibold text-kaspa-green hover:bg-kaspa-green/15 transition-all">
+          <TrendingUp size={16} /> Prediction Markets — bet YES / NO with live odds →
+        </a>
         <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: (n) => Math.round(n).toLocaleString() },

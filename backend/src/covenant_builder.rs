@@ -1064,6 +1064,14 @@ pub struct RedeemSpec {
     pub receiver_pubkey_hex: Option<String>,
     #[serde(default)]
     pub sender_pubkey_hex: Option<String>,
+    /// binary_oracle_select only: outcome B's secret preimage (H_B = blake2b256 of it).
+    /// preimage_hex is reused for outcome A. NEVER stored - re-supplied at spend.
+    #[serde(default)]
+    pub preimage_b_hex: Option<String>,
+    /// binary_oracle_select only: the refund key that reclaims after the CSV delay if the
+    /// oracle never reveals a secret. Defaults to the deployer.
+    #[serde(default)]
+    pub refund_pubkey_hex: Option<String>,
 }
 
 /// The two testnet dev-wallet secret keys for a network (used as default multisig
@@ -1361,8 +1369,66 @@ pub async fn p2sh_deploy_handler(
             }
             RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa }
         }
+        "binary_oracle_select" => {
+            // Parimutuel bundle unit: two hashlock branches (winner_a on H_A, winner_b on
+            // H_B) + a CSV refund. preimage_hex -> H_A, preimage_b_hex -> H_B. Winners from
+            // pubkeys_hex=[winner_a, winner_b] (or the two dev wallets); refund from
+            // refund_pubkey_hex (or the deployer). lock_daa = the relative-timelock min_sequence.
+            let pa_hex = match &req.redeem.preimage_hex {
+                Some(p) => p,
+                None => return err("binary_oracle_select requires preimage_hex (outcome A secret)".into()),
+            };
+            let pb_hex = match &req.redeem.preimage_b_hex {
+                Some(p) => p,
+                None => return err("binary_oracle_select requires preimage_b_hex (outcome B secret)".into()),
+            };
+            let pa = match hex::decode(pa_hex.trim()) {
+                Ok(b) => b,
+                Err(e) => return err(format!("bad preimage_hex: {e}")),
+            };
+            let pb = match hex::decode(pb_hex.trim()) {
+                Ok(b) => b,
+                Err(e) => return err(format!("bad preimage_b_hex: {e}")),
+            };
+            let h_a = blake2b256(&pa);
+            let h_b = blake2b256(&pb);
+            let (winner_a, winner_b) = if let Some(pks) = &req.redeem.pubkeys_hex {
+                if pks.len() >= 2 {
+                    match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
+                        (Ok(a), Ok(b)) => (a, b),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    }
+                } else {
+                    return err("binary_oracle_select needs pubkeys_hex=[winner_a, winner_b]".into());
+                }
+            } else if req.use_dev_mode {
+                match dev_keys(&req.network) {
+                    Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
+                        (Ok(a), Ok(b)) => (a, b),
+                        (Err(e), _) | (_, Err(e)) => return err(e),
+                    },
+                    Err(e) => return err(e),
+                }
+            } else {
+                return err("binary_oracle_select requires pubkeys_hex=[winner_a, winner_b] (or use_dev_mode)".into());
+            };
+            let refund = if let Some(r) = &req.redeem.refund_pubkey_hex {
+                match decode_xonly_hex(r) {
+                    Ok(x) => x,
+                    Err(e) => return err(e),
+                }
+            } else {
+                // Default: the deployer reclaims if the oracle never reveals.
+                xonly
+            };
+            let min_sequence = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("binary_oracle_select requires lock_daa (used as the CSV refund min_sequence)".into()),
+            };
+            RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock|timedecay)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock|timedecay|binary_oracle_select)"
         )),
     };
 
@@ -1548,6 +1614,11 @@ pub struct P2shSpendRequest {
     /// relaxed req_after-of-n ELSE branch, valid once lock_daa is reached).
     #[serde(default)]
     pub timedecay_mode: Option<String>,
+    /// binary_oracle_select only: "reveal_a" (outcome A won, default) | "reveal_b"
+    /// (outcome B won) | "refund" (no secret revealed, reclaim after the CSV delay).
+    /// Reveal branches need preimage_hex (the revealed secret) and the winner's key.
+    #[serde(default)]
+    pub select_mode: Option<String>,
     /// UNIVERSAL INTERACTION (covenant NOT created on Covex): supply the redeem script
     /// (hex) that hashes to the on-chain P2SH, its kind (singlesig | hashlock |
     /// timelock:<daa> | multisig:<total> | htlc:<lock_daa>), and the funding outpoint
@@ -1641,6 +1712,20 @@ pub async fn p2sh_spend_handler(
     let td_req_after = td_parts.get(2).copied().unwrap_or(1) as usize;
     let td_lock_daa = td_parts.get(3).copied().unwrap_or(0);
     let td_after = req.timedecay_mode.as_deref() == Some("after");
+    // Binary outcome selector: kind = "binary_oracle_select:{min_sequence}". reveal_a/reveal_b
+    // claim a hashlock branch (preimage + the named winner's sig); refund reclaims via the CSV
+    // branch once the input has aged min_sequence units.
+    let is_binary_select = cov.redeem_kind.starts_with("binary_oracle_select:");
+    let bos_min_seq: u64 = cov
+        .redeem_kind
+        .strip_prefix("binary_oracle_select:")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+    let bos_branch = match req.select_mode.as_deref() {
+        Some("reveal_b") => BinarySelectBranch::RevealB,
+        Some("refund") => BinarySelectBranch::Refund,
+        _ => BinarySelectBranch::RevealA,
+    };
 
     // Extra satisfier pushes (after the sig): the preimage for a hashlock.
     let extra: Vec<Vec<u8>> = if cov.redeem_kind == "hashlock" {
@@ -1769,6 +1854,37 @@ pub async fn p2sh_spend_handler(
             }
         }
         kps
+    } else if is_binary_select {
+        // The branch's named key signs: reveal_a => winner_a, reveal_b => winner_b,
+        // refund => the refund key. Explicit via private_key_hex / signer_keys_hex[0];
+        // dev mode maps reveal_a + refund to dev wallet 1 (deployer), reveal_b to dev wallet 2.
+        let explicit = req
+            .signer_keys_hex
+            .as_ref()
+            .and_then(|v| v.first())
+            .cloned()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| if req.private_key_hex.trim().is_empty() { None } else { Some(req.private_key_hex.clone()) });
+        let bytes: [u8; 32] = if let Some(s) = explicit {
+            match hex::decode(s.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                Some(b) => b,
+                None => return err("bad binary_oracle_select signer key (need 64 hex chars)".into()),
+            }
+        } else if req.use_dev_mode {
+            match dev_keys(&req.network) {
+                Ok(ks) => match bos_branch {
+                    BinarySelectBranch::RevealB => ks[1],
+                    _ => ks[0],
+                },
+                Err(e) => return err(e),
+            }
+        } else {
+            return err("binary_oracle_select spend requires the branch key (private_key_hex) or use_dev_mode".into());
+        };
+        match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &bytes) {
+            Ok(k) => vec![k],
+            Err(e) => return err(format!("bad key: {e}")),
+        }
     } else {
         let (seckey, _addr) =
             match resolve_signing_key(&req.network, &cov.owner_addr, &req.private_key_hex, req.use_dev_mode) {
@@ -1813,7 +1929,11 @@ pub async fn p2sh_spend_handler(
 
     // For a relative timelock (rcsv:N), the spend input's sequence must satisfy
     // OpCheckSequenceVerify (input.sequence >= N). Every other kind uses 0 (non-final).
-    let spend_sequence: u64 = cov.redeem_kind.strip_prefix("rcsv:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+    let spend_sequence: u64 = if is_binary_select && matches!(bos_branch, BinarySelectBranch::Refund) {
+        bos_min_seq // CSV refund branch: input.sequence must satisfy OpCheckSequenceVerify
+    } else {
+        cov.redeem_kind.strip_prefix("rcsv:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0)
+    };
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
@@ -1896,6 +2016,21 @@ pub async fn p2sh_spend_handler(
         match build_timedecay_signature_script(&signable, 0, &keypairs[..take], &redeem, td_after) {
             Ok(s) => s,
             Err(e) => return err(format!("build timedecay spend script: {e}")),
+        }
+    } else if is_binary_select {
+        let preimage: Option<Vec<u8>> = match bos_branch {
+            BinarySelectBranch::Refund => None,
+            _ => match &req.preimage_hex {
+                Some(p) => match hex::decode(p.trim()) {
+                    Ok(b) => Some(b),
+                    Err(e) => return err(format!("bad preimage_hex: {e}")),
+                },
+                None => return err("binary_oracle_select reveal requires preimage_hex (the revealed secret)".into()),
+            },
+        };
+        match build_binary_oracle_select_signature_script(&signable, 0, &keypairs[0], &redeem, bos_branch, preimage.as_deref()) {
+            Ok(s) => s,
+            Err(e) => return err(format!("build binary_oracle_select spend script: {e}")),
         }
     } else {
         match build_p2sh_signature_script(&signable, 0, &keypairs[0], &redeem, &extra) {

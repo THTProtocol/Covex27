@@ -1199,6 +1199,14 @@ contract VisualCovenant {
     publicSignals: ["1","20473339414381364284988912838485478706292217748325897174032535818078518775705"]
   }, null, 2);
 
+  // ── Default escrow_2party proof (from zk/escrow_2party_proof.json - bundled fallback) ──
+  // publicSignals = [valid, deposit_daa, timeout_daa, current_daa, outcome]; this one is a
+  // valid refund-after-timeout (outcome 0, current_daa >= deposit+timeout) so valid=1.
+  const bundledEscrowProof = JSON.stringify({
+    proof: {pi_a:["14634990543290621931428117209996810325041859210856155063991348437880042589006","19160502970707800111655431606333755536944672220548462290151763167116826302926","1"],pi_b:[["8264546661904265273570729133479615180135787734776806384395937415437736075194","12302265861914580867884639716422855293372299688197541991583168643796267544629"],["18063259679669351204303481785162440964194463832380082650367532578018314285624","21694365360621478271720622687445986136784652025316361988346183907271146372660"],["1","0"]],pi_c:["9807129881401666943404257927052971287895363732210205867666939647185139839500","10211691301132607194282716622732477480716307616740793287313048364972983551482","1"],protocol:"groth16",curve:"bn128"},
+    publicSignals: ["1","1000000","100","1000150","0"]
+  }, null, 2);
+
   // ── Client-side ZK proof generation state ──
   const [zkGenerating, setZkGenerating] = useState(false);
   const [zkGenError, setZkGenError] = useState('');
@@ -1291,6 +1299,40 @@ contract VisualCovenant {
       setOracleProof('');
       setOraclePublicInputs('');
       setZkGenError(`Range proof generation failed in-browser (known MiMC7/wasm mismatch). No proof was produced - this circuit's in-browser prover is not yet working, so it cannot be used for a real ZK resolution yet. ${e.message || e}`);
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real Escrow 2-party proof from the browser via snarkjs. The circuit
+  // (escrow_2party.circom) takes only plain numeric inputs - no hash commitment - so it
+  // proves cleanly in-browser with the served wasm + final zkey (no circomlibjs needed).
+  // Public signals: [valid, deposit_daa, timeout_daa, current_daa, outcome].
+  // outcome 0 = refund-after-timeout; valid=1 requires current_daa >= deposit_daa + timeout_daa.
+  const generateEscrowProof = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const wasm = '/zk/escrow_2party/escrow_2party.wasm';
+      const zkey = '/zk/escrow_2party/escrow_2party_final.zkey';
+
+      // A valid refund-after-timeout scenario (current_daa is past deposit + timeout).
+      const input = {
+        deposit_daa: '1000000',
+        timeout_daa: '100',
+        current_daa: '1000150',
+        outcome: '0',
+      };
+
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      // Match the merkle path: on a (rare) in-browser failure, fall back to the bundled
+      // proof that is itself real and verifies fail-closed at the oracle - never fabricated.
+      setZkGenError(`In-browser proof generation failed (${e.message || e}). Loaded the bundled valid escrow proof instead.`);
+      setOracleProof(bundledEscrowProof);
+      setOraclePublicInputs('1,1000000,100,1000150,0');
     }
     setZkGenerating(false);
   };
@@ -3858,6 +3900,10 @@ ${gameMeta.outcomeBranches}
                     // demo valid range proof signals (commitment, min, max, valid=1)
                     setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'range_demo' }, publicSignals: ['20473339414381364284988912838485478706292217748325897174032535818078518775705','0','100','1'] }));
                     setOraclePublicInputs('20473339414381364284988912838485478706292217748325897174032535818078518775705,0,100,1');
+                  } else if (gameType === 'escrow_2party') {
+                    // Real, verifying bundled escrow proof (valid refund-after-timeout).
+                    setOracleProof(bundledEscrowProof);
+                    setOraclePublicInputs('1,1000000,100,1000150,0');
                   } else {
                     // age_verification, verifiable, custom - demo attested proof
                     setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'oracle_attested_demo' }, publicSignals: ['1'] }));
@@ -3866,7 +3912,7 @@ ${gameMeta.outcomeBranches}
                 }}
                 className="text-[10px] text-[#3B82F6] hover:text-[#3B82F6]/80 font-mono underline underline-offset-2"
               >
-                {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : gameType === 'range_proof' ? 'Load demo valid range proof (value inside [0,100])' : 'Load demo attested proof'}
+                {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : gameType === 'range_proof' ? 'Load demo valid range proof (value inside [0,100])' : gameType === 'escrow_2party' ? 'Load bundled escrow proof (valid refund after timeout)' : 'Load demo attested proof'}
               </button>
 
               {/* Generate real ZK proof client-side via snarkjs (circuit-specific) */}
@@ -3896,6 +3942,19 @@ ${gameMeta.outcomeBranches}
                   <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
                   {zkGenerating ? 'Generating Range Proof...' : 'Generate Range Proof (snarkjs + mimc workaround)'}
                 </button>
+              ) : gameType === 'escrow_2party' ? (
+                <button
+                  onClick={generateEscrowProof}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                      : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Escrow Proof (snarkjs)'}
+                </button>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
                   <Info size={14} />
@@ -3916,7 +3975,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
+              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
             </div>
 
             <button

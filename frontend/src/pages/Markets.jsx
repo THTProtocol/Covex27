@@ -38,6 +38,8 @@ function MarketsList() {
   const [q, setQ] = useState('');
   const [oa, setOa] = useState('Yes');
   const [ob, setOb] = useState('No');
+  const [feePct, setFeePct] = useState('30');
+  const [rebatePct, setRebatePct] = useState('50');
   const [creating, setCreating] = useState(false);
   const [cerr, setCerr] = useState(null);
   useEffect(() => {
@@ -50,7 +52,7 @@ function MarketsList() {
     if (!q.trim()) { setCerr('Enter a question'); return; }
     setCreating(true); setCerr(null);
     try {
-      const r = await api('/covenant/market/create', { network: net(), question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No') });
+      const r = await api('/covenant/market/create', { network: net(), question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No'), fee_bps: Math.round((parseFloat(feePct) || 30) * 100), rebate_bps: Math.round((parseFloat(rebatePct) || 50) * 100) });
       if (r.market_id) navigate(`/markets/${r.market_id}`);
       else setCerr(r.error || 'failed to create');
     } catch (e) { setCerr(String(e)); }
@@ -87,6 +89,14 @@ function MarketsList() {
           <div className="flex gap-2 mb-3">
             <input value={oa} onChange={(e) => setOa(e.target.value)} placeholder="Outcome A" className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
             <input value={ob} onChange={(e) => setOb(e.target.value)} placeholder="Outcome B" className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+          </div>
+          <div className="flex items-center gap-2 mb-3 text-[12px] flex-wrap">
+            <span className="text-gray-400">House fee</span>
+            <input value={feePct} onChange={(e) => setFeePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+            <span className="text-gray-500">%</span>
+            <span className="text-gray-400 ml-3">Loser rebate</span>
+            <input value={rebatePct} onChange={(e) => setRebatePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+            <span className="text-gray-500">% &middot; customise the covenant economics (fee + rebate must be &lt; 100%)</span>
           </div>
           <button disabled={creating} onClick={create} className="btn-shimmer px-5 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40">
             {creating ? <Loader2 className="animate-spin inline" size={15} /> : 'Create market'}
@@ -189,6 +199,9 @@ function MarketDetail({ id }) {
   const odds = book.odds || {};
   const resolved = book.resolved;
   const wonLabel = resolved ? (book.revealed_outcome === 0 ? book.outcome_a : book.outcome_b) : null;
+  const f = (book.fee_bps ?? 3000) / 10000, r = (book.rebate_bps ?? 5000) / 10000;
+  const feePct = Math.round(f * 100), rebatePct = Math.round(r * 100);
+  const breakeven = odds.breakeven_lp || (f / Math.max(1e-9, 1 - f - r));
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -216,7 +229,7 @@ function MarketDetail({ id }) {
         {(book.open_pool_a_kas + book.open_pool_b_kas) > 0 && <> · open: {book.open_pool_a_kas}/{book.open_pool_b_kas} KAS</>}
       </div>
 
-      {/* Pools — reward / hedge-rebate / fee, the HighTable-style split of the matched pool */}
+      {/* Pools — reward / hedge-rebate / fee split of the matched pool */}
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
         <div className="text-white font-semibold mb-3 flex items-center gap-2"><Coins size={16} className="text-kaspa-green" /> Pools</div>
         {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
@@ -224,13 +237,13 @@ function MarketDetail({ id }) {
         ) : (
           <>
             <div className="flex items-center justify-between text-[12px] mb-1"><span className="text-gray-400">Total matched</span><span className="text-white font-semibold">{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} KAS</span></div>
-            <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">House fee pool (30%)</span><span className="text-amber-300">{(0.3 * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS → treasury</span></div>
+            <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">House fee pool ({feePct}%)</span><span className="text-amber-300">{(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS → treasury</span></div>
             <div className="grid sm:grid-cols-2 gap-3">
               {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => (
                 <div key={oc} className={`rounded-xl border p-3 text-[12px] ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/30 bg-kaspa-green/[0.05]' : 'border-white/10 bg-white/[0.02]'}`}>
                   <div className="text-[11px] text-gray-400 mb-1.5">If "{lbl}" wins</div>
-                  <div className="flex items-center justify-between"><span className="text-kaspa-green">Reward pool</span><span className="text-white">{(0.7 * mine + 0.2 * opp).toFixed(2)} KAS</span></div>
-                  <div className="flex items-center justify-between"><span className="text-sky-300">Hedge / rebate pool</span><span className="text-white">{(0.5 * opp).toFixed(2)} KAS</span></div>
+                  <div className="flex items-center justify-between"><span className="text-kaspa-green">Reward pool</span><span className="text-white">{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
+                  <div className="flex items-center justify-between"><span className="text-sky-300">Hedge / rebate pool</span><span className="text-white">{(r * opp).toFixed(2)} KAS</span></div>
                 </div>
               ))}
             </div>
@@ -248,8 +261,8 @@ function MarketDetail({ id }) {
         <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
         <p className="text-[12px] text-amber-200/90 leading-relaxed">
           <span className="font-semibold text-amber-300">You can be right and still lose.</span> The winner multiplier is
-          {' '}0.70 + 0.20×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
-          {' '}<span className="font-semibold">1.5×</span> your side — and the house takes 30% while losers get 50% back.
+          {' '}{(1 - f).toFixed(2)} + {(1 - f - r).toFixed(2)}×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
+          {' '}<span className="font-semibold">{breakeven.toFixed(2)}×</span> your side — the house takes {feePct}% and losers get {rebatePct}% back.
         </p>
       </div>
 

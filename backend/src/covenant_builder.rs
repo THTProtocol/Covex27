@@ -3387,6 +3387,11 @@ pub struct CreateMarketRequest {
     pub kickoff_utc: Option<String>,
     #[serde(default)]
     pub source_url: Option<String>,
+    /// Customizable economics in basis points. Defaults: 3000 (30% house fee) / 5000 (50% loser rebate).
+    #[serde(default)]
+    pub fee_bps: Option<u64>,
+    #[serde(default)]
+    pub rebate_bps: Option<u64>,
 }
 
 /// POST /covenant/market/create - commit a binary market; returns H_A/H_B (to deploy the
@@ -3398,6 +3403,11 @@ pub async fn create_market_handler(
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
     if req.question.trim().is_empty() || req.outcome_a.trim().is_empty() || req.outcome_b.trim().is_empty() {
         return err("question, outcome_a and outcome_b are required".into());
+    }
+    let fee_bps = req.fee_bps.unwrap_or(3000);
+    let rebate_bps = req.rebate_bps.unwrap_or(5000);
+    if fee_bps + rebate_bps >= 10000 {
+        return err("fee_bps + rebate_bps must be < 10000 (winners would be unfunded)".into());
     }
     let okey = crate::oracle::oracle_keypair().secret_key().secret_bytes();
     let nanos = std::time::SystemTime::now()
@@ -3427,6 +3437,7 @@ pub async fn create_market_handler(
     if let Err(e) = db::insert_bundle_market(
         &db, &market_id, &req.network, req.question.trim(), req.outcome_a.trim(), req.outcome_b.trim(),
         &ha, &hb, &sa, &sb, req.kickoff_utc.as_deref(), req.source_url.as_deref(),
+        fee_bps as i64, rebate_bps as i64,
     ) {
         return err(format!("db insert failed: {e}"));
     }
@@ -3441,6 +3452,8 @@ pub async fn create_market_handler(
         "h_b": hb,
         "preimage_a_hex": sa,
         "preimage_b_hex": sb,
+        "fee_bps": fee_bps,
+        "rebate_bps": rebate_bps,
         "note": "Deploy the bundle covenant with preimage_a_hex/preimage_b_hex. SAVE the preimages: revealing the winning one settles the market even if Covex is down. Reveal via POST /covenant/market/resolve."
     }))
 }
@@ -3659,8 +3672,8 @@ pub async fn match_market_handler(
             preimage_a_hex: m.secret_a.clone(),
             preimage_b_hex: m.secret_b.clone(),
             min_sequence: MARKET_MIN_SEQ,
-            fee_bps: req.fee_bps,
-            rebate_bps: req.rebate_bps,
+            fee_bps: Some(m.fee_bps as u64),
+            rebate_bps: Some(m.rebate_bps as u64),
         };
         let res = bundle_deploy_handler(Extension(db.clone()), Json(breq)).await.0;
         if res.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
@@ -3720,18 +3733,23 @@ pub async fn market_book_handler(
             "status": o.status, "bundle_tx": o.bundle_tx,
         }));
     }
-    let mult = |p: i64, l: i64| if p > 0 { 0.70 + 0.20 * (l as f64 / p as f64) } else { 0.0 };
+    // Generalized for the market's customizable economics: winner multiplier = (1-fee) + (1-fee-rebate)*(L/P).
+    let f = m.fee_bps as f64 / 10000.0;
+    let r = m.rebate_bps as f64 / 10000.0;
+    let mult = |p: i64, l: i64| if p > 0 { (1.0 - f) + (1.0 - f - r) * (l as f64 / p as f64) } else { 0.0 };
     Json(serde_json::json!({
         "success": true,
         "market_id": m.market_id, "question": m.question,
         "outcome_a": m.outcome_a, "outcome_b": m.outcome_b,
         "resolved": m.revealed_outcome.is_some(), "revealed_outcome": m.revealed_outcome,
+        "fee_bps": m.fee_bps, "rebate_bps": m.rebate_bps,
         "funded_pool_a_kas": pa as f64 / 1e8, "funded_pool_b_kas": pb as f64 / 1e8,
         "open_pool_a_kas": oa as f64 / 1e8, "open_pool_b_kas": ob as f64 / 1e8,
         "odds": {
             "if_a_wins_multiplier": mult(pa, pb),
             "if_b_wins_multiplier": mult(pb, pa),
-            "note": "winner multiplier = 0.70 + 0.20*(L/P); a correct bet returns <1x when the opposing pool is < 1.5x your side"
+            "breakeven_lp": if (1.0 - f - r) > 0.0 { f / (1.0 - f - r) } else { 0.0 },
+            "note": "winner multiplier = (1-fee) + (1-fee-rebate)*(L/P)"
         },
         "orders": order_json
     }))

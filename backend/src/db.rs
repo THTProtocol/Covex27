@@ -247,7 +247,9 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
             revealed_outcome INTEGER,
             revealed_secret  TEXT,
             created_at       INTEGER NOT NULL DEFAULT (unixepoch()),
-            resolved_at      INTEGER
+            resolved_at      INTEGER,
+            fee_bps          INTEGER NOT NULL DEFAULT 3000,
+            rebate_bps       INTEGER NOT NULL DEFAULT 5000
         );
         CREATE TABLE IF NOT EXISTS market_orders (
             order_id      TEXT PRIMARY KEY,
@@ -326,6 +328,14 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         // Set deployment counts based on existing tiers
         conn.execute("UPDATE accounts SET max_deployments = 3 WHERE tier = 'MAX'", [])?;
         conn.execute("UPDATE accounts SET max_deployments = 2 WHERE tier = 'PRO'", [])?;
+    }
+
+    // ── Migration: customizable economics columns on bundle_markets (idempotent) ──
+    for ddl in [
+        "ALTER TABLE bundle_markets ADD COLUMN fee_bps INTEGER NOT NULL DEFAULT 3000",
+        "ALTER TABLE bundle_markets ADD COLUMN rebate_bps INTEGER NOT NULL DEFAULT 5000",
+    ] {
+        let _ = conn.execute(ddl, []); // duplicate-column errors expected on already-migrated DBs
     }
 
     // ── Migration: upgrade crawler_state to network-aware (per-network scan progress) ──
@@ -1492,6 +1502,8 @@ pub struct BundleMarket {
     pub revealed_outcome: Option<i64>,
     pub revealed_secret: Option<String>,
     pub resolved_at: Option<i64>,
+    pub fee_bps: i64,
+    pub rebate_bps: i64,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1500,13 +1512,14 @@ pub fn insert_bundle_market(
     market_id: &str, network: &str, question: &str, outcome_a: &str, outcome_b: &str,
     h_a: &str, h_b: &str, secret_a: &str, secret_b: &str,
     kickoff_utc: Option<&str>, source_url: Option<&str>,
+    fee_bps: i64, rebate_bps: i64,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO bundle_markets
-         (market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, created_at, resolved_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11, NULL, NULL, unixepoch(), NULL)",
-        params![market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url],
+         (market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, created_at, resolved_at, fee_bps, rebate_bps)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11, NULL, NULL, unixepoch(), NULL, ?12, ?13)",
+        params![market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, fee_bps, rebate_bps],
     )?;
     Ok(())
 }
@@ -1514,13 +1527,13 @@ pub fn insert_bundle_market(
 pub fn get_bundle_market(db: &Mutex<Connection>, market_id: &str) -> Option<BundleMarket> {
     let conn = db.lock().unwrap();
     conn.query_row(
-        "SELECT market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at
+        "SELECT market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at, fee_bps, rebate_bps
          FROM bundle_markets WHERE market_id = ?1",
         params![market_id],
         |r| Ok(BundleMarket {
             market_id: r.get(0)?, network: r.get(1)?, question: r.get(2)?, outcome_a: r.get(3)?, outcome_b: r.get(4)?,
             h_a: r.get(5)?, h_b: r.get(6)?, secret_a: r.get(7)?, secret_b: r.get(8)?,
-            kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?,
+            kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?, fee_bps: r.get(14)?, rebate_bps: r.get(15)?,
         }),
     ).ok()
 }
@@ -1529,11 +1542,11 @@ fn row_to_market(r: &rusqlite::Row) -> rusqlite::Result<BundleMarket> {
     Ok(BundleMarket {
         market_id: r.get(0)?, network: r.get(1)?, question: r.get(2)?, outcome_a: r.get(3)?, outcome_b: r.get(4)?,
         h_a: r.get(5)?, h_b: r.get(6)?, secret_a: r.get(7)?, secret_b: r.get(8)?,
-        kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?,
+        kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?, fee_bps: r.get(14)?, rebate_bps: r.get(15)?,
     })
 }
 
-const MARKET_COLS: &str = "market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at";
+const MARKET_COLS: &str = "market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at, fee_bps, rebate_bps";
 
 pub fn list_bundle_markets(db: &Mutex<Connection>, network: Option<&str>, limit: i64) -> Vec<BundleMarket> {
     let conn = db.lock().unwrap();

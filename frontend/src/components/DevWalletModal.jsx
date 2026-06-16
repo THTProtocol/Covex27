@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm } from './WalletContext';
-import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink, ShieldCheck, ArrowRight, Check } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
 // Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
@@ -26,7 +26,8 @@ function generateRandomMnemonic() {
 }
 
 export default function DevWalletModal({ isOpen, onClose }) {
-  const { connectDevMode, disconnect, isDevMode, address: currentAddr } = useWallet();
+  const walletCtx = useWallet();
+  const { connectDevMode, disconnect, isDevMode, address: currentAddr } = walletCtx;
   const [network, setNetwork] = useState(() => getCurrentNetwork());
   const [tab, setTab] = useState('mnemonic');
   const [mnemonic, setMnemonic] = useState('');
@@ -127,7 +128,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
   const accentColor = isMainnet ? 'red' : 'yellow';
 
   if (isMainnet) {
-    return <MainnetWalletModal walletContext={useWallet()} onClose={onClose} />;
+    return <MainnetWalletModal walletContext={walletCtx} onClose={onClose} />;
   }
 
   if (isConnected) {
@@ -427,86 +428,110 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
 // ── Mainnet Wallet Modal - real wallet extensions + trustless in-app wallet generation ──
 function MainnetWalletModal({ walletContext, onClose }) {
   const { wallets, connect, connecting, error, clearError, connectDevMode } = walletContext;
+  const [showAll, setShowAll] = useState(false);
+  // Re-detect periodically so a wallet extension that injects a moment after the modal opens
+  // shows up as "Installed" without the user having to reopen.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setTick((t) => t + 1), 400);
+    const stop = setTimeout(() => clearInterval(iv), 8000);
+    return () => { clearInterval(iv); clearTimeout(stop); };
+  }, []);
 
-  const handleClick = async (wallet) => {
-    const detected = wallet.detect ? wallet.detect() : false;
-    if (detected) {
-      try {
-        await connect(wallet.id);
-        onClose();
-      } catch (_) {}
+  const isDet = (w) => !!(w.detect && w.detect());
+  const detected = wallets.filter(isDet);
+  const others = wallets.filter((w) => !isDet(w)).sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
+
+  const handleConnect = async (wallet) => {
+    if (isDet(wallet)) {
+      try { await connect(wallet.id); onClose(); } catch (_) {}
     } else {
       window.open(wallet.url, '_blank');
     }
   };
 
+  const WalletRow = ({ wallet, primary }) => {
+    const det = isDet(wallet);
+    return (
+      <button
+        onClick={() => handleConnect(wallet)}
+        disabled={connecting}
+        className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all group disabled:opacity-50 text-left motion-safe:hover:-translate-y-px ${
+          primary
+            ? 'border-kaspa-green/40 bg-kaspa-green/[0.07] hover:border-kaspa-green/60 hover:bg-kaspa-green/[0.12]'
+            : 'border-white/[0.07] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
+        }`}
+      >
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-black/40 border border-white/[0.06]">
+          {wallet.logo ? (
+            <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md" onError={(e) => { e.target.style.display = 'none'; }} />
+          ) : (
+            <Wallet size={18} className="text-gray-400" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-white font-semibold text-sm flex items-center gap-2">
+            {wallet.name}
+            {det && <span className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/30 px-1.5 py-0.5 rounded-full shrink-0 font-bold"><Check size={9} /> Installed</span>}
+            {!det && wallet.recommended && <span className="text-[9px] uppercase tracking-wide bg-white/[0.06] text-gray-300 px-1.5 py-0.5 rounded-full shrink-0 font-semibold">Recommended</span>}
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">{det ? 'Tap to connect' : wallet.sub || 'Install'}</div>
+        </div>
+        {det
+          ? <ArrowRight size={16} className="text-kaspa-green shrink-0 group-hover:translate-x-0.5 transition-transform" />
+          : <ExternalLink size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />}
+      </button>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-[#0a0a0c] shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0a0c] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-red-500/10">
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+            <div className="w-9 h-9 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+              <Wallet size={18} className="text-kaspa-green" />
+            </div>
             <div>
-              <h3 className="text-base font-bold text-white">MAINNET Connect</h3>
-              <p className="text-[10px] text-red-400/70 font-mono uppercase tracking-wider">Real KAS · Real Wallet Extension Only</p>
+              <h3 className="text-base font-bold text-white">Connect a wallet</h3>
+              <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 bg-red-500/10 border border-red-500/25 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Mainnet</span>
+                Non-custodial · keys stay in your wallet
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-300 hover:text-white transition-colors">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><X size={20} /></button>
         </div>
 
-        {/* Body */}
         <div className="p-5 space-y-4">
-          <div className="p-3 rounded-lg bg-red-500/[0.04] border border-red-500/15">
-            <p className="text-xs text-red-300 leading-relaxed">
-              MAINNET uses real KAS. Connect a Kaspa wallet extension to deploy real covenants with paid tiers. No mnemonic or hex key input - your keys stay in your wallet.
-            </p>
-          </div>
+          {/* Installed wallets - one-click, surfaced first */}
+          {detected.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-widest text-kaspa-green/80 font-bold flex items-center gap-1.5"><Check size={11} /> Ready to connect</div>
+              {detected.map((w) => <WalletRow key={w.id} wallet={w} primary />)}
+            </div>
+          )}
 
-          {/* Wallet grid */}
-          <div className="space-y-2">
-            {wallets.map((wallet) => {
-              const detected = wallet.detect ? wallet.detect() : false;
-              return (
-                <button
-                  key={wallet.id}
-                  onClick={() => handleClick(wallet)}
-                  disabled={connecting}
-                  className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-red-500/10 bg-red-500/[0.02] hover:border-red-500/30 hover:bg-red-500/[0.06] transition-all group disabled:opacity-50 text-left"
-                >
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-black/40 border border-red-500/10">
-                    {wallet.logo ? (
-                      <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md"
-                        onError={(e) => { e.target.style.display = 'none'; }} />
-                    ) : (
-                      <Wallet size={18} className="text-red-400/60" />
-                    )}
-                  </div>
-                  <div className="text-left flex-1 min-w-0">
-                    <div className="text-white font-medium text-sm flex items-center gap-2">
-                      {wallet.name}
-                      {detected && (
-                        <span className="text-[9px] uppercase tracking-wider bg-red-500/15 text-red-400 px-1.5 py-0.5 rounded-sm shrink-0 font-mono">Detected</span>
-                      )}
-                      {wallet.recommended && !detected && (
-                        <span className="text-[9px] uppercase tracking-wider bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-sm shrink-0 font-mono">Recommended</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {detected ? 'Click to connect' : wallet.sub || 'Install'}
-                    </div>
-                  </div>
-                  {!detected ? (
-                    <ExternalLink size={14} className="text-gray-400 group-hover:text-red-400 transition-colors shrink-0" />
-                  ) : (
-                    <div className="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_4px_rgba(239,68,68,0.5)] shrink-0" />
-                  )}
+          {detected.length === 0 && (
+            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.07] text-xs text-gray-300 leading-relaxed flex items-start gap-2">
+              <ShieldCheck size={15} className="text-kaspa-green shrink-0 mt-0.5" />
+              <span>No Kaspa wallet detected yet. Pick one below to install it (one click), or create a new wallet right here. Mainnet uses real KAS — your keys never leave your wallet.</span>
+            </div>
+          )}
+
+          {/* Other / installable wallets */}
+          {others.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">{detected.length ? 'Other wallets' : 'Choose a wallet'}</div>
+              {(showAll ? others : others.slice(0, detected.length ? 3 : 5)).map((w) => <WalletRow key={w.id} wallet={w} />)}
+              {others.length > (detected.length ? 3 : 5) && (
+                <button onClick={() => setShowAll((s) => !s)} className="w-full text-center text-[11px] font-semibold text-kaspa-green hover:text-kaspa-green/80 py-1.5">
+                  {showAll ? 'Show fewer' : `Show ${others.length - (detected.length ? 3 : 5)} more wallets`}
                 </button>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2">
@@ -519,23 +544,23 @@ function MainnetWalletModal({ walletContext, onClose }) {
           )}
 
           {connecting && (
-            <div className="p-3 rounded-lg bg-red-500/[0.04] border border-red-500/15 text-center">
-              <p className="text-sm text-red-400 animate-pulse">Connecting to wallet...</p>
+            <div className="p-3 rounded-lg bg-kaspa-green/[0.05] border border-kaspa-green/20 text-center flex items-center justify-center gap-2">
+              <span className="inline-block w-4 h-4 border-2 border-kaspa-green/30 border-t-kaspa-green rounded-full animate-spin" />
+              <p className="text-sm text-kaspa-green">Approve the connection in your wallet…</p>
             </div>
           )}
 
           <div className="flex items-center gap-3 py-1">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[10px] uppercase tracking-widest text-gray-500">or</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-500">new to Kaspa?</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
           <GenerateWalletSection connectDevMode={connectDevMode} onConnected={onClose} />
         </div>
 
-        {/* Footer */}
-        <div className="p-5 border-t border-red-500/10">
-          <p className="text-[10px] text-gray-400 text-center">
-            MAINNET · Non-custodial · Real KAS only · Keys never leave your wallet
+        <div className="p-5 border-t border-white/[0.06]">
+          <p className="text-[10px] text-gray-500 text-center leading-relaxed">
+            Non-custodial. Covex never holds your keys or funds. Mainnet activity uses real KAS from your own wallet.
           </p>
         </div>
       </div>

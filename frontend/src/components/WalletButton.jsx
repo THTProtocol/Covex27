@@ -2,13 +2,38 @@ import { useState, useEffect, useRef } from 'react';
 import { explorerAddressUrl } from '../lib/explorer';
 import { Link } from 'react-router-dom';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork } from './WalletContext';
-import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
+import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles } from 'lucide-react';
+
+// Wallet icon tile with graceful fallback to a letter avatar if the CDN logo fails.
+function WalletLogo({ wallet }) {
+  return (
+    <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-[#0a0a0a] light:bg-white border border-[#1f1f1f] light:border-slate-200">
+      {wallet.logo ? (
+        <img
+          src={wallet.logo}
+          alt={wallet.name}
+          className="w-9 h-9 object-contain rounded-md"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            const fb = e.target.nextElementSibling;
+            if (fb) fb.style.display = 'flex';
+          }}
+        />
+      ) : null}
+      <span className={`w-9 h-9 rounded-md items-center justify-center text-xs font-bold text-white/60 bg-white/5 ${wallet.logo ? 'hidden' : 'flex'}`}>
+        {wallet.name?.charAt(0) || '?'}
+      </span>
+    </div>
+  );
+}
 
 export default function WalletButton() {
   const { address, balance, balanceLoading, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect, refreshBalance } = useWallet();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showAllWallets, setShowAllWallets] = useState(false);
+  const [, bumpDetect] = useState(0); // forces re-detect re-render for late-injecting extensions
   const panelRef = useRef(null);
   const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'TN12 (Toccata)';
 
@@ -17,6 +42,17 @@ export default function WalletButton() {
     if (panel) document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [panel]);
+
+  // Some wallet extensions inject their provider a beat after page load. While the drawer is
+  // open, re-check detection a few times so a freshly-installed wallet surfaces as "Installed"
+  // (and jumps to the one-click section) without the user having to reopen the drawer.
+  useEffect(() => {
+    if (!open) return undefined;
+    setShowAllWallets(false);
+    let n = 0;
+    const id = setInterval(() => { bumpDetect((t) => t + 1); if (++n >= 16) clearInterval(id); }, 400);
+    return () => clearInterval(id);
+  }, [open]);
 
   const handleWalletClick = async (wallet) => {
     const detected = wallet.detect ? wallet.detect() : false;
@@ -111,6 +147,15 @@ export default function WalletButton() {
   }
 
   // ── Disconnected: connect button + wallet drawer ──
+  // Surface installed wallets first (one-click connect); everything else is an install link,
+  // recommended wallets ahead of the rest, collapsed behind "Show more" so the drawer stays calm.
+  const isDet = (w) => (w.detect ? w.detect() : false);
+  const detected = wallets.filter(isDet);
+  const others = wallets.filter((w) => !isDet(w)).sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
+  const collapsedCount = detected.length ? 3 : 5;
+  const shownOthers = showAllWallets ? others : others.slice(0, collapsedCount);
+  const topPick = others.find((w) => w.recommended) || others[0];
+
   return (
     <>
       <button
@@ -153,53 +198,90 @@ export default function WalletButton() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                {wallets.map((wallet) => {
-                  const detected = wallet.detect ? wallet.detect() : false;
-                  return (
+              {/* Installed wallets — one-click connect, surfaced first and visually prominent */}
+              {detected.length > 0 && (
+                <div className="mb-5">
+                  <div className="text-[10px] uppercase tracking-widest text-[#49EACB]/80 font-bold flex items-center gap-1.5 mb-2">
+                    <Check size={11} /> Ready to connect
+                  </div>
+                  <div className="space-y-2">
+                    {detected.map((wallet) => (
+                      <button
+                        key={wallet.id}
+                        onClick={() => handleWalletClick(wallet)}
+                        disabled={connecting}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#49EACB]/40 bg-[#49EACB]/[0.06] hover:bg-[#49EACB]/[0.12] hover:border-[#49EACB]/70 transition-all group disabled:opacity-50 text-left shadow-[0_0_20px_-8px_rgba(73,234,203,0.5)]"
+                      >
+                        <WalletLogo wallet={wallet} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2">
+                            {wallet.name}
+                            <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/15 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><Check size={9} /> Installed</span>
+                          </div>
+                          <div className="text-[11px] text-gray-500">{wallet.sub}</div>
+                        </div>
+                        <ArrowRight size={16} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Other wallets — install links, recommended first, collapsed for calm */}
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">
+                  {detected.length ? 'Other wallets' : 'Choose a wallet'}
+                </div>
+                <div className="space-y-2">
+                  {shownOthers.map((wallet) => (
                     <button
                       key={wallet.id}
                       onClick={() => handleWalletClick(wallet)}
                       disabled={connecting}
                       className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-slate-50 hover:border-[#49EACB] hover:bg-[#1a1a1a] light:hover:bg-white transition-all group disabled:opacity-50 text-left"
                     >
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-[#0a0a0a] light:bg-white border border-[#1f1f1f] light:border-slate-200">
-                        {wallet.logo ? (
-                          <img
-                            src={wallet.logo}
-                            alt={wallet.name}
-                            className="w-9 h-9 object-contain rounded-md"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              const fallback = e.target.nextElementSibling;
-                              if (fallback) fallback.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <span className={`w-9 h-9 rounded-md items-center justify-center text-xs font-bold text-white/60 bg-white/5 ${wallet.logo ? 'hidden' : 'flex'}`}>
-                          {wallet.name?.charAt(0) || '?'}
-                        </span>
-                      </div>
+                      <WalletLogo wallet={wallet} />
                       <div className="text-left flex-1 min-w-0">
                         <div className="text-white light:text-slate-900 font-medium text-sm flex items-center gap-2">
                           {wallet.name}
-                          {detected && (
-                            <span className="text-[10px] uppercase tracking-wider bg-[#49EACB]/10 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0">Detected</span>
-                          )}
-                          {wallet.recommended && !detected && (
+                          {wallet.recommended && (
                             <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">Recommended</span>
                           )}
                         </div>
                         <div className="text-[11px] text-gray-500">{wallet.sub}</div>
                       </div>
-                      {!detected && <ExternalLink size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />}
+                      <ExternalLink size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+                {others.length > collapsedCount && (
+                  <button
+                    onClick={() => setShowAllWallets((s) => !s)}
+                    className="mt-2 w-full text-center text-[11px] font-semibold text-[#49EACB] hover:text-[#49EACB]/80 py-1.5 transition-colors"
+                  >
+                    {showAllWallets ? 'Show fewer' : `Show ${others.length - collapsedCount} more wallets`}
+                  </button>
+                )}
               </div>
 
+              {detected.length === 0 && topPick && (
+                <button
+                  onClick={() => window.open(topPick.url, '_blank')}
+                  className="mt-5 w-full flex items-center gap-2.5 p-3 rounded-xl border border-[#49EACB]/20 bg-[#49EACB]/[0.04] hover:bg-[#49EACB]/[0.08] hover:border-[#49EACB]/40 transition-all text-left group"
+                >
+                  <span className="w-8 h-8 rounded-lg bg-[#49EACB]/10 flex items-center justify-center shrink-0">
+                    <Sparkles size={15} className="text-[#49EACB]" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white light:text-slate-900">New to Kaspa?</div>
+                    <div className="text-[11px] text-gray-500">Install {topPick.name} to create a wallet in a minute.</div>
+                  </div>
+                  <ArrowRight size={15} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                </button>
+              )}
+
               <p className="mt-6 text-[11px] text-gray-500 leading-relaxed">
-                Detected wallets connect with one click. Others open the install page. Covex is non-custodial: keys never leave your wallet, every transaction is signed by you.
+                Installed wallets connect in one click. Others open the install page. Covex is non-custodial: keys never leave your wallet, every transaction is signed by you.
               </p>
             </div>
 

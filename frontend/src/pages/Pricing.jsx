@@ -196,7 +196,7 @@ const Pricing = () => {
     const p = awaitingConfirmation;
     const needWallet = p.needWallet && !address;
     return (
-      <div className="relative z-10 max-w-3xl mx-auto px-6 py-16 text-center">
+      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
         <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 520, height: 300, maxWidth: '90vw' }} />
         <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
           <ArrowLeft size={16} /> Cancel
@@ -263,7 +263,7 @@ const Pricing = () => {
   }
 
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-16">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 660, height: 300, maxWidth: '90vw' }} />
       {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reason') === 'advanced' && (
         <div className="max-w-2xl mx-auto mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm text-center">

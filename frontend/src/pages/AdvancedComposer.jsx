@@ -93,7 +93,7 @@ export default function AdvancedComposer() {
 
   if (auth.loading) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-gray-400">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16 text-center text-gray-400">
         Checking access...
       </div>
     );
@@ -103,14 +103,14 @@ export default function AdvancedComposer() {
   // Render nothing (or minimal) while redirecting.
   if (!auth.token || auth.tier === 'FREE') {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16 text-center">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16 text-center">
         <p className="text-gray-400">Redirecting to Pricing...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white">Advanced Covenant Composer <span className="text-xs align-super text-emerald-400">PAID</span></h1>
         <p className="text-gray-300 mt-2 max-w-2xl">

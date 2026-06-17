@@ -98,7 +98,7 @@ export default function CovenantStudio() {
   }
   if (!covenant) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-24 text-center">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-24 text-center">
         <p className="text-white font-bold mb-2">Covenant not found</p>
         <Link to="/" className="text-kaspa-green text-sm underline">Back to Explorer</Link>
       </div>
@@ -106,7 +106,7 @@ export default function CovenantStudio() {
   }
   if (!isCreator) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-24 text-center">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-24 text-center">
         <Sparkles size={28} className="text-kaspa-green mx-auto mb-4" />
         <p className="text-white font-bold mb-2">Page Studio is creator-only</p>
         <p className="text-sm text-gray-400 mb-6">Connect the wallet that deployed this covenant to design its public page with drag and drop blocks.</p>

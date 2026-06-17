@@ -374,7 +374,7 @@ export default function CovenantFix() {
 
   if (!address) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-16 text-center">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 text-center">
         <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5"><Wallet size={28} /></div>
         <h1 className="text-3xl font-semibold tracking-tight mb-2">Fix your covenants</h1>
         <p className="text-gray-400 mb-8">Connect the wallet that created the covenant. Then manage how it looks and set the single stake amount. All in one clean place.</p>
@@ -386,7 +386,7 @@ export default function CovenantFix() {
 
   if (myCovenants.length === 0) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-16 text-center">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 text-center">
         <h1 className="text-3xl font-semibold tracking-tight mb-3">No covenants for this wallet</h1>
         <p className="text-gray-400 mb-8">Deploy a covenant first (from Deploy or Paid Builder). Once created with this address you will see it here for quick visual fixes and stake setup.</p>
         <div className="flex gap-3 justify-center">

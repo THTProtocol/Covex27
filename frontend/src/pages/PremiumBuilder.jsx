@@ -446,7 +446,7 @@ ${featureTiles}
   }
   if (!hasValidToken) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
         <Award className="mx-auto mb-4" size={48} />
         <h1 className="text-3xl font-black mb-3">Paid Covenant Studio</h1>
         <p className="text-gray-400 mb-6">Server-verified payment required. Only the wallet that paid can create personalized covenants with full customization, advanced circuits, and top visibility.</p>

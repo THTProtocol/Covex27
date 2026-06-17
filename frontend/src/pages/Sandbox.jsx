@@ -83,7 +83,7 @@ export default function Sandbox() {
   const stepIdx = STEPS.findIndex((s) => s.id === step);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pt-24 pb-16 relative">
+    <div className="max-w-7xl mx-auto px-4 py-10 relative">
       <div className="covex-aurora hidden sm:block" style={{ top: 48, left: -30, width: 420, height: 260 }} aria-hidden="true" />
       {/* Header */}
       <div className="relative flex flex-wrap items-center gap-3 mb-2">

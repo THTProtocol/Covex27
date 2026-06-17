@@ -347,6 +347,10 @@ function MarketDetail({ id }) {
         <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
           <div className="text-white font-semibold mb-1">Resolve &amp; pay out</div>
           <p className="text-[11px] text-gray-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
+          <p className="text-[11px] text-amber-200/80 mb-3 flex items-start gap-1.5">
+            <ShieldCheck size={13} className="text-amber-400 shrink-0 mt-0.5" />
+            Only the wallet that created this market can resolve it. You'll be prompted to sign a one-time message proving ownership before the outcome is revealed.
+          </p>
           <div className="grid grid-cols-2 gap-2">
             {[book.outcome_a, book.outcome_b].map((label, i) => (
               <button key={i} disabled={!!busy}

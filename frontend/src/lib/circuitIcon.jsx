@@ -37,7 +37,7 @@ const RULES = [
   [/age|birth/, CalendarCheck],
   [/escrow/, Lock],
   [/utxo|ownership/, Coins],
-  [/nullifier|double.?spend|mixer|privacy|private/, EyeOff],
+  [/nullifier|double.?spend/, EyeOff],
   [/pot.?split|payout|\bpot\b/, PieChart],
   [/schnorr/, KeyRound],
   [/pedersen|commit/, Lock],

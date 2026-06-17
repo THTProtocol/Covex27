@@ -22,7 +22,6 @@ import FullScreenConnect4 from './FullScreenConnect4';
 import FullScreenTicTacToe from './FullScreenTicTacToe';
 import FullScreenReversi from './FullScreenReversi';
 import FullScreenRPS from './FullScreenRPS';
-import PrivacyMixerPanel from './PrivacyMixerPanel';
 
 // Covenant Studio Integration
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
@@ -145,14 +144,13 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'pedersen_curve_variant', name: 'Pedersen (Curve/Generator Variants)', description: 'Multiple curves/generators for Pedersen. Reality: oracle-attested (planned). Use cases: amount hiding + homomorphic in Kaspa DeFi/privacy. (vision §4.1)', circuit: 'pedersen_variant', accent: '#8B5CF6', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'hash_preimage', name: 'Hash Preimage Proof', description: 'Full ZK: Groth16 MiMC7 preimage proof (HTLC-style commitment). Honest limit: MiMC7 not SHA256/Blake2b. Artifacts in zk/hash_preimage/. Reality: full-zk. Use cases: HTLCs, timelocks, commitments on Kaspa.', circuit: 'hash_preimage', accent: '#F59E0B', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'poseidon_hash', name: 'Poseidon / MiMC7 / Rescue Hash', description: 'STARK-friendly hash variants for commitments. Reality: oracle-attested (circom planned). Use cases: efficient ZK in Kaspa (future STARKs). (vision §4.1)', circuit: 'poseidon_hash', accent: '#F59E0B', category: 'crypto', variant: true, reality: 'oracle-attested' },
-  { id: 'privacy_mixer_v1', name: 'Privacy Mixer (ZK)', description: 'Full ZK: deposit → MiMC7 Merkle pool → withdraw with membership + nullifier proof. Optional hidden amounts via range proof. Hybrid oracle nullifier set. Artifacts in zk/privacy_mixer/. Reality: full-zk. Use cases: private Kaspa transfers/treasuries. (vision §4.1, §4.5)', circuit: 'privacy_mixer_v1', accent: '#8B5CF6', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Hybrid: Poseidon VRF output proof (dev pot10). Fair coin flips, card shuffles without trusted dealer. Artifacts in zk/vrf/. Reality: hybrid. Use cases: all fair randomness in Kaspa games/DeFi. (vision §4.1)', circuit: 'vrf_generic', accent: '#EC4899', category: 'crypto', reality: 'hybrid', artifacts: true },
   { id: 'vrf_shuffle', name: 'VRF Shuffle (Deck)', description: 'Oracle-path (no artifacts yet): provably fair deck/card shuffle. Each player contributes entropy. No trusted dealer. Uses VRF building block. Reality: oracle-attested. Use cases: card games on Kaspa. (vision §4.1)', circuit: 'vrf_shuffle', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'vrf_permutation', name: 'VRF Permutation / Shuffle Full', description: 'Full permutation proof for VRF deck (beyond simple deal). Reality: oracle-attested (full zk planned). Use cases: provable fair shuffles for poker/mahjong etc. (vision §4.1 VRF)', circuit: 'vrf_permutation', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'commit_reveal_vrf', name: 'Commit-Reveal with ZK (VRF)', description: 'Hide commit until reveal; prove correct reveal + VRF derivation. Reality: oracle-attested. Use cases: sealed-bid + fair reveal in Kaspa auctions/games. (vision §4.1)', circuit: 'commit_reveal_vrf', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'distributed_random', name: 'Distributed Randomness Beacon', description: 'Multiple parties contribute; ZK for correctness + aggregation. Reality: oracle-attested. Use cases: multi-party fair random for Kaspa DAOs/tourneys. (vision §4.1)', circuit: 'distributed_random', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'bls_signature', name: 'BLS Threshold Signature', description: 'Oracle-path (no artifacts yet): aggregate BLS signatures for multi-oracle consensus. M-of-N threshold without revealing individual keys. Artifacts planned for multi-oracle federation. Reality: oracle-attested. Use cases: decentralized oracle on Kaspa covenants. (vision §4.1, §4.7)', circuit: 'bls_threshold', accent: '#14B8A6', category: 'crypto', reality: 'oracle-attested' },
-  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Hybrid: nullifier derivation embedded in privacy_mixer_v1; oracle DB tracks spent nullifiers. Standalone circom source in zk/nullifier/ (not yet compiled to zkey). Reality: hybrid. Use cases: double-spend prevention in Kaspa privacy. (vision §4.1)', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto', reality: 'hybrid' },
+  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Hybrid: nullifier derivation + oracle DB tracks spent nullifiers. Standalone circom source in zk/nullifier/ (not yet compiled to zkey). Reality: hybrid. Use cases: double-spend prevention in Kaspa privacy. (vision §4.1)', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto', reality: 'hybrid' },
   { id: 'schnorr_batch', name: 'Schnorr Batch / Threshold', description: 'Batch or threshold Schnorr knowledge. Reality: oracle-attested. Use cases: efficient multi-sig on Kaspa. (vision §4.1)', circuit: 'schnorr_batch', accent: '#6366F1', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'ring_signature', name: 'Ring Signature / Linkable', description: 'Anonymous but linkable (for anti-sybil) ring sigs. Reality: oracle-attested. Use cases: private voting/DAO actions on Kaspa. (vision §4.1)', circuit: 'ring_sig', accent: '#6366F1', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'shuffle_proof', name: 'Shuffle Proof (General)', description: 'ZK shuffle for decks or arbitrary lists. Reality: oracle-attested (RISC0). Use cases: fair random in games + private ordering. (vision §4.1)', circuit: 'shuffle_proof', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
@@ -212,13 +210,8 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'cross_asset_swap', name: 'Cross-Asset Swap + Oracle Price (No Front-Run)', description: 'Oracle price + ZK swap fairness (commitment before reveal). Reality: hybrid. Use cases: fair atomic swaps on Kaspa. (vision §4.4)', circuit: 'cross_swap', accent: '#38BDF8', category: 'defi', variant: true, reality: 'hybrid' },
 
   // ═══════════════════════════════════════════
-  // PRIVACY STACK (expanded §4.5 to 20+ from mixer)
+  // PRIVACY STACK (expanded §4.5)
   // ═══════════════════════════════════════════
-  { id: 'privacy_mixer_v1', name: 'Privacy Mixer (ZK) Core', description: 'Full ZK: deposit → MiMC7 Merkle pool → withdraw with membership + nullifier proof. Optional hidden amounts via range proof. Hybrid oracle nullifier set. Artifacts in zk/privacy_mixer/. Reality: full-zk. Use cases: private Kaspa UTXO mixing. (vision §4.5)', circuit: 'privacy_mixer_v1', accent: '#8B5CF6', category: 'privacy', reality: 'full-zk', artifacts: true },
-  { id: 'mixer_depth20', name: 'Privacy Mixer (Depth 20 Pool)', description: 'Larger anonymity set variant. Reality: full-zk (extend). Use cases: stronger privacy pools on Kaspa. (vision §4.5)', circuit: 'mixer_d20', accent: '#8B5CF6', category: 'privacy', variant: true, reality: 'full-zk', artifacts: true },
-  { id: 'mixer_amount_hidden', name: 'Mixer with Amount Hiding + Range', description: 'Pedersen hidden amounts + range in mixer. Reality: hybrid. Use cases: variable-denomination private transfers. (vision §4.5)', circuit: 'mixer_amt', accent: '#8B5CF6', category: 'privacy', variant: true, reality: 'hybrid' },
-  { id: 'mixer_time_delay', name: 'Time-Delayed Mixer Withdrawal', description: 'Enforce min delay (DAA) before withdraw. Reality: hybrid (timelock + mixer). Use cases: anti-timing Kaspa privacy. (vision §4.5)', circuit: 'mixer_delay', accent: '#8B5CF6', category: 'privacy', variant: true, reality: 'hybrid' },
-  { id: 'private_transfer', name: 'Private / Shielded UTXO Transfer', description: 'Pedersen + range + nullifier + membership full private transfer. Reality: hybrid (mixer base). Use cases: shielded Kaspa payments. (vision §4.5)', circuit: 'priv_xfer', accent: '#8B5CF6', category: 'privacy', variant: true, reality: 'hybrid' },
   { id: 'anon_credential', name: 'Anonymous Credential (Set + Attrs)', description: 'Prove "in set + age > N + rep > T" without revealing identity/values. Reality: hybrid (merkle+range). Use cases: private gated communities on Kaspa. (vision §4.5, §4.8)', circuit: 'anon_cred', accent: '#FB923C', category: 'privacy', variant: true, reality: 'hybrid' },
   { id: 'private_voting', name: 'Private Voting / DAO (Nullifier Tally)', description: 'Yes/no or ranked vote with ZK tally or nullifier (no double-vote). Reality: hybrid. Use cases: private Kaspa DAO votes. (vision §4.5)', circuit: 'priv_vote', accent: '#A855F7', category: 'privacy', variant: true, reality: 'hybrid' },
   { id: 'private_airdrop', name: 'Private Airdrop / Claim', description: 'Merkle + nullifier + amount range. Reality: full-zk (extend merkle). Use cases: private claims without public list exposure. (vision §4.5)', circuit: 'priv_airdrop', accent: '#3B82F6', category: 'privacy', variant: true, reality: 'full-zk', artifacts: true },
@@ -371,7 +364,7 @@ const scrubZkProse = (d) =>
 // VERIFIED_FULL_ZK set today); 'hybrid' needs a fail-closed backend Groth16 verifier (STRICT_GROTH16).
 // Everything else is honestly 'oracle-attested': the named oracle signs the outcome, no ZK proof
 // gates the spend. This is a pure downgrade - it never promotes a circuit's claim.
-// De-dupe by id (the raw list has a couple of repeats, e.g. relative_timelock / privacy_mixer_v1):
+// De-dupe by id (the raw list has a couple of repeats, e.g. relative_timelock):
 // keep the first occurrence so React keys stay unique and the circuit list never double-renders.
 const _seenCircuitIds = new Set();
 export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.filter((c) => {
@@ -405,7 +398,7 @@ const TEMPLATE_CIRCUIT_OVERRIDES = {
   'zk-age-verification': 'age_verification', 'zk-hash-preimage': 'hash_preimage',
   'zk-nullifier-unique': 'nullifier_set', 'zk-anon-credential': 'anon_credential',
   'zk-private-balance': 'confidential_collateral', 'zk-acl-zk': 'private_group_member',
-  'zk-private-prediction': 'private_prediction', 'zk-mixer': 'privacy_mixer_v1',
+  'zk-private-prediction': 'private_prediction',
   // Oracle & markets
   'market-binary': 'prediction_market', 'market-ternary': 'prediction_market',
   'market-multi-outcome': 'prediction_market', 'market-dutch-auction': 'auction_dutch',
@@ -535,20 +528,6 @@ export function generateSilverScriptForConfig(cfg) {
       }
       Outcome::Rejected => {
         require(VerifyPayout(treasury, depositor, pot), "Range proof rejected");
-      }`,
-        };
-      case 'privacy_mixer_v1':
-        return {
-          covenantName: 'PrivacyMixerCovenant',
-          outcomeEnum: 'Outcome::WithdrawAuthorized | Rejected',
-          outcomeBranches: `      // ZK CIRCUIT (privacy_mixer_v1): Merkle membership + nullifier + optional range
-      // Public: merkle_root, nullifier, recipient_hash, amount_commitment, min/max
-      // Oracle verifies Groth16 + enforces nullifier freshness (hybrid)
-      Outcome::WithdrawAuthorized => {
-        require(VerifyPayout(treasury, claimant, pot), "Mixer withdraw authorized");
-      }
-      Outcome::Rejected => {
-        require(VerifyPayout(treasury, depositor, pot), "Mixer withdraw rejected");
       }`,
         };
       case 'age_verification':
@@ -1506,18 +1485,6 @@ contract VisualCovenant {
       );
     }`,
         };
-      case 'privacy_mixer_v1':
-        return {
-          covenantName: 'PrivacyMixerCovenant',
-          outcomeEnum: 'Outcome::WithdrawAuthorized | Rejected',
-          outcomeBranches: `      // ZK CIRCUIT (privacy_mixer_v1): Merkle membership + nullifier
-    Outcome::WithdrawAuthorized => {
-      require(VerifyPayout(treasury, claimant, pot), "Mixer withdraw authorized");
-    }
-    Outcome::Rejected => {
-      require(VerifyPayout(treasury, depositor, pot), "Mixer withdraw rejected");
-    }`,
-        };
       case 'age_verification':
         return {
           covenantName: 'AgeVerifyCovenant',
@@ -2006,8 +1973,6 @@ ${gameMeta.outcomeBranches}
       // Dynamic circuit type based on selected ZK circuit / gameType
       const circuitType = (gameType === 'range_proof' || zkCircuit === 'bulletproofs_v1')
         ? 'range_proof'
-        : gameType === 'privacy_mixer_v1' || zkCircuit === 'privacy_mixer_v1'
-          ? 'privacy_mixer_v1'
         : (gameType === 'merkle_membership' || zkCircuit.includes('merkle'))
           ? 'merkle_membership'
           : gameType.startsWith('age') ? 'age_verification'
@@ -2535,7 +2500,7 @@ ${gameMeta.outcomeBranches}
                 // Games (oracle-attested, live)
                 'chess_v1', 'chess_blitz', 'poker_v1', 'blackjack_v1', 'checkers_v1', 'connect4_v1', 'tictactoe_v1', 'reversi_v1',
                 // Real ZK / crypto primitives (Groth16-backed)
-                'merkle_membership', 'range_proof', 'hash_preimage', 'age_verification', 'escrow_2party', 'timelock_absolute', 'privacy_mixer_v1',
+                'merkle_membership', 'range_proof', 'hash_preimage', 'age_verification', 'escrow_2party', 'timelock_absolute',
                 // DeFi / oracle covenants
                 'prediction_market', 'pot_distribution', 'auction_dutch', 'parametric_insurance', 'anti_sybil',
               ];
@@ -3972,13 +3937,7 @@ ${gameMeta.outcomeBranches}
       </section>
 
       {/* ─── Section C½: Oracle Resolution (Live ZK + Oracle attestation) ─── */}
-      {gameType === 'privacy_mixer_v1' && (
-        <section className={`${SECTION_BASE} border-violet-500/30 bg-[#0a0e1a] ring-1 ring-violet-500/20`}>
-          <PrivacyMixerPanel covenantId={covenantId || 'demo-mixer'} />
-        </section>
-      )}
-
-      {((gameType === 'merkle_membership' || gameType === 'range_proof' || gameType === 'privacy_mixer_v1' || gameType === 'age_verification' || gameType === 'verifiable' || gameType === 'custom') && resolutionMode === 'zk') && (
+      {((gameType === 'merkle_membership' || gameType === 'range_proof' || gameType === 'age_verification' || gameType === 'verifiable' || gameType === 'custom') && resolutionMode === 'zk') && (
         <section className={`${SECTION_BASE} border-[#3B82F6]/30 bg-[#0a0e1a] ring-1 ring-[#3B82F6]/20`}>
           <div className="flex items-center justify-between">
             <div className={SECTION_HEADER}>

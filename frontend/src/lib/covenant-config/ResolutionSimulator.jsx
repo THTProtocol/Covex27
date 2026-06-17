@@ -67,7 +67,7 @@ function archetypeFor(circuit, payoutType, category) {
   const c = (circuit || '').toLowerCase();
   if (/pred|market|parimutuel|tally|book|binary_oracle_select/.test(c) || payoutType === 'parimutuel') return 'parimutuel';
   // Winner-takes-all pots are GAMES only. Every other covenant (a proof, gate, lock, vault,
-  // oracle feed, swap, channel, escrow, mixer, compute, etc.) is a conditional RELEASE, so
+  // oracle feed, swap, channel, escrow, compute, etc.) is a conditional RELEASE, so
   // that is the safe default - the old default of 'pot' wrongly showed a win-rate curve for
   // the majority of circuits that have no pot at all.
   if (category === 'game' || /chess|poker|\bgo\b|reversi|connect|checkers|tic.?tac|\brps\b|rock.?paper|blackjack|cribbage|backgammon|dominoes|dice|\bduel\b|arena|winner.?takes/.test(c)) return 'pot';

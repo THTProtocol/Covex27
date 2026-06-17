@@ -23,7 +23,6 @@ const INTENTS = [
   { kw: ['prediction', 'bet', 'wager', 'market', 'outcome', 'odds', 'forecast'], find: ['prediction_market', 'prediction'], lead: 'A prediction market pays out based on a resolved real-world outcome.' },
   { kw: ['auction', 'bid', 'bidder', 'clearing', 'highest'], find: ['auction'], lead: 'An auction covenant clears bids and pays the winner.' },
   { kw: ['random', 'dice', 'lottery', 'vrf', 'shuffle', 'fair draw', 'fairness', 'coin flip'], find: ['vrf', 'dice'], lead: 'A VRF gives provably fair randomness for draws and shuffles.' },
-  { kw: ['private', 'hidden', 'confidential', 'mixer', 'anonymous', 'privacy', 'unlinkable'], find: ['privacy_mixer', 'nullifier', 'merkle'], lead: 'A privacy covenant lets a deposit be withdrawn without linking it to the depositor.' },
   { kw: ['hash', 'preimage', 'secret', 'atomic swap', 'htlc', 'reveal'], find: ['hash_preimage', 'htlc', 'hash'], lead: 'A hashlock releases funds when the secret preimage is revealed (atomic-swap style).' },
   { kw: ['token gated', 'token-gated', 'gated', 'gate access', 'holders', 'hold token'], find: ['token_gated', 'gating', 'merkle'], lead: 'Token-gating restricts access or spend to qualifying holders.' },
   { kw: ['loan', 'lend', 'borrow', 'ltv', 'health factor', 'liquidation', 'collateralized'], find: ['loan', 'collateral_ltv', 'liquidation', 'ltv'], lead: 'A lending covenant tracks collateral health and triggers on an LTV threshold.' },

@@ -13,6 +13,7 @@ import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import CovexLogo from './components/CovexLogo';
+import LegalModal from './components/LegalModal';
 import Explorer from './pages/Explorer';
 
 // Route-level code splitting: the Explorer (homepage) stays eager, everything
@@ -213,6 +214,33 @@ function LiveStatus() {
   );
 }
 
+// One-time consent gate. The dead-code LegalModal is mounted here so first-time
+// visitors must read and accept the Terms (and the no-liability disclaimer) before
+// using the platform. Acceptance is persisted in localStorage and never re-shown.
+// Skipped on /embed routes so the chrome-free covenant widget embedded on external
+// sites is never blocked by a full-screen overlay.
+const TERMS_ACCEPTED_KEY = 'covex_terms_accepted';
+
+function TermsGate() {
+  const location = useLocation();
+  const isEmbed = location.pathname.startsWith('/embed/');
+  const [accepted, setAccepted] = useState(() => {
+    if (typeof localStorage === 'undefined') return true;
+    return localStorage.getItem(TERMS_ACCEPTED_KEY) === '1';
+  });
+
+  if (accepted || isEmbed) return null;
+
+  return (
+    <LegalModal
+      onAccept={() => {
+        try { localStorage.setItem(TERMS_ACCEPTED_KEY, '1'); } catch { /* private mode */ }
+        setAccepted(true);
+      }}
+    />
+  );
+}
+
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -234,6 +262,7 @@ export default function App() {
       <WalletProvider>
         <BrowserRouter>
           <DagBackground />
+          <TermsGate />
           <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/95 light:bg-white/95 light:border-slate-200">
             <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
               <Link to="/" className="group flex items-center transition-all duration-300 hover:drop-shadow-[0_0_18px_rgba(73,234,203,0.45)]">

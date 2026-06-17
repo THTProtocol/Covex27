@@ -20,10 +20,37 @@ function templateHue(id) {
   return (h >>> 0) % 360;
 }
 
+// Genuine on-chain primitives: their "Use Template" routes UP to the real enforced builder
+// (EnforcedDeploy ?kind=) instead of a ZK/oracle sandbox preview, because these ARE
+// consensus-enforced by Kaspa and have shipped on-chain redeem builders. Keyed by template.id
+// -> the matching EnforcedDeploy KINDS id.
+const TEMPLATE_TO_ENFORCED_KIND = {
+  'plain-hashlock': 'hashlock',
+  'absolute-timelock': 'timelock',
+  'relative-timelock-csv': 'relative_timelock',
+  'hashlock-htlc': 'htlc',
+  'payment-channel': 'channel',
+  'dead-man-switch': 'deadman',
+  'multisig-nofm': 'multisig',
+};
+// The same 7 ids, used to give those cards the honest emerald on-chain chip (their
+// destination is consensus-enforced, so the violet zk chip would be wrong).
+const ON_CHAIN_TEMPLATE_IDS = new Set(Object.keys(TEMPLATE_TO_ENFORCED_KIND));
+// Market-class templates route to the real parimutuel market-creation flow, not a generic
+// oracle_single sandbox preview. These stay honestly labeled oracle/hybrid (the market is
+// settled by conjoined oracle covenants); only the destination changes. Only YES/NO parimutuel
+// markets fit that builder; dutch-auction is a different shape and keeps its prior oracle path.
+const MARKET_TEMPLATE_IDS = new Set(['binary-prediction-market', 'binary-prediction']);
+
 // Honest enforcement-reality label for a template, derived from its real resolution mode.
 // Constitution: ZK and oracle outcomes are verified OFF-CHAIN by the disclosed oracle -
 // NEVER trustless, NEVER "on-chain enforced". Games are server-authoritative + oracle-attested.
 function templateReality(template) {
+  // Genuine on-chain primitives route to the enforced builder; show the emerald on-chain chip
+  // (matches the catalog's on-chain treatment), since the destination is consensus-enforced.
+  if (ON_CHAIN_TEMPLATE_IDS.has(template?.id)) {
+    return { key: 'on-chain', label: 'on-chain', style: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+  }
   if (template?.category === 'Games') {
     return { key: 'oracle', label: 'oracle-attested', style: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
   }
@@ -83,6 +110,21 @@ export default function TemplateLibrary() {
     const config = template.generateConfig(address);
     sessionStorage.setItem('pending_covenant_config', JSON.stringify(config));
     sessionStorage.setItem('selected_template_id', template.id);
+
+    // BUILD UP TO THE CLAIM: genuine on-chain primitives route to the real enforced builder
+    // (consensus-enforced, with a shipped on-chain redeem builder), not a ZK/oracle sandbox
+    // preview. The destination self-labels them on-chain.
+    const enforcedKind = TEMPLATE_TO_ENFORCED_KIND[template.id];
+    if (enforcedKind) {
+      navigate(`/deploy/enforced?${new URLSearchParams({ kind: enforcedKind, name: template.name }).toString()}`);
+      return;
+    }
+    // Market-class templates land on the real parimutuel market-creation flow rather than a
+    // generic oracle_single sandbox preview.
+    if (MARKET_TEMPLATE_IDS.has(template.id)) {
+      navigate(`/deploy/enforced?${new URLSearchParams({ kind: 'market', name: template.name }).toString()}`);
+      return;
+    }
 
     // Games open the live arena explorer; everything else opens the public Sandbox with the
     // matching circuit preloaded (consistent with the official catalog routing). No localStorage
@@ -265,7 +307,14 @@ export default function TemplateLibrary() {
           (tplCat === 'All' || t.category === tplCat) &&
           (!q || `${t.name} ${t.description} ${t.category} ${t.id}`.toLowerCase().includes(q))
         );
-        const ENFORCED_KINDS = ['singlesig', 'hashlock', 'timelock', 'multisig'];
+        // All genuine on-chain primitive kinds reach the free enforced-deploy builder. The
+        // two oracle_* kinds are HYBRID (oracle co-signature is consensus-required): routing
+        // them here is fine because DeployDisclosure self-labels them hybrid, never trustless.
+        const ENFORCED_KINDS = [
+          'singlesig', 'hashlock', 'timelock', 'multisig',
+          'htlc', 'channel', 'deadman', 'relative_timelock', 'timedecay',
+          'oracle_enforced', 'oracle_escrow',
+        ];
         const hrefFor = (t) => {
           // Genuine on-chain primitives → the free enforced-deploy builder.
           if (ENFORCED_KINDS.includes(t.kind)) return `/deploy/enforced?kind=${t.kind}`;

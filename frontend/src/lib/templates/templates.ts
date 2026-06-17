@@ -385,7 +385,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'hashlock-htlc',
     name: 'HTLC (Hashlock + Timeout Refund)',
-    description: 'The atomic-swap building block. The receiver claims by revealing a secret preimage; the sender is refunded after a timeout. Hashlock branch proven on the hash_preimage circuit.',
+    description: 'The atomic-swap building block. The receiver claims by revealing a secret preimage; the sender is refunded after a timeout. Enforced on-chain by the Kaspa script.',
     category: 'Escrow & Agreements',
     icon: '🔗',
     difficulty: 'Intermediate',
@@ -403,7 +403,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'plain-hashlock',
     name: 'Hashlock Vault',
-    description: 'Funds unlock only when the holder reveals the secret preimage of a committed hash. The minimal commitment primitive, proven on the hash_preimage circuit.',
+    description: 'Funds unlock only when the holder reveals the secret preimage of a committed hash. The minimal commitment primitive, enforced on-chain by the script.',
     category: 'Escrow & Agreements',
     icon: '🔒',
     difficulty: 'Beginner',
@@ -420,7 +420,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'absolute-timelock',
     name: 'Absolute Timelock (CLTV)',
-    description: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting and scheduled releases, proven on the timelock_absolute circuit (current_daa >= threshold).',
+    description: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting and scheduled releases, enforced on-chain (an early spend is rejected by consensus).',
     category: 'Financial Tools',
     icon: '⏳',
     difficulty: 'Beginner',
@@ -437,7 +437,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'relative-timelock-csv',
     name: 'Relative Timelock (CSV)',
-    description: 'Funds become spendable after they have aged a relative number of blocks since the reference point. Dispute windows and cooldowns, proven on the relative_timelock circuit.',
+    description: 'Funds become spendable only after they have aged a relative number of blocks (OpCheckSequenceVerify, BIP68). Dispute windows and cooldowns, node-enforced on-chain.',
     category: 'Financial Tools',
     icon: '🕰️',
     difficulty: 'Intermediate',
@@ -454,7 +454,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'dead-man-switch',
     name: "Dead-Man's Switch",
-    description: 'The owner can refresh or spend at any time; the heir can claim only after the timelock elapses, so funds pass on if the owner goes silent. Timelock proven on the timelock_absolute circuit.',
+    description: 'The owner can refresh or spend at any time; the heir can claim only after the timelock elapses, so funds pass on if the owner goes silent. Enforced on-chain by the script.',
     category: 'Financial Tools',
     icon: '💼',
     difficulty: 'Intermediate',
@@ -471,7 +471,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'multisig-nofm',
     name: 'N-of-M Multisig',
-    description: 'Release requires a threshold of signatures from the named signer set. DAO treasuries and shared custody, resolved by the M-of-N threshold attestation (oracle-attested).',
+    description: 'Release requires a threshold of signatures from the named signer set. DAO treasuries and shared custody, enforced on-chain by the multisig script.',
     category: 'Governance & DAOs',
     icon: '🔑',
     difficulty: 'Intermediate',
@@ -488,7 +488,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'payment-channel',
     name: 'Payment Channel (2-of-2 Close)',
-    description: 'A two-party pot that closes cooperatively when both sides sign the final balance. The 2-of-2 threshold is checked by the multisig_threshold attestation (oracle-attested).',
+    description: 'A two-party pot that closes cooperatively when both sides sign the final balance, with a funder refund after a timeout. The chain pays the agreed balance, no oracle.',
     category: 'Financial Tools',
     icon: '🔁',
     difficulty: 'Advanced',

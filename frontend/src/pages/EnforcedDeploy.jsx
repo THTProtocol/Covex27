@@ -68,6 +68,8 @@ export default function EnforcedDeploy() {
     const k = (searchParams.get('kind') || '').toLowerCase();
     return KINDS.some((x) => x.id === k) ? k : 'singlesig';
   })();
+  // Read-only provenance: when arriving from a template's "Use Template", show which one.
+  const templateName = (searchParams.get('name') || '').trim().slice(0, 80);
   const navigate = useNavigate();
   const [kind, setKind] = useState(initialKind);
   const [stake, setStake] = useState('1.0');
@@ -428,6 +430,9 @@ export default function EnforcedDeploy() {
   }
 
   const KindIcon = KINDS.find((k) => k.id === kind)?.icon || ShieldCheck;
+  // Market and the oracle covenants are hybrid: custody/payout settle on-chain, but the
+  // disclosed oracle decides the outcome. Only the pure P2SH primitives are on-chain-only.
+  const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market'].includes(kind);
 
   return (
     <div className="relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8">
@@ -443,20 +448,38 @@ export default function EnforcedDeploy() {
         <div
           aria-hidden="true"
           className="absolute top-0 inset-x-0 h-[3px]"
-          style={{ background: 'linear-gradient(90deg, transparent, #34d399, transparent)' }}
+          style={{ background: `linear-gradient(90deg, transparent, ${isHybridKind ? '#38bdf8' : '#34d399'}, transparent)` }}
         />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
           <span className="grid place-items-center h-11 w-11 rounded-xl border border-emerald-500/30 bg-emerald-500/10 shrink-0">
             <ShieldCheck className="text-emerald-400" size={24} />
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Deploy an Enforced Covenant</h1>
-          <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" /> On-chain
-          </span>
+          {isHybridKind ? (
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/15 text-sky-300 text-[10px] font-bold uppercase tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden="true" /> Hybrid
+            </span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" /> On-chain
+            </span>
+          )}
+          {templateName && (
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/15 bg-white/[0.04] text-gray-300 text-[10px] font-medium tracking-wide max-w-full">
+              <Palette size={11} className="shrink-0 text-kaspa-green" aria-hidden="true" />
+              <span className="truncate">From template: {templateName}</span>
+            </span>
+          )}
         </div>
         <p className="text-sm sm:text-base text-gray-300 max-w-2xl leading-relaxed">
-          These covenants are enforced by Kaspa consensus itself. Funds lock to a script hash and can only move by satisfying
-          the script - no oracle, no trust. Every spend was proven against the real Kaspa script engine before this shipped.
+          {isHybridKind ? (
+            <>Custody and payout settle on-chain: funds lock to a script hash and the chain pays the winning branch. The outcome
+            is decided by the disclosed Covex oracle, which co-signs or reveals only a verified result, so this is hybrid, not
+            trustless. Every spend was proven against the real Kaspa script engine before this shipped.</>
+          ) : (
+            <>These covenants are enforced by Kaspa consensus itself. Funds lock to a script hash and can only move by satisfying
+            the script, no oracle, no trust. Every spend was proven against the real Kaspa script engine before this shipped.</>
+          )}
         </p>
       </div>
 
@@ -608,7 +631,7 @@ export default function EnforcedDeploy() {
           <p className="text-[11px] text-gray-400">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Testnet demo; oracle covenants activate on mainnet at Toccata.</p>
         )}
 
-        <DeployDisclosure reality={kind === 'oracle_enforced' || kind === 'oracle_escrow' ? 'hybrid' : 'on-chain'} />
+        <DeployDisclosure reality={isHybridKind ? 'hybrid' : 'on-chain'} />
 
         {kind === 'market' ? (
           <button onClick={createMarket} disabled={busy}

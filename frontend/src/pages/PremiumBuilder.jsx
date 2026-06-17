@@ -140,6 +140,32 @@ export default function PremiumBuilder() {
   const [themeAccent, setThemeAccent] = useState('#49EACB');
   const [lookPreset, setLookPreset] = useState('classic');
 
+  // Advanced primitives + multi-oracle config carried over from /advanced. Persisted with
+  // the covenant definition so the composed selections are not dropped on deploy.
+  const [advancedPrimitives, setAdvancedPrimitives] = useState(null);
+  const [multiOracle, setMultiOracle] = useState(null);
+
+  // Consume the /advanced handoff once it has been read in. Pre-fill the builder with the
+  // exact composed selections (primitives, multi-oracle threshold, circuit, resolution,
+  // name/description/theme) so what was composed is what gets deployed.
+  useEffect(() => {
+    if (!pendingConfig) return;
+    const cov = pendingConfig.covenant || {};
+    const res = pendingConfig.resolution || {};
+    if (cov.name) setCovenantName(cov.name);
+    if (cov.description) setCovenantDesc(cov.description);
+    const accent = pendingConfig.ui?.theme?.primaryColor;
+    if (accent) { setThemeAccent(accent); setCustomTheme(accent); }
+    const circuitType = res.circuit?.type;
+    if (circuitType) {
+      if (ZK_CIRCUIT_TYPES.some(c => c.id === circuitType)) setSelectedCircuitId(circuitType);
+      setCustomBases(prev => (prev.includes(circuitType) ? prev : [...prev, circuitType]));
+    }
+    if (res.mode) setParams(p => ({ ...p, resolution: res.mode }));
+    if (res.advancedPrimitives) setAdvancedPrimitives(res.advancedPrimitives);
+    if (res.oracle?.multiOracle) setMultiOracle(res.oracle.multiOracle);
+  }, [pendingConfig]);
+
   // Transparent disclosure (auto from net + connected wallet + treasury)
   const disclosedWallets = [
     { role: 'Creator (you)', addr: address || 'connect wallet' },
@@ -163,11 +189,16 @@ export default function PremiumBuilder() {
       theme: { accent: previewAccent, preset: lookPreset },
       disclosedWallets,
       resolution: params.resolution || 'hybrid',
+      // Carry composed advanced primitives + multi-oracle threshold so they are persisted
+      // with the covenant instead of dropped (was a dead /advanced -> /premium handoff).
+      ...(advancedPrimitives ? { advancedPrimitives } : {}),
+      ...(multiOracle ? { multiOracle } : {}),
+      enforce: { kind: enforceKind },
       createdAt: new Date().toISOString(),
       paidWithToken: auth.token, // proof it was paid
       requiresDeploymentCredit: true
     };
-  }, [previewName, covenantDesc, customDesc, net, activeCircuit, customBases, params, previewAccent, lookPreset, disclosedWallets, auth.token]);
+  }, [previewName, covenantDesc, customDesc, net, activeCircuit, customBases, params, previewAccent, lookPreset, disclosedWallets, advancedPrimitives, multiOracle, enforceKind, auth.token]);
 
   const [generatedDef, setGeneratedDef] = useState(null);
   const [deploying, setDeploying] = useState(false);
@@ -313,10 +344,55 @@ export default function PremiumBuilder() {
     }
   };
 
+  // Build the feature tiles that HONESTLY describe the deployed covenant. The on-chain
+  // enforcement kind (singlesig/timelock/hashlock) and stake are always true; the
+  // Players / Turn Timer tiles are gameplay attributes that only apply when a game
+  // circuit was actually selected, so they are emitted only for game covenants. (Bug:
+  // these were hard-coded onto every page from the game-default params, asserting
+  // gameplay the covenant lacks - a correctness and honesty defect.)
+  function buildFeatureTiles(def, deploy = {}) {
+    const esc = (s) => String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    const circuitLabel = def.circuit?.name || (def.circuit?.bases || []).join(' + ') || 'Custom';
+    const tiles = [
+      `🎯 Circuit: ${esc(circuitLabel)}`,
+      '🔒 Script-enforced custody',
+      '🔑 Non-custodial redeem',
+      '📋 Full Disclosure',
+    ];
+    const kind = def.enforce?.kind || enforceKind;
+    if (kind === 'timelock') {
+      const lockDaa = deploy.lock_daa || def.circuit?.params?.lock_daa;
+      tiles.push(lockDaa ? `⏳ Unlocks at DAA ${esc(lockDaa)}` : '⏳ Timelock (DAA height)');
+    } else if (kind === 'hashlock') {
+      tiles.push('🗝 Secret-reveal unlock');
+    } else {
+      tiles.push('🔐 Single-key redeem');
+    }
+    const stake = parseFloat(stakeKas);
+    if (stake > 0) tiles.push(`💰 ${esc(stake)} KAS staked`);
+    // Game-only tiles: emit Players / Turn Timer only when the ACTUAL deployed circuit is a
+    // game. Derive from def.circuit (what is persisted), not the unrelated library selection:
+    // a custom covenant carries `bases`, a single covenant carries `id`. A timelock vault,
+    // merkle/range proof, etc. are non-game and must not assert gameplay attributes.
+    const gameRe = /chess|poker|blackjack|backgammon|game/i;
+    const singleCircuit = def.circuit?.id ? ZK_CIRCUIT_TYPES.find(c => c.id === def.circuit.id) : null;
+    const isGame = singleCircuit
+      ? singleCircuit.category === 'game'
+      : (def.circuit?.bases || []).some(b => gameRe.test(b));
+    if (isGame) {
+      tiles.push(`👥 ${esc(params.players)} Players`);
+      tiles.push(`⏱ ${esc(params.turnTimerSec)}s Turn Timer`);
+    }
+    return tiles;
+  }
+
   // Generate self-contained interactive HTML for the covenant iframe
   function generateCustomUiHtml(def, txid, deploy = {}) {
     const accent = def.theme.accent;
     const p2sh = deploy.p2sh_address || '';
+    const featureTiles = buildFeatureTiles(def, deploy)
+      .map(t => `    <div class="feature">${t}</div>`)
+      .join('\n');
     return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -349,12 +425,7 @@ export default function PremiumBuilder() {
   <h2>${def.name}</h2>
   <p>${def.description}</p>
   <div class="features">
-    <div class="feature">🎮 Circuit: ${def.circuit?.name || 'Custom'}</div>
-    <div class="feature">🔒 Script-enforced custody</div>
-    <div class="feature">🔑 Non-custodial redeem</div>
-    <div class="feature">📋 Full Disclosure</div>
-    <div class="feature">👥 ${params.players} Players</div>
-    <div class="feature">⏱ ${params.turnTimerSec}s Turn Timer</div>
+${featureTiles}
   </div>
   ${p2sh ? `<div class="tx-link">Locked to P2SH: ${p2sh}</div>` : ''}
   <div class="disclosure">

@@ -22,6 +22,29 @@ const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'es
 const ORACLE_REALITIES = new Set(['oracle-attested', 'hybrid', 'full-zk']);
 const ZK_REALITIES = new Set(['full-zk', 'hybrid']);
 
+// redeem_kind values whose redeem script literally commits the disclosed oracle's
+// x-only pubkey as a script member (it is hashed into the on-chain P2SH commitment):
+//   oracle:2      -> OracleEnforced 2-of-2 [oracle, winner] (oracle is member #1)
+//   oracle_escrow -> <oracle> OpCheckSigVerify ... (oracle is the leading data push)
+// In both, the oracle's 32-byte key is the FIRST push-32 (0x20 ...) in the script,
+// so we can extract it and prove it equals /api/oracle/pubkey - the chain itself
+// (via the P2SH hash) is bound to exactly this disclosed key, not just an off-chain claim.
+const ORACLE_BOUND_KINDS = new Set(['oracle:2', 'oracle_escrow']);
+
+// Extract the first 32-byte data push (0x20 followed by 32 bytes) from a redeem script
+// hex string. Returns { pubkey, snippet } where snippet is the exact `20<pubkey>` push
+// bytes a verifier sees on-chain, or null if no such push exists.
+function firstPush32(redeemHex) {
+  const h = String(redeemHex || '').toLowerCase().replace(/[^0-9a-f]/g, '');
+  // scan byte-aligned for the push-32 opcode (0x20) with a full 32-byte payload after it
+  for (let p = 0; p < h.length - 1; p += 2) {
+    if (h.slice(p, p + 2) === '20' && p + 2 + 64 <= h.length) {
+      return { pubkey: h.slice(p + 2, p + 2 + 64), snippet: h.slice(p, p + 2 + 64) };
+    }
+  }
+  return null;
+}
+
 function realityFromCovenant(covenant) {
   const r = covenant?.enforcement_reality;
   if (r) return r;
@@ -44,7 +67,14 @@ export default function OnChainLockSection({ covenant }) {
   const spendable = covenant?.spendable;
   const spentTxId = covenant?.spent_tx_id ? String(covenant.spent_tx_id) : '';
   const reality = realityFromCovenant(covenant);
-  const involvesOracle = ORACLE_REALITIES.has(reality);
+  const redeemKind = String(covenant?.redeem_kind || '').toLowerCase();
+  // The disclosed oracle x-only pubkey COMMITTED into this covenant's on-chain redeem
+  // script (when the kind binds it). This is the strongest oracle disclosure: not just
+  // "the oracle is X" but "the chain's P2SH hash binds spend to exactly this key".
+  const boundOracle = ORACLE_BOUND_KINDS.has(redeemKind) ? firstPush32(redeemHex) : null;
+  // An oracle is relevant either because the reality category says so, or because the
+  // redeem script provably commits the oracle key (an on-chain-enforced oracle covenant).
+  const involvesOracle = ORACLE_REALITIES.has(reality) || !!boundOracle;
   const hasZk = ZK_REALITIES.has(reality);
   const circuitId = (typeof covenant?.custom_ui_config === 'object' ? covenant?.custom_ui_config?.circuit : null) || null;
   const inBrowser = circuitId && IN_BROWSER_PROVERS.has(circuitId);
@@ -142,7 +172,7 @@ export default function OnChainLockSection({ covenant }) {
           </Section>
         )}
 
-        {(vkeyPath || (involvesOracle && oracle.pubkey?.xonly_pubkey)) && (
+        {(vkeyPath || boundOracle || (involvesOracle && oracle.pubkey?.xonly_pubkey)) && (
           <Section icon={FileKey} title="Verification you can inspect">
             {vkeyPath && (
               <div>
@@ -160,6 +190,33 @@ export default function OnChainLockSection({ covenant }) {
                 {oracle.pubkey.message_format && <div className="text-[11px] text-gray-500 mt-1.5">Signs: <span className="font-mono text-gray-300">{oracle.pubkey.message_format}</span></div>}
               </div>
             )}
+            {boundOracle && (() => {
+              // Verify the key committed on-chain in THIS covenant's redeem script equals
+              // the disclosed oracle key. matches=null while the disclosed key is loading.
+              const disclosed = oracle.pubkey?.xonly_pubkey ? String(oracle.pubkey.xonly_pubkey).toLowerCase() : null;
+              const matches = disclosed ? boundOracle.pubkey === disclosed : null;
+              return (
+                <div className="mt-2">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    Oracle bound on-chain ({redeemKind})
+                  </div>
+                  <CopyChip text={boundOracle.pubkey} />
+                  <div className="text-[11px] text-gray-500 mt-1.5">
+                    Committed in this covenant&apos;s redeem script as <span className="font-mono text-gray-300 break-all">{boundOracle.snippet}</span> (<span className="font-mono text-gray-300">20</span> = push-32 · 32-byte x-only key), so the on-chain P2SH hash binds spend to exactly this key.
+                  </div>
+                  {matches === true && (
+                    <div className="text-[11px] mt-1 inline-flex items-center gap-1.5 text-kaspa-green">
+                      <Check size={12} /> Verified: matches the disclosed oracle public key above.
+                    </div>
+                  )}
+                  {matches === false && (
+                    <div className="text-[11px] mt-1 inline-flex items-center gap-1.5 text-amber-300">
+                      <AlertTriangle size={12} /> This covenant commits a DIFFERENT key than the live disclosed oracle - the oracle key may have rotated, or this covenant trusts another signer. Verify before sending funds.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </Section>
         )}
       </div>

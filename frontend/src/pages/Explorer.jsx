@@ -97,7 +97,7 @@ const CATEGORY_QUERY = {
   'Connect4': 'connect4|connect 4|connect-4',
   'ZK Proofs': 'zk|verifiable|range|merkle', 'ZK Oracle Tools': 'zk|oracle|range|merkle',
   'DeFi': 'defi|yield|compound', 'Yield & Compounding': 'yield|compound',
-  'Privacy Mixers': 'privacy|mixer|nullifier', 'Auctions': 'auction',
+  'Nullifier / Unlinkable': 'privacy|mixer|nullifier', 'Auctions': 'auction',
   'Lotteries & Pots': 'lottery|pot', 'Community Pools': 'community|pool',
   'Timelocks': 'timelock', 'Milestone Escrows': 'milestone|escrow',
   'Membership Claims': 'claim|membership', 'Prediction Pools': 'predict|bet|market',
@@ -123,7 +123,7 @@ const ALL_CATEGORIES = [
   // Specific games & mechanics (for granular filtering)
   'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe',
   // Advanced / specialized
-  'Yield & Compounding', 'Auctions', 'Lotteries & Pots', 'Privacy Mixers', 'Timelocks',
+  'Yield & Compounding', 'Auctions', 'Lotteries & Pots', 'Nullifier / Unlinkable', 'Timelocks',
   'Milestone Escrows', 'Membership Claims', 'Multi-sig', 'Prediction Pools', 'Custom Logic', 'P2SH Commitments', 'Vesting & Timelocks', 'Atomic Swaps', 'Multi-sig Safes'];
 
 // Animate a stat from 0 up to its REAL value once, the first time it loads (easeOutCubic).

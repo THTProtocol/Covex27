@@ -3188,18 +3188,6 @@ pub async fn bundle_deploy_handler(
     } else {
         return err("bundle deploy requires a_pubkey_hex + b_pubkey_hex (or use_dev_mode)".into());
     };
-    let treasury_pk = if let Some(t) = &req.treasury_pubkey_hex {
-        match decode_xonly_hex(t) {
-            Ok(x) => x,
-            Err(e) => return err(e),
-        }
-    } else {
-        match dec_addr_xonly(dev_wallets::treasury_address_for_network(&req.network)) {
-            Ok(x) => x,
-            Err(e) => return err(e),
-        }
-    };
-
     let pa = match hex::decode(req.preimage_a_hex.trim()) {
         Ok(b) => b,
         Err(e) => return err(format!("bad preimage_a_hex: {e}")),
@@ -3219,11 +3207,25 @@ pub async fn bundle_deploy_handler(
         return err("both a_kas and b_kas must be > 0 (a matched mini-pool has both sides)".into());
     }
     let t = a_s + b_s;
-    let fee_bps = req.fee_bps.unwrap_or(3000);
+    // Default OFF: no market fee unless the creator explicitly sets one. Covex takes nothing.
+    let fee_bps = req.fee_bps.unwrap_or(0);
     let rebate_bps = req.rebate_bps.unwrap_or(5000);
     if fee_bps + rebate_bps >= 10000 {
         return err("fee_bps + rebate_bps must be < 10000 (winners would be unfunded)".into());
     }
+    // Fee recipient: NEVER a Covex key. A nonzero fee REQUIRES an explicit creator-defined
+    // recipient (treasury_pubkey_hex), so Covex is never in the money path. A zero fee drops
+    // the fee leg entirely (MIN_LEG dust filter below), so the placeholder key is unused.
+    let treasury_pk = if let Some(t) = &req.treasury_pubkey_hex {
+        match decode_xonly_hex(t) {
+            Ok(x) => x,
+            Err(e) => return err(e),
+        }
+    } else if fee_bps > 0 {
+        return err("a market fee requires a creator-defined recipient; Covex takes no fee".into());
+    } else {
+        a_pk
+    };
     let fee = t * fee_bps / 10000;
     let remaining = t - fee; // = (1-f)T, integer-exact
     let ra = a_s * rebate_bps / 10000;
@@ -3439,7 +3441,7 @@ pub async fn create_market_handler(
         Ok(_) => return err("creator_address must be a 32-byte schnorr (q...) address".into()),
         Err(e) => return err(format!("invalid creator_address: {e}")),
     }
-    let fee_bps = req.fee_bps.unwrap_or(3000);
+    let fee_bps = req.fee_bps.unwrap_or(0); // default OFF; a creator fee is opt-in and never routes to Covex
     let rebate_bps = req.rebate_bps.unwrap_or(5000);
     if fee_bps + rebate_bps >= 10000 {
         return err("fee_bps + rebate_bps must be < 10000 (winners would be unfunded)".into());
@@ -3750,6 +3752,15 @@ pub async fn match_market_handler(
     if pairs == 0 {
         return err("need at least one open order on EACH side to match".into());
     }
+    // Route any creator-set market fee to the market CREATOR (never Covex). A market with a
+    // nonzero fee must have a resolvable creator x-only key, else build_bundle fails closed.
+    let fee_recipient: Option<String> = if m.fee_bps > 0 {
+        db::get_bundle_market_creator(&db, &req.market_id)
+            .and_then(|c| Address::try_from(c.as_str()).ok())
+            .map(|a| hex::encode(a.payload.as_slice()))
+    } else {
+        None
+    };
     let mut matches = Vec::new();
     for i in 0..pairs {
         let ao = &a_orders[i];
@@ -3763,7 +3774,7 @@ pub async fn match_market_handler(
             b_kas: bo.stake_sompi as f64 / 1e8,
             a_pubkey_hex: Some(ao.bettor_pubkey.clone()),
             b_pubkey_hex: Some(bo.bettor_pubkey.clone()),
-            treasury_pubkey_hex: None,
+            treasury_pubkey_hex: fee_recipient.clone(),
             preimage_a_hex: m.secret_a.clone(),
             preimage_b_hex: m.secret_b.clone(),
             min_sequence: MARKET_MIN_SEQ,

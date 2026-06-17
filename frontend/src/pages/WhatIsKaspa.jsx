@@ -225,7 +225,7 @@ export default function WhatIsKaspaPage() {
               { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
               { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },
               { icon: Code2, label: 'Primary Node', value: 'rusty-kaspa', sub: 'Production Rust implementation, high performance', badge: null },
-              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Live on the Toccata testnets (TN12 and TN10); mainnet via Toccata hard fork on June 30, 2026', badge: 'TN12 · TN10' },
+              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Live on the Toccata testnets (TN12 and TN10); mainnet via Toccata hard fork in the 2026 window (no confirmed day)', badge: 'TN12 · TN10' },
               { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
               { icon: FlaskConical, label: 'Active Testnets', value: 'Toccata TN12 + TN10', sub: 'SilverScript development and covenant testing networks', badge: 'ACTIVE' },
             ].map((s, i) => (

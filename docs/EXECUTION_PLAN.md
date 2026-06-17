@@ -80,7 +80,7 @@ take the pre-Toccata slot.** Only 2.1 (the relabel) is in-scope NOW, inside the 
   ~6 Kaspa-essential circuits real (merkle/range/timelock/utxo-ownership/pot_split/escrow_2party); kill
   or clearly mark the ~37 costume circuits (prebaked proof + vkey, no real proving key).
 
-## PHASE 3 — Mainnet readiness (Toccata, June 30)
+## PHASE 3 — Mainnet readiness (Toccata, 2026 window)
 - **3.1 ☑ Wallet-funded enforced deploy on mainnet.** DONE (commits 2038b3d backend + 8bce0ae
   frontend). New `prepare-deploy`/`submit-deploy`: the server builds the unsigned funding tx (locks
   the stake to the P2SH + aa20+redeem payload) and returns its sighash; the wallet signs it

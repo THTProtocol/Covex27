@@ -65,7 +65,7 @@ done.** Keys are server-only + gitignored (regenerate with `setup_live_zk.sh`).
   via a PSKT flow), route non-dev redeems through it too. Until then dev-key-in-browser is fully
   non-custodial; the custodial path is the labeled fallback.
 
-### 2.3 Mainnet go-live (Toccata, June 30)
+### 2.3 Mainnet go-live (Toccata, 2026 window)
 - Keep `COVEX_MAINNET_COVENANTS_ENABLED=false` until the indexer is proven HA on a mainnet node.
 - GATE 1 (indexer can't silently freeze) + GATE 2 (no value-bearing covenant before Covex is
   removable/licensed) — both now satisfiable given the trustless proof above.

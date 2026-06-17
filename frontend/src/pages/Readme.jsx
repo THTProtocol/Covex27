@@ -308,7 +308,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             <p className="text-xs text-gray-400 mt-3">Absolute (CLTV) and relative (CSV / BIP68) timelocks are also live and consensus-enforced, scored by Kaspa’s DAA.</p>
           </Card>
           <Card>
-            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, June 30 2026</div>
+            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, 2026 window</div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
               The <strong className="text-white">Toccata hard fork</strong> (KIP-16/17/20/21) adds the rest of the covenant
               toolkit to mainnet, including on-chain ZK-verifier opcodes, covenant lineage, and extended scripting. Covex is

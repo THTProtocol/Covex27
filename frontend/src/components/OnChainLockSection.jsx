@@ -16,7 +16,7 @@ import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 
 // Circuits with a real, working in-browser Groth16 prover. Mirrors TransparencyModal so the
 // "in-browser prover available" note is only shown when it is actually true.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership']);
 
 // Reality categories that genuinely involve the disclosed oracle (so the oracle pubkey is relevant).
 const ORACLE_REALITIES = new Set(['oracle-attested', 'hybrid', 'full-zk']);

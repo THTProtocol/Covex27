@@ -114,7 +114,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'cribbage_v1', name: 'Cribbage', description: '2-4 player peg-scoring + discard. Oracle counting. Per-turn timer. Reality: oracle-attested.', circuit: 'cribbage_v1', accent: '#FDA4AF', category: 'game', reality: 'oracle-attested' },
   { id: 'mahjong_v1', name: 'Mahjong (Riichi)', description: '4-player tile-matching with yaku scoring. VRF wall shuffle + oracle-attested. Per-turn timer. Reality: hybrid.', circuit: 'mahjong_v1', accent: '#C084FC', category: 'game', reality: 'hybrid' },
   // Shared game primitives (vision §4.3)
-  { id: 'vrf_dice_roll', name: 'VRF Dice Roll (Shared)', description: 'VRF: verifiable multi-face dice from committed seed + entropy. Reality: oracle-attested (full VRF zk planned). Artifacts: planned. Use cases: backgammon/yahtzee/risk/monopoly/catan dice fairness in Kaspa covenants. (vision §4.1 VRF, §4.3 shared)', circuit: 'vrf_dice_roll', accent: '#EC4899', category: 'game', variant: true, reality: 'oracle-attested' },
+  { id: 'vrf_dice_roll', name: 'VRF Dice Roll (Shared)', description: 'Full ZK: a verifiable dice roll forced by Poseidon(secret, public seed) - roll = (hash mod faces)+1, so no one can cherry-pick the result. Generated in your browser (the secret never leaves it) and verified fail-closed by the disclosed oracle. Use cases: backgammon/yahtzee/risk/monopoly/catan dice fairness in Kaspa covenants. (vision §4.1 VRF, §4.3 shared)', circuit: 'vrf_dice_roll', accent: '#EC4899', category: 'game', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Prove DAA-based relative timelock (using range on delta). Reality: hybrid. Use cases: time-locked covenants, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Prove script constraints (fee % <= max, pot split math, shares). Reality: hybrid. Use cases: enforce covenant rules, fee caps, pot returns without trusting off-chain. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Prove correct pot split (fees, returns, winner share). Reality: hybrid. Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'hybrid' },
@@ -150,7 +150,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'commit_reveal_vrf', name: 'Commit-Reveal with ZK (VRF)', description: 'Hide commit until reveal; prove correct reveal + VRF derivation. Reality: oracle-attested. Use cases: sealed-bid + fair reveal in Kaspa auctions/games. (vision §4.1)', circuit: 'commit_reveal_vrf', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'distributed_random', name: 'Distributed Randomness Beacon', description: 'Multiple parties contribute; ZK for correctness + aggregation. Reality: oracle-attested. Use cases: multi-party fair random for Kaspa DAOs/tourneys. (vision §4.1)', circuit: 'distributed_random', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'bls_signature', name: 'BLS Threshold Signature', description: 'Oracle-path (no artifacts yet): aggregate BLS signatures for multi-oracle consensus. M-of-N threshold without revealing individual keys. Artifacts planned for multi-oracle federation. Reality: oracle-attested. Use cases: decentralized oracle on Kaspa covenants. (vision §4.1, §4.7)', circuit: 'bls_threshold', accent: '#14B8A6', category: 'crypto', reality: 'oracle-attested' },
-  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Hybrid: nullifier derivation + oracle DB tracks spent nullifiers. Standalone circom source in zk/nullifier/ (not yet compiled to zkey). Reality: hybrid. Use cases: double-spend prevention in Kaspa privacy. (vision §4.1)', circuit: 'nullifier_generic', accent: '#FB923C', category: 'crypto', reality: 'hybrid' },
+  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Full ZK: prove a public nullifier and set anchor both derive from one hidden secret (nullifier = Poseidon(secret), anchor = Poseidon(secret, nullifier)), so a covenant can reject a re-used nullifier without learning the secret. Generated in your browser, verified fail-closed by the disclosed oracle (which also tracks the spent set). Use cases: double-spend prevention in Kaspa privacy. (vision §4.1)', circuit: 'nullifier_set', accent: '#FB923C', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'schnorr_batch', name: 'Schnorr Batch / Threshold', description: 'Batch or threshold Schnorr knowledge. Reality: oracle-attested. Use cases: efficient multi-sig on Kaspa. (vision §4.1)', circuit: 'schnorr_batch', accent: '#6366F1', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'ring_signature', name: 'Ring Signature / Linkable', description: 'Anonymous but linkable (for anti-sybil) ring sigs. Reality: oracle-attested. Use cases: private voting/DAO actions on Kaspa. (vision §4.1)', circuit: 'ring_sig', accent: '#6366F1', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'shuffle_proof', name: 'Shuffle Proof (General)', description: 'ZK shuffle for decks or arbitrary lists. Reality: oracle-attested (RISC0). Use cases: fair random in games + private ordering. (vision §4.1)', circuit: 'shuffle_proof', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
@@ -160,7 +160,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   // KASPA and COVENANT NATIVE (detailed section 4.2, 20 plus. Highest priority)
   // "the why Covex on Kaspa" layer. UTXO, script, timelock, state, replay, fees, silverc.
   // ═══════════════════════════════════════════
-  { id: 'utxo_ownership', name: 'UTXO Ownership Proof', description: 'Oracle-path (no artifacts yet): prove control of a specific UTXO (address + amount) via Schnorr signature. Used for covenant spend authorization. High priority for artifacts. Reality: oracle-attested. Use cases: binding covenants to real Kaspa UTXOs. (vision §4.2)', circuit: 'utxo_ownership', accent: '#06B6D4', category: 'kaspa', reality: 'oracle-attested' },
+  { id: 'utxo_ownership', name: 'UTXO Note Proof', description: 'Full ZK: prove knowledge of the full Poseidon-committed UTXO note (pubkey x/y + amount + signature parts) behind a public utxo_hash, without revealing it. Generated in your browser, verified fail-closed by the disclosed oracle. Honest bound: this opens the commitment, it does not by itself verify a Schnorr signature, so it is a note-binding primitive (a separate signature circuit covers spend authorization). Use cases: binding covenants to committed Kaspa notes. (vision §4.2)', circuit: 'basic_utxo_ownership', accent: '#06B6D4', category: 'kaspa', reality: 'full-zk', artifacts: true },
   { id: 'utxo_ownership_schnorr', name: 'UTXO Ownership + Amount Commitment', description: 'Schnorr + Pedersen amount hidden + range. Reality: hybrid (planned). Use cases: private balance ownership proofs for Kaspa covenants. (vision §4.2)', circuit: 'utxo_own_commit', accent: '#06B6D4', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'utxo_spend_auth', name: 'UTXO Spend Authority (N-of-M)', description: 'Oracle-path (no artifacts yet): enhanced multi-party UTXO spend. Prove N-of-M UTXO holders authorize a spend. Combines utxo_ownership + multisig_threshold. Reality: oracle-attested. Use cases: complex multi-owner Kaspa covenant unlocks. (vision §4.2)', circuit: 'utxo_spend_auth', accent: '#06B6D4', category: 'kaspa', variant: true, reality: 'oracle-attested' },
   { id: 'script_hash_match', name: 'Script Hash Validation', description: 'Oracle-path (no artifacts yet): prove a particular locking script (script_hash) was used. Verify covenant constraints on-chain. SilverScript -> Kaspa Script attestation. Core covenant primitive. Reality: oracle-attested. Use cases: prove exact SilverScript payload on Kaspa. (vision §4.2)', circuit: 'script_hash_match', accent: '#84CC16', category: 'kaspa', reality: 'oracle-attested' },
@@ -319,18 +319,21 @@ const ZK_CIRCUIT_TYPES_RAW = [
 
 // HONEST REALITY (build-up policy). A circuit may only advertise 'full-zk' if it ships a served
 // proving key (.zkey) AND a working in-browser prover, verified valid-accept + tamper-reject.
-// FOUR circuits qualify today: merkle_membership, age_verification, escrow_2party, and range_proof
-// (range_proof computes its MiMC7(value) commitment in pure JS, like age, then fullProves the served
-// wasm+zkey; node-verified). Every other 'full-zk' label without a working prover is honestly
-// downgraded to 'oracle-attested' until its prover is wired + verified. The PREFERRED fix for an
-// overclaim is to BUILD the prover (then add the id here), not to relabel it down.
-const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof']);
+// SEVEN circuits qualify today: merkle_membership, age_verification, escrow_2party, range_proof,
+// vrf_dice_roll, nullifier_set, utxo_ownership (basic_utxo_ownership artifacts). age + range_proof
+// compute their MiMC7 commitment in pure JS; the three Poseidon circuits compute their commitment
+// via poseidon-lite (byte-identical to circomlib, no wasm) - all then fullProve the served wasm+zkey,
+// node-verified valid-accept + tamper-reject. Every other 'full-zk' label without a working prover is
+// honestly downgraded to 'oracle-attested' until its prover is wired + verified. The PREFERRED fix for
+// an overclaim is to BUILD the prover (then add the id here), not to relabel it down.
+const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership']);
 // Circuits with a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
-// age_verification + range_proof compute their MiMC7 commitment in-browser via a pure-JS MiMC7.
+// age_verification + range_proof compute their MiMC7 commitment in-browser via a pure-JS MiMC7;
+// vrf_dice_roll + nullifier_set + utxo_ownership compute their Poseidon commitment via poseidon-lite.
 // Kept in sync with VERIFIED_FULL_ZK (and OnChainLockSection.jsx / TransparencyModal.jsx).
 // range_collateral shares the range_proof circuit but its generator is not separately wired yet,
 // so it stays oracle-attested until that generator is wired.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof']);
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
@@ -1358,6 +1361,95 @@ contract VisualCovenant {
       setZkGenError(`In-browser proof generation failed (${e.message || e}). Loaded the bundled valid age proof instead.`);
       setOracleProof(bundledAgeProof);
       setOraclePublicInputs('1,9200635592700100900023685259419851615264527311517926356835164316867165626887,2026,18');
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real VRF Dice Roll proof in the browser. The roll is DERIVED from
+  // Poseidon(secret, seed): roll = (h mod faces) + 1, q = floor(h / faces). The circuit
+  // asserts q*faces + (roll-1) === h and 1 <= roll <= faces, so the prover cannot pick a
+  // favourable roll - it is forced by a hidden secret + the public seed. Public signals:
+  // [seed, roll]. Poseidon computed in pure JS (poseidon-lite, byte-identical to circomlib),
+  // so the secret never leaves the browser. Verified end-to-end (accept + tamper-reject).
+  const generateVrfDiceRoll = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const { poseidon2 } = await import('poseidon-lite');
+      const wasm = '/zk/vrf_dice_roll/vrf_dice_roll.wasm';
+      const zkey = '/zk/vrf_dice_roll/vrf_dice_roll_final.zkey';
+      const faces = 6n;
+      // A fresh-ish secret (kept private) + a public seed; vary the secret per call.
+      const secret = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''));
+      const seed = 999n;
+      const h = poseidon2([secret, seed]);
+      const roll = (h % faces) + 1n;
+      const q = (h - (roll - 1n)) / faces;
+      const input = { secret: secret.toString(), seed: seed.toString(), roll: roll.toString(), q: q.toString() };
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      setOracleProof(''); setOraclePublicInputs('');
+      setZkGenError(`In-browser VRF dice proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real Nullifier Set proof in the browser. nullifier = Poseidon(secret),
+  // merkle_root = Poseidon(secret, nullifier). The proof binds a (public) nullifier and set
+  // anchor to a single hidden secret, so a covenant can reject a re-used nullifier without ever
+  // learning the secret. Public signals: [spent(=0), nullifier, merkle_root]. The oracle's spent
+  // DB still tracks the consumed set; this proof guarantees the derivation is honest.
+  const generateNullifierSet = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const { poseidon1, poseidon2 } = await import('poseidon-lite');
+      const wasm = '/zk/nullifier_set/nullifier_set.wasm';
+      const zkey = '/zk/nullifier_set/nullifier_set_final.zkey';
+      const secret = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''));
+      const nullifier = poseidon1([secret]);
+      const merkle_root = poseidon2([secret, nullifier]);
+      const input = { nullifier: nullifier.toString(), merkle_root: merkle_root.toString(), secret: secret.toString() };
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      setOracleProof(''); setOraclePublicInputs('');
+      setZkGenError(`In-browser nullifier proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real UTXO-note commitment opening proof in the browser. utxo_hash =
+  // Poseidon(pubkey_x, pubkey_y, amount_commit, owner_sig_r, owner_sig_s). The proof shows the
+  // prover knows the full pre-image of a public utxo_hash without revealing it. Honest bound:
+  // this OPENS the Poseidon commitment - it does not itself verify a Schnorr signature, so it is
+  // a note-binding primitive, not standalone spend authorization. Public signals: [valid(=1), utxo_hash].
+  const generateUtxoOwnership = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const { poseidon5 } = await import('poseidon-lite');
+      const wasm = '/zk/basic_utxo_ownership/basic_utxo_ownership.wasm';
+      const zkey = '/zk/basic_utxo_ownership/basic_utxo_ownership_final.zkey';
+      // A demo note (all five parts are private witnesses; nothing but the hash is public).
+      const x = 11n, y = 22n, amt = 33n, r = 44n, s = 55n;
+      const utxo_hash = poseidon5([x, y, amt, r, s]);
+      const input = {
+        pubkey_x: x.toString(), pubkey_y: y.toString(), amount_commit: amt.toString(),
+        owner_sig_r: r.toString(), owner_sig_s: s.toString(), utxo_hash: utxo_hash.toString(),
+      };
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      setOracleProof(''); setOraclePublicInputs('');
+      setZkGenError(`In-browser UTXO note proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
     }
     setZkGenerating(false);
   };
@@ -2446,7 +2538,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> Four circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification, 2-party escrow and range proof. Others (tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; hybrid/game circuits fall back to oracle attestation.
+              <strong className="text-amber-200">Technical reality:</strong> Seven circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set and UTXO note proof (the last three compute their Poseidon commitment in pure JS via poseidon-lite). Others (tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; hybrid/game circuits fall back to oracle attestation.
               <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts all circuit types and returns a real SHA256-based signed outcome.
               The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc matures.
             </div>
@@ -4040,6 +4132,45 @@ ${gameMeta.outcomeBranches}
                   <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
                   {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Age Proof (snarkjs + MiMC)'}
                 </button>
+              ) : gameType === 'vrf_dice_roll' ? (
+                <button
+                  onClick={generateVrfDiceRoll}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60'
+                      : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating VRF Proof...' : 'Generate Real VRF Dice Proof (snarkjs + Poseidon)'}
+                </button>
+              ) : gameType === 'nullifier_set' ? (
+                <button
+                  onClick={generateNullifierSet}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
+                      : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating Nullifier Proof...' : 'Generate Real Nullifier Proof (snarkjs + Poseidon)'}
+                </button>
+              ) : gameType === 'utxo_ownership' ? (
+                <button
+                  onClick={generateUtxoOwnership}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60'
+                      : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating UTXO Proof...' : 'Generate Real UTXO Note Proof (snarkjs + Poseidon)'}
+                </button>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
                   <Info size={14} />
@@ -4060,7 +4191,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
+              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
             </div>
 
             <button

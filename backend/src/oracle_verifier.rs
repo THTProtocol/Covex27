@@ -132,6 +132,15 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "escrow_2party",
         VerifierSpec::StrictGroth16 { script: "verify_escrow_2party.js", prefix: "covex_escrow" },
     );
+    // utxo_ownership is the frontend catalog alias for basic_utxo_ownership (same served
+    // artifacts + verify script). basic_utxo_ownership, nullifier_set and vrf_dice_roll are
+    // pinned StrictGroth16 in the dedicated block further down; this alias is registered here so
+    // the catalog id resolves to the same fail-closed verifier. These ids are also REMOVED from
+    // the crypto_attested / ownership_attested arrays below so the later loops cannot re-attest.
+    m.insert(
+        "utxo_ownership",
+        VerifierSpec::StrictGroth16 { script: "verify_basic_utxo_ownership.js", prefix: "covex_utxo" },
+    );
 
     // === Hybrids: Groth16 when supplied, else oracle-attested (current behavior) ===
     m.insert(
@@ -230,7 +239,8 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // Crypto primitives (current + vision 4.1 expansions)
     let crypto_attested = [
         "schnorr_knowledge", "pedersen_commitment", "vrf_random", "vrf_shuffle",
-        "bls_signature", "nullifier_set", "vrf_dice_roll", "vrf_card_deal", "dao_multisig",
+        "bls_signature", "vrf_card_deal", "dao_multisig",
+        // NOTE: nullifier_set + vrf_dice_roll are registered above as StrictGroth16 (full-zk), not here.
         // vision expansions
         "poseidon_commit", "sha256_preimage", "blake3_commit", "merkle_multi_membership",
         "set_accumulator", "ecdsa_knowledge", "ring_signature", "adaptor_sig",
@@ -243,7 +253,8 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Ownership / Script / Timelock / Kaspa-native (vision 4.2 highest priority)
     let ownership_attested = [
-        "utxo_ownership", "script_hash_match", "timelock_relative", "multisig_threshold",
+        "script_hash_match", "timelock_relative", "multisig_threshold",
+        // NOTE: utxo_ownership + basic_utxo_ownership are registered above as StrictGroth16 (full-zk), not here.
         "state_transition", "vesting_schedule", "replay_protection", "utxo_spend_auth",
         "covenant_state_hash", "script_constraint_proof",
         // vision expansions (more ownership, script, state, cross)
@@ -873,7 +884,9 @@ mod tests {
         assert!(matches!(r.get("privacy_mixer_v1"), Some(VerifierSpec::HybridGroth16 { .. })));
         assert!(matches!(r.get("verifiable"), Some(VerifierSpec::Risc0Stub { .. })));
         assert!(matches!(r.get("wasm_execution"), Some(VerifierSpec::WasmStub { .. })));
-        assert!(matches!(r.get("utxo_ownership"), Some(VerifierSpec::Attested)));
+        // utxo_ownership is the catalog alias for basic_utxo_ownership: now StrictGroth16
+        // (fail-closed Poseidon-note proof with a working in-browser prover + served vkey).
+        assert!(matches!(r.get("utxo_ownership"), Some(VerifierSpec::StrictGroth16 { .. })));
         assert!(matches!(r.get("liquidation_threshold"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("price_kas"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("custom"), Some(VerifierSpec::Attested)));

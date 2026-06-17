@@ -44,7 +44,7 @@ function realityFromCovenant(covenant) {
   return 'decorative';
 }
 
-function CopyChip({ text, mono = true }) {
+export function CopyChip({ text, mono = true }) {
   const [done, setDone] = useState(false);
   if (!text) return null;
   return (
@@ -59,7 +59,7 @@ function CopyChip({ text, mono = true }) {
   );
 }
 
-function Section({ icon: Icon, title, children, accent }) {
+export function Section({ icon: Icon, title, children, accent }) {
   return (
     <div className="rounded-xl border border-white/[0.07] light:border-slate-200 bg-white/[0.02] light:bg-white p-3.5">
       <div className="flex items-center gap-2 mb-2">

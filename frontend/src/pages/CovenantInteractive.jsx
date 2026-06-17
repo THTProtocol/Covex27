@@ -36,6 +36,7 @@ import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
+import OnChainLockSection from '../components/OnChainLockSection';
 import { MarketView } from './Markets';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -974,6 +975,11 @@ export default function CovenantInteractive() {
               </div>
             </div>
           )}
+
+          {/* On-chain lock + verification, always visible on the page body (no modal needed):
+              full script_hex, P2SH structural verdict (aa20...87), redeem_script_hex, the Groth16
+              vkey link, and the oracle x-only pubkey. Same honest disclosure as TransparencyModal. */}
+          {covenant && <OnChainLockSection covenant={covenant} />}
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">

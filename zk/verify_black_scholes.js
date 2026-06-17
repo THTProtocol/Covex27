@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-"use strict"; const fs=require("fs");
-const proofFile=process.argv[2]; if(!proofFile){console.log(JSON.stringify({valid:false}));process.exit(1);}
-const d=JSON.parse(fs.readFileSync(proofFile)); const hasBody = !!(d.proof && (d.proof.pi_a || d.proof.A));
-console.log(JSON.stringify({valid: true, note: hasBody ? "hybrid-groth" : "attested (black_scholes stub)"}));
+"use strict";
+// SECURITY (C1 hygiene): this script has NO real circom circuit + committed vkey.
+// It used to print {valid:true} for ANY input, which - if this circuit were ever
+// registered as Strict/Hybrid in oracle_verifier.rs - would let the oracle sign a
+// forged outcome. `black_scholes` is registered Attested (the oracle refuses to
+// sign it), so this script is currently unreachable, but we fail closed
+// unconditionally so it can never become a rubber-stamp. (Mirror of verify_attested.js.)
+console.log(JSON.stringify({
+  valid: false,
+  error: "black_scholes is an attested stub, not a cryptographic verifier",
+}));
+process.exit(0);

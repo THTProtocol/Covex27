@@ -1,6 +1,14 @@
 #!/usr/bin/env node
-"use strict"; const fs = require("fs");
-const pf = process.argv[2]; if (!pf) { console.log(JSON.stringify({valid:false})); process.exit(1); }
-let data; try { data = JSON.parse(fs.readFileSync(pf)); } catch(e){ console.log(JSON.stringify({valid:false,error:e.message})); process.exit(1); }
-const proof = data.proof || data; const has = !!(proof && (proof.pi_a || proof.A));
-console.log(JSON.stringify({ valid: true, note: has ? "hybrid collateral" : "attested (collateral_liquidation stub)" }));
+"use strict";
+// SECURITY (C1 hygiene): this script has NO real circom circuit + committed vkey.
+// It used to print {valid:true} for ANY input, which - if this circuit were ever
+// registered as Strict/Hybrid in oracle_verifier.rs - would let the oracle sign a
+// forged outcome. `collateral_liquidation` is not registered at all (the oracle
+// refuses to sign unregistered circuits), so this script is currently unreachable,
+// but we fail closed unconditionally so it can never become a rubber-stamp.
+// (Mirror of verify_attested.js.)
+console.log(JSON.stringify({
+  valid: false,
+  error: "collateral_liquidation is an attested stub, not a cryptographic verifier",
+}));
+process.exit(0);

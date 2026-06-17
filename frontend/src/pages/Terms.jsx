@@ -172,7 +172,10 @@ export default function Terms() {
             generated wallet) in your own browser storage; this never leaves your device except as a
             signature you authorize. Treat any locally stored key material as you would cash, and clear
             it on shared or untrusted devices. Wallet extensions and the Kaspa network are independent
-            third parties governed by their own policies.
+            third parties governed by their own policies. See the full{' '}
+            <Link to="/privacy" className="text-kaspa-green hover:underline">Privacy Policy</Link>{' '}
+            for how the Platform processes IP addresses (rate limiting and geographic restriction),
+            indexes public wallet addresses, and stores operational data you publish.
           </p>
         </section>
 

@@ -25,6 +25,7 @@ const Pricing = lazy(() => import('./pages/Pricing'));
 const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary'));
 const AdvancedComposer = lazy(() => import('./pages/AdvancedComposer'));
 const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
 const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));
 const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
@@ -302,6 +303,7 @@ export default function App() {
               <Route path="/kaspa" element={<WhatIsKaspaPage />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
               {/* The old decorative /deploy is gone: every deploy is now the trustless,
                   script-enforced (P2SH) flow. /deploy redirects to it. */}
               <Route path="/deploy" element={<Navigate to="/deploy/enforced" replace />} />
@@ -352,6 +354,8 @@ export default function App() {
                 <Link to="/templates" className="hover:text-kaspa-green transition-colors">Templates</Link>
                 <span className="mx-2 opacity-30">|</span>
                 <Link to="/terms" className="hover:text-kaspa-green transition-colors">Terms</Link>
+                <span className="mx-2 opacity-30">|</span>
+                <Link to="/privacy" className="hover:text-kaspa-green transition-colors">Privacy</Link>
               </div>
               <LiveStatus />
             </div>

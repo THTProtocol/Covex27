@@ -114,7 +114,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
             Second player matches within 5 minutes or funds return automatically.<br/>
             10 minute clocks per player. Resign, timeout or checkmate ends it.<br/>
             Winner gets pot minus 2% (goes to creator address to sustain the arena).<br/>
-            Every move verifiable with chess_v1 ZK circuit. Oracle detects lies.
+            Server-authoritative engine enforces legal moves; the outcome is attested by the disclosed Covex oracle (BIP340 Schnorr). No zero-knowledge proof of moves.
           </div>
           <div style="margin-top:20px">
             <button onclick="window.parent.postMessage({type:'COVENANT_EXECUTE'},'*')" class="btn" style="font-size:16px;padding:16px 36px">Play the 10min Arena (chess.com style)</button>

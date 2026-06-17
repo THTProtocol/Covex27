@@ -37,6 +37,7 @@ import { LifeBuoy } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
 import OnChainLockSection from '../components/OnChainLockSection';
+import HonestLimits from '../components/HonestLimits';
 import { MarketView } from './Markets';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
@@ -951,7 +952,7 @@ export default function CovenantInteractive() {
                   {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
                 </p>
                 <p className="text-xs text-emerald-400/70">
-                  {isChess ? 'All receiving addresses, fees, timers, ZK circuit, oracle, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
+                  {isChess ? 'All receiving addresses, fees, timers, the disclosed oracle, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
                 </p>
               </div>
             </div>
@@ -982,13 +983,19 @@ export default function CovenantInteractive() {
               vkey link, and the oracle x-only pubkey. Same honest disclosure as TransparencyModal. */}
           {covenant && <OnChainLockSection covenant={covenant} />}
 
+          {/* Always-visible honest limits for EVERY covenant kind (no click, no modal):
+              primitive, oracle/zk, and every game arena (chess + the rest) flow through this
+              body. Games get the server-authoritative + oracle-attested (not ZK) copy; the
+              prediction-market path renders its own HonestLimits in MarketDetail. */}
+          {covenant && <HonestLimits covenant={covenant} kind={gameType ? 'game' : undefined} />}
+
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
               {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Covenant Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
             </h3>
             <p className="text-gray-300 leading-relaxed">
               {isChess 
-                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. The experience is fully non custodial. Every move can be proven using the chess v1 zero knowledge circuit. The oracle detects any lies or invalid results and can reject them. All information is transparent and recorded on chain.'
+                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. The experience is fully non custodial. The game runs on a server authoritative engine and the outcome is attested by the disclosed Covex oracle using a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
                 : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
@@ -1029,7 +1036,7 @@ export default function CovenantInteractive() {
                   <strong>Stake:</strong> Any equal amount (min/max per config). Second player matches or auto-refund in 5 min.<br/>
                   <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends game.<br/>
                   <strong>Payout:</strong> Winner takes full pot minus 2% fee (fee to creator address to sustain future games).<br/>
-                  <strong>Verification:</strong> chess_v1 ZK circuit (legal moves, terminal conditions) + oracle attestation with lie detection.<br/>
+                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions); the final outcome is attested by the disclosed Covex oracle with a BIP340 Schnorr signature. No zero-knowledge proof of moves.<br/>
                   <strong>Non-custodial:</strong> All stakes and payouts direct to covenant addresses on Kaspa. Fully on-chain and verifiable.
                 </>
               ) : (
@@ -1164,7 +1171,7 @@ export default function CovenantInteractive() {
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Stake</td><td className="p-2">Any amount. Match exactly or auto return in 5 min</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">End</td><td className="p-2">Resign, timeout or checkmate</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Payout</td><td className="p-2">Winner gets pot minus 2% to creator (sustains arena)</td></tr>
-                              <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">chess_v1 ZK + oracle lie detection</td></tr>
+                              <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome oracle-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
                           <div className="text-[10px] text-emerald-300/70 mt-1 text-center">Transparent • Non-custodial • Direct to covenant on Kaspa</div>
@@ -1465,7 +1472,7 @@ export default function CovenantInteractive() {
                     Resign, timeout or checkmate ends the game.<br/><br/>
                     Winner receives the pot minus 2 percent. The 2 percent goes to the creator address to keep the arena running for the next games.<br/><br/>
                     All stakes are sent directly to the covenant address on Kaspa. Fully non-custodial.<br/><br/>
-                    The chess v1 ZK circuit plus the oracle detects any lie or invalid play and can reject bad results.
+                    The game runs on a server authoritative engine that enforces legal moves, and the final outcome is attested by the disclosed Covex oracle with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
                   </div>
 
                   <button

@@ -12,6 +12,16 @@ import TransparencyModal from './TransparencyModal';
  */
 export function trustInfo(covenant) {
   const reality = covenant?.enforcement_reality;
+  // Parimutuel markets are a hybrid: custody and every payout leg are on-chain
+  // (P2SH, hashlock + winner key), but WHICH outcome wins is set by the single
+  // committed secret the disclosed oracle reveals. Never claim "no trust".
+  if (covenant?.covenant_type === 'prediction-market') {
+    return {
+      kind: 'hybrid',
+      label: 'On-chain custody, oracle-resolved',
+      desc: 'Every payout leg is script-locked on-chain, but which outcome wins is decided by the secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless.',
+    };
+  }
   if (reality === 'on-chain') {
     return {
       kind: 'onchain',

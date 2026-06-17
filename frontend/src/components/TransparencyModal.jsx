@@ -27,6 +27,8 @@ const REALITY_UI = {
     what: 'A real Groth16 zero-knowledge proof. You prove a statement is true without revealing the secret behind it. The proof is verified off-chain by the disclosed Covex oracle (the trusted verifier), and a valid proof gates the spend. It cannot be faked, but the oracle is the trust boundary, not the chain itself.' },
   hybrid: { name: 'Hybrid', accent: '#60a5fa', Icon: Link2,
     what: 'A required Groth16 proof is verified fail-closed, and a disclosed oracle co-signs the consensus-required input. Both must check out for the covenant to release.' },
+  market: { name: 'On-chain custody, oracle-resolved', accent: '#60a5fa', Icon: Link2,
+    what: 'A parimutuel market. Custody and every payout leg are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but which outcome wins is set by the single committed secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless: you trust the named oracle to reveal the secret for the true result.' },
   'oracle-attested': { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,
     what: 'A disclosed Covex oracle attests the outcome with a BIP340 Schnorr signature. Your covenant can verify that signature on-chain at spend time. You trust the named oracle for the input, not Covex with custody.' },
   decorative: { name: 'Metadata only', accent: '#9ca3af', Icon: ShieldQuestion,
@@ -34,6 +36,8 @@ const REALITY_UI = {
 };
 
 function realityFromCovenant(covenant) {
+  // Markets get their own honest framing: on-chain custody, oracle-resolved outcome.
+  if (covenant?.covenant_type === 'prediction-market') return 'market';
   const r = covenant?.enforcement_reality;
   if (r && REALITY_UI[r]) return r;
   // honest fallback matching TrustBadge.trustInfo
@@ -77,7 +81,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
   const circuitId = circuit?.id || (typeof covenant?.custom_ui_config === 'object' ? covenant?.custom_ui_config?.circuit : null) || null;
   const title = circuit?.name || covenant?.name || covenant?.covenant_type || 'Covenant';
 
-  const involvesOracle = reality === 'oracle-attested' || reality === 'hybrid' || reality === 'full-zk';
+  const involvesOracle = reality === 'oracle-attested' || reality === 'hybrid' || reality === 'full-zk' || reality === 'market';
   const hasZk = reality === 'full-zk' || reality === 'hybrid';
   const inBrowser = circuitId && IN_BROWSER_PROVERS.has(circuitId);
   const vkeyPath = hasZk && circuitId ? `/zk/${circuitId}/${circuitId}_vkey.json` : null;
@@ -155,6 +159,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
               </p>
             )}
             {reality === 'hybrid' && <p>The Groth16 proof is verified fail-closed by the oracle (a missing or invalid proof is rejected), and the disclosed oracle then co-signs the consensus-required input so the covenant can release.</p>}
+            {reality === 'market' && <p>Each funded leg is a P2SH covenant: at spend time Kaspa nodes enforce that only the matching hashlock preimage plus the winner&apos;s signature can move it. The disclosed Covex oracle decides the outcome by revealing one committed secret (single-secret policy) - the chain enforces custody and payout, the oracle is the trust boundary for which side wins.</p>}
             {reality === 'oracle-attested' && <p>The Covex oracle signs <span className="font-mono text-[11px] text-gray-200 light:text-slate-700">covex-oracle:{'{id}'}:{'{outcome}'}:{'{ts}'}</span> with a BIP340 key. Your covenant verifies that signature on-chain (OpCheckSig) at spend, so you only have to trust the disclosed oracle for the input.</p>}
             {reality === 'decorative' && <p>Nothing enforces this on-chain. It is a recorded marker only. Treat the stated logic as a label, not a guarantee.</p>}
           </Section>

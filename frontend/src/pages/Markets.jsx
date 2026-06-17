@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { signMarketResolve } from '../lib/ownership';
 import HonestLimits from '../components/HonestLimits';
+import TrustBadge from '../components/TrustBadge';
 import {
   TrendingUp, ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
   ExternalLink, Layers, Check, Loader2, Coins,
@@ -25,11 +26,16 @@ const fmtKickoff = (s) => {
   catch { return s; }
 };
 
-function EnforcementBadge() {
+// The honest market badge: the shared, pressable TrustBadge driven by the market's
+// real reality (on-chain custody, oracle-resolved outcome). Pressing it opens the
+// TransparencyModal, which surfaces the oracle-resolution trust boundary. Never a
+// bare green "On-chain enforced" span - the outcome is decided by the oracle's reveal.
+function EnforcementBadge({ size = 'md', covenant }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 border border-emerald-500/25 text-emerald-300">
-      <ShieldCheck size={12} /> On-chain enforced
-    </span>
+    <TrustBadge
+      size={size}
+      covenant={{ covenant_type: 'prediction-market', enforcement_reality: 'hybrid', network: net(), ...(covenant || {}) }}
+    />
   );
 }
 
@@ -136,7 +142,7 @@ function MarketsList() {
                 <span className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-white">{m.outcome_b}</span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-gray-400">
-                <EnforcementBadge />
+                <EnforcementBadge size="sm" />
                 {m.kickoff_utc && <span className="inline-flex items-center gap-1"><Clock size={11} /> {fmtKickoff(m.kickoff_utc)}</span>}
               </div>
             </Link>
@@ -229,7 +235,7 @@ function MarketDetail({ id }) {
             : <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green"><span className="w-1.5 h-1.5 rounded-full bg-kaspa-green zk-live-glow" /> Open</span>}
         </div>
         <div className="relative flex flex-wrap items-center gap-3 text-[12px] text-gray-300">
-          <EnforcementBadge />
+          <EnforcementBadge covenant={{ name: book.question, network: market.network }} />
           {market.kickoff_utc && <span className="inline-flex items-center gap-1"><Clock size={12} className="text-kaspa-green" /> {fmtKickoff(market.kickoff_utc)}</span>}
           {market.source_url && <a href={market.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-kaspa-green">Source <ExternalLink size={11} /></a>}
         </div>
@@ -283,8 +289,9 @@ function MarketDetail({ id }) {
         </p>
       </div>
 
-      {/* Always-visible honest limits for the prediction-market covenant kind (no click). */}
-      <HonestLimits covenant={{ enforcement_reality: 'on-chain', covenant_type: 'prediction-market' }} kind="market" />
+      {/* Always-visible honest limits for the prediction-market covenant kind (no click).
+          Reality is hybrid: on-chain custody + payout, oracle-resolved outcome - never bare 'on-chain'. */}
+      <HonestLimits covenant={{ enforcement_reality: 'hybrid', covenant_type: 'prediction-market' }} kind="market" />
 
       {/* Place a bet */}
       {!resolved && (

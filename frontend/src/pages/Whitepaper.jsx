@@ -41,14 +41,14 @@ const SECTIONS = [
       "Covex is explicit about what is trustless and what is not.",
       "Custody is fully trustless: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet.",
       "Discovery and display are trustless in substance: every listed covenant is a real on-chain object; nothing is fabricated. The honesty gate on mainnet enforces this.",
-      "Resolution is currently oracle-assisted: a small set of circuits (merkle_membership, escrow_2party, age_verification) verify a real Groth16 proof fail-closed before the oracle co-signs; every other outcome is oracle-attested. In all cases the oracle's signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. This is the one trusted component today, and it is disclosed, not hidden.",
+      "Resolution is currently oracle-assisted: four circuits (merkle_membership, escrow_2party, age_verification, range_proof) verify a real Groth16 proof fail-closed before the oracle co-signs; every other outcome is oracle-attested. In all cases the oracle's signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. This is the one trusted component today, and it is disclosed, not hidden.",
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
     ],
   },
   {
     id: 'roadmap', n: '5 · Roadmap to trustlessness',
     body: [
-      "Toccata's KIP-16 lets covenants verify proofs on-chain. Covex's resolution layer is built to migrate onto it: the circuits that verify fail-closed today (merkle_membership, escrow_2party, age_verification) move first to on-chain Groth16 verification, and the other compiled circuits (range, timelock, pot-split, VRF) follow as their proving keys and an MPC ceremony ship; game logic moves to RISC Zero STARK guests, which need no trusted setup.",
+      "Toccata's KIP-16 lets covenants verify proofs on-chain. Covex's resolution layer is built to migrate onto it: the circuits that verify fail-closed today (merkle_membership, escrow_2party, age_verification, range_proof) move first to on-chain Groth16 verification, and the other compiled circuits (timelock, pot-split, VRF) follow as their proving keys and an MPC ceremony ship; game logic moves to RISC Zero STARK guests, which need no trusted setup.",
       "As that migration completes, the oracle's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
       "Beyond resolution: multi-oracle threshold signing for whatever remains attested, a real MPC ceremony or STARK paths to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.",
     ],
@@ -96,7 +96,7 @@ export default function Whitepaper() {
         </div>
         <div>
           <h1 className="text-3xl font-black text-white">Covex Whitepaper</h1>
-          <p className="text-sm text-gray-400">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-15</p>
+          <p className="text-sm text-gray-400">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-17</p>
         </div>
       </div>
 

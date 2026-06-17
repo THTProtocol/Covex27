@@ -94,9 +94,9 @@ export default function Whitepaper() {
         <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">
           <FileText size={22} className="text-kaspa-green" />
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white">Covex Whitepaper</h1>
-          <p className="text-sm text-gray-400">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-17</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-black text-white">Covex Whitepaper</h1>
+          <p className="text-sm text-gray-400 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-17</p>
         </div>
       </div>
 
@@ -138,8 +138,8 @@ export default function Whitepaper() {
             ['rusty-kaspa node & SDK', 'https://github.com/kaspanet/rusty-kaspa'],
           ].map(([label, url]) => (
             <a key={url} href={url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-gray-300 hover:text-kaspa-green rounded-lg px-2 py-1 -mx-2 border border-transparent hover:border-kaspa-green/30 hover:bg-kaspa-green/[0.05] hover:-translate-y-px transition-all">
-              <ExternalLink size={11} className="text-kaspa-green" /> {label}
+              className="inline-flex items-start gap-1.5 text-gray-300 hover:text-kaspa-green rounded-lg px-2 py-1 -mx-2 border border-transparent hover:border-kaspa-green/30 hover:bg-kaspa-green/[0.05] hover:-translate-y-px transition-all">
+              <ExternalLink size={11} className="text-kaspa-green shrink-0 mt-0.5" /> <span className="break-words min-w-0">{label}</span>
             </a>
           ))}
         </div>

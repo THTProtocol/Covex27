@@ -118,11 +118,11 @@ export default function CovenantStudio() {
   return (
     <div className="covex-studio relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-white/[0.08] bg-[#0A0A0D]">
-        <Link to={`/covenant/${encodeURIComponent(id)}`} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white">
+        <Link to={`/covenant/${encodeURIComponent(id)}`} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap">
           <ArrowLeft size={13} /> Back to covenant
         </Link>
-        <p className="text-xs font-bold text-white truncate">{covenant.name || 'Covenant'} · Page Studio</p>
-        <div className="flex items-center gap-2 text-[11px] text-gray-500">
+        <p className="text-xs font-bold text-white truncate min-w-0 px-2">{covenant.name || 'Covenant'} · Page Studio</p>
+        <div className="hidden md:flex items-center gap-2 text-[11px] text-gray-500 shrink-0">
           <Eye size={12} /> Drag blocks from the left. Publish saves instantly.
         </div>
       </div>
@@ -151,8 +151,8 @@ export default function CovenantStudio() {
           <ul className="space-y-1">
             {LIVE_TOKENS.map((t) => (
               <li key={t.token} className="flex items-center justify-between gap-2 text-[11px]">
-                <code className="text-kaspa-green font-mono">{`{{${t.token}}}`}</code>
-                <span className="text-gray-500 text-right">{t.desc}</span>
+                <code className="text-kaspa-green font-mono shrink-0">{`{{${t.token}}}`}</code>
+                <span className="text-gray-500 text-right min-w-0 truncate">{t.desc}</span>
               </li>
             ))}
           </ul>

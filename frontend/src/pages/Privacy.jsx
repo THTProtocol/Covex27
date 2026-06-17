@@ -13,7 +13,7 @@ export default function Privacy() {
         Explorer
       </Link>
 
-      <div className="glass-panel p-8">
+      <div className="glass-panel p-6 sm:p-8">
         <h1 className="text-2xl font-semibold text-white tracking-tight">Privacy Policy</h1>
         <p className="text-sm text-gray-300 mt-2">Last updated: June 2026</p>
         <p className="text-sm text-gray-300 mt-3">
@@ -26,7 +26,7 @@ export default function Privacy() {
         </p>
       </div>
 
-      <div className="glass-panel p-8 space-y-8 text-sm text-gray-300 leading-relaxed">
+      <div className="glass-panel p-6 sm:p-8 space-y-8 text-sm text-gray-300 leading-relaxed">
         {/* 1. Summary */}
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-white">1. Summary</h2>

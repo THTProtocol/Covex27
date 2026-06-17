@@ -72,10 +72,10 @@ export default function TrustBadge({ covenant, size = 'sm', showDesc = false, in
   const [open, setOpen] = useState(false);
   const t = trustInfo(covenant);
   const styles = {
-    onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
-    hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300',
-    oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
-    decorative: 'bg-white/[0.04] border-white/10 text-gray-300',
+    onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 light:text-emerald-700 light:border-emerald-500/40',
+    hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300 light:text-sky-700 light:border-sky-500/40',
+    oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300 light:text-amber-700 light:border-amber-500/40',
+    decorative: 'bg-white/[0.04] border-white/10 text-gray-300 light:bg-slate-100 light:border-slate-300 light:text-slate-600',
   }[t.kind];
   const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, decorative: ShieldQuestion }[t.kind];
   const pad = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs';
@@ -92,7 +92,7 @@ export default function TrustBadge({ covenant, size = 'sm', showDesc = false, in
           {inner}
         </button>
       ) : inner}
-      {showDesc && <span className="text-[11px] text-gray-400 max-w-xs leading-snug normal-case">{t.desc}</span>}
+      {showDesc && <span className="text-[11px] text-gray-400 light:text-slate-500 max-w-xs leading-snug normal-case break-words">{t.desc}</span>}
       {open && <TransparencyModal covenant={covenant} onClose={() => setOpen(false)} />}
     </span>
   );

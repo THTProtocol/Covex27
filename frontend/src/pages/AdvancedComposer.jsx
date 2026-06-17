@@ -130,10 +130,10 @@ export default function AdvancedComposer() {
         />
       </div>
 
-      <div className="mt-8 flex justify-end">
-        <button 
+      <div className="mt-8 flex sm:justify-end">
+        <button
           onClick={handleSaveAndUse}
-          className="px-8 py-3 rounded-2xl bg-[#A855F7] text-white font-bold text-lg hover:bg-[#9333EA] active:scale-[0.985] transition"
+          className="w-full sm:w-auto px-8 py-3 rounded-2xl bg-[#A855F7] text-white font-bold text-lg hover:bg-[#9333EA] active:scale-[0.985] transition"
         >
           Save Primitives &amp; Load into Terminal
         </button>

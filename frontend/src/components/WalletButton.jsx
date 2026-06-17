@@ -82,17 +82,17 @@ export default function WalletButton() {
       <div className="relative" ref={panelRef}>
         <button
           onClick={() => setPanel((p) => !p)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium transition-all text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)]"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium transition-all text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)] whitespace-nowrap"
           title="Account"
         >
           {meta?.logo
-            ? <img src={meta.logo} alt="" className="w-4 h-4 rounded-sm" />
-            : <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB]" />}
-          <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
+            ? <img src={meta.logo} alt="" className="w-4 h-4 rounded-sm shrink-0" />
+            : <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB] shrink-0" />}
+          <span className="font-mono shrink-0">{address.slice(0, 6)}...{address.slice(-4)}</span>
           {balance !== null ? (
-            <span className="text-gray-300 light:text-slate-600 text-xs tabular-nums">{(balance / 1e8).toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS</span>
+            <span className="hidden sm:inline text-gray-300 light:text-slate-600 text-xs tabular-nums shrink-0">{(balance / 1e8).toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS</span>
           ) : balanceLoading ? (
-            <span className="text-gray-500 text-xs animate-pulse">···</span>
+            <span className="hidden sm:inline text-gray-500 text-xs animate-pulse shrink-0">···</span>
           ) : null}
         </button>
 
@@ -103,8 +103,8 @@ export default function WalletButton() {
                 ? <img src={meta.logo} alt={meta?.name || 'wallet'} className="w-9 h-9 rounded-lg" />
                 : <span className="w-9 h-9 rounded-lg bg-[#49EACB]/10 flex items-center justify-center"><Wallet size={16} className="text-[#49EACB]" /></span>}
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white light:text-slate-900">{meta?.name || 'Wallet'}</p>
-                <p className="text-[10px] font-mono text-gray-500">{netLabel}</p>
+                <p className="text-sm font-bold text-white light:text-slate-900 truncate">{meta?.name || 'Wallet'}</p>
+                <p className="text-[10px] font-mono text-gray-500 truncate">{netLabel}</p>
               </div>
               <button onClick={() => { refreshBalance && refreshBalance(); }} className="ml-auto p-1.5 rounded-lg text-gray-400 hover:text-[#49EACB] hover:bg-white/5" title="Refresh balance">
                 <RefreshCw size={13} />
@@ -163,10 +163,10 @@ export default function WalletButton() {
     <>
       <button
         onClick={() => { clearError(); setOpen(true); }}
-        className="flex items-center gap-2 px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm"
+        className="flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
       >
-        <Wallet size={16} className="text-[#49EACB]" />
-        CONNECT WALLET
+        <Wallet size={16} className="text-[#49EACB] shrink-0" />
+        CONNECT<span className="hidden sm:inline">&nbsp;WALLET</span>
       </button>
 
       {open && (
@@ -218,10 +218,10 @@ export default function WalletButton() {
                         <WalletLogo wallet={wallet} />
                         <div className="flex-1 min-w-0">
                           <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2">
-                            {wallet.name}
+                            <span className="truncate">{wallet.name}</span>
                             <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/15 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><Check size={9} /> Installed</span>
                           </div>
-                          <div className="text-[11px] text-gray-500">{wallet.sub}</div>
+                          <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
                         </div>
                         <ArrowRight size={16} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />
                       </button>
@@ -246,12 +246,12 @@ export default function WalletButton() {
                       <WalletLogo wallet={wallet} />
                       <div className="text-left flex-1 min-w-0">
                         <div className="text-white light:text-slate-900 font-medium text-sm flex items-center gap-2">
-                          {wallet.name}
+                          <span className="truncate">{wallet.name}</span>
                           {wallet.recommended && (
                             <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">Recommended</span>
                           )}
                         </div>
-                        <div className="text-[11px] text-gray-500">{wallet.sub}</div>
+                        <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
                       </div>
                       <ExternalLink size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />
                     </button>
@@ -277,7 +277,7 @@ export default function WalletButton() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white light:text-slate-900">New to Kaspa?</div>
-                    <div className="text-[11px] text-gray-500">Install {topPick.name} to create a wallet in a minute.</div>
+                    <div className="text-[11px] text-gray-500 break-words">Install {topPick.name} to create a wallet in a minute.</div>
                   </div>
                   <ArrowRight size={15} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>

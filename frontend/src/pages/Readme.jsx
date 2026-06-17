@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 
 /*
-  /readme — the definitive, factual "how Covex works" page, framed around Kaspa mainnet.
+  /readme - the definitive, factual "how Covex works" page, framed around Kaspa mainnet.
   Every statement here is grounded in the real implementation (covenant_builder.rs,
   oracle.rs, oracle_verifier.rs, the zk/ circuits) and Kaspa's live consensus rules.
   Nothing overstates what the chain enforces; nothing invents mainnet activity.
@@ -192,11 +192,11 @@ export default function Readme() {
         <div className="grid sm:grid-cols-2 gap-4">
           {REALITIES.map((r) => (
             <Card key={r.name}>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2">
                 <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${r.cls}`}>
                   <r.icon size={12} /> {r.name}
                 </span>
-                <span className="ml-auto text-[10px] uppercase tracking-wider text-gray-500">{r.trust}</span>
+                <span className="sm:ml-auto text-[10px] uppercase tracking-wider text-gray-500">{r.trust}</span>
               </div>
               <p className="text-sm text-gray-300 leading-relaxed">{r.desc}</p>
             </Card>
@@ -217,9 +217,9 @@ export default function Readme() {
         <div className="grid md:grid-cols-2 gap-4">
           {PRIMITIVES.map((p) => (
             <Card key={p.name}>
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <h3 className="text-white font-bold">{p.name}</h3>
-                <span className={`shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${p.reality === 'on-chain' ? 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10' : p.reality === 'oracle-attested' ? 'text-sky-300 border-sky-500/40 bg-sky-500/10' : 'text-amber-300 border-amber-500/40 bg-amber-500/10'}`}>{p.reality}</span>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h3 className="text-white font-bold leading-tight break-words min-w-0">{p.name}</h3>
+                <span className={`shrink-0 mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${p.reality === 'on-chain' ? 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10' : p.reality === 'oracle-attested' ? 'text-sky-300 border-sky-500/40 bg-sky-500/10' : 'text-amber-300 border-amber-500/40 bg-amber-500/10'}`}>{p.reality}</span>
               </div>
               <Script>{p.script}</Script>
               <p className="text-xs text-gray-300 mt-2.5 leading-relaxed">{p.what}</p>
@@ -239,11 +239,11 @@ export default function Readme() {
               no missing key, no soft-pass). Only when a proof genuinely verifies does the oracle co-sign the 2-of-2 that
               the chain requires, so a verified proof, and nothing else, releases the funds.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {ZK_VERIFIED.map((z) => (
                 <div key={z.name} className="rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.04] p-3">
-                  <div className="flex items-center gap-1.5 text-kaspa-green text-xs font-bold mb-1"><CheckCircle2 size={13} /> {z.name}</div>
-                  <p className="text-[11px] text-gray-300 leading-snug">{z.what}</p>
+                  <div className="flex items-center gap-1.5 text-kaspa-green text-xs font-bold mb-1"><CheckCircle2 size={13} className="shrink-0" /> <span className="break-words min-w-0">{z.name}</span></div>
+                  <p className="text-[11px] text-gray-300 leading-snug break-words">{z.what}</p>
                 </div>
               ))}
             </div>

@@ -805,15 +805,15 @@ export default function CovenantInteractive() {
           animate={{ opacity: 1, x: 0 }}
           className="glass-panel detail-hero-enhanced p-8 sm:p-10 rounded-3xl flex flex-col"
         >
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
+            <div className="relative shrink-0">
               <div className="covex-aurora" aria-hidden="true" style={{ top: -28, left: -28, width: 132, height: 116 }} />
               <div className="relative z-10 p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
                 <Cpu size={32} />
               </div>
             </div>
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight break-words">
                 {covenant.name || TRUNC(covenant.tx_id)}
               </h1>
               <div className="flex flex-wrap items-center gap-3 mt-2">
@@ -825,38 +825,41 @@ export default function CovenantInteractive() {
             </div>
 
             {/* Share + embed - available to everyone, so any covenant can be shared or
-                dropped into an external website (people interact via Covex). */}
-            <button
-              onClick={() => setRecoveryOpen(true)}
-              title="Recover this covenant without Covex (self-custody)"
-              className="ml-auto px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
-            >
-              <LifeBuoy size={16} className="text-kaspa-green" /> Recover
-            </button>
-            <button
-              onClick={() => setShareOpen(true)}
-              className="px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
-            >
-              <Share2 size={16} className="text-kaspa-green" /> Share
-            </button>
+                dropped into an external website (people interact via Covex). Grouped so the
+                buttons stay together, push right on desktop, and wrap cleanly on mobile. */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 sm:ml-auto w-full sm:w-auto">
+              <button
+                onClick={() => setRecoveryOpen(true)}
+                title="Recover this covenant without Covex (self-custody)"
+                className="px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
+              >
+                <LifeBuoy size={16} className="text-kaspa-green" /> Recover
+              </button>
+              <button
+                onClick={() => setShareOpen(true)}
+                className="px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
+              >
+                <Share2 size={16} className="text-kaspa-green" /> Share
+              </button>
 
-            {/* PROMINENT FIX BUTTON ON TOP for creators only, right next to title */}
-            {isCreator && (
-              <Link
-                to={`/covenant/${encodeURIComponent(id)}/fix`}
-                className="px-6 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all border border-purple-400/30"
-              >
-                <Palette size={16} /> FIX LOOKS + STAKE
-              </Link>
-            )}
-            {isCreator && (
-              <Link
-                to={`/covenant/${encodeURIComponent(id)}/studio`}
-                className="px-6 py-2.5 rounded-2xl bg-kaspa-green/90 hover:bg-kaspa-green text-black font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all"
-              >
-                <Layers size={16} /> PAGE STUDIO
-              </Link>
-            )}
+              {/* PROMINENT FIX BUTTON ON TOP for creators only, right next to title */}
+              {isCreator && (
+                <Link
+                  to={`/covenant/${encodeURIComponent(id)}/fix`}
+                  className="px-5 sm:px-6 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all border border-purple-400/30 whitespace-nowrap"
+                >
+                  <Palette size={16} /> FIX LOOKS + STAKE
+                </Link>
+              )}
+              {isCreator && (
+                <Link
+                  to={`/covenant/${encodeURIComponent(id)}/studio`}
+                  className="px-5 sm:px-6 py-2.5 rounded-2xl bg-kaspa-green/90 hover:bg-kaspa-green text-black font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all whitespace-nowrap"
+                >
+                  <Layers size={16} /> PAGE STUDIO
+                </Link>
+              )}
+            </div>
           </div>
 
           <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} />
@@ -947,11 +950,11 @@ export default function CovenantInteractive() {
                   };
                   const l = LABELS[a.action] || { t: a.action, c: 'text-gray-300' };
                   return (
-                    <div key={i} className="flex items-center justify-between gap-3 text-[11px] font-mono">
+                    <div key={i} className="flex items-center justify-between gap-2 sm:gap-3 text-[11px] font-mono">
                       <span className={`font-bold ${l.c} shrink-0`}>{l.t}</span>
-                      <span className="text-gray-500 truncate">{a.detail}</span>
+                      <span className="text-gray-500 truncate flex-1 min-w-0">{a.detail}</span>
                       {a.amount_kaspa > 0 && <span className="text-white shrink-0">{a.amount_kaspa} KAS</span>}
-                      <span className="text-gray-600 shrink-0">{a.timestamp ? new Date(a.timestamp * 1000).toLocaleString() : ''}</span>
+                      <span className="text-gray-600 shrink-0 hidden sm:inline">{a.timestamp ? new Date(a.timestamp * 1000).toLocaleString() : ''}</span>
                     </div>
                   );
                 })}

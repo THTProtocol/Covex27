@@ -157,7 +157,7 @@ function NetworkSwitcher() {
           className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
             network === n.value
               ? 'text-black'
-              : 'text-gray-400 hover:text-white'
+              : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
           }`}
           style={network === n.value ? { backgroundColor: n.color } : {}}
         >
@@ -204,12 +204,12 @@ function LiveStatus() {
   if (!info) return null;
 
   return (
-    <div className="text-[10px] opacity-60 tracking-widest flex items-center justify-center gap-1.5">
-      <span className="relative inline-flex h-1.5 w-1.5" aria-hidden="true">
+    <div className="text-[10px] opacity-60 tracking-wider flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-2">
+      <span className="relative inline-flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
         <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 motion-safe:animate-ping" />
         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
       </span>
-      <span>Covex {info}</span>
+      <span className="break-words">Covex {info}</span>
     </div>
   );
 }
@@ -364,27 +364,25 @@ export default function App() {
           </div>
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
-            <div className="max-w-6xl mx-auto text-center space-y-1">
-              <div>
-                Non-custodial. Keys stay in your wallet.
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/readme" className="hover:text-kaspa-green transition-colors">How it Works</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/docs" className="hover:text-kaspa-green transition-colors">API</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/whitepaper" className="hover:text-kaspa-green transition-colors">Whitepaper</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/treasury" className="hover:text-kaspa-green transition-colors">Treasury</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/recover" className="hover:text-kaspa-green transition-colors">Recover</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/stats" className="hover:text-kaspa-green transition-colors">Stats</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/templates" className="hover:text-kaspa-green transition-colors">Templates</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/terms" className="hover:text-kaspa-green transition-colors">Terms</Link>
-                <span className="mx-2 opacity-30">|</span>
-                <Link to="/privacy" className="hover:text-kaspa-green transition-colors">Privacy</Link>
+            <div className="max-w-6xl mx-auto text-center space-y-2.5">
+              <p>Non-custodial. Keys stay in your wallet.</p>
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+                {[
+                  ['How it Works', '/readme'],
+                  ['API', '/docs'],
+                  ['Whitepaper', '/whitepaper'],
+                  ['Treasury', '/treasury'],
+                  ['Recover', '/recover'],
+                  ['Stats', '/stats'],
+                  ['Templates', '/templates'],
+                  ['Terms', '/terms'],
+                  ['Privacy', '/privacy'],
+                ].map(([label, to], i, arr) => (
+                  <span key={to} className="inline-flex items-center gap-x-3">
+                    <Link to={to} className="hover:text-kaspa-green transition-colors">{label}</Link>
+                    {i < arr.length - 1 && <span aria-hidden="true" className="opacity-30">|</span>}
+                  </span>
+                ))}
               </div>
               <LiveStatus />
             </div>

@@ -248,9 +248,9 @@ export default function PaidBuilder() {
   return (
     <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-12">
       {/* Persistent paid-area indicator - server-verified */}
-      <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold tracking-wide"
+      <div className="mb-6 inline-flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 rounded-full text-xs font-mono font-bold tracking-wide max-w-full"
         style={{ background: tierAccent + '15', border: `1px solid ${tierAccent}30`, color: tierAccent }}>
-        <ShieldCheck size={14} /><span>SERVER-VERIFIED PAID AREA</span><span className="opacity-50">|</span><span>{tierBadge}</span><span className="opacity-50">|</span><span>Terminal Unlocked</span>
+        <ShieldCheck size={14} className="shrink-0" /><span>SERVER-VERIFIED PAID AREA</span><span className="opacity-50">|</span><span>{tierBadge}</span><span className="opacity-50">|</span><span>Terminal Unlocked</span>
       </div>
 
       {/* Payment success banner */}

@@ -59,15 +59,15 @@ export default function ApiDocs() {
     <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 520, height: 240, maxWidth: '90vw' }} />
       <div className="relative z-10 flex items-center gap-3 mb-2">
-        <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">
           <BookOpen size={22} className="text-kaspa-green" />
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white">Covex API</h1>
-          <p className="text-sm text-gray-400">The same indexer API that powers this explorer. Free to use. Paginated. No key required for reads.</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-black text-white">Covex API</h1>
+          <p className="text-sm text-gray-400 break-words">The same indexer API that powers this explorer. Free to use. Paginated. No key required for reads.</p>
         </div>
       </div>
-      <p className="relative z-10 text-xs font-mono text-gray-500 mb-8">
+      <p className="relative z-10 text-xs font-mono text-gray-500 mb-8 break-words">
         Base URL: https://hightable.pro/api · Spec: <a href="/api/openapi.json" className="text-kaspa-green underline" target="_blank" rel="noreferrer">openapi.json</a>
       </p>
 
@@ -102,8 +102,8 @@ export default function ApiDocs() {
               return (
                 <div key={method + path} className="glass-panel rounded-2xl p-5 border border-white/[0.06] hover-lift">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${method === 'get' ? 'bg-kaspa-green/15 text-kaspa-green' : 'bg-amber-500/15 text-amber-300'}`}>{method}</span>
-                    <code className="text-sm text-white font-mono">{path}</code>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${method === 'get' ? 'bg-kaspa-green/15 text-kaspa-green' : 'bg-amber-500/15 text-amber-300'}`}>{method}</span>
+                    <code className="text-sm text-white font-mono break-all min-w-0">{path}</code>
                   </div>
                   <p className="text-xs text-gray-400 mb-3">{op.summary}</p>
                   {(op.parameters || []).length > 0 && (

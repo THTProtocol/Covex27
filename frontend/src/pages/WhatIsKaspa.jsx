@@ -10,10 +10,10 @@ export default function WhatIsKaspaPage() {
 
         <header className="mb-12 glass-panel rounded-2xl p-6 sm:p-8 border border-[#49EACB]/15 relative overflow-hidden detail-hero-enhanced">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-[#49EACB]/10 border border-[#49EACB]/30 flex items-center justify-center shrink-0">
               <Zap size={26} className="text-[#49EACB]" />
             </div>
-            <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight min-w-0 break-words">
               Understanding the <span className="text-[#49EACB]">Kaspa</span> BlockDAG
             </h1>
           </div>
@@ -192,9 +192,9 @@ export default function WhatIsKaspaPage() {
               <a key={i} href={p.href} target="_blank" rel="noreferrer"
                  className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/30 hover:bg-white/[0.02] transition-all group">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="font-semibold text-white group-hover:text-[#49EACB] transition-colors">{p.title}</h4>
-                    <p className="text-sm text-gray-400 mt-1 pr-4">{p.subtitle}</p>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-white group-hover:text-[#49EACB] transition-colors break-words">{p.title}</h4>
+                    <p className="text-sm text-gray-400 mt-1 break-words">{p.subtitle}</p>
                   </div>
                   <ExternalLink size={14} className="text-gray-500 group-hover:text-[#49EACB] mt-1 shrink-0" />
                 </div>
@@ -206,12 +206,12 @@ export default function WhatIsKaspaPage() {
 
         {/* Network Specifications */}
         <section className="mb-12">
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <CheckCircle2 size={20} className="text-[#49EACB]" />
+              <CheckCircle2 size={20} className="text-[#49EACB] shrink-0" />
               Network Specifications
             </h2>
-            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono">COVENANTS LIVE ON TN12 · MAINNET WITH TOCCATA</span>
+            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono break-words">COVENANTS LIVE ON TN12 · MAINNET WITH TOCCATA</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -244,8 +244,8 @@ export default function WhatIsKaspaPage() {
                   )}
                 </div>
                 <div className="text-[10px] text-gray-400 uppercase tracking-[1.5px] font-mono mb-1">{s.label}</div>
-                <div className="text-xl font-bold text-white tabular-nums group-hover:text-[#49EACB] transition-colors leading-tight">{s.value}</div>
-                <div className="text-[11px] text-gray-300 mt-1.5 leading-relaxed">{s.sub}</div>
+                <div className="text-xl font-bold text-white tabular-nums group-hover:text-[#49EACB] transition-colors leading-tight break-words">{s.value}</div>
+                <div className="text-[11px] text-gray-300 mt-1.5 leading-relaxed break-words">{s.sub}</div>
               </div>
             ))}
           </div>
@@ -279,10 +279,10 @@ export default function WhatIsKaspaPage() {
             ].map((r, i) => (
               <a key={i} href={r.href} target="_blank" rel="noreferrer"
                  className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/25 hover:bg-white/[0.015] transition-all group">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold text-white group-hover:text-[#49EACB] transition-colors">{r.title}</h4>
-                    <p className="text-xs text-gray-400 mt-0.5">{r.desc}</p>
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-white group-hover:text-[#49EACB] transition-colors break-words">{r.title}</h4>
+                    <p className="text-xs text-gray-400 mt-0.5 break-words">{r.desc}</p>
                   </div>
                   <ExternalLink size={13} className="text-gray-500 group-hover:text-[#49EACB] mt-0.5 shrink-0" />
                 </div>

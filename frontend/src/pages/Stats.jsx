@@ -182,11 +182,11 @@ export default function Stats() {
 
           {/* Activity timeline */}
           <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 light:bg-white light:border-slate-200">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
               <h2 className="text-sm font-semibold text-white light:text-slate-900">Recent activity</h2>
-              <div className="flex items-center gap-3 text-[10px] text-gray-400">
+              <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[10px] text-gray-400 light:text-slate-500">
                 {activeTypes.map((t) => (
-                  <span key={t} className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: eventMeta(t).color }} /> {eventMeta(t).label}</span>
+                  <span key={t} className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: eventMeta(t).color }} /> {eventMeta(t).label}</span>
                 ))}
               </div>
             </div>

@@ -33,11 +33,11 @@ export default function Treasury() {
   return (
     <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+        <div className="w-12 h-12 shrink-0 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
           <Landmark size={22} className="text-kaspa-green" />
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white">Treasury Transparency</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-black text-white">Treasury Transparency</h1>
           <p className="text-sm text-gray-400">Every tier payment is an on-chain transaction to a public address. Verify everything yourself.</p>
         </div>
       </div>
@@ -74,11 +74,11 @@ export default function Treasury() {
         ) : (
           <div className="space-y-2">
             {upgrades.slice(0, 20).map((u) => (
-              <div key={u.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs">
+              <div key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs">
                 <span className="font-bold text-amber-300 shrink-0">{u.detail}</span>
-                <span className="font-mono text-gray-400 truncate">{u.covenant_id.slice(0, 24)}...</span>
+                <span className="font-mono text-gray-400 truncate flex-1 min-w-0">{u.covenant_id.slice(0, 24)}...</span>
                 <span className="font-mono text-white shrink-0">{u.amount_kaspa} KAS</span>
-                <span className="text-gray-500 shrink-0">{new Date(u.timestamp * 1000).toLocaleString()}</span>
+                <span className="text-gray-500 shrink-0 w-full sm:w-auto sm:text-right">{new Date(u.timestamp * 1000).toLocaleString()}</span>
               </div>
             ))}
           </div>

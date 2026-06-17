@@ -473,7 +473,7 @@ ${featureTiles}
             <p className="text-xs text-gray-400 font-mono">Full customization terminal - ZK circuits, oracles, Canva-like design tools, deploy to Kaspa</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold border" style={{ color: tierAccent, borderColor: tierAccent + '40', background: tierAccent + '10' }}>{tierBadge}</span>
           <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold border" style={{ color: isMainnet ? '#EF4444' : '#49EACB', borderColor: (isMainnet ? '#EF4444' : '#49EACB') + '40', background: (isMainnet ? '#EF4444' : '#49EACB') + '10' }}>{isMainnet ? 'MAINNET' : net.toUpperCase()}</span>
           <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">1 DEPLOY CREDIT</span>
@@ -496,9 +496,9 @@ ${featureTiles}
 
       {/* LIBRARY - wide selection (hundreds via variants) */}
       <section className="mb-10">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-sm text-gray-300"><Cpu size={15} /> Circuit Library (77+ entries, 6 resolution modes - hundreds of combinations)</div>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search circuits..." className="bg-black/50 border border-white/10 rounded px-3 py-1 text-sm w-64" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 text-sm text-gray-300 min-w-0"><Cpu size={15} className="shrink-0" /> <span className="min-w-0">Circuit Library (77+ entries, 6 resolution modes, hundreds of combinations)</span></div>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search circuits..." className="bg-black/50 border border-white/10 rounded px-3 py-2 text-sm w-full sm:w-64 shrink-0" />
         </div>
         <div className="flex flex-wrap gap-1 mb-3">
           {categories.map(c => (
@@ -513,13 +513,13 @@ ${featureTiles}
                 <div className="flex gap-3">
                   <CircuitGlyph type={c} size={36} />
                   <div className="min-w-0">
-                    <div className="font-semibold text-sm flex items-center gap-2">{c.name} {c.variant && <span className="text-[9px] px-1.5 py-px rounded bg-white/10">variant</span>} {c.artifacts && <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">artifact</span>}</div>
-                    <div className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{c.description}</div>
-                    <div className="text-[9px] mt-1 flex items-center gap-2">
-                      <span className="opacity-60">{c.category} • {c.circuit}</span>
-                      {c.reality === 'full-zk' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">Full ZK</span>}
-                      {c.reality === 'hybrid' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 font-semibold">Hybrid</span>}
-                      {c.reality === 'oracle-attested' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">Oracle Attested</span>}
+                    <div className="font-semibold text-sm flex items-center gap-2 flex-wrap"><span className="truncate max-w-full">{c.name}</span> {c.variant && <span className="text-[9px] px-1.5 py-px rounded bg-white/10 shrink-0">variant</span>} {c.artifacts && <span className="text-[9px] px-1.5 py-px rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">artifact</span>}</div>
+                    <div className="text-[11px] text-gray-400 line-clamp-2 mt-0.5 break-words">{c.description}</div>
+                    <div className="text-[9px] mt-1 flex items-center gap-2 flex-wrap">
+                      <span className="opacity-60 truncate max-w-full">{c.category} • {c.circuit}</span>
+                      {c.reality === 'full-zk' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">Full ZK</span>}
+                      {c.reality === 'hybrid' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 font-semibold shrink-0">Hybrid</span>}
+                      {c.reality === 'oracle-attested' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold shrink-0">Oracle Attested</span>}
                     </div>
                   </div>
                 </div>
@@ -608,7 +608,7 @@ ${featureTiles}
         <div className="text-xs uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-2"><ShieldCheck size={14} className="text-emerald-400" /> On-chain Enforcement (real script-locked custody)</div>
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5">
           <p className="text-[11px] text-gray-400 mb-4">Your deploy locks the stake into a Kaspa script hash enforced by consensus itself - no oracle, no Covex key. It is redeemable non-custodially by your own key, so the funds move even if Covex disappears.</p>
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
             {[
               { id: 'singlesig', label: 'Single-key', icon: KeyRound, blurb: 'Redeemable only by your key.' },
               { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Unlocks at a future DAA score.' },

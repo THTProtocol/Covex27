@@ -216,9 +216,9 @@ export default function Recover() {
             {/* Independently-verified locked balance (read-only, via a public Kaspa node) */}
             {bal.available && (
               <div className="rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.05] p-4">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-1.5">
-                  <Coins size={13} className="text-kaspa-green" /> Funds locked here
-                  <span className="ml-auto normal-case tracking-normal text-[10px] text-gray-500">via {kit.network} public node, not Covex</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-1.5">
+                  <span className="inline-flex items-center gap-2"><Coins size={13} className="text-kaspa-green" /> Funds locked here</span>
+                  <span className="sm:ml-auto normal-case tracking-normal text-[10px] text-gray-500">via {kit.network} public node, not Covex</span>
                 </div>
                 {bal.loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={14} className="animate-spin text-kaspa-green" /> Checking the chain…</div>}
                 {bal.error && <div className="text-[12px] text-amber-300">{bal.error} You can still verify on the explorer below.</div>}
@@ -240,7 +240,7 @@ export default function Recover() {
                     <div className="space-y-1">
                       {bal.utxos.slice(0, 6).map((u) => (
                         <div key={`${u.txid}:${u.index}`} className="flex items-center justify-between gap-2 text-[10.5px]">
-                          <span className="font-mono text-gray-400 light:text-slate-500 truncate">{u.txid.slice(0, 16)}…:{u.index}</span>
+                          <span className="font-mono text-gray-400 light:text-slate-500 truncate flex-1 min-w-0">{u.txid.slice(0, 16)}…:{u.index}</span>
                           <span className="shrink-0 tabular-nums text-gray-200 light:text-slate-700">{sompiToKas(u.amountSompi).toLocaleString(undefined, { maximumFractionDigits: 4 })} KAS{u.daaScore != null ? <span className="text-gray-500"> · DAA {u.daaScore.toLocaleString()}</span> : null}</span>
                         </div>
                       ))}

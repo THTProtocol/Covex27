@@ -70,9 +70,9 @@ export default function TemplateLibrary() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-white mb-4">Covenant Templates</h1>
-        <p className="text-gray-300 max-w-2xl mx-auto">
-          Choose a ready-made template. One click loads everything: correct circuit, oracle settings, 
+        <h1 className="text-4xl font-bold text-white light:text-slate-900 mb-4">Covenant Templates</h1>
+        <p className="text-gray-300 light:text-slate-600 max-w-2xl mx-auto">
+          Choose a ready-made template. One click loads everything: correct circuit, oracle settings,
           fees, and a beautiful UI. Customize further in Covenant Studio if you want.
         </p>
       </div>
@@ -219,15 +219,15 @@ export default function TemplateLibrary() {
         return (
         <div className="mt-12">
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-            <div>
+            <div className="min-w-0">
               <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COVEX OFFICIAL · {communityTemplates.length} TEMPLATES</div>
-              <h2 className="text-2xl font-bold text-white">Official Covenant Templates</h2>
+              <h2 className="text-2xl font-bold text-white light:text-slate-900">Official Covenant Templates</h2>
             </div>
             <input
               value={tplSearch}
               onChange={e => setTplSearch(e.target.value)}
               placeholder="Search templates…"
-              className="text-sm bg-black/40 border border-white/10 rounded-xl px-3 py-2 w-full sm:w-64 outline-none focus:border-kaspa-green/40"
+              className="text-sm bg-black/40 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 rounded-xl px-3 py-2 w-full sm:w-64 outline-none focus:border-kaspa-green/40"
             />
           </div>
           <div className="flex flex-wrap gap-1.5 mb-5">
@@ -239,7 +239,7 @@ export default function TemplateLibrary() {
             ))}
           </div>
           {shown.length === 0 ? (
-            <div className="glass-panel rounded-2xl py-10 text-center border border-white/[0.06]"><p className="text-gray-400 text-sm">No templates match your search.</p></div>
+            <div className="glass-panel rounded-2xl py-10 text-center border border-white/[0.06]"><p className="text-gray-400 light:text-slate-500 text-sm">No templates match your search.</p></div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {shown.map((t, idx) => {
@@ -250,14 +250,14 @@ export default function TemplateLibrary() {
                 : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
               return (
                 <div key={t.id || idx} className="glass-panel rounded-2xl p-5 flex flex-col border border-white/[0.06] hover:border-kaspa-green/30 transition-all">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-500">{t.category || 'Covenant'}</div>
-                    {t.reality && <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold uppercase ${realityStyle}`}>{t.reality}</span>}
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 truncate min-w-0">{t.category || 'Covenant'}</div>
+                    {t.reality && <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-full border font-bold uppercase ${realityStyle}`}>{t.reality}</span>}
                   </div>
-                  <div className="font-bold text-white mb-1">{t.name || t.id}</div>
-                  <p className="text-xs text-gray-400 mb-3 leading-relaxed line-clamp-3 flex-1">{t.description}</p>
+                  <div className="font-bold text-white light:text-slate-900 mb-1 break-words">{t.name || t.id}</div>
+                  <p className="text-xs text-gray-400 light:text-slate-500 mb-3 leading-relaxed break-words line-clamp-3">{t.description}</p>
                   <a href={hrefFor(t)}
-                    className="text-center py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:brightness-110 transition-all">
+                    className="mt-auto text-center py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:brightness-110 transition-all">
                     Use Template
                   </a>
                 </div>
@@ -270,7 +270,7 @@ export default function TemplateLibrary() {
         );
       })()}
 
-      <div className="mt-16 text-center text-xs text-gray-500">
+      <div className="mt-16 text-center text-xs text-gray-500 light:text-slate-500">
         Templates use the official Covex shared configuration protocol.<br />
         All templates are fully compatible with Covenant Studio for further customization.
       </div>
@@ -294,19 +294,19 @@ function CommunityPublished() {
   }, []);
   return (
     <div className="mt-16">
-      <h2 className="text-2xl font-bold text-white mb-2 text-center">Community Published</h2>
-      <p className="text-gray-400 text-sm text-center mb-8">Custom covenant designs published by paid creators, live from the marketplace.</p>
+      <h2 className="text-2xl font-bold text-white light:text-slate-900 mb-2 text-center">Community Published</h2>
+      <p className="text-gray-400 light:text-slate-500 text-sm text-center mb-8">Custom covenant designs published by paid creators, live from the marketplace.</p>
       {!loaded ? null : items.length === 0 ? (
         <div className="glass-panel rounded-2xl py-12 text-center border border-white/[0.06]">
-          <p className="text-gray-300 text-sm font-semibold mb-1">No community designs published yet</p>
-          <p className="text-gray-500 text-xs">Paid creators can publish their covenant page designs from the Studio. The first ones will appear here.</p>
+          <p className="text-gray-300 light:text-slate-700 text-sm font-semibold mb-1">No community designs published yet</p>
+          <p className="text-gray-500 light:text-slate-500 text-xs">Paid creators can publish their covenant page designs from the Studio. The first ones will appear here.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((t, i) => (
             <a key={t.covenant_id || i} href={`/covenant/${encodeURIComponent(t.covenant_id)}`} className="glass-panel rounded-2xl p-5 border border-white/[0.06] hover:border-kaspa-green/30 transition-all block">
-              <p className="font-bold text-white mb-1 truncate">{t.slug || t.covenant_id}</p>
-              <p className="text-xs text-gray-400">Published covenant design</p>
+              <p className="font-bold text-white light:text-slate-900 mb-1 truncate">{t.slug || t.covenant_id}</p>
+              <p className="text-xs text-gray-400 light:text-slate-500">Published covenant design</p>
             </a>
           ))}
         </div>

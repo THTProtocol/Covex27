@@ -223,17 +223,17 @@ const Pricing = () => {
         )}
         <Card className="max-w-xl mx-auto mb-8 detail-hero-enhanced">
           <CardContent className="p-6">
-            <div className="flex justify-between py-3 border-b border-white/10">
+            <div className="flex justify-between gap-3 py-3 border-b border-white/10">
               <span className="text-gray-300">Tier</span>
               <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
             </div>
-            <div className="flex justify-between py-3 border-b border-white/10">
+            <div className="flex justify-between gap-3 py-3 border-b border-white/10">
               <span className="text-gray-300">Amount</span>
               <span className="font-mono font-bold text-white">{p.price.toLocaleString()} KAS</span>
             </div>
-            <div className="flex justify-between py-3">
-              <span className="text-gray-300">Treasury</span>
-              <span className="font-mono text-[10px] text-gray-200 break-all">{TREASURY}</span>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-3 py-3">
+              <span className="text-gray-300 shrink-0">Treasury</span>
+              <span className="font-mono text-[10px] text-gray-200 break-all sm:text-right min-w-0">{TREASURY}</span>
             </div>
           </CardContent>
         </Card>
@@ -290,15 +290,15 @@ const Pricing = () => {
               style={!isFree ? { borderColor: tier.accent + '40', boxShadow: tier.id === 'PRO' ? `0 0 0 1px ${tier.accent}55, 0 22px 55px -24px ${tier.accent}77` : undefined } : {}}>
               {!isFree && <div className="absolute top-0 inset-x-0 h-[3px]" aria-hidden="true" style={{ background: `linear-gradient(90deg, transparent, ${tier.accent}, transparent)` }} />}
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {tier.id === 'FREE' && <Eye size={22} className="text-gray-400" />}
-                    {tier.id === 'BUILDER' && <Terminal size={22} style={{ color: tier.accent }} />}
-                    {tier.id === 'PRO' && <Star size={22} style={{ color: tier.accent }} />}
-                    {tier.id === 'MAX' && <Crown size={22} style={{ color: tier.accent }} />}
-                    <CardTitle>{tier.name}</CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {tier.id === 'FREE' && <Eye size={22} className="text-gray-400 shrink-0" />}
+                    {tier.id === 'BUILDER' && <Terminal size={22} className="shrink-0" style={{ color: tier.accent }} />}
+                    {tier.id === 'PRO' && <Star size={22} className="shrink-0" style={{ color: tier.accent }} />}
+                    {tier.id === 'MAX' && <Crown size={22} className="shrink-0" style={{ color: tier.accent }} />}
+                    <CardTitle className="truncate">{tier.name}</CardTitle>
                   </div>
-                  <Badge variant={tier.variant}>{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
+                  <Badge variant={tier.variant} className="shrink-0">{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
                 </div>
                 <p className="text-sm text-gray-400 mt-1">{tier.desc}</p>
               </CardHeader>

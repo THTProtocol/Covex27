@@ -402,18 +402,18 @@ export default function CovenantFix() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="min-w-0">
           <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm font-mono tracking-widest"><ArrowLeft size={16}/>BACK TO REGISTRY</Link>
           <div className="mt-3 flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/20"><Palette size={22} className="text-kaspa-green"/></div>
-            <div>
+            <div className="p-2.5 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/20 shrink-0"><Palette size={22} className="text-kaspa-green"/></div>
+            <div className="min-w-0">
               <div className="text-3xl font-semibold tracking-tight">Fix</div>
               <div className="text-sm text-gray-400 -mt-0.5">Change how your covenants look. One clean section for the stake amount and rules.</div>
             </div>
           </div>
         </div>
-        <Link to="/deploy/enforced" className="text-xs px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5">New Covenant</Link>
+        <Link to="/deploy/enforced" className="shrink-0 self-start sm:self-auto text-xs px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 whitespace-nowrap">New Covenant</Link>
       </div>
 
       {/* My Covenants - simple list to pick from */}
@@ -445,9 +445,9 @@ export default function CovenantFix() {
                 }}
                 className={`text-left rounded-2xl border p-4 transition ${isSel ? 'border-kaspa-green/60 bg-kaspa-green/[0.03]' : 'border-white/10 hover:border-white/20 bg-white/[0.01]'}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="font-semibold text-white truncate pr-3">{c.name || TRUNC(c.tx_id)}</div>
-                  {isChess && <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">CHESS</span>}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-semibold text-white truncate min-w-0">{c.name || TRUNC(c.tx_id)}</div>
+                  {isChess && <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">CHESS</span>}
                 </div>
                 <div className="text-xs text-gray-400 mt-0.5 font-mono truncate">{c.category || c.covenant_type || 'General'} · {TRUNC(c.tx_id, 5)}</div>
                 <div className="mt-3 text-sm tabular-nums text-gray-300">{(c.amount_kaspa || 0).toLocaleString()} KAS locked</div>
@@ -505,7 +505,7 @@ export default function CovenantFix() {
                     <p className="text-[11px] text-gray-300 max-w-sm mx-auto line-clamp-2 mb-3">
                       {config.descOverride || selected?.description || 'Your covenant description appears here.'}
                     </p>
-                    <div className="flex justify-center gap-2 mb-3">
+                    <div className="flex flex-wrap justify-center gap-2 mb-3">
                       {[['Stake', `${stakeAmount || 0} KAS`], ['Fee', '2%'], ['Network', selected?.network || 'testnet-12']].map(([l, v]) => (
                         <div key={l} className="px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.1] backdrop-blur">
                           <p className="text-[8px] uppercase tracking-widest text-gray-400">{l}</p>
@@ -534,13 +534,13 @@ export default function CovenantFix() {
               {/* Covenant page background image */}
               <div className="mb-4">
                 <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">BACKGROUND IMAGE (shown behind your covenant page)</div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     type="url"
                     value={config.backgroundImage?.startsWith('data:') ? '' : (config.backgroundImage || '')}
                     onChange={(e) => setConfig((c) => ({ ...c, backgroundImage: e.target.value }))}
                     placeholder="https://... image URL"
-                    className="flex-1 px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500 outline-none focus:border-[#49EACB]/50"
+                    className="flex-1 min-w-[160px] px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500 outline-none focus:border-[#49EACB]/50"
                   />
                   <label className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-gray-300 hover:border-[#49EACB]/40 cursor-pointer">
                     Upload

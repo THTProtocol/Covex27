@@ -418,10 +418,10 @@ export default function EnforcedDeploy() {
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-10 space-y-8">
       <div>
-        <div className="flex items-center gap-3 mb-2">
-          <ShieldCheck className="text-emerald-400" size={26} />
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Deploy an Enforced Covenant</h1>
-          <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">On-chain</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+          <ShieldCheck className="text-emerald-400 shrink-0" size={26} />
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">Deploy an Enforced Covenant</h1>
+          <span className="shrink-0 px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">On-chain</span>
         </div>
         <p className="text-sm text-gray-300 max-w-2xl">
           These covenants are enforced by Kaspa consensus itself. Funds lock to a script hash and can only move by satisfying
@@ -592,17 +592,17 @@ export default function EnforcedDeploy() {
           <div className="divide-y divide-white/[0.04]">
             {mine.map((c) => (
               <div key={c.tx} className="px-6 py-4 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase">on-chain</span>
                     {c.nonCustodialDeploy && <span className="px-2 py-0.5 rounded-md border border-kaspa-green/30 bg-kaspa-green/10 text-kaspa-green text-[10px] font-bold uppercase" title="Funded by a signature made in your browser; the key never reached the server">non-custodial</span>}
                     <span className="text-sm font-semibold text-white">{c.kind}</span>
                     <span className="text-xs text-gray-400">{c.kas} KAS locked</span>
                   </div>
                   {c.spent
-                    ? <span className="text-xs text-emerald-400 font-mono">redeemed {String(c.spent).slice(0, 12)}...{c.nonCustodial ? ' (non-custodial: signed in your browser, key never sent)' : ''}</span>
+                    ? <span className="text-xs text-emerald-400 font-mono break-words">redeemed {String(c.spent).slice(0, 12)}...{c.nonCustodial ? ' (non-custodial: signed in your browser, key never sent)' : ''}</span>
                     : <button onClick={() => redeem(c)} disabled={busy}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60">Redeem</button>}
+                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60">Redeem</button>}
                 </div>
                 <div className="text-[11px] text-gray-400 font-mono break-all">
                   P2SH: {c.p2sh} <CopyBtn text={c.p2sh} />

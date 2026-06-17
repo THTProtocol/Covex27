@@ -74,40 +74,40 @@ function MarketsList() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">
             <TrendingUp size={20} className="text-kaspa-green" />
           </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-white">Prediction Markets</h1>
-            <p className="text-sm text-gray-400">Parimutuel markets settled by conjoined on-chain covenants. {net()}.</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-extrabold text-white light:text-slate-900">Prediction Markets</h1>
+            <p className="text-sm text-gray-400 light:text-slate-500">Parimutuel markets settled by conjoined on-chain covenants. {net()}.</p>
           </div>
         </div>
         <button onClick={() => setShow((s) => !s)} className="btn-shimmer px-4 py-2 rounded-xl font-bold text-sm bg-kaspa-green text-black shrink-0">+ New market</button>
       </div>
 
-      <div className="glass-panel rounded-2xl border border-white/[0.06] p-4 mb-6 text-[12px] text-gray-300 leading-relaxed">
-        <span className="text-white font-semibold">How it works:</span> back an outcome with a YES/NO order. Orders are
-        matched into mini-pools, each funded by a <span className="text-white font-semibold">conjoined bundle</span> of{' '}
-        <span className="font-mono text-white">binary_oracle_select</span> covenants - several covenants created at once. When
+      <div className="glass-panel rounded-2xl border border-white/[0.06] p-4 mb-6 text-[12px] text-gray-300 light:text-slate-600 leading-relaxed">
+        <span className="text-white light:text-slate-900 font-semibold">How it works:</span> back an outcome with a YES/NO order. Orders are
+        matched into mini-pools, each funded by a <span className="text-white light:text-slate-900 font-semibold">conjoined bundle</span> of{' '}
+        <span className="font-mono text-white light:text-slate-900">binary_oracle_select</span> covenants - several covenants created at once. When
         the result is in, one secret is revealed and the chain routes every payout, loser rebate, and fee. No Covex key sits in
         the money path - funds are recoverable even if Covex goes down.
       </div>
 
       {show && (
         <div className="glass-panel rounded-2xl border border-kaspa-green/25 p-5 mb-6">
-          <div className="text-white font-semibold mb-3">Create a market</div>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Question, e.g. "Will Brazil beat Haiti?"' className="w-full mb-2 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+          <div className="text-white light:text-slate-900 font-semibold mb-3">Create a market</div>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Question, e.g. "Will Brazil beat Haiti?"' className="w-full mb-2 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
           <div className="flex gap-2 mb-3">
-            <input value={oa} onChange={(e) => setOa(e.target.value)} placeholder="Outcome A" className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
-            <input value={ob} onChange={(e) => setOb(e.target.value)} placeholder="Outcome B" className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+            <input value={oa} onChange={(e) => setOa(e.target.value)} placeholder="Outcome A" className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
+            <input value={ob} onChange={(e) => setOb(e.target.value)} placeholder="Outcome B" className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
           </div>
           <div className="flex items-center gap-2 mb-3 text-[12px] flex-wrap">
-            <span className="text-gray-400">House fee</span>
-            <input value={feePct} onChange={(e) => setFeePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+            <span className="text-gray-400 light:text-slate-500">House fee</span>
+            <input value={feePct} onChange={(e) => setFeePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
             <span className="text-gray-500">%</span>
-            <span className="text-gray-400 ml-3">Loser rebate</span>
-            <input value={rebatePct} onChange={(e) => setRebatePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" />
+            <span className="text-gray-400 light:text-slate-500 ml-3">Loser rebate</span>
+            <input value={rebatePct} onChange={(e) => setRebatePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
             <span className="text-gray-500">% &middot; customise the covenant economics (fee + rebate must be &lt; 100%)</span>
           </div>
           <button disabled={creating} onClick={create} className="btn-shimmer px-5 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40">
@@ -120,7 +120,7 @@ function MarketsList() {
       {markets === null ? (
         <div className="flex items-center justify-center py-20 text-gray-500"><Loader2 className="animate-spin mr-2" size={18} /> Loading markets…</div>
       ) : markets.length === 0 ? (
-        <div className="glass-panel rounded-2xl border border-white/[0.06] p-10 text-center text-gray-400">
+        <div className="glass-panel rounded-2xl border border-white/[0.06] p-10 text-center text-gray-400 light:text-slate-500">
           No markets yet on {net()}.
         </div>
       ) : (
@@ -129,21 +129,21 @@ function MarketsList() {
             <Link key={m.market_id} to={`/covenant/${m.market_id}`}
               className="glass-panel rounded-2xl border border-white/[0.06] p-5 hover-lift transition-all block">
               <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="text-base font-bold text-white leading-snug">{m.question}</h3>
+                <h3 className="text-base font-bold text-white light:text-slate-900 leading-snug min-w-0 break-words" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{m.question}</h3>
                 {m.resolved ? (
                   <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300"><Trophy size={11} /> Resolved</span>
                 ) : (
                   <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green">Open</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-[12px] mb-3">
-                <span className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-white">{m.outcome_a}</span>
-                <span className="text-gray-500 text-[10px] uppercase tracking-wide">vs</span>
-                <span className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-white">{m.outcome_b}</span>
+              <div className="flex items-center gap-2 text-[12px] mb-3 min-w-0">
+                <span className="px-2 py-1 rounded-lg bg-white/[0.04] light:bg-slate-100 border border-white/10 light:border-slate-200 text-white light:text-slate-700 truncate max-w-[40%]">{m.outcome_a}</span>
+                <span className="text-gray-500 text-[10px] uppercase tracking-wide shrink-0">vs</span>
+                <span className="px-2 py-1 rounded-lg bg-white/[0.04] light:bg-slate-100 border border-white/10 light:border-slate-200 text-white light:text-slate-700 truncate max-w-[40%]">{m.outcome_b}</span>
               </div>
-              <div className="flex items-center justify-between text-[11px] text-gray-400">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-gray-400 light:text-slate-500">
                 <EnforcementBadge size="sm" />
-                {m.kickoff_utc && <span className="inline-flex items-center gap-1"><Clock size={11} /> {fmtKickoff(m.kickoff_utc)}</span>}
+                {m.kickoff_utc && <span className="inline-flex items-center gap-1 shrink-0"><Clock size={11} /> {fmtKickoff(m.kickoff_utc)}</span>}
               </div>
             </Link>
           ))}
@@ -224,12 +224,12 @@ function MarketDetail({ id }) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Explorer</Link>
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 light:text-slate-500 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Explorer</Link>
 
       <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] p-6 sm:p-8 mb-5" style={{ background: 'linear-gradient(135deg, rgba(73,234,203,0.08) 0%, rgba(10,10,15,0.35) 62%)' }}>
         <span className="covex-aurora" aria-hidden="true" style={{ top: -44, right: -34, width: 260, height: 170 }} />
         <div className="relative flex items-start justify-between gap-3 mb-3">
-          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">{book.question}</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight min-w-0 break-words">{book.question}</h1>
           {resolved
             ? <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300"><Trophy size={12} /> {wonLabel}</span>
             : <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green"><span className="w-1.5 h-1.5 rounded-full bg-kaspa-green zk-live-glow" /> Open</span>}
@@ -247,33 +247,33 @@ function MarketDetail({ id }) {
         <OddsCard label={book.outcome_b} mult={odds.if_b_wins_multiplier} accent={resolved && book.revealed_outcome === 1} />
       </div>
       <div className="text-[11px] text-gray-500 mb-5">
-        Funded pools: <span className="text-white">{book.funded_pool_a_kas} KAS</span> {book.outcome_a} · <span className="text-white">{book.funded_pool_b_kas} KAS</span> {book.outcome_b}
+        Funded pools: <span className="text-white light:text-slate-900">{book.funded_pool_a_kas} KAS</span> {book.outcome_a} · <span className="text-white light:text-slate-900">{book.funded_pool_b_kas} KAS</span> {book.outcome_b}
         {(book.open_pool_a_kas + book.open_pool_b_kas) > 0 && <> · open: {book.open_pool_a_kas}/{book.open_pool_b_kas} KAS</>}
       </div>
 
       {/* Pools - reward / hedge-rebate / fee split of the matched pool */}
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
-        <div className="text-white font-semibold mb-3 flex items-center gap-2"><Coins size={16} className="text-kaspa-green" /> Pools</div>
+        <div className="text-white light:text-slate-900 font-semibold mb-3 flex items-center gap-2"><Coins size={16} className="text-kaspa-green" /> Pools</div>
         {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
           <div className="text-[12px] text-gray-500">No matched liquidity yet - the reward and hedge pools fill as bets get matched.</div>
         ) : (
           <>
-            <div className="flex items-end justify-between mb-1"><span className="kicker">Total matched</span><span className="text-2xl font-black leading-none" style={{ background: 'linear-gradient(90deg,#49EACB,#E8AF34)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm">KAS</span></span></div>
-            <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">{feePct > 0 ? `House fee pool (${feePct}%)` : 'House fee'}</span><span className="text-amber-300">{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
+            <div className="flex items-end justify-between gap-3 mb-1"><span className="kicker">Total matched</span><span className="text-2xl font-black leading-none text-right" style={{ background: 'linear-gradient(90deg,#49EACB,#E8AF34)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm">KAS</span></span></div>
+            <div className="flex items-center justify-between gap-3 text-[12px] mb-3"><span className="text-gray-400 light:text-slate-500">{feePct > 0 ? `House fee pool (${feePct}%)` : 'House fee'}</span><span className="text-amber-300 light:text-amber-600 shrink-0">{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
             <div className="grid sm:grid-cols-2 gap-3">
               {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => (
                 <div key={oc} className={`rounded-xl border p-3.5 text-[12px] hover-lift-premium transition-all ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/50' : 'border-white/10 bg-white/[0.02]'}`}
                   style={resolved && book.revealed_outcome === oc ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 20px rgba(73,234,203,0.20)' } : undefined}>
-                  <div className="flex items-center justify-between mb-1.5"><span className="kicker">If "{lbl}" wins</span>{resolved && book.revealed_outcome === oc && <Trophy size={13} className="text-kaspa-green" />}</div>
-                  <div className="flex items-center justify-between"><span className="text-kaspa-green">Reward pool</span><span className="text-white">{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
-                  <div className="flex items-center justify-between"><span className="text-sky-300">Hedge / rebate pool</span><span className="text-white">{(r * opp).toFixed(2)} KAS</span></div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5"><span className="kicker truncate">If "{lbl}" wins</span>{resolved && book.revealed_outcome === oc && <Trophy size={13} className="text-kaspa-green shrink-0" />}</div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-kaspa-green">Reward pool</span><span className="text-white light:text-slate-900 shrink-0">{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sky-300 light:text-sky-600">Hedge / rebate pool</span><span className="text-white light:text-slate-900 shrink-0">{(r * opp).toFixed(2)} KAS</span></div>
                 </div>
               ))}
             </div>
           </>
         )}
-        <div className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-gray-500 leading-relaxed">
-          <span className="text-gray-300 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret - no Covex key sits in the money path.
+        <div className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-gray-500 leading-relaxed break-words">
+          <span className="text-gray-300 light:text-slate-700 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret - no Covex key sits in the money path.
           {oraclePk && <> Signer <span className="font-mono text-gray-400">{String(oraclePk).slice(0, 12)}…</span>.</>}
           {market.h_a && <> Commitments <span className="font-mono text-gray-400">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
         </div>
@@ -296,20 +296,20 @@ function MarketDetail({ id }) {
       {/* Place a bet */}
       {!resolved && (
         <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
-          <div className="text-white font-semibold mb-3 flex items-center gap-2"><Layers size={16} className="text-kaspa-green" /> Place an order</div>
+          <div className="text-white light:text-slate-900 font-semibold mb-3 flex items-center gap-2"><Layers size={16} className="text-kaspa-green" /> Place an order</div>
           <div className="grid grid-cols-2 gap-2 mb-3">
             {[book.outcome_a, book.outcome_b].map((label, i) => (
               <button key={i} onClick={() => setSide(i)}
-                className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${side === i ? 'bg-kaspa-green text-black border-kaspa-green' : 'bg-white/[0.03] text-gray-200 border-white/10 hover:border-white/25'}`}>
+                className={`py-2.5 px-2 rounded-xl text-sm font-semibold border transition-all truncate ${side === i ? 'bg-kaspa-green text-black border-kaspa-green' : 'bg-white/[0.03] light:bg-white text-gray-200 light:text-slate-700 border-white/10 light:border-slate-200 hover:border-white/25'}`}>
                 {label}
               </button>
             ))}
           </div>
-          <div className="flex gap-2 mb-3">
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
             <input value={stake} onChange={(e) => setStake(e.target.value)} type="number" min="1" step="0.5"
-              className="w-28 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm" placeholder="KAS" />
+              className="w-full sm:w-28 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" placeholder="KAS" />
             <input value={addr} onChange={(e) => setAddr(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm font-mono text-[11px]" placeholder="your kaspatest:q... address" />
+              className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm font-mono text-[11px]" placeholder="your kaspatest:q... address" />
           </div>
           <div className="flex gap-2">
             <button disabled={!!busy || !addr || !(parseFloat(stake) > 0)}
@@ -320,12 +320,12 @@ function MarketDetail({ id }) {
                 // conjoined bundle (several covenants) right now.
                 return await api('/covenant/market/match', { market_id: id });
               })}
-              className="btn-shimmer flex-1 py-3 rounded-xl font-extrabold text-sm bg-kaspa-green text-black disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)] transition-shadow">
+              className="btn-shimmer flex-1 min-w-0 truncate py-3 rounded-xl font-extrabold text-sm bg-kaspa-green text-black disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)] transition-shadow">
               {busy === 'Bet placed' ? <Loader2 className="animate-spin inline" size={15} /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
             </button>
             <button disabled={!!busy} title="Match any open orders into conjoined bundles"
               onClick={() => act('Matched', () => api('/covenant/market/match', { market_id: id }))}
-              className="px-4 py-2.5 rounded-xl font-semibold text-sm border border-white/15 text-gray-200 hover:border-kaspa-green/40 disabled:opacity-40">
+              className="px-4 py-2.5 rounded-xl font-semibold text-sm border border-white/15 light:border-slate-200 text-gray-200 light:text-slate-700 hover:border-kaspa-green/40 disabled:opacity-40 shrink-0">
               {busy === 'Matched' ? <Loader2 className="animate-spin inline" size={15} /> : 'Match'}
             </button>
           </div>
@@ -335,16 +335,16 @@ function MarketDetail({ id }) {
 
       {/* Order book */}
       <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
-        <div className="text-white font-semibold mb-3">Order book</div>
+        <div className="text-white light:text-slate-900 font-semibold mb-3">Order book</div>
         {(!book.orders || book.orders.length === 0) ? (
           <div className="text-sm text-gray-500">No orders yet - be the first.</div>
         ) : (
           <div className="space-y-1.5">
             {book.orders.map((o) => (
-              <div key={o.order_id} className="flex items-center justify-between text-[12px] py-1.5 px-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                <span className={o.side === 0 ? 'text-kaspa-green' : 'text-sky-300'}>{o.side === 0 ? book.outcome_a : book.outcome_b}</span>
-                <span className="text-white">{o.stake_kas} KAS</span>
-                <span className={`inline-flex items-center gap-1 ${o.status === 'funded' ? 'text-emerald-300' : 'text-gray-500'}`}>
+              <div key={o.order_id} className="flex items-center gap-2 text-[12px] py-1.5 px-3 rounded-lg bg-white/[0.02] light:bg-slate-50 border border-white/[0.05] light:border-slate-200">
+                <span className={`truncate min-w-0 flex-1 ${o.side === 0 ? 'text-kaspa-green' : 'text-sky-300 light:text-sky-600'}`}>{o.side === 0 ? book.outcome_a : book.outcome_b}</span>
+                <span className="text-white light:text-slate-900 shrink-0">{o.stake_kas} KAS</span>
+                <span className={`inline-flex items-center gap-1 shrink-0 ${o.status === 'funded' ? 'text-emerald-300 light:text-emerald-600' : 'text-gray-500'}`}>
                   {o.status === 'funded' ? <><Check size={11} /> funded</> : 'open'}
                 </span>
               </div>
@@ -356,9 +356,9 @@ function MarketDetail({ id }) {
       {/* Resolve + pay out: one click reveals the winning secret AND settles every funded leg */}
       {!resolved && (
         <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
-          <div className="text-white font-semibold mb-1">Resolve &amp; pay out</div>
+          <div className="text-white light:text-slate-900 font-semibold mb-1">Resolve &amp; pay out</div>
           <p className="text-[11px] text-gray-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
-          <p className="text-[11px] text-amber-200/80 mb-3 flex items-start gap-1.5">
+          <p className="text-[11px] text-amber-200/80 light:text-amber-700 mb-3 flex items-start gap-1.5">
             <ShieldCheck size={13} className="text-amber-400 shrink-0 mt-0.5" />
             Only the wallet that created this market can resolve it. You'll be prompted to sign a one-time message proving ownership before the outcome is revealed.
           </p>
@@ -378,7 +378,7 @@ function MarketDetail({ id }) {
                   setSettleRes(s);
                   return s;
                 })}
-                className="py-2.5 rounded-xl text-sm font-semibold border border-white/15 text-gray-200 hover:border-emerald-400/40 disabled:opacity-40">
+                className="py-2.5 px-2 truncate rounded-xl text-sm font-semibold border border-white/15 light:border-slate-200 text-gray-200 light:text-slate-700 hover:border-emerald-400/40 disabled:opacity-40">
                 {busy === `Resolving ${label}` ? <Loader2 className="animate-spin inline" size={15} /> : `"${label}" won → pay out`}
               </button>
             ))}

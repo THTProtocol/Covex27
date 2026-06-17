@@ -19,6 +19,16 @@ const REALITY = {
 const realityOf = (r) => REALITY[r] || REALITY['oracle-attested'];
 const NET_LABEL = { 'testnet-12': 'Testnet-12', 'testnet-10': 'Testnet-10', mainnet: 'Mainnet' };
 
+// Honest VALUE LOCKED formatting, mirrored from the Explorer CovenantCard so the
+// embed reads the same real on-chain figure (compact K/M, no fabricated value).
+const formatKas = (kas) => {
+  const num = Number(kas);
+  if (!Number.isFinite(num)) return '0';
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+};
+
 export default function CovenantEmbed() {
   const { id } = useParams();
   const [params] = useSearchParams();
@@ -101,6 +111,22 @@ export default function CovenantEmbed() {
               </div>
 
               <p className="mt-3 text-[12px] leading-relaxed" style={{ color: shell.sub }}>{desc}</p>
+
+              {/* Value-locked hero - the real on-chain pot, leading like the Explorer card.
+                  Honest by source: reads cov.amount_kaspa from the indexed covenant. */}
+              <div className="mt-3 flex items-end justify-between gap-3 rounded-xl px-3 py-2.5 border" style={{ background: dark ? 'rgba(73,234,203,0.05)' : 'rgba(73,234,203,0.07)', borderColor: dark ? 'rgba(73,234,203,0.18)' : 'rgba(73,234,203,0.25)' }}>
+                <div className="min-w-0">
+                  <div className="text-[8.5px] uppercase tracking-[0.16em] font-bold mb-0.5" style={{ color: shell.faint }}>Value Locked</div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-mono text-xl font-black leading-none tracking-tight" style={{ color: shell.title }}>{formatKas(cov.amount_kaspa || 0)}</span>
+                    <span className="text-[10px] font-bold" style={{ color: shell.sub }}>KAS</span>
+                  </div>
+                </div>
+                <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border" style={cov.is_active === false ? { color: shell.faint, background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.05)', borderColor: shell.cardBorder } : { color: '#34d399', background: 'rgba(52,211,153,0.12)', borderColor: 'rgba(52,211,153,0.30)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: cov.is_active === false ? '#9ca3af' : '#34d399' }} />
+                  {cov.is_active === false ? 'Settled' : 'Active'}
+                </span>
+              </div>
 
               {cov.address && (
                 <div className="mt-3 rounded-lg px-2.5 py-2 font-mono text-[10px] break-all" style={{ background: dark ? 'rgba(0,0,0,0.35)' : 'rgba(15,23,42,0.04)', color: shell.faint }}>

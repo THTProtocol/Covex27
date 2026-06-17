@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Check, X as XIcon, Loader2, ArrowLeft, Terminal, Star, Crown, Eye } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -238,14 +239,21 @@ const Pricing = () => {
           </CardContent>
         </Card>
 
-        {/* QR code for easy payment from any wallet (will be matched to your address by indexer) */}
+        {/* QR code for easy payment from any wallet (will be matched to your address by
+            indexer). Rendered locally with qrcode.react so the payment URI never leaves the
+            browser - encodes the exact same kaspa: string the old external image did. */}
         <div className="max-w-md mx-auto mt-4">
           <div className="text-xs text-gray-400 mb-1 text-center">Scan to pay exactly {p.price} KAS (from the wallet you will use to deploy)</div>
-          <img 
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`kaspa:${TREASURY.replace(/^kaspa:|^kaspatest:/i,'')}?amount=${p.price}&message=COVEX-${p.id}`)}`}
-            alt="QR to pay tier"
-            className="mx-auto rounded border border-white/10 bg-white p-1"
-          />
+          <div className="mx-auto w-fit rounded-lg border border-white/10 bg-white p-2">
+            <QRCodeSVG
+              value={`kaspa:${TREASURY.replace(/^kaspa:|^kaspatest:/i, '')}?amount=${p.price}&message=COVEX-${p.id}`}
+              size={180}
+              level="M"
+              bgColor="#ffffff"
+              fgColor="#000000"
+              aria-label={`QR code to pay ${p.price} KAS for ${p.name} tier`}
+            />
+          </div>
         </div>
         <div className="space-y-4 max-w-md mx-auto">
           {paymentStatus?.type === 'error' && (
@@ -286,11 +294,11 @@ const Pricing = () => {
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <Card key={tier.id} className={`relative overflow-hidden flex flex-col pricing-tier-card hover-lift ${!isFree ? 'border-2' : ''}`}
+            <Card key={tier.id} className={`relative overflow-hidden flex flex-col h-full pricing-tier-card hover-lift ${!isFree ? 'border-2' : ''}`}
               style={!isFree ? { borderColor: tier.accent + '40', boxShadow: tier.id === 'PRO' ? `0 0 0 1px ${tier.accent}55, 0 22px 55px -24px ${tier.accent}77` : undefined } : {}}>
               {!isFree && <div className="absolute top-0 inset-x-0 h-[3px]" aria-hidden="true" style={{ background: `linear-gradient(90deg, transparent, ${tier.accent}, transparent)` }} />}
               <CardHeader>
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
                     {tier.id === 'FREE' && <Eye size={22} className="text-gray-400 shrink-0" />}
                     {tier.id === 'BUILDER' && <Terminal size={22} className="shrink-0" style={{ color: tier.accent }} />}
@@ -298,9 +306,21 @@ const Pricing = () => {
                     {tier.id === 'MAX' && <Crown size={22} className="shrink-0" style={{ color: tier.accent }} />}
                     <CardTitle className="truncate">{tier.name}</CardTitle>
                   </div>
-                  <Badge variant={tier.variant} className="shrink-0">{isFree ? 'FREE' : tier.price + ' KAS'}</Badge>
+                  <Badge variant={tier.variant} className="shrink-0">{tier.id}</Badge>
                 </div>
-                <p className="text-sm text-gray-400 mt-1">{tier.desc}</p>
+                {/* Price as the bold hero of each card */}
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  {isFree ? (
+                    <span className="text-4xl font-black tracking-tight text-white leading-none">Free</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-black tracking-tight text-white leading-none">{tier.price.toLocaleString()}</span>
+                      <span className="text-base font-bold" style={{ color: tier.accent }}>KAS</span>
+                      <span className="text-xs text-gray-500 ml-1">one-time</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-sm text-gray-400 mt-2">{tier.desc}</p>
               </CardHeader>
               <CardContent className="flex-1">
                 <div className="space-y-2.5 mb-6">

@@ -4,6 +4,7 @@ import { Puck } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { ArrowLeft, Save, Eye, Sparkles, Zap } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
+import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import puckConfig, { LIVE_TOKENS } from '../lib/puckConfig';
 
@@ -22,11 +23,6 @@ export default function CovenantStudio() {
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  useEffect(() => {
-    if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }
-  }, [toast]);
 
   useEffect(() => {
     setLoading(true);
@@ -40,6 +36,26 @@ export default function CovenantStudio() {
       })
       .catch(() => setCovenant(null))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  // Live refresh: keep the studio preview's on-chain figures (balance, status,
+  // activity) current while the creator designs. Polls every 20s and merges ONLY
+  // the volatile fields, so it never clobbers the loaded record's static data or
+  // the creator's in-progress canvas. Same cadence as the public covenant page.
+  useEffect(() => {
+    if (!id) return undefined;
+    const tick = () => {
+      fetch(`/api/covenants/${encodeURIComponent(id)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          const f = d && d.covenant;
+          if (!f) return;
+          setCovenant((c) => (c ? { ...c, amount_kaspa: f.amount_kaspa, is_active: f.is_active, block_daa_score: f.block_daa_score, timestamp: f.timestamp, tx_count: f.tx_count } : c));
+        })
+        .catch(() => {});
+    };
+    const iv = setInterval(tick, 20000);
+    return () => clearInterval(iv);
   }, [id]);
 
   const isCreator = !!(address && covenant && (covenant.creator_addr === address || covenant.address === address));
@@ -82,12 +98,12 @@ export default function CovenantStudio() {
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && (d.success || d.ok)) {
-        setToast({ type: 'success', msg: 'Page published. Visitors now see your design.' });
+        toast.success('Page published. Visitors now see your design.');
       } else {
-        setToast({ type: 'error', msg: d.error || 'Save failed. Check covenant ownership and try again.' });
+        toast.error(d.error || 'Save failed. Check covenant ownership and try again.');
       }
     } catch (e) {
-      setToast({ type: 'error', msg: e?.message || 'Network error while saving.' });
+      toast.error(e?.message || 'Network error while saving.');
     } finally {
       setSaving(false);
     }
@@ -158,13 +174,7 @@ export default function CovenantStudio() {
           </ul>
         </div>
       </details>
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[100]">
-          <div className={`px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium ${toast.type === 'success' ? 'bg-emerald-900/60 border-emerald-500/30 text-emerald-200' : 'bg-red-900/60 border-red-500/30 text-red-200'}`}>
-            {toast.msg}
-          </div>
-        </div>
-      )}
+      {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
     </div>
   );
 }

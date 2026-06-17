@@ -19,6 +19,34 @@
 
 const align = (a) => (a === 'center' ? 'text-center mx-auto' : a === 'right' ? 'text-right ml-auto' : 'text-left');
 
+// SAFE_COLOR: creator-supplied color strings flow straight into inline `style`
+// (and into template-literal gradients / box-shadows), so they are a CSS-injection
+// surface. We accept ONLY a strict shape: #hex (3-8 digits), rgb()/rgba(),
+// hsl()/hsla(), or a small fixed named-color allowlist. Anything containing
+// url(), expression(), javascript:, a semicolon, a comment, or stray braces/
+// parens is rejected and falls back to the brand teal. This keeps a hostile or
+// fat-fingered theme value from escaping the property it was meant for (e.g.
+// "red;background:url(evil)" or "expression(alert(1))"). HTML/token sanitization
+// elsewhere is unchanged; this is purely the color gate.
+const NAMED_COLORS = new Set([
+  'transparent', 'currentcolor', 'inherit',
+  'black', 'white', 'red', 'green', 'blue', 'yellow', 'orange', 'purple',
+  'pink', 'teal', 'cyan', 'magenta', 'gray', 'grey', 'gold', 'silver',
+  'lime', 'navy', 'maroon', 'olive', 'aqua', 'fuchsia', 'indigo', 'violet',
+  'crimson', 'salmon', 'coral', 'tomato', 'turquoise', 'slateblue', 'skyblue',
+]);
+const COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgba?\(\s*[\d.,\s%/]+\)$|^hsla?\(\s*[\d.,\s%/deg]+\)$/;
+const FALLBACK_COLOR = '#49EACB';
+export const SAFE_COLOR = (c, fallback = FALLBACK_COLOR) => {
+  const v = typeof c === 'string' ? c.trim() : '';
+  if (!v) return fallback;
+  // Hard-reject anything that could break out of the property value.
+  if (/[;{}<>\\]|url\(|expression|javascript:|\/\*|\*\//i.test(v)) return fallback;
+  if (COLOR_RE.test(v)) return v;
+  if (NAMED_COLORS.has(v.toLowerCase())) return v;
+  return fallback;
+};
+
 // Replace {{token}} occurrences in a string with live covenant values. Unknown
 // tokens are left as typed (so a literal "{{foo}}" never silently vanishes).
 const resolveTokens = (str, live) => {
@@ -105,8 +133,9 @@ export const puckConfig = {
     render: ({ children, pageLogo, accentColor, backgroundPreset, fontFamily }) => {
       const bg = (BG_PRESETS[backgroundPreset] || BG_PRESETS['kaspa-hero']).css;
       const font = fontFamily === 'mono' ? "'JetBrains Mono', ui-monospace, monospace" : "'Inter', system-ui, -apple-system, sans-serif";
+      const accent = SAFE_COLOR(accentColor);
       return (
-        <div className="relative" style={{ background: bg, fontFamily: font, ['--page-accent']: accentColor || '#49EACB' }}>
+        <div className="relative" style={{ background: bg, fontFamily: font, ['--page-accent']: accent }}>
           {isHttpsImg(pageLogo) && (
             <div className="flex items-center px-6 py-4">
               <img src={pageLogo} alt="covenant brand logo" className="h-9 max-w-[200px] object-contain" />
@@ -121,7 +150,7 @@ export const puckConfig = {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner'] },
     layout: { title: 'Layout', components: ['Hero', 'Spacer', 'Divider', 'TwoColumns'] },
     content: { title: 'Content', components: ['Heading', 'Paragraph', 'BulletList', 'FAQItem', 'ImageBlock', 'ImageGallery', 'FeatureGrid', 'LogoStrip'] },
-    covenant: { title: 'Covenant (live)', components: ['StatRow', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'StakeCTA', 'FeeNotice'] },
+    covenant: { title: 'Covenant (live)', components: ['StatRow', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'ActivityFeed', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
     HeroImage: {
@@ -139,7 +168,7 @@ export const puckConfig = {
       defaultProps: { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A live, on-chain Kaspa covenant. {{total_locked}} secured on {{network}}.', ctaLabel: 'Enter covenant', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' },
       render: ({ backgroundImageUrl, overlayOpacity, title, subtitle, ctaLabel, ctaAction, accentColor, alignment, puck }) => {
         const live = puck?.metadata?.live || {};
-        const ac = accentColor || '#49EACB';
+        const ac = SAFE_COLOR(accentColor);
         const ov = parseFloat(overlayOpacity) || 0.55;
         const bg = isHttpsImg(backgroundImageUrl)
           ? `linear-gradient(135deg, rgba(5,5,10,${ov}) 0%, rgba(5,5,10,${Math.min(1, ov + 0.18)}) 100%), url(${backgroundImageUrl}) center/cover no-repeat`
@@ -300,9 +329,10 @@ export const puckConfig = {
       defaultProps: { title: 'My Covenant', subtitle: 'Stake, play, and settle on the Kaspa BlockDAG.', alignment: 'center', accent: '' },
       render: ({ title, subtitle, alignment, accent, puck }) => {
         const live = puck?.metadata?.live || {};
+        const accentSafe = accent && accent.trim() ? SAFE_COLOR(accent) : '';
         return (
           <div className={`py-10 px-4 ${align(alignment)}`}>
-            <h1 className="text-3xl sm:text-4xl font-black text-white mb-3" style={accent ? { color: accent } : {}}>{resolveTokens(title, live)}</h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-white mb-3" style={accentSafe ? { color: accentSafe } : {}}>{resolveTokens(title, live)}</h1>
             {subtitle && <p className="text-gray-300 max-w-xl text-base leading-relaxed mx-auto">{resolveTokens(subtitle, live)}</p>}
           </div>
         );
@@ -392,6 +422,8 @@ export const puckConfig = {
       defaultProps: { labelA: 'YES', valueA: '{{pool_yes}}', colorA: '#49EACB', labelB: 'NO', valueB: '{{pool_no}}', colorB: '#F472B6', showOdds: 'yes' },
       render: ({ labelA, valueA, colorA, labelB, valueB, colorB, showOdds, puck }) => {
         const live = puck?.metadata?.live || {};
+        const cA = SAFE_COLOR(colorA, '#49EACB');
+        const cB = SAFE_COLOR(colorB, '#F472B6');
         const a = toNum(valueA, live);
         const b = toNum(valueB, live);
         const total = a + b;
@@ -402,12 +434,12 @@ export const puckConfig = {
         return (
           <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
             <div className="flex items-center justify-between mb-2 text-sm font-bold">
-              <span style={{ color: colorA || '#49EACB' }}>{resolveTokens(labelA, live)} {pctA}%</span>
-              <span style={{ color: colorB || '#F472B6' }}>{pctB}% {resolveTokens(labelB, live)}</span>
+              <span style={{ color: cA }}>{resolveTokens(labelA, live)} {pctA}%</span>
+              <span style={{ color: cB }}>{pctB}% {resolveTokens(labelB, live)}</span>
             </div>
             <div className="h-4 w-full rounded-full overflow-hidden flex bg-white/5 border border-white/10">
-              <div className="h-full transition-all duration-500" style={{ width: `${pctA}%`, background: colorA || '#49EACB' }} />
-              <div className="h-full transition-all duration-500" style={{ width: `${pctB}%`, background: colorB || '#F472B6' }} />
+              <div className="h-full transition-all duration-500" style={{ width: `${pctA}%`, background: cA }} />
+              <div className="h-full transition-all duration-500" style={{ width: `${pctB}%`, background: cB }} />
             </div>
             {showOdds === 'yes' && (
               <div className="flex items-center justify-between mt-2 text-[11px] font-mono text-gray-400">
@@ -432,7 +464,7 @@ export const puckConfig = {
       defaultProps: { outcomeName: 'YES', multiplier: '{{odds_yes}}', poolSize: '{{pool_yes}}', isWinner: 'no', accentColor: '#49EACB' },
       render: ({ outcomeName, multiplier, poolSize, isWinner, accentColor, puck }) => {
         const live = puck?.metadata?.live || {};
-        const ac = accentColor || '#49EACB';
+        const ac = SAFE_COLOR(accentColor);
         const win = isWinner === 'yes';
         return (
           <div className="mx-2 md:mx-4 mb-5 rounded-2xl p-6 md:p-7 border-2 transition-all"
@@ -464,6 +496,7 @@ export const puckConfig = {
       defaultProps: { label: 'Total value locked', value: '{{amount_kaspa}}', max: '1000', suffix: 'KAS', color: '#49EACB' },
       render: ({ label, value, max, suffix, color, puck }) => {
         const live = puck?.metadata?.live || {};
+        const barColor = SAFE_COLOR(color);
         const v = toNum(value, live);
         const m = toNum(max, live);
         const pct = m > 0 ? Math.min(100, Math.round((v / m) * 100)) : 0;
@@ -474,9 +507,108 @@ export const puckConfig = {
               <p className="text-lg font-black text-white">{v.toLocaleString()} <span className="text-xs font-medium text-gray-400">{suffix}</span></p>
             </div>
             <div className="h-2.5 w-full rounded-full overflow-hidden bg-white/5 border border-white/10">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color || '#49EACB' }} />
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: barColor }} />
             </div>
             {m > 0 && <p className="text-[10px] text-gray-500 mt-1 text-right">{pct}% of {m.toLocaleString()} {suffix}</p>}
+          </div>
+        );
+      },
+    },
+    ActivityFeed: {
+      label: 'Activity Feed (live)',
+      fields: {
+        title: { type: 'text' },
+        emptyText: { type: 'text', label: 'Shown when no activity yet' },
+        maxRows: { type: 'select', label: 'Rows', options: [{ label: '3', value: '3' }, { label: '5', value: '5' }, { label: '8', value: '8' }] },
+        accentColor: { type: 'text', label: 'Accent hex' },
+      },
+      defaultProps: { title: 'Live activity', emptyText: 'No on-chain actions yet. Be the first to interact.', maxRows: '5', accentColor: '#49EACB' },
+      render: ({ title, emptyText, maxRows, accentColor, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const ac = SAFE_COLOR(accentColor);
+        // Honest by construction: rows come ONLY from the server-derived live
+        // metadata (live.actions, populated from the indexed on-chain action log).
+        // No row is ever fabricated; an empty/absent log renders the empty state.
+        const rows = Array.isArray(live.actions) ? live.actions.slice(0, parseInt(maxRows, 10) || 5) : [];
+        const count = live.tx_count != null ? Number(live.tx_count) || 0 : rows.length;
+        const fmtAmt = (a) => {
+          const n = Number(a);
+          return Number.isFinite(n) && n !== 0 ? `${n.toLocaleString()} KAS` : '';
+        };
+        return (
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: ac }} />
+                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300">{resolveTokens(title, live)}</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/10 text-gray-400">{count.toLocaleString()} on-chain</span>
+            </div>
+            {rows.length === 0 ? (
+              <div className="px-4 py-7 text-center text-xs text-gray-500">{resolveTokens(emptyText, live)}</div>
+            ) : (
+              <ul className="divide-y divide-white/[0.05]">
+                {rows.map((r, i) => {
+                  const label = resolveTokens(String(r.label || r.type || r.action || 'Action'), live);
+                  const who = r.address ? String(r.address).slice(0, 10) : (r.from ? String(r.from).slice(0, 10) : '');
+                  const amt = fmtAmt(r.amount ?? r.amount_kaspa);
+                  const when = r.timestamp ? new Date(Number(r.timestamp) * 1000).toLocaleDateString() : (r.daa_score ? `DAA ${Number(r.daa_score).toLocaleString()}` : '');
+                  return (
+                    <li key={i} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center text-[11px] font-bold" style={{ background: `${ac}1f`, color: ac }}>{(label[0] || '•').toUpperCase()}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-white truncate">{label}{who && <span className="font-mono text-gray-500 font-normal"> · {who}…</span>}</p>
+                        {when && <p className="text-[10px] text-gray-500">{when}</p>}
+                      </div>
+                      {amt && <span className="text-xs font-mono font-bold shrink-0" style={{ color: ac }}>{amt}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+      },
+    },
+    Countdown: {
+      label: 'Countdown',
+      fields: {
+        title: { type: 'text' },
+        targetDate: { type: 'text', label: 'Target date/time (ISO, e.g. 2026-07-01T18:00)' },
+        endedText: { type: 'text', label: 'Shown after the target' },
+        accentColor: { type: 'text', label: 'Accent hex' },
+      },
+      defaultProps: { title: 'Closes in', targetDate: '', endedText: 'This window has closed.', accentColor: '#E8AF34' },
+      render: ({ title, targetDate, endedText, accentColor, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const ac = SAFE_COLOR(accentColor, '#E8AF34');
+        const target = Date.parse(resolveTokens(String(targetDate || ''), live));
+        const now = Date.now();
+        const valid = Number.isFinite(target);
+        const remain = valid ? target - now : 0;
+        const ended = valid && remain <= 0;
+        const d = Math.floor(remain / 86400000);
+        const h = Math.floor((remain % 86400000) / 3600000);
+        const m = Math.floor((remain % 3600000) / 60000);
+        const s = Math.floor((remain % 60000) / 1000);
+        const cells = ended || !valid ? [] : [['Days', d], ['Hrs', h], ['Min', m], ['Sec', s]];
+        return (
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mb-3">{resolveTokens(title, live)}</p>
+            {!valid ? (
+              <p className="text-xs text-gray-500">Set a target date in the editor to start the countdown.</p>
+            ) : ended ? (
+              <p className="text-base font-bold" style={{ color: ac }}>{resolveTokens(endedText, live)}</p>
+            ) : (
+              <div className="flex items-stretch justify-center gap-2.5">
+                {cells.map(([lbl, val]) => (
+                  <div key={lbl} className="min-w-[58px] rounded-xl border border-white/[0.08] bg-white/[0.03] px-2 py-2.5">
+                    <div className="text-2xl md:text-3xl font-black leading-none tabular-nums" style={{ color: ac }}>{String(Math.max(0, val)).padStart(2, '0')}</div>
+                    <div className="text-[9px] uppercase tracking-widest text-gray-500 mt-1">{lbl}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       },

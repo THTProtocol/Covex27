@@ -5,6 +5,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
+import { toast } from '../components/ToastContext';
 
 // The on-chain-enforced covenant primitives (covenant_builder), plus the parimutuel
 // prediction market, which is itself settled on-chain by conjoined oracle covenants.
@@ -31,9 +32,22 @@ function randomSecretHex() {
 
 function CopyBtn({ text }) {
   const [done, setDone] = useState(false);
+  async function onCopy() {
+    // Only report success on a real clipboard write. navigator.clipboard can be
+    // absent (insecure context) or reject (permission denied); awaiting it in a
+    // try/catch is what makes the "copied" state honest instead of a false success.
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable in this context.');
+      await navigator.clipboard.writeText(text);
+      setDone(true);
+      setTimeout(() => setDone(false), 1200);
+    } catch (e) {
+      toast.error('Could not copy to clipboard. Select the text and copy it manually.', { title: 'Copy failed' });
+    }
+  }
   return (
     <button
-      onClick={() => { navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); }}
+      onClick={onCopy}
       className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-kaspa-green transition-colors"
     >
       {done ? <Check size={12} /> : <Copy size={12} />} {done ? 'copied' : 'copy'}
@@ -416,21 +430,38 @@ export default function EnforcedDeploy() {
   const KindIcon = KINDS.find((k) => k.id === kind)?.icon || ShieldCheck;
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-10 space-y-8">
-      <div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
-          <ShieldCheck className="text-emerald-400 shrink-0" size={26} />
-          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">Deploy an Enforced Covenant</h1>
-          <span className="shrink-0 px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">On-chain</span>
+    <div className="relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8">
+      {/* Ambient aurora behind the hero (no intrinsic size: width/height + centering set inline) */}
+      <div
+        className="covex-aurora"
+        aria-hidden="true"
+        style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 620, height: 280, maxWidth: '92vw' }}
+      />
+
+      {/* Premium hero header: detail-hero-enhanced glass + 3px on-chain identity accent bar */}
+      <div className="relative z-10 overflow-hidden rounded-2xl glass-panel detail-hero-enhanced p-6 sm:p-8">
+        <div
+          aria-hidden="true"
+          className="absolute top-0 inset-x-0 h-[3px]"
+          style={{ background: 'linear-gradient(90deg, transparent, #34d399, transparent)' }}
+        />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
+          <span className="grid place-items-center h-11 w-11 rounded-xl border border-emerald-500/30 bg-emerald-500/10 shrink-0">
+            <ShieldCheck className="text-emerald-400" size={24} />
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Deploy an Enforced Covenant</h1>
+          <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" /> On-chain
+          </span>
         </div>
-        <p className="text-sm text-gray-300 max-w-2xl">
+        <p className="text-sm sm:text-base text-gray-300 max-w-2xl leading-relaxed">
           These covenants are enforced by Kaspa consensus itself. Funds lock to a script hash and can only move by satisfying
           the script - no oracle, no trust. Every spend was proven against the real Kaspa script engine before this shipped.
         </p>
       </div>
 
       {isMainnet && (
-        <div className="glass-panel p-4 border-amber-500/30 bg-amber-500/[0.05]">
+        <div className="relative z-10 glass-panel p-4 border-amber-500/30 bg-amber-500/[0.05]">
           <p className="text-sm text-amber-200">
             You are on mainnet. Single-key, hashlock, and timelock covenants deploy non-custodially here:
             connect the key that holds the funds and it signs the funding transaction in your browser - the key is never sent.
@@ -439,8 +470,8 @@ export default function EnforcedDeploy() {
         </div>
       )}
 
-      {/* Kind picker */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Kind picker - premium selectable tiles (CircuitCard-style: hover-lift + selected ring) */}
+      <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3">
         {KINDS.map((k) => {
           const Icon = k.icon;
           const active = kind === k.id;
@@ -448,10 +479,28 @@ export default function EnforcedDeploy() {
             <button
               key={k.id}
               onClick={() => setKind(k.id)}
-              className={`text-left p-4 rounded-xl border transition-all ${active ? 'border-kaspa-green/60 bg-kaspa-green/[0.06]' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}
+              aria-pressed={active}
+              className={`hover-lift group relative overflow-hidden text-left p-4 rounded-xl border transition-all ${
+                active
+                  ? 'border-kaspa-green/60 bg-kaspa-green/[0.07] ring-1 ring-kaspa-green/50 shadow-[0_0_22px_-6px_rgba(73,234,203,0.45)]'
+                  : 'border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]'
+              }`}
             >
-              <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300'} />
-              <div className="mt-2 text-sm font-semibold text-white">{k.label}</div>
+              {active && (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-0 inset-x-0 h-[3px]"
+                  style={{ background: 'linear-gradient(90deg, transparent, #49EACB, transparent)' }}
+                />
+              )}
+              <span
+                className={`grid place-items-center h-9 w-9 rounded-lg border transition-colors ${
+                  active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20'
+                }`}
+              >
+                <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300'} />
+              </span>
+              <div className="mt-2.5 text-sm font-semibold text-white">{k.label}</div>
               <div className="mt-1 text-[11px] text-gray-400 leading-snug">{k.blurb}</div>
             </button>
           );
@@ -459,7 +508,7 @@ export default function EnforcedDeploy() {
       </div>
 
       {/* Param form */}
-      <div className="glass-panel p-6 space-y-4">
+      <div className="relative z-10 glass-panel p-6 space-y-4">
         <div className="flex items-center gap-2 text-white font-semibold"><KindIcon size={16} className="text-kaspa-green" /> Parameters</div>
         {kind !== 'market' && (
           <label className="block">
@@ -584,7 +633,7 @@ export default function EnforcedDeploy() {
 
       {/* This session's enforced covenants */}
       {mine.length > 0 && (
-        <div className="glass-panel overflow-hidden">
+        <div className="relative z-10 glass-panel overflow-hidden">
           <div className="px-6 py-4 border-b border-white/5">
             <div className="text-white font-semibold">Your enforced covenants (this session)</div>
             <div className="text-xs text-gray-400 mt-0.5">Deployed and live on-chain. Next, give each one a beautiful public page in the Page Studio, then share it.</div>
@@ -642,7 +691,7 @@ export default function EnforcedDeploy() {
 
       {/* Honest catalog */}
       {onchainEntries.length > 0 && (
-        <div className="glass-panel p-6">
+        <div className="relative z-10 glass-panel p-6">
           <div className="text-white font-semibold mb-3">What "on-chain enforced" means here</div>
           <p className="text-sm text-gray-300 mb-4">
             Unlike oracle-attested or metadata covenants, these resolve purely by Kaspa script. The platform labels every
@@ -662,7 +711,7 @@ export default function EnforcedDeploy() {
       {/* Interact with ANY covenant, including ones not created on Covex. Intentionally
           subtle and at the bottom, but fully functional - the trustless point is that any
           P2SH covenant is spendable by its key-holder with only the redeem script. */}
-      <div className="glass-panel p-5 opacity-70 hover:opacity-100 transition-opacity">
+      <div className="relative z-10 glass-panel p-5 opacity-70 hover:opacity-100 transition-opacity">
         <button onClick={() => setExtOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
           <span className="text-xs font-medium text-gray-400">Interact with any covenant (including ones not created on Covex)</span>
           <span className="text-gray-500 text-[11px]">{extOpen ? 'hide' : 'open'}</span>

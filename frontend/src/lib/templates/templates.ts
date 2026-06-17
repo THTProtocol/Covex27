@@ -257,7 +257,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'merkle-airdrop',
     name: 'Merkle Airdrop Claim',
-    description: 'Eligible addresses prove membership in a committed Merkle root to claim — real Groth16 ZK proof, no list revealed.',
+    description: 'Eligible addresses prove membership in a committed Merkle root to claim. Real Groth16 ZK proof, no list revealed.',
     category: 'Financial Tools',
     icon: '🎁',
     difficulty: 'Intermediate',
@@ -275,7 +275,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'solvency-range-proof',
     name: 'Solvency / Range Proof Escrow',
-    description: 'Prove a committed balance sits within [min, max] without revealing it — genuine range-proof ZK circuit.',
+    description: 'Prove a committed balance sits within [min, max] without revealing it, on a genuine range-proof ZK circuit.',
     category: 'Financial Tools',
     icon: '📊',
     difficulty: 'Advanced',
@@ -292,7 +292,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'age-gated-claim',
     name: 'Age-Gated Claim',
-    description: 'Prove age over a threshold (zero-knowledge KYC alternative) to unlock — real age_verification circuit.',
+    description: 'Prove age over a threshold (zero-knowledge KYC alternative) to unlock, on the real age_verification circuit.',
     category: 'Governance & DAOs',
     icon: '🔞',
     difficulty: 'Intermediate',
@@ -374,6 +374,218 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
       covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four Arena', description: 'Oracle-attested Connect Four. Winner takes the pot minus fee.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 200 } },
       ui: { templateId: 'connect4-v1', theme: { primaryColor: '#EF4444' } }
+    })
+  },
+
+  // === CORE COVENANT PRIMITIVES (each deep-links to its real circuit in the Sandbox) ===
+  // Honest by construction: every entry maps to a circuit that already exists, and its
+  // reality chip is derived from the resolution mode (zk -> oracle-verified off-chain,
+  // oracle -> oracle-attested). No "on-chain enforced" / "trustless" claims: the Sandbox
+  // destination verifies these proofs off-chain via the disclosed Covex oracle.
+  {
+    id: 'hashlock-htlc',
+    name: 'HTLC (Hashlock + Timeout Refund)',
+    description: 'The atomic-swap building block. The receiver claims by revealing a secret preimage; the sender is refunded after a timeout. Hashlock branch proven on the hash_preimage circuit.',
+    category: 'Escrow & Agreements',
+    icon: '🔗',
+    difficulty: 'Intermediate',
+    estimatedTime: '5 min',
+    recommendedTier: 'PRO',
+    tags: ['HTLC', 'Hashlock', 'Atomic Swap'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'HTLC', description: 'Claim by revealing the secret preimage; refund after the timeout.' },
+      resolution: { mode: 'zk', circuit: { type: 'hash_preimage' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 0 } },
+      ui: { templateId: 'htlc-v1', theme: { primaryColor: '#F59E0B' } }
+    }),
+    studioSuggestions: { primaryColor: '#F59E0B', features: ['Reveal preimage', 'Refund after timeout', 'Claim status'] }
+  },
+  {
+    id: 'plain-hashlock',
+    name: 'Hashlock Vault',
+    description: 'Funds unlock only when the holder reveals the secret preimage of a committed hash. The minimal commitment primitive, proven on the hash_preimage circuit.',
+    category: 'Escrow & Agreements',
+    icon: '🔒',
+    difficulty: 'Beginner',
+    estimatedTime: '4 min',
+    recommendedTier: 'BUILDER',
+    tags: ['Hashlock', 'Preimage', 'Commitment'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Hashlock Vault', description: 'Unlock by revealing the secret preimage of the committed hash.' },
+      resolution: { mode: 'zk', circuit: { type: 'hash_preimage' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 0 } },
+      ui: { templateId: 'hashlock-v1', theme: { primaryColor: '#FBBF24' } }
+    })
+  },
+  {
+    id: 'absolute-timelock',
+    name: 'Absolute Timelock (CLTV)',
+    description: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting and scheduled releases, proven on the timelock_absolute circuit (current_daa >= threshold).',
+    category: 'Financial Tools',
+    icon: '⏳',
+    difficulty: 'Beginner',
+    estimatedTime: '4 min',
+    recommendedTier: 'BUILDER',
+    tags: ['Timelock', 'CLTV', 'Vesting'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Absolute Timelock', description: 'Spendable only after the DAA score reaches the unlock point.' },
+      resolution: { mode: 'zk', circuit: { type: 'timelock_absolute' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'timelock-abs-v1', theme: { primaryColor: '#F97316' } }
+    })
+  },
+  {
+    id: 'relative-timelock-csv',
+    name: 'Relative Timelock (CSV)',
+    description: 'Funds become spendable after they have aged a relative number of blocks since the reference point. Dispute windows and cooldowns, proven on the relative_timelock circuit.',
+    category: 'Financial Tools',
+    icon: '🕰️',
+    difficulty: 'Intermediate',
+    estimatedTime: '5 min',
+    recommendedTier: 'PRO',
+    tags: ['Timelock', 'CSV', 'Cooldown'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Relative Timelock', description: 'Spendable only after the funds age a relative number of DAA blocks.' },
+      resolution: { mode: 'zk', circuit: { type: 'relative_timelock' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'timelock-rel-v1', theme: { primaryColor: '#FB7185' } }
+    })
+  },
+  {
+    id: 'dead-man-switch',
+    name: "Dead-Man's Switch",
+    description: 'The owner can refresh or spend at any time; the heir can claim only after the timelock elapses, so funds pass on if the owner goes silent. Timelock proven on the timelock_absolute circuit.',
+    category: 'Financial Tools',
+    icon: '💼',
+    difficulty: 'Intermediate',
+    estimatedTime: '6 min',
+    recommendedTier: 'PRO',
+    tags: ['Inheritance', 'Timelock', 'Recovery'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: "Dead-Man's Switch", description: 'Owner refreshes any time; the heir claims only after the timelock.' },
+      resolution: { mode: 'zk', circuit: { type: 'timelock_absolute' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'deadman-v1', theme: { primaryColor: '#22C55E' } }
+    })
+  },
+  {
+    id: 'multisig-nofm',
+    name: 'N-of-M Multisig',
+    description: 'Release requires a threshold of signatures from the named signer set. DAO treasuries and shared custody, resolved by the M-of-N threshold attestation (oracle-attested).',
+    category: 'Governance & DAOs',
+    icon: '🔑',
+    difficulty: 'Intermediate',
+    estimatedTime: '6 min',
+    recommendedTier: 'PRO',
+    tags: ['Multisig', 'Threshold', 'Treasury'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'N-of-M Multisig', description: 'Release on a threshold of signatures from the signer set.' },
+      resolution: { mode: 'oracle', circuit: { type: 'multisig_threshold' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'multisig-v1', theme: { primaryColor: '#A855F7' } }
+    })
+  },
+  {
+    id: 'payment-channel',
+    name: 'Payment Channel (2-of-2 Close)',
+    description: 'A two-party pot that closes cooperatively when both sides sign the final balance. The 2-of-2 threshold is checked by the multisig_threshold attestation (oracle-attested).',
+    category: 'Financial Tools',
+    icon: '🔁',
+    difficulty: 'Advanced',
+    estimatedTime: '8 min',
+    recommendedTier: 'MAX',
+    tags: ['Channel', '2-of-2', 'Cooperative'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Payment Channel', description: 'Cooperative 2-of-2 close on the agreed final balance.' },
+      resolution: { mode: 'oracle', circuit: { type: 'multisig_threshold' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'channel-v1', theme: { primaryColor: '#38BDF8' } }
+    })
+  },
+  {
+    id: 'merkle-allowlist',
+    name: 'Allowlist (Merkle Membership)',
+    description: 'Eligible addresses prove membership in a committed Merkle root to unlock, without revealing the rest of the list. Real Groth16 proof on the merkle_membership circuit.',
+    category: 'Governance & DAOs',
+    icon: '📜',
+    difficulty: 'Intermediate',
+    estimatedTime: '6 min',
+    recommendedTier: 'PRO',
+    tags: ['ZK', 'Allowlist', 'Merkle'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Allowlist Gate', description: 'Unlock by proving Merkle membership (zero-knowledge).' },
+      resolution: { mode: 'zk', circuit: { type: 'merkle_membership' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'allowlist-v1', theme: { primaryColor: '#3B82F6' } }
+    }),
+    studioSuggestions: { primaryColor: '#3B82F6', features: ['Proof status', 'Eligibility check'] }
+  },
+  {
+    id: 'anti-sybil-nullifier',
+    name: 'Anti-Sybil Nullifier',
+    description: 'Each participant can act once: a one-time nullifier derived from a hidden secret is rejected on reuse, without revealing the secret. Real Groth16 proof on the nullifier_set circuit.',
+    category: 'Governance & DAOs',
+    icon: '🚫',
+    difficulty: 'Advanced',
+    estimatedTime: '7 min',
+    recommendedTier: 'MAX',
+    tags: ['ZK', 'Anti-Sybil', 'Nullifier'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Anti-Sybil Gate', description: 'One action per participant via a single-use zero-knowledge nullifier.' },
+      resolution: { mode: 'zk', circuit: { type: 'nullifier_set' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'nullifier-v1', theme: { primaryColor: '#FB923C' } }
+    })
+  },
+  {
+    id: 'vrf-lottery',
+    name: 'VRF Lottery (Provably Fair Draw)',
+    description: 'A winner forced by a committed random value so no one can cherry-pick the result. The draw is generated in your browser and verified on the vrf_random circuit (zero-knowledge).',
+    category: 'Games',
+    icon: '🎰',
+    difficulty: 'Intermediate',
+    estimatedTime: '6 min',
+    recommendedTier: 'PRO',
+    tags: ['ZK', 'VRF', 'Lottery'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'VRF Lottery', description: 'Provably fair draw forced by a committed random value (VRF).' },
+      resolution: { mode: 'zk', circuit: { type: 'vrf_random' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 100 } },
+      ui: { templateId: 'vrf-lottery-v1', theme: { primaryColor: '#EC4899' } }
+    })
+  },
+  {
+    id: 'vrf-dice-draw',
+    name: 'Provably-Fair Dice Draw',
+    description: 'A dice result forced by Poseidon(secret, public seed) so the roll cannot be rigged. Generated in your browser and verified on the vrf_dice_roll circuit (zero-knowledge).',
+    category: 'Games',
+    icon: '🎲',
+    difficulty: 'Beginner',
+    estimatedTime: '5 min',
+    recommendedTier: 'BUILDER',
+    tags: ['ZK', 'VRF', 'Dice'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Provably-Fair Dice', description: 'A dice roll forced by a committed secret and public seed (VRF).' },
+      resolution: { mode: 'zk', circuit: { type: 'vrf_dice_roll' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 100 } },
+      ui: { templateId: 'vrf-dice-v1', theme: { primaryColor: '#F472B6' } }
+    })
+  },
+  {
+    id: 'timeout-refund-escrow',
+    name: 'Timeout-Refund ZK Escrow',
+    description: 'A two-party escrow where a DAA timelock enables an honest refund if the deal stalls. Outcome proven on the escrow_2party circuit (zero-knowledge).',
+    category: 'Escrow & Agreements',
+    icon: '⏱️',
+    difficulty: 'Intermediate',
+    estimatedTime: '6 min',
+    recommendedTier: 'PRO',
+    tags: ['ZK', 'Escrow', 'Refund'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Timeout-Refund Escrow', description: 'Two-party escrow with an honest timelock refund (zero-knowledge).' },
+      resolution: { mode: 'zk', circuit: { type: 'escrow_2party' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'escrow-2party-v1', theme: { primaryColor: '#38BDF8' } }
     })
   }
 ];

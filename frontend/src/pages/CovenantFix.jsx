@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DesignStudio from '../components/DesignStudio';
 import { useParams, Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
+import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import { explorerTxUrl } from '../lib/explorer';
 import { ArrowLeft, Save, Palette, Eye, Wallet, Check, ExternalLink } from 'lucide-react';
@@ -204,7 +205,6 @@ export default function CovenantFix() {
   const [stakeAmount, setStakeAmount] = useState(50);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showPreview, setShowPreview] = useState(null);
-  const [toast, setToast] = useState(null);
   const [publishing, setPublishing] = useState(false);
 
   // Load all covenants and filter to mine
@@ -311,7 +311,7 @@ export default function CovenantFix() {
 
   const publish = async () => {
     if (!selected || !address || !isCreatorOfSelected) {
-      setToast({ type: 'error', msg: 'Connect the creator wallet for this covenant.' });
+      toast.error('Connect the creator wallet for this covenant.');
       return;
     }
     setPublishing(true);
@@ -320,7 +320,7 @@ export default function CovenantFix() {
     try {
       proof = await signCovenantOwnership(selected.tx_id, address, signMessage);
     } catch (e) {
-      setToast({ type: 'error', msg: `Signature required to publish: ${e.message}` });
+      toast.error(`Signature required to publish: ${e.message}`);
       setPublishing(false);
       return;
     }
@@ -351,20 +351,19 @@ export default function CovenantFix() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && (data.success || data.ok)) {
-        setToast({ type: 'success', msg: 'Published! Viewers now see your clean updated look and stake.' });
+        toast.success('Published! Viewers now see your clean updated look and stake.');
         setSelected((s) => ({ ...s, custom_ui_html: html }));
       } else {
         // The backend did NOT accept the update - do not claim it published.
         setSelected((s) => ({ ...s, custom_ui_html: html }));
-        setToast({ type: 'error', msg: `Publish failed: ${data.error || `backend returned HTTP ${res.status}`}. Your changes are NOT live for viewers (shown here as a local preview only).` });
+        toast.error(`Publish failed: ${data.error || `backend returned HTTP ${res.status}`}. Your changes are NOT live for viewers (shown here as a local preview only).`);
       }
     } catch (e) {
       // Network/transport error - the update did not reach the backend.
       setSelected((s) => ({ ...s, custom_ui_html: html }));
-      setToast({ type: 'error', msg: `Publish failed: ${e.message || 'could not reach the backend'}. Your changes are NOT live for viewers (local preview only).` });
+      toast.error(`Publish failed: ${e.message || 'could not reach the backend'}. Your changes are NOT live for viewers (local preview only).`);
     } finally {
       setPublishing(false);
-      setTimeout(() => setToast(null), 3800);
     }
   };
 
@@ -547,7 +546,7 @@ export default function CovenantFix() {
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
-                      if (f.size > 600 * 1024) { setToast({ type: 'error', msg: 'Image too large. Keep it under 600KB.' }); return; }
+                      if (f.size > 600 * 1024) { toast.error('Image too large. Keep it under 600KB.'); return; }
                       const r = new FileReader();
                       r.onload = () => setConfig((c) => ({ ...c, backgroundImage: String(r.result) }));
                       r.readAsDataURL(f);
@@ -698,9 +697,7 @@ export default function CovenantFix() {
         </div>
       )}
 
-      {toast && (
-        <div onClick={() => setToast(null)} className={`fixed bottom-6 right-6 z-[120] px-6 py-3 rounded-2xl text-sm font-medium cursor-pointer ${toast.type === 'success' ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>{toast.msg}</div>
-      )}
+      {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
     </div>
   );
 }

@@ -8,7 +8,9 @@ const path = require("path");
  * verify_vrf_random.js — verifier for vrf_random stub (Covex27)
  * Phase 1 VRF family per vision doc.
  */
-const VKEY_PATH = path.join(__dirname, "vrf_random_vkey.json");
+// Served vkey is the single source of truth (deploy-refreshed). The zk/ root *_vkey.json are
+// gitignored -> stale, so a root key silently rejects valid proofs (P0 incident a8918b8).
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/vrf_random/vrf_random_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

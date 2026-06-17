@@ -8,7 +8,9 @@ const path = require("path");
  * verify_pot_split_math.js — snarkjs stub (Covex27)
  * For pot/treasury split math verification. Phase 1 DeFi + game props.
  */
-const VKEY_PATH = path.join(__dirname, "pot_split_math_vkey.json");
+// Served vkey is the single source of truth (deploy-refreshed). The zk/ root *_vkey.json are
+// gitignored -> stale, so a root key silently rejects valid proofs (P0 incident a8918b8).
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/pot_split_math/pot_split_math_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

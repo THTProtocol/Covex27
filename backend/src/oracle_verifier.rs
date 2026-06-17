@@ -411,19 +411,19 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     );
     m.insert(
         "vrf_random",
-        VerifierSpec::HybridGroth16 { script: "verify_vrf_random.js", prefix: "covex_vrf" },
+        VerifierSpec::StrictGroth16 { script: "verify_vrf_random.js", prefix: "covex_vrf" },
     );
     m.insert(
         "script_constraint",
-        VerifierSpec::HybridGroth16 { script: "verify_script_constraint.js", prefix: "covex_script" },
+        VerifierSpec::StrictGroth16 { script: "verify_script_constraint.js", prefix: "covex_script" },
     );
     m.insert(
         "pot_split_math",
-        VerifierSpec::HybridGroth16 { script: "verify_pot_split_math.js", prefix: "covex_pot" },
+        VerifierSpec::StrictGroth16 { script: "verify_pot_split_math.js", prefix: "covex_pot" },
     );
     m.insert(
         "turn_timer",
-        VerifierSpec::HybridGroth16 { script: "verify_turn_timer.js", prefix: "covex_timer" },
+        VerifierSpec::StrictGroth16 { script: "verify_turn_timer.js", prefix: "covex_timer" },
     );
     m.insert(
         "basic_utxo_ownership",

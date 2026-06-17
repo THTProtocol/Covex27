@@ -11,9 +11,11 @@ const path = require("path");
  * (Previous version returned {valid:true} when the vkey or proof body was missing, and on a
  * thrown exception - fail open.)
  */
+// Served vkey FIRST (deploy-refreshed single source of truth); the zk/ root key is gitignored
+// and goes stale, so trying it first would silently reject valid proofs (P0 incident a8918b8).
 const VKEY_CANDIDATES = [
-    path.join(__dirname, "turn_timer_vkey.json"),
     path.join(__dirname, "..", "frontend", "public", "zk", "turn_timer", "turn_timer_vkey.json"),
+    path.join(__dirname, "turn_timer_vkey.json"),
 ];
 const VKEY_PATH = VKEY_CANDIDATES.find((p) => fs.existsSync(p));
 

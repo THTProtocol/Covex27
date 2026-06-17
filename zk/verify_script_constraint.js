@@ -8,7 +8,9 @@ const path = require("path");
  * verify_script_constraint.js — snarkjs stub verifier (Covex27)
  * For script fee/share/pot constraints. Refs Phase 1 vision priorities.
  */
-const VKEY_PATH = path.join(__dirname, "script_constraint_vkey.json");
+// Served vkey is the single source of truth (deploy-refreshed). The zk/ root *_vkey.json are
+// gitignored -> stale, so a root key silently rejects valid proofs (P0 incident a8918b8).
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/script_constraint/script_constraint_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

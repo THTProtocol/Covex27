@@ -9,6 +9,7 @@ include "node_modules/circomlib/circuits/comparators.circom";
 
 template TurnTimer() {
     signal input current_daa;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input last_move_daa;
     signal input max_delta;
     signal input move_hash;
@@ -27,4 +28,4 @@ template TurnTimer() {
     bind === move_hash;
 }
 
-component main { public [current_daa, max_delta] } = TurnTimer();
+component main { public [current_daa, max_delta, covenantId] } = TurnTimer();

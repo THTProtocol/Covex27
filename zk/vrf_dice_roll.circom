@@ -8,6 +8,7 @@ include "node_modules/circomlib/circuits/comparators.circom";
 
 template VrfDiceRoll(faces) {
     signal input secret;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input seed;
     signal input roll;
     signal input q;
@@ -30,4 +31,4 @@ template VrfDiceRoll(faces) {
     q * faces + roll - 1 === computed;
 }
 
-component main { public [seed, roll] } = VrfDiceRoll(6);
+component main { public [seed, roll, covenantId] } = VrfDiceRoll(6);

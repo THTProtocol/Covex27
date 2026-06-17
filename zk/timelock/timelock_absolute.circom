@@ -12,6 +12,7 @@ include "../node_modules/circomlib/circuits/comparators.circom";
 
 template TimelockAbsolute(bits) {
     signal input current_daa;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input lock_threshold;
     signal output valid;
 
@@ -21,4 +22,4 @@ template TimelockAbsolute(bits) {
     valid <== ge.out;
 }
 
-component main { public [current_daa, lock_threshold] } = TimelockAbsolute(64);
+component main { public [current_daa, lock_threshold, covenantId] } = TimelockAbsolute(64);

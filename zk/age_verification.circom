@@ -10,6 +10,7 @@ include "node_modules/circomlib/circuits/comparators.circom";
 
 template AgeVerification(bits) {
     signal input commitment;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input current_year;
     signal input min_age;
     signal input birth_year; // private witness
@@ -29,4 +30,4 @@ template AgeVerification(bits) {
     valid <== youngEnough.out;
 }
 
-component main { public [commitment, current_year, min_age] } = AgeVerification(32);
+component main { public [commitment, current_year, min_age, covenantId] } = AgeVerification(32);

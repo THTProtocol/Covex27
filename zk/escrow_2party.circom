@@ -9,6 +9,7 @@ include "node_modules/circomlib/circuits/comparators.circom";
 
 template Escrow2Party(bits) {
     signal input deposit_daa;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input timeout_daa;
     signal input current_daa;
     signal input outcome;
@@ -31,4 +32,4 @@ template Escrow2Party(bits) {
     valid <== refundOk + claimOk;
 }
 
-component main { public [deposit_daa, timeout_daa, current_daa, outcome] } = Escrow2Party(64);
+component main { public [deposit_daa, timeout_daa, current_daa, outcome, covenantId] } = Escrow2Party(64);

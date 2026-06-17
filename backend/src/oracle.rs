@@ -271,6 +271,31 @@ pub(crate) fn covenant_field_element(covenant_id: &str) -> String {
     be_to_decimal(acc)
 }
 
+/// H4: the strict circuits recompiled to emit a `covenantId` public signal (= covenant_field_element
+/// of the covenant_id) whose in-browser provers now commit it. For these, a missing binding is a
+/// hard reject (cross-covenant replay or a stale pre-H4 proof). Kept in sync with the recompiled set
+/// in zk/ and frontend VERIFIED_FULL_ZK. utxo_ownership is the catalog alias for basic_utxo_ownership.
+pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
+    matches!(
+        circuit_type,
+        "merkle_membership"
+            | "age_verification"
+            | "escrow_2party"
+            | "range_proof"
+            | "vrf_dice_roll"
+            | "nullifier_set"
+            | "basic_utxo_ownership"
+            | "utxo_ownership"
+            | "hash_preimage"
+            | "timelock_absolute"
+            | "relative_timelock"
+            | "vrf_random"
+            | "turn_timer"
+            | "script_constraint"
+            | "pot_split_math"
+    )
+}
+
 /// Sign sha256(message) with the oracle key (BIP340 Schnorr; 64-byte hex sig).
 pub fn sign_outcome(message: &str) -> String {
     let kp = oracle_keypair();
@@ -721,7 +746,13 @@ async fn verify_and_sign_handler(
             .iter()
             .any(|s| s.trim() == expected_covenant_fe);
         if !bound {
-            let strict = std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+            // H4 fail-closed: the 14 recompiled strict circuits now emit a covenantId public signal,
+            // and their in-browser provers commit covenant_field_element(covenant_id). For those, a
+            // missing binding means the proof is NOT bound to this covenant (a replay or an old
+            // pre-H4 proof), so refuse to sign regardless of the env var. Other circuits keep the
+            // env-gated behavior so nothing legacy breaks.
+            let strict = circuit_emits_covenant_binding(&input.circuit_type)
+                || std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
             if strict {
                 return Json(OracleVerifyOutput {
                     success: false,

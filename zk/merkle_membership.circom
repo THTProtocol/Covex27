@@ -5,6 +5,7 @@ include "../node_modules/circomlib/circuits/mimc.circom";
 template MerkleMembership() {
     // Public input: the expected commitment root
     signal input rootHash;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
 
     // Private witness: the secret leaf preimage
     signal input secretLeaf;
@@ -24,4 +25,4 @@ template MerkleMembership() {
     valid <== 1;
 }
 
-component main {public [rootHash]} = MerkleMembership();
+component main {public [rootHash, covenantId]} = MerkleMembership();

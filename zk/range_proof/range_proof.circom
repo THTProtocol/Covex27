@@ -28,7 +28,8 @@ include "../node_modules/circomlib/circuits/comparators.circom";
 
 template RangeProof(bits) {
     // === Public inputs (visible in proof) ===
-    signal input commitment;   // MiMC7(value) — the hiding commitment
+    signal input commitment;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;   // MiMC7(value) — the hiding commitment
     signal input min;
     signal input max;
 
@@ -60,4 +61,4 @@ template RangeProof(bits) {
 
 // Only `commitment`, `min`, `max` are public inputs.
 // `value` is private witness. `valid` is public output.
-component main { public [commitment, min, max] } = RangeProof(64);
+component main { public [commitment, min, max, covenantId] } = RangeProof(64);

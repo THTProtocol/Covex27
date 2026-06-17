@@ -9,7 +9,8 @@ include "node_modules/circomlib/circuits/comparators.circom";
 // Uses same style as timelock_absolute and range_proof for easy reuse of ptau/artifacts.
 
 template RelativeTimelock() {
-    signal input current_daa;      // public or committed
+    signal input current_daa;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;      // public or committed
     signal input reference_daa;    // usually public (covenant birth or UTXO DAA)
     signal input lock_duration;    // public (e.g. 1000 DAA)
     signal output valid;           // COMPUTED output: 1 iff current >= reference + duration
@@ -30,4 +31,4 @@ template RelativeTimelock() {
     // (circom emits template outputs first, then declared public inputs.)
 }
 
-component main { public [current_daa, reference_daa, lock_duration] } = RelativeTimelock();
+component main { public [current_daa, reference_daa, lock_duration, covenantId] } = RelativeTimelock();

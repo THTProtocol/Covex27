@@ -7,6 +7,7 @@ include "node_modules/circomlib/circuits/poseidon.circom";
 
 template VrfRandom() {
     signal input vrf_secret;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input seed;
     signal input output_val;
     signal input pub_vrf_key;
@@ -21,4 +22,4 @@ template VrfRandom() {
     valid <== 1;
 }
 
-component main { public [output_val, pub_vrf_key, seed] } = VrfRandom();
+component main { public [output_val, pub_vrf_key, seed, covenantId] } = VrfRandom();

@@ -7,6 +7,7 @@ include "node_modules/circomlib/circuits/poseidon.circom";
 
 template NullifierSet() {
     signal input nullifier;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input merkle_root;
     signal input secret;
     signal output spent;
@@ -23,4 +24,4 @@ template NullifierSet() {
     spent <== 0;
 }
 
-component main { public [nullifier, merkle_root] } = NullifierSet();
+component main { public [nullifier, merkle_root, covenantId] } = NullifierSet();

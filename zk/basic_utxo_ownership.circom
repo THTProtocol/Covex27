@@ -8,6 +8,7 @@ include "node_modules/circomlib/circuits/poseidon.circom";
 
 template BasicUtxoOwnership() {
     signal input pubkey_x;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input pubkey_y;
     signal input amount_commit;
     signal input owner_sig_r;
@@ -26,4 +27,4 @@ template BasicUtxoOwnership() {
     valid <== 1;
 }
 
-component main { public [utxo_hash] } = BasicUtxoOwnership();
+component main { public [utxo_hash, covenantId] } = BasicUtxoOwnership();

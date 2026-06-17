@@ -5,6 +5,7 @@ pragma circom 2.0.0;
 
 template PotSplitMath() {
     signal input total_pot;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input fee_bps;
     signal input pot_return_bps;
     signal input winner_share;
@@ -18,4 +19,4 @@ template PotSplitMath() {
     valid <== 1;
 }
 
-component main { public [total_pot, fee_bps, pot_return_bps, winner_share] } = PotSplitMath();
+component main { public [total_pot, fee_bps, pot_return_bps, winner_share, covenantId] } = PotSplitMath();

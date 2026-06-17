@@ -7,6 +7,7 @@ include "node_modules/circomlib/circuits/poseidon.circom";
 
 template ScriptConstraint() {
     signal input script_hash;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input constraint_id;
     signal input value;
     signal input public_root;
@@ -21,4 +22,4 @@ template ScriptConstraint() {
     ok <== 1;
 }
 
-component main { public [public_root, constraint_id, value] } = ScriptConstraint();
+component main { public [public_root, constraint_id, value, covenantId] } = ScriptConstraint();

@@ -13,6 +13,21 @@ import { Chess } from 'chess.js';
 import { mimc7Commitment } from '../lib/mimc7';
 import { CovexMark } from './CovexLogo';
 import TransparencyModal from './TransparencyModal';
+
+// H4: bind every in-browser proof to the specific covenant it is generated for.
+// covenant_field_element = sha256(covenant_id) reduced mod the BN254 scalar field, byte-identical
+// to the backend oracle.rs covenant_field_element() (verified: JS == Rust for real + empty ids).
+// Because Groth16 binds public inputs, a proof made with covenantId = H(covenant A) only verifies
+// against H(A); the oracle requires H(its covenant_id) among the public signals, so a proof for one
+// covenant cannot be replayed onto another of the same circuit type (closes the H4 hole).
+const BN254_FIELD_R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+async function covenantFieldElement(covenantId) {
+  const bytes = new TextEncoder().encode(String(covenantId || ''));
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  let acc = 0n;
+  for (const b of digest) acc = (acc << 8n) | BigInt(b);
+  return (acc % BN254_FIELD_R).toString();
+}
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
@@ -783,6 +798,11 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   // ── Defaults derived from covenant ──
   const covenantId = covenant?.tx_id || '';
+  // H4: every in-browser prover routes through this so the proof commits covenantFieldElement(covenantId)
+  // as the circuit's `covenantId` public signal, binding the proof to THIS covenant (no cross-covenant
+  // replay). The recompiled circuits expose covenantId as the last public input; valid stays at index 0.
+  const fullProveBound = async (snarkjs, input, wasm, zkey) =>
+    snarkjs.groth16.fullProve({ ...input, covenantId: await covenantFieldElement(covenantId) }, wasm, zkey);
 
   // ── Section A: Covenant Configuration ──
   const [name, setName] = useState('');
@@ -1248,7 +1268,7 @@ contract VisualCovenant {
         secretLeaf: secretLeaf,
       };
 
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       const proofStr = JSON.stringify({ proof, publicSignals }, null, 2);
       setOracleProof(proofStr);
       // publicSignals typically [rootHash, valid] or similar - oracle uses last for some, or requested_outcome
@@ -1282,7 +1302,7 @@ contract VisualCovenant {
         value: value.toString(),
       };
 
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(rangeInput, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, rangeInput, wasm, zkey);
       const proofStr = JSON.stringify({ proof, publicSignals }, null, 2);
       setOracleProof(proofStr);
       setOraclePublicInputs(publicSignals.map(s => s.toString()).join(','));
@@ -1317,7 +1337,7 @@ contract VisualCovenant {
         outcome: '0',
       };
 
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1357,7 +1377,7 @@ contract VisualCovenant {
         birth_year: birthYear.toString(), // PRIVATE witness - stays in the browser
       };
 
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1391,7 +1411,7 @@ contract VisualCovenant {
       const roll = (h % faces) + 1n;
       const q = (h - (roll - 1n)) / faces;
       const input = { secret: secret.toString(), seed: seed.toString(), roll: roll.toString(), q: q.toString() };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1418,7 +1438,7 @@ contract VisualCovenant {
       const nullifier = poseidon1([secret]);
       const merkle_root = poseidon2([secret, nullifier]);
       const input = { nullifier: nullifier.toString(), merkle_root: merkle_root.toString(), secret: secret.toString() };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1448,7 +1468,7 @@ contract VisualCovenant {
         pubkey_x: x.toString(), pubkey_y: y.toString(), amount_commit: amt.toString(),
         owner_sig_r: r.toString(), owner_sig_s: s.toString(), utxo_hash: utxo_hash.toString(),
       };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1474,7 +1494,7 @@ contract VisualCovenant {
       const preimage = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(15))).map(b => b.toString(16).padStart(2, '0')).join(''));
       const commitment_hash = mimc7Commitment(preimage).toString();
       const input = { commitment_hash, preimage: preimage.toString() };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1497,7 +1517,7 @@ contract VisualCovenant {
       const zkey = '/zk/timelock_absolute/timelock_absolute_final.zkey';
       // A satisfied absolute timelock (current DAA past the threshold).
       const input = { current_daa: '5000000', lock_threshold: '1000000' };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1520,7 +1540,7 @@ contract VisualCovenant {
       const zkey = '/zk/relative_timelock/relative_timelock_final.zkey';
       // A satisfied relative timelock (enough DAA elapsed since the reference point).
       const input = { current_daa: '2000', reference_daa: '1000', lock_duration: '500' };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1546,7 +1566,7 @@ contract VisualCovenant {
       const seed = 12345n, vrfKey = 7n;
       const output_val = poseidon3([secret, seed, vrfKey]).toString();
       const input = { vrf_secret: secret.toString(), seed: seed.toString(), output_val, pub_vrf_key: vrfKey.toString() };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1569,7 +1589,7 @@ contract VisualCovenant {
       const zkey = '/zk/turn_timer/turn_timer_final.zkey';
       // A move made 50 DAA after the previous one, within a 100-DAA window (on time).
       const input = { current_daa: '1000', last_move_daa: '950', max_delta: '100', move_hash: '42' };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1594,7 +1614,7 @@ contract VisualCovenant {
       const constraintId = 2n, value = 500n;
       const public_root = poseidon3([scriptHash, constraintId, value]).toString();
       const input = { script_hash: scriptHash.toString(), constraint_id: constraintId.toString(), value: value.toString(), public_root };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
@@ -1620,7 +1640,7 @@ contract VisualCovenant {
       const fee = (total * feeBps) / 10000, ret = (total * retBps) / 10000;
       const winnerShare = total - fee - ret;
       const input = { total_pot: String(total), fee_bps: String(feeBps), pot_return_bps: String(retBps), winner_share: String(winnerShare), fee: String(fee), ret: String(ret) };
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');

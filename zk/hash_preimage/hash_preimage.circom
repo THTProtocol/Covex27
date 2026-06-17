@@ -13,6 +13,7 @@ include "../node_modules/circomlib/circuits/mimc.circom";
 
 template HashPreimage() {
     signal input commitment_hash;
+    signal input covenantId; signal cbindH4 <== covenantId * covenantId;
     signal input preimage;
     signal output valid;
 
@@ -23,4 +24,4 @@ template HashPreimage() {
     valid <== 1;
 }
 
-component main { public [commitment_hash] } = HashPreimage();
+component main { public [commitment_hash, covenantId] } = HashPreimage();

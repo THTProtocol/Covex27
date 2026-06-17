@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { toast } from '../components/ToastContext';
 import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
@@ -1605,15 +1604,15 @@ export default function CovenantInteractive() {
                     try {
                       const res = await sendPayment(covenant.address || covenant.creator_addr, 10, {memo: `stake:${id}`});
                       if (res && res.success === false) {
-                        toast.error(res.needsWallet ? 'Connect a Kaspa wallet to stake.' : ('Stake failed: ' + (res.error || 'transaction rejected')));
+                        setToast({ type: 'error', msg: res.needsWallet ? 'Connect a Kaspa wallet to stake.' : ('Stake failed: ' + (res.error || 'transaction rejected')) });
                       } else {
-                        toast.success('Stake sent (real tx on testnet)!');
+                        setToast({ type: 'success', msg: 'Stake sent (real tx on testnet)!' });
                       }
-                    } catch(e) { toast.error('Stake failed: ' + e.message); }
+                    } catch(e) { setToast({ type: 'error', msg: 'Stake failed: ' + e.message }); }
                   } else {
                     // Only stake/join are wired to a real on-chain action. Be honest
                     // about anything else rather than implying hidden covenant logic.
-                    toast.info('This button is not connected to an on-chain action.');
+                    setToast({ type: 'info', msg: 'This button is not connected to an on-chain action.' });
                   }
                 }
               };

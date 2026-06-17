@@ -2932,7 +2932,7 @@ ${gameMeta.outcomeBranches}
               },
               {
                 id: 'custom', icon: Key, title: 'Custom Oracle (Your Key)',
-                desc: 'Provide your own oracle public key. The covenant verifies against this key. Ideal for third-party oracle services or custom resolution logic.',
+                desc: 'Specify the oracle public key your covenant should resolve against. For trustless on-chain enforcement bound to that exact key (the key holder releases the funds), deploy it as an enforced single-sig covenant.',
                 tier: 'Advanced users',
               },
             ].map(opt => (
@@ -3958,7 +3958,7 @@ ${gameMeta.outcomeBranches}
           <ResolutionCard
             icon={Cpu}
             title="Custom Oracle"
-            desc="Provide your own oracle public key. The covenant will verify against this key. Ideal for custom or third-party oracle services."
+            desc="Specify the oracle public key your covenant should resolve against. For trustless on-chain enforcement bound to that exact key (the key holder releases the funds), deploy it as an enforced single-sig covenant."
             selected={resolutionMode === 'custom'}
             onClick={() => setResolutionMode('custom')}
             accent="kaspa-gold"

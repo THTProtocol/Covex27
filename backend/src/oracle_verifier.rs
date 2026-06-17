@@ -357,10 +357,11 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // Attested means circuit_requires_crypto_proof()==false, so the oracle handler refuses
     // to sign its caller-supplied outcome (no crypto proof can warrant a signature).
     m.insert("ml_inference_stub", VerifierSpec::Attested);
-    m.insert(
-        "weather_feed",
-        VerifierSpec::HybridGroth16 { script: "verify_weather_feed.js", prefix: "covex_wf" },
-    );
+    // SECURITY (C1): weather_feed has NO real circom circuit - verify_weather_feed.js just
+    // delegates to the neutered verify_attested.js. Registered Hybrid it could never validate a
+    // legit proof AND would become a forgery path the instant that stub were un-neutered. Attested
+    // makes circuit_requires_crypto_proof()==false, so the oracle refuses to sign its outcome.
+    m.insert("weather_feed", VerifierSpec::Attested);
     // SECURITY (C1): sorting_proof has NO real circom circuit + committed vkey (rubber-stamp
     // delegator script). Attested so the oracle refuses to sign its outcome.
     m.insert("sorting_proof", VerifierSpec::Attested);

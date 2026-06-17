@@ -3383,7 +3383,7 @@ pub async fn bundle_deploy_handler(
                 "rebate_bps": rebate_bps,
                 "min_sequence": min_seq,
                 "legs": legs_json,
-                "enforcement_reality": "on-chain",
+                "enforcement_reality": "hybrid",
                 "note": "Conjoined parimutuel bundle. Reveal one outcome secret, then claim each leg via /covenant/p2sh/spend (select_mode reveal_a|reveal_b); silence => refund after the CSV delay."
             }))
         }

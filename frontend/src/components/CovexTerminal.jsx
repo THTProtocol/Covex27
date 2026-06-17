@@ -347,7 +347,7 @@ const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_v
 // its honest floor is 'oracle-attested', not 'hybrid'. Kept in sync with build_registry().
 const STRICT_GROTH16 = new Set([
   'merkle_membership', 'merkle_dao', 'merkle_airdrop', 'range_proof', 'range_collateral',
-  'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification', 'age_verify_v1',
+  'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification',
   'escrow_2party', 'relative_timelock', 'vrf_dice_roll', 'basic_utxo_ownership', 'nullifier_set',
 ]);
 // Per-reality visual treatment for the circuit cards: an accent colour + a readable pill label.
@@ -1794,7 +1794,7 @@ contract VisualCovenant {
     }
     switch (effectiveResolution) {
       case 'custom':
-        resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Oracle pubkey: ${customOracleKey || '(not set)'}\n  OpCheckSig ${customOracleKey || 'OP_0'}`;
+        resolveBlock = `\n  ;; ── Resolution: Custom Oracle (recorded intent)\n  ;; Oracle pubkey (metadata only, NOT verified by the deployed covenant): ${customOracleKey || '(not set)'}\n  ;; Resolution today runs through the disclosed Covex oracle. On-chain binding to this key is a roadmap item.`;
         break;
       case 'zk':
         resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
@@ -2937,9 +2937,9 @@ ${gameMeta.outcomeBranches}
                         verifierKey: zkVerifierKey || '0xRISC0_GENERIC_V1',
                         publicInputs: ['Program image ID (hash)', 'Output commitment', 'Input commitment'],
                         privateWitness: ['Full execution trace of the RISC-V program', 'Memory state at each cycle'],
-                        whatItProves: 'A specific program, when executed on the committed input, produces the committed output. The execution trace proves correctness without re-executing the program.',
+                        whatItProves: 'The design goal: a program, run on the committed input, produces the committed output, provable without re-executing it. Honest status: this is a roadmap tier. The backend does NOT verify a RISC Zero receipt today (the verifier is a fail-closed stub), so resolution is oracle-attested - the disclosed Covex oracle attests the outcome.',
                         gasEstimate: '~100K-1M constraints (program-dependent)',
-                        covenantFlow: 'Off-chain worker executes a computation. Submits the output + ZK proof to the covenant. If the proof verifies against the program image ID, the covenant pays the worker. If verification fails, deposit is slashed.',
+                        covenantFlow: 'Today: an off-chain worker submits the output and the disclosed Covex oracle attests it, releasing the payout (oracle-attested). Roadmap: once receipt verification against the program image ID ships, the proof itself can gate the payout.',
                       };
                     default:
                       return {
@@ -2948,9 +2948,9 @@ ${gameMeta.outcomeBranches}
                         verifierKey: zkVerifierKey || '(manual entry required)',
                         publicInputs: ['User-defined public inputs'],
                         privateWitness: ['User-defined private witness'],
-                        whatItProves: 'Supply any audited ZK circuit. The verifier key must match the circuit. The covenant will accept any proof that verifies against this key.',
+                        whatItProves: 'Supply any audited ZK circuit. The verifier key is recorded as covenant metadata today; it is not yet an on-chain verifier (Kaspa has no pairing verifier until KIP-16/Toccata). Until then, resolution runs through the disclosed Covex oracle. On-chain verification against your own key is on the roadmap.',
                         gasEstimate: 'Unknown (circuit-dependent)',
-                        covenantFlow: 'Depositor locks KAS with a verifier key. Claimant submits a proof that satisfies the circuit. On acceptance, KAS is paid. On rejection, returned to depositor.',
+                        covenantFlow: 'Depositor locks KAS and records a verifier key as metadata. Resolution today goes through the disclosed Covex oracle; once on-chain pairing verification ships (KIP-16/Toccata), the covenant can verify a proof against this key directly.',
                       };
                   }
                 })();
@@ -3024,7 +3024,7 @@ ${gameMeta.outcomeBranches}
             {[
               {
                 id: 'zk', icon: Cpu, title: 'ZK Proof (Zero-Knowledge)',
-                desc: 'Pure cryptographic verification. No trusted oracle needed. Outcomes are proven mathematically via ZK circuits, keeping player data private.',
+                desc: 'A real Groth16 proof is generated in your browser, so player data stays private, and verified FAIL-CLOSED by the disclosed Covex oracle (Kaspa has no on-chain pairing verifier yet). Only a proof the oracle verifies releases the funds; an invalid or missing proof is rejected.',
                 tier: 'Recommended for on-chain games',
               },
               {
@@ -3034,7 +3034,7 @@ ${gameMeta.outcomeBranches}
               },
               {
                 id: 'custom', icon: Key, title: 'Custom Oracle (Your Key)',
-                desc: 'Specify the oracle public key your covenant should resolve against. For trustless on-chain enforcement bound to that exact key (the key holder releases the funds), deploy it as an enforced single-sig covenant.',
+                desc: 'Record the oracle public key you intend to resolve against. This is metadata only today: the deployed covenant does NOT verify against it, and resolution still runs through the disclosed Covex oracle. To bind spend to a key on-chain, deploy an enforced single-sig covenant whose redeem script commits that key.',
                 tier: 'Advanced users',
               },
             ].map(opt => (
@@ -3128,7 +3128,7 @@ ${gameMeta.outcomeBranches}
           {resolutionMode === 'custom' && (
             <div className="ml-4 pl-4 border-l-2 border-amber-500/30 space-y-2">
               <p className="text-[11px] text-amber-300/80">
-                Enter your oracle's public key. All outcome verifications will be checked against this key.
+                Enter your oracle&apos;s x-only public key (hex). This is recorded as covenant metadata only today; the deployed covenant does not verify against it (resolution uses the disclosed Covex oracle). On-chain binding to your key is a roadmap item.
               </p>
               <div>
                 <p className={LABEL}>Oracle Public Key</p>
@@ -3136,7 +3136,7 @@ ${gameMeta.outcomeBranches}
                   type="text"
                   value={customOracleKey}
                   onChange={(e) => setCustomOracleKey(e.target.value)}
-                  placeholder="kaspatest:q..."
+                  placeholder="x-only public key (64 hex chars, e.g. a1b2c3...)"
                   className={`${INPUT} font-mono text-xs`}
                 />
               </div>
@@ -4060,7 +4060,7 @@ ${gameMeta.outcomeBranches}
           <ResolutionCard
             icon={Cpu}
             title="Custom Oracle"
-            desc="Specify the oracle public key your covenant should resolve against. For trustless on-chain enforcement bound to that exact key (the key holder releases the funds), deploy it as an enforced single-sig covenant."
+            desc="Record the oracle public key you intend to resolve against. This is metadata only today: the deployed covenant does NOT verify against it, and resolution still runs through the disclosed Covex oracle. To bind spend to a key on-chain, deploy an enforced single-sig covenant whose redeem script commits that key."
             selected={resolutionMode === 'custom'}
             onClick={() => setResolutionMode('custom')}
             accent="kaspa-gold"
@@ -4083,7 +4083,7 @@ ${gameMeta.outcomeBranches}
           <ResolutionCard
             icon={Zap}
             title="ZK Proof (Zero-Knowledge)"
-            desc="Use a zero-knowledge proof circuit to verify outcomes privately. Choose a pre-built circuit or provide your own verifier key."
+            desc="A real Groth16 proof is generated in your browser to keep your data private, then verified fail-closed by the disclosed Covex oracle (Kaspa has no on-chain pairing verifier yet). Only a verified proof releases the funds. Choose a pre-built circuit or provide your own verifier key."
             selected={resolutionMode === 'zk'}
             onClick={() => setResolutionMode('zk')}
             accent="purple"

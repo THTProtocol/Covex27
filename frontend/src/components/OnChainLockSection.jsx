@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FileKey, Lock, Check, AlertTriangle, ExternalLink, KeyRound, MapPin } from 'lucide-react';
 import { CopyChip, Section } from './TransparencyModal';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
+import { vkeyPathFor } from '../lib/zk/circuits';
 
 /**
  * OnChainLockSection - the same honest lock + verification disclosure that lives inside
@@ -78,7 +79,7 @@ export default function OnChainLockSection({ covenant }) {
   const hasZk = ZK_REALITIES.has(reality);
   const circuitId = (typeof covenant?.custom_ui_config === 'object' ? covenant?.custom_ui_config?.circuit : null) || null;
   const inBrowser = circuitId && IN_BROWSER_PROVERS.has(circuitId);
-  const vkeyPath = hasZk && circuitId && circuitId !== 'none' ? `/zk/${circuitId}/${circuitId}_vkey.json` : null;
+  const vkeyPath = hasZk && circuitId && circuitId !== 'none' ? vkeyPathFor(circuitId) : null;
 
   // The exact, structural P2SH lock check: OP_BLAKE2B (aa) · push-32 (20) · <32-byte hash> · OP_EQUAL (87).
   const p2shStructural = /^aa20[0-9a-f]{64}87$/.test(scriptHex);

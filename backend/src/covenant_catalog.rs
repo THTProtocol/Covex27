@@ -192,7 +192,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         id: "p2sh_binary_oracle_select",
         label: "Binary outcome selector (parimutuel bundle unit)",
         category: "Verifiable Games (ZK/Oracle)",
-        reality: EnforcementReality::OnChain,
+        reality: EnforcementReality::Hybrid,
         builder: "covenant_builder",
         params: &["stake_kas", "preimage_hex", "preimage_b_hex", "pubkeys_hex", "lock_daa"],
         summary: "Two hashlock branches + a relative-timelock refund: reveal the preimage of H_A and winner_a claims, reveal H_B and winner_b claims, else the refund key reclaims after the CSV delay. The outcome is assigned by which single secret an oracle reveals, but every branch is gated by a specific key's signature, so no Covex key is in the redeem - pure on-chain custody, amounts, and destinations. The per-match building block of a 30%-fee / 50%-loser-rebate parimutuel bundle.",

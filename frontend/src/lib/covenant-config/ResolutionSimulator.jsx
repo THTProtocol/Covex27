@@ -123,10 +123,20 @@ function releaseBranches(circuit) {
       { label: 'Winner paid', to: 'Declared winner', cond: 'the oracle co-signs and the winner signs their branch', when: 'on resolution', accent: '#49EACB' },
     ],
   };
-  if (/merkle|member|whitelist|age|kyc|identity|credential|gate/.test(c)) return {
+  // Genuinely ZK-verified eligibility gates (real Groth16 proof, verified fail-closed by the
+  // disclosed Covex oracle off-chain). Only these can honestly claim a proof gates the spend.
+  if (/merkle|member|whitelist|age|range/.test(c)) return {
     title: 'Proof-gated release',
     branches: [
-      { label: 'Release', to: 'Eligible holder', cond: 'presents a valid zero-knowledge proof of eligibility', when: 'any time', accent: '#49EACB' },
+      { label: 'Release', to: 'Eligible holder', cond: 'presents a real zero-knowledge proof of eligibility that the disclosed Covex oracle verifies off-chain (fail-closed)', when: 'any time', accent: '#49EACB' },
+    ],
+  };
+  // kyc / credential / nft / reputation / identity / age-gate resolve oracle-attested today:
+  // the disclosed oracle attests eligibility with a signature; no ZK proof gates the spend.
+  if (/kyc|identity|credential|nft|reputation|gate/.test(c)) return {
+    title: 'Oracle-attested gate',
+    branches: [
+      { label: 'Release', to: 'Eligible holder', cond: 'is attested eligible by the disclosed Covex oracle, which signs the attestation the covenant verifies', when: 'any time', accent: '#49EACB' },
     ],
   };
   return {

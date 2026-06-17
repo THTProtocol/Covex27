@@ -5,6 +5,7 @@ import {
   FileKey, Cpu, AlertTriangle, Activity, BadgeCheck,
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
+import { vkeyPathFor } from '../lib/zk/circuits';
 
 /**
  * TransparencyModal — press any ZK / oracle / enforcement badge to see, in plain terms:
@@ -88,7 +89,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
   const involvesOracle = reality === 'oracle-attested' || reality === 'hybrid' || reality === 'full-zk' || reality === 'market';
   const hasZk = reality === 'full-zk' || reality === 'hybrid';
   const inBrowser = circuitId && IN_BROWSER_PROVERS.has(circuitId);
-  const vkeyPath = hasZk && circuitId ? `/zk/${circuitId}/${circuitId}_vkey.json` : null;
+  const vkeyPath = hasZk && circuitId ? vkeyPathFor(circuitId) : null;
 
   const scriptHex = String(covenant?.script_hex || '').toLowerCase();
   const p2shStructural = /^aa20[0-9a-f]{64}87$/.test(scriptHex);

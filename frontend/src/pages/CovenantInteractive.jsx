@@ -1722,9 +1722,13 @@ export default function CovenantInteractive() {
           <div className={`px-5 py-3.5 rounded-2xl shadow-2xl border flex items-center gap-3 ${
             toast.type === 'success'
               ? 'bg-emerald-900/40 border-emerald-500/30 text-emerald-300'
+              : toast.type === 'error'
+              ? 'bg-red-900/40 border-red-500/40 text-red-300'
               : 'bg-gray-900/40 border-gray-500/30 text-gray-300'
           }`}>
-            <CheckCircle2 size={18} className="text-emerald-400" />
+            {toast.type === 'error'
+              ? <AlertTriangle size={18} className="text-red-400 shrink-0" />
+              : <CheckCircle2 size={18} className={`shrink-0 ${toast.type === 'success' ? 'text-emerald-400' : 'text-gray-400'}`} />}
             <span className="text-sm font-medium">{toast.msg}</span>
           </div>
         </div>

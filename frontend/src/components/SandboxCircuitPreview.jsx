@@ -25,11 +25,11 @@ const RESOLUTION_FLOW = {
   'full-zk': {
     label: 'Zero-knowledge proof',
     steps: [
-      'The claimant generates a Groth16 zero-knowledge proof for the statement.',
-      'The verifier checks the proof against the committed public inputs.',
-      'Funds release only on a valid proof. The proof itself is the key.',
+      'The claimant generates a real Groth16 zero-knowledge proof for the statement.',
+      'The disclosed Covex oracle verifies that proof off-chain (Kaspa has no on-chain pairing verifier yet), fail-closed.',
+      'Only a proof the oracle verifies releases the funds; an invalid or missing proof is rejected.',
     ],
-    note: 'Trustless: knowing the secret witness lets you spend, and nothing else does.',
+    note: 'The proof is real cryptography, but the disclosed Covex oracle is the off-chain verifier whose result gates the spend. It is the trust boundary, not the chain itself.',
   },
   'hybrid': {
     label: 'ZK proof + oracle',

@@ -16,9 +16,10 @@ import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
  *   - covenant : opened from an explorer / detail TrustBadge     (props.covenant = the covenant object)
  */
 
-// The 3 circuits with a real, working in-browser Groth16 prover (snarkjs over served wasm+zkey).
-// Source of truth: CovexTerminal VERIFIED_FULL_ZK / IN_BROWSER_PROVERS.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
+// The 4 circuits with a real, working in-browser Groth16 prover (snarkjs over served wasm+zkey).
+// Source of truth: CovexTerminal VERIFIED_FULL_ZK / IN_BROWSER_PROVERS (range_proof computes its
+// MiMC7(value) commitment in pure JS like age, then fullProves the served wasm+zkey; node-verified).
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof']);
 
 const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,

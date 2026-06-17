@@ -137,7 +137,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'merkle_airdrop', name: 'Merkle Airdrop Claim', description: 'Full ZK: prove eligibility without revealing other claimers. Single-use nullifier per leaf. Same artifacts as membership. Reality: full-zk. Use cases: fair Kaspa token claims.', circuit: 'merkle_airdrop', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_sparse', name: 'Merkle Sparse / Verkle Tree', description: 'Membership in sparse/Verkle tree (gas-efficient). Reality: oracle-attested (full-zk planned). Use cases: large set proofs on Kaspa. (vision §4.1)', circuit: 'merkle_sparse', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'range_proof', name: 'Range Proof', description: 'Full ZK: prove a committed value is within [min, max] without revealing it. MiMC7(value) commitment + 64-bit range, generated in your browser (the value never leaves it) and verified fail-closed by the disclosed oracle. Use cases: collateral, age, balances on Kaspa covenants.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto', reality: 'full-zk' },
-  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Full ZK: prove collateral >= loan amount * threshold without disclosing the amount. Shares the range_proof circuit + in-browser prover, verified fail-closed by the disclosed oracle. Use cases: DeFi loans on Kaspa.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true, reality: 'full-zk' },
+  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Prove collateral >= loan amount * threshold without disclosing the amount, on the range_proof circuit. Its in-browser generator is not separately wired yet, so the disclosed oracle attests today (the backend Groth16-verifies a supplied proof fail-closed). Use cases: DeFi loans on Kaspa.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'range_128bit', name: 'Range Proof 128/256-bit', description: 'Extended range for larger values (u128/u256). Reality: hybrid (current 64-bit base + attested). Use cases: high-value Kaspa UTXO/treasury proofs. (vision §4.1)', circuit: 'range_128', accent: '#22C55E', category: 'crypto', variant: true, reality: 'hybrid' },
   { id: 'schnorr_knowledge', name: 'Schnorr Knowledge Proof', description: 'Oracle-path (no artifacts yet): standard Sigma protocol - prove knowledge of discrete log without revealing it. Building block for ring sigs, DLCs. Artifacts planned. Reality: oracle-attested. Use cases: UTXO ownership on Kaspa.', circuit: 'schnorr_generic', accent: '#6366F1', category: 'crypto', reality: 'oracle-attested' },
   { id: 'pedersen_commitment', name: 'Pedersen Commitment', description: 'Oracle-path (no artifacts yet): homomorphic commitment scheme. Prove committed value satisfies linear equation. Used for UTXO amount hiding + range proof combo. Artifacts planned. Reality: oracle-attested. Use cases: private amounts in Kaspa covenants. (vision §4.1)', circuit: 'pedersen_generic', accent: '#8B5CF6', category: 'crypto', reality: 'oracle-attested' },
@@ -317,26 +317,20 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'custom', name: 'Custom Circuit', description: 'Supply any audited circuit definition and verifier key. Reality depends on your artifacts. Full flexibility for novel covenant types. Use cases: anything not covered. Compose in Covenant Studio per vision (vision sections 4 plus 5).', circuit: 'custom', accent: '#E8AF34', category: 'custom', reality: 'oracle-attested' },
 ];
 
-// HONEST REALITY CORRECTION (audit fix). A circuit may only advertise 'full-zk' if it
-// actually ships a served proving key (.zkey) AND a working in-browser prover. On disk
-// only merkle_membership and range_proof have a served zkey, and range_proof's browser
-// prover is broken (MiMC7/wasm mismatch), so merkle_membership is the ONLY circuit that
-// proves end-to-end today. Every other 'full-zk' label was aspirational. Rather than
-// overstate it, downgrade the unbacked ones to 'oracle-attested' (their real resolution
-// path) and scrub the "Full ZK" prose from their descriptions, so the badge AND the copy
-// match what a user can actually do. Re-promote a circuit by adding its id here once its
-// served artifacts + generator are real and verified.
-// Circuits whose Groth16 artifacts are served + whose proofs actually verify (dev pot10
-// ceremony). Only these are shown as full-zk; every other 'full-zk'-declared circuit is
-// honestly downgraded to oracle-attested + zkPending until its key ships and a proof verifies.
-const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
-// Circuits that have a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
-// age_verification computes its public commitment = MiMC7(birth_year) in-browser via a pure-JS MiMC7.
-// Honestly limited to the same 3 as VERIFIED_FULL_ZK (kept in sync with OnChainLockSection.jsx /
-// TransparencyModal.jsx): only these have a verified end-to-end in-browser prover today. range_proof's
-// browser prover hits a MiMC7/wasm mismatch and range_collateral has no wired prover, so neither earns
-// the "in-browser prover" badge - they resolve oracle-attested like every other downgraded circuit.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification']);
+// HONEST REALITY (build-up policy). A circuit may only advertise 'full-zk' if it ships a served
+// proving key (.zkey) AND a working in-browser prover, verified valid-accept + tamper-reject.
+// FOUR circuits qualify today: merkle_membership, age_verification, escrow_2party, and range_proof
+// (range_proof computes its MiMC7(value) commitment in pure JS, like age, then fullProves the served
+// wasm+zkey; node-verified). Every other 'full-zk' label without a working prover is honestly
+// downgraded to 'oracle-attested' until its prover is wired + verified. The PREFERRED fix for an
+// overclaim is to BUILD the prover (then add the id here), not to relabel it down.
+const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof']);
+// Circuits with a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
+// age_verification + range_proof compute their MiMC7 commitment in-browser via a pure-JS MiMC7.
+// Kept in sync with VERIFIED_FULL_ZK (and OnChainLockSection.jsx / TransparencyModal.jsx).
+// range_collateral shares the range_proof circuit but its generator is not separately wired yet,
+// so it stays oracle-attested until that generator is wired.
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof

@@ -39,7 +39,7 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
-    trust: 'Proof, oracle-verified', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the three circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
+    trust: 'Proof, oracle-verified', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the four circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
   { name: 'Hybrid', icon: Layers, cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10',
@@ -82,6 +82,7 @@ const ZK_VERIFIED = [
   { name: 'Merkle Membership', what: 'Prove a committed value exists under a MiMC7 commitment without revealing it. Whitelists, airdrops, private eligibility.' },
   { name: 'Age Verification', what: 'Prove age ≥ a threshold from a committed birth year, revealing nothing else. A zero-knowledge KYC alternative.' },
   { name: '2-Party Escrow', what: 'Prove the timeout-vs-claim branch of an escrow without trusting an operator.' },
+  { name: 'Range Proof', what: 'Prove a committed value lies within a bound without revealing it. Solvency floors, bet limits, private thresholds.' },
 ];
 
 export default function Readme() {
@@ -237,7 +238,7 @@ export default function Readme() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              These three circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
+              These four circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
               zero-knowledge as their proving keys ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev
               ceremony. High-value mainnet covenants warrant an independent multi-party ceremony first.
             </p>

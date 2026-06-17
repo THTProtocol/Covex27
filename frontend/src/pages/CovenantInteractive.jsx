@@ -698,19 +698,39 @@ export default function CovenantInteractive() {
 
   if (loading) {
     return (
-      <div className="p-20 text-center text-kaspa-green animate-pulse font-mono tracking-widest text-lg">
-        INITIALIZING PROTOCOL SEQUENCE...
+      <div className="max-w-3xl mx-auto px-4 py-24">
+        <div className="relative glass-panel rounded-3xl p-12 sm:p-16 flex flex-col items-center justify-center gap-5 text-center overflow-hidden">
+          <div className="covex-aurora" aria-hidden="true" style={{ top: -40, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 220, maxWidth: '90vw' }} />
+          <div className="relative z-10 w-10 h-10 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" />
+          <p className="relative z-10 text-sm font-mono tracking-widest text-kaspa-green/90 uppercase">
+            Initializing protocol sequence
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!covenant) {
     return (
-      <div className="p-20 text-center">
-        <p className="text-gray-300 text-lg">Covenant not found.</p>
-        <Link to="/" className="text-kaspa-green hover:underline mt-4 inline-block">
-          Return to Explorer
-        </Link>
+      <div className="max-w-3xl mx-auto px-4 py-24">
+        <div className="relative glass-panel rounded-3xl p-10 sm:p-12 flex flex-col items-center text-center gap-5 overflow-hidden">
+          <div className="covex-aurora" aria-hidden="true" style={{ top: -40, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 360, height: 200, maxWidth: '90vw' }} />
+          <div className="relative z-10 p-4 bg-amber-500/10 rounded-2xl border border-amber-500/30 text-amber-400">
+            <AlertTriangle size={32} />
+          </div>
+          <div className="relative z-10">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Covenant not found</h1>
+            <p className="text-gray-400 text-sm mt-2 max-w-md">
+              We could not locate a covenant for this link. It may have been mistyped, or this id does not exist on the BlockDAG.
+            </p>
+          </div>
+          <Link
+            to="/"
+            className="relative z-10 btn-shimmer inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-colors"
+          >
+            <ArrowLeft size={16} /> Return to Explorer
+          </Link>
+        </div>
       </div>
     );
   }

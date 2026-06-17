@@ -33,10 +33,33 @@ const COVENANT_TEMPLATES = [
 
 function buildTransparentCustomUI(cov, cfg, stakeAmount) {
   const primary = SAFE_COLOR(cfg.primaryColor);
+
+  // HONESTY: covenants whose OUTCOME is decided by the disclosed oracle (games are
+  // server-authoritative + oracle-attested; oracle escrow/enforced; markets / binary_oracle_select)
+  // must NOT read as if the result were verified on-chain. Custody and payout ARE on-chain and
+  // verifiable on the explorer; only the outcome is oracle-attested. Pure consensus-enforced
+  // primitives keep the fully-on-chain-verifiable wording.
+  const ctype = String(cov.covenant_type || '').toLowerCase();
+  const gtype = String(cov.game_type || (cov.custom_ui_config && cov.custom_ui_config.game_type) || '').toLowerCase();
+  const hayKind = (ctype + ' ' + gtype + ' ' + String(cov.category || '') + ' ' + String(cov.name || '') + ' ' + String(cov.description || '') + ' ' + String(cov.full_logic_summary || '')).toLowerCase();
+  const isOracleResolved =
+    cov.enforcement_reality === 'hybrid' ||
+    String(cov.enforcement_reality || '').includes('oracle') ||
+    /binary_oracle_select|oracle_escrow|oracle_enforced|prediction.?market/.test(ctype) ||
+    !!gtype ||
+    /\bpoker\b|blackjack|\bchess\b|checkers|draughts|connect.?4|connect.?four|reversi|othello|tic.?tac.?toe|rock.?paper|\brps\b|prediction.?market|\bmarket\b|\boracle\b/.test(hayKind);
+  const honestDescDefault = isOracleResolved
+    ? 'Custody and payout are on-chain and verifiable on the explorer. The outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
+    : 'Fully transparent on-chain covenant. Custody, logic and payouts are verifiable on the explorer.';
+  const honestRulesDefault = isOracleResolved
+    ? 'All logic, fees, timers, addresses and payouts are public and on-chain. Custody and payout are verifiable on the explorer; the outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
+    : 'All logic, fees, timers, resolution and payouts are public and on-chain.';
+  const honestBadge = isOracleResolved ? 'ON-CHAIN CUSTODY, ORACLE-RESOLVED' : 'ON-CHAIN COVENANT';
+
   const title = ESC(cfg.titleOverride || cov.name || TRUNC(cov.tx_id));
-  const desc = ESC(cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.');
-  const publicAbout = ESC(cfg.publicAbout || cfg.descOverride || cov.description || 'Fully transparent on-chain covenant.');
-  const publicRules = ESC(cfg.publicRules || cov.full_logic_summary || 'All logic, fees, timers, resolution and payouts are public and on-chain.');
+  const desc = ESC(cfg.descOverride || cov.description || honestDescDefault);
+  const publicAbout = ESC(cfg.publicAbout || cfg.descOverride || cov.description || honestDescDefault);
+  const publicRules = ESC(cfg.publicRules || cov.full_logic_summary || honestRulesDefault);
   const publicHowTo = ESC(cfg.publicHowTo || 'Stake to the covenant address. All addresses, rules and verification are visible by default.');
   const creator = ESC(cov.creator_addr || 'Unknown');
   const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
@@ -140,7 +163,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
 <body style="background:#050507">
   <div class="container">
     <div style="text-align:center;margin-bottom:32px">
-      <div style="display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.06);font-size:11px;letter-spacing:1.5px;color:#64748B;border:1px solid rgba(255,255,255,.1)">ON-CHAIN COVENANT · ${tier}</div>
+      <div style="display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.06);font-size:11px;letter-spacing:1.5px;color:#64748B;border:1px solid rgba(255,255,255,.1)">${honestBadge} · ${tier}</div>
     </div>
 
     <div class="hero">
@@ -176,7 +199,7 @@ function buildTransparentCustomUI(cov, cfg, stakeAmount) {
     </div>
 
     <div style="text-align:center;padding:30px 0 10px;color:#475569;font-size:11px">
-      Published by the creator • Fully transparent on Kaspa • <a href="${explorerTx}" target="_blank" style="color:inherit">Verify</a>
+      Published by the creator • ${isOracleResolved ? 'Custody &amp; payout on Kaspa, outcome oracle-attested' : 'Fully transparent on Kaspa'} • <a href="${explorerTx}" target="_blank" style="color:inherit">Verify</a>
     </div>
   </div>
 </body></html>`;

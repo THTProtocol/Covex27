@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { signMarketResolve } from '../lib/ownership';
 import HonestLimits from '../components/HonestLimits';
 import TrustBadge from '../components/TrustBadge';
 import {
-  TrendingUp, ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
+  ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
   ExternalLink, Layers, Check, Loader2, Coins,
 } from 'lucide-react';
 
@@ -36,120 +36,6 @@ function EnforcementBadge({ size = 'md', covenant }) {
       size={size}
       covenant={{ covenant_type: 'prediction-market', enforcement_reality: 'hybrid', network: net(), ...(covenant || {}) }}
     />
-  );
-}
-
-function MarketsList() {
-  const navigate = useNavigate();
-  const { address } = useWallet();
-  const [markets, setMarkets] = useState(null);
-  const [show, setShow] = useState(false);
-  const [q, setQ] = useState('');
-  const [oa, setOa] = useState('Yes');
-  const [ob, setOb] = useState('No');
-  const [feePct, setFeePct] = useState('30');
-  const [rebatePct, setRebatePct] = useState('50');
-  const [creating, setCreating] = useState(false);
-  const [cerr, setCerr] = useState(null);
-  useEffect(() => {
-    api('/covenant/market/list', { network: net() })
-      .then((j) => setMarkets(j.markets || []))
-      .catch(() => setMarkets([]));
-  }, []);
-
-  const create = async () => {
-    if (!q.trim()) { setCerr('Enter a question'); return; }
-    // The creator wallet is the ONLY address allowed to resolve this market later
-    // (the reveal is gated on a signature from it), so it is required up front.
-    if (!address) { setCerr('Connect a wallet first - it becomes the only address that can resolve this market.'); return; }
-    setCreating(true); setCerr(null);
-    try {
-      const r = await api('/covenant/market/create', { network: net(), creator_address: address, question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No'), fee_bps: Math.round((parseFloat(feePct) || 30) * 100), rebate_bps: Math.round((parseFloat(rebatePct) || 50) * 100) });
-      if (r.market_id) navigate(`/covenant/${r.market_id}`);
-      else setCerr(r.error || 'failed to create');
-    } catch (e) { setCerr(String(e)); }
-    setCreating(false);
-  };
-
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">
-            <TrendingUp size={20} className="text-kaspa-green" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-extrabold text-white light:text-slate-900">Prediction Markets</h1>
-            <p className="text-sm text-gray-400 light:text-slate-500">Parimutuel markets settled by conjoined on-chain covenants. {net()}.</p>
-          </div>
-        </div>
-        <button onClick={() => setShow((s) => !s)} className="btn-shimmer px-4 py-2 rounded-xl font-bold text-sm bg-kaspa-green text-black shrink-0">+ New market</button>
-      </div>
-
-      <div className="glass-panel rounded-2xl border border-white/[0.06] p-4 mb-6 text-[12px] text-gray-300 light:text-slate-600 leading-relaxed">
-        <span className="text-white light:text-slate-900 font-semibold">How it works:</span> back an outcome with a YES/NO order. Orders are
-        matched into mini-pools, each funded by a <span className="text-white light:text-slate-900 font-semibold">conjoined bundle</span> of{' '}
-        <span className="font-mono text-white light:text-slate-900">binary_oracle_select</span> covenants - several covenants created at once. When
-        the result is in, one secret is revealed and the chain routes every payout, loser rebate, and fee. No Covex key sits in
-        the money path - funds are recoverable even if Covex goes down.
-      </div>
-
-      {show && (
-        <div className="glass-panel rounded-2xl border border-kaspa-green/25 p-5 mb-6">
-          <div className="text-white light:text-slate-900 font-semibold mb-3">Create a market</div>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Question, e.g. "Will Brazil beat Haiti?"' className="w-full mb-2 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
-          <div className="flex gap-2 mb-3">
-            <input value={oa} onChange={(e) => setOa(e.target.value)} placeholder="Outcome A" className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
-            <input value={ob} onChange={(e) => setOb(e.target.value)} placeholder="Outcome B" className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
-          </div>
-          <div className="flex items-center gap-2 mb-3 text-[12px] flex-wrap">
-            <span className="text-gray-400 light:text-slate-500">House fee</span>
-            <input value={feePct} onChange={(e) => setFeePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
-            <span className="text-gray-500">%</span>
-            <span className="text-gray-400 light:text-slate-500 ml-3">Loser rebate</span>
-            <input value={rebatePct} onChange={(e) => setRebatePct(e.target.value)} type="number" min="0" max="90" className="w-16 px-2 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" />
-            <span className="text-gray-500">% &middot; customise the covenant economics (fee + rebate must be &lt; 100%)</span>
-          </div>
-          <button disabled={creating} onClick={create} className="btn-shimmer px-5 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40">
-            {creating ? <Loader2 className="animate-spin inline" size={15} /> : 'Create market'}
-          </button>
-          {cerr && <div className="mt-2 text-[12px] text-red-300">{cerr}</div>}
-        </div>
-      )}
-
-      {markets === null ? (
-        <div className="flex items-center justify-center py-20 text-gray-500"><Loader2 className="animate-spin mr-2" size={18} /> Loading markets…</div>
-      ) : markets.length === 0 ? (
-        <div className="glass-panel rounded-2xl border border-white/[0.06] p-10 text-center text-gray-400 light:text-slate-500">
-          No markets yet on {net()}.
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {markets.map((m) => (
-            <Link key={m.market_id} to={`/covenant/${m.market_id}`}
-              className="glass-panel rounded-2xl border border-white/[0.06] p-5 hover-lift transition-all block">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="text-base font-bold text-white light:text-slate-900 leading-snug min-w-0 break-words" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{m.question}</h3>
-                {m.resolved ? (
-                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300"><Trophy size={11} /> Resolved</span>
-                ) : (
-                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green">Open</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-[12px] mb-3 min-w-0">
-                <span className="px-2 py-1 rounded-lg bg-white/[0.04] light:bg-slate-100 border border-white/10 light:border-slate-200 text-white light:text-slate-700 truncate max-w-[40%]">{m.outcome_a}</span>
-                <span className="text-gray-500 text-[10px] uppercase tracking-wide shrink-0">vs</span>
-                <span className="px-2 py-1 rounded-lg bg-white/[0.04] light:bg-slate-100 border border-white/10 light:border-slate-200 text-white light:text-slate-700 truncate max-w-[40%]">{m.outcome_b}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2 text-[11px] text-gray-400 light:text-slate-500">
-                <EnforcementBadge size="sm" />
-                {m.kickoff_utc && <span className="inline-flex items-center gap-1 shrink-0"><Clock size={11} /> {fmtKickoff(m.kickoff_utc)}</span>}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -423,11 +309,10 @@ function MarketDetail({ id }) {
   );
 }
 
-export default function Markets() {
-  const { id } = useParams();
-  return id ? <MarketDetail id={id} /> : <MarketsList />;
-}
-
+// No default export and no standalone market list: per the constitution, prediction
+// markets are NOT a separate section. They live in the Explorer and render their full
+// custom market website on the covenant page (CovenantInteractive) via MarketView below.
+//
 // Reusable market website (betting, live odds, pools, resolve), rendered on a
 // prediction-market covenant's page in the Explorer (CovenantInteractive).
 export function MarketView({ marketId }) {

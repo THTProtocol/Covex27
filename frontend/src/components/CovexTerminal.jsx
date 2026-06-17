@@ -359,11 +359,18 @@ const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_v
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
 // covers part of the logic". The backend's other tier, `HybridGroth16`, is "Groth16 when supplied,
 // else oracle-attested" - i.e. it can be spent with NO proof (the oracle attests the outcome), so
-// its honest floor is 'oracle-attested', not 'hybrid'. Kept in sync with build_registry().
+// its honest floor is 'oracle-attested', not 'hybrid'.
+// Kept in sync with build_registry() in backend/src/oracle_verifier.rs, accounting for HashMap
+// last-insert-wins: vrf_random + relative_timelock are inserted Attested by the crypto/ownership
+// loops but RE-PINNED StrictGroth16 later (so they ARE strict); age_verification + escrow_2party
+// are likewise re-asserted Strict after the gating/defi loops overwrote them; utxo_ownership +
+// basic_utxo_ownership + vrf_dice_roll + nullifier_set are pinned Strict and removed from the
+// attested loops. These 19 ids are the COMPLETE final-state StrictGroth16 registry.
 const STRICT_GROTH16 = new Set([
   'merkle_membership', 'merkle_dao', 'merkle_airdrop', 'range_proof', 'range_collateral',
-  'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification',
-  'escrow_2party', 'relative_timelock', 'vrf_dice_roll', 'basic_utxo_ownership', 'nullifier_set',
+  'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification', 'escrow_2party',
+  'utxo_ownership', 'basic_utxo_ownership', 'relative_timelock', 'vrf_dice_roll', 'vrf_random',
+  'script_constraint', 'pot_split_math', 'turn_timer', 'nullifier_set',
 ]);
 // Per-reality visual treatment for the circuit cards: an accent colour + a readable pill label.
 // Mirrors the honest 4-reality taxonomy (full-zk / hybrid / oracle-attested / decorative).

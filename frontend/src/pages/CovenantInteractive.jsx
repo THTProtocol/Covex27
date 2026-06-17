@@ -507,9 +507,35 @@ export default function CovenantInteractive() {
     const ESC = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const SAFE_COLOR = (c) => (/^#[0-9a-fA-F]{3,8}$|^rgba?\([\d.,\s%]+\)$/.test(String(c || '')) ? c : '#49EACB');
     const primary = SAFE_COLOR(cfg.primaryColor);
+
+    // HONESTY: a covenant whose OUTCOME is decided by the disclosed oracle (games are
+    // server-authoritative + oracle-attested; oracle escrow/enforced; markets / binary_oracle_select)
+    // must NOT read as if the result were verified on-chain. Custody and payout ARE script-locked
+    // on-chain and verifiable on the explorer; only the outcome is oracle-attested, not on-chain.
+    // Pure consensus-enforced primitives keep the fully-on-chain-verifiable wording.
+    const ctype = String(cov.covenant_type || '').toLowerCase();
+    const gtype = String(cov.game_type || (cov.custom_ui_config && cov.custom_ui_config.game_type) || '').toLowerCase();
+    const hayKind = (ctype + ' ' + gtype + ' ' + String(cov.category || '') + ' ' + String(cov.name || '') + ' ' + String(cov.description || '') + ' ' + String(cov.full_logic_summary || '')).toLowerCase();
+    const isOracleResolved =
+      cov.enforcement_reality === 'hybrid' ||
+      String(cov.enforcement_reality || '').includes('oracle') ||
+      /binary_oracle_select|oracle_escrow|oracle_enforced|prediction.?market/.test(ctype) ||
+      !!gtype ||
+      /\bpoker\b|blackjack|\bchess\b|checkers|draughts|connect.?4|connect.?four|reversi|othello|tic.?tac.?toe|rock.?paper|\brps\b|prediction.?market|\bmarket\b|\boracle\b/.test(hayKind);
+    // Custody/payout is always on-chain; only the trust BAR and the default copy differ.
+    const honestDescDefault = isOracleResolved
+      ? 'Custody and every payout are script-locked on-chain on the Kaspa BlockDAG and verifiable on the explorer. The outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
+      : 'This covenant is immutable on the Kaspa BlockDAG. Custody, logic and payouts are on-chain and verifiable on the explorer.';
+    const honestLogicDefault = isOracleResolved
+      ? 'All logic, fees, addresses and payouts are disclosed and on-chain. Custody and payout are verifiable on the explorer; the outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
+      : 'All logic and parameters are fully disclosed and on-chain. This is a creator-published covenant verifiable on the explorer.';
+    const trustBarText = isOracleResolved
+      ? 'TRANSPARENT • IMMUTABLE • NON-CUSTODIAL • CUSTODY &amp; PAYOUT ON KASPA • OUTCOME ORACLE-ATTESTED'
+      : 'FULLY TRANSPARENT • IMMUTABLE • NON-CUSTODIAL • VERIFIABLE ON KASPA';
+
     const title = ESC(cfg.titleOverride || cov.name || TRUNC(cov.tx_id));
-    const desc = ESC(cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.');
-    const logic = ESC(cov.full_logic_summary || cov.description || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.');
+    const desc = ESC(cfg.descOverride || cov.description || cov.desc || honestDescDefault);
+    const logic = ESC(cov.full_logic_summary || cov.description || honestLogicDefault);
     const creator = ESC(cov.creator_addr || 'Unknown');
     const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
     const tx = ESC(cov.tx_id || '');
@@ -523,8 +549,8 @@ export default function CovenantInteractive() {
 
     const heroImage = encodeURI(cfg.heroImageUrl || '');
     const vision = ESC(cfg.vision || '');
-    const publicAbout = ESC(cfg.publicAbout || cfg.descOverride || cov.description || cov.desc || 'This covenant is immutable on the Kaspa BlockDAG. Everything here is fully transparent and on-chain.');
-    const publicRules = ESC(cfg.publicRules || cov.full_logic_summary || 'All logic and parameters are fully disclosed. This is a creator-published, verifiable covenant experience.');
+    const publicAbout = ESC(cfg.publicAbout || cfg.descOverride || cov.description || cov.desc || honestDescDefault);
+    const publicRules = ESC(cfg.publicRules || cov.full_logic_summary || honestLogicDefault);
     const publicHowTo = ESC(cfg.publicHowTo || 'Connect a wallet, choose your stake amount, and execute directly to the covenant address. All details, addresses, and resolution logic are public.');
 
     // Premium, modern, billion-dollar aesthetic
@@ -578,7 +604,7 @@ export default function CovenantInteractive() {
     // Trust bar
     blocksHTML += `
       <div class="section" style="text-align:center; opacity:0.85;">
-        <div style="font-size:12px; letter-spacing:1.5px; color:#64748B;">FULLY TRANSPARENT • IMMUTABLE • NON-CUSTODIAL • VERIFIABLE ON KASPA</div>
+        <div style="font-size:12px; letter-spacing:1.5px; color:#64748B;">${trustBarText}</div>
       </div>
     `;
 

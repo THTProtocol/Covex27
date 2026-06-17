@@ -377,6 +377,9 @@ export default function App() {
                   ['API', '/docs'],
                   ['Whitepaper', '/whitepaper'],
                   ['Treasury', '/treasury'],
+                  // Discoverable entry for "I have a redeem script, spend any covenant":
+                  // the external-spend panel lives on the enforced deploy page.
+                  ['Spend a Covenant', '/deploy/enforced'],
                   ['Recover', '/recover'],
                   ['Stats', '/stats'],
                   ['Templates', '/templates'],

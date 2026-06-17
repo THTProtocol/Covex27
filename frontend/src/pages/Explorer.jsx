@@ -759,89 +759,99 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
     return (h >>> 0) % 360;
   })();
   const cardAccent = `hsl(${hueSeed} 72% 62%)`;
+  // alpha variants of the identity hue (hsl with /alpha is valid at any opacity)
+  const accA = (a) => `hsl(${hueSeed} 74% 60% / ${a})`;
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`group block rounded-2xl border transition-all duration-300 overflow-hidden hover:-translate-y-0.5 ${
-        isPaid ? `${cfg.border} ${cfg.glow} hover:shadow-xl holo-border hover-lift-premium` : 'border-white/10 hover:border-[#49EACB]/25 hover:shadow-lg hover:shadow-[#49EACB]/[0.06] hover-lift-premium'
-      } bg-gradient-to-b from-[#13131c] to-[#0a0a0e] light:from-white light:to-slate-50 light:border-slate-200 min-h-[300px] flex flex-col`}
+      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-300 will-change-transform hover:-translate-y-1 ${
+        isPaid
+          ? `${cfg.border} ${cfg.glow} holo-border hover:shadow-2xl`
+          : 'border-white/[0.08] light:border-slate-200 hover:border-[color:var(--ca)] hover:shadow-[0_22px_55px_-22px_var(--cg)]'
+      } bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 min-h-[296px]`}
+      style={!isPaid ? { '--ca': accA(0.55), '--cg': accA(0.4) } : undefined}
     >
-      {!isPaid && (
-        <div className="h-[3px] w-full" aria-hidden="true"
-          style={{ background: `linear-gradient(90deg, transparent 0%, ${cardAccent} 50%, transparent 100%)`, opacity: 0.6 }} />
-      )}
-      {/* VISUAL HEADER - tier + category gradient stripe */}
-      <div className="relative h-16 overflow-hidden">
+      {/* Top accent bar - on-chain identity hue */}
+      <div className="h-[3px] w-full shrink-0" aria-hidden="true"
+        style={{ background: `linear-gradient(90deg, transparent, ${cardAccent}, transparent)`, opacity: isPaid ? 0.4 : 0.8 }} />
+
+      {/* HEADER - category gradient + identity glow; badges left, category right, one clean row */}
+      <div className="relative h-12 shrink-0 overflow-hidden">
         <div className={`absolute inset-0 bg-gradient-to-r ${cfg.gradient}`} />
-        <div className={`absolute inset-0 bg-gradient-to-r ${catGradient} opacity-60`} />
+        <div className={`absolute inset-0 bg-gradient-to-r ${catGradient} opacity-50`} />
         {!isPaid && (
           <div className="absolute inset-0" aria-hidden="true"
-            style={{ background: `radial-gradient(120% 90% at 0% 0%, ${cardAccent}22 0%, transparent 55%)` }} />
+            style={{ background: `radial-gradient(130% 110% at 0% 0%, ${accA(0.16)} 0%, transparent 60%)` }} />
         )}
-        {/* Decorative dots pattern */}
-        <div className="absolute inset-0 opacity-10" style={{
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
-          backgroundSize: '16px 16px'
+        <div className="absolute inset-0 opacity-[0.06]" style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)', backgroundSize: '14px 14px',
         }} />
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c12] light:from-slate-50 to-transparent" />
-        <div className="absolute top-2 left-3 flex items-center gap-2">
-          {c._isNew && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-kaspa-green/25 text-kaspa-green border border-kaspa-green/40 font-mono font-bold animate-pulse backdrop-blur-sm">NEW</span>
-          )}
-          {isPaid && (
-            <span className={`text-[9px] px-2 py-0.5 rounded-full border ${cfg.badge} font-mono font-bold flex items-center gap-1 backdrop-blur-sm`}>
-              <IconComponent size={10} />{cfg.label}
-            </span>
-          )}
-          {isPaidVerified && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono backdrop-blur-sm">
-              VERIFIED
-            </span>
-          )}
-        </div>
-        <div className="absolute bottom-1 right-3 inline-flex items-center gap-1 text-[10px] font-mono text-white/60 light:text-slate-500">
-          {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80" />; })()}
-          {categoryLabel}
-        </div>
-        <div className="absolute bottom-2 left-3">
-          <TrustBadge covenant={c} size="sm" />
+        <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-[#0d0d14] light:from-white to-transparent" />
+        <div className="relative z-10 flex items-center justify-between h-full px-3.5 gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {c._isNew && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-kaspa-green/25 text-kaspa-green border border-kaspa-green/40 font-mono font-bold animate-pulse">NEW</span>
+            )}
+            {isPaid && (
+              <span className={`text-[9px] px-2 py-0.5 rounded-md border ${cfg.badge} font-mono font-bold inline-flex items-center gap-1`}>
+                <IconComponent size={10} />{cfg.label}
+              </span>
+            )}
+            {isPaidVerified && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">VERIFIED</span>
+            )}
+          </div>
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-white/70 light:text-slate-500 truncate max-w-[58%]">
+            {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80 shrink-0" />; })()}
+            <span className="truncate">{categoryLabel}</span>
+          </span>
         </div>
       </div>
 
-      <div className="p-4 sm:p-5 flex flex-col flex-1">
-        {/* Name + Status + Amount */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0 pr-2">
-            <h3 className={`font-bold text-sm sm:text-base truncate ${isPaid ? cfg.text : 'text-gray-200 light:text-slate-800'}`}
-              style={isPaidVerified ? { color: themeAccent } : undefined}>
-              {covenantName}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] font-mono text-gray-500">{txShort}...</span>
-              <span className={`text-[9px] font-mono font-bold ${statusColor}`}>{statusLabel}</span>
+      <div className="p-4 sm:p-[18px] flex flex-col flex-1">
+        {/* Title + on-chain id */}
+        <h3 className={`font-bold text-[15px] sm:text-base leading-tight truncate ${isPaid ? cfg.text : 'text-white light:text-slate-900'}`}
+          style={isPaidVerified ? { color: themeAccent } : undefined}>
+          {covenantName}
+        </h3>
+        <div className="mt-0.5 text-[10px] font-mono text-gray-500 light:text-slate-400 truncate">{txShort}...</div>
+
+        {/* Value-locked hero + live status (the pot - leads like a gambling card) */}
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[8.5px] uppercase tracking-[0.16em] text-gray-500 light:text-slate-400 font-bold mb-1">Value Locked</div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-mono text-[22px] sm:text-2xl font-black leading-none tracking-tight text-white light:text-slate-900"
+                style={!isPaid ? { textShadow: `0 0 22px ${accA(0.32)}` } : undefined}>
+                {formatKaspa(amount).replace(/\s*KAS$/i, '')}
+              </span>
+              <span className="text-[11px] font-bold text-gray-400 light:text-slate-500">KAS</span>
             </div>
           </div>
-          <div className="text-right shrink-0 ml-2">
-            <div className="font-mono text-base font-bold text-white light:text-slate-900">{formatKaspa(amount)}</div>
-            {isPaid && (
-              <div className={`text-[10px] font-mono mt-0.5 ${cfg.text}`}>{cfg.label} TIER</div>
-            )}
-          </div>
+          <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wide border ${isActive ? 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25' : 'bg-white/[0.04] text-gray-400 border-white/10'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+            {statusLabel}
+          </span>
         </div>
 
         {/* Description - hard-clamped to exactly 2 lines with a clean ellipsis (inline styles so the
             webkit-box clamp always wins over flex-1, which previously defeated line-clamp and let the
             text spill and cut mid-sentence). break-words stops a long hash/word from overflowing. */}
         <p
-          className="text-xs text-gray-400 light:text-slate-500 mb-4 leading-relaxed break-words"
+          className="mt-3 text-xs text-gray-400 light:text-slate-500 leading-relaxed break-words"
           style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
         >
           {covenantDesc}
         </p>
 
+        {/* Enforcement reality - the trust signal (moved out of the header into a clean row) */}
+        <div className="mt-3">
+          <TrustBadge covenant={c} size="sm" />
+        </div>
+
         {/* Game preview + Custom UI badges */}
         {(gameType || customUI) && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {gameType && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider">
                 <Play size={9} />{gameType}
@@ -857,7 +867,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
         {/* Disclosed wallets for verified */}
         {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
-          <div className="mb-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2">
+          <div className="mt-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2">
             <div className="text-[9px] text-emerald-400 font-mono uppercase tracking-wide mb-1">Wallets Disclosed</div>
             <div className="flex flex-wrap gap-1">
               {disclosedWallets.slice(0, 3).map((w, i) => (

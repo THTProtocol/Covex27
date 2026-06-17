@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { FileKey, Lock, Check, AlertTriangle, ExternalLink, KeyRound } from 'lucide-react';
+import { FileKey, Lock, Check, AlertTriangle, ExternalLink, KeyRound, MapPin } from 'lucide-react';
 import { CopyChip, Section } from './TransparencyModal';
+import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 
 /**
  * OnChainLockSection - the same honest lock + verification disclosure that lives inside
@@ -34,6 +35,14 @@ function realityFromCovenant(covenant) {
 export default function OnChainLockSection({ covenant }) {
   const scriptHex = String(covenant?.script_hex || '').toLowerCase();
   const redeemHex = String(covenant?.redeem_script_hex || '');
+  // Canonical P2SH lock address - the exact value a verifier pastes into a block explorer
+  // to find the on-chain UTXO this covenant's redeem_script_hex hashes to.
+  const p2shAddress = String(covenant?.p2sh_address || '');
+  // spendable === true means the indexer has NOT seen a spend of the locked UTXO yet (live);
+  // a non-null spent_tx_id means it was redeemed on-chain (settled). Only meaningful when the
+  // backend returned the field (an enforced P2SH covenant); undefined => unknown, render nothing.
+  const spendable = covenant?.spendable;
+  const spentTxId = covenant?.spent_tx_id ? String(covenant.spent_tx_id) : '';
   const reality = realityFromCovenant(covenant);
   const involvesOracle = ORACLE_REALITIES.has(reality);
   const hasZk = ZK_REALITIES.has(reality);
@@ -56,7 +65,7 @@ export default function OnChainLockSection({ covenant }) {
   }, [involvesOracle]);
 
   // Nothing inspectable to show (e.g. an indexed metadata marker with no script) - stay quiet.
-  if (!scriptHex && !redeemHex && !vkeyPath && !involvesOracle) return null;
+  if (!scriptHex && !redeemHex && !p2shAddress && !vkeyPath && !involvesOracle) return null;
 
   return (
     <div className="mb-6">
@@ -74,6 +83,49 @@ export default function OnChainLockSection({ covenant }) {
               {p2shStructural
                 ? 'Well-formed P2SH lock (aa = OP_BLAKE2B · 20 = push-32 · 32-byte script hash · 87 = OP_EQUAL). Only a redeem script hashing to this exact value can spend it.'
                 : 'Not a standard 35-byte P2SH lock pattern (aa20...87).'}
+            </div>
+          </Section>
+        )}
+
+        {p2shAddress && (
+          <Section icon={MapPin} title="P2SH lock address">
+            <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Canonical address (p2sh_address)</div>
+            <CopyChip text={p2shAddress} />
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <a
+                href={explorerAddressUrl(p2shAddress, covenant?.network)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-[11px] font-mono text-kaspa-green hover:underline break-all"
+              >
+                View on explorer <ExternalLink size={11} className="shrink-0" />
+              </a>
+              {spendable === true && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/30">
+                  <Check size={11} /> Spendable
+                </span>
+              )}
+              {spendable === false && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  <AlertTriangle size={11} /> Spent
+                </span>
+              )}
+            </div>
+            {spendable === false && spentTxId && (
+              <div className="text-[11px] text-gray-500 mt-1.5">
+                Redeemed in tx{' '}
+                <a
+                  href={explorerTxUrl(spentTxId, covenant?.network)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-gray-300 hover:text-kaspa-green hover:underline break-all"
+                >
+                  {spentTxId}
+                </a>
+              </div>
+            )}
+            <div className="text-[11px] text-gray-500 mt-1.5">
+              This is where the redeem script above hashes to on-chain. Paste it into the explorer to confirm the locked UTXO yourself.
             </div>
           </Section>
         )}

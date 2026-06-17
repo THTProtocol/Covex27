@@ -1649,6 +1649,16 @@ pub async fn p2sh_spend_handler(
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
 
+    // NON-CUSTODIAL KEYSTONE: never accept a raw MAINNET private key on the spend path either.
+    // Mainnet redeem is non-custodial (the key signs the sighash in the browser); a raw mainnet
+    // key here would be the backend half of a custody breach. Testnet dev/demo flows are unaffected.
+    if (req.network == "mainnet" || req.network == "mainnet-1")
+        && !req.use_dev_mode
+        && !req.private_key_hex.trim().is_empty()
+    {
+        return err("mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into());
+    }
+
     // Resolve the covenant. If Covex deployed it, the DB has everything. If NOT (any
     // covenant created anywhere on-chain), the caller supplies the redeem script + kind
     // and we DERIVE the P2SH address from the redeem - so a wrong script simply fails the

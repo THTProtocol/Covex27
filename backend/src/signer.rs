@@ -247,6 +247,20 @@ pub async fn sign_and_broadcast_handler(
             error: Some("Dev mode and hardcoded keys are DISABLED on mainnet. Use a real wallet extension (KasWare etc.) to sign and broadcast covenant deployments. All value is real KAS.".into()),
         }));
     }
+    // NON-CUSTODIAL KEYSTONE: never accept a raw MAINNET private key. Mainnet signing is
+    // non-custodial (the key signs the sighash in the browser via prepare/submit). A raw mainnet
+    // key here would be the backend half of a custody breach. Refuse it; testnet is unaffected.
+    if (network == "mainnet" || network == "mainnet-1")
+        && !payload.use_dev_mode
+        && !payload.private_key_hex.trim().is_empty()
+    {
+        return Json(serde_json::json!(SignAndBroadcastResponse {
+            success: false,
+            tx_id: None,
+            outputs: None,
+            error: Some("mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into()),
+        }));
+    }
 
     let private_key_hex: String;
     let deployer_addr_str: String;

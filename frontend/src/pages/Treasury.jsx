@@ -31,7 +31,10 @@ export default function Treasury() {
   }, [treasury, network]);
 
   return (
-    <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-10">
+      <div className="covex-aurora" style={{ top: -10, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 420, height: 200, maxWidth: '90vw', opacity: 0.4 }} aria-hidden="true" />
+
+      <div className="relative z-10">
       <div className="flex items-center gap-3 mb-2">
         <div className="w-12 h-12 shrink-0 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
           <Landmark size={22} className="text-kaspa-green" />
@@ -44,13 +47,23 @@ export default function Treasury() {
       <p className="text-xs text-gray-500 mb-8">Network: {network}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1.5"><Coins size={12} /> Live treasury balance</p>
-          <p className="text-2xl font-black text-white">{balance === null ? '...' : `${balance.toLocaleString()} KAS`}</p>
+        <div className="glass-panel hover-lift rounded-2xl border border-white/[0.06] overflow-hidden">
+          <div className="h-[3px] w-full shrink-0" aria-hidden="true"
+            style={{ background: 'linear-gradient(90deg, transparent, #49EACB, transparent)', opacity: 0.8 }} />
+          <div className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1.5"><Coins size={12} /> Live treasury balance</p>
+            {balance === null
+              ? <div className="skeleton h-7 w-40 mt-1" />
+              : <p className="text-2xl font-black text-white">{`${balance.toLocaleString()} KAS`}</p>}
+          </div>
         </div>
-        <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Treasury address</p>
-          <p className="text-[11px] font-mono text-kaspa-green break-all">{treasury}</p>
+        <div className="glass-panel hover-lift rounded-2xl border border-white/[0.06] overflow-hidden">
+          <div className="h-[3px] w-full shrink-0" aria-hidden="true"
+            style={{ background: 'linear-gradient(90deg, transparent, #49EACB, transparent)', opacity: 0.8 }} />
+          <div className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Treasury address</p>
+            <p className="text-[11px] font-mono text-kaspa-green break-all">{treasury}</p>
+          </div>
         </div>
       </div>
 
@@ -74,7 +87,7 @@ export default function Treasury() {
         ) : (
           <div className="space-y-2">
             {upgrades.slice(0, 20).map((u) => (
-              <div key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs">
+              <div key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs hover:bg-white/[0.04] transition-colors">
                 <span className="font-bold text-amber-300 shrink-0">{u.detail}</span>
                 <span className="font-mono text-gray-400 truncate flex-1 min-w-0">{u.covenant_id.slice(0, 24)}...</span>
                 <span className="font-mono text-white shrink-0">{u.amount_kaspa} KAS</span>
@@ -90,6 +103,7 @@ export default function Treasury() {
           View tiers and pricing <ArrowUpRight size={14} />
         </Link>
       </p>
+      </div>
     </div>
   );
 }

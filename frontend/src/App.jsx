@@ -40,6 +40,7 @@ const CovenantEmbed = lazy(() => import('./pages/CovenantEmbed'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
 const Recover = lazy(() => import('./pages/Recover'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastContext';
 import ThemeToggle from './components/ThemeToggle';
@@ -317,8 +318,12 @@ export default function App() {
           <div className="relative z-10 pt-16">
             <RouteErrorBoundary>
             <Suspense fallback={
-              <div className="flex items-center justify-center py-32">
-                <div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" />
+              <div className="max-w-3xl mx-auto px-4 py-16 space-y-4" aria-hidden="true">
+                <div className="skeleton h-9 w-2/5 rounded-lg" />
+                <div className="skeleton h-4 w-3/4 rounded" />
+                <div className="skeleton h-64 w-full rounded-2xl" />
+                <div className="skeleton h-4 w-1/2 rounded" />
+                <div className="skeleton h-4 w-2/3 rounded" />
               </div>
             }>
             <Routes>
@@ -356,8 +361,8 @@ export default function App() {
               {/* Embeddable read-only covenant widget for external sites (chrome-free fixed overlay).
                   Framing is allowed for /embed paths via nginx (CSP frame-ancestors *). */}
               <Route path="/embed/covenant/:id" element={<CovenantEmbed />} />
-              {/* Catch-all: any unknown path (incl. removed stubs) -> home, never a blank page. */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              {/* Catch-all: any unknown path (incl. removed stubs) -> branded 404, never a blank page. */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
             </RouteErrorBoundary>

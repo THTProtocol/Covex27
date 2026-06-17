@@ -32,12 +32,17 @@ const fmtNum = (n) => (Number(n) || 0).toLocaleString('en-US');
 
 function Kpi({ icon: Icon, label, value, sub, accent }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 light:bg-white light:border-slate-200">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-gray-400">
-        <Icon size={14} style={{ color: accent }} /> {label}
+    <div className="hover-lift relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] light:bg-white light:border-slate-200">
+      {/* Top accent bar - KPI identity hue */}
+      <div className="h-[3px] w-full shrink-0" aria-hidden="true"
+        style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: 0.8 }} />
+      <div className="p-4">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-gray-400">
+          <Icon size={14} style={{ color: accent }} /> {label}
+        </div>
+        <div className="mt-1.5 text-3xl font-bold tabular-nums text-white light:text-slate-900">{value}</div>
+        {sub && <div className="text-[11px] text-gray-500 mt-0.5">{sub}</div>}
       </div>
-      <div className="mt-1.5 text-3xl font-bold tabular-nums text-white light:text-slate-900">{value}</div>
-      {sub && <div className="text-[11px] text-gray-500 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -51,7 +56,7 @@ function BarList({ rows, max, colorFor, labelKey, valueKey, valueFmt }) {
         const v = Number(r[valueKey]) || 0;
         const pct = max > 0 ? Math.max(2, (v / max) * 100) : 0;
         return (
-          <div key={r[labelKey]} className="flex items-center gap-3">
+          <div key={r[labelKey]} className="flex items-center gap-3 rounded-md -mx-1 px-1 py-0.5 hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
             <div className="w-28 shrink-0 text-[11px] font-mono text-gray-300 light:text-slate-600 truncate" title={r[labelKey]}>{r[labelKey]}</div>
             <div className="flex-1 h-5 rounded-md bg-white/[0.03] light:bg-slate-100 overflow-hidden">
               <div className="h-full rounded-md transition-all" style={{ width: `${pct}%`, background: colorFor(r) }} />
@@ -149,7 +154,10 @@ export default function Stats() {
   const s = data?.summary || {};
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="relative max-w-5xl mx-auto px-4 py-8">
+      <div className="covex-aurora" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 420, height: 200, maxWidth: '90vw', opacity: 0.4 }} aria-hidden="true" />
+
+      <div className="relative z-10">
       <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-kaspa-green mb-4"><ArrowLeft size={14} /> Explorer</Link>
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
@@ -168,7 +176,14 @@ export default function Stats() {
         </div>
       </div>
 
-      {loading && <div className="flex items-center justify-center py-24"><div className="w-7 h-7 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" /></div>}
+      {loading && (
+        <div className="space-y-6" aria-hidden="true">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-[104px]" />)}
+          </div>
+          <div className="skeleton h-[280px]" />
+        </div>
+      )}
       {err && !loading && <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">Could not load stats: {err}</div>}
 
       {data && !loading && (
@@ -227,7 +242,7 @@ export default function Stats() {
                   {(data.by_network || []).map((n) => {
                     const meta = NETWORKS.find((x) => x.value === n.network);
                     return (
-                      <tr key={n.network} className="border-t border-white/5 light:border-slate-100">
+                      <tr key={n.network} className="border-t border-white/5 light:border-slate-100 hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
                         <td className="py-2 font-mono text-gray-200 light:text-slate-700">
                           <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: meta?.color || '#9CA3AF' }} />
                           {n.network}
@@ -247,6 +262,7 @@ export default function Stats() {
           </section>
         </div>
       )}
+      </div>
     </div>
   );
 }

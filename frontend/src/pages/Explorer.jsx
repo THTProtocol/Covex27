@@ -578,15 +578,21 @@ export default function Explorer() {
               </div>
             )}
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
-                <div className="w-10 h-10 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
-                <p className="text-sm font-mono">Scanning for active matches...</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="skeleton rounded-3xl min-h-[210px]" />
+                ))}
               </div>
             ) : arenaSorted.length === 0 && liveMatches.length === 0 ? (
-              <div className="text-center py-12 glass-panel rounded-2xl text-gray-400 text-sm">
-                <Gamepad2 size={32} className="mx-auto mb-3 text-amber-400/30" />
-                <p className="text-base text-amber-400/70 mb-2">No active matches right now</p>
-                <p className="text-xs">When a game creator is waiting for an opponent, their match appears here.</p>
+              <div className="relative glass-panel rounded-2xl p-10 text-center overflow-hidden">
+                <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
+                <div className="relative z-10">
+                  <span className="grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-amber-500/30 bg-amber-500/10">
+                    <Gamepad2 size={28} className="text-amber-400" />
+                  </span>
+                  <p className="text-lg font-semibold text-white mb-1">No active matches right now</p>
+                  <p className="text-sm text-gray-300 max-w-md mx-auto">When a game creator is waiting for an opponent, their match appears here.</p>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -595,7 +601,12 @@ export default function Explorer() {
                   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
                   const stakeAmt = g.amount_kaspa || 1;
                   return (
-                    <div key={g.tx_id || i} className={`glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
+                    <div key={g.tx_id || i} className={`hover-lift relative overflow-hidden glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
+                      <div
+                        aria-hidden="true"
+                        className="absolute top-0 inset-x-0 h-[3px]"
+                        style={{ background: 'linear-gradient(90deg, transparent, #E8AF34, transparent)' }}
+                      />
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className={`text-xs font-bold tracking-[2px] ${cfg.text}`}>{(g.covenant_type || g.name || 'Game').toUpperCase()}</div>
@@ -610,7 +621,7 @@ export default function Explorer() {
                       <div className="text-xs text-gray-300 mb-4 flex-1">Match the stake to join. On-chain covenant with transparent resolution.</div>
                       <Link
                         to={`/covenant/${encodeURIComponent(g.tx_id)}`}
-                        className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] shadow flex items-center justify-center gap-2 transition-all"
+                        className="btn-shimmer w-full py-3 bg-kaspa-green hover:brightness-110 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] flex items-center justify-center gap-2 transition-all shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)]"
                       >
                         <Play size={14} /> JOIN BY STAKING ({formatKaspa(stakeAmt)})
                       </Link>

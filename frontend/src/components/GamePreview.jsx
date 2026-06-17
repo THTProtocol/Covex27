@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Zap } from 'lucide-react';
+import { Zap, Gamepad2, X, Play } from 'lucide-react';
 import ChessMini from './chess/ChessMini';
 // Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
 // Covex main pages (Explorer) must remain neutral - no gambling visuals.
@@ -214,62 +214,63 @@ const GamePreview = ({ covenant, compact = false, large = false }) => {
           onClick={() => setExpanded(false)}
         >
           <div
-            className="relative w-full max-w-3xl max-h-[90vh] mx-4 bg-[#0A0A0D]/95 border border-kaspa-green/30 rounded-2xl overflow-hidden shadow-[0_0_60px_rgba(73,234,203,0.15)]"
+            className="glass-panel detail-hero-enhanced relative w-full max-w-3xl max-h-[90vh] mx-4 border border-kaspa-green/30 rounded-2xl overflow-hidden shadow-[0_0_60px_rgba(73,234,203,0.15)]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-kaspa-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="2" y="4" width="20" height="16" rx="2" />
-                    <path d="M8 6h8M8 10h8M8 14h8M8 18h8" />
-                  </svg>
+            {/* Ambient aurora behind the modal header (no intrinsic size: width/height + centering set inline) */}
+            <div className="covex-aurora" aria-hidden="true" style={{ top: -30, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 360, height: 190, maxWidth: '90vw', opacity: 0.5 }} />
+
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30 flex items-center justify-center">
+                    <Gamepad2 className="w-4 h-4 text-kaspa-green" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      {covenant.name || covenant.covenant_type || 'Covenant'} Preview
+                    </h3>
+                    <p className="text-[10px] text-gray-200 font-mono">
+                      {gameType ? `${gameType} game` : 'Custom interactive UI'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">
-                    {covenant.name || covenant.covenant_type || 'Covenant'} Preview
-                  </h3>
-                  <p className="text-[10px] text-gray-200 font-mono">
-                    {gameType ? `${gameType} game` : 'Custom interactive UI'}
-                  </p>
-                </div>
+                <button
+                  onClick={() => setExpanded(false)}
+                  className="p-2 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setExpanded(false)}
-                className="p-2 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
 
-            {/* Preview content - larger */}
-            <div className="p-4" style={{ height: '480px' }}>
-              {useNative ? (
-                <NativePreview gameType={gameType} covenant={covenant} compact={false} />
-              ) : (
-                <IframePreview covenant={covenant} visible={true} large />
-              )}
-            </div>
+              {/* Preview content - larger */}
+              <div className="p-4" style={{ height: '480px' }}>
+                {useNative ? (
+                  <NativePreview gameType={gameType} covenant={covenant} compact={false} />
+                ) : (
+                  <IframePreview covenant={covenant} visible={true} large />
+                )}
+              </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-white/5">
-              <p className="text-[10px] text-gray-200">
-                Full interactive experience available on the covenant page
-              </p>
-              <a
-                href={`/covenant/${encodeURIComponent(covenant.tx_id)}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setExpanded(false);
-                  window.location.href = `/covenant/${encodeURIComponent(covenant.tx_id)}`;
-                }}
-                className="px-4 py-2 rounded-xl bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold text-xs transition-all shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.5)]"
-              >
-                Open Full Game
-              </a>
+              {/* Footer */}
+              <div className="flex items-center justify-between p-4 border-t border-white/5">
+                <p className="text-[10px] text-gray-200">
+                  Full interactive experience available on the covenant page
+                </p>
+                <a
+                  href={`/covenant/${encodeURIComponent(covenant.tx_id)}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setExpanded(false);
+                    window.location.href = `/covenant/${encodeURIComponent(covenant.tx_id)}`;
+                  }}
+                  className="btn-shimmer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#49EACB] hover:bg-[#3cd8b6] text-black font-bold text-xs transition-all shadow-[0_0_15px_rgba(73,234,203,0.3)] hover:shadow-[0_0_25px_rgba(73,234,203,0.5)]"
+                >
+                  <Play className="w-3.5 h-3.5" /> Open Full Game
+                </a>
+              </div>
             </div>
           </div>
         </div>

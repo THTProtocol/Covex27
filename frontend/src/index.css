@@ -1066,6 +1066,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   background: linear-gradient(90deg, transparent, rgba(13,148,136,0.06), transparent);
 }
 
+/* Reusable loading placeholder. A muted rounded block with a slow shimmer
+   sweep that reuses the card-shine keyframe. Set width/height per use.
+   Sweep is disabled under prefers-reduced-motion (the block stays). */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+.light .skeleton { background: #e9eef4; }
+.skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; width: 60%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  animation: card-shine 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.light .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(13, 148, 136, 0.08), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    premium game primitives
    Reusable board/card utilities shared by Covex games. Visual only:

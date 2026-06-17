@@ -63,6 +63,7 @@ export default function ApiDocs() {
           <BookOpen size={22} className="text-kaspa-green" />
         </div>
         <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-kaspa-green mb-1">Developer reference</p>
           <h1 className="text-2xl sm:text-3xl font-black text-white">Covex API</h1>
           <p className="text-sm text-gray-400 break-words">The same indexer API that powers this explorer. Free to use. Paginated. No key required for reads.</p>
         </div>

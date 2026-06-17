@@ -380,6 +380,21 @@ export default function Explorer() {
         <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
+          <Link
+            to="/sandbox"
+            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+          >
+            <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
+            Build a Covenant
+          </Link>
+          <Link
+            to="/readme"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/[0.03] text-white/90 font-semibold text-sm hover:border-kaspa-green/40 hover:bg-white/[0.06] hover:text-white transition-all duration-300"
+          >
+            How It Works
+          </Link>
+        </div>
         <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: (n) => Math.round(n).toLocaleString() },
@@ -734,16 +749,35 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
   };
   const catGradient = catColors[categoryLabel.toLowerCase()] || catColors.general;
 
+  // Deterministic per-card hue from the tx_id, so the FREE-tier wall reads as a varied
+  // marketplace with rhythm instead of an identical gray sea (paid tiers keep their own
+  // accent). Stable across renders (no Math.random), seeded purely by on-chain identity.
+  const hueSeed = (() => {
+    const s = c.tx_id || c.script_hash || covenantName || '';
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0) % 360;
+  })();
+  const cardAccent = `hsl(${hueSeed} 72% 62%)`;
+
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
       className={`group block rounded-2xl border transition-all duration-300 overflow-hidden hover:-translate-y-0.5 ${
         isPaid ? `${cfg.border} ${cfg.glow} hover:shadow-xl holo-border hover-lift-premium` : 'border-white/10 hover:border-[#49EACB]/25 hover:shadow-lg hover:shadow-[#49EACB]/[0.06] hover-lift-premium'
       } bg-gradient-to-b from-[#13131c] to-[#0a0a0e] light:from-white light:to-slate-50 light:border-slate-200 min-h-[300px] flex flex-col`}
     >
+      {!isPaid && (
+        <div className="h-[3px] w-full" aria-hidden="true"
+          style={{ background: `linear-gradient(90deg, transparent 0%, ${cardAccent} 50%, transparent 100%)`, opacity: 0.6 }} />
+      )}
       {/* VISUAL HEADER - tier + category gradient stripe */}
       <div className="relative h-16 overflow-hidden">
         <div className={`absolute inset-0 bg-gradient-to-r ${cfg.gradient}`} />
         <div className={`absolute inset-0 bg-gradient-to-r ${catGradient} opacity-60`} />
+        {!isPaid && (
+          <div className="absolute inset-0" aria-hidden="true"
+            style={{ background: `radial-gradient(120% 90% at 0% 0%, ${cardAccent}22 0%, transparent 55%)` }} />
+        )}
         {/* Decorative dots pattern */}
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',

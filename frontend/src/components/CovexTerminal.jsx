@@ -332,7 +332,11 @@ const ZK_CIRCUIT_TYPES_RAW = [
 const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
 // Circuits that have a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
 // age_verification computes its public commitment = MiMC7(birth_year) in-browser via a pure-JS MiMC7.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'range_collateral']);
+// Honestly limited to the same 3 as VERIFIED_FULL_ZK (kept in sync with OnChainLockSection.jsx /
+// TransparencyModal.jsx): only these have a verified end-to-end in-browser prover today. range_proof's
+// browser prover hits a MiMC7/wasm mismatch and range_collateral has no wired prover, so neither earns
+// the "in-browser prover" badge - they resolve oracle-attested like every other downgraded circuit.
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof

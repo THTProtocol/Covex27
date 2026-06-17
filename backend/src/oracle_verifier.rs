@@ -827,6 +827,28 @@ pub(crate) fn determine_outcome_for_circuit(
         } else {
             1
         }
+    } else if matches!(
+        circuit_type,
+        "age_verification" | "age_verify_v1" | "escrow_2party" | "hash_preimage"
+            | "timelock_absolute" | "timelock_abs" | "relative_timelock"
+            | "turn_timer" | "pot_split_math" | "vrf_random" | "script_constraint"
+            | "utxo_ownership" | "basic_utxo_ownership"
+    ) || circuit_type.contains("timelock")
+    {
+        // These circuits EXPOSE their gating result as publicSignals[0]
+        // (valid / on_time / ok), which is a COMPUTED output of the circuit, not a free
+        // input. A verifying proof can legitimately carry [0] = 0 (e.g. age < threshold,
+        // timeout not elapsed, move late), so we MUST read it: claimant wins (outcome 0)
+        // ONLY when [0] == "1", otherwise the claim fails (outcome 1). This closes the
+        // bug where the generic proof_has_groth16_body => 0 fallback below treated mere
+        // proof presence as success and let a valid-but-false proof (e.g. an underage
+        // age proof) pass the gate. Circuits with no separate valid output (nullifier_set,
+        // vrf_dice_roll) intentionally fall through to the proof-presence branch.
+        if public_inputs.first().map(|s| s.as_str()) == Some("1") {
+            0
+        } else {
+            1
+        }
     } else if proof_has_groth16_body(proof) {
         0
     } else if circuit_type == "tictactoe_v1" || circuit_type == "connect4_v1" {
@@ -930,6 +952,28 @@ mod tests {
         // chess_v1 outcome tests removed (circuit deleted)
         assert_eq!(determine_outcome_for_circuit("privacy_mixer_v1", &Value::Null, &[], Some(9)), 1);
         assert_eq!(determine_outcome_for_circuit("some_new_defi", &Value::Null, &[], None), 0);
+    }
+
+    #[test]
+    fn valid_gated_circuits_read_public_output_not_proof_presence() {
+        // A proof WITH a groth16 body. The old generic `proof_has_groth16_body => 0` fallback
+        // signed "claimant wins" on mere presence; these circuits must instead read the COMPUTED
+        // gating output at publicSignals[0] (valid / on_time), so a valid-but-false proof loses.
+        let proof = serde_json::json!({ "pi_a": ["1", "2", "3"] });
+        // age_verification [valid, commitment, ...]: valid=0 (underage) must FAIL the gate (outcome 1).
+        assert_eq!(determine_outcome_for_circuit("age_verification", &proof, &["0".to_string(), "x".to_string()], None), 1);
+        assert_eq!(determine_outcome_for_circuit("age_verification", &proof, &["1".to_string(), "x".to_string()], None), 0);
+        // escrow_2party [valid, ...]: valid=0 (timeout not elapsed) -> claim fails.
+        assert_eq!(determine_outcome_for_circuit("escrow_2party", &proof, &["0".to_string()], None), 1);
+        assert_eq!(determine_outcome_for_circuit("escrow_2party", &proof, &["1".to_string()], None), 0);
+        // timelocks [valid, ...] and turn_timer [on_time, ...]: read the public output.
+        assert_eq!(determine_outcome_for_circuit("timelock_absolute", &proof, &["0".to_string()], None), 1);
+        assert_eq!(determine_outcome_for_circuit("relative_timelock", &proof, &["1".to_string()], None), 0);
+        assert_eq!(determine_outcome_for_circuit("turn_timer", &proof, &["0".to_string()], None), 1);
+        // Circuits with NO separate valid output keep proof-presence => 0 (a verifying proof IS
+        // the claim): nullifier_set [spent=0, ...] and vrf_dice_roll [seed, roll].
+        assert_eq!(determine_outcome_for_circuit("nullifier_set", &proof, &["0".to_string(), "n".to_string()], None), 0);
+        assert_eq!(determine_outcome_for_circuit("vrf_dice_roll", &proof, &["999".to_string(), "3".to_string()], None), 0);
     }
 
     #[test]

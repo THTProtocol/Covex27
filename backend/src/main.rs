@@ -808,11 +808,19 @@ fn covenant_summary_json(
         "network": c.network,
         "custom_ui_config": ui_config,
         // Honest enforcement label derived from the on-chain script (roadmap B4):
-        // on-chain (script-enforced) | oracle-attested | decorative. A prediction-market
+        // on-chain (script-enforced) | hybrid | oracle-attested | decorative. A prediction-market
         // anchor holds no script itself but its funds live in on-chain binary_oracle_select
         // bundles, so it is honestly labeled on-chain (the outcome bit is oracle-attested).
+        //
+        // A binary_oracle_select leg is stored with the exact 35-byte aa20<hash>87 P2SH
+        // wrapper, so reality_for_script() classifies it OnChain - but custody is on-chain
+        // while WHICH branch wins is set by the secret the disclosed oracle reveals. The
+        // catalog already classifies p2sh_binary_oracle_select as Hybrid, so override the raw
+        // script label here to match the catalog and tell the truth at the JSON boundary.
         "enforcement_reality": if c.covenant_type == "prediction-market" {
             "on-chain"
+        } else if c.covenant_type.contains("binary_oracle_select") {
+            "hybrid"
         } else {
             covenant_catalog::reality_for_script(&c.script_hex).as_str()
         },
@@ -1692,7 +1700,7 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("solvency-proof", "Solvency / Reserves Proof", "oracle-attested", "Prove reserves exceed a threshold without revealing the balance."),
         ("age-verification", "Age-Over-Threshold", "on-chain", "Prove age >= a threshold - a zero-knowledge KYC alternative."),
         ("hash-preimage", "Hash Preimage Knowledge", "on-chain", "Prove knowledge of a preimage of a committed hash."),
-        ("nullifier-unique", "Unique-Human Nullifier", "oracle-attested", "One claim per identity via a nullifier, without linkage."),
+        ("nullifier-unique", "Unique-Human Nullifier", "oracle-attested", "One claim per identity via a nullifier, without linkage. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle (which also tracks the spent set)."),
         ("anon-credential", "Anonymous Credential", "oracle-attested", "Prove you hold a credential without revealing which one."),
         ("private-balance", "Private Balance Commitment", "oracle-attested", "Commit + prove balance properties (Pedersen) for private DeFi."),
         ("acl-zk", "ZK Access List", "oracle-attested", "Prove membership in an access-control list privately."),
@@ -1700,6 +1708,27 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
     ];
     for (id, name, reality, desc) in zk {
         out.push(tmpl(format!("zk-{id}"), name.to_string(), "ZK Proofs & Claims", reality, desc.to_string(), "zk"));
+    }
+
+    // ── Genuine full-zk circuits with a LIVE in-browser prover (each id is the exact
+    // ZK_CIRCUIT_TYPES circuit id, so TemplateLibrary's hrefFor() deep-links to
+    // /sandbox?circuit=<id> and resolveCircuit() lands on the real prover). Each *_final.zkey
+    // is shipped under frontend/public/zk/<id>/. Honest reality: these are real Groth16 proofs
+    // generated in your browser and verified fail-closed by the disclosed Covex oracle
+    // OFF-CHAIN - so the label is oracle-attested, not on-chain. Kaspa has no on-chain pairing
+    // verifier yet, so NONE of these verify on-chain end-to-end; the disclosed oracle is the
+    // verifier in every case. Copy mirrors CovexTerminal.jsx. ──
+    let live_zk: &[(&str, &str, &str)] = &[
+        ("vrf_random", "Committed Random (VRF)", "Provably-fair randomness: output_val = Poseidon(hidden secret, public seed, VRF key), so a random value is forced by a committed secret and cannot be cherry-picked. A real Groth16 proof, generated in your browser (the secret never leaves it), verified fail-closed by the disclosed Covex oracle. Fair coin flips, card shuffles, lottery draws without a trusted dealer."),
+        ("vrf_dice_roll", "Provably-Fair Dice / Coin Flip", "A verifiable dice roll forced by Poseidon(secret, public seed): roll = (hash mod faces) + 1, so no one can cherry-pick the result. A real Groth16 proof, generated in your browser (the secret never leaves it), verified fail-closed by the disclosed Covex oracle. Backgammon, Yahtzee, Risk, Catan dice fairness."),
+        ("pot_split_math", "Pot / Treasury Split Math", "Prove winner_share + fee + return == total_pot at the chosen bps, a verifiable fair split. The amounts are public, so this is a correctness proof, not a privacy proof. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle. Fair pot distribution in games and auctions."),
+        ("script_constraint", "Script Constraint / Fee-Cap", "Prove you know the hidden script_hash whose Poseidon bundle with constraint_id and value equals a public root, binding a covenant to a constraint without revealing the script. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle. Enforce covenant rules, fee caps, pot returns."),
+        ("turn_timer", "Per-Turn Timer Proof", "Prove a move happened within max_delta DAA, with the exact last-move time kept as a private witness and on_time exposed as a public output. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle. Clock enforcement in chess and poker."),
+        ("basic_utxo_ownership", "UTXO Note Proof", "Prove knowledge of the full Poseidon-committed UTXO note (pubkey x/y, amount, signature parts) behind a public utxo_hash, without revealing it. A note-binding primitive: it opens the commitment, it does not by itself verify a Schnorr signature. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle. Binding covenants to committed Kaspa notes."),
+        ("escrow_2party", "2-Party Escrow (ZK)", "DAA timelock escrow: outcome 0 = timeout refund, outcome 1 = still locked. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle. Simple Kaspa escrow deals with an honest timeout refund."),
+    ];
+    for (id, name, desc) in live_zk {
+        out.push(tmpl(id.to_string(), name.to_string(), "ZK Proofs & Claims", "oracle-attested", desc.to_string(), "zk"));
     }
 
     // ── Oracle & markets ──
@@ -1758,7 +1787,7 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("supply-provenance", "Supply-Chain Provenance", "Verifiable provenance chain with timestamps."),
         ("risc0-compute", "Verifiable Compute (RISC Zero)", "Prove correct execution of an arbitrary program."),
         ("cross-chain-attest", "Cross-Chain Attestation", "Oracle-attested state from another chain."),
-        ("vrf-fair", "Verifiable Random Draw", "Provably-fair randomness (VRF) for lotteries and shuffles."),
+        ("vrf-fair", "Verifiable Random Draw", "Provably-fair randomness (VRF) for lotteries and shuffles. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle."),
     ];
     for (id, name, desc) in compute {
         out.push(tmpl(format!("compute-{id}"), name.to_string(), "Compute & Cross-chain", "oracle-attested", desc.to_string(), "zk"));

@@ -1,14 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from '../components/ToastContext';
-import { 
-  COVENANT_TEMPLATES, 
-  TEMPLATE_CATEGORIES, 
+import {
+  COVENANT_TEMPLATES,
+  TEMPLATE_CATEGORIES,
   getTemplatesByCategory,
-  getTemplateById 
+  getTemplateById
 } from '../lib/templates/templates';
-import { X } from 'lucide-react';
+import { X, ArrowRight } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
+
+// Stable identity hue per template (no Math.random), seeded purely by id. Mirrors the
+// Explorer CovenantCard top-accent vocabulary.
+function templateHue(id) {
+  const s = String(id || '');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 360;
+}
+
+// Honest enforcement-reality label for a template, derived from its real resolution mode.
+// Constitution: ZK and oracle outcomes are verified OFF-CHAIN by the disclosed oracle -
+// NEVER trustless, NEVER "on-chain enforced". Games are server-authoritative + oracle-attested.
+function templateReality(template) {
+  if (template?.category === 'Games') {
+    return { key: 'oracle', label: 'oracle-attested', style: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+  }
+  let mode;
+  try { mode = template?.generateConfig?.('kaspatest:placeholder')?.resolution?.mode; } catch { mode = undefined; }
+  if (mode === 'hybrid') return { key: 'hybrid', label: 'hybrid', style: 'bg-blue-500/15 text-blue-300 border-blue-500/30' };
+  if (mode === 'zk') return { key: 'zk', label: 'zk · oracle-verified', style: 'bg-violet-500/15 text-violet-300 border-violet-500/30' };
+  return { key: 'oracle', label: 'oracle-attested', style: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+}
 
 /**
  * Covenant Template Library
@@ -22,9 +46,21 @@ export default function TemplateLibrary() {
   const [communityTemplates, setCommunityTemplates] = useState([]);
   const [tplSearch, setTplSearch] = useState('');
   const [tplCat, setTplCat] = useState('All');
+  const prefersReduced = useReducedMotion();
+
+  // Lightweight load-time stagger for the template grid (drop-in entrance layer; never
+  // touches card internals or hover-lift). Disabled under prefers-reduced-motion.
+  const gridStagger = useMemo(() => ({
+    hidden: {},
+    show: { transition: { staggerChildren: prefersReduced ? 0 : 0.04 } },
+  }), [prefersReduced]);
+  const cardRise = useMemo(() => (prefersReduced
+    ? { hidden: { opacity: 1 }, show: { opacity: 1 } }
+    : { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] } } }
+  ), [prefersReduced]);
 
   const filteredTemplates = selectedCategory === 'All'
-    ? COVENANT_TEMPLATES 
+    ? COVENANT_TEMPLATES
     : getTemplatesByCategory(selectedCategory);
 
   // Load real published custom UIs from creators (activates the backend marketplace)
@@ -77,26 +113,16 @@ export default function TemplateLibrary() {
         </p>
       </div>
 
-      {/* Category Filter */}
+      {/* Category Filter - kaspa-green active treatment (matches Explorer) */}
       <div className="flex flex-wrap gap-2 justify-center mb-10">
-        <button
-          onClick={() => setSelectedCategory('All')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-            selectedCategory === 'All' 
-              ? 'bg-[#49EACB] text-black' 
-              : 'bg-white/5 text-gray-300 hover:bg-white/10'
-          }`}
-        >
-          All
-        </button>
-        {TEMPLATE_CATEGORIES.map(cat => (
+        {['All', ...TEMPLATE_CATEGORIES].map(cat => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-              selectedCategory === cat 
-                ? 'bg-[#49EACB] text-black' 
-                : 'bg-white/5 text-gray-300 hover:bg-white/10'
+            className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
+              selectedCategory === cat
+                ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
+                : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'
             }`}
           >
             {cat}
@@ -104,98 +130,132 @@ export default function TemplateLibrary() {
         ))}
       </div>
 
-      {/* Template Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTemplates.map(template => (
-          <div 
-            key={template.id}
-            className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 flex flex-col hover:border-[#49EACB]/40 transition group"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="text-4xl">{template.icon}</div>
-              <div className="text-right">
-                <div className="text-xs px-3 py-1 rounded-full bg-white/5 text-gray-400 inline-block">
-                  {template.difficulty}
+      {/* Template Grid - CovenantCard quality bar: top accent bar, hover-lift, reality chip,
+          dark gradient surface, group-hover arrow CTA, staggered slide-up entrance. */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6"
+        variants={gridStagger}
+        initial="hidden"
+        animate="show"
+      >
+        {filteredTemplates.map(template => {
+          const hue = templateHue(template.id);
+          const accent = `hsl(${hue} 72% 62%)`;
+          const reality = templateReality(template);
+          return (
+            <motion.div
+              key={template.id}
+              variants={cardRise}
+              className="hover-lift group relative flex flex-col rounded-3xl border border-white/[0.08] overflow-hidden bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] transition-colors duration-300 hover:border-[color:var(--ta)]"
+              style={{ '--ta': `hsl(${hue} 74% 60% / 0.55)` }}
+            >
+              {/* Top accent bar - template identity hue */}
+              <div className="h-[3px] w-full shrink-0" aria-hidden="true"
+                style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: 0.8 }} />
+
+              <div className="p-6 flex flex-col flex-1">
+                <div className="flex items-start justify-between mb-4 gap-3">
+                  <div className="text-4xl">{template.icon}</div>
+                  <span className={`shrink-0 text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${reality.style}`}>
+                    {reality.label}
+                  </span>
+                </div>
+
+                <h3 className="text-xl font-bold text-white mb-2 leading-tight">{template.name}</h3>
+                <p
+                  className="text-gray-400 text-sm mb-4 leading-relaxed break-words"
+                  style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                >
+                  {template.description}
+                </p>
+
+                <div className="flex flex-wrap gap-1 mb-4">
+                  {template.tags.map(tag => (
+                    <span key={tag} className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/[0.06]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="text-xs text-gray-500 mb-4">
+                  {template.estimatedTime} • {template.recommendedTier} tier recommended
+                </div>
+
+                <div className="flex items-center gap-3 mt-auto">
+                  <button
+                    onClick={() => handlePreview(template)}
+                    className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-white/15 text-gray-200 hover:bg-white/5 transition"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => handleUseTemplate(template)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold rounded-xl bg-[#49EACB] text-black hover:bg-[#3dd9b8] active:scale-[0.985] transition group-hover:gap-2"
+                  >
+                    Use Template
+                    <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <h3 className="text-xl font-bold text-white mb-2">{template.name}</h3>
-            <p className="text-gray-400 text-sm flex-1 mb-4">{template.description}</p>
-
-            <div className="flex flex-wrap gap-1 mb-4">
-              {template.tags.map(tag => (
-                <span key={tag} className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400">
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            <div className="text-xs text-gray-500 mb-4">
-              {template.estimatedTime} • {template.recommendedTier} tier recommended
-            </div>
-
-            <div className="flex gap-3 mt-auto">
-              <button
-                onClick={() => handlePreview(template)}
-                className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-white/20 hover:bg-white/5 transition"
-              >
-                Preview
-              </button>
-              <button
-                onClick={() => handleUseTemplate(template)}
-                className="flex-1 py-2.5 text-sm font-bold rounded-xl bg-[#49EACB] text-black hover:bg-[#3dd9b8] active:scale-[0.985] transition"
-              >
-                Use Template
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
       <CommunityPublished />
 
-      {/* Preview Modal */}
-      {selectedTemplate && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6" onClick={() => setSelectedTemplate(null)}>
-          <div className="bg-[#111] border border-white/10 rounded-3xl max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <div className="text-5xl mb-4">{selectedTemplate.icon}</div>
-                <h2 className="text-2xl font-bold text-white">{selectedTemplate.name}</h2>
+      {/* Preview Modal - glass-panel + detail-hero-enhanced + covex-aurora */}
+      {selectedTemplate && (() => {
+        const reality = templateReality(selectedTemplate);
+        const hue = templateHue(selectedTemplate.id);
+        return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-6" onClick={() => setSelectedTemplate(null)}>
+          <div className="glass-panel detail-hero-enhanced relative overflow-hidden border border-white/10 rounded-3xl max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
+            <div className="covex-aurora" aria-hidden="true" style={{ top: -30, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 340, height: 180, maxWidth: '90vw', opacity: 0.5 }} />
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-6 gap-3">
+                <div>
+                  <div className="text-5xl mb-4">{selectedTemplate.icon}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-2xl font-bold text-white">{selectedTemplate.name}</h2>
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${reality.style}`}>{reality.label}</span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedTemplate(null)} className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors" aria-label="Close"><X size={18} /></button>
               </div>
-              <button onClick={() => setSelectedTemplate(null)} className="text-gray-400 hover:text-white"><X size={14} /></button>
-            </div>
 
-            <p className="text-gray-300 mb-6">{selectedTemplate.description}</p>
+              <p className="text-gray-300 mb-6 leading-relaxed">{selectedTemplate.description}</p>
 
-            <div className="text-sm space-y-2 mb-6">
-              <div><span className="text-gray-400">Category:</span> {selectedTemplate.category}</div>
-              <div><span className="text-gray-400">Difficulty:</span> {selectedTemplate.difficulty}</div>
-              <div><span className="text-gray-400">Recommended Tier:</span> {selectedTemplate.recommendedTier}</div>
-              <div><span className="text-gray-400">Setup Time:</span> {selectedTemplate.estimatedTime}</div>
-            </div>
+              <div className="text-sm space-y-2 mb-6 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+                <div><span className="text-gray-400">Category:</span> {selectedTemplate.category}</div>
+                <div><span className="text-gray-400">Difficulty:</span> {selectedTemplate.difficulty}</div>
+                <div><span className="text-gray-400">Recommended Tier:</span> {selectedTemplate.recommendedTier}</div>
+                <div><span className="text-gray-400">Setup Time:</span> {selectedTemplate.estimatedTime}</div>
+              </div>
 
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setSelectedTemplate(null)}
-                className="flex-1 py-3 rounded-xl border border-white/20"
-              >
-                Close
-              </button>
-              <button 
-                onClick={() => {
-                  setSelectedTemplate(null);
-                  handleUseTemplate(selectedTemplate);
-                }}
-                className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-bold"
-              >
-                Use This Template
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSelectedTemplate(null)}
+                  className="flex-1 py-3 rounded-xl border border-white/15 text-gray-200 hover:bg-white/5 transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedTemplate(null);
+                    handleUseTemplate(selectedTemplate);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-3 rounded-xl bg-[#49EACB] text-black font-bold hover:bg-[#3dd9b8] active:scale-[0.985] transition"
+                  style={{ boxShadow: `0 16px 40px -20px hsl(${hue} 74% 60% / 0.5)` }}
+                >
+                  Use This Template <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Official Covex templates from the backend marketplace: a comprehensive, searchable catalog. */}
       {communityTemplates.length > 0 && (() => {

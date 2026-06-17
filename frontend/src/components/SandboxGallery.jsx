@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight, Info } from 'lucide-react';
 import TransparencyModal from './TransparencyModal';
+
+// Lightweight load-time entrance for the on-load circuit grids: cards fade + rise 12px,
+// staggered. Drop-in layer that never touches the CircuitCard internals or its hover-lift.
+const GRID_STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
+const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] } } };
 
 // SandboxGallery: a category-organized, progressive-disclosure picker over every covenant
 // circuit/primitive. Each category shows a curated few cards up front with a "View more" button
@@ -66,6 +72,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState({});
   const [infoCircuit, setInfoCircuit] = useState(null);
+  const prefersReduced = useReducedMotion();
 
   const grouped = useMemo(() => {
     const g = Object.fromEntries(GROUPS.map((x) => [x.key, []]));
@@ -116,9 +123,18 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
                   <h3 className="text-sm font-bold text-white tracking-tight">{grp.title}</h3>
                   <span className="text-[10px] text-gray-500 tabular-nums">{items.length}</span>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {visible.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} />)}
-                </div>
+                <motion.div
+                  className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5"
+                  variants={prefersReduced ? undefined : GRID_STAGGER}
+                  initial={prefersReduced ? false : 'hidden'}
+                  animate={prefersReduced ? false : 'show'}
+                >
+                  {visible.map((c) => (
+                    <motion.div key={c.id} variants={prefersReduced ? undefined : CARD_RISE}>
+                      <CircuitCard c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} />
+                    </motion.div>
+                  ))}
+                </motion.div>
                 {items.length > INITIAL && (
                   <button
                     onClick={() => setExpanded((m) => ({ ...m, [grp.key]: !open }))}

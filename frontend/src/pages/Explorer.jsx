@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Database, Search, Sparkles, Play,
   Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
@@ -165,8 +166,15 @@ function CountUpStat({ icon: Icon, label, value, fmt }) {
   );
 }
 
+// Lightweight load-time entrance: each card fades + rises 12px, staggered. Drop-in layer
+// around the grid only - it never touches card internals, so the CovenantCard hover-lift
+// still works. Disabled under prefers-reduced-motion.
+const GRID_STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
+const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] } } };
+
 export default function Explorer() {
   const { address } = useWallet();
+  const prefersReduced = useReducedMotion();
   const [covenants, setCovenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -671,11 +679,18 @@ export default function Explorer() {
                     <p className="text-gray-500 text-xs">Try another category or check back soon. New covenants are indexed within seconds.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  <motion.div
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                    variants={prefersReduced ? undefined : GRID_STAGGER}
+                    initial={prefersReduced ? false : 'hidden'}
+                    animate={prefersReduced ? false : 'show'}
+                  >
                     {filteredCovenants.map((c, i) => (
-                      <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
+                      <motion.div key={c.tx_id || i} variants={prefersReduced ? undefined : CARD_RISE}>
+                        <CovenantCard covenant={c} index={i} ownerAddress={address} />
+                      </motion.div>
                     ))}
-                  </div>
+                  </motion.div>
                 )}
                 {hasMore && (
                   <div className="flex justify-center mt-6">

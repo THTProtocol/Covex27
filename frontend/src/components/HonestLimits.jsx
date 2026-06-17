@@ -25,6 +25,11 @@ import { AlertTriangle } from 'lucide-react';
  * category. When omitted, the reality is read from the covenant.
  */
 
+// A single binary_oracle_select covenant is one LEG of a parimutuel market: its custody
+// is script-locked but the OUTCOME comes from the secret the disclosed oracle reveals, so
+// it must keep the market caveats (oracle trust boundary), never drop them as bare on-chain.
+const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
+
 function realityFromCovenant(covenant) {
   const r = covenant?.enforcement_reality;
   if (r) return r;
@@ -68,7 +73,9 @@ function limitsFor({ reality, kind }) {
 
 export default function HonestLimits({ covenant, kind, className = 'mb-6' }) {
   const reality = realityFromCovenant(covenant);
-  const lines = limitsFor({ reality, kind });
+  // A market leg always keeps the market caveats, even if the caller did not name the kind.
+  const effectiveKind = kind || (isMarketLeg(covenant) ? 'market' : undefined);
+  const lines = limitsFor({ reality, kind: effectiveKind });
 
   return (
     <div className={className}>

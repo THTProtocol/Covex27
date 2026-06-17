@@ -40,9 +40,13 @@ const REALITY_UI = {
     what: 'A metadata marker. The chain records this covenant but does not enforce the stated logic. Not for value at stake.' },
 };
 
+// A single binary_oracle_select covenant is one LEG of a parimutuel market: it gets the
+// market framing, never the bare on-chain "no oracle, no trust in Covex" copy.
+const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
+
 function realityFromCovenant(covenant) {
   // Markets get their own honest framing: on-chain custody, oracle-resolved outcome.
-  if (covenant?.covenant_type === 'prediction-market') return 'market';
+  if (covenant?.covenant_type === 'prediction-market' || isMarketLeg(covenant)) return 'market';
   const r = covenant?.enforcement_reality;
   if (r && REALITY_UI[r]) return r;
   // honest fallback matching TrustBadge.trustInfo

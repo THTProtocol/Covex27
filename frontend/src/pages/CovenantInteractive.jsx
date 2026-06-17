@@ -4,6 +4,7 @@ import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
+import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import { explorerTxUrl } from '../lib/explorer';
@@ -30,7 +31,7 @@ const GAME_REGISTRY = {
   blackjack: { Component: FullScreenBlackjack, label: 'Blackjack', stake: 100 },
 };
 import { Chessboard } from 'react-chessboard';
-import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, CheckCircle2, Crown, Star, Share2 } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2 } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
@@ -50,6 +51,12 @@ const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 const tierValue = (t) => ({ MAX: 3, PRO: 2, BUILDER: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
+
+// Kinds EnforcedDeploy can sign locally end-to-end (mirrors EnforcedDeploy.jsx NONCUSTODIAL).
+// Other kinds (oracle_escrow / oracle_enforced / timedecay / deadman / relative_timelock)
+// need the redeem-script recovery flow - we must NOT promise local non-custodial signing
+// the spender cannot complete. Routing/copy only; no spend-builder change.
+const NONCUSTODIAL_REDEEM_KINDS = ['singlesig', 'hashlock', 'timelock', 'multisig', 'htlc', 'channel'];
 
 const DEFAULT_UI_CONFIG = {
   primaryColor: '#49EACB',
@@ -199,7 +206,6 @@ export default function CovenantInteractive() {
   });
   // Pass play mode to CovexTerminal
   const playMode = searchParams.get('play') || null; // 'chess' | 'poker' | 'bj' | null
-  const [toast, setToast] = useState(null);
 
   // Transparency: always show full details for viewers (no hidden settings for regular users)
   const showTransparency = true; // Always for the "everything there is to know - fully transparent" requirement.
@@ -251,11 +257,15 @@ export default function CovenantInteractive() {
   }, [covenant]);
   const isChess = gameType === 'chess';
   const isOtherGame = !!gameType && gameType !== 'chess';
+  // A single binary_oracle_select covenant is one LEG of a parimutuel market, not a bare
+  // on-chain primitive: its custody is script-locked but the OUTCOME is set by the secret
+  // the disclosed oracle reveals. It must read as a market, never "no oracle, no trust".
+  const isMarketLeg = /binary_oracle_select/.test(covenant?.covenant_type || '');
 
   // Claim & Activate: verify a supplied redeem script against the on-chain commitment, then the
   // covenant becomes redeemable + richly displayed. Refetch so the new UI appears immediately.
   const submitClaim = async () => {
-    if (!claimForm.redeem_script_hex.trim()) { setToast({ type: 'error', msg: 'Paste the covenant redeem script (hex).' }); return; }
+    if (!claimForm.redeem_script_hex.trim()) { toast.error('Paste the covenant redeem script (hex).'); return; }
     setClaimBusy(true);
     try {
       const r = await fetch('/api/covenant/p2sh/claim', {
@@ -264,14 +274,14 @@ export default function CovenantInteractive() {
       });
       const d = await r.json();
       if (d && d.ok) {
-        setToast({ type: 'success', msg: 'Verified on-chain. This covenant is now fully interactable.' });
+        toast.success('Verified on-chain. This covenant is now fully interactable.');
         setClaimOpen(false);
         fetch(`/api/covenants/${encodeURIComponent(id)}`).then(x => x.ok ? x.json() : null).then(x => x && setCovenant(x.covenant || null)).catch(() => {});
       } else {
-        setToast({ type: 'error', msg: d?.error || 'The redeem script did not match this covenant.' });
+        toast.error(d?.error || 'The redeem script did not match this covenant.');
       }
     } catch (e) {
-      setToast({ type: 'error', msg: e?.message || 'Claim failed.' });
+      toast.error(e?.message || 'Claim failed.');
     } finally {
       setClaimBusy(false);
     }
@@ -289,11 +299,11 @@ export default function CovenantInteractive() {
     // Testnet only. A paid tier must NEVER be granted without a confirmed payment on mainnet.
     const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
     if (net === 'mainnet') {
-      if (typeof setToast === 'function') setToast({ type: 'error', msg: 'The testnet faucet simulation is not available on mainnet.' });
+      toast.error('The testnet faucet simulation is not available on mainnet.');
       return;
     }
     setUpgradePaid(true);
-    if (typeof setToast === 'function') setToast({ type: 'success', msg: `Simulated ${tier.price} KAS ${tier.label} tier credit (local only)` });
+    toast.success(`Simulated ${tier.price} KAS ${tier.label} tier credit (local only)`);
   };
 
   const handleUpgradePay = async (tier) => {
@@ -308,29 +318,19 @@ export default function CovenantInteractive() {
       const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
       if (result && result.success) {
         setUpgradePaid(true);
-        if (typeof setToast === 'function') {
-          setToast({ type: 'success', msg: `${tier.label} tier payment broadcast${result.txid ? ': ' + String(result.txid).slice(0, 16) + '…' : ''}` });
-        }
+        toast.success(`${tier.label} tier payment broadcast${result.txid ? ': ' + String(result.txid).slice(0, 16) + '…' : ''}`);
       } else {
-        const msg = (result && result.error) ? result.error : 'Payment failed to broadcast';
-        if (typeof setToast === 'function') setToast({ type: 'error', msg });
+        toast.error((result && result.error) ? result.error : 'Payment failed to broadcast');
         // Fall back to the scannable URI panel instead of a blank tab.
         setUpgradeQr(true);
       }
     } catch (e) {
-      if (typeof setToast === 'function') setToast({ type: 'error', msg: e?.message || 'Payment error' });
+      toast.error(e?.message || 'Payment error');
       setUpgradeQr(true);
     }
   };
 
   const getUpgradeUri = (tier) => `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`;
-
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
 
   const [actions, setActions] = useState([]);
   useEffect(() => {
@@ -416,7 +416,7 @@ export default function CovenantInteractive() {
     const overrideNum = Number(amtOverride);
     const amt = Number.isFinite(overrideNum) && overrideNum > 0 ? String(overrideNum) : amount;
     if (!amt || Number(amt) <= 0) {
-      setToast({ type: 'error', msg: 'Enter an amount to lock before executing.' });
+      toast.error('Enter an amount to lock before executing.');
       return;
     }
     if (address) {
@@ -428,21 +428,18 @@ export default function CovenantInteractive() {
           scriptHash: covenant.script_hash,
         });
         if (res && res.success === false) {
-          setToast({ type: 'error', msg: `Transaction failed: ${res.error || 'wallet rejected the transaction'}` });
+          toast.error(`Transaction failed: ${res.error || 'wallet rejected the transaction'}`);
         } else {
-          setToast({
-            type: 'success',
-            msg: res?.txid ? `Transaction broadcast: ${String(res.txid).slice(0, 16)}…` : 'Transaction sent to your wallet for signing.',
-          });
+          toast.success(res?.txid ? `Transaction broadcast: ${String(res.txid).slice(0, 16)}…` : 'Transaction sent to your wallet for signing.');
         }
       } catch (e) {
-        setToast({ type: 'error', msg: `Transaction failed: ${e?.message || 'unknown error'}` });
+        toast.error(`Transaction failed: ${e?.message || 'unknown error'}`);
       } finally {
         setExecuting(false);
       }
     } else {
       // No wallet: never open a dead protocol tab. Prompt the connect modal, which leads somewhere.
-      setToast({ type: 'info', msg: 'Connect a Kaspa wallet to interact with this covenant.' });
+      toast.info('Connect a Kaspa wallet to interact with this covenant.');
       setWalletModalOpen(true);
     }
   }, [covenant, amount, address, sendPayment]);
@@ -653,7 +650,7 @@ export default function CovenantInteractive() {
   // Only callable by isCreator (UI is hidden otherwise). Uses the existing protected /terminal-config endpoint (backend enforces creator_addr match).
   const publishCustomUI = async (useDefault = false) => {
     if (!isCreator || !covenant || !address) {
-      setToast({ type: 'error', msg: 'Only the creator of this covenant can publish a custom UI.' });
+      toast.error('Only the creator of this covenant can publish a custom UI.');
       return;
     }
     const cfg = useDefault ? { ...DEFAULT_UI_CONFIG, titleOverride: covenant.name, descOverride: 'Fully transparent public view. Everything there is to know about this covenant.', publicAbout: 'Creator published details and full on-chain logic visible to all.', publicRules: 'All fees, timers, addresses, verification and payouts are public by default.', publicHowTo: 'Stake directly to the covenant. All information is transparent.' } : config;
@@ -680,18 +677,18 @@ export default function CovenantInteractive() {
         // persists this as a TERMINAL-tier row, which reads back as custom_ui_source 'creator').
         setCovenant((c) => ({ ...c, custom_ui_html: html, custom_ui_source: 'creator' }));
         localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
-        setToast({ type: 'success', msg: 'Custom transparent UI published! All viewers now see the nice view (no terminal).' });
+        toast.success('Custom transparent UI published! All viewers now see the nice view (no terminal).');
         setActiveTab('interact');
         return true;
       }
-      setToast({ type: 'error', msg: data.error || 'Publish failed (are you the creator?). Your change is NOT live for viewers.' });
+      toast.error(data.error || 'Publish failed (are you the creator?). Your change is NOT live for viewers.');
       return false;
     } catch (e) {
       // The update did NOT reach the backend - do not claim it published. Save the
       // config locally for the creator's own preview, but be explicit it is not live.
       localStorage.setItem(`covex_ui_config_${id}`, JSON.stringify(cfg));
       setCovenant((c) => ({ ...c, custom_ui_html: html, custom_ui_source: 'creator' }));
-      setToast({ type: 'error', msg: `Publish failed: ${e.message || 'could not reach the backend'}. Saved locally for your preview only - viewers do NOT see this yet.` });
+      toast.error(`Publish failed: ${e.message || 'could not reach the backend'}. Saved locally for your preview only - viewers do NOT see this yet.`);
       return false;
     }
   };
@@ -905,7 +902,9 @@ export default function CovenantInteractive() {
                   { label: 'Deployed', done: true, sub: covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleDateString() : `DAA ${covenant.block_daa_score || 0}` },
                   { label: 'Indexed', done: true, sub: covenant.network },
                   { label: covenant.verified_tier !== 'FREE' ? `Verified ${covenant.verified_tier}` : 'Unverified', done: covenant.verified_tier !== 'FREE', sub: covenant.verified_tier !== 'FREE' ? 'on-chain payment' : 'free tier' },
-                  { label: covenant.is_active === false ? 'Settled' : 'Active', done: true, sub: covenant.is_active === false ? 'pot distributed' : `${covenant.amount_kaspa || 0} KAS locked` },
+                  (covenant.spent_tx_id || covenant.is_active === false)
+                    ? { label: 'Settled', done: true, sub: covenant.spent_tx_id ? 'spent on-chain' : 'pot distributed' }
+                    : { label: 'Active', done: true, sub: `${covenant.amount_kaspa || 0} KAS locked` },
                 ].map((st, i, arr) => (
                   <div key={st.label} className="flex items-center shrink-0">
                     <div className="flex flex-col items-center text-center px-1">
@@ -979,7 +978,17 @@ export default function CovenantInteractive() {
                 </p>
               </div>
             </div>
-          ) : covenant?.enforcement_reality === 'on-chain' ? (
+          ) : isMarketLeg ? (
+            <div className="mb-6 px-5 py-4 rounded-xl bg-sky-500/[0.06] border border-sky-500/25 flex items-center gap-3">
+              <ShieldCheck size={20} className="text-sky-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-sky-400">ON-CHAIN CUSTODY, ORACLE-RESOLVED</p>
+                <p className="text-xs text-sky-400/80">
+                  This is one leg of a parimutuel market. Custody and every payout are script-locked on-chain (P2SH, hashlock + winner key), but which outcome wins is decided by the secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless: you trust the named oracle to reveal the secret for the true result.
+                </p>
+              </div>
+            </div>
+          ) : covenant?.enforcement_reality === 'on-chain' && !isMarketLeg ? (
             <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3 zk-live-glow">
               <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
               <div>
@@ -1010,7 +1019,7 @@ export default function CovenantInteractive() {
               primitive, oracle/zk, and every game arena (chess + the rest) flow through this
               body. Games get the server-authoritative + oracle-attested (not ZK) copy; the
               prediction-market path renders its own HonestLimits in MarketDetail. */}
-          {covenant && <HonestLimits covenant={covenant} kind={gameType ? 'game' : undefined} />}
+          {covenant && <HonestLimits covenant={covenant} kind={gameType ? 'game' : isMarketLeg ? 'market' : undefined} />}
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
             <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
@@ -1265,33 +1274,67 @@ export default function CovenantInteractive() {
                 {/* General Amount to Lock + execute ONLY for non-chess covenants. For chess the pro arena panel above is the complete simple experience. */}
                 {!isChess && (
                   <>
-                    {covenant.redeem_kind && covenant.redeem_script_hex && (
-                      <div className="p-4 rounded-2xl bg-purple-500/[0.06] border border-purple-500/25">
+                    {covenant.spent_tx_id ? (
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <ShieldCheck size={16} className="text-purple-300" />
-                          <span className="text-sm font-bold text-white">Redeem this covenant</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono uppercase">{String(covenant.redeem_kind).split(':')[0]}</span>
+                          <Check size={16} className="text-gray-300" />
+                          <span className="text-sm font-bold text-white">Redeemed</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-gray-300 border border-white/10 font-mono uppercase">settled</span>
                         </div>
-                        <p className="text-xs text-gray-300 mb-3 leading-relaxed">
-                          This is a script-enforced P2SH covenant. Spend it non-custodially with your own key. You provide the unlock condition (preimage / timelock / cosigners) on the next step. Covex never holds the funds.
+                        <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+                          This covenant has already been spent on-chain. The funds have moved and there is nothing left to redeem here.
                         </p>
-                        <Link
-                          to="/deploy/enforced"
-                          onClick={() => {
-                            const parts = String(covenant.tx_id || '').split(':');
-                            sessionStorage.setItem('redeem_covenant', JSON.stringify({
-                              redeem_script_hex: covenant.redeem_script_hex,
-                              tx: parts[0],
-                              outpoint: parts[1] || '0',
-                              kind: covenant.redeem_kind,
-                            }));
-                          }}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-200 text-sm font-bold hover:bg-purple-500/25 transition-colors"
+                        <a
+                          href={explorerTxUrl(covenant.spent_tx_id, covenant.network)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-gray-200 text-sm font-bold hover:bg-white/[0.10] transition-colors"
                         >
-                          <ShieldCheck size={16} /> Redeem / spend with my key
-                        </Link>
+                          <ExternalLink size={16} /> View the spend transaction
+                        </a>
                       </div>
-                    )}
+                    ) : covenant.redeem_kind && covenant.redeem_script_hex && covenant.spendable !== false && (() => {
+                      const redeemKindBase = String(covenant.redeem_kind).split(':')[0];
+                      const localSignable = NONCUSTODIAL_REDEEM_KINDS.includes(redeemKindBase);
+                      return (
+                        <div className="p-4 rounded-2xl bg-purple-500/[0.06] border border-purple-500/25">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <ShieldCheck size={16} className="text-purple-300" />
+                            <span className="text-sm font-bold text-white">{localSignable ? 'Redeem this covenant' : 'Recover this covenant'}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono uppercase">{redeemKindBase}</span>
+                          </div>
+                          <p className="text-xs text-gray-300 mb-3 leading-relaxed">
+                            {localSignable
+                              ? 'This is a script-enforced P2SH covenant. Spend it non-custodially with your own key. You provide the unlock condition (preimage / timelock / cosigners) on the next step. Covex never holds the funds.'
+                              : 'This is a script-enforced P2SH covenant whose spend path needs the original redeem script (and, for oracle kinds, the oracle co-signature). Use the recovery flow to rebuild and broadcast the spend yourself. Covex never holds the funds.'}
+                          </p>
+                          {localSignable ? (
+                            <Link
+                              to="/deploy/enforced"
+                              onClick={() => {
+                                const parts = String(covenant.tx_id || '').split(':');
+                                sessionStorage.setItem('redeem_covenant', JSON.stringify({
+                                  redeem_script_hex: covenant.redeem_script_hex,
+                                  tx: parts[0],
+                                  outpoint: parts[1] || '0',
+                                  kind: covenant.redeem_kind,
+                                }));
+                              }}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-200 text-sm font-bold hover:bg-purple-500/25 transition-colors"
+                            >
+                              <ShieldCheck size={16} /> Redeem non-custodially with my key
+                            </Link>
+                          ) : (
+                            <Link
+                              to={`/recover?id=${encodeURIComponent(id)}`}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-200 text-sm font-bold hover:bg-purple-500/25 transition-colors"
+                            >
+                              <LifeBuoy size={16} /> Recover with the redeem script
+                            </Link>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {!covenant.redeem_kind && (covenant.script_hex || '').startsWith('aa20') && (
                       <div className="rounded-2xl bg-blue-500/[0.05] border border-blue-500/25 overflow-hidden">
                         <button onClick={() => setClaimOpen(o => !o)} className="w-full flex items-center justify-between gap-2 p-4 text-left">
@@ -1340,7 +1383,7 @@ export default function CovenantInteractive() {
                         placeholder="0.00"
                         step="0.00000001"
                         min="0"
-                        className="w-full cyber-input text-4xl p-6 rounded-2xl font-mono placeholder:text-kaspa-green/20"
+                        className="w-full cyber-input text-2xl sm:text-4xl p-4 sm:p-6 rounded-2xl font-mono placeholder:text-kaspa-green/20"
                       />
                     </div>
 
@@ -1438,12 +1481,13 @@ export default function CovenantInteractive() {
                             <button onClick={() => {
                               setSelectedTemplate(tpl);
                               setConfig(c => ({...c, ...tpl.config}));
-                              setToast({type:'success', msg: 'Template applied to preview. Publish to make live.'});
+                              toast.success('Template applied to preview. Publish to make live.');
                             }} className={`flex-1 text-xs py-1.5 rounded-xl font-medium ${active ? 'bg-kaspa-green text-black' : 'bg-white/10 hover:bg-white/15'}`}>{active ? 'Chosen' : 'Choose'}</button>
                             <button onClick={() => {
+                              // Open a real full preview modal of the built page (mirrors CovenantFix),
+                              // never a false-success toast for a CTA with no visible effect.
                               const html = buildTransparentCustomUI(covenant, {...config, ...tpl.config});
-                              // quick preview in new window or toast; for full use the /fix page or iframe below
-                              setToast({type:'success', msg: 'Preview generated. Use publish to update live covenant.'});
+                              setShowTemplatePreview({ tpl, html });
                             }} className="flex-1 text-xs py-1.5 rounded-xl border border-white/15 hover:bg-white/5">Preview</button>
                           </div>
                         </div>
@@ -1505,7 +1549,7 @@ export default function CovenantInteractive() {
                       // note when it really went live - never claim success on failure.
                       const ok = await publishCustomUI(false);
                       if (ok) {
-                        setToast({ type: 'success', msg: 'Published! The public view and arena now reflect your settings. Refresh to see for visitors.' });
+                        toast.success('Published! The public view and arena now reflect your settings. Refresh to see for visitors.');
                       }
                     }}
                     className="w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 text-base"
@@ -1643,15 +1687,15 @@ export default function CovenantInteractive() {
                     try {
                       const res = await sendPayment(covenant.address || covenant.creator_addr, 10, {memo: `stake:${id}`});
                       if (res && res.success === false) {
-                        setToast({ type: 'error', msg: res.needsWallet ? 'Connect a Kaspa wallet to stake.' : ('Stake failed: ' + (res.error || 'transaction rejected')) });
+                        toast.error(res.needsWallet ? 'Connect a Kaspa wallet to stake.' : ('Stake failed: ' + (res.error || 'transaction rejected')));
                       } else {
-                        setToast({ type: 'success', msg: 'Stake sent (real tx on testnet)!' });
+                        toast.success('Stake sent (real tx on testnet)!');
                       }
-                    } catch(e) { setToast({ type: 'error', msg: 'Stake failed: ' + e.message }); }
+                    } catch(e) { toast.error('Stake failed: ' + e.message); }
                   } else {
                     // Only stake/join are wired to a real on-chain action. Be honest
                     // about anything else rather than implying hidden covenant logic.
-                    setToast({ type: 'info', msg: 'This button is not connected to an on-chain action.' });
+                    toast.info('This button is not connected to an on-chain action.');
                   }
                 }
               };
@@ -1719,23 +1763,34 @@ export default function CovenantInteractive() {
         </p>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-right-4 duration-300">
-          <div className={`px-5 py-3.5 rounded-2xl shadow-2xl border flex items-center gap-3 ${
-            toast.type === 'success'
-              ? 'bg-emerald-900/40 border-emerald-500/30 text-emerald-300'
-              : toast.type === 'error'
-              ? 'bg-red-900/40 border-red-500/40 text-red-300'
-              : 'bg-gray-900/40 border-gray-500/30 text-gray-300'
-          }`}>
-            {toast.type === 'error'
-              ? <AlertTriangle size={18} className="text-red-400 shrink-0" />
-              : <CheckCircle2 size={18} className={`shrink-0 ${toast.type === 'success' ? 'text-emerald-400' : 'text-gray-400'}`} />}
-            <span className="text-sm font-medium">{toast.msg}</span>
+      {/* Template full preview modal (Fix tab) - shows exactly what publishing produces,
+          mirroring CovenantFix. Never a false-success toast for a CTA with no UI. */}
+      {showTemplatePreview && (
+        <div className="fixed inset-0 z-[95] bg-black/95 flex items-center justify-center p-4" onClick={() => setShowTemplatePreview(null)}>
+          <div className="w-full max-w-[1080px] bg-[#050507] rounded-3xl border border-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-black/40">
+              <div className="font-semibold text-white">{showTemplatePreview.tpl?.name || 'Template'} preview: exactly what viewers see</div>
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedTemplate(showTemplatePreview.tpl);
+                    setConfig(c => ({ ...c, ...showTemplatePreview.tpl.config }));
+                    setShowTemplatePreview(null);
+                    toast.success('Template applied to preview. Publish to make live.');
+                  }}
+                  className="px-5 py-2 rounded-2xl bg-kaspa-green text-black text-sm font-semibold"
+                >
+                  Choose this &amp; close
+                </button>
+                <button onClick={() => setShowTemplatePreview(null)} className="px-5 py-2 rounded-2xl border border-white/15 text-sm text-gray-200">Close</button>
+              </div>
+            </div>
+            <iframe srcDoc={showTemplatePreview.html} className="w-full h-[78vh] bg-[#050507]" sandbox="allow-scripts" title="Template full preview" />
           </div>
         </div>
       )}
+
+      {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
 
       {/* Upgrade Modal */}
       {showUpgrade && upgradeTier && (

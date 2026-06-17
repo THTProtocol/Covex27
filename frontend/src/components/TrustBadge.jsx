@@ -10,12 +10,17 @@ import TransparencyModal from './TransparencyModal';
  * enforcement that is not there - a plain self-pay covenant reads "Metadata only",
  * not "On-chain script".
  */
+// A single binary_oracle_select covenant is one LEG of a parimutuel market, not a
+// bare on-chain primitive: its custody is script-locked but WHICH side wins is set by
+// the secret the disclosed oracle reveals. It must read as a market, never "no trust".
+const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
+
 export function trustInfo(covenant) {
   const reality = covenant?.enforcement_reality;
   // Parimutuel markets are a hybrid: custody and every payout leg are on-chain
   // (P2SH, hashlock + winner key), but WHICH outcome wins is set by the single
   // committed secret the disclosed oracle reveals. Never claim "no trust".
-  if (covenant?.covenant_type === 'prediction-market') {
+  if (covenant?.covenant_type === 'prediction-market' || isMarketLeg(covenant)) {
     return {
       kind: 'hybrid',
       label: 'On-chain custody, oracle-resolved',

@@ -278,6 +278,38 @@ mod tests {
         assert_eq!(reality_for_script(&p2sh), EnforcementReality::OnChain);
     }
 
+    /// The type-driven honesty override at the JSON boundary (main.rs covenant_summary_json)
+    /// must emit "hybrid" for a binary_oracle_select leg even though the leg's stored script_hex
+    /// is the exact 35-byte aa20<hash>87 P2SH that reality_for_script() alone calls OnChain. This
+    /// locks in catalog/live-label agreement: the live override and the CATALOG entry must report
+    /// the same reality for p2sh_binary_oracle_select. reality_for_script() itself is unchanged.
+    #[test]
+    fn binary_oracle_select_type_override_is_hybrid_despite_exact_p2sh() {
+        // A leg is stored with the exact P2SH wrapper, which on script alone reads OnChain ...
+        let hash = "22".repeat(32);
+        let p2sh = format!("aa20{hash}87");
+        assert_eq!(reality_for_script(&p2sh), EnforcementReality::OnChain);
+
+        // ... but the covenant_type carries "binary_oracle_select", and the JSON boundary
+        // overrides such a type to "hybrid". Mirror that exact predicate here.
+        let covenant_type = "p2sh-binary_oracle_select";
+        let live_label = if covenant_type.contains("binary_oracle_select") {
+            "hybrid"
+        } else {
+            reality_for_script(&p2sh).as_str()
+        };
+        assert_eq!(live_label, "hybrid");
+
+        // And the live label must agree with what the catalog already declares for this type.
+        let catalog_reality = CATALOG
+            .iter()
+            .find(|e| e.id == "p2sh_binary_oracle_select")
+            .expect("catalog must contain p2sh_binary_oracle_select")
+            .reality;
+        assert_eq!(catalog_reality, EnforcementReality::Hybrid);
+        assert_eq!(live_label, catalog_reality.as_str());
+    }
+
     #[test]
     fn malformed_length_aa20_87_is_not_onchain() {
         // A valid Kaspa P2SH is EXACTLY 35 bytes (the 0x20 push is fixed-width). A 34- or

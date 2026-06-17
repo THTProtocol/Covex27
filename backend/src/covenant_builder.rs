@@ -1565,7 +1565,21 @@ pub async fn p2sh_deploy_handler(
             let cid = format!("{}:0", tx_id_str);
             let recv = serde_json::to_string(&vec![p2sh_addr.clone()]).unwrap_or_default();
             let ctype = format!("p2sh-{}", req.redeem.kind);
-            let summary = format!("Script-enforced {} covenant, {} KAS locked", req.redeem.kind, stake_sompi as f64 / 1e8);
+            // Honest description (roadmap B4/B6). Every kind except the parimutuel leg is a
+            // pure script-enforced covenant, so the generic "Script-enforced" wording is true
+            // for them. A binary_oracle_select leg's custody and payouts ARE on-chain, but
+            // which branch wins is set by the secret the disclosed oracle reveals, so calling
+            // it bare "Script-enforced" would hide that residue. State it plainly instead.
+            let summary = if req.redeem.kind == "binary_oracle_select" {
+                format!(
+                    "Parimutuel market leg: two hashlock payout branches plus a CSV refund. \
+                     Custody and payouts are on-chain; which branch wins is set by the secret \
+                     the disclosed Covex oracle reveals. {} KAS locked",
+                    stake_sompi as f64 / 1e8
+                )
+            } else {
+                format!("Script-enforced {} covenant, {} KAS locked", req.redeem.kind, stake_sompi as f64 / 1e8)
+            };
             let _ = db::insert_covenant(
                 &db, &cid, &p2sh_addr, stake_sompi, &crate::compute_script_hash(&p2sh_script_hex),
                 &p2sh_script_hex, &ctype, "P2SH Commitments", &deployer_addr_str, &summary, 0,

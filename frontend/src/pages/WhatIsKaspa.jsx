@@ -170,7 +170,7 @@ export default function WhatIsKaspaPage() {
               </div>
             </div>
           </div>
-          <a href="https://github.com/kaspanet/docs/blob/main/Design/covenants.md" target="_blank" rel="noreferrer" className="text-[#49EACB] hover:underline font-medium text-sm">Read the official SilverScript / Toccata Covenant Design Document</a>
+          <a href="https://github.com/kaspanet/kips/blob/master/kip-0017.md" target="_blank" rel="noreferrer" className="text-[#49EACB] hover:underline font-medium text-sm">Read the official SilverScript / Toccata Covenant Design Document</a>
         </section>
 
         {/* Research Library - Comprehensive */}
@@ -185,7 +185,7 @@ export default function WhatIsKaspaPage() {
               { title: "SPECTRE: Serialization of Proof-of-work Events", subtitle: "Sompolinsky, Lewenberg & Zohar (2016). The earlier inclusive protocol that influenced all later BlockDAG work.", href: "https://eprint.iacr.org/2016/1159.pdf" },
               { title: "Inclusive Block Chain Protocols", subtitle: "Lewenberg, Sompolinsky & Zohar (2015). The paper that introduced the idea of rewarding all honest work instead of discarding orphans.", href: "https://eprint.iacr.org/2015/1139.pdf" },
               { title: "The GHOST Protocol", subtitle: "Sompolinsky & Zohar (2013). The original Greedy Heaviest Observed SubTree idea that eventually became GHOSTDAG.", href: "https://eprint.iacr.org/2013/881.pdf" },
-              { title: "Toccata Testnet-12 Covenant Specification", subtitle: "Kaspa Core Team. The live design document for SilverScript (aa20-aa23) opcodes, covenant semantics, and how they are validated in the Rust node.", href: "https://github.com/kaspanet/docs/blob/main/Design/covenants.md" },
+              { title: "KIP-17: Covenants and Improved Scripting Capabilities", subtitle: "Ori Newman. The canonical covenant design document: introspection opcodes (aa20-aa23 / 0xb2+), covenant semantics, and how they are validated in the Rust node. Implemented and activated on the Toccata testnets.", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
               { title: "kHeavyHash Specification & Rationale", subtitle: "Kaspa documentation. Details on the custom PoW, optical mining design goals, and why it differs from SHA256 / Ethash / etc.", href: "https://github.com/kaspanet/docs" },
               { title: "Kaspa Rust Node Architecture (rusty-kaspa)", subtitle: "The reference implementation. Covers consensus core, UTXO set, mempool, RPC, and how covenants are indexed.", href: "https://github.com/kaspanet/rusty-kaspa" },
             ].map((p, i) => (
@@ -270,7 +270,7 @@ export default function WhatIsKaspaPage() {
               { title: "Mainnet BlockDAG Explorer", desc: "Live visualization of the DAG, blocks, and transactions", href: "https://explorer.kaspa.org" },
               { title: "Rusty Kaspa (GitHub)", desc: "The production Rust node: consensus, RPC, UTXO index, covenant support", href: "https://github.com/kaspanet/rusty-kaspa" },
               { title: "Kaspa Documentation Hub", desc: "Protocol spec, REST/WebSocket APIs, SilverScript reference, node setup", href: "https://github.com/kaspanet/docs" },
-              { title: "Covenant Design Document", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/docs/blob/main/Design/covenants.md" },
+              { title: "Covenant Design Document (KIP-17)", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
               { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
               { title: "Toccata Testnet Faucet & Explorer", desc: "TN12 resources for developers testing covenants (faucet-tn12.kaspanet.io)", href: "https://faucet-tn12.kaspanet.io" },
               { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://kaspa.org/community" },

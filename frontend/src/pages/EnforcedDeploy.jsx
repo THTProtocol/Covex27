@@ -500,7 +500,7 @@ export default function EnforcedDeploy() {
               </label>
             </div>
             <p className="text-[11px] text-gray-400 leading-relaxed">
-              Parimutuel YES/NO market on conjoined oracle covenants: settled by the disclosed oracle reveal, then routed on-chain so the winning side is paid and losers receive the rebate. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle. No Covex key moves the funds: the reveal secrets are held server-side so the market still settles even if Covex is offline.
+              Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the disclosed oracle reveals one committed outcome secret; once it is revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
             </p>
           </div>
         )}

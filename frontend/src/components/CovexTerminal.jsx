@@ -3809,7 +3809,7 @@ ${gameMeta.outcomeBranches}
           <ResolutionCard
             icon={Shield}
             title="Covex Oracle (Default)"
-            desc="Uses the built-in Covex Oracle with a pre-filled, audited verification key. Trustless resolution, the oracle signs outcomes cryptographically."
+            desc="Uses the built-in Covex Oracle with a pre-filled verification key. Oracle-attested resolution: the disclosed oracle signs the outcome cryptographically and is the trusted verifier (Kaspa has no on-chain pairing verifier)."
             selected={resolutionMode === 'oracle'}
             onClick={() => setResolutionMode('oracle')}
             accent="kaspa-green"

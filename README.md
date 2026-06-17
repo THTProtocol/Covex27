@@ -25,12 +25,12 @@
 
 ---
 
-> **Status (2026-06-16):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet in **2026** (the June 2026 window, no confirmed calendar day). Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands — no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs against the live consensus transaction-script engine before any value moves.
+> **Status (2026-06-16):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet in **2026** (the June 2026 window, no confirmed calendar day). Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands - no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs against the live consensus transaction-script engine before any value moves.
 
 **What's new (2026-06-16)**
-- **Real zero-knowledge you can run in your own browser** — all three verified full-ZK circuits (`merkle_membership`, `escrow_2party`, and `age_verification`) now generate a real Groth16 proof **client-side** (snarkjs over served artifacts; age computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser), which the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires. Every other catalog circuit stays honestly labelled oracle-attested until its key ships — the setup is a dev ceremony, not yet a production MPC.
-- **Unified Sandbox** — one window where a free, searchable circuit library drives a live preview (enforcement reality, resolution flow, an accurate dual-reality payout simulator, and the actual SilverScript) and the builder, then deploys it non-custodially. See **[How it Works](https://hightable.pro/readme)** for the full, factual blueprint.
-- **Trustless in-app wallet generation** — new users can generate a fresh Kaspa wallet in the browser (24-word phrase, fund it from any exchange) and use it non-custodially. The private key is generated client-side and **never transmitted to the server**.
+- **Real zero-knowledge you can run in your own browser** - all three verified full-ZK circuits (`merkle_membership`, `escrow_2party`, and `age_verification`) now generate a real Groth16 proof **client-side** (snarkjs over served artifacts; age computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser), which the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires. Every other catalog circuit stays honestly labelled oracle-attested until its key ships - the setup is a dev ceremony, not yet a production MPC.
+- **Unified Sandbox** - one window where a free, searchable circuit library drives a live preview (enforcement reality, resolution flow, an accurate dual-reality payout simulator, and the actual SilverScript) and the builder, then deploys it non-custodially. See **[How it Works](https://hightable.pro/readme)** for the full, factual blueprint.
+- **Trustless in-app wallet generation** - new users can generate a fresh Kaspa wallet in the browser (24-word phrase, fund it from any exchange) and use it non-custodially. The private key is generated client-side and **never transmitted to the server**.
 
 ---
 
@@ -76,13 +76,13 @@ mindmap
 
 ### Mainnet status
 
-Covex is built for Kaspa **mainnet**. It runs a live mainnet node and an armed covenant indexer today. The mainnet explorer is **intentionally empty until the Toccata hard fork activates covenants** — nothing here is seeded, simulated, or projected, and no placeholder data is ever shown. A zero is the honest, expected reading until the first real covenant lands.
+Covex is built for Kaspa **mainnet**. It runs a live mainnet node and an armed covenant indexer today. The mainnet explorer is **intentionally empty until the Toccata hard fork activates covenants** - nothing here is seeded, simulated, or projected, and no placeholder data is ever shown. A zero is the honest, expected reading until the first real covenant lands.
 
 | Mainnet (as of 2026-06-16) | Status |
 |----------------------------|--------|
 | Covenant indexer | Live, armed behind the honesty gate |
 | Mainnet node | Connected (real wRPC node, fully synced) |
-| Covenants indexed | 0 — the first real covenant appears the moment one lands |
+| Covenants indexed | 0 - the first real covenant appears the moment one lands |
 | Provably paid covenants | 0 |
 | Total value locked | 0 KAS |
 | Toccata activation | 2026 (June 2026 window, no confirmed day) |
@@ -235,7 +235,7 @@ cd backend && cargo build --release
 #   BIND_ADDR=0.0.0.0:3006  KASPA_NETWORK=testnet-12
 #   KASPA_WRPC_URL=ws://127.0.0.1:17217  DB_PATH=./covex.db
 #   KASPA_WRPC_URL_MAINNET=ws://127.0.0.1:17310  (mainnet, via tunnel)
-#   COVEX_ORACLE_KEY=<hex>  (REQUIRED — no baked-in default; oracle fails closed if unset)
+#   COVEX_ORACLE_KEY=<hex>  (REQUIRED - no baked-in default; oracle fails closed if unset)
 
 # Frontend
 cd frontend && npm install && npm run dev   # Vite proxies /api -> :3006
@@ -333,7 +333,7 @@ Trustlessness is earned per covenant type by **removing Covex from the money pat
 - **Poker and blackjack**: reach **trust-minimized**, not trustless. Mixing both players' entropy with a public randomness beacon (drand or a commit-reveal VRF) removes the operator's ability to grind the deck; fully trustless hidden-card dealing needs mental-poker / threshold encryption, which is labeled as the ceiling.
 - **Prediction markets**: cannot be made trustless (something off-chain must attest the real-world fact); the honest target is k-of-n independent oracle signers with an on-chain multisig release, labeled oracle-attested.
 
-A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verification is **not** the trustlessness path at Toccata. The path is script-enforced custody plus Schnorr, CLTV, hashlocks, multisig, and state channels, which is exactly the toolkit already built. KIP-16 on-chain proof checking is complementary, not the enforcement. Three Groth16 circuits verify real proofs end-to-end today and fail closed on a bad one — `merkle_membership`, `escrow_2party`, and `age_verification`, all three with a working in-browser prover (the last computing its MiMC commitment in dependency-free pure JS) — ready to migrate onto KIP-16 when it lands. Every other catalog circuit (range, timelock, VRF, nullifier, and more) is compiled but stays honestly oracle-attested until its proving key ships and a proof actually verifies; the platform never labels a circuit ZK-verified on the strength of a key that does not yet exist.
+A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verification is **not** the trustlessness path at Toccata. The path is script-enforced custody plus Schnorr, CLTV, hashlocks, multisig, and state channels, which is exactly the toolkit already built. KIP-16 on-chain proof checking is complementary, not the enforcement. Three Groth16 circuits verify real proofs end-to-end today and fail closed on a bad one - `merkle_membership`, `escrow_2party`, and `age_verification`, all three with a working in-browser prover (the last computing its MiMC commitment in dependency-free pure JS) - ready to migrate onto KIP-16 when it lands. Every other catalog circuit (range, timelock, VRF, nullifier, and more) is compiled but stays honestly oracle-attested until its proving key ships and a proof actually verifies; the platform never labels a circuit ZK-verified on the strength of a key that does not yet exist.
 
 #### 7.6 Why now
 

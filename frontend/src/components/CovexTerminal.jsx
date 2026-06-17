@@ -136,8 +136,8 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'merkle_dao', name: 'Merkle DAO Voting', description: 'Full ZK: voting power = merkle leaf value. Threshold quorum. No individual votes revealed. Uses same artifacts as merkle_membership. Reality: full-zk. Use cases: private weighted voting on Kaspa DAOs.', circuit: 'merkle_dao', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_airdrop', name: 'Merkle Airdrop Claim', description: 'Full ZK: prove eligibility without revealing other claimers. Single-use nullifier per leaf. Same artifacts as membership. Reality: full-zk. Use cases: fair Kaspa token claims.', circuit: 'merkle_airdrop', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_sparse', name: 'Merkle Sparse / Verkle Tree', description: 'Membership in sparse/Verkle tree (gas-efficient). Reality: oracle-attested (full-zk planned). Use cases: large set proofs on Kaspa. (vision §4.1)', circuit: 'merkle_sparse', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'oracle-attested' },
-  { id: 'range_proof', name: 'Range Proof', description: 'Oracle-attested (in-browser prover pending): prove committed value within [min, max] without revealing value. MiMC7 commitment + 64-bit range. Backend Groth16-verifies a supplied proof, but the in-browser generator is not yet working - the named oracle attests today. Use cases: collateral, age, balances on Kaspa covenants.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto', reality: 'oracle-attested (in-browser prover pending)' },
-  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Oracle-attested (in-browser prover pending): prove collateral >= loan amount * threshold. Liquidation trigger detection. No amount disclosed. Shares the range_proof path, whose in-browser prover is not yet working - the named oracle attests today. Use cases: DeFi loans on Kaspa.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true, reality: 'oracle-attested (in-browser prover pending)' },
+  { id: 'range_proof', name: 'Range Proof', description: 'Full ZK: prove a committed value is within [min, max] without revealing it. MiMC7(value) commitment + 64-bit range, generated in your browser (the value never leaves it) and verified fail-closed by the disclosed oracle. Use cases: collateral, age, balances on Kaspa covenants.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto', reality: 'full-zk' },
+  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Full ZK: prove collateral >= loan amount * threshold without disclosing the amount. Shares the range_proof circuit + in-browser prover, verified fail-closed by the disclosed oracle. Use cases: DeFi loans on Kaspa.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true, reality: 'full-zk' },
   { id: 'range_128bit', name: 'Range Proof 128/256-bit', description: 'Extended range for larger values (u128/u256). Reality: hybrid (current 64-bit base + attested). Use cases: high-value Kaspa UTXO/treasury proofs. (vision §4.1)', circuit: 'range_128', accent: '#22C55E', category: 'crypto', variant: true, reality: 'hybrid' },
   { id: 'schnorr_knowledge', name: 'Schnorr Knowledge Proof', description: 'Oracle-path (no artifacts yet): standard Sigma protocol - prove knowledge of discrete log without revealing it. Building block for ring sigs, DLCs. Artifacts planned. Reality: oracle-attested. Use cases: UTXO ownership on Kaspa.', circuit: 'schnorr_generic', accent: '#6366F1', category: 'crypto', reality: 'oracle-attested' },
   { id: 'pedersen_commitment', name: 'Pedersen Commitment', description: 'Oracle-path (no artifacts yet): homomorphic commitment scheme. Prove committed value satisfies linear equation. Used for UTXO amount hiding + range proof combo. Artifacts planned. Reality: oracle-attested. Use cases: private amounts in Kaspa covenants. (vision §4.1)', circuit: 'pedersen_generic', accent: '#8B5CF6', category: 'crypto', reality: 'oracle-attested' },
@@ -332,7 +332,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
 const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party']);
 // Circuits that have a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
 // age_verification computes its public commitment = MiMC7(birth_year) in-browser via a pure-JS MiMC7.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification']);
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'range_collateral']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
@@ -1260,59 +1260,33 @@ contract VisualCovenant {
     setZkGenerating(true); setZkGenError('');
     try {
       const snarkjs = await loadSnarkjs();
-      const mimcWasm = '/zk/range_proof/mimc_test.wasm';
-      const rangeWasm = '/zk/range_proof/range_proof.wasm';
+      const wasm = '/zk/range_proof/range_proof.wasm';
       const zkey = '/zk/range_proof/range_proof_final.zkey';
 
-      // Step 1: Compute MiMC7(value) using the compatible mimc_test wasm (wtns.calculate)
-      const value = 42;
-      const minV = 0;
-      const maxV = 100;
-      const mimcInput = { secret: value.toString() };
-      const mimcWtns = await snarkjs.wtns.calculate(mimcInput, mimcWasm, '/tmp/mimc_range.wtns'); // may be ignored in browser
-      // Export to get the output hash (last signal)
-      const mimcJson = await snarkjs.wtns.exportJson('/tmp/mimc_range.wtns').catch(async () => {
-        // Fallback: many browser setups need explicit wtns file handling; try direct
-        const wtnsBuf = await fetch(mimcWasm).then(r=>r.arrayBuffer()); // not ideal
-        // Instead use a pre-known or simple: compute via another call if needed.
-        // For robustness we fall back to a known valid commitment for the demo circuit.
-        return null;
-      });
-
-      let commitment = "20473339414381364284988912838485478706292217748325897174032535818078518775705"; // fallback known
-      if (mimcJson && Array.isArray(mimcJson)) {
-        // last element is the output hash
-        commitment = mimcJson[mimcJson.length - 1].toString();
-      } else {
-        // Try a direct fullProve on mimc if wtns path fails in this env
-        try {
-          const { publicSignals: mimcPub } = await snarkjs.groth16.fullProve(mimcInput, mimcWasm.replace('mimc_test.wasm', 'mimc_test_js/mimc_test.wasm'), '/zk/range_proof/mimc_test.zkey'); // unlikely
-          if (mimcPub && mimcPub.length) commitment = mimcPub[mimcPub.length-1].toString();
-        } catch (_) {}
-      }
-
-      // Step 2: Now prove the range with the *correctly computed* commitment + value as witness
+      // The circuit's public commitment is MiMC7(value) with key 0. Compute it client-side in
+      // pure JS (the same hasher the age circuit uses), so the value stays a PRIVATE witness,
+      // then fullProve over the served wasm + final zkey. Verified end-to-end (valid proof
+      // accepted, tampered rejected); publicSignals = [valid, commitment, min, max].
+      const value = 42, minV = 0, maxV = 100;
+      const commitment = mimc7Commitment(value).toString();
       const rangeInput = {
-        commitment: commitment,
+        commitment,
         min: minV.toString(),
         max: maxV.toString(),
         value: value.toString(),
       };
 
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(rangeInput, rangeWasm, zkey);
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(rangeInput, wasm, zkey);
       const proofStr = JSON.stringify({ proof, publicSignals }, null, 2);
       setOracleProof(proofStr);
       setOraclePublicInputs(publicSignals.map(s => s.toString()).join(','));
       setZkGenError(''); // clear any previous
     } catch (e) {
-      // Do NOT fabricate a proof. range_proof's in-browser prover currently fails
-      // (a known MiMC7/wasm toolchain mismatch), and emitting a fake "proven" Groth16
-      // object would be a forged value: the oracle (correctly) rejects it as a Strict
-      // circuit, while the user is misled into thinking they proved something. Surface
-      // the real failure and leave the proof empty so nothing fake is ever submitted.
+      // The in-browser prover works (verified valid-accept + tamper-reject). On a rare
+      // environment failure, surface the real error and leave the proof empty - never fabricate.
       setOracleProof('');
       setOraclePublicInputs('');
-      setZkGenError(`Range proof generation failed in-browser (known MiMC7/wasm mismatch). No proof was produced - this circuit's in-browser prover is not yet working, so it cannot be used for a real ZK resolution yet. ${e.message || e}`);
+      setZkGenError(`In-browser range proof generation failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
     }
     setZkGenerating(false);
   };
@@ -2474,7 +2448,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> Three circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification and 2-party escrow. Others (range_proof, chess_v1, tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; hybrid/game circuits fall back to oracle attestation.
+              <strong className="text-amber-200">Technical reality:</strong> Four circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification, 2-party escrow and range proof. Others (tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; hybrid/game circuits fall back to oracle attestation.
               <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts all circuit types and returns a real SHA256-based signed outcome.
               The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc matures.
             </div>

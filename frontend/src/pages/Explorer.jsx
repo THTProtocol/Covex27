@@ -829,8 +829,13 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           </div>
         </div>
 
-        {/* Description */}
-        <p className="text-xs text-gray-400 mb-4 leading-relaxed line-clamp-2 flex-1">
+        {/* Description - hard-clamped to exactly 2 lines with a clean ellipsis (inline styles so the
+            webkit-box clamp always wins over flex-1, which previously defeated line-clamp and let the
+            text spill and cut mid-sentence). break-words stops a long hash/word from overflowing. */}
+        <p
+          className="text-xs text-gray-400 light:text-slate-500 mb-4 leading-relaxed break-words"
+          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+        >
           {covenantDesc}
         </p>
 

@@ -265,6 +265,13 @@ export default function PremiumBuilder() {
       const termJson = await termRes.json();
 
       // Persist covenant metadata (theme, disclosed wallets, circuit) on the same id.
+      // Featured metadata is ownership-gated (M1): the backend requires a wallet
+      // signature over a single-use challenge before it will feature an indexed,
+      // creator-known covenant. The terminal-config save above consumed its own
+      // nonce, so sign a FRESH challenge here. If signing fails the save still
+      // persists, just not featured.
+      let metaProof = {};
+      try { metaProof = await signCovenantOwnership(covId, address, signMessage); } catch { /* persists unfeatured */ }
       await fetch('/api/covenant-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -278,6 +285,7 @@ export default function PremiumBuilder() {
           resolution: def.resolution,
           paid_token: auth.token,
           network: def.network,
+          ...metaProof,
         })
       });
 

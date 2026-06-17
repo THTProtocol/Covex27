@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
+import { signMarketResolve } from '../lib/ownership';
 import {
   TrendingUp, ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
   ExternalLink, Layers, Check, Loader2, Coins,
@@ -33,6 +34,7 @@ function EnforcementBadge() {
 
 function MarketsList() {
   const navigate = useNavigate();
+  const { address } = useWallet();
   const [markets, setMarkets] = useState(null);
   const [show, setShow] = useState(false);
   const [q, setQ] = useState('');
@@ -50,9 +52,12 @@ function MarketsList() {
 
   const create = async () => {
     if (!q.trim()) { setCerr('Enter a question'); return; }
+    // The creator wallet is the ONLY address allowed to resolve this market later
+    // (the reveal is gated on a signature from it), so it is required up front.
+    if (!address) { setCerr('Connect a wallet first - it becomes the only address that can resolve this market.'); return; }
     setCreating(true); setCerr(null);
     try {
-      const r = await api('/covenant/market/create', { network: net(), question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No'), fee_bps: Math.round((parseFloat(feePct) || 30) * 100), rebate_bps: Math.round((parseFloat(rebatePct) || 50) * 100) });
+      const r = await api('/covenant/market/create', { network: net(), creator_address: address, question: q.trim(), outcome_a: (oa.trim() || 'Yes'), outcome_b: (ob.trim() || 'No'), fee_bps: Math.round((parseFloat(feePct) || 30) * 100), rebate_bps: Math.round((parseFloat(rebatePct) || 50) * 100) });
       if (r.market_id) navigate(`/covenant/${r.market_id}`);
       else setCerr(r.error || 'failed to create');
     } catch (e) { setCerr(String(e)); }
@@ -160,7 +165,7 @@ function OddsCard({ label, mult, accent }) {
 }
 
 function MarketDetail({ id }) {
-  const { address } = useWallet();
+  const { address, signMessage } = useWallet();
   const [book, setBook] = useState(null);
   const [market, setMarket] = useState(null);
   const [side, setSide] = useState(0);
@@ -346,7 +351,13 @@ function MarketDetail({ id }) {
             {[book.outcome_a, book.outcome_b].map((label, i) => (
               <button key={i} disabled={!!busy}
                 onClick={() => act(`Resolving ${label}`, async () => {
-                  const r = await api('/covenant/market/resolve', { market_id: id, outcome: i });
+                  // C2: only the creator wallet may resolve, proven by a signature over
+                  // covex-market-resolve:{id}:{outcome}:{nonce}. Sign before revealing.
+                  if (!address) return { success: false, error: 'Connect the market creator wallet to resolve.' };
+                  let proof;
+                  try { proof = await signMarketResolve(id, i, address, signMessage); }
+                  catch (e) { return { success: false, error: e?.message || String(e) }; }
+                  const r = await api('/covenant/market/resolve', { market_id: id, outcome: i, ...proof });
                   if (r && r.success === false) return r;
                   const s = await api('/covenant/market/settle', { market_id: id });
                   setSettleRes(s);

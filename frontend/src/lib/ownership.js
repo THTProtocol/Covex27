@@ -25,3 +25,25 @@ export async function signCovenantOwnership(covenantId, address, signMessage) {
 
   return { signer_address: address, signature, nonce };
 }
+
+// Market-resolution proof. The backend (C2) only lets the recorded market creator
+// reveal a winning outcome, and requires a wallet signature over
+// `covex-market-resolve:{market_id}:{outcome}:{nonce}` by that creator address.
+// The nonce is caller-chosen (the reveal carries it in the signed message for
+// freshness), so we generate one client-side. Returns the fields the backend
+// verifies: { signer_address, signature, nonce }.
+export async function signMarketResolve(marketId, outcome, address, signMessage) {
+  if (!address) throw new Error('Connect the market creator wallet first.');
+  if (typeof signMessage !== 'function') throw new Error('This wallet cannot sign messages.');
+
+  const nonce =
+    (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const message = `covex-market-resolve:${marketId}:${outcome}:${nonce}`;
+
+  const signature = await signMessage(message);
+  if (!signature) throw new Error('Wallet did not return a signature.');
+
+  return { signer_address: address, signature, nonce };
+}

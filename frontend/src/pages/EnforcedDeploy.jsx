@@ -118,13 +118,16 @@ export default function EnforcedDeploy() {
 
   // Create a parimutuel prediction market. This commits the market (H_A/H_B) and inserts
   // its first-class covenant anchor server-side, so /covenant/<market_id> immediately
-  // resolves to the full betting website. No funds move here and no wallet is required;
-  // betting, matching (which funds the on-chain bundles), resolve, and settle all happen
-  // on the market's covenant page. fee/rebate are creator-set economics.
+  // resolves to the full betting website. No funds move here, but the connected wallet is
+  // recorded as the creator: it becomes the ONLY address that can later resolve the market
+  // (the reveal is gated on a signature from it). Betting, matching (which funds the on-chain
+  // bundles), resolve, and settle all happen on the market's covenant page. fee/rebate are
+  // creator-set economics.
   async function createMarket() {
     setError(null);
     const question = mq.trim();
     if (!question) { setError('Enter a question for the market.'); return; }
+    if (!address) { setError('Connect a wallet first - it becomes the only address that can resolve this market.'); return; }
     const feePct = parseFloat(mfee);
     const rebatePct = parseFloat(mrebate);
     if (!(feePct >= 0) || !(rebatePct >= 0)) { setError('Fee and rebate must be zero or positive percentages.'); return; }
@@ -135,6 +138,7 @@ export default function EnforcedDeploy() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           network: net,
+          creator_address: address,
           question,
           outcome_a: (moa.trim() || 'Yes'),
           outcome_b: (mob.trim() || 'No'),

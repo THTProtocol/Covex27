@@ -28,6 +28,8 @@ logs/
 *.pem
 *.key
 id_rsa*
+.gh_token
+*.token
 
 # Public Groth16 verification keys (not secrets — safe to commit)
 !**/*_vkey.json

@@ -16,11 +16,12 @@ import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
  *   - covenant : opened from an explorer / detail TrustBadge     (props.covenant = the covenant object)
  */
 
-// The 7 circuits with a real, working in-browser Groth16 prover (snarkjs over served wasm+zkey).
-// Source of truth: CovexTerminal VERIFIED_FULL_ZK / IN_BROWSER_PROVERS. age + range_proof compute
-// their MiMC7 commitment in pure JS; vrf_dice_roll + nullifier_set + utxo_ownership compute their
-// Poseidon commitment via poseidon-lite. All fullProve the served wasm+zkey; node-verified.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership']);
+// The 10 circuits with a real, working in-browser Groth16 prover (snarkjs over served wasm+zkey).
+// Source of truth: CovexTerminal VERIFIED_FULL_ZK / IN_BROWSER_PROVERS. age + range_proof +
+// hash_preimage commit via pure-JS MiMC7; vrf_dice_roll + nullifier_set + utxo_ownership via
+// poseidon-lite; timelock_absolute + relative_timelock are plain-numeric (wasm derives valid).
+// All fullProve the served wasm+zkey; node-verified accept + tamper-reject.
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock']);
 
 const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,

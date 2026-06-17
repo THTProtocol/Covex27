@@ -115,7 +115,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'mahjong_v1', name: 'Mahjong (Riichi)', description: '4-player tile-matching with yaku scoring. VRF wall shuffle + oracle-attested. Per-turn timer. Reality: hybrid.', circuit: 'mahjong_v1', accent: '#C084FC', category: 'game', reality: 'hybrid' },
   // Shared game primitives (vision §4.3)
   { id: 'vrf_dice_roll', name: 'VRF Dice Roll (Shared)', description: 'Full ZK: a verifiable dice roll forced by Poseidon(secret, public seed) - roll = (hash mod faces)+1, so no one can cherry-pick the result. Generated in your browser (the secret never leaves it) and verified fail-closed by the disclosed oracle. Use cases: backgammon/yahtzee/risk/monopoly/catan dice fairness in Kaspa covenants. (vision §4.1 VRF, §4.3 shared)', circuit: 'vrf_dice_roll', accent: '#EC4899', category: 'game', variant: true, reality: 'full-zk', artifacts: true },
-  { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Prove DAA-based relative timelock (using range on delta). Reality: hybrid. Use cases: time-locked covenants, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'hybrid' },
+  { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Full ZK: Groth16 proof that current_daa >= reference_daa + lock_duration, with valid exposed as a public output (the oracle requires valid==1, so an unsatisfied lock cannot be passed off as satisfied). Generated in your browser, verified fail-closed by the disclosed oracle. Use cases: dispute periods, cooldown windows, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Prove script constraints (fee % <= max, pot split math, shares). Reality: hybrid. Use cases: enforce covenant rules, fee caps, pot returns without trusting off-chain. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Prove correct pot split (fees, returns, winner share). Reality: hybrid. Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'turn_timer', name: 'Per-Turn Timer Proof', description: 'Prove turn timer (DAA elapsed <= max, player active). Reality: hybrid. Use cases: clock enforcement in chess/poker/etc. (vision §4.3)', circuit: 'turn_timer', accent: '#06B6D4', category: 'game', variant: true, reality: 'hybrid' },
@@ -319,21 +319,24 @@ const ZK_CIRCUIT_TYPES_RAW = [
 
 // HONEST REALITY (build-up policy). A circuit may only advertise 'full-zk' if it ships a served
 // proving key (.zkey) AND a working in-browser prover, verified valid-accept + tamper-reject.
-// SEVEN circuits qualify today: merkle_membership, age_verification, escrow_2party, range_proof,
-// vrf_dice_roll, nullifier_set, utxo_ownership (basic_utxo_ownership artifacts). age + range_proof
-// compute their MiMC7 commitment in pure JS; the three Poseidon circuits compute their commitment
-// via poseidon-lite (byte-identical to circomlib, no wasm) - all then fullProve the served wasm+zkey,
+// TEN circuits qualify today: merkle_membership, age_verification, escrow_2party, range_proof,
+// vrf_dice_roll, nullifier_set, utxo_ownership, hash_preimage, timelock_absolute, relative_timelock.
+// age + range_proof + hash_preimage compute their MiMC7 commitment in pure JS; the three Poseidon
+// circuits compute their commitment via poseidon-lite (byte-identical to circomlib, no wasm);
+// timelock_absolute + relative_timelock take plain numeric inputs and the recompiled circuits expose
+// `valid` as a PUBLIC output (the oracle requires valid==1). All then fullProve the served wasm+zkey,
 // node-verified valid-accept + tamper-reject. Every other 'full-zk' label without a working prover is
 // honestly downgraded to 'oracle-attested' until its prover is wired + verified. The PREFERRED fix for
 // an overclaim is to BUILD the prover (then add the id here), not to relabel it down.
-const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership']);
+const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock']);
 // Circuits with a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
-// age_verification + range_proof compute their MiMC7 commitment in-browser via a pure-JS MiMC7;
-// vrf_dice_roll + nullifier_set + utxo_ownership compute their Poseidon commitment via poseidon-lite.
+// age_verification + range_proof + hash_preimage compute their MiMC7 commitment in-browser via pure-JS
+// MiMC7; vrf_dice_roll + nullifier_set + utxo_ownership compute their Poseidon commitment via
+// poseidon-lite; timelock_absolute + relative_timelock are plain-numeric (wasm derives `valid`).
 // Kept in sync with VERIFIED_FULL_ZK (and OnChainLockSection.jsx / TransparencyModal.jsx).
 // range_collateral shares the range_proof circuit but its generator is not separately wired yet,
 // so it stays oracle-attested until that generator is wired.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership']);
+const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock']);
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
@@ -1454,6 +1457,78 @@ contract VisualCovenant {
     setZkGenerating(false);
   };
 
+  // Generate a real Hash Preimage proof in the browser. commitment_hash = MiMC7(preimage)
+  // (the same Groth16-friendly hasher the age + range circuits use), computed in pure JS so the
+  // preimage stays a PRIVATE witness. This is the classic hidden-witness ZK primitive: prove you
+  // know the opening of a public commitment without revealing it. Public signals: [valid, commitment_hash].
+  // Honest bound: MiMC7, not SHA256 - for SHA256 script-hash HTLCs use the on-chain hashlock primitive.
+  const generateHashPreimage = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const wasm = '/zk/hash_preimage/hash_preimage.wasm';
+      const zkey = '/zk/hash_preimage/hash_preimage_final.zkey';
+      // A fresh secret preimage per call (kept private); only its MiMC7 commitment is public.
+      const preimage = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(15))).map(b => b.toString(16).padStart(2, '0')).join(''));
+      const commitment_hash = mimc7Commitment(preimage).toString();
+      const input = { commitment_hash, preimage: preimage.toString() };
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      setOracleProof(''); setOraclePublicInputs('');
+      setZkGenError(`In-browser hash preimage proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real Absolute Timelock proof in the browser. The circuit computes
+  // valid = (current_daa >= lock_threshold) and exposes valid as a PUBLIC output, so the oracle
+  // reads valid from the public signals and requires valid==1 (a prover cannot claim an unmet
+  // timelock). Public signals: [valid, current_daa, lock_threshold].
+  const generateTimelockAbsolute = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const wasm = '/zk/timelock_absolute/timelock_absolute.wasm';
+      const zkey = '/zk/timelock_absolute/timelock_absolute_final.zkey';
+      // A satisfied absolute timelock (current DAA past the threshold).
+      const input = { current_daa: '5000000', lock_threshold: '1000000' };
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      setOracleProof(''); setOraclePublicInputs('');
+      setZkGenError(`In-browser absolute timelock proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
+    }
+    setZkGenerating(false);
+  };
+
+  // Generate a real Relative Timelock proof in the browser. valid = (current_daa >= reference_daa +
+  // lock_duration) is a PUBLIC output (the recompiled circuit exposes it), so the oracle requires
+  // valid==1 - an unsatisfied relative lock cannot be passed off as satisfied. Public signals:
+  // [valid, current_daa, reference_daa, lock_duration].
+  const generateRelativeTimelock = async () => {
+    setZkGenerating(true); setZkGenError('');
+    try {
+      const snarkjs = await loadSnarkjs();
+      const wasm = '/zk/relative_timelock/relative_timelock.wasm';
+      const zkey = '/zk/relative_timelock/relative_timelock_final.zkey';
+      // A satisfied relative timelock (enough DAA elapsed since the reference point).
+      const input = { current_daa: '2000', reference_daa: '1000', lock_duration: '500' };
+      const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasm, zkey);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
+      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
+      setZkGenError('');
+    } catch (e) {
+      setOracleProof(''); setOraclePublicInputs('');
+      setZkGenError(`In-browser relative timelock proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
+    }
+    setZkGenerating(false);
+  };
+
   // ── Mainnet is derived from the toggle (line 451) - no separate detection needed ──
 
   const generateSilverScript = useCallback(() => {
@@ -2538,7 +2613,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> Seven circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set and UTXO note proof (the last three compute their Poseidon commitment in pure JS via poseidon-lite). Others (tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; hybrid/game circuits fall back to oracle attestation.
+              <strong className="text-amber-200">Technical reality:</strong> Ten circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock and relative timelock (Poseidon circuits commit via poseidon-lite; the timelocks expose a public valid output). Others (tictactoe_v1, connect4_v1) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; hybrid/game circuits fall back to oracle attestation.
               <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts all circuit types and returns a real SHA256-based signed outcome.
               The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc matures.
             </div>
@@ -4171,6 +4246,45 @@ ${gameMeta.outcomeBranches}
                   <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
                   {zkGenerating ? 'Generating UTXO Proof...' : 'Generate Real UTXO Note Proof (snarkjs + Poseidon)'}
                 </button>
+              ) : gameType === 'hash_preimage' ? (
+                <button
+                  onClick={generateHashPreimage}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60'
+                      : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating Preimage Proof...' : 'Generate Real Hash Preimage Proof (snarkjs + MiMC)'}
+                </button>
+              ) : gameType === 'timelock_absolute' ? (
+                <button
+                  onClick={generateTimelockAbsolute}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
+                      : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(249,115,22,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating Timelock Proof...' : 'Generate Real Absolute Timelock Proof (snarkjs)'}
+                </button>
+              ) : gameType === 'relative_timelock' ? (
+                <button
+                  onClick={generateRelativeTimelock}
+                  disabled={zkGenerating}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    zkGenerating
+                      ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60'
+                      : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                  }`}
+                >
+                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
+                  {zkGenerating ? 'Generating Timelock Proof...' : 'Generate Real Relative Timelock Proof (snarkjs)'}
+                </button>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
                   <Info size={14} />
@@ -4191,7 +4305,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
+              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : gameType === 'hash_preimage' ? 'Format: valid,commitment_hash. valid=1 proves you know the (hidden) MiMC7 pre-image of the public commitment_hash; the pre-image never leaves your browser.' : gameType === 'timelock_absolute' ? 'Format: valid,current_daa,lock_threshold. valid=1 (a public output) means current_daa >= lock_threshold.' : gameType === 'relative_timelock' ? 'Format: valid,current_daa,reference_daa,lock_duration. valid=1 (a public output) means current_daa >= reference_daa + lock_duration.' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
             </div>
 
             <button

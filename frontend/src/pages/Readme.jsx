@@ -39,7 +39,7 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
-    trust: 'Proof, oracle-verified', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the seven circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
+    trust: 'Proof, oracle-verified', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the ten circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
   { name: 'Hybrid', icon: Layers, cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10',
@@ -86,6 +86,9 @@ const ZK_VERIFIED = [
   { name: 'VRF Dice Roll', what: 'Prove a dice roll is forced by Poseidon(secret, public seed) so no one can cherry-pick it. Provably fair games.' },
   { name: 'Nullifier Set', what: 'Prove a public nullifier and set anchor derive from one hidden secret. Double-spend prevention without revealing the note.' },
   { name: 'UTXO Note Proof', what: 'Prove knowledge of the Poseidon-committed UTXO note behind a public hash without revealing it. Note binding for covenants.' },
+  { name: 'Hash Preimage', what: 'Prove you know the MiMC7 preimage of a public commitment without revealing it. The classic hidden-witness HTLC-style primitive.' },
+  { name: 'Absolute Timelock', what: 'Prove current DAA score >= a threshold, with valid exposed as a public output. DAA-based covenant unlock.' },
+  { name: 'Relative Timelock', what: 'Prove enough DAA elapsed since a reference point (valid is a public output). Dispute periods, cooldowns, delayed reveals.' },
 ];
 
 export default function Readme() {
@@ -241,7 +244,7 @@ export default function Readme() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              These seven circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
+              These ten circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
               zero-knowledge as their proving keys ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev
               ceremony. High-value mainnet covenants warrant an independent multi-party ceremony first.
             </p>

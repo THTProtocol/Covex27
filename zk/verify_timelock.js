@@ -4,7 +4,11 @@ const snarkjs = require("snarkjs");
 const fs = require("fs");
 const path = require("path");
 
-const VKEY_PATH = path.join(__dirname, "timelock_absolute_vkey.json");
+// Served vkey is the single source of truth (deploy-refreshed). The zk/ root *_vkey.json are
+// gitignored -> never refreshed by deploy, so a stale root key silently rejects valid proofs
+// (the P0 oracle incident, a8918b8). The served vkey matches the served wasm+zkey the in-browser
+// prover uses, so a freshly recompiled circuit verifies end-to-end.
+const VKEY_PATH = path.join(__dirname, "../frontend/public/zk/timelock_absolute/timelock_absolute_vkey.json");
 
 async function main() {
     const proofFile = process.argv[2];

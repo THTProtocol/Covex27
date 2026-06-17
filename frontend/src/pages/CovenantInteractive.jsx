@@ -520,6 +520,7 @@ export default function CovenantInteractive() {
     const tier = ESC(cov.verified_tier || cov.tier || 'FREE');
     const verified = isVerified(cov);
     const addrs = ESC(cov.receiving_addresses || cov.address || '');
+    const feeRecipient = ESC(cov.fee_recipient || '');
     const ts = ESC(cov.timestamp ? new Date(cov.timestamp * 1000).toLocaleDateString() : 'recent');
 
     const heroImage = encodeURI(cfg.heroImageUrl || '');
@@ -594,7 +595,7 @@ export default function CovenantInteractive() {
           <div class="fact-card"><div class="fact-label">TXID</div><div class="fact-value mono" style="font-size:12px;">${tx}</div></div>
           <div class="fact-card"><div class="fact-label">Deployed</div><div class="fact-value">${ts}</div></div>
           ${addrs ? `<div class="fact-card"><div class="fact-label">Covenant / Pot Address</div><div class="fact-value mono" style="font-size:12px;">${addrs}</div></div>` : ''}
-          <div class="fact-card"><div class="fact-label">Platform Fee Treasury</div><div class="fact-value mono" style="font-size:12px;">${TREASURY || 'On-chain treasury'}</div></div>
+          ${feeRecipient ? `<div class="fact-card"><div class="fact-label">Fee Recipient</div><div class="fact-value mono" style="font-size:12px;">${feeRecipient}</div></div>` : ''}
           <div class="fact-card"><div class="fact-label">Creator Cut Address</div><div class="fact-value mono" style="font-size:12px;">${creator}</div></div>
         </div>
       </div>
@@ -1002,10 +1003,12 @@ export default function CovenantInteractive() {
                 <div className="text-gray-400">Covenant / Pot Address</div>
                 <div className="font-mono text-white break-all mt-0.5">{covenant.address || covenant.receiving_addresses || 'On-chain covenant address'}</div>
               </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <div className="text-gray-400">Platform Fee Treasury</div>
-                <div className="font-mono text-white break-all mt-0.5">{TREASURY}</div>
-              </div>
+              {covenant.fee_recipient ? (
+                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                  <div className="text-gray-400">Fee Recipient</div>
+                  <div className="font-mono text-white break-all mt-0.5">{covenant.fee_recipient}</div>
+                </div>
+              ) : null}
               <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
                 <div className="text-gray-400">Creator Address (fee cut / sustain)</div>
                 <div className="font-mono text-white break-all mt-0.5">{covenant.creator_addr || 'See covenant deployer'}</div>

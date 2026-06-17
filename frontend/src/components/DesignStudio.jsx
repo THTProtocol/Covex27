@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Palette, TerminalSquare, Check, Shuffle } from 'lucide-react';
-import { getPresets, presetToTheme, presetBackdrop, validateDesignCode, PALETTES, LAYOUTS, MOODS } from '../lib/designPresets';
+import { getPresets, presetToTheme, presetBackdrop, designCodeToTheme, validateDesignCode, PALETTES, LAYOUTS, MOODS } from '../lib/designPresets';
 
 /**
  * The covenant page design studio: a 240-preset visual gallery plus a code
@@ -47,7 +47,7 @@ export default function DesignStudio({ currentTheme, onApply }) {
     setCodeErrors([]);
     setCodeOk(true);
     setApplied(null);
-    onApply({ ...res, preset: 'custom-code' });
+    onApply(designCodeToTheme(res));
     setTimeout(() => setCodeOk(false), 2000);
   };
 

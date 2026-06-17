@@ -85,6 +85,31 @@ export function presetToTheme(p) {
   };
 }
 
+/**
+ * Turn a validated design-code object (accent/glow/base/layout/mood/background_image)
+ * into the SAME full theme shape the gallery produces, so a typed design previews
+ * and renders its real backdrop exactly like a premade preset. Missing color keys
+ * fall back to Kaspa defaults; the backdrop is synthesized from the same engine.
+ */
+export function designCodeToTheme(obj) {
+  const accent = obj.accent || '#49EACB';
+  const glow = obj.glow || accent;
+  const base = obj.base || '#05050A';
+  const mood = MOODS.find((m) => m.id === obj.mood) || MOODS[0];
+  const layout = LAYOUTS.find((l) => l.id === obj.layout) || LAYOUTS[0];
+  const theme = {
+    accent,
+    glow,
+    base,
+    preset: 'custom-code',
+    layout: layout.id,
+    mood: mood.id,
+    backdrop_css: presetBackdrop({ palette: { accent, glow, base }, mood }),
+  };
+  if (obj.background_image !== undefined) theme.background_image = obj.background_image;
+  return theme;
+}
+
 /** Validate a design-code JSON object typed in the terminal. Returns [ok, errorsOrTheme]. */
 export function validateDesignCode(obj) {
   const errors = [];

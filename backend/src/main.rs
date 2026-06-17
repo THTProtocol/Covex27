@@ -1684,11 +1684,11 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
 
     // ── ZK proofs & claims ──
     let zk: &[(&str, &str, &str, &str)] = &[
-        ("merkle-membership", "Merkle Membership", "on-chain", "Prove a leaf is in a committed Merkle root - genuine Groth16, the one end-to-end ZK circuit live today."),
+        ("merkle-membership", "Merkle Membership", "on-chain", "Prove a leaf is in a committed Merkle root - genuine Groth16, one of fourteen end-to-end ZK circuits live today (in-browser prover, verified fail-closed by the disclosed oracle)."),
         ("merkle-airdrop", "Merkle Airdrop Claim", "on-chain", "Eligible addresses prove membership to claim. No list revealed."),
         ("merkle-dao-vote", "Merkle DAO Vote", "oracle-attested", "Prove membership in a voter set to cast a private vote."),
-        ("range-proof", "Range Proof", "oracle-attested (in-browser prover pending)", "Prove a committed value lies in [min, max] without revealing it. Backend Groth16-verifies a supplied proof, but the in-browser generator is not yet working - the named oracle attests today."),
-        ("range-collateral", "Collateral Range Proof", "oracle-attested (in-browser prover pending)", "Prove collateral is within a healthy band privately. Shares the range_proof path, whose in-browser prover is not yet working - the named oracle attests today."),
+        ("range-proof", "Range Proof", "oracle-attested", "Prove a committed value lies in [min, max] without revealing it. A real Groth16 proof, generated in your browser and verified fail-closed by the disclosed Covex oracle. Solvency floors, bet limits, private thresholds."),
+        ("range-collateral", "Collateral Range Proof", "oracle-attested", "Prove collateral is within a healthy band privately, on the range_proof circuit, generated in your browser and verified fail-closed by the disclosed Covex oracle."),
         ("solvency-proof", "Solvency / Reserves Proof", "oracle-attested", "Prove reserves exceed a threshold without revealing the balance."),
         ("age-verification", "Age-Over-Threshold", "on-chain", "Prove age >= a threshold - a zero-knowledge KYC alternative."),
         ("hash-preimage", "Hash Preimage Knowledge", "on-chain", "Prove knowledge of a preimage of a committed hash."),

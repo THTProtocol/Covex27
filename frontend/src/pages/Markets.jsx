@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { signMarketResolve } from '../lib/ownership';
+import HonestLimits from '../components/HonestLimits';
 import {
   TrendingUp, ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
   ExternalLink, Layers, Check, Loader2, Coins,
@@ -252,7 +253,7 @@ function MarketDetail({ id }) {
         ) : (
           <>
             <div className="flex items-end justify-between mb-1"><span className="kicker">Total matched</span><span className="text-2xl font-black leading-none" style={{ background: 'linear-gradient(90deg,#49EACB,#E8AF34)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm">KAS</span></span></div>
-            <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">House fee pool ({feePct}%)</span><span className="text-amber-300">{(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS → treasury</span></div>
+            <div className="flex items-center justify-between text-[12px] mb-3"><span className="text-gray-400">{feePct > 0 ? `House fee pool (${feePct}%)` : 'House fee'}</span><span className="text-amber-300">{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
             <div className="grid sm:grid-cols-2 gap-3">
               {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => (
                 <div key={oc} className={`rounded-xl border p-3.5 text-[12px] hover-lift-premium transition-all ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/50' : 'border-white/10 bg-white/[0.02]'}`}
@@ -380,7 +381,7 @@ function MarketDetail({ id }) {
           <div className="flex items-center gap-2 text-emerald-300 font-semibold mb-1.5"><Trophy size={16} /> Resolved - {wonLabel} won</div>
           <p className="text-[12px] text-gray-300 leading-relaxed mb-3">
             The winning secret is revealed. Every funded leg can be claimed on-chain with the secret + the winner's key -
-            through any Kaspa node, no Covex required. Winners take the pool (minus 30% fee); losers reclaim 50%.
+            through any Kaspa node, no Covex required. Winners take the pool (minus {feePct}% fee); losers reclaim {rebatePct}%.
           </p>
           <button disabled={!!busy} onClick={doSettle}
             className="btn-shimmer py-2.5 px-5 rounded-xl font-bold text-sm bg-emerald-400 text-black disabled:opacity-40 disabled:cursor-not-allowed">

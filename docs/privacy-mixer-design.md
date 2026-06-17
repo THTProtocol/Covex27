@@ -1,6 +1,11 @@
-# Privacy Mixer — Architecture & Design (Covex27 / Kaspa)
+# Privacy Mixer - Architecture & Design (Covex27 / Kaspa)
 
-**Version:** M0 — June 2026  
+> **NOT OFFERED.** Covex does not operate or host a privacy mixer. The backend
+> mounts no `/api/mixer/*` route (legal/sanctions posture). These notes are kept
+> for design reference only and describe a covenant a user would build and operate
+> entirely themselves, carrying all responsibility. See `privacy-mixer-user-guide.md`.
+
+**Version:** M0, June 2026  
 **Circuit:** `privacy_mixer_v1.circom`  
 **Model:** Hybrid (Groth16 proof + oracle attestation fallback)
 

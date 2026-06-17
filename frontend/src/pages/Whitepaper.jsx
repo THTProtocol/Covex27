@@ -40,7 +40,7 @@ const SECTIONS = [
     body: [
       "Covex is explicit about what is trustless and what is not.",
       "Custody is fully trustless: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet.",
-      "Discovery and display are trustless in substance: every listed covenant is a real on-chain object; nothing is fabricated. The honesty gate on mainnet enforces this.",
+      "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
       "Resolution is currently oracle-assisted: four circuits (merkle_membership, escrow_2party, age_verification, range_proof) verify a real Groth16 proof fail-closed before the oracle co-signs; every other outcome is oracle-attested. In all cases the oracle's signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. This is the one trusted component today, and it is disclosed, not hidden.",
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
     ],

@@ -53,7 +53,7 @@ export default function LegalModal({ onAccept }) {
               <li>Covex <strong className="text-white">never stores or has access to your private keys</strong>. All signing and transaction authorization occurs exclusively within your own wallet application.</li>
               <li>It is <strong className="text-white">solely your responsibility</strong> to ensure any covenant you create, deploy, or interact with is legal in your jurisdiction.</li>
               <li>Covex provides <strong className="text-white">no legal, financial, or investment advice</strong>. We are a technology platform, not a law firm or financial advisor.</li>
-              <li>Covex has <strong className="text-white">no connection to predictive markets, gambling, or any illegal activity</strong>. We provide covenant indexing and UI generation tools only.</li>
+              <li>Some covenants, markets, and games you discover or generate through Covex <strong className="text-white">involve staking value</strong>. Covex provides software and interfaces only, and you are solely responsible for ensuring your use is legal in your jurisdiction.</li>
               <li>All payments occur <strong className="text-white">on-chain in KAS</strong>. After payment confirmation, users receive exactly the service promised: account upgrade, interactive UI generation, and visibility boost.</li>
               <li>Payments are <strong className="text-white">non-refundable</strong> once confirmed on the Kaspa network.</li>
               <li>Covex provides <strong className="text-white">no warranty of any kind</strong>. BlockDAG data may be subject to reorgs, latency, or incomplete propagation.</li>

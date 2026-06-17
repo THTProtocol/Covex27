@@ -3957,7 +3957,7 @@ ${gameMeta.outcomeBranches}
               : gameType === 'merkle_membership'
               ? 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by the Covex Oracle using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The signature is then used to unlock the covenant on-chain.'
               : gameType === 'age_verification'
-              ? 'Paste a proof for the Age Verification circuit. Proves a birthdate meets an age threshold without revealing exact date. Oracle-attested - no client-side generator yet (ceremony pending). Submit any valid JSON + public inputs for oracle signing.'
+              ? 'Generate (or paste) a Groth16 proof for the Age Verification circuit. The MiMC7 birth-year commitment is computed locally and the proof is generated in-browser over the served wasm/zkey artifacts, so your birth year never leaves the device. Proves a birthdate meets an age threshold without revealing the exact date. The Covex Oracle verifies the proof off-chain (snarkjs + vkey) and signs the outcome.'
               : gameType === 'verifiable'
               ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Oracle-attested - no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for oracle signing.'
               : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Oracle-attested - no client-side generator. Submit any valid JSON + public inputs for oracle signing.'}
@@ -3970,9 +3970,8 @@ ${gameMeta.outcomeBranches}
               <p className="font-semibold mb-1">Technical Reality</p>
               <p>
                 The proof is verified off-chain by calling <code className="text-amber-300 bg-amber-500/10 px-1 rounded">POST /api/oracle/verify-and-sign</code>.
-                The oracle signature is a SHA256-based attestation (not yet a Schnorr signature usable in OpCheckSig).
+                The oracle signature is a real BIP340 Schnorr signature over secp256k1 (scheme <code className="text-amber-300 bg-amber-500/10 px-1 rounded">bip340-schnorr-secp256k1</code> from <code className="text-amber-300 bg-amber-500/10 px-1 rounded">/api/oracle/pubkey</code>), verifiable against the published x-only public key and checkable on-chain via OpCheckSig at Toccata.
                 The covenant unlock path still requires manual construction of the unlock transaction with the oracle signature as witness data.
-                On-chain verification of oracle signatures is planned for a future silverc operator release.
               </p>
             </div>
           </div>

@@ -1007,6 +1007,16 @@ fn resolve_signing_key(
     if (network == "mainnet" || network == "mainnet-1") && use_dev_mode {
         return Err("dev mode is disabled on mainnet; sign with a real wallet".into());
     }
+    // NON-CUSTODIAL KEYSTONE (security): the server must NEVER accept a raw MAINNET private key.
+    // Mainnet signing is non-custodial only: the key signs the sighash in the browser via the
+    // prepare/submit flow. Accepting a raw mainnet key here would be the backend half of a custody
+    // breach (the advertised "your key never leaves your device" guarantee). Refuse it; testnet
+    // dev/demo flows are unaffected.
+    if (network == "mainnet" || network == "mainnet-1") && !use_dev_mode && !private_key_hex.trim().is_empty() {
+        return Err(
+            "mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into(),
+        );
+    }
     let (hexkey, address) = if use_dev_mode {
         // Dev-deployer keys come from the environment (never source); `?` surfaces a
         // clear error if the env var is missing.

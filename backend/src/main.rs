@@ -33,7 +33,6 @@ mod db;
 mod dev_wallets;
 mod indexer;
 mod kaspa_msg;
-mod mixer;
 mod node_status;
 mod poker;
 // oracle.rs keeps a library of per-circuit verify_* helpers; some are intentionally
@@ -415,7 +414,9 @@ async fn main() {
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
-        .merge(mixer::mixer_routes().layer(Extension(db.clone())))
+        // Covex offers NO first-party mixer (legal/sanctions posture). The /mixer routes are
+        // removed; Covex remains a neutral explorer, so a user-created mixer-style covenant can
+        // still be DISPLAYED like any covenant, with the creator carrying all liability.
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))
         .merge(covenant_builder::p2sh_routes().layer(Extension(db.clone())))
         .merge(covenant_catalog::catalog_routes())
@@ -583,7 +584,6 @@ async fn rate_limit_middleware(
         path,
         "/compile" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
     ) || path.starts_with("/oracle/")
-        || path.starts_with("/mixer/")
         || (req.method() == axum::http::Method::POST && path.starts_with("/covenant/"));
     if !expensive {
         return next.run(req).await;
@@ -1697,7 +1697,6 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("private-balance", "Private Balance Commitment", "oracle-attested", "Commit + prove balance properties (Pedersen) for private DeFi."),
         ("acl-zk", "ZK Access List", "oracle-attested", "Prove membership in an access-control list privately."),
         ("private-prediction", "Private Prediction Position", "oracle-attested", "Hidden market position + ZK payout eligibility."),
-        ("mixer", "Privacy Mixer Note", "oracle-attested", "Deposit + withdraw with a ZK nullifier note for unlinkable transfers."),
     ];
     for (id, name, reality, desc) in zk {
         out.push(tmpl(format!("zk-{id}"), name.to_string(), "ZK Proofs & Claims", reality, desc.to_string(), "zk"));

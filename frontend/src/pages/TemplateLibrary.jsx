@@ -318,8 +318,8 @@ export default function TemplateLibrary() {
         const hrefFor = (t) => {
           // Genuine on-chain primitives → the free enforced-deploy builder.
           if (ENFORCED_KINDS.includes(t.kind)) return `/deploy/enforced?kind=${t.kind}`;
-          // Games → the live arena explorer (where you stake & play).
-          if (t.kind === 'game' || t.category === 'Games') return '/explorer';
+          // Games → the live arena explorer (where you stake & play), which is the home route.
+          if (t.kind === 'game' || t.category === 'Games') return '/';
           // ZK proofs, oracle markets and advanced patterns → the sandbox with the
           // matching circuit preloaded (real build destination, no more dead-end).
           const p = new URLSearchParams({ circuit: t.id || '', kind: t.kind || '', name: t.name || '' });

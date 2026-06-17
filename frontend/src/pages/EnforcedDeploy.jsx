@@ -24,6 +24,11 @@ const KINDS = [
   { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the house fee and rebate.' },
 ];
 
+// Single-signer primitives that deploy fully non-custodially (the key signs the funding tx in
+// the browser) and are therefore mainnet-capable, gated only by the Toccata hard fork. Kept in
+// sync with the mainnet banner copy and the per-tile "Mainnet-ready" chip.
+const MAINNET_CAPABLE_KINDS = ['singlesig', 'hashlock', 'timelock', 'relative_timelock'];
+
 function randomSecretHex() {
   const b = new Uint8Array(24);
   (window.crypto || window.msCrypto).getRandomValues(b);
@@ -486,7 +491,7 @@ export default function EnforcedDeploy() {
       {isMainnet && (
         <div className="relative z-10 glass-panel p-4 border-amber-500/30 bg-amber-500/[0.05]">
           <p className="text-sm text-amber-200">
-            You are on mainnet. Single-key, hashlock, and timelock covenants deploy non-custodially here:
+            You are on mainnet. Single-key, hashlock, timelock, and relative-timelock (CSV) covenants deploy non-custodially here:
             connect the key that holds the funds and it signs the funding transaction in your browser - the key is never sent.
             Mainnet covenants activate at the Toccata hard fork, so the deploy stays gated until then.
           </p>
@@ -498,6 +503,12 @@ export default function EnforcedDeploy() {
         {KINDS.map((k) => {
           const Icon = k.icon;
           const active = kind === k.id;
+          // Honest deploy-reality chip: DEV_WALLET_KINDS deploy via server-assisted testnet
+          // dev wallets (not a non-custodial mainnet deploy), so flag them so a mainnet user
+          // is not led into a dead-end. The single-signer primitives are non-custodial and
+          // mainnet-capable; market is a hybrid creation flow.
+          const isDevWalletKind = DEV_WALLET_KINDS.includes(k.id);
+          const isMainnetCapable = MAINNET_CAPABLE_KINDS.includes(k.id);
           return (
             <button
               key={k.id}
@@ -516,13 +527,30 @@ export default function EnforcedDeploy() {
                   style={{ background: 'linear-gradient(90deg, transparent, #49EACB, transparent)' }}
                 />
               )}
-              <span
-                className={`grid place-items-center h-9 w-9 rounded-lg border transition-colors ${
-                  active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20'
-                }`}
-              >
-                <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300'} />
-              </span>
+              <div className="flex items-start justify-between gap-2">
+                <span
+                  className={`grid place-items-center h-9 w-9 rounded-lg border transition-colors shrink-0 ${
+                    active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20'
+                  }`}
+                >
+                  <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300'} />
+                </span>
+                {isDevWalletKind ? (
+                  <span
+                    title="Deploys via server-assisted testnet dev wallets, not a non-custodial mainnet deploy. Honest demo of the primitive."
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[9px] font-bold uppercase tracking-wider"
+                  >
+                    <span className="h-1 w-1 rounded-full bg-amber-400" aria-hidden="true" /> Testnet demo
+                  </span>
+                ) : isMainnetCapable ? (
+                  <span
+                    title="Non-custodial: your key signs the funding transaction in your browser. Deployable on mainnet (gated until the Toccata hard fork)."
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[9px] font-bold uppercase tracking-wider"
+                  >
+                    <span className="h-1 w-1 rounded-full bg-emerald-400" aria-hidden="true" /> Mainnet-ready
+                  </span>
+                ) : null}
+              </div>
               <div className="mt-2.5 text-sm font-semibold text-white">{k.label}</div>
               <div className="mt-1 text-[11px] text-gray-400 leading-snug">{k.blurb}</div>
             </button>

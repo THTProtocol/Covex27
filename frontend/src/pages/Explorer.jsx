@@ -396,6 +396,16 @@ export default function Explorer() {
             <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
             Build a Covenant
           </Link>
+          {/* Secondary hero CTA: the consensus-enforced primitives (hashlock, timelocks, HTLC,
+              channel, dead-man, multisig) are the strongest honest claim, so put the on-chain
+              builder one click from home. Emerald = on-chain enforcement reality. */}
+          <Link
+            to="/deploy/enforced"
+            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-300 font-bold text-sm hover:border-emerald-400/60 hover:bg-emerald-500/[0.12] hover:text-emerald-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+          >
+            <ShieldCheck size={16} className="transition-transform duration-300 group-hover:scale-110" />
+            Deploy on-chain enforced
+          </Link>
           <Link
             to="/readme"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/[0.03] text-white/90 font-semibold text-sm hover:border-kaspa-green/40 hover:bg-white/[0.06] hover:text-white transition-all duration-300"

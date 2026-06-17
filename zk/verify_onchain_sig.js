@@ -32,7 +32,10 @@ async function main() {
             return;
         }
     }
-    // Attested/hybrid fallback (consistent with pluggable Attested + Hybrid paths)
-    console.log(JSON.stringify({ valid: true, note: "onchain_sig stub: attested success (no full vkey or no Groth body)" }));
+    // SECURITY (C1 hygiene): NO real vkey + Groth16 body means this is NOT a
+    // cryptographic verification. Fail closed (mirror verify_attested.js) so the
+    // oracle can never mint a signature off this script without a real proof that
+    // actually verifies. A truthy verdict is returned ONLY by snarkjs.groth16.verify above.
+    console.log(JSON.stringify({ valid: false, error: "onchain_sig stub: no full Groth16 vkey/proof present; not a cryptographic verifier" }));
 }
 main().catch(e => { console.log(JSON.stringify({valid:false,error:e.message})); process.exit(1); });

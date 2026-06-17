@@ -283,6 +283,9 @@ function MarketDetail({ id }) {
         </p>
       </div>
 
+      {/* Always-visible honest limits for the prediction-market covenant kind (no click). */}
+      <HonestLimits covenant={{ enforcement_reality: 'on-chain', covenant_type: 'prediction-market' }} kind="market" />
+
       {/* Place a bet */}
       {!resolved && (
         <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">

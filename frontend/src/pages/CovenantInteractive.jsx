@@ -32,7 +32,7 @@ const GAME_REGISTRY = {
 };
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2 } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
@@ -1038,12 +1038,45 @@ export default function CovenantInteractive() {
             </div>
           )}
 
+          {/* Reorg honesty banner: a covenant whose funding tx left the selected chain before
+              finality is hidden from the explorer; anyone reaching it by direct link must be
+              told the truth rather than shown a "live" page. */}
+          {covenant && covenant.reorged && (
+            <div className="mb-6 px-5 py-4 rounded-xl bg-amber-500/[0.07] border border-amber-500/30 flex items-start gap-3">
+              <Clock size={20} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-300 light:text-amber-600">FUNDING TX REORGANIZED OUT</p>
+                <p className="text-xs text-amber-300/70 light:text-amber-600/80">
+                  This covenant's funding transaction was reorganized out of the selected chain before reaching finality and is not currently confirmed. It is hidden from the explorer and will reappear automatically if the chain re-includes it.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Lifecycle timeline + resolution trust: always visible, never hideable */}
           {covenant && (
             <div className="mb-6 glass-panel rounded-xl p-4 border border-white/[0.06]">
               <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Covenant Lifecycle</p>
-                <TrustBadge covenant={covenant} size="md" />
+                <div className="flex items-center gap-2">
+                  {/* Honest finality chip from the backend (derived against the live node tip). */}
+                  {covenant.finality === 'final' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 light:text-emerald-600" title="Buried past the finality depth: consensus-irreversible.">
+                      <BadgeCheck size={11} />Final
+                    </span>
+                  )}
+                  {covenant.finality === 'confirming' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 light:text-amber-600" title="On-chain and confirming. Reversible until the finality depth.">
+                      <Clock size={11} />Confirming{covenant.finality_eta_secs ? ` · ~${Math.max(1, Math.round(covenant.finality_eta_secs / 60))}m` : ''}
+                    </span>
+                  )}
+                  {covenant.finality === 'pending' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-white/[0.05] border border-white/15 text-gray-300 light:text-slate-500" title="Funding tx seen but no on-chain confirmation depth yet.">
+                      <Clock size={11} />Pending
+                    </span>
+                  )}
+                  <TrustBadge covenant={covenant} size="md" />
+                </div>
               </div>
               {/* All four stages flex to fit at any width: no horizontal slider. Stages are
                   equal-width flex-1 columns (text wraps) with thin connectors between them. */}

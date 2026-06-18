@@ -750,6 +750,11 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
   const timestamp = c.timestamp ? new Date(c.timestamp * 1000).toLocaleDateString() : (c.block_daa_score ? `DAA ${blockDAA.toLocaleString()}` : 'Unknown');
   const statusColor = isActive ? 'text-emerald-400' : 'text-gray-500';
   const statusLabel = isActive ? 'ACTIVE' : 'SETTLED';
+  // Honest finality signal from the backend (derived against the live node tip). Only the
+  // not-yet-final states get a chip; "final" is the boring default and stays uncluttered.
+  const finality = (c.finality || '').toLowerCase();
+  const finEtaMin = c.finality_eta_secs ? Math.max(1, Math.round(c.finality_eta_secs / 60)) : null;
+  const showFinalityChip = finality === 'confirming' || finality === 'pending';
 
   let paidMetadata = null;
   try {
@@ -885,8 +890,8 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           <TrustBadge covenant={c} size="sm" />
         </div>
 
-        {/* Game preview + Custom UI badges */}
-        {(gameType || customUI) && (
+        {/* Game preview + Custom UI + finality badges */}
+        {(gameType || customUI || showFinalityChip) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {gameType && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider">
@@ -896,6 +901,19 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             {customUI && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
                 <Sparkles size={9} />Custom UI
+              </span>
+            )}
+            {showFinalityChip && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 light:text-amber-600"
+                title={finality === 'pending'
+                  ? 'Funding tx seen but not yet confirmed on-chain'
+                  : 'On-chain and confirming. Not yet consensus-final (reversible until the finality depth).'}
+              >
+                <Clock size={9} />
+                {finality === 'pending'
+                  ? 'Pending'
+                  : finEtaMin ? `Confirming · ~${finEtaMin}m` : 'Confirming'}
               </span>
             )}
           </div>

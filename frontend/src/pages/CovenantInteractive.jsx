@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
@@ -1017,7 +1017,9 @@ export default function CovenantInteractive() {
                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Covenant Lifecycle</p>
                 <TrustBadge covenant={covenant} size="md" />
               </div>
-              <div className="flex items-center gap-0 overflow-x-auto">
+              {/* All four stages flex to fit at any width: no horizontal slider. Stages are
+                  equal-width flex-1 columns (text wraps) with thin connectors between them. */}
+              <div className="flex items-start gap-0">
                 {[
                   { label: 'Deployed', done: true, sub: covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleDateString() : `DAA ${covenant.block_daa_score || 0}` },
                   { label: 'Indexed', done: true, sub: covenant.network },
@@ -1026,18 +1028,18 @@ export default function CovenantInteractive() {
                     ? { label: 'Settled', done: true, sub: covenant.spent_tx_id ? 'spent on-chain' : 'pot distributed' }
                     : { label: 'Active', done: true, sub: `${covenant.amount_kaspa || 0} KAS locked` },
                 ].map((st, i, arr) => (
-                  <div key={st.label} className="flex items-center shrink-0">
-                    <div className="flex flex-col items-center text-center px-1">
-                      <div className={`w-3 h-3 rounded-full mb-1.5 ${st.done ? 'bg-kaspa-green shadow-[0_0_8px_rgba(73,234,203,0.6)]' : 'bg-white/15 border border-white/20'}`} />
-                      <span className={`text-[11px] font-semibold ${st.done ? 'text-white' : 'text-gray-500'}`}>{st.label}</span>
-                      <span className="text-[9px] text-gray-500 font-mono">{st.sub}</span>
+                  <Fragment key={st.label}>
+                    <div className="flex flex-col items-center text-center flex-1 min-w-0 px-0.5">
+                      <div className={`w-3 h-3 rounded-full mb-1.5 shrink-0 ${st.done ? 'bg-kaspa-green shadow-[0_0_8px_rgba(73,234,203,0.6)]' : 'bg-white/15 border border-white/20 light:bg-slate-200 light:border-slate-300'}`} />
+                      <span className={`text-[11px] font-semibold leading-tight ${st.done ? 'text-white light:text-slate-900' : 'text-gray-500 light:text-slate-400'}`}>{st.label}</span>
+                      <span className="text-[9px] text-gray-500 light:text-slate-400 font-mono leading-tight break-words mt-0.5">{st.sub}</span>
                     </div>
                     {i < arr.length - 1 && (
-                      <div className={`relative h-px w-10 sm:w-16 mx-1 mb-7 overflow-hidden ${st.done ? 'bg-kaspa-green/15' : 'bg-white/10'}`}>
+                      <div className={`relative h-px flex-none w-3 sm:w-10 mt-1.5 overflow-hidden ${st.done ? 'bg-kaspa-green/15' : 'bg-white/10'}`}>
                         {st.done && <div className="absolute inset-y-0 left-0 bg-kaspa-green/60 timeline-fill" style={{ animationDelay: `${i * 180}ms` }} />}
                       </div>
                     )}
-                  </div>
+                  </Fragment>
                 ))}
               </div>
               <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono">

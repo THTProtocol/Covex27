@@ -14,10 +14,13 @@ const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, tra
 // to reveal the rest, so the page reads cleanly at first glance instead of a long flat list.
 // Selecting a card drives the whole sandbox live (banner + preview + builder follow).
 
+// ZK realities are presented as oracle-attested (Kaspa has no on-chain pairing verifier, so a proof
+// is never checked on-chain). 'full-zk'/'hybrid' therefore use the oracle styling + label and never
+// render a standalone green "ZK" badge.
 const REALITY_META = {
-  'full-zk': { short: 'ZK', accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
+  'full-zk': { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'on-chain': { short: 'On-chain', accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
-  hybrid: { short: 'Hybrid', accent: '#60a5fa', text: 'text-blue-300', bg: 'bg-blue-500/12', border: 'border-blue-500/35' },
+  hybrid: { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'oracle-attested': { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   decorative: { short: 'Meta', accent: '#9ca3af', text: 'text-gray-300', bg: 'bg-white/[0.06]', border: 'border-white/15' },
 };
@@ -77,7 +80,7 @@ function CircuitCard({ c, active, onSelect, onInspect }) {
         title="How is this verified? Press to inspect the source"
         className={`absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border transition hover:brightness-125 z-10 ${m.bg} ${m.text} ${m.border}`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${c.reality === 'full-zk' ? 'zk-live-glow' : ''}`} style={{ background: m.accent }} /> {m.short} <Info size={9} className="opacity-60" />
+        <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.accent }} /> {m.short} <Info size={9} className="opacity-60" />
       </button>
       {active && <Check size={13} className="text-kaspa-green absolute bottom-2.5 right-2.5" />}
     </div>

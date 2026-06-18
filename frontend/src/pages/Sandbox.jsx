@@ -14,10 +14,12 @@ import CovenantAssistant from '../components/CovenantAssistant';
 const REALITY = {
   'on-chain': { label: 'On-chain enforced', cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10', Icon: ShieldCheck,
     note: 'Consensus-enforced by the Kaspa P2SH commitment. The chain itself guarantees the rules.' },
-  'full-zk': { label: 'Zero-knowledge', cls: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10', Icon: ShieldCheck,
-    note: 'A real Groth16 proof is required and verified fail-closed by the disclosed Covex oracle, which gates the consensus-required co-signature. The proof cannot be faked; the oracle is the trusted verifier (Kaspa has no on-chain pairing verifier yet).' },
-  'hybrid': { label: 'Hybrid', cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10', Icon: Cpu,
-    note: 'A ZK property proof plus an oracle attestation. Part of the logic is on-chain, part attested.' },
+  // Every ZK reality is collapsed to oracle-attested. These two branches are defensive: even if a
+  // raw full-zk/hybrid reality ever reached this page, it renders honestly (off-chain oracle verify).
+  'full-zk': { label: 'Oracle-attested', cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10', Icon: Radio,
+    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by the disclosed Covex oracle, which gates the consensus-required co-signature. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the oracle Schnorr co-signature is.' },
+  'hybrid': { label: 'Oracle-attested', cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10', Icon: Radio,
+    note: 'A ZK property proof verified off-chain by the disclosed Covex oracle, which co-signs the outcome. Trust is in the named oracle; the only on-chain check is its Schnorr co-signature.' },
   'oracle-attested': { label: 'Oracle-attested', cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10', Icon: Radio,
     note: 'Resolved by a signed oracle attestation of an off-chain outcome. Trust is in the named oracle, on-chain payout.' },
 };
@@ -166,11 +168,6 @@ export default function Sandbox() {
                   <span className="text-xs uppercase tracking-widest text-gray-400">Selected</span>
                   <span className="text-white font-semibold">{tplName || circuit.name}</span>
                   <div className="ml-auto flex items-center gap-2 flex-wrap">
-                    {circuit.reality === 'full-zk' && (
-                      <span className="zk-live-glow inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/40 tracking-wide">
-                        <Sparkles size={11} /> LIVE GROTH16
-                      </span>
-                    )}
                     {reality && (
                       <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${reality.cls}`}>
                         <reality.Icon size={12} /> {reality.label}

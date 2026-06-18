@@ -53,20 +53,21 @@ export default function Privacy() {
           </p>
         </section>
 
-        {/* 3. IP address: geographic restriction + rate limiting */}
+        {/* 3. IP address: rate limiting only */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">3. IP Address (Geographic Restriction and Rate Limiting)</h2>
+          <h2 className="text-base font-semibold text-white">3. IP Address (Rate Limiting)</h2>
           <p>
             Like any web service, our servers receive the IP address of incoming requests. Our reverse
             proxy records the connecting IP address (as <span className="font-mono text-gray-200">X-Real-IP</span>)
-            and the Platform uses it only for the following operational, security, and compliance
-            purposes:
+            and the Platform uses it only for the following operational and security purpose:
           </p>
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200">
             <li>Abuse prevention and rate limiting: an in-memory, per-IP token bucket throttles expensive endpoints (such as compile, sign-and-broadcast, and oracle routes) so one source cannot overload the service. This counter is held in server memory, is transient, and is not written to a database or long-term log.</li>
-            <li>Geographic restriction: where the Platform restricts or blocks access from jurisdictions in which use is prohibited or sanctioned, that determination is keyed on the same connecting IP address.</li>
           </ul>
           <p>
+            The Platform does <strong className="text-white">not</strong> perform IP-based geoblocking or sanctions
+            screening, and does not use your IP address to determine eligibility; eligibility is governed by your
+            own representations in the <Link to="/terms" className="text-kaspa-green hover:underline">Terms</Link>.
             We do not use your IP address to track you across sites, build an advertising profile, or
             identify you personally, and we do not sell it. We deliberately key rate limiting on the
             proxy-set source address and ignore client-supplied forwarding headers, so we are not relying
@@ -193,9 +194,9 @@ export default function Privacy() {
       <div className="glass-panel p-6 text-xs text-gray-200 text-center">
         <p>
           No accounts, no personal information, no tracking cookies. Covex processes your IP address only
-          for rate limiting and geographic restriction, indexes public on-chain wallet addresses, and
-          stores the display configs, generated UIs, and public game state you choose to publish. Your
-          keys stay in your wallet.
+          for per-IP rate limiting (no geoblocking or sanctions screening), indexes public on-chain wallet
+          addresses, and stores the display configs, generated UIs, and public game state you choose to
+          publish. Your keys stay in your wallet.
         </p>
       </div>
     </div>

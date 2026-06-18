@@ -6,16 +6,16 @@ const SECTIONS = [
   {
     id: 'abstract', n: 'Abstract',
     body: [
-      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs, with on-chain zero-knowledge verification. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
-      "This paper describes the problem, the design, the trust model, and the path from oracle-assisted resolution today to fully on-chain proof verification under KIP-16.",
+      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by a disclosed oracle and the oracle's Schnorr co-signature is what the chain checks at unlock. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
+      "This paper describes the problem, the design, the trust model, and the honest mainnet guarantee today: on-chain Schnorr verification of the disclosed oracle co-signature, with ZK proofs verified off-chain by that oracle.",
     ],
   },
   {
     id: 'background', n: '1 · Background: covenants on Kaspa',
     body: [
       "Kaspa is a proof-of-work BlockDAG using the GHOSTDAG / DAGKNIGHT ordering protocol. Since the Crescendo hard fork (mainnet, ~May 2025) it produces 10 blocks per second while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped KIP-10 transaction-introspection opcodes, the first step toward covenants.",
-      "The Toccata hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet in 2026 (the June 2026 window, no confirmed calendar day), it bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (zero-knowledge verification opcodes with Groth16 and RISC Zero STARK precompiles for on-chain proof checking), and KIP-21 (partitioned sequencing commitments enabling based ZK applications).",
-      "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. It is currently experimental and live on the Toccata testnets (Testnet-12 and Testnet-10); mainnet validity arrives with Toccata in the 2026 activation window. Covex builds directly on this stack.",
+      "The Toccata hard fork completes the covenant story. It is scheduled to activate on Kaspa mainnet on 30 June 2026, and bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (a proposed zero-knowledge verification opcode set), and KIP-21 (partitioned sequencing commitments). Covex does not rely on any on-chain proof-verification precompile: the achievable mainnet guarantee is on-chain Schnorr verification of the disclosed oracle co-signature, with any ZK proof verified off-chain by that oracle.",
+      "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. Covex builds directly on this stack and is mainnet-ready for the 30 June 2026 Toccata launch, with real funds.",
     ],
   },
   {
@@ -41,14 +41,14 @@ const SECTIONS = [
       "Covex is explicit about what is trustless and what is not.",
       "Custody is fully trustless: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet.",
       "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
-      "Resolution is currently oracle-assisted: four circuits (merkle_membership, escrow_2party, age_verification, range_proof) verify a real Groth16 proof fail-closed before the oracle co-signs; every other outcome is oracle-attested. In all cases the oracle's signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. This is the one trusted component today, and it is disclosed, not hidden.",
+      "Resolution is oracle-attested: four circuits (merkle_membership, escrow_2party, age_verification, range_proof) verify a real Groth16 proof fail-closed OFF-CHAIN before the oracle co-signs; every other outcome is attested by the oracle without a proof. The proof is never verified on-chain (Kaspa has no on-chain pairing verifier); only the oracle's BIP340 co-signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.",
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
     ],
   },
   {
     id: 'roadmap', n: '5 · Roadmap to trustlessness',
     body: [
-      "Toccata's KIP-16 lets covenants verify proofs on-chain. Covex's resolution layer is built to migrate onto it: the circuits that verify fail-closed today (merkle_membership, escrow_2party, age_verification, range_proof) move first to on-chain Groth16 verification, and the other compiled circuits (timelock, pot-split, VRF) follow as their proving keys and an MPC ceremony ship; game logic moves to RISC Zero STARK guests, which need no trusted setup.",
+      "If a future KIP-16 ships an on-chain proof-verification opcode, Covex's resolution layer is built to migrate onto it: the circuits that verify off-chain fail-closed today (merkle_membership, escrow_2party, age_verification, range_proof) would move first to on-chain Groth16 verification, and the other compiled circuits (timelock, pot-split, VRF) would follow as their proving keys and a real multi-party ceremony ship. Until then, and at the 30 June 2026 mainnet launch, there is no on-chain proof verification: proofs are verified off-chain by the disclosed oracle and only its Schnorr co-signature is checked on-chain.",
       "As that migration completes, the oracle's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
       "Beyond resolution: multi-oracle threshold signing for whatever remains attested, a real MPC ceremony or STARK paths to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.",
     ],

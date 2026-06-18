@@ -25,10 +25,10 @@
 
 ---
 
-> **Status (2026-06-16):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet in **2026** (the June 2026 window, no confirmed calendar day). Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands - no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs against the live consensus transaction-script engine before any value moves.
+> **Status (2026-06-18):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches mainnet with real funds. Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands - no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs **off-chain** before any value moves. Kaspa has no on-chain pairing verifier, so the only thing checked on-chain at unlock is the disclosed oracle's Schnorr co-signature.
 
 **What's new (2026-06-16)**
-- **Real zero-knowledge you can run in your own browser** - all three verified full-ZK circuits (`merkle_membership`, `escrow_2party`, and `age_verification`) now generate a real Groth16 proof **client-side** (snarkjs over served artifacts; age computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser), which the backend verifies fail-closed before the oracle co-signs the 2-of-2 the chain requires. Every other catalog circuit stays honestly labelled oracle-attested until its key ships - the setup is a dev ceremony, not yet a production MPC.
+- **Real zero-knowledge you can run in your own browser** - the verified circuits (`merkle_membership`, `escrow_2party`, and `age_verification`) now generate a real Groth16 proof **client-side** (snarkjs over served artifacts; age computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser), which the backend verifies fail-closed **off-chain** before the oracle co-signs the 2-of-2 the chain requires. This is oracle-attested, not on-chain ZK: Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain and only the oracle's Schnorr co-signature is. Every other catalog circuit stays honestly labelled oracle-attested until its key ships - the trusted setup is a single-contributor dev ceremony, not a production MPC.
 - **Unified Sandbox** - one window where a free, searchable circuit library drives a live preview (enforcement reality, resolution flow, an accurate dual-reality payout simulator, and the actual SilverScript) and the builder, then deploys it non-custodially. See **[How it Works](https://hightable.pro/readme)** for the full, factual blueprint.
 - **Trustless in-app wallet generation** - new users can generate a fresh Kaspa wallet in the browser (24-word phrase, fund it from any exchange) and use it non-custodially. The private key is generated client-side and **never transmitted to the server**.
 
@@ -255,9 +255,9 @@ timeline
     section Testnet era
         2025 to 2026 : SilverScript covenants live on Testnet-12 and Testnet-10 (both Toccata) : Covex ships explorer, studio, arenas, oracle : 13,000+ covenants indexed across TN12 and TN10
     section Toccata
-        2026 window : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex mainnet indexer armed behind the honesty gate
-    section Trustless era
-        After activation : Mainnet covenants indexed from the first one : resolutions migrate to on-chain Groth16 and STARK verification : multi-oracle threshold signing, KCC-20 indexing, pay-per-call API
+        30 June 2026 : Toccata mainnet activation : KIP-16, KIP-17, KIP-20, KIP-21 : Covex launches mainnet with real funds, indexer live
+    section Roadmap
+        After launch : Mainnet covenants indexed from the first one : resolution stays oracle-attested off-chain (no on-chain pairing verifier) : multi-oracle threshold signing, optional on-chain verification if a future KIP-16 ships it, KCC-20 indexing, pay-per-call API
 ```
 
 The full phased plan lives in [docs/COVEX_MASTER_BUILD_PLAN.md](docs/COVEX_MASTER_BUILD_PLAN.md).
@@ -269,7 +269,7 @@ The full phased plan lives in [docs/COVEX_MASTER_BUILD_PLAN.md](docs/COVEX_MASTE
 
 ### Covex: A Covenant Explorer and Studio for Kaspa Mainnet
 
-**Abstract.** Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable L1: native, stateful, multi-transaction programs over UTXOs, with on-chain zero-knowledge verification. The missing layer is human: a place to *see* every covenant, *interact* with any of them safely, and *create* them without writing raw script. Covex is that layer. This paper describes the problem, the design, the trust model, and the path from oracle-assisted resolution today to fully on-chain proof verification under KIP-16.
+**Abstract.** Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable L1: native, stateful, multi-transaction programs over UTXOs. Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified *off-chain* by a disclosed oracle and the oracle's *Schnorr* co-signature is what the chain checks at unlock. The missing layer is human: a place to *see* every covenant, *interact* with any of them safely, and *create* them without writing raw script. Covex is that layer. This paper describes the problem, the design, the trust model, and the honest mainnet guarantee today: on-chain Schnorr verification of the disclosed oracle co-signature, with ZK proofs verified off-chain by that oracle.
 
 #### 7.1 Background: covenants on Kaspa
 
@@ -279,10 +279,10 @@ The **Toccata** hard fork completes the covenant story. Scheduled to activate on
 
 - **KIP-17**: extended script-engine opcodes, the covenant backbone.
 - **KIP-20**: covenant IDs, stable identity and lineage across a covenant's spends.
-- **KIP-16**: zero-knowledge verification opcodes with precompiles (Groth16 and RISC Zero STARK verifiers) for on-chain proof checking.
+- **KIP-16**: a *proposed* zero-knowledge verification opcode set. There is no on-chain pairing verifier on Kaspa today, so Covex does not rely on any on-chain proof-checking precompile. The achievable mainnet guarantee is on-chain **Schnorr** verification of the disclosed oracle co-signature; ZK proofs are verified **off-chain** by that oracle.
 - **KIP-21**: partitioned sequencing commitments, enabling "based" ZK applications whose proving cost scales only with their own activity.
 
-**SilverScript**, a CashScript-inspired language and compiler, lets developers author covenants and compile them to Kaspa script. It is currently experimental and valid on the Toccata testnets (**Testnet-12** and **Testnet-10**); mainnet validity arrives with Toccata in the 2026 activation window. Covex builds directly on this stack.
+**SilverScript**, a CashScript-inspired language and compiler, lets developers author covenants and compile them to Kaspa script. It was proven on the Toccata testnets (**Testnet-12** and **Testnet-10**); mainnet validity arrives with the Toccata activation on **30 June 2026**, when Covex launches mainnet with real funds. Covex builds directly on this stack.
 
 #### 7.2 Problem
 
@@ -312,7 +312,7 @@ flowchart LR
     ZK --> SIG["Oracle signs the result"]
     AT --> SIG
     SIG --> CHAIN["Signature checked on-chain at unlock"]
-    CHAIN -.-> FUT["Toccata KIP-16: verification<br/>moves fully on-chain"]
+    CHAIN -.-> FUT["If a future KIP-16 ships an<br/>on-chain verifier: optional migration"]
 ```
 
 The north star is **trustless-by-removal**, measured by one acid test: *if hightable.pro vanished tomorrow, could every user still recover or settle their funds using only their own wallet and the published script?* Where the answer is yes, the feature is simultaneously launch-safe (nothing to steal), legally defensible (a tool, not an operator), and honest.

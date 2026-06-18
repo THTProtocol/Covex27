@@ -319,11 +319,13 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             <p className="text-xs text-gray-400 mt-3">Absolute (CLTV) and relative (CSV / BIP68) timelocks are also live and consensus-enforced, scored by Kaspa’s DAA.</p>
           </Card>
           <Card>
-            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, 2026 window</div>
+            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, 30 June 2026</div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              The <strong className="text-white">Toccata hard fork</strong> (KIP-16/17/20/21) adds the rest of the covenant
-              toolkit to mainnet, including on-chain ZK-verifier opcodes, covenant lineage, and extended scripting. Covex is
-              built and proven against this ruleset already.
+              The <strong className="text-white">Toccata hard fork</strong> (KIP-17 extended scripting, KIP-20 covenant
+              lineage, KIP-21 sequencing, plus the proposed KIP-16 ZK opcode set) completes the covenant toolkit on
+              mainnet. Kaspa has no on-chain pairing verifier, so ZK proofs are verified off-chain by the disclosed Covex
+              oracle and only its Schnorr co-signature is checked on-chain at unlock. Covex is built and proven against
+              this ruleset already.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
               We do not fake the gap. Until Toccata activates, the mainnet explorer honestly shows <span className="text-white">zero</span> covenants, because

@@ -68,7 +68,7 @@ export default function Terms() {
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200">
             <li>Does not create, modify, or control any on-chain covenant.</li>
             <li>Indexes covenant UTXOs via a direct connection to a Kaspa node.</li>
-            <li>Labels each covenant's enforcement reality honestly (on-chain, zero-knowledge, hybrid, oracle-attested, or metadata-only) and never implies more enforcement than the chain provides.</li>
+            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, oracle-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs, where used, are verified off-chain by the disclosed oracle (Kaspa has no on-chain proof verifier); only the oracle's Schnorr co-signature is checked on-chain.</li>
             <li>Generates optional interactive interfaces for paid users; these are display layers only and do not change on-chain logic.</li>
           </ul>
         </section>
@@ -126,17 +126,18 @@ export default function Terms() {
           </ul>
         </section>
 
-        {/* 8. Experimental software, testnet, assumption of risk */}
+        {/* 8. Experimental software, mainnet real value, assumption of risk */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white">8. Experimental Software, Testnet, and Assumption of Risk</h2>
+          <h2 className="text-base font-semibold text-white">8. Experimental Software, Mainnet Launch, and Assumption of Risk</h2>
           <p>
             Covex and Kaspa covenant tooling are <strong className="text-white">experimental and under active development</strong>. Full
-            scriptable covenants on Kaspa mainnet depend on the Toccata upgrade, scheduled for 2026 with
-            no confirmed calendar day; until then the primary environment is public testnets, where coins
-            have no monetary value. The SilverScript language, the zero-knowledge circuits, and the
-            trusted-setup ceremonies are pre-production: the current ZK trusted setup is a single-contributor
-            development ceremony and is not a substitute for an independent multi-party ceremony for
-            high-value use.
+            scriptable covenants on Kaspa mainnet depend on the Toccata upgrade, scheduled to activate on
+            <strong className="text-white"> 30 June 2026</strong>. From that activation Covex operates on Kaspa
+            <strong className="text-white"> mainnet with real KAS of real monetary value</strong>: covenants you fund, stake, or
+            interact with put real funds at risk. The SilverScript language, the zero-knowledge circuits, and the
+            trusted-setup ceremonies remain pre-production: the current ZK trusted setup is a single-contributor
+            development ceremony, not an independent multi-party ceremony, and ZK proofs are verified off-chain by
+            the disclosed oracle rather than on-chain. Do not treat any of this as audited or final.
           </p>
           <p>
             You use the Platform at your own risk and assume all risks inherent to experimental blockchain
@@ -174,8 +175,10 @@ export default function Terms() {
             it on shared or untrusted devices. Wallet extensions and the Kaspa network are independent
             third parties governed by their own policies. See the full{' '}
             <Link to="/privacy" className="text-kaspa-green hover:underline">Privacy Policy</Link>{' '}
-            for how the Platform processes IP addresses (rate limiting and geographic restriction),
-            indexes public wallet addresses, and stores operational data you publish.
+            for how the Platform processes IP addresses (for per-IP rate limiting only),
+            indexes public wallet addresses, and stores operational data you publish. The Platform does not
+            perform IP-based geoblocking or sanctions screening; eligibility is your own responsibility as
+            described in Section 5.
           </p>
         </section>
 

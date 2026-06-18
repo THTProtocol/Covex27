@@ -23,22 +23,22 @@ const RESOLUTION_FLOW = {
     note: 'The chain itself is the referee. This is the most trustless reality on Covex.',
   },
   'full-zk': {
-    label: 'Zero-knowledge proof',
+    label: 'Oracle-attested (ZK proof verified off-chain)',
     steps: [
       'The claimant generates a real Groth16 zero-knowledge proof for the statement.',
-      'The disclosed Covex oracle verifies that proof off-chain (Kaspa has no on-chain pairing verifier yet), fail-closed.',
-      'Only a proof the oracle verifies releases the funds; an invalid or missing proof is rejected.',
+      'The disclosed Covex oracle verifies that proof OFF-CHAIN (Kaspa has no on-chain pairing verifier), fail-closed.',
+      'Only a proof the oracle verifies lets it co-sign; an invalid or missing proof is rejected, and only the oracle co-signature is checked on-chain (Schnorr).',
     ],
-    note: 'The proof is real cryptography, but the disclosed Covex oracle is the off-chain verifier whose result gates the spend. It is the trust boundary, not the chain itself.',
+    note: 'The proof is real cryptography, but the disclosed Covex oracle is the off-chain verifier whose result gates the spend. It is the trust boundary, not the chain itself. The trusted setup is a single-contributor dev ceremony, not a production MPC.',
   },
   'hybrid': {
-    label: 'ZK proof + oracle',
+    label: 'Oracle-attested (ZK proof verified off-chain)',
     steps: [
-      'A zero-knowledge property proof covers part of the logic on-chain.',
-      'The named oracle attests the off-chain part with a real signature.',
-      'The payout releases when the proof and the attestation line up.',
+      'A zero-knowledge property proof is generated for part of the logic.',
+      'The disclosed oracle verifies that proof off-chain (fail-closed) and attests the rest with a real signature.',
+      'The payout releases when the proof verifies and the oracle co-signs; only the co-signature is checked on-chain.',
     ],
-    note: 'Part of the rule is proven on-chain, part is attested by the disclosed oracle.',
+    note: 'No part of the proof is verified on-chain (Kaspa has no on-chain pairing verifier); the disclosed oracle verifies it off-chain and its Schnorr co-signature is what the chain checks.',
   },
   'oracle-attested': {
     label: 'Oracle-attested',
@@ -110,7 +110,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
 
   if (!circuit) return null;
   const flow = RESOLUTION_FLOW[circuit.reality] || RESOLUTION_FLOW['oracle-attested'];
-  const realityLabel = { 'full-zk': 'Zero-knowledge', 'on-chain': 'On-chain', hybrid: 'Hybrid', 'oracle-attested': 'Oracle-attested', decorative: 'Metadata' }[circuit.reality] || circuit.reality;
+  const realityLabel = { 'full-zk': 'Oracle-attested', 'on-chain': 'On-chain', hybrid: 'Oracle-attested', 'oracle-attested': 'Oracle-attested', decorative: 'Metadata' }[circuit.reality] || circuit.reality;
 
   return (
     <div className="mb-8 space-y-4">

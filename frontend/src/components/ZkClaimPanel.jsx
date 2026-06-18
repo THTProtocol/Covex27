@@ -99,7 +99,7 @@ export default function ZkClaimPanel({ covenant }) {
       <div className="flex items-center gap-2 mb-1.5">
         <ShieldCheck size={16} className="text-emerald-300" />
         <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-300">
-          Zero-knowledge claim · {meta.label}
+          Oracle-attested ZK claim · {meta.label}
         </span>
       </div>
       <p className="text-[12.5px] text-gray-300 leading-relaxed mb-1">

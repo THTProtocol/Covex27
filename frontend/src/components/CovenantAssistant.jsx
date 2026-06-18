@@ -12,8 +12,11 @@ import { suggestCovenants } from '../lib/covenantAssistant';
 
 const REALITY_PILL = {
   'on-chain': { label: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 bg-emerald-500/12 border-emerald-500/35' },
-  'full-zk': { label: 'Zero-knowledge', icon: ShieldCheck, cls: 'text-emerald-300 bg-emerald-500/12 border-emerald-500/35' },
-  hybrid: { label: 'Hybrid', icon: Cpu, cls: 'text-blue-300 bg-blue-500/12 border-blue-500/35' },
+  // Every ZK reality is collapsed to oracle-attested (off-chain oracle verify, no on-chain pairing
+  // verifier). full-zk / hybrid render as oracle-attested defensively so the honest collapse holds
+  // even if a raw reality ever leaks through.
+  'full-zk': { label: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
+  hybrid: { label: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
   'oracle-attested': { label: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
   decorative: { label: 'Metadata', icon: Lock, cls: 'text-gray-300 bg-white/[0.06] border-white/15' },
 };
@@ -43,12 +46,12 @@ const INTENT_CHIPS = [
 // Trust-model filter: let users narrow suggestions to the enforcement reality they trust.
 const REALITY_FILTERS = [
   { key: 'all', label: 'All' },
-  { key: 'full-zk', label: 'Zero-knowledge' },
   { key: 'on-chain', label: 'On-chain' },
-  { key: 'oracle', label: 'Oracle' },
+  { key: 'oracle', label: 'Oracle-attested' },
 ];
 const matchesFilter = (reality, f) =>
-  f === 'all' || reality === f || (f === 'oracle' && (reality === 'oracle-attested' || reality === 'hybrid'));
+  f === 'all' || reality === f ||
+  (f === 'oracle' && (reality === 'oracle-attested' || reality === 'hybrid' || reality === 'full-zk'));
 
 // Honest confidence label, keyed to how the deterministic engine matched (curated intent vs fallback).
 const CONFIDENCE = {

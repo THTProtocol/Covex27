@@ -517,9 +517,7 @@ ${featureTiles}
                     <div className="text-[11px] text-gray-400 line-clamp-2 mt-0.5 break-words">{c.description}</div>
                     <div className="text-[9px] mt-1 flex items-center gap-2 flex-wrap">
                       <span className="opacity-60 truncate max-w-full">{c.category} • {c.circuit}</span>
-                      {c.reality === 'full-zk' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold shrink-0">Full ZK</span>}
-                      {c.reality === 'hybrid' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 font-semibold shrink-0">Hybrid</span>}
-                      {c.reality === 'oracle-attested' && <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold shrink-0">Oracle Attested</span>}
+                      {(c.reality === 'full-zk' || c.reality === 'hybrid' || c.reality === 'oracle-attested') && <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold shrink-0">Oracle-attested</span>}
                     </div>
                   </div>
                 </div>

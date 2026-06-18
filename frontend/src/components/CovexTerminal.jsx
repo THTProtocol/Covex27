@@ -324,25 +324,43 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // working prover is honestly downgraded to 'oracle-attested' below (see ZK_CIRCUIT_TYPES); the
 // PREFERRED fix for an overclaim is to BUILD the prover (add the id in circuits.js), not relabel.
 // Per-reality visual treatment for the circuit cards: an accent colour + a readable pill label.
-// Mirrors the honest 4-reality taxonomy (full-zk / hybrid / oracle-attested / decorative).
+// HONEST taxonomy for a mainnet-live world: there is NO on-chain pairing verifier on Kaspa, so a
+// Groth16 proof is never checked on-chain. Every ZK circuit is therefore oracle-attested: the proof
+// (when one exists) is verified OFF-CHAIN by the disclosed Covex oracle (fail-closed), and only the
+// oracle's BIP340 co-signature is checked on-chain (Schnorr). 'full-zk' is NEVER rendered as a badge
+// here; the post-processing below collapses it to 'oracle-attested'. 'hybrid' likewise routes to the
+// oracle-attested label so no card claims trustless / on-chain ZK. Circuits with a real in-browser
+// Groth16 prover keep their separate "in-browser prover" chip (a true capability), but the proof is
+// still oracle-verified off-chain, not on-chain.
 const REALITY_META = {
-  'full-zk':         { label: 'Zero-knowledge', short: 'ZK',     accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
-  'hybrid':          { label: 'Hybrid proof',   short: 'Hybrid', accent: '#60a5fa', text: 'text-blue-300',    bg: 'bg-blue-500/12',    border: 'border-blue-500/35' },
-  'oracle-attested': { label: 'Oracle-attested',short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300',   bg: 'bg-amber-500/12',   border: 'border-amber-500/35' },
+  'full-zk':         { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
+  'hybrid':          { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
+  'oracle-attested': { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'decorative':      { label: 'Metadata',       short: 'Meta',   accent: '#9ca3af', text: 'text-gray-300',    bg: 'bg-white/[0.06]',   border: 'border-white/15' },
 };
 const realityMeta = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
+// Rewrite legacy "Full ZK" / "Hybrid" prose to the honest mainnet framing: the proof is verified
+// OFF-CHAIN by the disclosed Covex oracle (fail-closed), the trusted setup is a single-contributor
+// dev ceremony (not a production MPC), and there is no on-chain proof verification. We never use the
+// words full-zk, trustless, or on-chain ZK to describe a circuit's verification.
 const scrubZkProse = (d) =>
   (d || '')
-    .replace(/^Full ZK:\s*/i, 'ZK-capable (oracle-attested today, in-browser prover pending): ')
+    .replace(/^Full ZK:\s*/i, 'Oracle-attested: ')
     .replace(/^Hybrid:\s*/i, 'Oracle-attested: ')
     .replace(/Reality:\s*(full-zk|hybrid)/gi, 'Reality: oracle-attested')
-    .replace(/Real artifacts/gi, 'Artifacts pending');
-// Honest reality correction (audit): a label may only imply a real ZK proof when the backend
-// actually requires + verifies one. 'full-zk' needs an end-to-end in-browser prover (only the
-// VERIFIED_FULL_ZK set today); 'hybrid' needs a fail-closed backend Groth16 verifier (STRICT_GROTH16).
-// Everything else is honestly 'oracle-attested': the named oracle signs the outcome, no ZK proof
-// gates the spend. This is a pure downgrade - it never promotes a circuit's claim.
+    // Neutralize any residual "full-zk" / "Full ZK" phrasing anywhere in the body so no card or
+    // modal claims on-chain/trustless ZK. The verification is oracle-attested off-chain.
+    .replace(/\bfull-zk\b/gi, 'oracle-attested')
+    .replace(/\bFull ZK\b/g, 'Oracle-attested')
+    .replace(/Real artifacts/gi, 'Artifacts');
+// HONEST REALITY for a mainnet-live world (no on-chain pairing verifier on Kaspa): NO circuit is
+// on-chain ZK. Every 'full-zk' and 'hybrid' label is collapsed to 'oracle-attested' here, so no card
+// ever renders a Zero-knowledge / trustless / on-chain badge. The verification that actually happens
+// is: the Groth16 proof (when a prover exists) is checked OFF-CHAIN by the disclosed oracle
+// fail-closed, and only the oracle's BIP340 co-signature is verified on-chain (Schnorr). Circuits in
+// VERIFIED_FULL_ZK / IN_BROWSER_PROVERS still genuinely produce a real proof in your browser - that
+// capability is surfaced as a separate "in-browser prover" chip - but the proof is oracle-verified
+// off-chain, not on-chain. This is a pure downgrade; it never promotes a circuit's claim.
 // De-dupe by id (the raw list has a couple of repeats, e.g. relative_timelock):
 // keep the first occurrence so React keys stay unique and the circuit list never double-renders.
 const _seenCircuitIds = new Set();
@@ -351,10 +369,20 @@ export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.filter((c) => {
   _seenCircuitIds.add(c.id);
   return true;
 }).map((c) => {
-  const overclaimsFullZk = c.reality === 'full-zk' && !VERIFIED_FULL_ZK.has(c.id);
-  const overclaimsHybrid = c.reality === 'hybrid' && !STRICT_GROTH16.has(c.id);
-  if (overclaimsFullZk || overclaimsHybrid) {
-    return { ...c, reality: 'oracle-attested', artifacts: false, zkPending: true, description: scrubZkProse(c.description) };
+  // Every ZK reality (full-zk OR hybrid) is presented as oracle-attested off-chain. zkVerifiedOffChain
+  // marks the circuits that genuinely run a real Groth16 prove + fail-closed oracle verify end-to-end
+  // (the in-browser-prover set) so the UI can still note that honest capability without ever claiming
+  // on-chain ZK. overclaimers (no prover/verifier) additionally lose their artifacts flag.
+  if (c.reality === 'full-zk' || c.reality === 'hybrid') {
+    const verifiedOffChain = VERIFIED_FULL_ZK.has(c.id) || STRICT_GROTH16.has(c.id);
+    return {
+      ...c,
+      reality: 'oracle-attested',
+      zkVerifiedOffChain: verifiedOffChain,
+      artifacts: verifiedOffChain ? c.artifacts : false,
+      zkPending: !verifiedOffChain,
+      description: scrubZkProse(c.description),
+    };
   }
   return c;
 });
@@ -2391,9 +2419,9 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> Fourteen circuits verify end-to-end today with a working in-browser prover - merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint and pot split. Poseidon circuits commit via poseidon-lite; the timelocks, turn timer and pot split expose a public valid/on_time output the oracle requires. Others (tictactoe_v1, connect4_v1) have a fail-closed backend Groth16 verifier at POST /api/oracle/verify-and-sign that checks a real proof when pi_a is supplied, but no working in-browser prover yet, so the named oracle attests the outcome today; remaining hybrid/game circuits fall back to oracle attestation.
-              <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign accepts all circuit types and returns a real SHA256-based signed outcome.
-              The signature can be used as witness data for covenant unlock. Full on-chain ZK proving/verification is the next evolution as silverc matures.
+              <strong className="text-amber-200">Technical reality:</strong> Every circuit here is oracle-attested. Kaspa has no on-chain pairing verifier, so a Groth16 proof is never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by the disclosed Covex oracle (fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by the oracle without a proof. In all cases the trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.
+              <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign verifies any supplied proof off-chain and returns a real BIP340-signed outcome.
+              The oracle co-signature is the only thing checked on-chain (Schnorr) at covenant unlock. There is no on-chain proof verification.
             </div>
           </div>
         </div>
@@ -2438,7 +2466,9 @@ ${gameMeta.outcomeBranches}
                   custom: 'Supply any audited circuit definition and its corresponding verifier key.',
                 };
                 const rm = realityMeta(gt.reality);
-                const isVerifiedZk = VERIFIED_FULL_ZK.has(gt.id);
+                // Genuine capability (real in-browser Groth16 prover, oracle-verified off-chain). Drives
+                // the live-glow dot + the "in-browser prover" chip. NOT an on-chain-ZK claim.
+                const isVerifiedZk = IN_BROWSER_PROVERS.has(gt.id);
                 const hasBrowserProver = IN_BROWSER_PROVERS.has(gt.id);
                 return (
                   <div
@@ -2557,7 +2587,7 @@ ${gameMeta.outcomeBranches}
             <div className="mt-3 ml-2 pl-4 border-l-2 border-kaspa-green/20 space-y-4">
               <div className="text-[10px] text-amber-300/80 leading-relaxed">
                 <AlertTriangle size={10} className="inline mr-1 text-amber-400" />
-                Circuit specifications detail the ZK proving design and gas targets. Oracle attestation is live now; full on-chain ZK verification is the next evolution as silverc matures.
+                Circuit specifications detail the ZK proving design and constraint targets. Verification is oracle-attested: any proof is checked off-chain by the disclosed Covex oracle (fail-closed) and the oracle co-signature is verified on-chain (Schnorr). Kaspa has no on-chain pairing verifier, so there is no on-chain proof checking.
               </div>
               {(() => {
                 const details = (() => {
@@ -2866,8 +2896,8 @@ ${gameMeta.outcomeBranches}
               <div className="text-[9px] mt-0.5 flex items-center gap-1">
                 Proving Mode: 
                 <select value={chessProvingMode} onChange={e => setChessProvingMode(parseInt(e.target.value))} className="bg-black/50 border border-white/20 text-[9px] px-1 py-0.5 rounded text-white">
-                  <option value={0}>Hybrid (fast, &lt;15s target)</option>
-                  <option value={1}>Full ZK (stronger security)</option>
+                  <option value={0}>Fast (witnessed, &lt;15s target)</option>
+                  <option value={1}>Exhaustive (stronger proof)</option>
                 </select>
                 <span className="text-[8px] text-gray-500">(see CHESS_PROVING_MODES.md)</span>
               </div>
@@ -2883,7 +2913,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <p className="text-xs text-gray-300 leading-relaxed -mt-1">
-            Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign) which returns a real SHA256-signed outcome. The signature can be used as witness data for covenant unlock. On-chain ZK verification will follow as silverc matures.
+            Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign), which replays the move log server-side and returns a real BIP340-signed outcome. The oracle co-signature is verified on-chain (Schnorr) at covenant unlock. This is oracle-attested, not an on-chain ZK proof: Kaspa has no on-chain pairing verifier.
           </p>
 
           {/* Stake + Pot Summary - requires equal stake from both sides before pro play */}

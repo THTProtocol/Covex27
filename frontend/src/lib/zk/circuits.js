@@ -32,10 +32,14 @@ export function vkeyPathFor(circuitId) {
 // CovexTerminal sets were - this is a de-dupe, NOT a re-scoping. Do not change membership
 // here without generating a real proof for the circuit (HONESTY ABSOLUTE).
 
-// Circuits that may HONESTLY advertise the 'full-zk' badge: they ship a served proving key
-// (.zkey) AND a working in-browser prover, verified valid-accept + tamper-reject end-to-end.
-// FOURTEEN qualify today. Every other 'full-zk' label without a working prover is downgraded
-// to 'oracle-attested' by ZK_CIRCUIT_TYPES post-processing.
+// Circuits whose Groth16 proof is verified END-TO-END (real accept + tamper-reject): they ship a
+// served proving key (.zkey) AND a working in-browser prover. HONESTY: this verification is OFF-CHAIN
+// by the disclosed Covex oracle (fail-closed) - Kaspa has NO on-chain pairing verifier, so a proof is
+// never checked on-chain, and only the oracle's BIP340 co-signature is verified on-chain (Schnorr).
+// The trusted setup is a single-contributor Covex dev ceremony, NOT a production multi-party MPC.
+// This set therefore drives the genuine "in-browser prover" capability + off-chain-verified note; it
+// is NEVER rendered as a 'full-zk' / trustless / on-chain-ZK badge (every ZK reality renders as
+// oracle-attested - see ZK_CIRCUIT_TYPES post-processing in CovexTerminal). FOURTEEN qualify today.
 export const VERIFIED_FULL_ZK = new Set([
   'merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
@@ -47,8 +51,8 @@ export const VERIFIED_FULL_ZK = new Set([
 // nullifier_set + utxo_ownership + vrf_random + script_constraint compute their Poseidon
 // commitment via poseidon-lite (byte-identical to circomlib, no wasm); timelock_absolute +
 // relative_timelock + turn_timer + pot_split_math are plain-numeric (the wasm derives the
-// public valid/on_time/ok output). All fullProve the served wasm+zkey, node-verified
-// accept + tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 14 ids).
+// public valid/on_time/ok output). All fullProve the served wasm+zkey, node-verified accept +
+// tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 14 ids).
 export const IN_BROWSER_PROVERS = new Set([
   'merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
@@ -67,7 +71,9 @@ export const STRICT_GROTH16 = new Set([
   'script_constraint', 'pot_split_math', 'turn_timer', 'nullifier_set',
 ]);
 
-// Convenience: a circuit id has a genuine in-browser full-zk prove path the public panel can run.
+// Convenience: a circuit id has a genuine in-browser Groth16 prove path the public panel can run,
+// whose proof is verified OFF-CHAIN by the disclosed oracle (fail-closed). NOT an on-chain-ZK claim:
+// the only on-chain check is the oracle's Schnorr co-signature. Name kept for code stability.
 export function isVerifiedFullZk(circuitId) {
   return !!circuitId && VERIFIED_FULL_ZK.has(circuitId) && IN_BROWSER_PROVERS.has(circuitId);
 }

@@ -5,12 +5,14 @@ import { Search, Check } from 'lucide-react';
 // Selecting one drives the whole sandbox live (banner + how-it-resolves + payout simulator + the
 // builder below all follow). No wallet, no payment to browse and preview.
 
-// Reality -> dot colour, matching the rest of the app's honest reality palette.
+// Reality -> dot colour, matching the rest of the app's honest reality palette. ZK realities are
+// presented as oracle-attested (no on-chain ZK on Kaspa), so 'full-zk'/'hybrid' map to the
+// oracle-attested colour and never get a standalone "ZK-verified" badge.
 const REALITY_DOT = {
   'on-chain': '#49EACB',
-  'full-zk': '#49EACB',
-  'hybrid': '#F59E0B',
-  'oracle-attested': '#38BDF8',
+  'full-zk': '#fbbf24',
+  'hybrid': '#fbbf24',
+  'oracle-attested': '#fbbf24',
 };
 
 export default function CircuitSelector({ circuits, selectedId, onSelect }) {
@@ -75,15 +77,10 @@ export default function CircuitSelector({ circuits, selectedId, onSelect }) {
             >
               <div className="flex items-center gap-2">
                 <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${c.reality === 'full-zk' ? 'shadow-[0_0_6px_rgba(73,234,203,0.9)]' : ''}`}
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ background: REALITY_DOT[c.reality] || '#94a3b8' }}
                 />
                 <span className="text-sm text-white font-medium truncate">{c.name}</span>
-                {c.reality === 'full-zk' && (
-                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/30 tracking-wide">
-                    ZK<Check size={9} />
-                  </span>
-                )}
                 {active && <Check size={13} className="text-kaspa-green ml-auto shrink-0" />}
               </div>
               <div className="text-[10px] text-gray-500 mt-0.5 truncate">

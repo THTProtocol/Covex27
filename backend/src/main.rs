@@ -587,7 +587,7 @@ async fn rate_limit_middleware(
     let path = req.uri().path();
     let expensive = matches!(
         path,
-        "/compile" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
+        "/compile" | "/script/disassemble" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
     ) || path.starts_with("/oracle/")
         || (req.method() == axum::http::Method::POST && path.starts_with("/covenant/"));
     if !expensive {
@@ -1035,11 +1035,12 @@ async fn disassemble_handler(
             Json(json!({"ok": false, "error": "missing script_hex"})),
         ));
     }
-    // Cap input so a hostile request cannot allocate unbounded work (200 KB of script).
+    // Cap input so a hostile request cannot allocate unbounded work: 400KB of hex
+    // is ~200KB of decoded script bytes.
     if hex_str.len() > 400 * 1024 {
         return Err((
             axum::http::StatusCode::PAYLOAD_TOO_LARGE,
-            Json(json!({"ok": false, "error": "script too large (max 200KB)"})),
+            Json(json!({"ok": false, "error": "script too large (max 200KB decoded / 400KB hex)"})),
         ));
     }
     let bytes = match hex::decode(hex_str) {

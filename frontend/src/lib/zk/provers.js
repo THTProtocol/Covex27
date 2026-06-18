@@ -237,6 +237,125 @@ async function provePotSplitMath(fullProveBound) {
   return fullProveBound(snarkjs, input, wasm, zkey);
 }
 
+// ── commitment_open ────────────────────────────────────────────────────────
+// C = Poseidon(value, blinding); value + blinding are PRIVATE witnesses computed/kept in-browser.
+async function proveCommitmentOpen(fullProveBound) {
+  const snarkjs = await loadSnarkjs();
+  const { poseidon2 } = await import('poseidon-lite');
+  const wasm = '/zk/commitment_open/commitment_open.wasm';
+  const zkey = '/zk/commitment_open/commitment_open_final.zkey';
+  const value = randomFieldBigInt(16);
+  const blinding = randomFieldBigInt(16);
+  const commitment = poseidon2([value, blinding]).toString();
+  const input = { commitment, value: value.toString(), blinding: blinding.toString() };
+  return fullProveBound(snarkjs, input, wasm, zkey);
+}
+
+// ── balance_threshold ──────────────────────────────────────────────────────
+// commitment = Poseidon(balance, salt); balance + salt PRIVATE. valid = (balance >= min_balance)
+// is a PUBLIC output the oracle requires == 1. Demo: balance 50000 >= min 10000.
+async function proveBalanceThreshold(fullProveBound) {
+  const snarkjs = await loadSnarkjs();
+  const { poseidon2 } = await import('poseidon-lite');
+  const wasm = '/zk/balance_threshold/balance_threshold.wasm';
+  const zkey = '/zk/balance_threshold/balance_threshold_final.zkey';
+  const balance = 50000n, minBalance = 10000n;
+  const salt = randomFieldBigInt(16);
+  const commitment = poseidon2([balance, salt]).toString();
+  const input = {
+    commitment, min_balance: minBalance.toString(),
+    balance: balance.toString(), salt: salt.toString(),
+  };
+  return fullProveBound(snarkjs, input, wasm, zkey);
+}
+
+// ── solvency_sum ───────────────────────────────────────────────────────────
+// N=4 commitments C_i = Poseidon(amount_i, salt_i); amounts PRIVATE. valid = (sum >= threshold)
+// is a PUBLIC output the oracle requires == 1. Demo: sum 70000 >= threshold 60000.
+async function proveSolvencySum(fullProveBound) {
+  const snarkjs = await loadSnarkjs();
+  const { poseidon2 } = await import('poseidon-lite');
+  const wasm = '/zk/solvency_sum/solvency_sum.wasm';
+  const zkey = '/zk/solvency_sum/solvency_sum_final.zkey';
+  const amounts = [25000n, 30000n, 10000n, 5000n]; // sum = 70000
+  const salts = [randomFieldBigInt(8), randomFieldBigInt(8), randomFieldBigInt(8), randomFieldBigInt(8)];
+  const commitments = amounts.map((a, i) => poseidon2([a, salts[i]]).toString());
+  const input = {
+    commitments, threshold: '60000',
+    amounts: amounts.map((a) => a.toString()), salts: salts.map((s) => s.toString()),
+  };
+  return fullProveBound(snarkjs, input, wasm, zkey);
+}
+
+// Build a depth-`d` Merkle tree (parent = Poseidon(left, right)) and the path for leaf index `idx`.
+// pathIndices[i] == 0 means the current node is the LEFT child (matches the circuits).
+function buildMerklePath(poseidon2, leaves, idx, depth) {
+  let level = leaves.slice();
+  const levels = [level];
+  for (let d = 0; d < depth; d++) {
+    const next = [];
+    for (let i = 0; i < level.length; i += 2) next.push(poseidon2([level[i], level[i + 1]]));
+    levels.push(next); level = next;
+  }
+  const root = levels[depth][0];
+  const pathElements = [], pathIndices = [];
+  let pos = idx;
+  for (let d = 0; d < depth; d++) {
+    const isRight = pos % 2;
+    const sib = isRight ? pos - 1 : pos + 1;
+    pathElements.push(levels[d][sib].toString());
+    pathIndices.push(isRight ? '1' : '0');
+    pos = Math.floor(pos / 2);
+  }
+  return { root: root.toString(), pathElements, pathIndices };
+}
+
+// ── set_non_membership ─────────────────────────────────────────────────────
+// Sorted-Merkle non-membership (depth 4). leaf is PRIVATE; proven absent by bracketing it
+// strictly between two adjacent blocked values (lo < leaf < hi) with a path to Poseidon(lo, hi).
+async function proveSetNonMembership(fullProveBound) {
+  const snarkjs = await loadSnarkjs();
+  const { poseidon2 } = await import('poseidon-lite');
+  const wasm = '/zk/set_non_membership/set_non_membership.wasm';
+  const zkey = '/zk/set_non_membership/set_non_membership_final.zkey';
+  const depth = 4;
+  const blocked = []; for (let i = 0; i < 17; i++) blocked.push(BigInt(1000 * (i + 1)));
+  const leaves = []; for (let i = 0; i < 16; i++) leaves.push(poseidon2([blocked[i], blocked[i + 1]]));
+  const idx = 5;
+  const lo = blocked[idx], hi = blocked[idx + 1];
+  const leaf = (lo + hi) / 2n; // strictly between two adjacent blocked entries -> absent
+  const { root, pathElements, pathIndices } = buildMerklePath(poseidon2, leaves, idx, depth);
+  const input = {
+    root, leaf: leaf.toString(), lo: lo.toString(), hi: hi.toString(), pathElements, pathIndices,
+  };
+  return fullProveBound(snarkjs, input, wasm, zkey);
+}
+
+// ── anon_membership_nullifier ──────────────────────────────────────────────
+// Depth-4 membership of leaf = Poseidon(identity) (identity PRIVATE) AND public deterministic
+// nullifier = Poseidon(identity, externalNullifier) for one-person-one-action.
+async function proveAnonMembershipNullifier(fullProveBound) {
+  const snarkjs = await loadSnarkjs();
+  const { poseidon1, poseidon2 } = await import('poseidon-lite');
+  const wasm = '/zk/anon_membership_nullifier/anon_membership_nullifier.wasm';
+  const zkey = '/zk/anon_membership_nullifier/anon_membership_nullifier_final.zkey';
+  const depth = 4, idx = 9;
+  const identity = randomFieldBigInt(16);
+  const externalNullifier = 20260618n;
+  const leaves = [];
+  for (let i = 0; i < 16; i++) {
+    const idScalar = (i === idx) ? identity : BigInt(1000000 + i);
+    leaves.push(poseidon1([idScalar]));
+  }
+  const { root, pathElements, pathIndices } = buildMerklePath(poseidon2, leaves, idx, depth);
+  const nullifier = poseidon2([identity, externalNullifier]).toString();
+  const input = {
+    root, externalNullifier: externalNullifier.toString(), nullifier,
+    identity: identity.toString(), pathElements, pathIndices,
+  };
+  return fullProveBound(snarkjs, input, wasm, zkey);
+}
+
 // ── registry: circuit id -> { prove, circuitType, label, note } ─────────────
 // `circuitType` is the canonical oracle circuit_type a proof is submitted under (it is
 // what oracle_verifier.rs keys its StrictGroth16 verifier on). `note` is honest copy
@@ -311,6 +430,31 @@ export const PROVERS = {
     prove: provePotSplitMath, circuitType: 'pot_split_math',
     label: 'Pot Split Math',
     note: 'Proves a payout split (winner_share + fee + return == total) is correct. A correctness proof, not a privacy proof.',
+  },
+  commitment_open: {
+    prove: proveCommitmentOpen, circuitType: 'commitment_open',
+    label: 'Commitment Opening',
+    note: 'Proves you know the (value, blinding) opening of a public Poseidon commitment, without revealing them. Foundational privacy primitive.',
+  },
+  balance_threshold: {
+    prove: proveBalanceThreshold, circuitType: 'balance_threshold',
+    label: 'Balance Threshold',
+    note: 'Proves a committed balance meets a minimum without revealing the balance (KYC-free solvency / accredited gating). The balance stays in your browser; valid is a public output the oracle requires == 1.',
+  },
+  solvency_sum: {
+    prove: proveSolvencySum, circuitType: 'solvency_sum',
+    label: 'Proof of Reserves',
+    note: 'Proves the sum of four committed reserve buckets meets a threshold, hiding each amount (proof of reserves). valid is a public output the oracle requires == 1.',
+  },
+  set_non_membership: {
+    prove: proveSetNonMembership, circuitType: 'set_non_membership',
+    label: 'Set Non-Membership',
+    note: 'Proves a private value is NOT in a sorted blocklist (sanctions-free attestation), by bracketing it between two adjacent blocked entries. The value never leaves your browser.',
+  },
+  anon_membership_nullifier: {
+    prove: proveAnonMembershipNullifier, circuitType: 'anon_membership_nullifier',
+    label: 'Anonymous Membership + Nullifier',
+    note: 'Proves you are a committed member AND emits a deterministic public nullifier so you cannot act twice (one-person-one-action: anonymous voting / airdrop). Your identity stays in your browser; the oracle tracks the spent nullifier set.',
   },
 };
 

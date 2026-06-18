@@ -293,6 +293,15 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
             | "turn_timer"
             | "script_constraint"
             | "pot_split_math"
+            // New privacy / identity / solvency circuits: each emits covenantId as a public signal,
+            // and their provers commit covenant_field_element(covenant_id). Their node-verify matrix
+            // confirmed a proof bound to covenant A is REJECTED for covenant B, so a missing binding
+            // here is a hard reject (no cross-covenant replay).
+            | "commitment_open"
+            | "balance_threshold"
+            | "solvency_sum"
+            | "set_non_membership"
+            | "anon_membership_nullifier"
     )
 }
 

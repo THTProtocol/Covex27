@@ -433,6 +433,33 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "nullifier_set",
         VerifierSpec::StrictGroth16 { script: "verify_nullifier_set.js", prefix: "covex_null" },
     );
+    // === New privacy / identity / solvency circuits (StrictGroth16, dev pot10/pot12 ceremony) ===
+    // Each verified end-to-end on the server BEFORE registration: a genuine proof verifies true,
+    // a tampered proof/public-signal verifies false, and a proof bound to covenant A is rejected
+    // for covenant B (replay). Negative predicate cases produce valid==0 (or an unsatisfiable
+    // witness), so these are real statements, not `valid <== 1` stubs. Verify scripts are STRICT
+    // fail-closed (real snarkjs.groth16.verify vs the served vkey, {valid:false} on any failure,
+    // NO attested fallback). Keys are a single-contributor Covex dev ceremony, NOT a production MPC.
+    m.insert(
+        "commitment_open",
+        VerifierSpec::StrictGroth16 { script: "verify_commitment_open.js", prefix: "covex_copen" },
+    );
+    m.insert(
+        "balance_threshold",
+        VerifierSpec::StrictGroth16 { script: "verify_balance_threshold.js", prefix: "covex_bal" },
+    );
+    m.insert(
+        "solvency_sum",
+        VerifierSpec::StrictGroth16 { script: "verify_solvency_sum.js", prefix: "covex_solv" },
+    );
+    m.insert(
+        "set_non_membership",
+        VerifierSpec::StrictGroth16 { script: "verify_set_non_membership.js", prefix: "covex_snm" },
+    );
+    m.insert(
+        "anon_membership_nullifier",
+        VerifierSpec::StrictGroth16 { script: "verify_anon_membership_nullifier.js", prefix: "covex_anm" },
+    );
     // Re-assert as StrictGroth16 AFTER the attested loops above. age_verification and
     // escrow_2party were inserted Strict early (lines ~128/131) but the later
     // gating_attested / defi_attested loops overwrote them with Attested (HashMap: last
@@ -925,6 +952,21 @@ mod tests {
             r.get("nullifier_set"),
             Some(VerifierSpec::StrictGroth16 { .. })
         ));
+        // New privacy / identity / solvency circuits, node-verified (accept + tamper + replay) before
+        // registration. StrictGroth16: real proof required, bodyless request rejected.
+        for id in &[
+            "commitment_open",
+            "balance_threshold",
+            "solvency_sum",
+            "set_non_membership",
+            "anon_membership_nullifier",
+        ] {
+            assert!(
+                matches!(r.get(*id), Some(VerifierSpec::StrictGroth16 { .. })),
+                "{} must be StrictGroth16 (not overwritten by an attested loop)",
+                id
+            );
+        }
         // Re-pinned Strict after the attested-loop overwrite bug.
         assert!(matches!(r.get("escrow_2party"), Some(VerifierSpec::StrictGroth16 { .. })));
         assert!(matches!(r.get("age_verification"), Some(VerifierSpec::StrictGroth16 { .. })));

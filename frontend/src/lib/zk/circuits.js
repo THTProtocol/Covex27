@@ -39,11 +39,14 @@ export function vkeyPathFor(circuitId) {
 // The trusted setup is a single-contributor Covex dev ceremony, NOT a production multi-party MPC.
 // This set therefore drives the genuine "in-browser prover" capability + off-chain-verified note; it
 // is NEVER rendered as a 'full-zk' / trustless / on-chain-ZK badge (every ZK reality renders as
-// oracle-attested - see ZK_CIRCUIT_TYPES post-processing in CovexTerminal). FOURTEEN qualify today.
+// oracle-attested - see ZK_CIRCUIT_TYPES post-processing in CovexTerminal). NINETEEN qualify today
+// (the original 14 plus 5 new privacy/identity/solvency circuits node-verified accept+tamper+replay).
 export const VERIFIED_FULL_ZK = new Set([
   'merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
   'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math',
+  'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
+  'anon_membership_nullifier',
 ]);
 
 // Circuits with a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
@@ -52,23 +55,30 @@ export const VERIFIED_FULL_ZK = new Set([
 // commitment via poseidon-lite (byte-identical to circomlib, no wasm); timelock_absolute +
 // relative_timelock + turn_timer + pot_split_math are plain-numeric (the wasm derives the
 // public valid/on_time/ok output). All fullProve the served wasm+zkey, node-verified accept +
-// tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 14 ids).
+// tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 19 ids). commitment_open / balance_threshold
+// / solvency_sum / set_non_membership / anon_membership_nullifier compute their Poseidon commitments
+// + Merkle paths via poseidon-lite (byte-identical to circomlib, no wasm) before fullProve.
 export const IN_BROWSER_PROVERS = new Set([
   'merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
   'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math',
+  'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
+  'anon_membership_nullifier',
 ]);
 
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
 // a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
 // honestly back the 'hybrid' label. Kept in sync with build_registry() in
-// backend/src/oracle_verifier.rs (accounting for HashMap last-insert-wins re-pins). These 19
-// ids are the COMPLETE final-state StrictGroth16 registry.
+// backend/src/oracle_verifier.rs (accounting for HashMap last-insert-wins re-pins). These 24
+// ids are the COMPLETE final-state StrictGroth16 registry (the original 19 plus 5 new
+// privacy/identity/solvency circuits node-verified before registration).
 export const STRICT_GROTH16 = new Set([
   'merkle_membership', 'merkle_dao', 'merkle_airdrop', 'range_proof', 'range_collateral',
   'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification', 'escrow_2party',
   'utxo_ownership', 'basic_utxo_ownership', 'relative_timelock', 'vrf_dice_roll', 'vrf_random',
   'script_constraint', 'pot_split_math', 'turn_timer', 'nullifier_set',
+  'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
+  'anon_membership_nullifier',
 ]);
 
 // Convenience: a circuit id has a genuine in-browser Groth16 prove path the public panel can run,

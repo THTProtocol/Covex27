@@ -103,3 +103,11 @@ zk/node_modules/
 !frontend/public/zk/age_verification/age_verification_final.zkey
 !frontend/public/zk/escrow_2party/escrow_2party.wasm
 !frontend/public/zk/escrow_2party/escrow_2party_final.zkey
+
+# New privacy / identity / solvency circuits (dev pot10/pot12 Groth16 ceremony, node-verified
+# accept+tamper+replay before registration). The _final.zkey are otherwise caught by **/*key*.
+!frontend/public/zk/commitment_open/commitment_open_final.zkey
+!frontend/public/zk/balance_threshold/balance_threshold_final.zkey
+!frontend/public/zk/solvency_sum/solvency_sum_final.zkey
+!frontend/public/zk/set_non_membership/set_non_membership_final.zkey
+!frontend/public/zk/anon_membership_nullifier/anon_membership_nullifier_final.zkey

@@ -88,6 +88,30 @@ const WhatIsKaspa = ({ open, onClose }) => {
           </div>
         </section>
 
+        {/* Explore the mainnet */}
+        <section>
+          <h2 className="text-xl font-bold text-white mb-5">Explore the Mainnet</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              { title: 'Kaspa Mainnet Explorer', subtitle: 'Browse blocks, transactions, and addresses on kaspa.stream', href: 'https://kaspa.stream' },
+              { title: 'Kaspa Official Site', subtitle: 'kaspa.org: the project home, wallets, and getting started', href: 'https://kaspa.org' },
+              { title: 'Covex Explorer', subtitle: 'Every covenant on Kaspa, indexed and verifiable here', href: '/' },
+              { title: 'Rusty Kaspa Node', subtitle: 'Run your own mainnet node and verify the chain yourself', href: 'https://github.com/kaspanet/rusty-kaspa' },
+            ].map(p => (
+              <a
+                key={p.title}
+                href={p.href}
+                target={p.href.startsWith('http') ? '_blank' : undefined}
+                rel="noreferrer"
+                className="block p-4 rounded-lg border border-white/[0.05] bg-white/[0.01] hover:border-kaspa-green/30 hover:bg-white/[0.03] transition-colors"
+              >
+                <h4 className="text-sm font-semibold text-white">{p.title}</h4>
+                <p className="text-xs text-gray-200 mt-1 leading-snug">{p.subtitle}</p>
+              </a>
+            ))}
+          </div>
+        </section>
+
         {/* Community */}
         <section className="space-y-4">
           <h2 className="text-xl font-bold text-white">Community & Ecosystem</h2>

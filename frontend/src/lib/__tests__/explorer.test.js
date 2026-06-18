@@ -4,9 +4,9 @@ import { explorerBase, explorerTxUrl, explorerAddressUrl } from '../explorer.js'
 // Network-accurate explorer routing is a correctness gate: pointing a testnet tx at the mainnet
 // explorer renders "not found", and accidentally defaulting to mainnet would mislead users.
 describe('explorer URLs', () => {
-  it('routes each network to its own explorer', () => {
-    expect(explorerBase('mainnet')).toBe('https://explorer.kaspa.org');
-    expect(explorerBase('testnet-10')).toBe('https://explorer-tn10.kaspa.org');
+  it('routes each network to its own kaspa.stream explorer', () => {
+    expect(explorerBase('mainnet')).toBe('https://kaspa.stream');
+    expect(explorerBase('testnet-10')).toBe('https://tn10.kaspa.stream');
     expect(explorerBase('testnet-12')).toBe('https://tn12.kaspa.stream');
   });
 
@@ -16,7 +16,7 @@ describe('explorer URLs', () => {
   });
 
   it('strips the :0 outpoint suffix from a Covex tx id before linking', () => {
-    expect(explorerTxUrl('deadbeef:0', 'mainnet')).toBe('https://explorer.kaspa.org/txs/deadbeef');
+    expect(explorerTxUrl('deadbeef:0', 'mainnet')).toBe('https://kaspa.stream/txs/deadbeef');
     expect(explorerTxUrl('abc123', 'testnet-12')).toBe('https://tn12.kaspa.stream/txs/abc123');
   });
 

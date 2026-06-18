@@ -1,13 +1,11 @@
-// Network-accurate Kaspa block-explorer URLs.
-//
-// Pointing a testnet address/tx at the mainnet explorer (explorer.kaspa.org) renders a
-// "page not found", because that address/tx does not exist on mainnet. Always route by the
-// covenant's / wallet's network. testnet-12 has no official explorer-tn12.kaspa.org, so we use
-// the live community explorer kaspa.stream; mainnet and testnet-10 use the official explorers.
+// Network-accurate Kaspa block-explorer URLs. We standardize on the kaspa.stream explorer
+// for every network: mainnet at kaspa.stream, testnet-12 at tn12.kaspa.stream. Pointing a
+// testnet address/tx at the mainnet explorer renders a "page not found" (it does not exist on
+// mainnet), so always route by the covenant's / wallet's network.
 const BASE = {
-  mainnet: 'https://explorer.kaspa.org',
-  'mainnet-1': 'https://explorer.kaspa.org',
-  'testnet-10': 'https://explorer-tn10.kaspa.org',
+  mainnet: 'https://kaspa.stream',
+  'mainnet-1': 'https://kaspa.stream',
+  'testnet-10': 'https://tn10.kaspa.stream',
   'testnet-12': 'https://tn12.kaspa.stream',
 };
 

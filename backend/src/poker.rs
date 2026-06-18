@@ -31,7 +31,6 @@ use rusqlite::params;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use tracing::info;
 
 use crate::live;
@@ -373,7 +372,7 @@ pub fn replay(chips_start: [i64; 2], button: u8, actions: &[PAction]) -> Result<
 
 // ── storage helpers ──────────────────────────────────────────────────────────
 
-fn seats(db: &Mutex<rusqlite::Connection>, covenant_id: &str) -> Option<(String, String, String)> {
+fn seats(db: &crate::db::Db, covenant_id: &str) -> Option<(String, String, String)> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT player1, player2, status FROM skill_games WHERE covenant_id = ?1 AND game_type = 'poker'",
@@ -384,7 +383,7 @@ fn seats(db: &Mutex<rusqlite::Connection>, covenant_id: &str) -> Option<(String,
 }
 
 fn match_row(
-    db: &Mutex<rusqlite::Connection>,
+    db: &crate::db::Db,
     covenant_id: &str,
 ) -> Option<(i64, i64, i64, i64, String)> {
     let conn = db.lock().unwrap();
@@ -398,7 +397,7 @@ fn match_row(
 
 #[allow(clippy::type_complexity)]
 fn hand_row(
-    db: &Mutex<rusqlite::Connection>,
+    db: &crate::db::Db,
     covenant_id: &str,
     hand_no: i64,
 ) -> Option<(String, String, String, String, Option<String>, i64, i64, i64)> {
@@ -423,7 +422,7 @@ fn hand_row(
     .ok()
 }
 
-fn token_address(db: &Mutex<rusqlite::Connection>, covenant_id: &str, token: &str) -> Option<String> {
+fn token_address(db: &crate::db::Db, covenant_id: &str, token: &str) -> Option<String> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT address FROM poker_sessions WHERE token = ?1 AND covenant_id = ?2 AND expires > unixepoch()",
@@ -454,7 +453,7 @@ fn publish_update(covenant_id: &str) {
 /// skill_games match when a stack hits zero. Idempotent per hand via the
 /// result-IS-NULL guard.
 fn settle_if_over(
-    db: &Arc<Mutex<rusqlite::Connection>>,
+    db: &crate::db::Db,
     covenant_id: &str,
     hand_no: i64,
     seed: &str,
@@ -574,7 +573,7 @@ fn settle_if_over(
 
 /// GET /poker/:id/state : everything public about the match + current hand.
 async fn state_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
 ) -> Json<serde_json::Value> {
     let Some((p1, p2, sg_status)) = seats(&db, &covenant_id) else {
@@ -646,7 +645,7 @@ async fn state_handler(
 
 /// GET /poker/:id/challenge?address= : nonce to sign for a table session.
 async fn challenge_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
@@ -677,7 +676,7 @@ struct SessionReq {
 
 /// POST /poker/:id/session : verify the signed challenge, mint a table token.
 async fn session_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<SessionReq>,
 ) -> Json<serde_json::Value> {
@@ -729,7 +728,7 @@ struct TokenReq {
 
 /// POST /poker/:id/hole : the caller's two hole cards (signed session only).
 async fn hole_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<TokenReq>,
 ) -> Json<serde_json::Value> {
@@ -763,7 +762,7 @@ async fn hole_handler(
 
 /// POST /poker/:id/deal : start the next hand (either seated player).
 async fn deal_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<TokenReq>,
 ) -> Json<serde_json::Value> {
@@ -847,7 +846,7 @@ struct ActionReq {
 
 /// POST /poker/:id/action : check / call / bet / raise / fold.
 async fn action_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<ActionReq>,
 ) -> Json<serde_json::Value> {

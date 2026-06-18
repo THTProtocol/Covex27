@@ -3,7 +3,6 @@ use crate::db;
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
-use std::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 /// Payment Verifier v2 -- Monitors treasury, matches payments to covenants
@@ -11,7 +10,7 @@ use tracing::{debug, error, info, warn};
 /// disclosure fields, and triggers enhanced UI regeneration.
 pub async fn run_payment_verifier(
     client: Arc<KaspaRpcClient>,
-    db: Arc<Mutex<rusqlite::Connection>>,
+    db: db::Db,
     treasury_address: String,
     network: String,
 ) {
@@ -142,7 +141,7 @@ pub async fn run_payment_verifier(
                                             info!("Payment Verifier: Covenant {} upgraded to {} with full disclosure", &cid[..16], tier);
 
                                             // TRIGGER ENHANCED UI REGENERATION
-                                            let gen_db = Arc::clone(&db);
+                                            let gen_db = db.clone();
                                             let gen_cid = cid.clone();
                                             let gen_tier = tier.to_string();
                                             let gen_name = format!(

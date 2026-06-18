@@ -6,8 +6,6 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use rusqlite::Connection;
 
 #[derive(Deserialize)]
 pub struct MixerDepositInput {
@@ -65,7 +63,7 @@ pub fn mixer_routes() -> Router {
 }
 
 async fn deposit_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Json(input): Json<MixerDepositInput>,
 ) -> Json<MixerDepositOutput> {
     match crate::db::mixer_add_leaf(&db, &input.covenant_id, &input.leaf_hash) {
@@ -85,7 +83,7 @@ async fn deposit_handler(
 }
 
 async fn root_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
 ) -> Json<MixerRootOutput> {
     let (root, count) = crate::db::mixer_get_root(&db, &covenant_id).unwrap_or(("0".to_string(), 0));
@@ -97,7 +95,7 @@ async fn root_handler(
 }
 
 async fn status_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
 ) -> Json<MixerStatusOutput> {
     let conn = db.lock().unwrap();
     let pools: i64 = conn
@@ -114,7 +112,7 @@ async fn status_handler(
 }
 
 async fn withdraw_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Json(input): Json<MixerWithdrawInput>,
 ) -> Json<MixerWithdrawOutput> {
     // SECURITY (Finding H2): this endpoint records a withdraw nullifier but DOES NOT and
@@ -159,7 +157,7 @@ async fn withdraw_handler(
 }
 
 async fn pools_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
 ) -> Json<serde_json::Value> {
     // Basic pools view (count of roots + note). Real per-covenant pools via /root/:id + deposit.
     let conn = db.lock().unwrap();
@@ -171,7 +169,7 @@ async fn pools_handler(
 }
 
 async fn deposits_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
 ) -> Json<serde_json::Value> {
     // Return leaf count + sample for the covenant (lightweight, no full list for large pools).
@@ -189,7 +187,7 @@ async fn deposits_handler(
 }
 
 async fn nullifiers_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
 ) -> Json<serde_json::Value> {
     let conn = db.lock().unwrap();

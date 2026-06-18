@@ -1,10 +1,65 @@
 use rusqlite::{params, Connection};
-use std::sync::{Arc, Mutex};
+use r2d2_sqlite::SqliteConnectionManager;
 
-pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
-    let conn = Connection::open(path)?;
-    // WAL mode allows concurrent reads during writes — critical with 6 background tasks
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")?;
+/// A connection checked out of the pool. Derefs to rusqlite::Connection
+/// (Deref + DerefMut), so every existing `conn.execute / prepare / query_row /
+/// transaction` call works on it unchanged.
+pub type DbConn = r2d2::PooledConnection<SqliteConnectionManager>;
+
+/// Cheaply-cloneable handle to the shared SQLite connection pool. This replaces
+/// the old `Arc<Mutex<Connection>>`. The `lock()` method name is kept so the
+/// ~109 `let conn = db.lock().unwrap();` call sites compile UNCHANGED: instead of
+/// taking a mutex guard, `lock()` now checks a connection out of the pool. The
+/// returned `DbConn` derefs to `Connection`, so the bodies are identical.
+#[derive(Clone)]
+pub struct Db {
+    pool: r2d2::Pool<SqliteConnectionManager>,
+}
+
+impl Db {
+    /// Check a connection out of the pool. Named `lock` purely so the migration
+    /// is a type-only change (`db.lock().unwrap()` is unchanged at every call site).
+    pub fn lock(&self) -> Result<DbConn, r2d2::Error> {
+        self.pool.get()
+    }
+}
+
+/// Run a synchronous SQLite read on a blocking thread so it never stalls a Tokio
+/// worker. The closure receives a borrowed `&Connection` checked out of the pool.
+/// Use this for the hottest GET read handlers. Do NOT use it for the money-path
+/// writes or any multi-statement transaction that must stay on one connection
+/// for atomicity — those keep calling `db.lock()` directly.
+pub async fn blocking<F, T>(db: &Db, f: F) -> T
+where
+    F: FnOnce(&rusqlite::Connection) -> T + Send + 'static,
+    T: Send + 'static,
+{
+    let db = db.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = db.lock().unwrap();
+        f(&conn)
+    })
+    .await
+    .unwrap()
+}
+
+pub fn open_db(path: &str) -> anyhow::Result<Db> {
+    // Per-connection setup: WAL lets readers proceed during a write (critical with
+    // ~9 background workers + request handlers sharing one file), busy_timeout makes
+    // a writer wait for the lock instead of erroring with SQLITE_BUSY, and
+    // foreign_keys enforces referential integrity. Runs on EVERY pooled connection.
+    let manager = SqliteConnectionManager::file(path).with_init(|c| {
+        c.execute_batch(
+            "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;",
+        )
+    });
+    let pool = r2d2::Pool::builder()
+        .max_size(8)
+        .build(manager)
+        .map_err(|e| anyhow::anyhow!("failed to build SQLite pool: {e}"))?;
+
+    // Run the schema migrations once at startup on a single pooled connection.
+    let conn = pool.get()?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS covenants (
             tx_id               TEXT PRIMARY KEY,
@@ -419,11 +474,12 @@ pub fn open_db(path: &str) -> anyhow::Result<Mutex<Connection>> {
         let _ = conn.execute(ddl, []);
     }
 
-    Ok(Mutex::new(conn))
+    drop(conn);
+    Ok(Db { pool })
 }
 
 pub fn insert_covenant(
-    db: &Mutex<Connection>,
+    db: &Db,
     tx_id: &str,
     address: &str,
     amount_sompi: u64,
@@ -553,7 +609,7 @@ const COVENANT_SELECT: &str =
     "SELECT tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, verified_payment_tx, verified_at, custom_ui_enabled, full_logic_summary, receiving_addresses, is_active, block_daa_score, timestamp, network FROM covenants";
 
 pub fn get_all_covenants(
-    db: &Mutex<Connection>,
+    db: &Db,
     network: Option<&str>,
 ) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
@@ -585,7 +641,7 @@ pub fn get_all_covenants(
 }
 
 /// Append an activity event (discovery, tier upgrade, resolution, deploy).
-/// Conn is expected to already be held by the caller via the Mutex wrapper.
+/// The caller passes a connection already checked out of the pool (via db.lock()).
 pub fn record_event(
     conn: &Connection,
     event_type: &str,
@@ -650,11 +706,20 @@ pub struct EventRow {
 }
 
 pub fn get_events(
-    db: &Mutex<Connection>,
+    db: &Db,
     network: Option<&str>,
     limit: i64,
 ) -> anyhow::Result<Vec<EventRow>> {
     let conn = db.lock().unwrap();
+    get_events_conn(&conn, network, limit)
+}
+
+/// Connection-borrowing core of `get_events`, for use inside `db::blocking`.
+pub fn get_events_conn(
+    conn: &Connection,
+    network: Option<&str>,
+    limit: i64,
+) -> anyhow::Result<Vec<EventRow>> {
     let limit = limit.clamp(1, 200);
     let mut out = Vec::new();
     let map = |row: &rusqlite::Row| -> rusqlite::Result<EventRow> {
@@ -681,7 +746,7 @@ pub fn get_events(
 /// Paginated, filterable covenant query. Returns (page, total_matching).
 /// q matches name/type, description, category, tx_id and address (prefix or substring).
 pub fn query_covenants(
-    db: &Mutex<Connection>,
+    db: &Db,
     network: Option<&str>,
     creator: Option<&str>,
     q: Option<&str>,
@@ -691,6 +756,21 @@ pub fn query_covenants(
     genuine_only: bool,
 ) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
     let conn = db.lock().unwrap();
+    query_covenants_conn(&conn, network, creator, q, category, limit, offset, genuine_only)
+}
+
+/// Connection-borrowing core of `query_covenants`, for use inside `db::blocking`.
+#[allow(clippy::too_many_arguments)]
+pub fn query_covenants_conn(
+    conn: &Connection,
+    network: Option<&str>,
+    creator: Option<&str>,
+    q: Option<&str>,
+    category: Option<&str>,
+    limit: i64,
+    offset: i64,
+    genuine_only: bool,
+) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
     let mut where_clauses: Vec<String> = vec!["is_active = 1".to_string()];
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
     // Curated default: show covenants Covex can say something REAL about — a paid tier, a genuine
@@ -753,10 +833,18 @@ pub fn query_covenants(
 
 /// Network-scoped aggregates for the explorer header: (total, paid, tvl_kas).
 pub fn covenant_stats(
-    db: &Mutex<Connection>,
+    db: &Db,
     network: Option<&str>,
 ) -> anyhow::Result<(i64, i64, f64)> {
     let conn = db.lock().unwrap();
+    covenant_stats_conn(&conn, network)
+}
+
+/// Connection-borrowing core of `covenant_stats`, for use inside `db::blocking`.
+pub fn covenant_stats_conn(
+    conn: &Connection,
+    network: Option<&str>,
+) -> anyhow::Result<(i64, i64, f64)> {
     let sql_base = "SELECT COUNT(*), COALESCE(SUM(CASE WHEN verified_tier IN ('BUILDER','PRO','MAX') THEN 1 ELSE 0 END), 0), COALESCE(SUM(amount_kaspa), 0) FROM covenants WHERE is_active = 1";
     let row = if let Some(net) = network {
         conn.query_row(
@@ -778,7 +866,7 @@ pub fn covenant_stats(
 /// at the most recent 5000 events), so it is labelled as recent activity, not
 /// full history. Network is optional; None aggregates across all networks.
 pub fn platform_stats(
-    db: &Mutex<Connection>,
+    db: &Db,
     network: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     use serde_json::json;
@@ -957,7 +1045,7 @@ pub fn platform_stats(
 /// the protected terminal-config endpoint), whereas "FREE"/"EXPLORER"/"PRO"/... mark
 /// an auto-generated blob. Callers use it to reserve the iframe for real creator UIs.
 pub fn get_generated_ui_for(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
 ) -> anyhow::Result<Option<(String, String, String)>> {
     let conn = db.lock().unwrap();
@@ -979,9 +1067,16 @@ pub fn get_generated_ui_for(
 
 /// Set of covenant_ids that have a custom UI (cheap badge lookup for list pages).
 pub fn get_custom_ui_id_set(
-    db: &Mutex<Connection>,
+    db: &Db,
 ) -> anyhow::Result<std::collections::HashSet<String>> {
     let conn = db.lock().unwrap();
+    get_custom_ui_id_set_conn(&conn)
+}
+
+/// Connection-borrowing core of `get_custom_ui_id_set`, for use inside `db::blocking`.
+pub fn get_custom_ui_id_set_conn(
+    conn: &Connection,
+) -> anyhow::Result<std::collections::HashSet<String>> {
     let mut stmt = conn.prepare("SELECT DISTINCT covenant_id FROM generated_uis")?;
     let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
     let mut set = std::collections::HashSet::new();
@@ -1008,7 +1103,7 @@ pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
 }
 
 pub fn get_covenant_by_txid(
-    db: &Mutex<Connection>,
+    db: &Db,
     tx_id: &str,
 ) -> anyhow::Result<Option<DbCovenant>> {
     let conn = db.lock().unwrap();
@@ -1019,7 +1114,7 @@ pub fn get_covenant_by_txid(
 }
 
 pub fn get_covenants_by_creator(
-    db: &Mutex<Connection>,
+    db: &Db,
     creator_addr: &str,
     network: Option<&str>,
 ) -> anyhow::Result<Vec<DbCovenant>> {
@@ -1053,7 +1148,7 @@ pub fn get_covenants_by_creator(
     Ok(result)
 }
 
-pub fn count_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
+pub fn count_covenants(db: &Db) -> anyhow::Result<i64> {
     let conn = db.lock().unwrap();
     Ok(conn.query_row(
         "SELECT COUNT(*) FROM covenants WHERE is_active = 1",
@@ -1062,7 +1157,7 @@ pub fn count_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
     )?)
 }
 
-pub fn count_active_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
+pub fn count_active_covenants(db: &Db) -> anyhow::Result<i64> {
     let conn = db.lock().unwrap();
     Ok(conn.query_row(
         "SELECT COUNT(*) FROM covenants WHERE is_active = 1 AND amount_kaspa > 0",
@@ -1071,7 +1166,7 @@ pub fn count_active_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
     )?)
 }
 
-pub fn count_verified_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
+pub fn count_verified_covenants(db: &Db) -> anyhow::Result<i64> {
     let conn = db.lock().unwrap();
     Ok(conn.query_row(
         "SELECT COUNT(*) FROM covenants WHERE is_active = 1 AND verified_tier != 'FREE'",
@@ -1082,7 +1177,7 @@ pub fn count_verified_covenants(db: &Mutex<Connection>) -> anyhow::Result<i64> {
 
 // Upgrade a covenant record when payment is confirmed
 pub fn upgrade_covenant_record(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
     verified_tier: &str,
     verified_payment_tx: &str,
@@ -1099,7 +1194,7 @@ pub fn upgrade_covenant_record(
 
 // Payment functions
 pub fn insert_payment(
-    db: &Mutex<Connection>,
+    db: &Db,
     tx_id: &str,
     from_addr: &str,
     to_addr: &str,
@@ -1119,7 +1214,7 @@ pub fn insert_payment(
 }
 
 pub fn confirm_payment(
-    db: &Mutex<Connection>,
+    db: &Db,
     tx_id: &str,
     confirmations: i64,
 ) -> anyhow::Result<()> {
@@ -1134,7 +1229,7 @@ pub fn confirm_payment(
 /// True if this payment has already been confirmed. Used by the verifier loop
 /// to do the expensive upgrade + UI-regen work ONCE on the pending->confirmed
 /// transition, instead of every 15s cycle for every never-swept treasury UTXO.
-pub fn is_payment_confirmed(db: &Mutex<Connection>, tx_id: &str) -> bool {
+pub fn is_payment_confirmed(db: &Db, tx_id: &str) -> bool {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT 1 FROM payments WHERE tx_id = ?1 AND status = 'confirmed'",
@@ -1149,7 +1244,7 @@ pub fn is_payment_confirmed(db: &Mutex<Connection>, tx_id: &str) -> bool {
 /// Checks the accounts table (directly credited by signer on broadcast) first,
 /// then falls back to the payments table for externally-detected payments.
 pub fn get_highest_paid_tier_for_address(
-    db: &Mutex<Connection>,
+    db: &Db,
     address: &str,
     network: &str,
 ) -> anyhow::Result<Option<String>> {
@@ -1178,7 +1273,7 @@ pub fn get_highest_paid_tier_for_address(
 }
 
 pub fn upgrade_account(
-    db: &Mutex<Connection>,
+    db: &Db,
     address: &str,
     tier: &str,
     payment_tx_id: &str,
@@ -1201,7 +1296,7 @@ pub fn upgrade_account(
     Ok(())
 }
 
-pub fn get_account_tier(db: &Mutex<Connection>, address: &str, network: &str) -> anyhow::Result<String> {
+pub fn get_account_tier(db: &Db, address: &str, network: &str) -> anyhow::Result<String> {
     let conn = db.lock().unwrap();
     Ok(conn
         .query_row(
@@ -1214,7 +1309,7 @@ pub fn get_account_tier(db: &Mutex<Connection>, address: &str, network: &str) ->
 
 // Generated UI functions
 pub fn save_generated_ui(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
     owner_address: &str,
     tier: &str,
@@ -1235,7 +1330,7 @@ pub fn save_generated_ui(
 /// Save trust-verification UI config (verified_source_url, developer_notes, interaction_schema, custom_category).
 /// Caller MUST validate that wallet_addr == on-chain creator_addr before calling.
 pub fn save_ui_trust_config(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
     owner_address: &str,
     verified_source_url: &str,
@@ -1268,7 +1363,7 @@ pub fn save_ui_trust_config(
 
 /// Retrieve the trust-verification config for a covenant.
 pub fn get_ui_trust_config(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
 ) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
@@ -1283,7 +1378,7 @@ pub fn get_ui_trust_config(
 }
 
 pub fn get_generated_ui_by_covenant(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
 ) -> anyhow::Result<Option<serde_json::Value>> {
     let conn = db.lock().unwrap();
@@ -1310,7 +1405,7 @@ pub fn get_generated_ui_by_covenant(
 /// Batch lookup: returns a HashMap mapping covenant_id → (ui_html, ui_config) for all published UIs.
 /// Used to enrich the covenants list endpoint with custom UI data.
 pub fn get_all_generated_uis_map(
-    db: &Mutex<Connection>,
+    db: &Db,
 ) -> anyhow::Result<std::collections::HashMap<String, (String, String)>> {
     let conn = db.lock().unwrap();
     let mut stmt = conn.prepare(
@@ -1333,7 +1428,7 @@ pub fn get_all_generated_uis_map(
 }
 
 pub fn get_generated_uis(
-    db: &Mutex<Connection>,
+    db: &Db,
     owner: Option<&str>,
 ) -> anyhow::Result<Vec<serde_json::Value>> {
     let conn = db.lock().unwrap();
@@ -1384,7 +1479,7 @@ pub fn get_generated_uis(
 }
 
 pub fn set_visibility(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
     tier: &str,
     featured: bool,
@@ -1418,7 +1513,7 @@ pub struct P2shCovenant {
 
 #[allow(clippy::too_many_arguments)]
 pub fn insert_p2sh_covenant(
-    db: &Mutex<Connection>,
+    db: &Db,
     tx_id: &str,
     network: &str,
     p2sh_address: &str,
@@ -1441,7 +1536,7 @@ pub fn insert_p2sh_covenant(
 /// Attach creator-supplied metadata to a covenant being CLAIMED (an elsewhere-created covenant
 /// whose redeem script the claimer has just proven). Makes it display + filter as a real covenant.
 pub fn set_claimed_metadata(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
     description: &str,
     covenant_type: &str,
@@ -1454,7 +1549,7 @@ pub fn set_claimed_metadata(
     Ok(())
 }
 
-pub fn get_p2sh_covenant(db: &Mutex<Connection>, tx_id: &str) -> Option<P2shCovenant> {
+pub fn get_p2sh_covenant(db: &Db, tx_id: &str) -> Option<P2shCovenant> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr, spent_tx_id
@@ -1477,7 +1572,7 @@ pub fn get_p2sh_covenant(db: &Mutex<Connection>, tx_id: &str) -> Option<P2shCove
     .ok()
 }
 
-pub fn mark_p2sh_spent(db: &Mutex<Connection>, tx_id: &str, spent_tx_id: &str) -> anyhow::Result<()> {
+pub fn mark_p2sh_spent(db: &Db, tx_id: &str, spent_tx_id: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE p2sh_covenants SET spent_tx_id = ?2 WHERE tx_id = ?1",
@@ -1510,7 +1605,7 @@ pub struct BundleMarket {
 
 #[allow(clippy::too_many_arguments)]
 pub fn insert_bundle_market(
-    db: &Mutex<Connection>,
+    db: &Db,
     market_id: &str, network: &str, question: &str, outcome_a: &str, outcome_b: &str,
     h_a: &str, h_b: &str, secret_a: &str, secret_b: &str,
     kickoff_utc: Option<&str>, source_url: Option<&str>,
@@ -1529,7 +1624,7 @@ pub fn insert_bundle_market(
 /// Bind a market to its on-chain creator address. Called immediately after
 /// insert_bundle_market so the creator can be authorised for privileged market
 /// actions (e.g. resolution) without changing insert_bundle_market's signature.
-pub fn set_bundle_market_creator(db: &Arc<Mutex<Connection>>, market_id: &str, creator: &str) -> rusqlite::Result<usize> {
+pub fn set_bundle_market_creator(db: &Db, market_id: &str, creator: &str) -> rusqlite::Result<usize> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE bundle_markets SET creator_address = ?2 WHERE market_id = ?1",
@@ -1538,7 +1633,7 @@ pub fn set_bundle_market_creator(db: &Arc<Mutex<Connection>>, market_id: &str, c
 }
 
 /// The on-chain creator bound to a market, if one has been recorded.
-pub fn get_bundle_market_creator(db: &Arc<Mutex<Connection>>, market_id: &str) -> Option<String> {
+pub fn get_bundle_market_creator(db: &Db, market_id: &str) -> Option<String> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT creator_address FROM bundle_markets WHERE market_id = ?1",
@@ -1549,7 +1644,7 @@ pub fn get_bundle_market_creator(db: &Arc<Mutex<Connection>>, market_id: &str) -
     .flatten()
 }
 
-pub fn get_bundle_market(db: &Mutex<Connection>, market_id: &str) -> Option<BundleMarket> {
+pub fn get_bundle_market(db: &Db, market_id: &str) -> Option<BundleMarket> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at, fee_bps, rebate_bps
@@ -1573,7 +1668,7 @@ fn row_to_market(r: &rusqlite::Row) -> rusqlite::Result<BundleMarket> {
 
 const MARKET_COLS: &str = "market_id, network, question, outcome_a, outcome_b, h_a, h_b, secret_a, secret_b, kickoff_utc, source_url, revealed_outcome, revealed_secret, resolved_at, fee_bps, rebate_bps";
 
-pub fn list_bundle_markets(db: &Mutex<Connection>, network: Option<&str>, limit: i64) -> Vec<BundleMarket> {
+pub fn list_bundle_markets(db: &Db, network: Option<&str>, limit: i64) -> Vec<BundleMarket> {
     let conn = db.lock().unwrap();
     let mut out = Vec::new();
     if let Some(net) = network {
@@ -1592,7 +1687,7 @@ pub fn list_bundle_markets(db: &Mutex<Connection>, network: Option<&str>, limit:
 
 /// Reveal exactly ONE outcome's secret (single-secret policy: the WHERE clause only updates
 /// when the market is unresolved or already resolved to the SAME outcome).
-pub fn resolve_bundle_market(db: &Mutex<Connection>, market_id: &str, outcome: i64, secret: &str) -> anyhow::Result<()> {
+pub fn resolve_bundle_market(db: &Db, market_id: &str, outcome: i64, secret: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE bundle_markets SET revealed_outcome = ?2, revealed_secret = ?3, resolved_at = unixepoch()
@@ -1624,7 +1719,7 @@ fn row_to_order(r: &rusqlite::Row) -> rusqlite::Result<MarketOrder> {
 
 const ORDER_COLS: &str = "order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx";
 
-pub fn insert_market_order(db: &Mutex<Connection>, order_id: &str, market_id: &str, side: i64, stake_sompi: i64, bettor_addr: &str, bettor_pubkey: &str) -> anyhow::Result<()> {
+pub fn insert_market_order(db: &Db, order_id: &str, market_id: &str, side: i64, stake_sompi: i64, bettor_addr: &str, bettor_pubkey: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO market_orders (order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx, created_at)
@@ -1634,7 +1729,7 @@ pub fn insert_market_order(db: &Mutex<Connection>, order_id: &str, market_id: &s
     Ok(())
 }
 
-pub fn list_market_orders(db: &Mutex<Connection>, market_id: &str) -> Vec<MarketOrder> {
+pub fn list_market_orders(db: &Db, market_id: &str) -> Vec<MarketOrder> {
     let conn = db.lock().unwrap();
     let sql = format!("SELECT {ORDER_COLS} FROM market_orders WHERE market_id = ?1 ORDER BY created_at ASC");
     let mut out = Vec::new();
@@ -1646,7 +1741,7 @@ pub fn list_market_orders(db: &Mutex<Connection>, market_id: &str) -> Vec<Market
     out
 }
 
-pub fn list_open_orders_side(db: &Mutex<Connection>, market_id: &str, side: i64) -> Vec<MarketOrder> {
+pub fn list_open_orders_side(db: &Db, market_id: &str, side: i64) -> Vec<MarketOrder> {
     let conn = db.lock().unwrap();
     let sql = format!("SELECT {ORDER_COLS} FROM market_orders WHERE market_id = ?1 AND side = ?2 AND status = 'open' ORDER BY created_at ASC");
     let mut out = Vec::new();
@@ -1658,7 +1753,7 @@ pub fn list_open_orders_side(db: &Mutex<Connection>, market_id: &str, side: i64)
     out
 }
 
-pub fn mark_order_funded(db: &Mutex<Connection>, order_id: &str, bundle_tx: &str) -> anyhow::Result<()> {
+pub fn mark_order_funded(db: &Db, order_id: &str, bundle_tx: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute("UPDATE market_orders SET status='funded', bundle_tx=?2 WHERE order_id=?1", params![order_id, bundle_tx])?;
     Ok(())
@@ -1673,7 +1768,7 @@ pub struct MarketBundle {
     pub legs_json: String,
 }
 
-pub fn insert_market_bundle(db: &Mutex<Connection>, bundle_tx: &str, market_id: &str, a_addr: &str, b_addr: &str, legs_json: &str) -> anyhow::Result<()> {
+pub fn insert_market_bundle(db: &Db, bundle_tx: &str, market_id: &str, a_addr: &str, b_addr: &str, legs_json: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO market_bundles (bundle_tx, market_id, a_addr, b_addr, legs_json, created_at) VALUES (?1,?2,?3,?4,?5,unixepoch())",
@@ -1682,7 +1777,7 @@ pub fn insert_market_bundle(db: &Mutex<Connection>, bundle_tx: &str, market_id: 
     Ok(())
 }
 
-pub fn list_market_bundles(db: &Mutex<Connection>, market_id: &str) -> Vec<MarketBundle> {
+pub fn list_market_bundles(db: &Db, market_id: &str) -> Vec<MarketBundle> {
     let conn = db.lock().unwrap();
     let mut out = Vec::new();
     if let Ok(mut stmt) = conn.prepare("SELECT bundle_tx, a_addr, b_addr, legs_json FROM market_bundles WHERE market_id = ?1 ORDER BY created_at ASC") {
@@ -1695,7 +1790,7 @@ pub fn list_market_bundles(db: &Mutex<Connection>, market_id: &str) -> Vec<Marke
     out
 }
 
-pub fn get_last_scanned_daa(db: &Mutex<Connection>, network: &str) -> anyhow::Result<u64> {
+pub fn get_last_scanned_daa(db: &Db, network: &str) -> anyhow::Result<u64> {
     let conn = db.lock().unwrap();
     Ok(conn
         .query_row(
@@ -1706,7 +1801,7 @@ pub fn get_last_scanned_daa(db: &Mutex<Connection>, network: &str) -> anyhow::Re
         .unwrap_or(0))
 }
 
-pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64, network: &str) -> anyhow::Result<()> {
+pub fn update_last_scanned_daa(db: &Db, daa: u64, network: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE crawler_state SET last_scanned_daa = ?1 WHERE id = 1 AND network = ?2",
@@ -1723,7 +1818,7 @@ pub fn update_last_scanned_daa(db: &Mutex<Connection>, daa: u64, network: &str) 
 /// plus a 64-bit salt was guessable; an unguessable random token is required because
 /// possession of the token authorises a paid deployment.
 pub fn create_auth_token(
-    db: &Mutex<Connection>,
+    db: &Db,
     address: &str,
     network: &str,
     tier: &str,
@@ -1747,7 +1842,7 @@ pub fn create_auth_token(
 
 /// Validate an auth token and return (address, tier, network) if valid + unconsumed.
 pub fn validate_auth_token(
-    db: &Mutex<Connection>,
+    db: &Db,
     token: &str,
     address: &str,
     network: &str,
@@ -1773,7 +1868,7 @@ pub fn validate_auth_token(
 
 /// Consume an auth token (mark as used for deployment). Returns tokens_remaining.
 pub fn consume_auth_token(
-    db: &Mutex<Connection>,
+    db: &Db,
     token: &str,
     address: &str,
     network: &str,
@@ -1816,7 +1911,7 @@ pub fn consume_auth_token(
 
 /// Check if address can deploy on this network.
 pub fn can_deploy(
-    db: &Mutex<Connection>,
+    db: &Db,
     address: &str,
     network: &str,
 ) -> anyhow::Result<bool> {
@@ -1833,7 +1928,7 @@ pub fn can_deploy(
 // ── Privacy Mixer ─────────────────────────────────────────────────────────
 
 pub fn mixer_add_leaf(
-    db: &Mutex<Connection>,
+    db: &Db,
     covenant_id: &str,
     leaf_hash: &str,
 ) -> anyhow::Result<(i64, String)> {
@@ -1873,7 +1968,7 @@ pub fn mixer_add_leaf(
     Ok((leaf_index, root))
 }
 
-pub fn mixer_get_root(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Result<(String, i64)> {
+pub fn mixer_get_root(db: &Db, covenant_id: &str) -> anyhow::Result<(String, i64)> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT merkle_root, leaf_count FROM mixer_roots WHERE covenant_id = ?1",
@@ -1883,7 +1978,7 @@ pub fn mixer_get_root(db: &Mutex<Connection>, covenant_id: &str) -> anyhow::Resu
     .or_else(|_| Ok(("0".to_string(), 0)))
 }
 
-pub fn mixer_nullifier_spent(db: &Mutex<Connection>, nullifier: &str) -> anyhow::Result<bool> {
+pub fn mixer_nullifier_spent(db: &Db, nullifier: &str) -> anyhow::Result<bool> {
     let conn = db.lock().unwrap();
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM mixer_nullifiers WHERE nullifier = ?1",
@@ -1898,7 +1993,7 @@ pub fn mixer_nullifier_spent(db: &Mutex<Connection>, nullifier: &str) -> anyhow:
 /// first time a nullifier is seen and ZERO rows on any reuse. Returns the number
 /// of rows inserted so the caller can detect a double-spend (0 == already spent).
 pub fn mixer_record_nullifier(
-    db: &Mutex<Connection>,
+    db: &Db,
     nullifier: &str,
     covenant_id: &str,
 ) -> rusqlite::Result<usize> {

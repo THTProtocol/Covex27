@@ -4,7 +4,6 @@ use kaspa_addresses::Address;
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
-use std::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 /// Live covenant indexer. After EVERY successful covenant detection,
@@ -49,7 +48,7 @@ fn tier_from_script(_spk_hex: &str, _treasury_script: &str, amount: u64) -> (Str
 
 pub async fn run_indexer(
     client: Arc<KaspaRpcClient>,
-    db: Arc<Mutex<rusqlite::Connection>>,
+    db: db::Db,
     seed_addresses: Vec<String>,
     treasury_address: String,
     network: String,
@@ -184,7 +183,7 @@ pub async fn run_indexer(
                             tick_found += 1;
                             indexed_total += 1;
                             // AUTO-GENERATE BASIC UI for every detected covenant
-                            let gen_db = Arc::clone(&db);
+                            let gen_db = db.clone();
                             let gen_tx_id = tx_id.clone();
                             let gen_type = covenant_type.clone();
                             let gen_cat = category.label().to_string();

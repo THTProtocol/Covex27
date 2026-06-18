@@ -151,7 +151,7 @@ async fn main() {
     let db = match db::open_db(&db_path) {
         Ok(d) => {
             info!("Database opened at {}", db_path);
-            Arc::new(d)
+            d
         }
         Err(e) => {
             error!("Failed to open database: {}", e);
@@ -258,7 +258,7 @@ async fn main() {
 
         // Spawn indexer
         {
-            let s_db = Arc::clone(&db);
+            let s_db = db.clone();
             let s_client = Arc::clone(&extra_client);
             let s_seeds = extra_seeds.clone();
             let s_treasury = extra_treasury.clone();
@@ -269,7 +269,7 @@ async fn main() {
         }
         // Spawn payment verifier
         {
-            let s_db = Arc::clone(&db);
+            let s_db = db.clone();
             let s_client = Arc::clone(&extra_client);
             let s_treasury = extra_treasury.clone();
             let s_net = extra_net.to_string();
@@ -279,7 +279,7 @@ async fn main() {
         }
         // Spawn crawler
         {
-            let s_db = Arc::clone(&db);
+            let s_db = db.clone();
             let s_client = Arc::clone(&extra_client);
             let s_treasury = extra_treasury.clone();
             let s_net = extra_net.to_string();
@@ -290,7 +290,7 @@ async fn main() {
     }
 
     // --- Background: Indexer (for the primary network) ---
-    let idx_db = Arc::clone(&db);
+    let idx_db = db.clone();
     let idx_client = Arc::clone(&client);
     let idx_seeds = seed_addrs.clone();
     let idx_treasury = treasury.clone();
@@ -300,7 +300,7 @@ async fn main() {
     });
 
     // --- Background: Payment Verifier (primary) ---
-    let pay_db = Arc::clone(&db);
+    let pay_db = db.clone();
     let pay_client = Arc::clone(&client);
     let pay_treasury = treasury.clone();
     let pay_network = primary_network.clone();
@@ -312,7 +312,7 @@ async fn main() {
     // FREE tier covenants with no indexed activity for 30 days are archived
     // (is_active = 0, hidden from default explorer listings). Paid covenants
     // never auto-archive: the tier was bought once and lasts forever.
-    let archive_db = Arc::clone(&db);
+    let archive_db = db.clone();
     tokio::spawn(async move {
         loop {
             {
@@ -336,7 +336,7 @@ async fn main() {
     });
 
     // --- Background: Historic Crawler (for the configured network) ---
-    let crawl_db = Arc::clone(&db);
+    let crawl_db = db.clone();
     let crawl_client = Arc::clone(&client);
     let crawl_treasury = treasury.clone();
     let crawl_network = network.clone();
@@ -450,12 +450,18 @@ async fn main() {
 }
 
 async fn events_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let network = params.get("network").map(|s| s.as_str());
+    let network = params.get("network").cloned();
     let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(30);
-    match db::get_events(&db, network, limit) {
+    // Run the synchronous SQLite read on a blocking thread so it never stalls a
+    // Tokio worker (this is one of the hottest GET endpoints).
+    let result = db::blocking(&db, move |conn| {
+        db::get_events_conn(conn, network.as_deref(), limit)
+    })
+    .await;
+    match result {
         Ok(ev) => Json(json!({"events": ev, "total": ev.len()})),
         Err(e) => Json(json!({"events": [], "error": e.to_string()})),
     }
@@ -463,15 +469,30 @@ async fn events_handler(
 
 /// Public portfolio summary for any address: covenants created, payments, totals.
 async fn address_summary_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     axum::extract::Path(addr): axum::extract::Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let network = params.get("network").map(|s| s.as_str());
-    let (covs, total) =
-        db::query_covenants(&db, network, Some(addr.as_str()), None, None, 100, 0, false)
-            .unwrap_or((vec![], 0));
-    let ui_ids = db::get_custom_ui_id_set(&db).unwrap_or_default();
+    let network = params.get("network").cloned();
+    let addr_q = addr.clone();
+    // Both reads run on one pooled connection on a blocking thread; the JSON
+    // mapping below is CPU-light and stays on the async side.
+    let (covs, total, ui_ids) = db::blocking(&db, move |conn| {
+        let (covs, total) = db::query_covenants_conn(
+            conn,
+            network.as_deref(),
+            Some(addr_q.as_str()),
+            None,
+            None,
+            100,
+            0,
+            false,
+        )
+        .unwrap_or((vec![], 0));
+        let ui_ids = db::get_custom_ui_id_set_conn(conn).unwrap_or_default();
+        (covs, total, ui_ids)
+    })
+    .await;
     let list: Vec<serde_json::Value> = covs
         .iter()
         .map(|c| covenant_summary_json(c, ui_ids.contains(&c.tx_id), db::ui_config_for_tier(&c.verified_tier)))
@@ -525,7 +546,7 @@ async fn openapi_handler() -> Json<serde_json::Value> {
 /// Per-covenant activity history: deploy plus every indexed event
 /// (discovery, tier upgrades, oracle resolutions, game updates).
 async fn covenant_actions_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     axum::extract::Path(covenant_id): axum::extract::Path<String>,
 ) -> Json<serde_json::Value> {
     let mut actions: Vec<serde_json::Value> = Vec::new();
@@ -746,7 +767,7 @@ async fn root_handler() -> Json<serde_json::Value> {
 }
 
 async fn status_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
 ) -> Json<serde_json::Value> {
     let total = db::count_covenants(&db).unwrap_or(0);
     let active = db::count_active_covenants(&db).unwrap_or(0);
@@ -835,22 +856,24 @@ fn covenant_summary_json(
 }
 
 async fn covenants_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let network_filter = params.get("network").map(|s| s.as_str());
+    let network_filter = params
+        .get("network")
+        .map(|s| s.to_string());
     let creator = params
         .get("creator")
         .filter(|s| !s.is_empty())
-        .map(|s| s.as_str());
+        .map(|s| s.to_string());
     let q = params
         .get("q")
         .filter(|s| !s.trim().is_empty())
-        .map(|s| s.as_str());
+        .map(|s| s.to_string());
     let category = params
         .get("category")
         .filter(|s| !s.is_empty() && s.as_str() != "all")
-        .map(|s| s.as_str());
+        .map(|s| s.to_string());
     let limit: i64 = params
         .get("limit")
         .and_then(|s| s.parse().ok())
@@ -868,16 +891,44 @@ async fn covenants_handler(
         && category.is_none()
         && creator.is_none()
         && params.get("include_raw").map(|v| v != "1").unwrap_or(true);
-    let (records, total) =
-        match db::query_covenants(&db, network_filter, creator, q, category, limit, offset, genuine_only) {
-            Ok(r) => r,
-            Err(e) => {
-                error!("Failed to query covenants: {}", e);
-                return Json(json!({"total": 0, "covenants": [], "error": e.to_string()}));
-            }
-        };
+    let want_stats = offset == 0;
 
-    let ui_ids = db::get_custom_ui_id_set(&db).unwrap_or_default();
+    // All reads (page + optional header aggregates + custom-UI badge set) run on one
+    // pooled connection on a blocking thread so they never stall a Tokio worker.
+    type CovQueryOut = (
+        anyhow::Result<(Vec<db::DbCovenant>, i64)>,
+        std::collections::HashSet<String>,
+        Option<(i64, i64, f64)>,
+    );
+    let (records_res, ui_ids, stats_row): CovQueryOut = db::blocking(&db, move |conn| {
+        let records_res = db::query_covenants_conn(
+            conn,
+            network_filter.as_deref(),
+            creator.as_deref(),
+            q.as_deref(),
+            category.as_deref(),
+            limit,
+            offset,
+            genuine_only,
+        );
+        let ui_ids = db::get_custom_ui_id_set_conn(conn).unwrap_or_default();
+        let stats_row = if want_stats {
+            db::covenant_stats_conn(conn, network_filter.as_deref()).ok()
+        } else {
+            None
+        };
+        (records_res, ui_ids, stats_row)
+    })
+    .await;
+
+    let (records, total) = match records_res {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Failed to query covenants: {}", e);
+            return Json(json!({"total": 0, "covenants": [], "error": e.to_string()}));
+        }
+    };
+
     let list: Vec<serde_json::Value> = records
         .iter()
         .map(|c| {
@@ -890,13 +941,9 @@ async fn covenants_handler(
         .collect();
     // Header aggregates ride along on the first page so the explorer needs no
     // second round-trip and never downloads the full set for stats.
-    let stats = if offset == 0 {
-        db::covenant_stats(&db, network_filter)
-            .map(|(t, paid, tvl)| json!({"total": t, "paid": paid, "tvl_kas": tvl}))
-            .unwrap_or(serde_json::Value::Null)
-    } else {
-        serde_json::Value::Null
-    };
+    let stats = stats_row
+        .map(|(t, paid, tvl)| json!({"total": t, "paid": paid, "tvl_kas": tvl}))
+        .unwrap_or(serde_json::Value::Null);
     Json(json!({
         "total": total,
         "covenants": list,
@@ -908,7 +955,7 @@ async fn covenants_handler(
 
 /// Full single-covenant detail, including script_hex and custom UI payloads.
 async fn covenant_by_id_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     axum::extract::Path(covenant_id): axum::extract::Path<String>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     match db::get_covenant_by_txid(&db, &covenant_id) {
@@ -1123,7 +1170,7 @@ async fn decompile_handler(
 
 async fn paid_status_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
 ) -> Json<serde_json::Value> {
     let address = params.get("address").cloned().unwrap_or_default();
     if address.is_empty() {
@@ -1166,7 +1213,7 @@ struct TerminalConfigInput {
 
 async fn get_terminal_config_handler(
     Path(covenant_id): Path<String>,
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
 ) -> Json<serde_json::Value> {
     match db::get_generated_ui_by_covenant(&db, &covenant_id) {
         Ok(Some(ui)) => {
@@ -1186,7 +1233,7 @@ async fn get_terminal_config_handler(
 
 async fn save_terminal_config_handler(
     Path(covenant_id): Path<String>,
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(input): Json<TerminalConfigInput>,
 ) -> Json<serde_json::Value> {
     // ── Ownership enforcement (challenge-response) ──
@@ -1437,7 +1484,7 @@ fn og_escape(s: &str) -> String {
 /// here; humans get the SPA). Any human who lands here is redirected to the
 /// real SPA route, so the endpoint is safe to hit directly.
 async fn og_covenant_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     axum::extract::Path(covenant_id): axum::extract::Path<String>,
 ) -> axum::response::Html<String> {
     let canonical = format!("https://hightable.pro/covenant/{}", covenant_id);
@@ -1650,7 +1697,7 @@ static OG_CARD_CACHE: std::sync::OnceLock<Mutex<HashMap<String, Arc<Vec<u8>>>>> 
 /// until its tier/value changes. Falls back to a redirect to the static cover
 /// if the covenant is unknown or rasterization is unavailable.
 async fn og_card_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     axum::extract::Path(covenant_id): axum::extract::Path<String>,
 ) -> axum::response::Response {
     use axum::response::IntoResponse;
@@ -1702,7 +1749,7 @@ fn png_response(bytes: Arc<Vec<u8>>) -> axum::response::Response {
 /// GET /stats[?network=] : public platform statistics aggregated live from the
 /// covenants, payments, and events tables. Real data only.
 async fn platform_stats_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let network = params.get("network").map(|s| s.as_str()).filter(|s| *s != "all");
@@ -1715,7 +1762,7 @@ async fn platform_stats_handler(
 // ── Analytics handler (Phase 18) ────────────────────────────────
 
 async fn analytics_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let creator = params.get("creator").cloned();
@@ -1924,7 +1971,7 @@ struct MarketplacePublishInput {
 }
 
 async fn marketplace_publish_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(input): Json<MarketplacePublishInput>,
 ) -> Json<serde_json::Value> {
     let id = format!("tmpl_{}", uuid::Uuid::new_v4().to_string()[..12].to_string());
@@ -2003,7 +2050,7 @@ struct PayoutBreakdown {
 
 async fn compute_payout_handler(
     Path(covenant_id): Path<String>,
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(input): Json<ComputePayoutInput>,
 ) -> Json<serde_json::Value> {
     // 1. Verify the oracle's BIP340 Schnorr signature over the outcome message.
@@ -2137,7 +2184,7 @@ struct CovenantMetadataInput {
 /// POST /api/auth-session
 /// Returns {token, tier} only if the address has a verified payment on this network.
 async fn auth_session_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<AuthSessionRequest>,
 ) -> Json<serde_json::Value> {
     let network = req.network.unwrap_or_else(|| "testnet-12".to_string());
@@ -2197,7 +2244,7 @@ async fn auth_session_handler(
 /// POST /api/auth-session/consume
 /// Marks a token as used (one-time use) and increments the deployment counter.
 async fn consume_auth_token_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<ConsumeTokenRequest>,
 ) -> Json<serde_json::Value> {
     // Look up the token in the DB first, then drop the lock before calling consume.
@@ -2252,7 +2299,7 @@ async fn consume_auth_token_handler(
 /// GET /api/deploy-capacity?address=X&network=Y
 /// Returns whether the address can deploy and how many credits remain.
 async fn deploy_capacity_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let address = params.get("address").cloned().unwrap_or_default();
@@ -2287,7 +2334,7 @@ async fn deploy_capacity_handler(
 /// Save rich covenant metadata (disclosed wallets, theme, custom circuit, paid proof)
 /// alongside the covenant record for persistent top-visibility display.
 async fn save_covenant_metadata_handler(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(input): Json<CovenantMetadataInput>,
 ) -> Json<serde_json::Value> {
     fn pfx(s: &str) -> &str {

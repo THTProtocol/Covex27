@@ -359,17 +359,17 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
     : 'OPPONENT IS PLAYING THEIR HAND...';
 
   return (
-    <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 60%, #0a1a0a 0%, #050510 70%)' }}>
+    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
       {/* Top bar */}
-      <div className="h-14 border-b border-white/10 flex items-center justify-between px-4 text-sm bg-black/60 backdrop-blur-xl">
+      <div className="h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between px-4 text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="font-bold tracking-wider text-amber-400">BLACKJACK OPEN DUEL • KASPA COVENANT</div>
-          <div className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10">{totalPot} KAS POT • {feePercent}% FEE</div>
-          <div className="text-[10px] text-emerald-400 font-mono">CO-COMMITTED DECK • NO HOUSE</div>
+          <div className="font-bold tracking-wider text-amber-400 light:text-amber-600">BLACKJACK OPEN DUEL • KASPA COVENANT</div>
+          <div className="px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300">{totalPot} KAS POT • {feePercent}% FEE</div>
+          <div className="text-[10px] text-emerald-400 light:text-emerald-700 font-mono">CO-COMMITTED DECK • NO HOUSE</div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-[10px] text-gray-400 font-mono">ORACLE ATTESTED RESULT</div>
-          <button onClick={onClose} className="px-4 py-1.5 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold">
+          <div className="text-[10px] text-gray-400 light:text-slate-600 font-mono">ORACLE ATTESTED RESULT</div>
+          <button onClick={onClose} className="px-4 py-1.5 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold">
             EXIT FULL SCREEN
           </button>
         </div>
@@ -428,9 +428,9 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                 {mySeatNum ? 'OPPONENT' : 'O SEAT'} <span className="lowercase tracking-normal text-gray-400">{seat(mySeatNum === 2 ? game?.player1 : game?.player2)}</span>
               </div>
               {/* betting circle for the opponent */}
-              <div className="relative flex items-center justify-center"
+              <div className={`relative flex items-center justify-center ${oppWin ? '' : 'bet-ring'}`}
                    style={{ minHeight: 72, padding: '4px 18px', borderRadius: 999,
-                            boxShadow: oppWin ? '0 0 0 2px #49EACB, 0 0 22px rgba(73,234,203,0.5)' : 'inset 0 0 0 2px rgba(255,255,255,0.10)',
+                            boxShadow: oppWin ? '0 0 0 2px #49EACB, 0 0 22px rgba(73,234,203,0.5)' : undefined,
                             transition: 'box-shadow 260ms ease' }}>
                 {(mySeatNum ? oppHand : table.p2).length ? (
                   <HandRow
@@ -441,7 +441,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                     win={showdown && oppWin}
                   />
                 ) : (
-                  <span className="font-mono text-white/20 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
+                  <span className="font-mono text-white/20 light:text-slate-900/40 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
                 )}
               </div>
               <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? oppHand : table.p2).length ? (mySeatNum ? oppVal : table.v2) : ''}</div>
@@ -452,8 +452,8 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
               {stageText && <div className="text-[10px] text-gray-300 uppercase tracking-[3px] font-mono">{stageText}</div>}
               {seedAlert && <div className="mt-1 text-[10px] text-amber-300 font-mono">{seedAlert}</div>}
               {result && (
-                <div className="inline-block px-4 py-1.5 rounded-xl bg-black/60 border border-white/10 mt-1 anim-pop">
-                  <span className="text-sm font-bold font-mono uppercase tracking-wider text-[#49EACB]">{resultText}</span>
+                <div className="inline-block px-4 py-1.5 rounded-xl bg-black/60 light:bg-white/85 border border-white/10 light:border-emerald-600/30 mt-1 anim-pop">
+                  <span className="text-sm font-bold font-mono uppercase tracking-wider text-[#49EACB] light:text-emerald-700">{resultText}</span>
                 </div>
               )}
             </div>
@@ -461,9 +461,9 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
             {/* My area - bottom */}
             <div className="absolute bottom-[9%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
               {/* betting circle for me */}
-              <div className="relative flex items-center justify-center"
+              <div className={`relative flex items-center justify-center ${meWin ? '' : 'bet-ring'}`}
                    style={{ minHeight: 96, padding: '4px 18px', borderRadius: 999,
-                            boxShadow: meWin ? '0 0 0 2px #49EACB, 0 0 26px rgba(73,234,203,0.55)' : 'inset 0 0 0 2px rgba(255,255,255,0.12)',
+                            boxShadow: meWin ? '0 0 0 2px #49EACB, 0 0 26px rgba(73,234,203,0.55)' : undefined,
                             transition: 'box-shadow 260ms ease' }}>
                 {(mySeatNum ? myHand : table.p1).length ? (
                   <HandRow
@@ -474,7 +474,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                     win={showdown && meWin}
                   />
                 ) : (
-                  <span className="font-mono text-white/20 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
+                  <span className="font-mono text-white/20 light:text-slate-900/40 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
                 )}
               </div>
               <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? myHand : table.p1).length ? (mySeatNum ? myVal : table.v1) : ''}</div>
@@ -499,7 +499,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
           {/* Join overlay */}
           {status !== 'active' && !result && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm rounded-[150px]">
+            <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm rounded-[150px]">
               {(status === 'none' || (status === 'waiting' && !myColor)) ? (
                 <button onClick={join} disabled={joining}
                   className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
@@ -612,7 +612,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
       </div>
 
       {/* Footer */}
-      <div className="h-10 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-center font-mono">
+      <div className="h-10 border-t border-white/10 light:border-slate-300/70 text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono">
         BLACKJACK OPEN DUEL • CO-COMMITTED DECK (COMMIT-REVEAL) • OPEN HANDS • CLOSEST TO 21 • ORACLE ATTESTED
       </div>
     </div>

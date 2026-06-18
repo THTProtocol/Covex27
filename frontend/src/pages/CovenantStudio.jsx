@@ -65,6 +65,22 @@ export default function CovenantStudio() {
   const liveData = useMemo(() => {
     if (!covenant) return {};
     const locked = Number(covenant.amount_kaspa || 0);
+    // Mirror the public page's market economics so the designer preview shows real
+    // pool / odds / event time while designing (same honest net-multiplier derivation as
+    // CovenantInteractive). Action-log + oracle-key tokens need extra fetches and are left
+    // to the public page for now; their blocks show their honest empty state in the studio.
+    const poolA = covenant.funded_pool_a_kas != null ? Number(covenant.funded_pool_a_kas)
+      : (covenant.pool_yes != null ? Number(covenant.pool_yes) : null);
+    const poolB = covenant.funded_pool_b_kas != null ? Number(covenant.funded_pool_b_kas)
+      : (covenant.pool_no != null ? Number(covenant.pool_no) : null);
+    const hasSides = Number.isFinite(poolA) && Number.isFinite(poolB) && (poolA + poolB) > 0;
+    const feeF = covenant.fee_pct != null ? Number(covenant.fee_pct) / 100 : null;
+    const rebateF = covenant.rebate_pct != null ? Number(covenant.rebate_pct) / 100 : null;
+    const haveFees = Number.isFinite(feeF) && Number.isFinite(rebateF);
+    const winMult = (your, opp) => {
+      if (!(your > 0)) return 0;
+      return haveFees ? (1 - feeF) + (1 - feeF - rebateF) * (opp / your) : (your + opp) / your;
+    };
     return {
       name: covenant.name || covenant.covenant_type || 'Covenant',
       status: covenant.is_active === false ? 'Settled' : 'Active',
@@ -77,6 +93,16 @@ export default function CovenantStudio() {
       creator: (covenant.creator_addr || covenant.address || '').slice(0, 12),
       daa_score: covenant.block_daa_score || 0,
       verified_tier: covenant.verified_tier || 'FREE',
+      pool: { total: locked, ...(hasSides ? { yes: poolA, no: poolB } : {}) },
+      odds: hasSides ? { yes: winMult(poolA, poolB), no: winMult(poolB, poolA), basis: haveFees ? 'net-after-fee-rebate' : 'gross-before-fees' } : {},
+      pool_total: locked,
+      pool_yes: hasSides ? poolA : '',
+      pool_no: hasSides ? poolB : '',
+      odds_yes: hasSides && poolA > 0 ? winMult(poolA, poolB).toFixed(2) : '',
+      odds_no: hasSides && poolB > 0 ? winMult(poolB, poolA).toFixed(2) : '',
+      kickoff: covenant.kickoff_utc || covenant.kickoff || '',
+      settle_at: covenant.settle_at || covenant.settle_utc || covenant.resolved_at || '',
+      timelock: covenant.lock_daa != null ? covenant.lock_daa : (covenant.timelock_daa != null ? covenant.timelock_daa : ''),
     };
   }, [covenant]);
 

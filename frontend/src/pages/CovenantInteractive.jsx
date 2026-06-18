@@ -340,6 +340,18 @@ export default function CovenantInteractive() {
       .catch(() => {});
   }, [id]);
 
+  // The disclosed oracle's x-only signing key (BIP340). Surfaced to designed pages as
+  // {{oracle_pubkey}} so an oracle-signer display shows the REAL disclosed key, never a
+  // placeholder. This is the named Covex oracle, not a trustless guarantee. The endpoint
+  // returns `xonly_pubkey` as its canonical field; fall back gracefully for older shapes.
+  const [oraclePubkey, setOraclePubkey] = useState('');
+  useEffect(() => {
+    fetch('/api/oracle/pubkey')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j && setOraclePubkey(j.xonly_pubkey || j.oracle_xonly_pubkey || j.oracle_pubkey || j.pubkey || ''))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     fetch(`/api/covenants/${encodeURIComponent(id)}`)
@@ -373,10 +385,71 @@ export default function CovenantInteractive() {
   }, [id]);
 
   // Live, server-derived covenant state exposed to creator-designed Puck pages as
-  // {{tokens}}. Read-only figures only; a custom page can never set a destination.
+  // {{tokens}} and as structured metadata (live.actions / live.pool / live.odds) that
+  // the premium read-only blocks consume. Read-only figures only; a custom page can
+  // never set a destination.
+  //
+  // HONESTY: every field here is derived from data the backend actually returns for
+  // this covenant (the detail record, the on-chain action log, the disclosed oracle
+  // key). Nothing is fabricated. Where the backend cannot supply a figure (e.g. a
+  // generic, non-market covenant has no per-outcome pool split or event clock), the
+  // field is OMITTED so the consuming block renders its honest empty state rather than
+  // an invented number. Per-side pool / odds and event times only appear when the
+  // record genuinely carries them (a market anchor or a creator-published config).
   const liveData = useMemo(() => {
     if (!covenant) return {};
     const locked = Number(covenant.amount_kaspa || 0);
+
+    // Normalize the indexed on-chain action log into stable rows for ActivityFeed /
+    // Leaderboard. Field names mirror what /covenants/:id/actions returns, with safe
+    // fallbacks; no row is synthesized.
+    const acts = (Array.isArray(actions) ? actions : []).map((a) => ({
+      label: a.label || a.action || a.type || 'Action',
+      detail: a.detail || '',
+      address: a.address || a.from || a.creator || a.bettor_addr || '',
+      amount_kaspa: Number(a.amount_kaspa ?? a.amount ?? 0) || 0,
+      timestamp: a.timestamp != null ? Number(a.timestamp) : null,
+      daa_score: a.daa_score != null ? Number(a.daa_score) : (covenant.block_daa_score || null),
+    }));
+
+    // Pool: total locked is always real (it is the indexed UTXO balance). Per-outcome
+    // pools only exist on market-style records; read them defensively and omit when
+    // absent so the OddsBar / PoolChart fall back to total-only or an empty state.
+    const poolA = covenant.funded_pool_a_kas != null ? Number(covenant.funded_pool_a_kas)
+      : (covenant.pool_yes != null ? Number(covenant.pool_yes) : null);
+    const poolB = covenant.funded_pool_b_kas != null ? Number(covenant.funded_pool_b_kas)
+      : (covenant.pool_no != null ? Number(covenant.pool_no) : null);
+    const hasSides = Number.isFinite(poolA) && Number.isFinite(poolB) && (poolA + poolB) > 0;
+    const pool = {
+      total: locked,
+      ...(hasSides ? { yes: poolA, no: poolB } : {}),
+    };
+
+    // Odds: the honest NET winner multiplier from current stakes, matching the canonical
+    // Markets math (1 - f) + (1 - f - r) * (opposing pool / your pool), where f is the house
+    // fee and r the loser rebate. This is what a winner actually receives, NOT the gross
+    // pool ratio and NOT a probability. Only when both sides carry real liquidity. If the
+    // fee/rebate are unknown we fall back to the gross multiple, labeled so it is not read
+    // as the payout.
+    const feeF = covenant.fee_pct != null ? Number(covenant.fee_pct) / 100 : null;
+    const rebateF = covenant.rebate_pct != null ? Number(covenant.rebate_pct) / 100 : null;
+    const haveFees = Number.isFinite(feeF) && Number.isFinite(rebateF);
+    const winMult = (your, opp) => {
+      if (!(your > 0)) return 0;
+      return haveFees ? (1 - feeF) + (1 - feeF - rebateF) * (opp / your) : (your + opp) / your;
+    };
+    const odds = hasSides
+      ? { yes: winMult(poolA, poolB), no: winMult(poolB, poolA), basis: haveFees ? 'net-after-fee-rebate' : 'gross-before-fees' }
+      : {};
+
+    // Event clock + oracle disclosure. Times come only from a record that carries them
+    // (a market anchor's kickoff / an absolute-timelock covenant); omitted otherwise so
+    // the Countdown block prompts for a target instead of inventing one.
+    const kickoff = covenant.kickoff_utc || covenant.kickoff || '';
+    const settleAt = covenant.settle_at || covenant.settle_utc || covenant.resolved_at || '';
+    const timelock = covenant.lock_daa != null ? covenant.lock_daa
+      : (covenant.timelock_daa != null ? covenant.timelock_daa : '');
+
     return {
       name: covenant.name || covenant.covenant_type || 'Covenant',
       status: covenant.is_active === false ? 'Settled' : 'Active',
@@ -389,8 +462,28 @@ export default function CovenantInteractive() {
       creator: TRUNC(covenant.creator_addr || covenant.address || '', 8),
       daa_score: covenant.block_daa_score || 0,
       verified_tier: covenant.verified_tier || 'FREE',
+      // Structured live data the premium blocks read off metadata.live.
+      actions: acts,
+      pool,
+      odds,
+      // Flat token mirrors so {{tokens}} bind in any text field. Per-side pool / odds
+      // tokens resolve to '' (rendered hidden) when there is no real two-sided split.
+      // odds_* are the same honest net multiplier as live.odds.
+      pool_total: locked,
+      pool_yes: hasSides ? poolA : '',
+      pool_no: hasSides ? poolB : '',
+      odds_yes: hasSides && poolA > 0 ? winMult(poolA, poolB).toFixed(2) : '',
+      odds_no: hasSides && poolB > 0 ? winMult(poolB, poolA).toFixed(2) : '',
+      // Event clock tokens for the Countdown block (real time or omitted).
+      kickoff,
+      settle_at: settleAt,
+      timelock,
+      // Disclosed oracle identity (BIP340 x-only key) + outcome commitments, when present.
+      oracle_pubkey: oraclePubkey || '',
+      commitment_a: covenant.h_a || '',
+      commitment_b: covenant.h_b || '',
     };
-  }, [covenant, actions]);
+  }, [covenant, actions, oraclePubkey]);
 
   const deployUri = useMemo(
     () =>

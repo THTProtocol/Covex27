@@ -7,7 +7,9 @@
  * LIVE DATA: blocks read the live, server-derived covenant state passed to
  * <Puck>/<Render metadata={{ live }}>. Any text field may embed tokens like
  * {{amount_kaspa}}, {{status}}, {{tx_count}}, {{network}}, {{fee_pct}},
- * {{pool_yes}}, {{pool_no}}, {{odds_yes}}, {{odds_no}}, {{total_locked}}.
+ * {{pool_total}}, {{pool_yes}}, {{pool_no}}, {{odds_yes}}, {{odds_no}},
+ * {{total_locked}}, {{kickoff}}, {{settle_at}}, {{timelock}}, {{oracle_pubkey}}.
+ * Structured blocks also read live.actions / live.pool / live.odds off metadata.
  * Tokens are resolved at render time only; creators can never inject HTML/JS
  * and never set a fund destination here (that is always derived server-side).
  *
@@ -110,10 +112,15 @@ export const LIVE_TOKENS = [
   { token: 'tx_count', desc: 'On-chain actions seen' },
   { token: 'fee_pct', desc: 'House fee percent' },
   { token: 'rebate_pct', desc: 'Loser rebate percent' },
+  { token: 'pool_total', desc: 'Total KAS staked in the pool' },
   { token: 'pool_yes', desc: 'YES pool size (markets)' },
   { token: 'pool_no', desc: 'NO pool size (markets)' },
-  { token: 'odds_yes', desc: 'YES payout multiple (markets)' },
-  { token: 'odds_no', desc: 'NO payout multiple (markets)' },
+  { token: 'odds_yes', desc: 'YES payout x, implied from stakes' },
+  { token: 'odds_no', desc: 'NO payout x, implied from stakes' },
+  { token: 'kickoff', desc: 'Event kickoff time (markets)' },
+  { token: 'settle_at', desc: 'Settlement / resolve time' },
+  { token: 'timelock', desc: 'Absolute timelock DAA (timelock covenants)' },
+  { token: 'oracle_pubkey', desc: 'Disclosed oracle x-only key' },
   { token: 'creator', desc: 'Creator address, short' },
 ];
 
@@ -150,7 +157,7 @@ export const puckConfig = {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner'] },
     layout: { title: 'Layout', components: ['Hero', 'Spacer', 'Divider', 'TwoColumns'] },
     content: { title: 'Content', components: ['Heading', 'Paragraph', 'BulletList', 'FAQItem', 'ImageBlock', 'ImageGallery', 'FeatureGrid', 'LogoStrip'] },
-    covenant: { title: 'Covenant (live)', components: ['StatRow', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'ActivityFeed', 'Countdown', 'StakeCTA', 'FeeNotice'] },
+    covenant: { title: 'Covenant (live)', components: ['StatRow', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'PoolChart', 'ActivityFeed', 'Leaderboard', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
     HeroImage: {
@@ -429,8 +436,14 @@ export const puckConfig = {
         const total = a + b;
         const pctA = total > 0 ? Math.round((a / total) * 100) : 50;
         const pctB = 100 - pctA;
-        const oddsA = a > 0 ? (total / a) : 0;
-        const oddsB = b > 0 ? (total / b) : 0;
+        // Honest payout multiple: prefer the net (fee + rebate aware) live.odds the page
+        // computes; fall back to the gross pool ratio only when it is absent, and then label
+        // it "before fees" rather than "payout" so it is never read as the real return.
+        const lo = live.odds && typeof live.odds === 'object' ? live.odds : null;
+        const oddsNet = lo && lo.basis === 'net-after-fee-rebate';
+        const oddsA = lo && Number(lo.yes) > 0 ? Number(lo.yes) : (a > 0 ? (total / a) : 0);
+        const oddsB = lo && Number(lo.no) > 0 ? Number(lo.no) : (b > 0 ? (total / b) : 0);
+        const oddsWord = oddsNet ? 'payout' : 'before fees';
         return (
           <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
             <div className="flex items-center justify-between mb-2 text-sm font-bold">
@@ -443,9 +456,9 @@ export const puckConfig = {
             </div>
             {showOdds === 'yes' && (
               <div className="flex items-center justify-between mt-2 text-[11px] font-mono text-gray-400">
-                <span>{oddsA > 0 ? `${oddsA.toFixed(2)}x` : '-'} payout</span>
+                <span>{oddsA > 0 ? `${oddsA.toFixed(2)}x` : '-'} {oddsWord}</span>
                 <span>pool {total > 0 ? total.toLocaleString() : '0'}</span>
-                <span>{oddsB > 0 ? `${oddsB.toFixed(2)}x` : '-'} payout</span>
+                <span>{oddsB > 0 ? `${oddsB.toFixed(2)}x` : '-'} {oddsWord}</span>
               </div>
             )}
           </div>
@@ -475,7 +488,7 @@ export const puckConfig = {
               <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{resolveTokens(outcomeName, live)}</span>
               {win && <span className="text-lg" style={{ color: ac }}>🏆</span>}
             </div>
-            <div className="text-4xl md:text-5xl font-black leading-none" style={{ color: ac }}>{resolveTokens(multiplier, live)}x</div>
+            <div className="text-4xl md:text-5xl font-black leading-none" style={{ color: ac }}>{resolveTokens(multiplier, live) ? `${resolveTokens(multiplier, live)}x` : '-'}</div>
             <div className="mt-4 pt-4 border-t border-white/[0.08]">
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Pool</p>
               <p className="text-lg font-semibold text-white">{resolveTokens(poolSize, live)}</p>
@@ -570,15 +583,124 @@ export const puckConfig = {
         );
       },
     },
+    Leaderboard: {
+      label: 'Leaderboard (live)',
+      fields: {
+        title: { type: 'text' },
+        rankBy: { type: 'select', label: 'Rank by', options: [{ label: 'Largest stake', value: 'amount' }, { label: 'Most recent', value: 'recent' }] },
+        maxRows: { type: 'select', label: 'Rows', options: [{ label: '3', value: '3' }, { label: '5', value: '5' }, { label: '10', value: '10' }] },
+        emptyText: { type: 'text', label: 'Shown when no activity yet' },
+        accentColor: { type: 'text', label: 'Accent hex' },
+      },
+      defaultProps: { title: 'Top stakers', rankBy: 'amount', maxRows: '5', emptyText: 'No stakes on-chain yet. The board fills as players join.', accentColor: '#E8AF34' },
+      render: ({ title, rankBy, maxRows, emptyText, accentColor, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const ac = SAFE_COLOR(accentColor, '#E8AF34');
+        // Honest by construction: every row is a real indexed on-chain action carrying a
+        // non-zero amount. No name, rank, or figure is ever fabricated; an empty action
+        // log renders the empty state below.
+        const src = Array.isArray(live.actions) ? live.actions : [];
+        const staked = src.filter((r) => Number(r.amount_kaspa) > 0);
+        const ranked = (rankBy === 'recent'
+          ? [...staked].sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0))
+          : [...staked].sort((a, b) => (Number(b.amount_kaspa) || 0) - (Number(a.amount_kaspa) || 0))
+        ).slice(0, parseInt(maxRows, 10) || 5);
+        const top = ranked.length ? Number(ranked[0].amount_kaspa) || 0 : 0;
+        const medal = ['#E8AF34', '#C0C0C0', '#CD7F32'];
+        return (
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300">{resolveTokens(title, live)}</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/10 text-gray-400">{staked.length.toLocaleString()} on-chain</span>
+            </div>
+            {ranked.length === 0 ? (
+              <div className="px-4 py-7 text-center text-xs text-gray-500">{resolveTokens(emptyText, live)}</div>
+            ) : (
+              <ul className="divide-y divide-white/[0.05]">
+                {ranked.map((r, i) => {
+                  const who = r.address ? `${String(r.address).slice(0, 12)}…` : (resolveTokens(String(r.label || 'Action'), live));
+                  const amt = Number(r.amount_kaspa) || 0;
+                  const pct = top > 0 ? Math.max(6, Math.round((amt / top) * 100)) : 0;
+                  const rc = medal[i] || 'rgba(255,255,255,0.25)';
+                  return (
+                    <li key={i} className="px-4 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-lg shrink-0 flex items-center justify-center text-[11px] font-black" style={{ background: `${rc}22`, color: rc }}>{i + 1}</span>
+                        <span className="min-w-0 flex-1 text-xs font-semibold text-white font-mono truncate">{who}</span>
+                        <span className="text-xs font-mono font-bold shrink-0" style={{ color: ac }}>{amt.toLocaleString()} KAS</span>
+                      </div>
+                      <div className="mt-1.5 ml-9 h-1 rounded-full overflow-hidden bg-white/5">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: ac }} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+      },
+    },
+    PoolChart: {
+      label: 'Pool Chart (live)',
+      fields: {
+        title: { type: 'text' },
+        emptyText: { type: 'text', label: 'Shown when no pool history yet' },
+        color: { type: 'text', label: 'Line color hex' },
+      },
+      defaultProps: { title: 'Pool over time', emptyText: 'No on-chain pool history yet. The curve builds as funds lock in.', color: '#49EACB' },
+      render: ({ title, emptyText, color, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const c = SAFE_COLOR(color, '#49EACB');
+        // Build a real cumulative-locked curve from the indexed action log: each action
+        // carrying an amount steps the running total. No synthetic points; if there are
+        // fewer than 2 real data points we show the honest empty state.
+        const src = (Array.isArray(live.actions) ? live.actions : [])
+          .filter((a) => Number(a.amount_kaspa) > 0)
+          .map((a) => ({ t: Number(a.timestamp) || 0, v: Number(a.amount_kaspa) || 0 }))
+          .sort((a, b) => a.t - b.t);
+        let run = 0;
+        const pts = src.map((p) => { run += p.v; return run; });
+        const total = Number(live.pool_total ?? live.amount_kaspa ?? run) || run;
+        const W = 100, H = 32;
+        const hasCurve = pts.length >= 2;
+        const max = hasCurve ? Math.max(...pts) : 0;
+        const path = hasCurve
+          ? pts.map((v, i) => `${(i / (pts.length - 1)) * W},${H - (max > 0 ? (v / max) * (H - 2) : 0) - 1}`).join(' ')
+          : '';
+        return (
+          <div className="mx-2 md:mx-4 mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+            <div className="flex items-end justify-between mb-3">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300">{resolveTokens(title, live)}</span>
+              <span className="text-lg font-black text-white leading-none">{total.toLocaleString()} <span className="text-xs font-medium text-gray-400">KAS</span></span>
+            </div>
+            {!hasCurve ? (
+              <div className="py-6 text-center text-xs text-gray-500">{resolveTokens(emptyText, live)}</div>
+            ) : (
+              <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-14" role="img" aria-label="Cumulative pool over time">
+                <defs>
+                  <linearGradient id={`poolFill-${c.replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={c} stopOpacity="0.28" />
+                    <stop offset="100%" stopColor={c} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <polygon points={`0,${H} ${path} ${W},${H}`} fill={`url(#poolFill-${c.replace(/[^a-zA-Z0-9]/g, '')})`} />
+                <polyline points={path} fill="none" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              </svg>
+            )}
+          </div>
+        );
+      },
+    },
     Countdown: {
       label: 'Countdown',
       fields: {
         title: { type: 'text' },
-        targetDate: { type: 'text', label: 'Target date/time (ISO, e.g. 2026-07-01T18:00)' },
+        targetDate: { type: 'text', label: 'Target date/time (ISO or {{kickoff}} / {{settle_at}})' },
         endedText: { type: 'text', label: 'Shown after the target' },
         accentColor: { type: 'text', label: 'Accent hex' },
       },
-      defaultProps: { title: 'Closes in', targetDate: '', endedText: 'This window has closed.', accentColor: '#E8AF34' },
+      defaultProps: { title: 'Closes in', targetDate: '{{kickoff}}', endedText: 'This window has closed.', accentColor: '#E8AF34' },
       render: ({ title, targetDate, endedText, accentColor, puck }) => {
         const live = puck?.metadata?.live || {};
         const ac = SAFE_COLOR(accentColor, '#E8AF34');

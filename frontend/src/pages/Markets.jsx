@@ -76,7 +76,10 @@ function MarketDetail({ id }) {
     api('/covenant/market/get', { market_id: id }).then(setMarket).catch(() => {});
   }, [id]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { fetch('/api/oracle/pubkey').then((r) => (r.ok ? r.json() : null)).then((j) => j && setOraclePk(j.oracle_pubkey || j.pubkey || j.oracle_xonly_pubkey || null)).catch(() => {}); }, []);
+  // The disclosed oracle's x-only signing key (BIP340). The /oracle/pubkey endpoint
+  // returns `xonly_pubkey` as its canonical field; prefer it, fall back gracefully for
+  // older shapes. This is the named, disclosed Covex oracle - never trustless.
+  useEffect(() => { fetch('/api/oracle/pubkey').then((r) => (r.ok ? r.json() : null)).then((j) => j && setOraclePk(j.xonly_pubkey || j.oracle_xonly_pubkey || j.oracle_pubkey || j.pubkey || null)).catch(() => {}); }, []);
 
   const act = async (label, fn) => {
     setBusy(label); setMsg(null);
@@ -160,7 +163,7 @@ function MarketDetail({ id }) {
         )}
         <div className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-gray-500 leading-relaxed break-words">
           <span className="text-gray-300 light:text-slate-700 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret - no Covex key sits in the money path.
-          {oraclePk && <> Signer <span className="font-mono text-gray-400">{String(oraclePk).slice(0, 12)}…</span>.</>}
+          {oraclePk && <> Disclosed oracle x-only key <span className="font-mono text-gray-400">{String(oraclePk).slice(0, 12)}…</span>.</>}
           {market.h_a && <> Commitments <span className="font-mono text-gray-400">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
         </div>
       </div>

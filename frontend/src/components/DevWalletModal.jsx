@@ -125,7 +125,45 @@ export default function DevWalletModal({ isOpen, onClose }) {
   const isConnected = isDevMode && currentAddr;
   const netLabel = NETWORK_LABELS[network] || network;
   const isMainnet = network === 'mainnet' || network === 'mainnet-1';
-  const accentColor = isMainnet ? 'red' : 'yellow';
+
+  // Tailwind v4 only emits classes that appear as literal strings, so dynamic
+  // bg-${accentColor}-* interpolation renders blank. Use full literal class
+  // strings per network instead.
+  const A = isMainnet
+    ? {
+        tile: 'bg-red-600/20 border-red-600/30',
+        icon: 'text-red-400',
+        sub: 'text-red-500/80',
+        netDot: 'bg-red-400',
+        netBox: 'bg-red-500/[0.06] border-red-500/20 light:bg-red-50 light:border-red-200',
+        strong: 'text-red-400 light:text-red-600',
+        tabActive: 'bg-red-600/20 text-red-400 border-red-500',
+        loadBox: 'bg-red-600/[0.04] border-red-600/20 light:bg-red-50 light:border-red-200',
+        spinner: 'border-red-500/30 border-t-red-400',
+        loadText: 'text-red-400 light:text-red-600',
+        loadSub: 'text-red-500/60 light:text-red-500',
+        derivedBox: 'bg-red-500/[0.04] border-red-500/20 light:bg-red-50 light:border-red-200',
+        derivedLabel: 'text-red-400/60 light:text-red-500',
+        derivedAddr: 'text-red-400 light:text-red-600',
+        deriveBtn: 'bg-red-600 hover:bg-red-500',
+      }
+    : {
+        tile: 'bg-yellow-600/20 border-yellow-600/30',
+        icon: 'text-yellow-400',
+        sub: 'text-yellow-500/80',
+        netDot: 'bg-yellow-400',
+        netBox: 'bg-yellow-500/[0.06] border-yellow-500/20 light:bg-yellow-50 light:border-yellow-200',
+        strong: 'text-yellow-400 light:text-yellow-600',
+        tabActive: 'bg-yellow-600/20 text-yellow-400 border-yellow-500',
+        loadBox: 'bg-yellow-600/[0.04] border-yellow-600/20 light:bg-yellow-50 light:border-yellow-200',
+        spinner: 'border-yellow-500/30 border-t-yellow-400',
+        loadText: 'text-yellow-400 light:text-yellow-600',
+        loadSub: 'text-yellow-500/60 light:text-yellow-500',
+        derivedBox: 'bg-yellow-500/[0.04] border-yellow-500/20 light:bg-yellow-50 light:border-yellow-200',
+        derivedLabel: 'text-yellow-400/60 light:text-yellow-600',
+        derivedAddr: 'text-yellow-400 light:text-yellow-600',
+        deriveBtn: 'bg-yellow-600 hover:bg-yellow-500',
+      };
 
   if (isMainnet) {
     return <MainnetWalletModal walletContext={walletCtx} onClose={onClose} />;
@@ -134,12 +172,12 @@ export default function DevWalletModal({ isOpen, onClose }) {
   if (isConnected) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-        <div className="w-full max-w-sm rounded-2xl border border-emerald-500/30 bg-[#0a0a0c] p-6" onClick={e => e.stopPropagation()}>
+        <div className="w-full max-w-sm rounded-2xl border border-emerald-500/30 bg-[#0a0a0c] light:bg-white p-6" onClick={e => e.stopPropagation()}>
           <div className="text-center">
             <div className="w-3 h-3 rounded-full bg-emerald-400 mx-auto mb-3 animate-pulse" />
-            <div className="text-emerald-400 text-sm font-mono mb-1">Dev Mode Active ({netLabel})</div>
-            <p className="text-xs font-mono text-white break-all mb-4">{currentAddr}</p>
-            <button onClick={handleDisconnect} className="w-full px-4 py-2.5 bg-red-600/10 border border-red-600/30 text-red-400 hover:bg-red-600/20 text-sm font-bold rounded-lg">
+            <div className="text-emerald-400 light:text-emerald-600 text-sm font-mono mb-1">Dev Mode Active ({netLabel})</div>
+            <p className="text-xs font-mono text-white light:text-slate-900 break-all mb-4">{currentAddr}</p>
+            <button onClick={handleDisconnect} className="w-full px-4 py-2.5 bg-red-600/10 border border-red-600/30 text-red-400 light:text-red-600 hover:bg-red-600/20 text-sm font-bold rounded-lg">
               Disconnect Dev Wallet
             </button>
           </div>
@@ -154,23 +192,23 @@ export default function DevWalletModal({ isOpen, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#0a0a0a] border border-[#1f1f1f] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-[#0a0a0a] light:bg-white border border-[#1f1f1f] light:border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-5 border-b border-[#1f1f1f] bg-[#0d0d0d]">
+        <div className="flex justify-between items-center p-5 border-b border-[#1f1f1f] light:border-slate-200 bg-[#0d0d0d] light:bg-slate-50">
           <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-lg bg-${accentColor}-600/20 border border-${accentColor}-600/30 flex items-center justify-center`}>
-              <Key size={18} className={`text-${accentColor}-400`} />
+            <div className={`w-9 h-9 rounded-lg ${A.tile} border flex items-center justify-center`}>
+              <Key size={18} className={A.icon} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">{netLabel} Dev Wallet</h3>
-              <p className={`text-[10px] text-${accentColor}-500/80 font-mono uppercase tracking-wider`}>
+              <h3 className="text-base font-bold text-white light:text-slate-900">{netLabel} Dev Wallet</h3>
+              <p className={`text-[10px] ${A.sub} font-mono uppercase tracking-wider`}>
                 Isolated · Kaspa WASM · No Extensions
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-300 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-gray-300 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -178,17 +216,17 @@ export default function DevWalletModal({ isOpen, onClose }) {
         {/* Body */}
         <div className="p-5 space-y-4">
           {/* Network indicator */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-${accentColor}-500/[0.06] border border-${accentColor}-500/20`}>
-            <div className={`w-2 h-2 rounded-full bg-${accentColor}-400`} />
-            <span className="text-xs text-gray-200">Keys will be derived for <strong className={`text-${accentColor}-400}`}>{netLabel}</strong></span>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${A.netBox}`}>
+            <div className={`w-2 h-2 rounded-full ${A.netDot}`} />
+            <span className="text-xs text-gray-200 light:text-slate-600">Keys will be derived for <strong className={A.strong}>{netLabel}</strong></span>
           </div>
 
           {!isWasmReady && !isConnected && (
-            <div className={`p-4 rounded-xl bg-${accentColor}-600/[0.04] border border-${accentColor}-600/20 flex items-center gap-3`}>
-              <span className={`inline-block w-5 h-5 border-2 border-${accentColor}-500/30 border-t-${accentColor}-400 rounded-full animate-spin`} />
+            <div className={`p-4 rounded-xl border ${A.loadBox} flex items-center gap-3`}>
+              <span className={`inline-block w-5 h-5 border-2 ${A.spinner} rounded-full animate-spin`} />
               <div>
-                <p className={`text-sm text-${accentColor}-400 font-semibold`}>Loading WASM...</p>
-                <p className={`text-[10px] text-${accentColor}-500/60`}>
+                <p className={`text-sm ${A.loadText} font-semibold`}>Loading WASM...</p>
+                <p className={`text-[10px] ${A.loadSub}`}>
                   Initializing kaspa-wasm cryptographic module (~11MB)
                 </p>
               </div>
@@ -196,16 +234,16 @@ export default function DevWalletModal({ isOpen, onClose }) {
           )}
 
           {isConnected && (
-            <div className="p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30">
+            <div className="p-4 rounded-xl bg-emerald-500/[0.06] light:bg-emerald-50 border border-emerald-500/30 light:border-emerald-200">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs text-emerald-400 font-mono uppercase tracking-wider">Dev Mode Active</span>
+                <span className="text-xs text-emerald-400 light:text-emerald-600 font-mono uppercase tracking-wider">Dev Mode Active</span>
               </div>
-              <p className="text-sm font-mono text-white break-all">{currentAddr}</p>
-              <p className="text-[10px] text-emerald-400/50 mt-1">{netLabel} · Signing with locally-derived key</p>
+              <p className="text-sm font-mono text-white light:text-slate-900 break-all">{currentAddr}</p>
+              <p className="text-[10px] text-emerald-400/50 light:text-emerald-600/70 mt-1">{netLabel} · Signing with locally-derived key</p>
               <button
                 onClick={handleDisconnect}
-                className="mt-3 w-full px-4 py-2 bg-red-600/10 border border-red-600/30 text-red-400 hover:bg-red-600/20 text-sm font-bold rounded-lg transition-all"
+                className="mt-3 w-full px-4 py-2 bg-red-600/10 border border-red-600/30 text-red-400 light:text-red-600 hover:bg-red-600/20 text-sm font-bold rounded-lg transition-all"
               >
                 Disconnect Dev Wallet
               </button>
@@ -214,14 +252,14 @@ export default function DevWalletModal({ isOpen, onClose }) {
 
           {!isConnected && (
             <>
-              <div className="flex rounded-lg bg-[#111] border border-[#1f1f1f] overflow-hidden">
+              <div className="flex rounded-lg bg-[#111] light:bg-slate-100 border border-[#1f1f1f] light:border-slate-200 overflow-hidden">
                 <button
                   onClick={() => { setTab('mnemonic'); setError(null); }}
                   disabled={!isWasmReady}
                   className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
                     tab === 'mnemonic'
-                      ? `bg-${accentColor}-600/20 text-${accentColor}-400 border-b-2 border-${accentColor}-500`
-                      : 'text-gray-300 hover:text-gray-300'
+                      ? `${A.tabActive} border-b-2`
+                      : 'text-gray-300 light:text-slate-500 hover:text-gray-300 light:hover:text-slate-700'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <Terminal size={12} className="inline mr-1" />
@@ -232,8 +270,8 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   disabled={!isWasmReady}
                   className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
                     tab === 'hex'
-                      ? `bg-${accentColor}-600/20 text-${accentColor}-400 border-b-2 border-${accentColor}-500`
-                      : 'text-gray-300 hover:text-gray-300'
+                      ? `${A.tabActive} border-b-2`
+                      : 'text-gray-300 light:text-slate-500 hover:text-gray-300 light:hover:text-slate-700'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <Key size={12} className="inline mr-1" />
@@ -263,7 +301,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   rows={3}
                   placeholder="witch collapse practice feed shame open despair creek road again ice least"
                   disabled={!isWasmReady}
-                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-200 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 light:bg-white border border-gray-700 light:border-slate-300 rounded-lg text-gray-200 light:text-slate-900 placeholder:text-gray-500 light:placeholder:text-slate-400 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   spellCheck={false}
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -277,7 +315,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
                   rows={2}
                   placeholder="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                   disabled={!isWasmReady}
-                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 border border-gray-700 rounded-lg text-gray-200 placeholder:text-gray-200 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2.5 text-xs font-mono bg-black/50 light:bg-white border border-gray-700 light:border-slate-300 rounded-lg text-gray-200 light:text-slate-900 placeholder:text-gray-500 light:placeholder:text-slate-400 focus:outline-none focus:border-yellow-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   spellCheck={false}
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -285,23 +323,23 @@ export default function DevWalletModal({ isOpen, onClose }) {
               )}
 
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2">
+                <div className="p-3 rounded-lg bg-red-500/[0.06] light:bg-red-50 border border-red-500/20 light:border-red-200 flex items-start gap-2">
                   <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-red-300">{error}</p>
+                  <p className="text-xs text-red-300 light:text-red-700">{error}</p>
                 </div>
               )}
 
               {derivedAddr && !error && (
-                <div className={`p-3 rounded-lg bg-${accentColor}-500/[0.04] border border-${accentColor}-500/20`}>
-                  <p className={`text-[10px] text-${accentColor}-400/60 uppercase tracking-wider`}>Derived Address ({netLabel})</p>
-                  <p className={`text-sm font-mono text-${accentColor}-400 break-all mt-1`}>{derivedAddr}</p>
+                <div className={`p-3 rounded-lg border ${A.derivedBox}`}>
+                  <p className={`text-[10px] ${A.derivedLabel} uppercase tracking-wider`}>Derived Address ({netLabel})</p>
+                  <p className={`text-sm font-mono ${A.derivedAddr} break-all mt-1`}>{derivedAddr}</p>
                 </div>
               )}
 
               <button
                 onClick={handleDerive}
                 disabled={!isWasmReady || deriving || (tab === 'mnemonic' ? !mnemonic.trim() : !hexKey.trim())}
-                className={`w-full px-5 py-3 bg-${accentColor}-600 hover:bg-${accentColor}-500 text-black font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(${isMainnet ? '239,68,68,0.2' : '234,179,8,0.2'})]`}
+                className={`w-full px-5 py-3 ${A.deriveBtn} text-black font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(${isMainnet ? '239,68,68,0.2' : '234,179,8,0.2'})]`}
               >
                 {deriving ? (
                   <>
@@ -326,7 +364,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
 
         {/* Footer */}
         <div className="px-5 pb-5">
-          <p className="text-[10px] text-gray-200 text-center leading-relaxed">
+          <p className="text-[10px] text-gray-200 light:text-slate-500 text-center leading-relaxed">
             Keys are derived locally via kaspa-wasm. Never leaves your browser.
             For covenant testing only, no real funds. {netLabel}.
           </p>
@@ -371,56 +409,56 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
 
   if (phase === 'idle') {
     return (
-      <div className="rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.03] p-4">
-        <div className="flex items-center gap-2 text-white font-semibold text-sm mb-1"><Wand2 size={15} className="text-kaspa-green" /> No wallet yet? Generate one</div>
-        <p className="text-[11px] text-gray-300 leading-relaxed mb-3">Create a brand-new Kaspa mainnet wallet right here. It starts at 0 KAS, so fund it by sending KAS from any exchange. Your keys are generated in your browser and never leave it.</p>
+      <div className="rounded-xl border border-kaspa-green/20 light:border-kaspa-green/40 bg-kaspa-green/[0.03] light:bg-kaspa-green/[0.06] p-4">
+        <div className="flex items-center gap-2 text-white light:text-slate-900 font-semibold text-sm mb-1"><Wand2 size={15} className="text-kaspa-green" /> No wallet yet? Generate one</div>
+        <p className="text-[11px] text-gray-300 light:text-slate-600 leading-relaxed mb-3">Create a brand-new Kaspa mainnet wallet right here. It starts at 0 KAS, so fund it by sending KAS from any exchange. Your keys are generated in your browser and never leave it.</p>
         <button onClick={generate} disabled={busy} className="btn-shimmer w-full px-4 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2">
           {busy ? <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <Wand2 size={15} />} Generate a new wallet
         </button>
-        {err && <p className="text-[11px] text-red-300 mt-2">{err}</p>}
+        {err && <p className="text-[11px] text-red-300 light:text-red-700 mt-2">{err}</p>}
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-kaspa-green/25 bg-black/40 p-4 space-y-3">
-      <div className="flex items-center gap-2 text-kaspa-green font-bold text-sm"><ShieldCheck size={15} /> Your new wallet</div>
+    <div className="rounded-xl border border-kaspa-green/25 light:border-kaspa-green/40 bg-black/40 light:bg-slate-50 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-kaspa-green light:text-[#0d9488] font-bold text-sm"><ShieldCheck size={15} /> Your new wallet</div>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] uppercase tracking-wider text-gray-400">Recovery phrase (24 words)</span>
-          <button onClick={() => copy(phrase, 'phrase')} className="text-[10px] text-kaspa-green hover:underline">{copied === 'phrase' ? 'Copied' : 'Copy'}</button>
+          <span className="text-[10px] uppercase tracking-wider text-gray-400 light:text-slate-500">Recovery phrase (24 words)</span>
+          <button onClick={() => copy(phrase, 'phrase')} className="text-[10px] text-kaspa-green light:text-[#0d9488] hover:underline">{copied === 'phrase' ? 'Copied' : 'Copy'}</button>
         </div>
         <div className="grid grid-cols-3 gap-1 text-[11px] font-mono">
           {phrase.split(' ').map((w, i) => (
-            <div key={i} className="px-1.5 py-1 rounded bg-white/[0.03] border border-white/10 text-gray-200"><span className="text-gray-500 mr-1">{i + 1}</span>{w}</div>
+            <div key={i} className="px-1.5 py-1 rounded bg-white/[0.03] light:bg-white border border-white/10 light:border-slate-200 text-gray-200 light:text-slate-800"><span className="text-gray-500 light:text-slate-400 mr-1">{i + 1}</span>{w}</div>
           ))}
         </div>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] uppercase tracking-wider text-gray-400">Your address (fund it from a CEX)</span>
-          <button onClick={() => copy(address, 'addr')} className="text-[10px] text-kaspa-green hover:underline">{copied === 'addr' ? 'Copied' : 'Copy'}</button>
+          <span className="text-[10px] uppercase tracking-wider text-gray-400 light:text-slate-500">Your address (fund it from a CEX)</span>
+          <button onClick={() => copy(address, 'addr')} className="text-[10px] text-kaspa-green light:text-[#0d9488] hover:underline">{copied === 'addr' ? 'Copied' : 'Copy'}</button>
         </div>
-        <p className="text-[11px] font-mono text-kaspa-green break-all bg-black/40 border border-white/10 rounded-lg p-2">{address}</p>
+        <p className="text-[11px] font-mono text-kaspa-green light:text-[#0d9488] break-all bg-black/40 light:bg-white border border-white/10 light:border-slate-200 rounded-lg p-2">{address}</p>
       </div>
 
       <div className="flex items-center gap-2">
-        <button onClick={() => setShowKey(v => !v)} className="text-[10px] text-gray-400 hover:text-gray-200">{showKey ? 'Hide' : 'Show'} private key (advanced)</button>
-        {showKey && <button onClick={() => copy(pk, 'pk')} className="text-[10px] text-kaspa-green hover:underline">{copied === 'pk' ? 'Copied' : 'Copy key'}</button>}
+        <button onClick={() => setShowKey(v => !v)} className="text-[10px] text-gray-400 light:text-slate-500 hover:text-gray-200 light:hover:text-slate-700">{showKey ? 'Hide' : 'Show'} private key (advanced)</button>
+        {showKey && <button onClick={() => copy(pk, 'pk')} className="text-[10px] text-kaspa-green light:text-[#0d9488] hover:underline">{copied === 'pk' ? 'Copied' : 'Copy key'}</button>}
       </div>
-      {showKey && <p className="text-[10px] font-mono text-amber-300 break-all bg-black/40 border border-amber-500/20 rounded-lg p-2">{pk}</p>}
+      {showKey && <p className="text-[10px] font-mono text-amber-300 light:text-amber-700 break-all bg-black/40 light:bg-amber-50 border border-amber-500/20 light:border-amber-200 rounded-lg p-2">{pk}</p>}
 
-      <div className="rounded-lg bg-red-500/[0.06] border border-red-500/20 p-3">
-        <p className="text-[11px] text-red-200 leading-relaxed">Save your recovery phrase offline now. Anyone with it can spend your funds. Covex cannot recover it, and clearing this browser without the phrase loses the funds forever.</p>
+      <div className="rounded-lg bg-red-500/[0.06] light:bg-red-50 border border-red-500/20 light:border-red-200 p-3">
+        <p className="text-[11px] text-red-200 light:text-red-700 leading-relaxed">Save your recovery phrase offline now. Anyone with it can spend your funds. Covex cannot recover it, and clearing this browser without the phrase loses the funds forever.</p>
       </div>
 
-      <label className="flex items-start gap-2 text-[11px] text-gray-300 cursor-pointer"><input type="checkbox" checked={ack1} onChange={e => setAck1(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I have saved my recovery phrase somewhere safe and offline.</label>
-      <label className="flex items-start gap-2 text-[11px] text-gray-300 cursor-pointer"><input type="checkbox" checked={ack2} onChange={e => setAck2(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I understand Covex cannot recover a lost phrase, and that browser-generated wallets are best for getting started (use a hardware wallet or extension for large amounts).</label>
+      <label className="flex items-start gap-2 text-[11px] text-gray-300 light:text-slate-600 cursor-pointer"><input type="checkbox" checked={ack1} onChange={e => setAck1(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I have saved my recovery phrase somewhere safe and offline.</label>
+      <label className="flex items-start gap-2 text-[11px] text-gray-300 light:text-slate-600 cursor-pointer"><input type="checkbox" checked={ack2} onChange={e => setAck2(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I understand Covex cannot recover a lost phrase, and that browser-generated wallets are best for getting started (use a hardware wallet or extension for large amounts).</label>
 
       <button onClick={useThis} disabled={!ack1 || !ack2} className="w-full px-4 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Use this wallet</button>
-      <p className="text-[10px] text-gray-500 text-center">Generated in your browser via the Kaspa WASM SDK. Your key is held only on this device and is never sent to Covex.</p>
+      <p className="text-[10px] text-gray-500 light:text-slate-400 text-center">Generated in your browser via the Kaspa WASM SDK. Your key is held only on this device and is never sent to Covex.</p>
     </div>
   );
 }
@@ -463,77 +501,77 @@ function MainnetWalletModal({ walletContext, onClose }) {
         disabled={connecting}
         className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all group disabled:opacity-50 text-left motion-safe:hover:-translate-y-px ${
           primary
-            ? 'border-kaspa-green/40 bg-kaspa-green/[0.07] hover:border-kaspa-green/60 hover:bg-kaspa-green/[0.12]'
-            : 'border-white/[0.07] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
+            ? 'border-kaspa-green/40 bg-kaspa-green/[0.07] light:bg-kaspa-green/[0.1] hover:border-kaspa-green/60 hover:bg-kaspa-green/[0.12]'
+            : 'border-white/[0.07] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/[0.04] light:hover:bg-white'
         }`}
       >
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-black/40 border border-white/[0.06]">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-black/40 light:bg-white border border-white/[0.06] light:border-slate-200">
           {wallet.logo ? (
             <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md" onError={(e) => { e.target.style.display = 'none'; }} />
           ) : (
-            <Wallet size={18} className="text-gray-400" />
+            <Wallet size={18} className="text-gray-400 light:text-slate-400" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-white font-semibold text-sm flex items-center gap-2">
+          <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2">
             {wallet.name}
-            {det && <span className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/30 px-1.5 py-0.5 rounded-full shrink-0 font-bold"><Check size={9} /> Installed</span>}
-            {!det && wallet.recommended && <span className="text-[9px] uppercase tracking-wide bg-white/[0.06] text-gray-300 px-1.5 py-0.5 rounded-full shrink-0 font-semibold">Recommended</span>}
+            {det && <span className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide bg-kaspa-green/15 text-kaspa-green light:text-[#0d9488] border border-kaspa-green/30 px-1.5 py-0.5 rounded-full shrink-0 font-bold"><Check size={9} /> Installed</span>}
+            {!det && wallet.recommended && <span className="text-[9px] uppercase tracking-wide bg-white/[0.06] light:bg-slate-100 text-gray-300 light:text-slate-600 px-1.5 py-0.5 rounded-full shrink-0 font-semibold">Recommended</span>}
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">{det ? 'Tap to connect' : isOpen ? action.label : (wallet.sub || 'Install')}</div>
+          <div className="text-xs text-gray-400 light:text-slate-500 mt-0.5">{det ? 'Tap to connect' : isOpen ? action.label : (wallet.sub || 'Install')}</div>
         </div>
         {det
           ? <ArrowRight size={16} className="text-kaspa-green shrink-0 group-hover:translate-x-0.5 transition-transform" />
           : isOpen
             ? <Smartphone size={15} className="text-kaspa-green shrink-0" />
-            : <Download size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />}
+            : <Download size={14} className="text-gray-500 light:text-slate-400 group-hover:text-gray-300 transition-colors shrink-0" />}
       </button>
     );
   };
 
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0a0c] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0c] light:bg-white shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06] light:border-slate-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
               <Wallet size={18} className="text-kaspa-green" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Connect a wallet</h3>
-              <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 bg-red-500/10 border border-red-500/25 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Mainnet</span>
+              <h3 className="text-base font-bold text-white light:text-slate-900">Connect a wallet</h3>
+              <p className="text-[11px] text-gray-400 light:text-slate-500 flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 light:text-red-600 bg-red-500/10 light:bg-red-50 border border-red-500/25 light:border-red-200 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Mainnet</span>
                 Non-custodial · keys stay in your wallet
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"><X size={20} /></button>
         </div>
 
         <div className="p-5 space-y-4">
           {/* Installed wallets - one-click, surfaced first */}
           {detected.length > 0 && (
             <div className="space-y-2">
-              <div className="text-[10px] uppercase tracking-widest text-kaspa-green/80 font-bold flex items-center gap-1.5"><Check size={11} /> Ready to connect</div>
+              <div className="text-[10px] uppercase tracking-widest text-kaspa-green/80 light:text-[#0d9488] font-bold flex items-center gap-1.5"><Check size={11} /> Ready to connect</div>
               {detected.map((w) => <WalletRow key={w.id} wallet={w} primary />)}
             </div>
           )}
 
           {detected.length === 0 && (
-            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.07] text-xs text-gray-300 leading-relaxed flex items-start gap-2">
+            <div className="p-3 rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/[0.07] light:border-slate-200 text-xs text-gray-300 light:text-slate-600 leading-relaxed flex items-start gap-2">
               <ShieldCheck size={15} className="text-kaspa-green shrink-0 mt-0.5" />
-              <span>No Kaspa wallet detected yet. Pick one below to install it (one click), or create a new wallet right here. Mainnet uses real KAS — your keys never leave your wallet.</span>
+              <span>No Kaspa wallet detected yet. Pick one below to install it (one click), or create a new wallet right here. Mainnet uses real KAS - your keys never leave your wallet.</span>
             </div>
           )}
 
           {/* Other / installable wallets */}
           {others.length > 0 && (
             <div className="space-y-2">
-              <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">{detected.length ? 'Other wallets' : 'Choose a wallet'}</div>
+              <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500 font-bold">{detected.length ? 'Other wallets' : 'Choose a wallet'}</div>
               {(showAll ? others : others.slice(0, detected.length ? 3 : 5)).map((w) => <WalletRow key={w.id} wallet={w} />)}
               {others.length > (detected.length ? 3 : 5) && (
-                <button onClick={() => setShowAll((s) => !s)} className="w-full text-center text-[11px] font-semibold text-kaspa-green hover:text-kaspa-green/80 py-1.5">
+                <button onClick={() => setShowAll((s) => !s)} className="w-full text-center text-[11px] font-semibold text-kaspa-green light:text-[#0d9488] hover:text-kaspa-green/80 py-1.5">
                   {showAll ? 'Show fewer' : `Show ${others.length - (detected.length ? 3 : 5)} more wallets`}
                 </button>
               )}
@@ -541,32 +579,32 @@ function MainnetWalletModal({ walletContext, onClose }) {
           )}
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2">
+            <div className="p-3 rounded-lg bg-red-500/[0.06] light:bg-red-50 border border-red-500/20 light:border-red-200 flex items-start gap-2">
               <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs text-red-300">{error}</p>
-                <button onClick={clearError} className="text-[10px] text-red-400/70 hover:text-red-300 mt-1">Dismiss</button>
+                <p className="text-xs text-red-300 light:text-red-700">{error}</p>
+                <button onClick={clearError} className="text-[10px] text-red-400/70 light:text-red-500 hover:text-red-300 mt-1">Dismiss</button>
               </div>
             </div>
           )}
 
           {connecting && (
-            <div className="p-3 rounded-lg bg-kaspa-green/[0.05] border border-kaspa-green/20 text-center flex items-center justify-center gap-2">
+            <div className="p-3 rounded-lg bg-kaspa-green/[0.05] light:bg-kaspa-green/[0.1] border border-kaspa-green/20 text-center flex items-center justify-center gap-2">
               <span className="inline-block w-4 h-4 border-2 border-kaspa-green/30 border-t-kaspa-green rounded-full animate-spin" />
-              <p className="text-sm text-kaspa-green">Approve the connection in your wallet…</p>
+              <p className="text-sm text-kaspa-green light:text-[#0d9488]">Approve the connection in your wallet...</p>
             </div>
           )}
 
           <div className="flex items-center gap-3 py-1">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[10px] uppercase tracking-widest text-gray-500">new to Kaspa?</span>
-            <div className="flex-1 h-px bg-white/10" />
+            <div className="flex-1 h-px bg-white/10 light:bg-slate-200" />
+            <span className="text-[10px] uppercase tracking-widest text-gray-500 light:text-slate-400">new to Kaspa?</span>
+            <div className="flex-1 h-px bg-white/10 light:bg-slate-200" />
           </div>
           <GenerateWalletSection connectDevMode={connectDevMode} onConnected={onClose} />
         </div>
 
-        <div className="p-5 border-t border-white/[0.06]">
-          <p className="text-[10px] text-gray-500 text-center leading-relaxed">
+        <div className="p-5 border-t border-white/[0.06] light:border-slate-200">
+          <p className="text-[10px] text-gray-500 light:text-slate-400 text-center leading-relaxed">
             Non-custodial. Covex never holds your keys or funds. Mainnet activity uses real KAS from your own wallet.
           </p>
         </div>

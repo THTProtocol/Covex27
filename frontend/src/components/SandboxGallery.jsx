@@ -63,22 +63,22 @@ function CircuitCard({ c, active, onSelect, onInspect }) {
       className={`group relative rounded-xl border overflow-hidden hover-lift ${
         active
           ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_22px_rgba(73,234,203,0.16)]'
-          : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16]'
+          : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16] light:border-slate-200 light:from-slate-50 light:to-white light:hover:border-slate-300 light:shadow-sm'
       }`}
     >
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity z-10" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />
       <button onClick={() => onSelect(c.id)} title={`${c.name} - ${c.reality}`} className="block w-full text-left p-3">
         <div className="relative flex items-start gap-2 pr-16">
-          <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white'}`}>{c.name}</span>
+          <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white light:text-slate-900'}`}>{c.name}</span>
         </div>
-        <p className="relative text-[11px] text-gray-400 leading-snug mt-1 line-clamp-2 pr-2">{c.description}</p>
+        <p className="relative text-[11px] text-gray-400 light:text-slate-500 leading-snug mt-1 line-clamp-2 pr-2">{c.description}</p>
       </button>
       {/* The reality badge is itself the inspect trigger: press it to see how this is verified + the source. */}
       <button
         type="button"
         onClick={() => onInspect(c)}
         title="How is this verified? Press to inspect the source"
-        className={`absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border transition hover:brightness-125 z-10 ${m.bg} ${m.text} ${m.border}`}
+        className={`absolute top-2 right-2 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition hover:brightness-125 z-10 ${m.bg} ${m.text} ${m.border}`}
       >
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.accent }} /> {m.short} <Info size={9} className="opacity-60" />
       </button>

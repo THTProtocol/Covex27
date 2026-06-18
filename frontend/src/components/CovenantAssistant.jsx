@@ -104,21 +104,21 @@ export default function CovenantAssistant({ circuits, onSelect }) {
           <button
             key={c.label}
             onClick={() => run(c.query)}
-            className="btn-shimmer inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-kaspa-green/25 bg-kaspa-green/[0.06] text-gray-200 hover:text-white hover:border-kaspa-green/50 hover:bg-kaspa-green/[0.12] transition-all"
+            className="btn-shimmer inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-2 rounded-lg border border-kaspa-green/25 bg-kaspa-green/[0.06] text-gray-200 light:text-slate-700 hover:text-white hover:border-kaspa-green/50 hover:bg-kaspa-green/[0.12] transition-all"
           >
             <c.icon size={13} className="text-kaspa-green" /> {c.label}
           </button>
         ))}
       </div>
 
-      <div className="relative flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 focus-within:border-kaspa-green/40 transition-colors">
+      <div className="relative flex items-center gap-2 rounded-xl border border-white/10 light:border-slate-200 bg-black/40 light:bg-white px-3 py-2 focus-within:border-kaspa-green/40 transition-colors">
         <Sparkles size={15} className="text-kaspa-green shrink-0" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') run(); }}
           placeholder="e.g. an escrow that refunds the buyer after 30 days"
-          className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
+          className="flex-1 bg-transparent text-sm text-white light:text-slate-900 placeholder:text-gray-500 light:placeholder:text-slate-400 outline-none"
         />
         <button onClick={() => run()} disabled={!q.trim()} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_14px_rgba(73,234,203,0.35)] transition-all">
           <Send size={13} /> Suggest
@@ -128,7 +128,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
       {results === null && (
         <div className="relative mt-3 flex flex-wrap gap-1.5">
           {EXAMPLES.map((ex) => (
-            <button key={ex} onClick={() => run(ex)} className="text-[11px] text-gray-300 px-2.5 py-1 rounded-lg border border-white/10 hover:border-kaspa-green/40 hover:text-white transition-colors">
+            <button key={ex} onClick={() => run(ex)} className="text-[11px] text-gray-300 light:text-slate-600 px-2.5 py-1.5 rounded-lg border border-white/10 light:border-slate-200 hover:border-kaspa-green/40 hover:text-white transition-colors">
               {ex.length > 52 ? ex.slice(0, 52) + '…' : ex}
             </button>
           ))}

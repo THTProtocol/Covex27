@@ -76,7 +76,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
   }, [circuit, kind]);
 
   // The declared, human-readable covenant logic (SilverScript) for this circuit. Updates
-  // live as you pick a circuit. This is the DECLARED logic — the real enforcement is the
+  // live as you pick a circuit. This is the DECLARED logic - the real enforcement is the
   // "how it resolves" flow above (SilverScript opcode enforcement is still maturing; custody
   // is what the chain enforces today).
   const exampleScript = useMemo(() => {
@@ -117,12 +117,12 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
       {showInfo && <TransparencyModal circuit={circuit} onClose={() => setShowInfo(false)} />}
       <div className="flex items-center gap-2 flex-wrap">
         <Eye size={16} className="text-kaspa-green" />
-        <h2 className="text-sm font-bold text-white uppercase tracking-widest">Explore this covenant</h2>
+        <h2 className="text-sm font-bold text-white light:text-slate-900 uppercase tracking-widest">Explore this covenant</h2>
         <span className="text-[10px] px-2 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-wider">FREE · NO WALLET</span>
       </div>
 
       {/* Resolution flow */}
-      <div className="rounded-2xl border border-white/10 bg-black/30 p-5 hover-lift">
+      <div className="rounded-2xl border border-white/10 bg-black/30 light:border-slate-200 light:bg-white p-5 hover-lift">
         <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
           <FileSearch size={13} className="text-kaspa-green" /> How it resolves
           <button
@@ -145,10 +145,10 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
         <p className="text-xs text-gray-400 mt-4 pt-3 border-t border-white/[0.06] leading-relaxed">{flow.note}</p>
       </div>
 
-      {/* Example covenant logic (SilverScript) — declared logic, regenerated live per circuit */}
+      {/* Example covenant logic (SilverScript) - declared logic, regenerated live per circuit */}
       {exampleScript && (
-        <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
+        <div className="rounded-2xl border border-white/10 bg-black/40 light:border-slate-200 light:bg-slate-50 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-white/10 light:border-slate-200 flex items-center gap-2">
             <Code2 size={13} className="text-kaspa-green" />
             <span className="text-[11px] uppercase tracking-wider text-gray-300">Example covenant logic</span>
             <span className="text-[10px] text-gray-500">SilverScript · declared</span>
@@ -156,7 +156,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
               {copied ? (<><Check size={12} className="text-kaspa-green" /> Copied</>) : (<><Copy size={12} /> Copy</>)}
             </button>
           </div>
-          <pre className="text-[10.5px] leading-relaxed text-gray-300 font-mono p-4 overflow-auto whitespace-pre-wrap break-words" style={{ maxHeight: 280 }}>{exampleScript}</pre>
+          <pre className="text-[10.5px] leading-relaxed text-gray-300 light:text-slate-700 font-mono p-4 overflow-auto whitespace-pre-wrap break-words" style={{ maxHeight: 280 }}>{exampleScript}</pre>
           <div className="px-4 py-2 border-t border-white/[0.06] text-[10px] text-gray-500 leading-relaxed">
             This is the declared, human-readable logic. What the chain enforces today is shown in "How it resolves" above.
           </div>

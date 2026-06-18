@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Clock, FileSearch, Code2, Globe, Info, Copy, Check } from 'lucide-react';
+import { Clock, FileSearch, Code2, Globe, Info, Copy, Check, Palette } from 'lucide-react';
+import { BOARD_THEMES, PIECE_SETS, resolveBoardTheme, resolvePieceSet, DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';
 
 // ChessPreviewConfig: the configure-then-preview surface for a chess covenant in the Sandbox.
 // It is fully driven by props (the parent CovexTerminal owns the state), so the logic preview
@@ -10,10 +11,6 @@ import { Clock, FileSearch, Code2, Globe, Info, Copy, Check } from 'lucide-react
 // settles the payout on-chain (Schnorr). This is NOT an on-chain ZK proof and NOT trustless.
 // Never imply otherwise in any rendered copy here. No em dashes anywhere.
 
-// chess.com exact colors (match ChessMini.jsx for a consistent native look)
-const LIGHT = '#eeeed2';
-const DARK = '#769656';
-const UNICODE = { r: '♜', n: '♞', b: '♝', q: '♛', k: '♚', p: '♟', R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔', P: '♙' };
 const START_BOARD = [
   ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
   ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
@@ -78,8 +75,9 @@ function Stepper({ label, value, min, max, step, suffix, onChange }) {
   );
 }
 
-// A static, premium chess board for the website preview. Pure render, updates instantly.
-function PreviewBoard({ size = 30 }) {
+// A static, premium chess board for the website preview. Pure render, updates
+// instantly as the creator changes the board theme or piece set.
+function PreviewBoard({ size = 30, board, pieces }) {
   const w = size * 8;
   return (
     <div
@@ -90,17 +88,51 @@ function PreviewBoard({ size = 30 }) {
       {START_BOARD.map((row, ri) =>
         row.map((p, ci) => {
           const light = (ri + ci) % 2 === 0;
+          const isWhite = p && p === p.toUpperCase();
           return (
-            <div key={`${ri}-${ci}`} className="flex items-center justify-center" style={{ width: size, height: size, background: light ? LIGHT : DARK }}>
+            <div key={`${ri}-${ci}`} className="flex items-center justify-center" style={{ width: size, height: size, background: light ? board.light : board.dark }}>
               {p && (
-                <span style={{ fontSize: size * 0.78, lineHeight: 1, color: p === p.toLowerCase() ? '#111' : '#f8f8f8', textShadow: '0 1px 2px rgba(0,0,0,0.45)' }}>
-                  {UNICODE[p]}
+                <span style={{ fontSize: size * 0.78, lineHeight: 1, color: isWhite ? pieces.whiteFill : pieces.blackFill, textShadow: '0 1px 2px rgba(0,0,0,0.45)' }}>
+                  {pieces.glyphs[p]}
                 </span>
               )}
             </div>
           );
         })
       )}
+    </div>
+  );
+}
+
+// A compact swatch row to pick a board theme or piece set. Pure presentation;
+// the selected id is owned by the parent (CovexTerminal) so it flows into the
+// deployed custom_ui_config and the live page.
+function ChoiceRow({ label, options, value, onChange, renderSwatch }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] uppercase tracking-wider text-gray-300 light:text-slate-600 font-mono">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => {
+          const active = opt.id === value;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onChange(opt.id)}
+              aria-pressed={active}
+              title={opt.name}
+              className={`flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                active
+                  ? 'border-kaspa-green/70 bg-kaspa-green/[0.10] text-white light:text-slate-900 shadow-[0_0_14px_-4px_rgba(73,234,203,0.6)]'
+                  : 'border-white/10 light:border-slate-200 bg-black/30 light:bg-white text-gray-300 light:text-slate-600 hover:border-kaspa-green/40'
+              }`}
+            >
+              {renderSwatch(opt)}
+              <span className="whitespace-nowrap">{opt.name}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -127,6 +159,12 @@ export default function ChessPreviewConfig({
   generatedScript,
   onCopyScript,
   scriptCopied = false,
+  // Creator-customizable look. The parent owns these so the choice flows into
+  // the deployed custom_ui_config and renders identically on the public page.
+  boardTheme = DEFAULT_BOARD_THEME,
+  pieceSet = DEFAULT_PIECE_SET,
+  onBoardTheme,
+  onPieceSet,
 }) {
   const tc = `${baseMinutes}m + ${incrementSeconds}s`;
   const pot = (Number(stake) || 0) * 2;
@@ -135,6 +173,9 @@ export default function ChessPreviewConfig({
   const creatorKas = (pot * feePercent / 100).toFixed(2);
   const potBackKas = (pot * potReturnPercent / 100).toFixed(2);
   const clock = useMemo(() => fmtClock(baseMinutes), [baseMinutes]);
+  const board = useMemo(() => resolveBoardTheme(boardTheme), [boardTheme]);
+  const pieces = useMemo(() => resolvePieceSet(pieceSet), [pieceSet]);
+  const themingEnabled = typeof onBoardTheme === 'function' && typeof onPieceSet === 'function';
 
   return (
     <div className="space-y-4">
@@ -153,6 +194,45 @@ export default function ChessPreviewConfig({
           Each player starts with {baseMinutes} minute{baseMinutes === 1 ? '' : 's'}. {incrementSeconds > 0 ? `${incrementSeconds} second${incrementSeconds === 1 ? '' : 's'} are added after every move.` : 'No increment is added per move.'} Only the player-to-move clock ticks; reaching zero is a loss. This feeds the live clocks, the covenant logic, and both previews below.
         </p>
       </div>
+
+      {/* ── 1b. Board + piece appearance (creator-customizable) ────────── */}
+      {themingEnabled && (
+        <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-black/30 light:bg-white p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Palette size={15} className="text-kaspa-green" />
+            <span className="text-[11px] uppercase tracking-wider text-gray-300 light:text-slate-600 font-semibold">Board and pieces</span>
+            <span className="ml-auto text-[10px] text-gray-500 light:text-slate-400">saved into your covenant page</span>
+          </div>
+          <ChoiceRow
+            label="Board theme"
+            options={BOARD_THEMES}
+            value={boardTheme}
+            onChange={onBoardTheme}
+            renderSwatch={(opt) => (
+              <span className="inline-grid grid-cols-2 w-5 h-5 rounded-[3px] overflow-hidden border border-black/30 shrink-0">
+                <span style={{ background: opt.light }} />
+                <span style={{ background: opt.dark }} />
+                <span style={{ background: opt.dark }} />
+                <span style={{ background: opt.light }} />
+              </span>
+            )}
+          />
+          <ChoiceRow
+            label="Piece set"
+            options={PIECE_SETS}
+            value={pieceSet}
+            onChange={onPieceSet}
+            renderSwatch={(opt) => (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-[3px] bg-[#769656] shrink-0" aria-hidden>
+                <span style={{ fontSize: 14, lineHeight: 1, color: opt.whiteFill, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{opt.glyphs.N}</span>
+              </span>
+            )}
+          />
+          <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed">
+            Pick how your chess covenant looks. The board colors and piece set update the preview below instantly and are saved into the deployed covenant page, so every visitor sees the same look.
+          </p>
+        </div>
+      )}
 
       {/* ── 2. Logic preview (honest, live) ───────────────────────────── */}
       <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-black/30 light:bg-white p-5 space-y-3">
@@ -244,7 +324,7 @@ export default function ChessPreviewConfig({
               </div>
 
               <div className="shrink-0">
-                <PreviewBoard size={30} />
+                <PreviewBoard size={30} board={board} pieces={pieces} />
               </div>
 
               <div className="flex-1 w-full min-w-[180px] space-y-2">

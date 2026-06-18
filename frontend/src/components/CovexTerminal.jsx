@@ -19,6 +19,7 @@ import { VERIFIED_FULL_ZK, IN_BROWSER_PROVERS, STRICT_GROTH16 } from '../lib/zk/
 import { loadSnarkjs, makeFullProveBound, PROVERS } from '../lib/zk/provers';
 import { Chessboard } from 'react-chessboard';
 import ChessPreviewConfig, { defaultTimeControlFor } from './ChessPreviewConfig';
+import { DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
 import FullScreenBlackjack from './FullScreenBlackjack';
@@ -1202,6 +1203,10 @@ contract VisualCovenant {
   const [chessIncrementSeconds, setChessIncrementSeconds] = useState(0);
   const chessBaseMs = chessBaseMinutes * 60 * 1000;
   const chessIncrementMs = chessIncrementSeconds * 1000;
+  // Creator-customizable chess look (board theme + piece set). Persisted into
+  // custom_ui_config.chess so the public covenant page renders the same look.
+  const [chessBoardTheme, setChessBoardTheme] = useState(DEFAULT_BOARD_THEME);
+  const [chessPieceSet, setChessPieceSet] = useState(DEFAULT_PIECE_SET);
   const [chessScriptCopied, setChessScriptCopied] = useState(false);
   // When a saved config restores a time control, skip the next per-variant default re-seed
   // for that gameType so the creator's persisted clock wins.
@@ -1640,8 +1645,13 @@ ${gameMeta.outcomeBranches}
       per_side_stake_kas: chessStake,
       fee_percent: feePercent,
       pot_return_percent: potReturnPercent,
+      // Creator-chosen look; the public page resolves these via chessLookFromConfig.
+      chess: {
+        board_theme: chessBoardTheme,
+        piece_set: chessPieceSet,
+      },
     };
-  }, [gameType, chessBaseMinutes, chessIncrementSeconds, chessBaseMs, chessIncrementMs, chessStake, feePercent, potReturnPercent]);
+  }, [gameType, chessBaseMinutes, chessIncrementSeconds, chessBaseMs, chessIncrementMs, chessStake, feePercent, potReturnPercent, chessBoardTheme, chessPieceSet]);
 
   // ── Chess ZK Arena Handlers (full rules via chess.js + ZK outcome submission) ──
   const resetChessArena = useCallback(() => {
@@ -1959,6 +1969,12 @@ ${gameMeta.outcomeBranches}
             chessTcLoadedRef.current = cfg.game_type || true; // skip the variant-default re-seed once
             if (savedTc.base_minutes != null) setChessBaseMinutes(savedTc.base_minutes);
             if (savedTc.increment_seconds != null) setChessIncrementSeconds(savedTc.increment_seconds);
+          }
+          // Restore the saved chess look (board theme + piece set).
+          const savedChess = cfg.chess || cfg.custom_ui_config?.chess;
+          if (savedChess) {
+            if (savedChess.board_theme) setChessBoardTheme(savedChess.board_theme);
+            if (savedChess.piece_set) setChessPieceSet(savedChess.piece_set);
           }
           if (data.ui_html) setCustomUICode(data.ui_html);
         } else {
@@ -3043,6 +3059,10 @@ ${gameMeta.outcomeBranches}
             generatedScript={chessScriptLive}
             onCopyScript={copyChessScriptLive}
             scriptCopied={chessScriptCopied}
+            boardTheme={chessBoardTheme}
+            pieceSet={chessPieceSet}
+            onBoardTheme={setChessBoardTheme}
+            onPieceSet={setChessPieceSet}
           />
           {/* Stake control lives here too so it flows into the previews + deployed config */}
           <div className="rounded-2xl border border-white/10 bg-black/30 p-5 space-y-2">

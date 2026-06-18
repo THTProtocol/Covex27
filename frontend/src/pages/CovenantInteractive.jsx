@@ -31,6 +31,7 @@ const GAME_REGISTRY = {
   blackjack: { Component: FullScreenBlackjack, label: 'Blackjack', stake: 100 },
 };
 import { Chessboard } from 'react-chessboard';
+import { chessLookFromConfig } from '../lib/chessTheme';
 import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2 } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
@@ -258,6 +259,9 @@ export default function CovenantInteractive() {
   }, [covenant]);
   const isChess = gameType === 'chess';
   const isOtherGame = !!gameType && gameType !== 'chess';
+  // Creator-chosen chess look (board theme + piece set), resolved from the saved
+  // custom_ui_config so the public page matches what the creator previewed.
+  const chessLook = useMemo(() => chessLookFromConfig(covenant?.custom_ui_config), [covenant]);
   // A single binary_oracle_select covenant is one LEG of a parimutuel market, not a bare
   // on-chain primitive: its custody is script-locked but the OUTCOME is set by the secret
   // the disclosed oracle reveals. It must read as a market, never "no oracle, no trust".
@@ -1303,8 +1307,8 @@ export default function CovenantInteractive() {
                         <Chessboard
                           position="start"
                           boardWidth={Math.min(580, (typeof window !== 'undefined' ? window.innerWidth : 580) - 48)}
-                          customDarkSquareStyle={{ backgroundColor: '#b58863' }}
-                          customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
+                          customDarkSquareStyle={{ backgroundColor: chessLook.board.dark }}
+                          customLightSquareStyle={{ backgroundColor: chessLook.board.light }}
                           customBoardStyle={{ borderRadius: '6px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                           customNotationStyle={{ color: '#3f2a1d', fontSize: '14px', fontWeight: 600 }}
                         />

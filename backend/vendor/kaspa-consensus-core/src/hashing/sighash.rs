@@ -80,9 +80,31 @@ pub fn sig_op_counts_hash(tx: &Transaction, hash_type: SigHashType, reused_value
 }
 
 pub fn payload_hash(tx: &Transaction) -> Hash {
-    // TN12 Toccata fork: payload is ALWAYS included in sighash, regardless of subnetwork.
-    // Original v0.15.0 returned ZERO_HASH for SUBNETWORK_ID_NATIVE, causing "false stack
-    // entry" errors because the patched TN12 node always verifies payload in sighash.
+    // Toccata (rusty-kaspa v2.0.0) sighash rule, reconciled 2026-06-18 against the
+    // official source consensus/core/src/hashing/sighash.rs @ tag v2.0.0:
+    //
+    //     if tx.subnetwork_id.is_native() && tx.payload.is_empty() { return ZERO_HASH; }
+    //     else { write_var_bytes(&tx.payload) }   // write_len(u64 LE) then raw bytes
+    //
+    // For EVERY transaction Covex builds the payload is non-empty by construction
+    // (deploy/non-custodial-deploy carry aa20+blake2b256(redeem)+redeem; spends carry
+    // b"covex-p2sh-spend"; market/bundle legs carry aa20+blake2b256(...)). In that
+    // native + non-empty case the official rule and this function are BYTE-IDENTICAL:
+    // both produce write_var_bytes(&tx.payload). The only divergence is the native +
+    // EMPTY payload case (official -> ZERO_HASH; this -> hash of write_var_bytes(&[])),
+    // which Covex never emits. The native + empty path is asserted unreachable below so
+    // a future empty-payload tx fails loudly here rather than producing a sighash the
+    // mainnet Toccata node will reject (the historical "false stack entry" symptom).
+    //
+    // crates.io tops out at 0.15.0 (returned ZERO_HASH for native); the official Toccata
+    // behavior exists only in the rusty-kaspa git v2.0.0 line. Migrating the whole kaspa-*
+    // stack to those git tags is the proper long-term fix but is a large, e2e-gated bump
+    // tracked separately, not done inline here.
+    debug_assert!(
+        !(tx.subnetwork_id == SUBNETWORK_ID_NATIVE && tx.payload.is_empty()),
+        "native + empty payload diverges from official Toccata sighash (which returns ZERO_HASH); \
+         Covex builders must never emit an empty payload"
+    );
     let mut hasher = TransactionSigningHash::new();
     hasher.write_var_bytes(&tx.payload);
     hasher.finalize()

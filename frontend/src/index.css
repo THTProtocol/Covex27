@@ -320,16 +320,20 @@ body {
   color: #94a3b8 !important;
 }
 
-/* Cards - clean, modern, visible */
+/* Cards - translucent brand glass, matching the .glass-panel treatment so featured
+   covenants / terminal sections share the same depth + teal connection as dark mode
+   (not a flat white box). */
 .light .card,
 .light [class*="rounded-2xl border"],
 .light .featured-covenant-card,
 .light .terminal-section,
 .light section[class*="bg-black/30"] {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 6px -1px rgba(15, 23, 42, 0.03);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(13, 148, 136, 0.12);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   color: #0f172a;
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 
 /* Badges */
@@ -712,15 +716,21 @@ body {
    PRICING PAGE - Premium treatment for BOTH modes
    ═══════════════════════════════════════════════════════════════ */
 
-/* Pricing tier cards: light mode */
+/* Pricing tier cards: light mode — translucent brand glass + teal hover border +
+   lift, mirroring the dark .pricing-tier-card treatment (depth over the gradient
+   body, brand-teal connection on hover) instead of a flat opaque card. */
 .light .pricing-tier-card {
-  background: #fff;
-  border-color: rgba(15, 23, 42, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(13, 148, 136, 0.12);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .light .pricing-tier-card:hover {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(15, 118, 110, 0.2);
   transform: translateY(-2px);
+  border-color: rgba(13, 148, 136, 0.32);
+  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(13, 148, 136, 0.18);
 }
 
 /* Pricing tier cards: dark enhancements */

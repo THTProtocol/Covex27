@@ -8,7 +8,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  ExternalLink,
   Loader2,
   AlertTriangle,
   ShieldCheck,
@@ -23,11 +22,9 @@ import {
  * Honesty: Covex compiles the covenant DSL via /api/compile (the real silverc pipeline) and
  * shows the genuine output. That compiled script is the DECLARED logic carried as a metadata
  * payload; on-chain the covenant locks to its P2SH commitment (aa20<hash>87), which is what
- * Kaspa consensus enforces. For full raw-SilverScript authoring use SilverScript Studio (the
- * core team's IDE); Covex's lane is compile + explore + verify. No em dashes in copy.
+ * Kaspa consensus enforces. This pro terminal is Covex's own local authoring surface: you write
+ * the covenant yourself and Covex compiles it, no auto-generation. No em dashes in copy.
  */
-
-const STUDIO_URL = 'https://silverscriptstudio.com';
 
 // Static reference covenants the user can load and then edit. These are examples to learn the
 // syntax, NOT generated from the user's input. Each is valid covenant DSL that compiles.
@@ -217,14 +214,6 @@ export default function SilverTerminal() {
           >
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />} Compile
           </button>
-          <a
-            href={STUDIO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#E8AF34]/40 text-[#E8AF34] hover:bg-[#E8AF34]/10 text-sm font-semibold transition-colors"
-          >
-            Open in SilverScript Studio <ExternalLink size={13} />
-          </a>
           <span className="ml-auto text-[11px] text-gray-500 light:text-slate-400 font-mono">{lineCount} lines</span>
         </div>
       </div>

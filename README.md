@@ -85,7 +85,7 @@ Covex is built for Kaspa **mainnet**. It runs a live mainnet node and an armed c
 | Covenants indexed | 0 - the first real covenant appears the moment one lands |
 | Provably paid covenants | 0 |
 | Total value locked | 0 KAS |
-| Toccata activation | 2026 (June 2026 window, no confirmed day) |
+| Toccata activation | 30 June 2026 |
 
 ```bash
 # verify mainnet live (0 until Toccata is the honest, expected state):
@@ -275,7 +275,7 @@ The full phased plan lives in [docs/COVEX_MASTER_BUILD_PLAN.md](docs/COVEX_MASTE
 
 Kaspa is a proof-of-work BlockDAG using the GHOSTDAG/DAGKNIGHT ordering protocol. Since the **Crescendo** hard fork (mainnet, ~May 2025) it produces **10 blocks per second** while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped **KIP-10** transaction-introspection opcodes, the first step toward covenants.
 
-The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet in **2026** (the June 2026 window, no confirmed calendar day), it bundles four improvement proposals:
+The **Toccata** hard fork completes the covenant story. Scheduled to activate on Kaspa mainnet on **30 June 2026**, it bundles four improvement proposals:
 
 - **KIP-17**: extended script-engine opcodes, the covenant backbone.
 - **KIP-20**: covenant IDs, stable identity and lineage across a covenant's spends.

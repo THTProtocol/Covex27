@@ -25,6 +25,7 @@ mod live;
 mod compiler;
 mod covenant_builder;
 mod covenant_catalog;
+mod disassembler;
 #[allow(dead_code)]
 mod covenant_types;
 mod crawler;
@@ -374,6 +375,7 @@ async fn main() {
         .route("/covenants/:covenant_id", get(covenant_by_id_handler))
         .route("/covenants/:covenant_id/actions", get(covenant_actions_handler))
         .route("/compile", post(compile_handler))
+        .route("/script/disassemble", post(disassemble_handler))
         .merge(live::live_routes())
         .merge(games::games_routes().layer(Extension(db.clone())))
         .merge(poker::poker_routes().layer(Extension(db.clone())))
@@ -1006,6 +1008,59 @@ async fn compile_handler(
 async fn tiers_handler() -> Json<serde_json::Value> {
     let tiers = covenant_types::get_tiers();
     Json(json!({"tiers": tiers}))
+}
+
+#[derive(serde::Deserialize)]
+struct DisassembleRequest {
+    /// The raw script bytes to disassemble, hex-encoded. This is a recovered redeem
+    /// script, a script_pubkey, or any Kaspa script -- not a tx payload.
+    script_hex: String,
+    /// Overlay the Toccata (KIP-10/17/20) introspection opcode names. Defaults to false
+    /// (the pre-Toccata VM, which every covenant indexed today was built against).
+    #[serde(default)]
+    toccata: bool,
+}
+
+/// POST /script/disassemble -- the Etherscan-style "opcode view". Turns a raw Kaspa
+/// script into a labeled token stream + ASM listing, keyed on the opcode byte so it
+/// stays correct across the Toccata renames. Pure function; no DB, no key material.
+async fn disassemble_handler(
+    Json(req): Json<DisassembleRequest>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let hex_str = req.script_hex.trim();
+    let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+    if hex_str.is_empty() {
+        return Err((
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "missing script_hex"})),
+        ));
+    }
+    // Cap input so a hostile request cannot allocate unbounded work (200 KB of script).
+    if hex_str.len() > 400 * 1024 {
+        return Err((
+            axum::http::StatusCode::PAYLOAD_TOO_LARGE,
+            Json(json!({"ok": false, "error": "script too large (max 200KB)"})),
+        ));
+    }
+    let bytes = match hex::decode(hex_str) {
+        Ok(b) => b,
+        Err(e) => {
+            return Err((
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(json!({"ok": false, "error": format!("invalid hex: {e}")})),
+            ));
+        }
+    };
+    let dis = disassembler::disassemble(&bytes, req.toccata);
+    Ok(Json(json!({
+        "ok": true,
+        "byte_len": dis.byte_len,
+        "opcode_count": dis.opcode_count,
+        "toccata": dis.toccata,
+        "asm": dis.asm,
+        "tokens": dis.tokens,
+        "error": dis.error,
+    })))
 }
 
 async fn paid_status_handler(

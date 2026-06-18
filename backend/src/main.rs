@@ -861,6 +861,15 @@ fn covenant_summary_json(
         "tier": c.verified_tier,
         "network": c.network,
         "custom_ui_config": ui_config,
+        // Honest finality/reorg signal (derived against the live node tip by annotate_finality):
+        // final (consensus-irreversible) | confirming (with ETA) | pending (no on-chain DAA yet)
+        // | unknown (node tip unavailable). reorged covenants are hidden from lists; the flag is
+        // surfaced for the detail page to show a truthful banner.
+        "block_hash": c.block_hash,
+        "confirmations": c.confirmations,
+        "finality": c.finality,
+        "finality_eta_secs": c.finality_eta_secs,
+        "reorged": c.reorged,
         // Honest enforcement label derived from the on-chain script (roadmap B4):
         // on-chain (script-enforced) | hybrid | oracle-attested | decorative. A prediction-market
         // anchor holds no script itself but its funds live in on-chain binary_oracle_select

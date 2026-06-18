@@ -535,7 +535,7 @@ async fn reconcile_reorgs(
     }
     let resp = match tokio::time::timeout(
         std::time::Duration::from_secs(15),
-        client.get_virtual_chain_from_block(start, true, None),
+        client.get_virtual_chain_from_block(start, true),
     )
     .await
     {

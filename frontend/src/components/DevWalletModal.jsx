@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm } from './WalletContext';
-import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ExternalLink, ShieldCheck, ArrowRight, Check } from 'lucide-react';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm, walletPrimaryAction } from './WalletContext';
+import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ShieldCheck, ArrowRight, Check, Smartphone, Download } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
 // Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
@@ -442,16 +442,21 @@ function MainnetWalletModal({ walletContext, onClose }) {
   const detected = wallets.filter(isDet);
   const others = wallets.filter((w) => !isDet(w)).sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
 
+  // Single source of truth: every tap goes through the unified connect(). It decides one-click
+  // connect (provider present) vs mobile open-app deep-link vs install, and never bounces
+  // straight to download. Close the modal only on a real (provider) connection.
   const handleConnect = async (wallet) => {
-    if (isDet(wallet)) {
-      try { await connect(wallet.id); onClose(); } catch (_) {}
-    } else {
-      window.open(wallet.url, '_blank');
-    }
+    const action = walletPrimaryAction(wallet);
+    try {
+      await connect(wallet.id);
+      if (action.kind === 'connect') onClose();
+    } catch (_) { /* error surfaces in the modal's error state; keep it open */ }
   };
 
   const WalletRow = ({ wallet, primary }) => {
     const det = isDet(wallet);
+    const action = walletPrimaryAction(wallet);
+    const isOpen = action.kind === 'open';
     return (
       <button
         onClick={() => handleConnect(wallet)}
@@ -475,11 +480,13 @@ function MainnetWalletModal({ walletContext, onClose }) {
             {det && <span className="inline-flex items-center gap-0.5 text-[9px] uppercase tracking-wide bg-kaspa-green/15 text-kaspa-green border border-kaspa-green/30 px-1.5 py-0.5 rounded-full shrink-0 font-bold"><Check size={9} /> Installed</span>}
             {!det && wallet.recommended && <span className="text-[9px] uppercase tracking-wide bg-white/[0.06] text-gray-300 px-1.5 py-0.5 rounded-full shrink-0 font-semibold">Recommended</span>}
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">{det ? 'Tap to connect' : wallet.sub || 'Install'}</div>
+          <div className="text-xs text-gray-400 mt-0.5">{det ? 'Tap to connect' : isOpen ? action.label : (wallet.sub || 'Install')}</div>
         </div>
         {det
           ? <ArrowRight size={16} className="text-kaspa-green shrink-0 group-hover:translate-x-0.5 transition-transform" />
-          : <ExternalLink size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />}
+          : isOpen
+            ? <Smartphone size={15} className="text-kaspa-green shrink-0" />
+            : <Download size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />}
       </button>
     );
   };

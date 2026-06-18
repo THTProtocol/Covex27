@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { explorerAddressUrl } from '../lib/explorer';
 import { Link } from 'react-router-dom';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork } from './WalletContext';
-import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles } from 'lucide-react';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, walletPrimaryAction } from './WalletContext';
+import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download } from 'lucide-react';
 
 // Wallet icon tile with graceful fallback to a letter avatar if the CDN logo fails.
 function WalletLogo({ wallet }) {
@@ -43,6 +43,10 @@ export default function WalletButton() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [panel]);
 
+  // Close the connect drawer the moment a wallet actually connects (covers the deep-link return
+  // case: the in-app browser injects a provider, auto-connect fires, address appears).
+  useEffect(() => { if (address && open) setOpen(false); }, [address, open]);
+
   // Some wallet extensions inject their provider a beat after page load. While the drawer is
   // open, re-check detection a few times so a freshly-installed wallet surfaces as "Installed"
   // (and jumps to the one-click section) without the user having to reopen the drawer.
@@ -54,13 +58,17 @@ export default function WalletButton() {
     return () => clearInterval(id);
   }, [open]);
 
+  // Single source of truth: hand EVERY tap to the unified connect(). It decides one-click
+  // connect (provider present) vs mobile open-app deep-link vs install, and never bounces
+  // straight to download. We only close the drawer on a real connection (address set).
   const handleWalletClick = async (wallet) => {
-    const detected = wallet.detect ? wallet.detect() : false;
-    if (!detected) { window.open(wallet.url, '_blank'); return; }
     clearError();
+    const action = walletPrimaryAction(wallet);
     try {
       await connect(wallet.id);
-      setOpen(false); // only close on success
+      // Close only if we actually connected (provider path). Deep-link / install paths keep the
+      // drawer open so the surfaced message is visible and the user can retry after returning.
+      if (action.kind === 'connect') setOpen(false);
     } catch (_) {
       // connect surfaces the reason via the context `error` state shown in the drawer; keep the
       // drawer open on failure so the user sees what went wrong instead of a silent dead-end.
@@ -236,26 +244,32 @@ export default function WalletButton() {
                   {detected.length ? 'Other wallets' : 'Choose a wallet'}
                 </div>
                 <div className="space-y-2">
-                  {shownOthers.map((wallet) => (
-                    <button
-                      key={wallet.id}
-                      onClick={() => handleWalletClick(wallet)}
-                      disabled={connecting}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-slate-50 hover:border-[#49EACB] hover:bg-[#1a1a1a] light:hover:bg-white transition-all group disabled:opacity-50 text-left"
-                    >
-                      <WalletLogo wallet={wallet} />
-                      <div className="text-left flex-1 min-w-0">
-                        <div className="text-white light:text-slate-900 font-medium text-sm flex items-center gap-2">
-                          <span className="truncate">{wallet.name}</span>
-                          {wallet.recommended && (
-                            <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">Recommended</span>
-                          )}
+                  {shownOthers.map((wallet) => {
+                    const action = walletPrimaryAction(wallet);
+                    const isOpen = action.kind === 'open';
+                    return (
+                      <button
+                        key={wallet.id}
+                        onClick={() => handleWalletClick(wallet)}
+                        disabled={connecting}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-slate-50 hover:border-[#49EACB] hover:bg-[#1a1a1a] light:hover:bg-white transition-all group disabled:opacity-50 text-left"
+                      >
+                        <WalletLogo wallet={wallet} />
+                        <div className="text-left flex-1 min-w-0">
+                          <div className="text-white light:text-slate-900 font-medium text-sm flex items-center gap-2">
+                            <span className="truncate">{wallet.name}</span>
+                            {wallet.recommended && (
+                              <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">Recommended</span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-gray-500 truncate">{isOpen ? action.label : wallet.sub}</div>
                         </div>
-                        <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
-                      </div>
-                      <ExternalLink size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />
-                    </button>
-                  ))}
+                        {isOpen
+                          ? <Smartphone size={14} className="text-[#49EACB] shrink-0" />
+                          : <Download size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />}
+                      </button>
+                    );
+                  })}
                 </div>
                 {others.length > collapsedCount && (
                   <button
@@ -269,7 +283,7 @@ export default function WalletButton() {
 
               {detected.length === 0 && topPick && (
                 <button
-                  onClick={() => window.open(topPick.url, '_blank')}
+                  onClick={() => handleWalletClick(topPick)}
                   className="mt-5 w-full flex items-center gap-2.5 p-3 rounded-xl border border-[#49EACB]/20 bg-[#49EACB]/[0.04] hover:bg-[#49EACB]/[0.08] hover:border-[#49EACB]/40 transition-all text-left group"
                 >
                   <span className="w-8 h-8 rounded-lg bg-[#49EACB]/10 flex items-center justify-center shrink-0">
@@ -277,14 +291,14 @@ export default function WalletButton() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white light:text-slate-900">New to Kaspa?</div>
-                    <div className="text-[11px] text-gray-500 break-words">Install {topPick.name} to create a wallet in a minute.</div>
+                    <div className="text-[11px] text-gray-500 break-words">{walletPrimaryAction(topPick).kind === 'open' ? `Open ${topPick.name} to get started.` : `Install ${topPick.name} to create a wallet in a minute.`}</div>
                   </div>
                   <ArrowRight size={15} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>
               )}
 
               <p className="mt-6 text-[11px] text-gray-500 leading-relaxed">
-                Installed wallets connect in one click. Others open the install page. Covex is non-custodial: keys never leave your wallet, every transaction is signed by you.
+                Installed wallets connect in one click. On a phone, an installed wallet opens its app; if it is not installed you go to its app page. Covex is non-custodial: keys never leave your wallet, every transaction is signed by you.
               </p>
             </div>
 

@@ -58,6 +58,7 @@ const WALLET_LOGOS = {
   KaspaCom: 'https://www.google.com/s2/favicons?domain=wallet.kaspa.com&sz=128',
   Tangem:   'https://www.google.com/s2/favicons?domain=tangem.com&sz=128',
   OneKey:   'https://www.google.com/s2/favicons?domain=onekey.so&sz=128',
+  KSPR:     'https://www.google.com/s2/favicons?domain=kspr.app&sz=128',
 };
 
 const WALLET_INSTALL_URLS = {
@@ -70,41 +71,143 @@ const WALLET_INSTALL_URLS = {
   KaspaCom: 'https://wallet.kaspa.com',
   Tangem:   'https://tangem.com/kaspa',
   OneKey:   'https://chromewebstore.google.com/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
+  KSPR:     'https://kspr.app',
 };
 
-// ── Detection logic matching THTProtocol/27 _det() ──
-function detectWallet(name) {
-  if (typeof window === 'undefined') return false;
-  const w = window;
-  switch (name) {
-    case 'KasWare':  return !!(w.kasware || w.kasWare);
-    case 'Kastle':   return !!w.kastle;
-    case 'Kasperia': return !!w.kasperia;
-    case 'OKX':      return !!(w.okxwallet && w.okxwallet.kaspa);
-    case 'Kasanova': return !!(w.kasanova && (w.kasanova.kasware || w.kasanova.requestAccounts));
-    case 'Kaspium':  return !!(w.kaspium || w.KaspiumWallet);
-    case 'KaspaCom': return !!(w.kaspacom || (w.kaspa && typeof w.kaspa.connect === 'function'));
-    case 'Tangem':   return !!(w.tangem || w.tangemWallet);
-    case 'OneKey':   return !!((w.$onekey && w.$onekey.kaspa) || w.onekeyKaspa);
-    default:         return false;
-  }
+// ── Per-wallet mobile deep links (open the INSTALLED app, ideally into its in-app dApp
+// browser pointed at hightable.pro when the wallet supports one). On a phone with the app
+// installed these foreground the wallet; if it is NOT installed the connect flow falls back
+// to the store after a real timeout (see connect()). These are best-effort universal/app
+// links per each wallet's public docs; the exact scheme still needs on-device confirmation
+// (flagged in device_test_needed) since vendors change them without notice.
+const SITE_URL = 'https://hightable.pro';
+const WALLET_DEEP_LINKS = {
+  // Kasanova exposes an in-app dApp browser; its universal link opens the app to a URL.
+  Kasanova: `https://kasanova.app/dapp?url=${encodeURIComponent(SITE_URL)}`,
+  // Kaspium is a native wallet; open the app via its universal link. It does not inject a
+  // provider in a normal mobile browser, so this is the honest "open the app" path.
+  Kaspium:  `https://kaspium.io/`,
+  // OKX has a documented dApp deep link that opens its in-app browser at a target dApp URL.
+  OKX:      `https://www.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + SITE_URL)}`,
+  // Kaspa.com web wallet runs in the browser; open it directly.
+  KaspaCom: 'https://wallet.kaspa.com',
+  // Tangem is card+app; deep link opens the app. No injected provider in mobile browser.
+  Tangem:   'https://app.tangem.com/',
+  // KSPR has a mobile app with an in-app browser.
+  KSPR:     `https://kspr.app/`,
+};
+
+// Wallets that, in a NORMAL mobile browser, do NOT inject a Kaspa provider and have NO real
+// WalletConnect transport wired in this codebase (we ship only @kasflow/wallet-connector's
+// kaswareAdapter, which is the KasWare browser extension - there is no Kaspa WC pairing dep).
+// For these we present an honest "Open in the <wallet> app" deep link instead of faking a
+// connect. Marked nativeOnly so the UI labels the action accurately.
+const NATIVE_ONLY_WALLETS = new Set(['Kaspium', 'Tangem']);
+
+// Generic, side-effect-free probe: does an arbitrary injected object look like a Kaspa wallet
+// provider? (exposes an accounts method AND a send/sign method). Used as the last-resort
+// fallback so a wallet that injects under an unexpected global (the Kasanova in-app-browser
+// case) is still found and never wrongly reads as "not installed".
+function looksLikeKaspaProvider(obj) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+  const hasAccounts = typeof obj.requestAccounts === 'function'
+    || typeof obj.getAccounts === 'function'
+    || typeof obj.getAccount === 'function'
+    || typeof obj.connect === 'function'
+    || typeof obj.getAddresses === 'function';
+  const hasTx = typeof obj.sendKaspa === 'function'
+    || typeof obj.signTransaction === 'function'
+    || typeof obj.sendTransaction === 'function'
+    || typeof obj.signMessage === 'function'
+    || typeof obj.request === 'function';
+  return hasAccounts && hasTx;
 }
 
+// Scan the window for ANY injected Kaspa-style provider. Keeps the wallet-list robust to
+// unexpected global names: even if a wallet injects under a key we did not anticipate, this
+// finds the handle so detection never falsely reports "not installed". Returns the provider
+// handle or null. Cheap (a few dozen own-keys) and read-only.
+function genericProviderProbe() {
+  if (typeof window === 'undefined') return null;
+  const w = window;
+  // High-signal candidates first (nested Kaspa namespaces), then a bounded window scan.
+  const direct = [
+    w.kaspa,
+    w.kasware, w.kasWare,
+    w.okxwallet && w.okxwallet.kaspa,
+    w.$onekey && w.$onekey.kaspa,
+    w.kasanova, w.kasanova && w.kasanova.kasware,
+    w.kasperia, w.kastle, w.kspr, w.ksprwallet,
+  ];
+  for (const c of direct) {
+    if (looksLikeKaspaProvider(c)) return c;
+  }
+  try {
+    for (const key of Object.keys(w)) {
+      // Only inspect own enumerable keys whose name hints at a Kaspa/wallet provider, to keep
+      // this cheap and avoid touching unrelated globals (and risky accessor getters).
+      if (!/kasp|kas|wallet|kspr/i.test(key)) continue;
+      let val;
+      try { val = w[key]; } catch (_) { continue; }
+      if (looksLikeKaspaProvider(val)) return val;
+      // One level deep: e.g. window.someWallet.kaspa
+      if (val && typeof val === 'object') {
+        try {
+          if (looksLikeKaspaProvider(val.kaspa)) return val.kaspa;
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+// ── Provider resolution: try every plausible injection shape per wallet, then fall back to
+// the generic probe so an unexpected global still resolves. Returns the live provider handle
+// (or null). Kept as a pure lookup so detection can re-run on demand (injection can be late).
 function getProvider(name) {
   if (typeof window === 'undefined') return null;
   const w = window;
+  let p = null;
   switch (name) {
-    case 'KasWare':  return w.kasware || w.kasWare;
-    case 'Kastle':   return w.kastle;
-    case 'Kasperia': return w.kasperia;
-    case 'OKX':      return (w.okxwallet && w.okxwallet.kaspa) ? w.okxwallet.kaspa : null;
-    case 'Kasanova': return w.kasanova;
-    case 'Kaspium':  return w.kaspium || w.KaspiumWallet;
-    case 'KaspaCom': return w.kaspacom || w.kaspa;
-    case 'Tangem':   return w.tangem || w.tangemWallet;
-    case 'OneKey':   return (w.$onekey && w.$onekey.kaspa) ? w.$onekey.kaspa : (w.onekeyKaspa || null);
-    default:         return null;
+    case 'KasWare':  p = w.kasware || w.kasWare; break;
+    case 'Kastle':   p = w.kastle; break;
+    case 'Kasperia': p = w.kasperia; break;
+    case 'OKX':      p = (w.okxwallet && w.okxwallet.kaspa) || null; break;
+    // Kasanova injects under several shapes across versions / its in-app browser: a nested
+    // .kasware, a flat object with requestAccounts, window.kasware, window.kaspa, or even a
+    // top-level requestAccounts on window. Accept all, then fall through to the probe.
+    case 'Kasanova':
+      p = (w.kasanova && (w.kasanova.kasware || (typeof w.kasanova.requestAccounts === 'function' ? w.kasanova : null)))
+        || (looksLikeKaspaProvider(w.kasanova) ? w.kasanova : null)
+        || (looksLikeKaspaProvider(w.kasware) ? w.kasware : null)
+        || (looksLikeKaspaProvider(w.kaspa) ? w.kaspa : null)
+        || (typeof w.requestAccounts === 'function' ? w : null);
+      break;
+    case 'Kaspium':  p = w.kaspium || w.KaspiumWallet || null; break;
+    case 'KaspaCom': p = w.kaspacom || (w.kaspa && typeof w.kaspa.connect === 'function' ? w.kaspa : null); break;
+    case 'Tangem':   p = w.tangem || w.tangemWallet || null; break;
+    case 'OneKey':   p = (w.$onekey && w.$onekey.kaspa) || w.onekeyKaspa || null; break;
+    case 'KSPR':     p = w.kspr || w.ksprwallet || (w.kspr && w.kspr.kaspa) || null; break;
+    default:         p = null;
   }
+  if (p && looksLikeKaspaProvider(p)) return p;
+  // Some explicit shapes (e.g. Kasanova nested) are valid providers even if the loose probe
+  // is conservative; return them when present, else try the generic probe as the safety net.
+  if (p) return p;
+  return null;
+}
+
+// ── Detection: a wallet is "installed/available" if we can resolve a usable provider for it.
+// Live (re-runnable on demand) since extensions can inject late. The named lookup is tried
+// first; only the generic probe is allowed to also satisfy detection so a wallet under an
+// unexpected global still surfaces as installed.
+function detectWallet(name) {
+  if (typeof window === 'undefined') return false;
+  const direct = getProvider(name);
+  if (direct) return true;
+  // Last-resort: an unknown global that exposes a Kaspa API. This makes detection robust to
+  // the in-app-browser / renamed-global case for any wallet, never a false "not installed".
+  return !!genericProviderProbe();
 }
 
 // ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
@@ -114,22 +217,58 @@ function kasToSompi(amountKas) {
   return BigInt(whole) * 100_000_000n + BigInt(paddedFrac);
 }
 
-const DESKTOP_WALLETS = ['KasWare', 'Kastle', 'Kasperia', 'OneKey', 'OKX', 'KaspaCom'];
-const MOBILE_WALLETS = ['Kasanova', 'Kaspium', 'OKX', 'KaspaCom', 'Tangem'];
 function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent); }
 
 // ── All wallets unified ──
+// `platform` is now a SORT PRIORITY, not a hard exclusion: the picker always lists every
+// wallet, ordered so the platform-appropriate ones come first. `deepLink` (mobile open-app
+// link) and `nativeOnly` (no injected provider + no real WC, so honest "open the app") drive
+// the per-platform primary action chosen in connect() and labeled in the UI.
 const ALL_WALLETS = [
-  { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
-  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
-  { id: 'Kasperia', name: 'Kasperia', url: WALLET_INSTALL_URLS.Kasperia, logo: WALLET_LOGOS.Kasperia, sub: 'Chrome', detect: () => detectWallet('Kasperia'), provider: () => getProvider('Kasperia') },
-  { id: 'OKX', name: 'OKX Wallet', url: WALLET_INSTALL_URLS.OKX, logo: WALLET_LOGOS.OKX, sub: 'Chrome · Mobile', detect: () => detectWallet('OKX'), provider: () => getProvider('OKX') },
-  { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', detect: () => detectWallet('Kasanova'), provider: () => getProvider('Kasanova') },
-  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', detect: () => detectWallet('Kaspium'), provider: () => getProvider('Kaspium') },
-  { id: 'KaspaCom', name: 'Kaspa Web Wallet', url: WALLET_INSTALL_URLS.KaspaCom, logo: WALLET_LOGOS.KaspaCom, sub: 'Web · Mobile', detect: () => detectWallet('KaspaCom'), provider: () => getProvider('KaspaCom') },
-  { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
-  { id: 'OneKey', name: 'OneKey', url: WALLET_INSTALL_URLS.OneKey, logo: WALLET_LOGOS.OneKey, sub: 'Chrome · Desktop', detect: () => detectWallet('OneKey'), provider: () => getProvider('OneKey') },
+  { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
+  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome', platform: 'desktop', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
+  { id: 'Kasperia', name: 'Kasperia', url: WALLET_INSTALL_URLS.Kasperia, logo: WALLET_LOGOS.Kasperia, sub: 'Chrome', platform: 'desktop', detect: () => detectWallet('Kasperia'), provider: () => getProvider('Kasperia') },
+  { id: 'KSPR', name: 'KSPR Wallet', url: WALLET_INSTALL_URLS.KSPR, logo: WALLET_LOGOS.KSPR, sub: 'iOS · Android · Web', platform: 'both', deepLink: WALLET_DEEP_LINKS.KSPR, detect: () => detectWallet('KSPR'), provider: () => getProvider('KSPR') },
+  { id: 'OKX', name: 'OKX Wallet', url: WALLET_INSTALL_URLS.OKX, logo: WALLET_LOGOS.OKX, sub: 'Chrome · Mobile', platform: 'both', deepLink: WALLET_DEEP_LINKS.OKX, detect: () => detectWallet('OKX'), provider: () => getProvider('OKX') },
+  { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kasanova, detect: () => detectWallet('Kasanova'), provider: () => getProvider('Kasanova') },
+  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kaspium, nativeOnly: true, detect: () => detectWallet('Kaspium'), provider: () => getProvider('Kaspium') },
+  { id: 'KaspaCom', name: 'Kaspa Web Wallet', url: WALLET_INSTALL_URLS.KaspaCom, logo: WALLET_LOGOS.KaspaCom, sub: 'Web · Mobile', platform: 'both', deepLink: WALLET_DEEP_LINKS.KaspaCom, detect: () => detectWallet('KaspaCom'), provider: () => getProvider('KaspaCom') },
+  { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Tangem, nativeOnly: true, detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
+  { id: 'OneKey', name: 'OneKey', url: WALLET_INSTALL_URLS.OneKey, logo: WALLET_LOGOS.OneKey, sub: 'Chrome · Desktop', platform: 'desktop', detect: () => detectWallet('OneKey'), provider: () => getProvider('OneKey') },
 ];
+
+// Order every wallet by platform fit for the CURRENT device (priority, never exclusion), so
+// the picker shows them all with the most relevant ones first.
+function walletsForDevice() {
+  const mobile = isMobile();
+  const score = (w) => {
+    if (w.platform === 'both') return 0;
+    if (mobile) return w.platform === 'mobile' ? -1 : 1;
+    return w.platform === 'desktop' ? -1 : 1;
+  };
+  return [...ALL_WALLETS].sort((a, b) => {
+    const d = score(a) - score(b);
+    if (d !== 0) return d;
+    // Keep recommended ahead within the same tier; otherwise preserve declaration order.
+    return (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0);
+  });
+}
+
+// Decide the HONEST primary action label/kind for a wallet on the current device. The UI uses
+// this so every row reads accurately: a detected wallet says "Connect", an installed-app path
+// says "Open in <wallet>", and an uninstalled extension says "Install".
+//   kind: 'connect' (provider present, one click) | 'open' (mobile deep-link to the app)
+//       | 'install' (open the store / install page)
+function walletPrimaryAction(wallet) {
+  if (!wallet) return { kind: 'install', label: 'Install' };
+  let installed = false;
+  try { installed = wallet.detect ? wallet.detect() : false; } catch (_) { installed = false; }
+  if (installed) return { kind: 'connect', label: 'Connect' };
+  if (isMobile() && wallet.deepLink) {
+    return { kind: 'open', label: `Open in ${wallet.name.replace(/ Wallet$/, '')}` };
+  }
+  return { kind: 'install', label: `Install ${wallet.name.replace(/ Wallet$/, '')}` };
+}
 
 let _wasmModuleCtx = null;
 let _wasmInitPromise = null;
@@ -414,74 +553,153 @@ function WalletBridge({ children }) {
     return getProvider(activeWalletId);
   }
 
+  // Resolve a usable provider for a wallet: its named lookup first, then the generic probe as
+  // a fallback so an unexpected global (the Kasanova in-app-browser case) still connects.
+  const resolveProvider = useCallback((wallet) => {
+    let provider = wallet.provider ? wallet.provider() : getProvider(wallet.id);
+    if (!provider) provider = genericProviderProbe();
+    return provider;
+  }, []);
+
+  // Drive a provider through every account-request shape so the extension popup auto-opens and
+  // returns the connected address in ONE click. Throws on decline / no account so the caller
+  // can surface the reason (it never silently dead-ends).
+  const connectViaProvider = useCallback(async (walletId, provider) => {
+    let accounts;
+    if (typeof provider.requestAccounts === 'function') {
+      accounts = await provider.requestAccounts();
+    } else if (typeof provider.connect === 'function') {
+      await provider.connect();
+      if (typeof provider.getAccounts === 'function') accounts = await provider.getAccounts();
+      else if (typeof provider.getAccount === 'function') {
+        const acct = await provider.getAccount();
+        accounts = acct ? [(acct.address || acct)] : [];
+      }
+    } else if (typeof provider.getAccounts === 'function') {
+      accounts = await provider.getAccounts();
+    } else if (typeof provider.getAccount === 'function') {
+      const acct = await provider.getAccount();
+      accounts = acct ? [(acct.address || acct)] : [];
+    } else if (typeof provider.getAddresses === 'function') {
+      const addrs = await provider.getAddresses();
+      accounts = addrs && addrs.length > 0 ? addrs : [];
+    } else {
+      throw new Error('This wallet does not expose a connect method.');
+    }
+
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No account returned. Unlock the wallet and approve the connection.');
+    }
+
+    const addr = accounts[0].address || accounts[0];
+    setDevMode(null);
+    setActiveWalletId(walletId);
+    setActiveAddress(addr);
+
+    try {
+      let net;
+      if (typeof provider.getNetwork === 'function') net = await provider.getNetwork();
+      else if (typeof provider.request === 'function') net = await provider.request({ method: 'getNetwork' });
+      setActiveWalletNetwork(net || null);
+    } catch (_) {}
+
+    await refreshBalanceForProvider(provider);
+
+    if (walletId === 'KasWare') {
+      try { await kf.connect('kasware'); } catch (_) {}
+    }
+  }, [kf]);
+
+  // Open the wallet's mobile app via its deep link, then resolve true if the app actually
+  // foregrounded within ~1.5s (page hidden / blurred), false if it did not (app not installed).
+  // The caller uses the result to fall back to the store ONLY when the app failed to open, so an
+  // installed app is never bounced to a download page.
+  const openAppThenDetect = useCallback((deepLink) => new Promise((resolve) => {
+    if (typeof document === 'undefined') { resolve(false); return; }
+    let opened = false;
+    const onHidden = () => { if (document.hidden) opened = true; };
+    const onBlur = () => { opened = true; };
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('pagehide', onBlur);
+    window.addEventListener('blur', onBlur);
+    const cleanup = () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('pagehide', onBlur);
+      window.removeEventListener('blur', onBlur);
+    };
+    // Use location assignment (not window.open) so a universal/app link can hand off to the OS.
+    try { window.location.href = deepLink; } catch (_) {}
+    setTimeout(() => {
+      cleanup();
+      // If we are still visible after the timeout, the app did not take over -> not installed.
+      resolve(opened || document.hidden);
+    }, 1500);
+  }), []);
+
+  // ── ONE unified connect entry ──
+  // (a) provider detected -> requestAccounts, one-click connect (desktop one-click);
+  // (b) not detected + mobile -> open-app deep link, store fallback only after a real timeout;
+  // (c) not detected + desktop -> install link (after the generic probe also failed).
+  // NEVER bounces straight to download on first tap.
   const connectWallet = useCallback(async (walletId) => {
     const wallet = ALL_WALLETS.find(w => w.id === walletId);
     if (!wallet) { setError('Unknown wallet'); return; }
 
-    const detected = wallet.detect();
-    if (!detected) {
-      setError(`${wallet.name} not installed. Opening download page...`);
+    setError(null);
+
+    // (a) Provider present (named lookup or generic probe) -> one-click connect.
+    const provider = resolveProvider(wallet);
+    if (provider) {
+      setConnecting(true);
+      try {
+        await connectViaProvider(walletId, provider);
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Connection failed';
+        setError(/reject|denied|declin|cancel/i.test(msg) ? `${wallet.name}: connection declined. Tap again to retry.` : `${wallet.name}: ${msg}`);
+        setActiveWalletId(null);
+        setActiveAddress(null);
+        throw err;
+      } finally {
+        setConnecting(false);
+      }
+      return;
+    }
+
+    // No provider injected.
+    if (isMobile()) {
+      // (b) Mobile: try to open the installed app first.
+      if (wallet.deepLink) {
+        setConnecting(true);
+        setError(null);
+        try {
+          const opened = await openAppThenDetect(wallet.deepLink);
+          if (opened) {
+            // App foregrounded. For wallets whose in-app browser injects a provider, the user
+            // returns into that browser and detection picks it up. For native-only wallets,
+            // be honest: there is no provider to connect to in this tab.
+            if (wallet.nativeOnly) {
+              setError(`Opened ${wallet.name}. ${wallet.name} is a native app with no in-page connect here yet, so complete the action inside the app. To connect on this site, open it from the in-app browser of a wallet that supports it (KasWare, OKX, Kasanova).`);
+            }
+            return;
+          }
+          // App did not open within the timeout -> not installed -> honest store fallback.
+          setError(`${wallet.name} did not open. It may not be installed - opening its download page.`);
+          window.open(wallet.url, '_blank');
+        } finally {
+          setConnecting(false);
+        }
+        return;
+      }
+      // No deep link known -> install page (still not a silent dead-end; message is shown).
+      setError(`${wallet.name} is not available in this browser. Opening its app page.`);
       window.open(wallet.url, '_blank');
       return;
     }
 
-    setConnecting(true);
-    setError(null);
-
-    try {
-      const provider = wallet.provider();
-      if (!provider) throw new Error('Provider not available');
-
-      let accounts;
-      if (typeof provider.requestAccounts === 'function') {
-        accounts = await provider.requestAccounts();
-      } else if (typeof provider.getAccount === 'function') {
-        const acct = await provider.getAccount();
-        accounts = acct ? [(acct.address || acct)] : [];
-      } else if (typeof provider.connect === 'function') {
-        await provider.connect();
-        const acct = await provider.getAccount();
-        accounts = acct ? [(acct.address || acct)] : [];
-      } else if (typeof provider.getAddresses === 'function') {
-        const addrs = await provider.getAddresses();
-        accounts = addrs && addrs.length > 0 ? addrs : [];
-      }
-
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No accounts returned from wallet');
-      }
-
-      const addr = accounts[0];
-      setDevMode(null);
-      setActiveWalletId(walletId);
-      setActiveAddress(addr);
-
-      try {
-        let net;
-        if (typeof provider.getNetwork === 'function') {
-          net = await provider.getNetwork();
-        } else if (typeof provider.request === 'function') {
-          net = await provider.request({ method: 'getNetwork' });
-        }
-        setActiveWalletNetwork(net || null);
-        if (net && net !== appNetwork) {
-          // console.warn(`[Covex] Wallet network ${net} does not match app network ${appNetwork}`); // cleaned for prod
-        }
-      } catch (_) {}
-
-      await refreshBalanceForProvider(provider);
-
-      if (walletId === 'KasWare') {
-        try { await kf.connect('kasware'); } catch (_) {}
-      }
-    } catch (err) {
-      setError(err.message || 'Connection failed');
-      setActiveWalletId(null);
-      setActiveAddress(null);
-    } finally {
-      setConnecting(false);
-    }
-  }, [kf, appNetwork]);
+    // (c) Desktop, generic probe already failed inside resolveProvider -> install link.
+    setError(`${wallet.name} is not installed. Opening its install page - then return and tap Connect.`);
+    window.open(wallet.url, '_blank');
+  }, [resolveProvider, connectViaProvider, openAppThenDetect]);
 
   // ── Dev mode connect (persists to localStorage, per-network for TN10/TN12) ──
   const connectDevMode = useCallback((devState) => {
@@ -787,8 +1005,9 @@ function WalletBridge({ children }) {
     throw new Error('signMessage not available on this wallet');
   }, [activeAddress, activeWalletId, devMode, devSignMessage]);
 
-  const targetList = isMobile() ? MOBILE_WALLETS : DESKTOP_WALLETS;
-  const activeWallets = ALL_WALLETS.filter(w => targetList.includes(w.id));
+  // Every wallet is shown; platform is a priority sort, not an exclusion (so an installed
+  // desktop wallet still appears on mobile and vice versa, and detection can surface it).
+  const activeWallets = walletsForDevice();
 
   const value = {
     activeWalletId,
@@ -907,4 +1126,4 @@ export function WalletProvider({ children }) {
   );
 }
 
-export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase, NETWORK_LABELS };
+export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase, NETWORK_LABELS, walletPrimaryAction, isMobile };

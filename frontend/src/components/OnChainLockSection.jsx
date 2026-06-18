@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { FileKey, Lock, Check, AlertTriangle, ExternalLink, KeyRound, MapPin } from 'lucide-react';
+import { FileKey, Lock, Check, AlertTriangle, ExternalLink, MapPin } from 'lucide-react';
 import { CopyChip, Section } from './TransparencyModal';
+import CovenantDecoder from './CovenantDecoder';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
@@ -162,15 +163,7 @@ export default function OnChainLockSection({ covenant }) {
         )}
 
         {redeemHex && (
-          <Section icon={KeyRound} title="Redeem script">
-            <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-              redeem_script_hex{covenant?.redeem_kind ? ` · ${covenant.redeem_kind}` : ''}
-            </div>
-            <CopyChip text={redeemHex} />
-            <div className="text-[11px] text-gray-500 mt-1.5">
-              Not a secret - it is required to spend and hashes to the P2SH commitment above. Anyone can verify the hash; only a valid signature can move the funds.
-            </div>
-          </Section>
+          <CovenantDecoder redeemHex={redeemHex} commitmentHex={scriptHex} />
         )}
 
         {(vkeyPath || boundOracle || (involvesOracle && oracle.pubkey?.xonly_pubkey)) && (

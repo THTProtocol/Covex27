@@ -858,6 +858,15 @@ fn assemble_noncustodial_satisfier(
     sigs: &std::collections::HashMap<String, [u8; 64]>,
     solo: Option<&[u8; 64]>,
     preimage: Option<&[u8]>,
+    // Oracle kinds only (oracle_enforced / oracle_escrow): the SERVER-produced oracle
+    // partial signature over the SAME sighash the winner signed. None for the 8 plain
+    // primitives. The oracle key never leaves the server and the winner key never reaches
+    // it - the satisfier is the only place the two halves meet.
+    oracle_sig: Option<&[u8; 64]>,
+    // For oracle_escrow / binary_oracle_select: true = the winner is player/outcome A (the
+    // IF branch), false = player/outcome B (the ELSE branch). Ignored by oracle_enforced
+    // (a flat 2-of-2 with no branch) and the 8 plain primitives.
+    winner_is_a: bool,
 ) -> BResult<Vec<u8>> {
     let need_solo = || solo.ok_or_else(|| "this spend needs one signature (signature_hex)".to_string());
     let sig_for = |pk: &[u8; 32]| -> Option<[u8; 64]> { sigs.get(&hex::encode(pk)).copied() };
@@ -924,6 +933,36 @@ fn assemble_noncustodial_satisfier(
             // owner (IF, default) = owner sig + OP_TRUE; heir (ELSE, after lock_daa) = heir sig + OP_FALSE.
             satisfier.extend(push65(need_solo()?));
             satisfier.push(if branch_refund { OpFalse } else { OpTrue });
+        }
+        // ── Oracle co-sign keystone (non-custodial). The 2 sig halves meet HERE: the WINNER
+        // sig came from the browser (solo / sigs), the ORACLE sig was produced server-side
+        // over the SAME sighash (which commits the winner output, so the winner cannot
+        // redirect the funds). Byte layout is IDENTICAL to the custodial build_* builders. ──
+        "oracle" | "oracle_enforced" => {
+            // redeem = multisig([oracle, winner], 2). OpCheckMultiSig pops sigs in pubkey
+            // (script) order, so push oracle first then winner. members = [oracle, winner].
+            let osig = oracle_sig.ok_or_else(|| "oracle payout needs the server oracle signature".to_string())?;
+            satisfier.extend(push65(osig));
+            // The winner's browser signature, keyed by the second member's x-only pubkey,
+            // or supplied as the solo signature.
+            let winner_pk = members.get(1).ok_or_else(|| "oracle redeem missing the winner pubkey".to_string())?;
+            let wsig = sig_for(winner_pk).or_else(|| solo.copied())
+                .ok_or_else(|| "oracle payout needs the winner's browser signature".to_string())?;
+            satisfier.extend(push65(&wsig));
+        }
+        "oracle_escrow" => {
+            // satisfier bottom->top = <winner_player_sig> <branch_selector> <oracle_sig>.
+            // members (checksig_only) = [oracle, player_a, player_b]; the leading oracle push
+            // is followed by OpCheckSigVerify so it IS included, hence the player keys are at
+            // indices 1 and 2.
+            let osig = oracle_sig.ok_or_else(|| "oracle_escrow payout needs the server oracle signature".to_string())?;
+            let winner_pk = members.get(if winner_is_a { 1 } else { 2 })
+                .ok_or_else(|| "oracle_escrow redeem missing the winning player's pubkey".to_string())?;
+            let wsig = sig_for(winner_pk).or_else(|| solo.copied())
+                .ok_or_else(|| "oracle_escrow payout needs the winning player's browser signature".to_string())?;
+            satisfier.extend(push65(&wsig));
+            satisfier.push(if winner_is_a { OpTrue } else { OpFalse });
+            satisfier.extend(push65(osig));
         }
         other => return Err(format!("non-custodial assembly does not support '{other}'")),
     }
@@ -2403,6 +2442,325 @@ pub async fn oracle_payout_handler(
     }
 }
 
+// ── NON-CUSTODIAL ORACLE CO-SIGN KEYSTONE ───────────────────────────────────────────
+// The oracle-enforced kinds (oracle_enforced / oracle_escrow) need TWO signatures over the
+// same spend sighash: the disclosed oracle's (server-held, by design - it co-signs ONLY a
+// verified outcome) and the WINNER's. On mainnet the winner key may NOT touch the server
+// (resolve_signing_key rejects raw/dev keys there), so the custodial oracle_payout_handler
+// cannot release these on mainnet. This pair of handlers fixes that:
+//   prepare-oracle-payout: runs the EXISTING outcome gate (unchanged), builds the unsigned
+//     spend whose ONLY output pays the verified winner, produces ONLY the oracle partial
+//     signature over that sighash, and returns {sighash, oracle_sig, winner_xonly} so the
+//     winner signs their half in the browser.
+//   submit-oracle-payout: takes the winner's browser signature, assembles it WITH the stored
+//     oracle partial-sig into the satisfier, and broadcasts.
+// The server never holds or uses the winner key. Because the oracle signs over a sighash
+// that COMMITS the single winner output, a winner cannot redirect the funds: changing the
+// destination changes the sighash, which invalidates the oracle's signature. binary_oracle_
+// select carries NO oracle key (pure on-chain), so it does NOT route through here; its
+// non-custodial winner-only spend is a separate (still-pending) extension of the plain
+// /covenant/p2sh/prepare-spend flow, and its custodial spend already works today.
+struct PendingOraclePayout {
+    network: String,
+    unsigned_tx: Transaction,
+    entry: UtxoEntry,
+    redeem: Vec<u8>,
+    /// The covenant's deploy tx_id, so submit can mark it spent.
+    deploy_tx_id: String,
+    /// "oracle_enforced" | "oracle_escrow" - selects the satisfier layout.
+    kind_base: String,
+    /// The oracle's partial signature over the prepared sighash (server-produced; the
+    /// oracle key is gone from memory after this). 64-byte BIP340.
+    oracle_sig: [u8; 64],
+    /// Member x-only pubkeys parsed from the redeem in script order: oracle_enforced =
+    /// [oracle, winner]; oracle_escrow = [oracle, player_a, player_b].
+    member_pubkeys: Vec<[u8; 32]>,
+    /// The winner side: true = player A (IF branch), false = player B (ELSE). Drives the
+    /// oracle_escrow branch selector. oracle_enforced ignores it (flat 2-of-2).
+    winner_is_a: bool,
+    /// The x-only pubkey the winner's browser signature must come from (the winner member).
+    winner_xonly: [u8; 32],
+    created_at: i64,
+}
+
+fn oracle_payout_sessions() -> &'static Mutex<std::collections::HashMap<String, PendingOraclePayout>> {
+    static S: std::sync::OnceLock<Mutex<std::collections::HashMap<String, PendingOraclePayout>>> =
+        std::sync::OnceLock::new();
+    S.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+#[derive(Deserialize)]
+pub struct PrepareOraclePayoutRequest {
+    #[serde(default = "default_network")]
+    pub network: String,
+    /// The deploy tx id of the oracle_enforced / oracle_escrow covenant.
+    pub deploy_tx_id: String,
+    /// The verified winner's payout address. The oracle signs a sighash committing the
+    /// single output that pays THIS address, so it cannot be redirected after signing.
+    pub destination_addr: String,
+    /// The outcome proof the oracle must verify before it will co-sign.
+    pub circuit_type: String,
+    #[serde(default)]
+    pub proof: serde_json::Value,
+    #[serde(default)]
+    pub public_inputs: Vec<String>,
+    #[serde(default)]
+    pub requested_outcome: Option<u32>,
+}
+
+/// POST /covenant/oracle-payout/prepare - the non-custodial half of an oracle co-sign.
+/// Runs the SAME outcome gate as oracle_payout_handler (game-pot re-derivation + crypto-proof
+/// gate + verify_proof_for_circuit), then produces ONLY the oracle's signature over the spend
+/// sighash that commits the winner output. Returns the sighash + oracle partial-sig so the
+/// winner signs their half in the browser. The server never sees the winner key.
+pub async fn prepare_oracle_payout_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<PrepareOraclePayoutRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+
+    let cov = match db::get_p2sh_covenant(&db, &req.deploy_tx_id) {
+        Some(c) => c,
+        None => return err(format!("no covenant for {}", req.deploy_tx_id)),
+    };
+    if !cov.redeem_kind.starts_with("oracle") {
+        return err("not an oracle-enforced covenant (deploy with redeem.kind=oracle_enforced or oracle_escrow). For binary_oracle_select use the plain /covenant/p2sh/prepare-spend flow.".into());
+    }
+    let is_escrow = cov.redeem_kind == "oracle_escrow";
+    if let Some(s) = &cov.spent_tx_id {
+        return err(format!("already paid out in {s}"));
+    }
+
+    // GAME-POT GATE (identical to oracle_payout_handler): if this covenant is a skill_games
+    // pot, the winning side is server-authoritative, NOT client-controlled.
+    let game_pot = game_pot_outcome(&db, &req.deploy_tx_id);
+    let is_game_pot = matches!(game_pot, GamePot::Verified(_));
+    let effective_outcome: Option<u32> = match game_pot {
+        GamePot::NotAGamePot => req.requested_outcome,
+        GamePot::Verified(o) => {
+            if let Some(req_o) = req.requested_outcome {
+                if req_o != o {
+                    return err(format!(
+                        "game pot: requested outcome {req_o} contradicts the server-verified result {o}; the oracle co-signs only the real winner"
+                    ));
+                }
+            }
+            Some(o)
+        }
+        GamePot::Rejected(msg) => return err(msg),
+    };
+
+    // NON-GAME ATTESTED GATE (identical to oracle_payout_handler): for a non-game covenant the
+    // oracle co-signs ONLY when the circuit does real Groth16 verification.
+    if !is_game_pot && !crate::oracle_verifier::circuit_requires_crypto_proof(&req.circuit_type) {
+        return err(format!(
+            "oracle declines to co-sign a non-game payout for attested circuit '{}': only a server-resolved game pot, or a real Groth16 proof (a Strict/Hybrid circuit), authorises a covenant payout",
+            req.circuit_type
+        ));
+    }
+
+    // 0 -> player A (IF), 1 -> player B (ELSE). Same convention as the custodial handler.
+    let winner_is_a = effective_outcome != Some(1);
+
+    // THE ORACLE GATE (unchanged): verify the outcome before producing the oracle signature.
+    let verified = crate::oracle_verifier::verify_proof_for_circuit(
+        &req.circuit_type,
+        req.proof.clone(),
+        req.public_inputs.clone(),
+        effective_outcome,
+    )
+    .await
+    .unwrap_or(false);
+    if !verified {
+        return err(format!(
+            "oracle declines to co-sign: outcome for circuit '{}' did not verify",
+            req.circuit_type
+        ));
+    }
+
+    let redeem = match hex::decode(&cov.redeem_script_hex) {
+        Ok(b) => b,
+        Err(e) => return err(format!("corrupt stored redeem: {e}")),
+    };
+    // Member pubkeys in script order. oracle_enforced = multisig([oracle, winner]) -> every
+    // 0x20<32> push (checksig_only=false). oracle_escrow = [oracle, player_a, player_b] -
+    // each is directly followed by a checksig(verify), so checksig_only=true keeps all three.
+    let member_pubkeys: Vec<[u8; 32]> = parse_redeem_pubkeys(&redeem, is_escrow);
+    // The winner member: oracle_enforced -> index 1 (after oracle); oracle_escrow -> player A
+    // at index 1 or player B at index 2.
+    let winner_idx = if is_escrow { if winner_is_a { 1 } else { 2 } } else { 1 };
+    let winner_xonly = match member_pubkeys.get(winner_idx) {
+        Some(pk) => *pk,
+        None => return err("could not locate the winner pubkey in the stored redeem".into()),
+    };
+
+    let client = match client_for_network(&req.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let p2sh_addr = match Address::try_from(cov.p2sh_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("stored p2sh address invalid: {e}")),
+    };
+    let utxos = match client.get_utxos_by_addresses(vec![p2sh_addr]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO fetch failed: {e}")),
+    };
+    let utxo = match utxos
+        .iter()
+        .find(|u| u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index)
+    {
+        Some(u) => u,
+        None => return err("covenant UTXO not found on-chain (unconfirmed or already spent)".into()),
+    };
+    let amount = utxo.utxo_entry.amount;
+    if amount <= TX_FEE {
+        return err("locked amount does not cover the tx fee".into());
+    }
+    let dest_script = match script_pub_key_from_address(&req.destination_addr) {
+        Ok(s) => s,
+        Err(e) => return err(e),
+    };
+    let p2sh_spk = p2sh_script_pubkey(&redeem);
+    let inputs = vec![TransactionInput {
+        previous_outpoint: TransactionOutpoint {
+            transaction_id: utxo.outpoint.transaction_id,
+            index: utxo.outpoint.index,
+        },
+        signature_script: vec![],
+        sequence: 0,
+        sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(if is_escrow { 3 } else { 2 }, |k| k.sig_op_count()),
+    }];
+    // The SOLE output pays the verified winner. The oracle signs the sighash over THIS exact
+    // output set, so a winner who later tries to redirect funds changes the sighash and voids
+    // the oracle signature - the chain then rejects the spend.
+    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let unsigned = Transaction::new_non_finalized(
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        b"covex-oracle-payout".to_vec(),
+    );
+    let entry = UtxoEntry {
+        amount,
+        script_public_key: p2sh_spk,
+        block_daa_score: utxo.utxo_entry.block_daa_score,
+        is_coinbase: utxo.utxo_entry.is_coinbase,
+    };
+    let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+    let mut reused = SigHashReusedValues::new();
+    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+    let sighash_hex = hex::encode(sig_hash.as_bytes());
+
+    // Produce ONLY the oracle's partial signature over the sighash. The winner's half is
+    // signed in the browser and supplied to submit-oracle-payout. The oracle key never leaves
+    // the server and the winner key never reaches it.
+    let oracle_kp = crate::oracle::oracle_keypair();
+    let msg = match secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice()) {
+        Ok(m) => m,
+        Err(e) => return err(format!("sighash->msg: {e}")),
+    };
+    let oracle_sig: [u8; 64] = *oracle_kp.sign_schnorr(msg).as_ref();
+
+    let kind_base = if is_escrow { "oracle_escrow".to_string() } else { "oracle_enforced".to_string() };
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let now_ts = chrono::Utc::now().timestamp();
+    {
+        let mut s = oracle_payout_sessions().lock().unwrap();
+        s.retain(|_, v| v.created_at > now_ts - 600); // drop sessions older than 10 min
+        s.insert(
+            session_id.clone(),
+            PendingOraclePayout {
+                network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
+                deploy_tx_id: cov.tx_id.clone(), kind_base, oracle_sig, member_pubkeys,
+                winner_is_a, winner_xonly, created_at: now_ts,
+            },
+        );
+    }
+    Json(serde_json::json!({
+        "success": true,
+        "session_id": session_id,
+        "sighash": sighash_hex,
+        "sign_scheme": "bip340-schnorr-secp256k1",
+        "oracle_signature_hex": hex::encode(oracle_sig),
+        "winner_xonly": hex::encode(winner_xonly),
+        "winner_is_a": winner_is_a,
+        "p2sh_address": cov.p2sh_address,
+        "amount_sompi": amount,
+        "destination": req.destination_addr,
+        "redeem_kind": cov.redeem_kind,
+        "note": "The oracle verified the outcome and co-signed this exact sighash (which commits the winner payout output). Sign the SAME sighash (BIP340 Schnorr) with the winner key in your wallet, then POST {session_id, signature_hex} to /covenant/oracle-payout/submit. No key is sent to the server, and the payout cannot be redirected without voiding the oracle signature."
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct SubmitOraclePayoutRequest {
+    pub session_id: String,
+    /// The winner's 64-byte BIP340 Schnorr signature (hex) over the prepared sighash,
+    /// produced in the winner's browser. No key is ever sent to the server.
+    pub signature_hex: String,
+}
+
+/// POST /covenant/oracle-payout/submit - combine the winner's browser signature with the
+/// stored oracle partial-sig into the satisfier and broadcast. The server never had the
+/// winner key; it only relays the assembled tx.
+pub async fn submit_oracle_payout_handler(
+    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Json(req): Json<SubmitOraclePayoutRequest>,
+) -> Json<serde_json::Value> {
+    let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    let pending = {
+        let mut s = oracle_payout_sessions().lock().unwrap();
+        match s.remove(&req.session_id) {
+            Some(p) => p,
+            None => return err("unknown or expired session_id (call /covenant/oracle-payout/prepare first; sessions last 10 minutes)".into()),
+        }
+    };
+    let winner_sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+        Some(s) => s,
+        None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
+    };
+    // Key the winner signature by its x-only pubkey so the satisfier orders it correctly.
+    let mut sigs: std::collections::HashMap<String, [u8; 64]> = std::collections::HashMap::new();
+    sigs.insert(hex::encode(pending.winner_xonly), winner_sig);
+
+    let sig_script = match assemble_noncustodial_satisfier(
+        &pending.kind_base, false, &pending.redeem, &pending.member_pubkeys,
+        &sigs, Some(&winner_sig), None,
+        Some(&pending.oracle_sig), pending.winner_is_a,
+    ) {
+        Ok(s) => s,
+        Err(e) => return err(e),
+    };
+    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
+    signable.tx.inputs[0].signature_script = sig_script;
+    signable.tx.finalize();
+    let client = match client_for_network(&pending.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let rpc_tx = RpcTransaction::from(&signable.tx);
+    match client.submit_transaction(rpc_tx, false).await {
+        Ok(tx_id) => {
+            let spent = tx_id.to_string();
+            let _ = db::mark_p2sh_spent(&db, &pending.deploy_tx_id, &spent);
+            info!("Non-custodial oracle payout: covenant {} released in {}", pending.deploy_tx_id, spent);
+            Json(serde_json::json!({
+                "success": true,
+                "payout_tx_id": spent,
+                "note": "The chain required both the oracle co-signature and the winner's signature; the oracle co-signed only the verified outcome, and the winner signed in their browser. No key touched the server."
+            }))
+        }
+        Err(e) => {
+            warn!("Non-custodial oracle payout broadcast rejected for {}: {}", pending.deploy_tx_id, e);
+            err(format!("broadcast rejected: {e} (a wrong winner signature, or the wallet signing a different sighash, fails the 2-of-2 script)"))
+        }
+    }
+}
+
 // ── Mainnet wallet-side signing (trustless 2a): the server NEVER holds the key ──
 // A user redeems a single-sig covenant by signing with their OWN wallet. prepare-spend
 // builds the unsigned tx and returns the sighash for the wallet to sign (BIP340 Schnorr
@@ -2747,6 +3105,8 @@ pub async fn submit_signed_handler(
     let sig_script = match assemble_noncustodial_satisfier(
         &kind_base, pending.branch_refund, &pending.redeem, &pending.member_pubkeys,
         &sigs, solo.as_ref(), preimage.as_deref(),
+        // The 8 plain primitives carry no oracle signature; winner_is_a is unused here.
+        None, true,
     ) {
         Ok(s) => s,
         Err(e) => return err(e),
@@ -3981,6 +4341,8 @@ pub fn p2sh_routes() -> Router {
         .route("/covenant/p2sh/submit-deploy", post(submit_deploy_handler))
         .route("/covenant/p2sh/claim", post(claim_covenant_handler))
         .route("/covenant/oracle-payout", post(oracle_payout_handler))
+        .route("/covenant/oracle-payout/prepare", post(prepare_oracle_payout_handler))
+        .route("/covenant/oracle-payout/submit", post(submit_oracle_payout_handler))
 }
 
 #[cfg(test)]
@@ -4593,7 +4955,7 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let sigs = ext_sigs(s, &[&kp1, &kp2]);
-                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None).unwrap()
+                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
             }),
             "2-of-2 non-custodial multisig must satisfy the lock"
         );
@@ -4601,7 +4963,7 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let sigs = ext_sigs(s, &[&kp1]);
-                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None).unwrap()
+                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
             }),
             "a single signature must not satisfy a 2-of-2"
         );
@@ -4623,7 +4985,7 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let solo = ext_solo(s, &receiver);
-                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(preimage)).unwrap()
+                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(preimage), None, true).unwrap()
             }),
             "non-custodial HTLC claim must satisfy"
         );
@@ -4631,7 +4993,7 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let solo = ext_solo(s, &receiver);
-                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(b"wrong")).unwrap()
+                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(b"wrong"), None, true).unwrap()
             }),
             "HTLC claim with a wrong preimage must fail"
         );
@@ -4639,7 +5001,7 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, lock_daa, 0, |s| {
                 let solo = ext_solo(s, &sender);
-                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
             }),
             "non-custodial HTLC refund at lock_daa must satisfy"
         );
@@ -4647,7 +5009,7 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa - 1, 0, |s| {
                 let solo = ext_solo(s, &sender);
-                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
             }),
             "HTLC refund before lock_daa must fail"
         );
@@ -4668,7 +5030,7 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let sigs = ext_sigs(s, &[&p1, &p2]);
-                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None).unwrap()
+                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
             }),
             "non-custodial channel cooperative close must satisfy"
         );
@@ -4677,7 +5039,7 @@ mod tests {
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = ext_sigs(s, &[&p1]);
                 sigs.insert(hex::encode(xp2), ext_solo(s, &wrong));
-                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None).unwrap()
+                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
             }),
             "channel close with a forged player2 signature must fail"
         );
@@ -4685,7 +5047,7 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, lock_daa, 0, |s| {
                 let solo = ext_solo(s, &p1);
-                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
             }),
             "non-custodial channel refund by the funder must satisfy"
         );
@@ -4693,9 +5055,94 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa, 0, |s| {
                 let solo = ext_solo(s, &wrong);
-                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None).unwrap()
+                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
             }),
             "only the funder can refund the channel (non-custodial)"
+        );
+    }
+
+    #[test]
+    fn noncustodial_oracle_enforced_cosign() {
+        // oracle_enforced = redeem_multisig([oracle, winner], 2). The non-custodial co-sign
+        // combines the SERVER oracle signature with the WINNER's browser signature over the
+        // SAME sighash; the satisfier must satisfy the 2-of-2, and a missing or forged half
+        // must fail. members(checksig_only=false) = [oracle, winner].
+        let oracle = test_keypair(61);
+        let winner = test_keypair(62);
+        let wrong = test_keypair(99);
+        let xo = oracle.x_only_public_key().0.serialize();
+        let xw = winner.x_only_public_key().0.serialize();
+        let redeem = redeem_multisig(&[xo, xw], 2).unwrap();
+        let members = parse_redeem_pubkeys(&redeem, false);
+        assert_eq!(members, vec![xo, xw], "oracle_enforced parse must yield [oracle, winner]");
+        // oracle sig (server) + winner sig (browser) -> valid.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xw), ext_solo(s, &winner));
+                assemble_noncustodial_satisfier("oracle_enforced", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "oracle 2-of-2 with the oracle + winner signatures must satisfy"
+        );
+        // Winner signature forged by a non-winner -> rejected (the chain binds the winner key).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xw), ext_solo(s, &wrong));
+                assemble_noncustodial_satisfier("oracle_enforced", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "a forged winner signature must not satisfy the oracle 2-of-2"
+        );
+    }
+
+    #[test]
+    fn noncustodial_oracle_escrow_cosign() {
+        // oracle_escrow = <oracle> CheckSigVerify IF <a> CheckSig ELSE <b> CheckSig ENDIF.
+        // The winning player's browser sig + the server oracle sig + the right branch
+        // selector must satisfy; the loser's sig (or the wrong branch) must fail.
+        let oracle = test_keypair(71);
+        let player_a = test_keypair(72);
+        let player_b = test_keypair(73);
+        let xo = oracle.x_only_public_key().0.serialize();
+        let xa = player_a.x_only_public_key().0.serialize();
+        let xb = player_b.x_only_public_key().0.serialize();
+        let redeem = redeem_oracle_escrow(&xo, &xa, &xb).unwrap();
+        let members = parse_redeem_pubkeys(&redeem, true);
+        assert_eq!(members, vec![xo, xa, xb], "oracle_escrow parse must yield [oracle, player_a, player_b]");
+        // Player A wins (winner_is_a = true): oracle sig + player A sig + IF branch -> valid.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xa), ext_solo(s, &player_a));
+                assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "oracle_escrow payout to the winning player A must satisfy"
+        );
+        // Player B wins (winner_is_a = false): oracle sig + player B sig + ELSE branch -> valid.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xb), ext_solo(s, &player_b));
+                assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), false).unwrap()
+            }),
+            "oracle_escrow payout to the winning player B must satisfy"
+        );
+        // The LOSER (player B) tries to take player A's branch with the oracle sig present:
+        // player B's signature does not satisfy player A's OpCheckSig -> rejected. This is the
+        // anti-redirect guarantee: even with the oracle co-signature, only the real winner's
+        // own signature releases their branch.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xa), ext_solo(s, &player_b)); // wrong signer for the A branch
+                assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "the loser cannot take the winner's branch even with the oracle co-signature"
         );
     }
 

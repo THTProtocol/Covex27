@@ -1,24 +1,39 @@
 {
-  "name": "Covex",
+  "id": "/",
+  "name": "Covex - Covenant Explorer and Studio for Kaspa",
   "short_name": "Covex",
   "description": "The covenant explorer and studio for Kaspa. Index every covenant, interact with any of them, design and verify your own.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#05050A",
   "theme_color": "#49EACB",
   "orientation": "any",
+  "categories": ["finance", "productivity", "utilities"],
   "icons": [
     {
       "src": "/covex-logo-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/covex-logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/covex-logo-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/covex-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -101,8 +101,8 @@ const WALLET_DEEP_LINKS = {
 // WalletConnect transport wired in this codebase (we ship only @kasflow/wallet-connector's
 // kaswareAdapter, which is the KasWare browser extension - there is no Kaspa WC pairing dep).
 // For these we present an honest "Open in the <wallet> app" deep link instead of faking a
-// connect. Marked nativeOnly so the UI labels the action accurately.
-const NATIVE_ONLY_WALLETS = new Set(['Kaspium', 'Tangem']);
+// connect. Each such wallet carries nativeOnly: true on its ALL_WALLETS entry so the connect
+// flow labels the action accurately after the app foregrounds.
 
 // Does an object look like a Kaspa wallet provider (an accounts method AND a send/sign method)?
 // Used ONLY to validate a specific wallet's own resolved global before connecting to it. There
@@ -218,7 +218,10 @@ const ALL_WALLETS = [
   // walletsForDevice) connects it in one tap. openOnly => never probe-connect, so no desktop leak.
   { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kasanova, openOnly: true, detect: () => false, provider: () => null },
   { id: 'KSPR', name: 'KSPR Wallet', url: WALLET_INSTALL_URLS.KSPR, logo: WALLET_LOGOS.KSPR, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.KSPR, openOnly: true, detect: () => false, provider: () => null },
-  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kaspium, openOnly: true, detect: () => false, provider: () => null },
+  // Kaspium is a native wallet with no in-app dApp browser that injects a Kaspa provider, so
+  // opening it cannot complete an in-page connect here. nativeOnly => after the app foregrounds
+  // we say so honestly (no fake "connected") instead of leaving a silent dead-end.
+  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kaspium, openOnly: true, nativeOnly: true, detect: () => false, provider: () => null },
 ];
 
 // Order every wallet by platform fit for the CURRENT device (priority, never exclusion), so

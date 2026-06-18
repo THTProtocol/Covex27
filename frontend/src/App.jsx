@@ -44,7 +44,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastContext';
 import ThemeToggle from './components/ThemeToggle';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown, Download } from 'lucide-react';
 
 // Grouped "Learn" menu so the nav stays clean: informational pages live here instead of
 // crowding the top bar. Opens on hover (desktop).
@@ -242,6 +242,81 @@ function TermsGate() {
   );
 }
 
+// `beforeinstallprompt` fires once, at page load, BEFORE the user opens the
+// mobile drawer. The install button lives inside that conditionally-mounted
+// drawer, so it would miss the event if it listened itself. We capture the
+// event at module scope the instant the script runs, and notify any mounted
+// hook subscribers, so the button can render the moment it mounts even though
+// the event already fired. Reduced-motion / honesty safe; pure UX.
+let _deferredInstallPrompt = null;
+let _appInstalled = false;
+const _installSubs = new Set();
+function _notifyInstall() { _installSubs.forEach((fn) => fn()); }
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    _notifyInstall();
+  });
+  window.addEventListener('appinstalled', () => {
+    _deferredInstallPrompt = null;
+    _appInstalled = true;
+    _notifyInstall();
+  });
+}
+
+// "Install app" affordance. Surfaced only when the browser has offered an
+// install prompt (manifest + service worker + not already installed) and not
+// after a successful install. Hoisted to module scope so it never remounts.
+function InstallAppButton({ variant = 'menu', onInstalled }) {
+  const [, force] = useState(0);
+
+  useEffect(() => {
+    const sub = () => force((n) => n + 1);
+    _installSubs.add(sub);
+    return () => { _installSubs.delete(sub); };
+  }, []);
+
+  const standalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
+
+  if (standalone || _appInstalled || !_deferredInstallPrompt) return null;
+
+  const install = async () => {
+    const evt = _deferredInstallPrompt;
+    if (!evt) return;
+    try {
+      evt.prompt();
+      const choice = await evt.userChoice;
+      if (choice && choice.outcome === 'accepted') { _appInstalled = true; onInstalled?.(); }
+    } catch { /* user dismissed */ }
+    _deferredInstallPrompt = null; // a prompt can only be used once
+    _notifyInstall();
+  };
+
+  if (variant === 'menu') {
+    return (
+      <button
+        onClick={install}
+        className="mt-1 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#49EACB] text-black text-sm font-bold active:scale-[0.985] transition-transform"
+      >
+        <Download size={16} /> Install app
+      </button>
+    );
+  }
+  // compact chip for the mobile control row
+  return (
+    <button
+      onClick={install}
+      aria-label="Install app"
+      className="p-2 rounded-lg border border-kaspa-green/40 text-kaspa-green hover:bg-kaspa-green/10 active:scale-95 transition"
+    >
+      <Download size={18} />
+    </button>
+  );
+}
+
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -310,6 +385,8 @@ export default function App() {
                   <div className="pt-2 border-t border-white/10 light:border-slate-200">
                     <NetworkSwitcher />
                   </div>
+                  {/* Add Covex to your home screen (only shown when installable) */}
+                  <InstallAppButton variant="menu" onInstalled={() => setMobileMenuOpen(false)} />
                 </div>
               </div>
             )}

@@ -5,13 +5,22 @@
 // cached index.html stale-while-revalidate, which pinned visitors to outdated
 // content-hashed chunk references). Content-hashed /assets/ files are immutable,
 // so they are cache-first (instant + offline). Bumping CACHE purges the old one.
-const CACHE = 'covex-v2';
+const CACHE = 'covex-v3';
 const ASSET_RE = /\/assets\/.+\.(?:js|css|woff2?|ttf|png|jpe?g|svg|webp|gif|ico)$/i;
 
-self.addEventListener('install', () => {
-  // Do NOT pre-cache index.html: it must always come fresh from the network so
-  // the newest chunk hashes are referenced after a deploy.
-  self.skipWaiting();
+// Static app-shell pieces that make an installed PWA usable offline. These are
+// NOT content-hashed, so we refresh them opportunistically (the fetch handler
+// still serves /assets/* and index.html with their own strategies). We do NOT
+// pre-cache index.html here: it must come fresh so the newest chunk hashes load.
+const SHELL = ['/manifest.json', '/covex-logo-192.png', '/covex-logo-512.png', '/icon.svg'];
+
+self.addEventListener('install', (event) => {
+  // Pre-cache the install shell so an Add-to-Home-Screen launch works offline.
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL).catch(() => {})) // tolerate a missing asset
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {

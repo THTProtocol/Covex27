@@ -85,6 +85,11 @@ jobs:
       - name: Sandbox allow-list guard
         run: npm run check:sandbox
 
+      # GATE: frontend unit tests (vitest) for the pure money-path / honesty logic
+      # (network-accurate explorer routing, the grounded assistant's no-invent guarantee).
+      - name: vitest
+        run: npm test
+
       # Advisory: eslint (does not block a mature tree yet).
       - name: eslint
         run: npm run lint

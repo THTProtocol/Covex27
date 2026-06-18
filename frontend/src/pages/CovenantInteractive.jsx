@@ -32,7 +32,7 @@ const GAME_REGISTRY = {
 };
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2 } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2 } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
@@ -917,6 +917,30 @@ export default function CovenantInteractive() {
         <div className="mb-10 rounded-3xl overflow-hidden border border-white/[0.06]">
           <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
         </div>
+      )}
+
+      {/* No custom page yet. For the creator, a clear call to design one; for a
+          visitor, a subtle honest note that the creator CAN build a full page
+          here (so the capability is discoverable without overstating it). */}
+      {!(covenant?.custom_ui_config?.puck_data?.content?.length > 0) && (
+        isCreator ? (
+          <Link
+            to={`/covenant/${encodeURIComponent(id)}/studio`}
+            className="mb-10 flex items-center gap-3 rounded-2xl border border-dashed border-kaspa-green/30 bg-kaspa-green/[0.04] hover:bg-kaspa-green/[0.08] hover:border-kaspa-green/50 light:border-emerald-500/40 light:bg-emerald-500/[0.05] px-4 sm:px-5 py-4 transition-all group"
+          >
+            <span className="shrink-0 w-9 h-9 rounded-xl bg-kaspa-green/10 flex items-center justify-center"><Layers size={17} className="text-kaspa-green" /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-white light:text-slate-900">Design a full interactive page</span>
+              <span className="block text-[12px] text-gray-400 light:text-slate-600">Open Page Studio to build a custom website for this covenant. Visitors will see it, and stake or interact buttons run the same non-custodial flow.</span>
+            </span>
+            <ArrowRight size={16} className="ml-auto shrink-0 text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        ) : (
+          <div className="mb-10 flex items-center gap-2.5 rounded-2xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-4 py-3 text-[12px] text-gray-400 light:text-slate-500">
+            <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-400" />
+            <span>The creator can design a full interactive page for this covenant in Covex Page Studio. Until then, you can interact with it directly below.</span>
+          </div>
+        )
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

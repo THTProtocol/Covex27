@@ -1266,69 +1266,141 @@ async fn get_terminal_config_handler(
     }
 }
 
+/// Maximum byte size of a creator-published custom UI document. Bounded
+/// server-side (independent of the nginx body limit) so a single covenant page
+/// cannot ship an unbounded blob to every visitor's iframe. 256 KB of HTML is
+/// far more than any honest terminal needs.
+const MAX_CUSTOM_UI_BYTES: usize = 256 * 1024;
+
 async fn save_terminal_config_handler(
     Path(covenant_id): Path<String>,
     Extension(db): Extension<db::Db>,
     Json(input): Json<TerminalConfigInput>,
-) -> Json<serde_json::Value> {
-    // ── Ownership enforcement (challenge-response) ──
-    // If the covenant is indexed and has a known creator, edits REQUIRE a valid
-    // wallet signature proving control of that exact address. Two things must
-    // hold: (1) the signer IS the creator, and (2) the signature over the nonce
-    // verifies for the signer (real Kaspa schnorr for extension wallets, or the
-    // dev-wallet path). There is no string-compare bypass: creator addresses are
-    // public, so signer==creator alone proves nothing without the signature.
-    // If the covenant is not yet indexed (no known creator), the save is allowed
-    // (nothing to protect; e.g. a brand-new deploy the indexer hasn't seen).
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     fn pfx(s: &str) -> &str {
         &s[..s.len().min(16)]
     }
-    if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &covenant_id) {
-        if !cov.creator_addr.is_empty() {
-            let signer = input.signer_address.as_deref().unwrap_or("");
-            let sig = input.signature.as_deref().unwrap_or("");
-            let nonce = input.nonce.as_deref().unwrap_or("");
-            if signer != cov.creator_addr {
-                warn!("terminal-config rejected for {}: signer {} != creator {}",
-                    pfx(&covenant_id), pfx(signer), pfx(&cov.creator_addr));
-                return Json(json!({
+
+    // ── Size cap (fail-closed, before any storage) ──
+    // The raw custom UI is stored verbatim and rendered to every visitor inside
+    // an iframe. Reject oversize payloads here, independent of nginx, so the cap
+    // holds regardless of the front proxy config.
+    let ui_html = input.custom_ui_code.clone().unwrap_or_default();
+    if ui_html.len() > MAX_CUSTOM_UI_BYTES {
+        warn!(
+            "terminal-config rejected for {}: custom UI {} bytes exceeds cap {}",
+            pfx(&covenant_id),
+            ui_html.len(),
+            MAX_CUSTOM_UI_BYTES
+        );
+        return Err((
+            axum::http::StatusCode::PAYLOAD_TOO_LARGE,
+            Json(json!({
+                "success": false,
+                "error": "Custom UI too large (max 256 KB). Trim the page and try again."
+            })),
+        ));
+    }
+
+    // ── Ownership enforcement (challenge-response, fail-closed) ──
+    // The save publishes raw HTML that renders to ALL visitors of this covenant
+    // page, so it MUST be authenticated. There is no unauthenticated path:
+    //   (a) Indexed covenant WITH a known creator: the signer must BE the creator,
+    //       and a valid signature over a single-use nonce must verify and be
+    //       consumed (existing happy path; unchanged).
+    //   (b) Unindexed covenant OR a covenant with an EMPTY creator_addr: there is
+    //       no on-chain creator to compare against, so we cannot bind the save to
+    //       an owner. Rather than silently accept (which would let anyone PRE-PLANT
+    //       a creator-marked UI for an id that later indexes), we REQUIRE a valid
+    //       ownership signature over a server-issued single-use nonce for the
+    //       claimed signer, using the SAME scheme. A caller who cannot produce one
+    //       is refused. This closes the pre-plant bypass.
+    // There is no string-compare bypass: creator addresses are public, so
+    // signer==creator alone proves nothing without the signature.
+    let signer = input.signer_address.as_deref().unwrap_or("");
+    let sig = input.signature.as_deref().unwrap_or("");
+    let nonce = input.nonce.as_deref().unwrap_or("");
+
+    let indexed_creator: Option<String> = match db::get_covenant_by_txid(&db, &covenant_id) {
+        Ok(Some(cov)) if !cov.creator_addr.is_empty() => Some(cov.creator_addr),
+        _ => None,
+    };
+
+    // Case (a): indexed with a known creator. The signer must be that creator.
+    if let Some(creator) = indexed_creator.as_deref() {
+        if signer != creator {
+            warn!("terminal-config rejected for {}: signer {} != creator {}",
+                pfx(&covenant_id), pfx(signer), pfx(creator));
+            return Err((
+                axum::http::StatusCode::FORBIDDEN,
+                Json(json!({
                     "success": false,
                     "error": "Only the original covenant deployer can edit this configuration"
-                }));
-            }
-            if sig.is_empty() || nonce.is_empty() {
-                return Json(json!({
-                    "success": false,
-                    "error": "A wallet signature is required to edit this covenant. Connect the creator wallet and approve the signature request."
-                }));
-            }
-            match verify_terminal_ownership_signature(signer, sig, nonce, &covenant_id) {
-                Ok(true) => info!("ownership signature verified for covenant {}", pfx(&covenant_id)),
-                Ok(false) => {
-                    warn!("terminal-config signature FAILED for {} by {}", pfx(&covenant_id), pfx(signer));
-                    return Json(json!({
-                        "success": false,
-                        "error": "Signature verification failed - the provided signature does not match the signer address"
-                    }));
-                }
-                Err(e) => {
-                    warn!("terminal-config signature error for {}: {}", pfx(&covenant_id), e);
-                    return Json(json!({
-                        "success": false,
-                        "error": format!("Signature error: {}", e)
-                    }));
-                }
-            }
-            // Replay protection: the signature is valid, but the nonce must be one
-            // we issued for THIS covenant and not yet spent. Consume it atomically.
-            if !consume_ownership_nonce(nonce, &covenant_id) {
-                warn!("terminal-config nonce rejected (unknown/expired/replayed) for {}", pfx(&covenant_id));
-                return Json(json!({
-                    "success": false,
-                    "error": "Challenge nonce is invalid, expired, or already used. Request a fresh challenge and sign again."
-                }));
-            }
+                })),
+            ));
         }
+    } else {
+        // Case (b): unindexed or empty creator_addr. We still require a valid
+        // ownership signature (no silent accept), but there is no creator to
+        // compare against, so we only enforce that a signer is present.
+        if signer.is_empty() {
+            warn!("terminal-config rejected for {}: unindexed/no-creator covenant and no signer", pfx(&covenant_id));
+            return Err((
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "error": "Covenant not yet indexed; cannot verify ownership. Connect the creator wallet and sign the ownership challenge to publish."
+                })),
+            ));
+        }
+    }
+
+    // Both cases require a present, verifying, single-use signature over the nonce.
+    if sig.is_empty() || nonce.is_empty() {
+        return Err((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "success": false,
+                "error": "A wallet signature is required to edit this covenant. Connect the creator wallet and approve the signature request."
+            })),
+        ));
+    }
+    match verify_terminal_ownership_signature(signer, sig, nonce, &covenant_id) {
+        Ok(true) => info!("ownership signature verified for covenant {}", pfx(&covenant_id)),
+        Ok(false) => {
+            warn!("terminal-config signature FAILED for {} by {}", pfx(&covenant_id), pfx(signer));
+            return Err((
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error": "Signature verification failed - the provided signature does not match the signer address"
+                })),
+            ));
+        }
+        Err(e) => {
+            warn!("terminal-config signature error for {}: {}", pfx(&covenant_id), e);
+            return Err((
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "error": format!("Signature error: {}", e)
+                })),
+            ));
+        }
+    }
+    // Replay protection: the signature is valid, but the nonce must be one we
+    // issued for THIS covenant and not yet spent. Consume it atomically. This is
+    // also what stops an unauthenticated pre-plant on an unindexed covenant: the
+    // nonce is server-issued and single-use.
+    if !consume_ownership_nonce(nonce, &covenant_id) {
+        warn!("terminal-config nonce rejected (unknown/expired/replayed) for {}", pfx(&covenant_id));
+        return Err((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "success": false,
+                "error": "Challenge nonce is invalid, expired, or already used. Request a fresh challenge and sign again."
+            })),
+        ));
     }
 
     // Build the config JSON from input
@@ -1348,7 +1420,7 @@ async fn save_terminal_config_handler(
         "puck_data": input.puck_data,
         "updated_at": chrono::Utc::now().timestamp(),
     });
-    let ui_html = input.custom_ui_code.unwrap_or_default();
+    // `ui_html` (the raw custom UI) was captured and size-checked above.
     let slug = format!("covenant-{}", &covenant_id[..12.min(covenant_id.len())]);
 
     // Store with the actual signer as owner when provided (for future audit)
@@ -1366,11 +1438,25 @@ async fn save_terminal_config_handler(
     ) {
         Ok(_) => {
             info!("Terminal config saved for covenant {} by {}", covenant_id, owner);
-            Json(json!({"success": true, "message": "Configuration saved successfully"}))
+            // Audit: a creator/raw-HTML UI was published. By this point the
+            // ownership signature has verified (the save is unreachable otherwise),
+            // so signature_verified is always true here.
+            if !ui_html.is_empty() {
+                info!(
+                    "custom UI published: covenant={} bytes={} signature_verified={}",
+                    pfx(&covenant_id),
+                    ui_html.len(),
+                    true
+                );
+            }
+            Ok(Json(json!({"success": true, "message": "Configuration saved successfully"})))
         }
         Err(e) => {
             error!("Failed to save terminal config: {}", e);
-            Json(json!({"success": false, "error": e.to_string()}))
+            Err((
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"success": false, "error": e.to_string()})),
+            ))
         }
     }
 }

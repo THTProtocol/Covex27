@@ -167,6 +167,27 @@ function detectWallet(name) {
   return !!getProvider(name);
 }
 
+// MOBILE ONLY: inside a wallet app's in-app dApp browser there is exactly ONE injected provider
+// (the wallet you are browsing in), so a generic scan is safe here and lets ANY Kaspa mobile
+// wallet connect. This is NEVER used on desktop, where multiple installed extensions would make
+// a generic scan ambiguous (that ambiguity was the bug that connected KasWare for everything).
+function mobileProviderProbe() {
+  if (typeof window === 'undefined') return null;
+  const w = window;
+  for (const c of [w.kaspa, w.kasware, w.kastle, w.kasanova, w.kaspium, w.kspr, w.ksprwallet]) {
+    if (looksLikeKaspaProvider(c)) return c;
+    if (c && typeof c === 'object' && looksLikeKaspaProvider(c.kaspa)) return c.kaspa;
+  }
+  try {
+    for (const key of Object.keys(w)) {
+      if (!/kasp|kas|wallet|kspr/i.test(key)) continue;
+      let v; try { v = w[key]; } catch (_) { continue; }
+      if (looksLikeKaspaProvider(v)) return v;
+    }
+  } catch (_) {}
+  return null;
+}
+
 // ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
 function kasToSompi(amountKas) {
   const [whole = '0', frac = ''] = String(amountKas).split('.');
@@ -191,6 +212,13 @@ function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|i
 const ALL_WALLETS = [
   { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
   { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome · iOS · Android', platform: 'both', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
+  // Mobile-app wallets with an in-app dApp browser. On mobile these show "Open in <app>" (a
+  // universal link that launches the app to Covex); once you are inside that app's browser, the
+  // injected provider is detected and the synthetic "Your Kaspa wallet" entry (added in
+  // walletsForDevice) connects it in one tap. openOnly => never probe-connect, so no desktop leak.
+  { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kasanova, openOnly: true, detect: () => false, provider: () => null },
+  { id: 'KSPR', name: 'KSPR Wallet', url: WALLET_INSTALL_URLS.KSPR, logo: WALLET_LOGOS.KSPR, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.KSPR, openOnly: true, detect: () => false, provider: () => null },
+  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kaspium, openOnly: true, detect: () => false, provider: () => null },
 ];
 
 // Order every wallet by platform fit for the CURRENT device (priority, never exclusion), so
@@ -201,7 +229,13 @@ function walletsForDevice() {
   // actually connect on THIS device. Desktop shows extensions (plus cross-platform); mobile
   // shows app wallets (plus cross-platform). Recommended first.
   const fit = (w) => w.platform === 'both' || w.platform === (mobile ? 'mobile' : 'desktop');
-  return ALL_WALLETS.filter(fit).sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
+  const list = ALL_WALLETS.filter(fit).sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
+  // On mobile, if we are already inside a wallet app's in-app browser (a provider is injected),
+  // surface a one-tap "Connect" for whichever wallet that is. Safe on mobile (single provider).
+  if (mobile && mobileProviderProbe()) {
+    list.unshift({ id: 'InApp', name: 'Your Kaspa wallet', sub: 'In-app browser', logo: '', platform: 'mobile', recommended: true, detect: () => true, provider: () => mobileProviderProbe() });
+  }
+  return list;
 }
 
 // Decide the HONEST primary action label/kind for a wallet on the current device. The UI uses
@@ -495,11 +529,15 @@ function WalletBridge({ children }) {
     }
   }, [appNetwork]);
 
-  const walletMeta = activeWalletId ? ALL_WALLETS.find(w => w.id === activeWalletId) : null;
+  const walletMeta = activeWalletId
+    ? (ALL_WALLETS.find(w => w.id === activeWalletId) || (activeWalletId === 'InApp' ? { id: 'InApp', name: 'Your Kaspa wallet', logo: '' } : null))
+    : null;
 
   function getActiveProvider() {
     if (devMode) return null;
     if (!activeWalletId || !activeAddress) return null;
+    // The mobile in-app wallet has no named global; resolve it through the mobile probe.
+    if (activeWalletId === 'InApp') return mobileProviderProbe();
     return getProvider(activeWalletId);
   }
 
@@ -593,7 +631,8 @@ function WalletBridge({ children }) {
   // Strictly per-wallet: clicking a wallet never connects a different installed one, and
   // never bounces straight to download on first tap.
   const connectWallet = useCallback(async (walletId) => {
-    const wallet = ALL_WALLETS.find(w => w.id === walletId);
+    // walletsForDevice() also yields the synthetic mobile "InApp" entry when a provider is injected.
+    const wallet = walletsForDevice().find(w => w.id === walletId) || ALL_WALLETS.find(w => w.id === walletId);
     if (!wallet) { setError('Unknown wallet'); return; }
 
     setError(null);

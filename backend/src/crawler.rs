@@ -6,7 +6,6 @@ use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
 use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
-use std::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 /// Historic BlockDAG Crawler — walks the selected-parent chain backward from tip.
@@ -115,7 +114,7 @@ fn covenant_indexing_gated(network: &str, mainnet_enabled: bool) -> bool {
 
 pub async fn run_crawler(
     client: Arc<KaspaRpcClient>,
-    db: Arc<Mutex<rusqlite::Connection>>,
+    db: db::Db,
     treasury_address: String,
     start_daa: u64,
     network: String,
@@ -398,7 +397,7 @@ pub async fn run_crawler(
                             .as_str()
                             .to_string();
                         let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
-                            Arc::clone(&db),
+                            db.clone(),
                             tid.clone(),
                             ctype.clone(),
                             cat.clone(),

@@ -33,9 +33,8 @@ use kaspa_consensus_core::tx::{
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::{RpcTransaction, RpcUtxosByAddressesEntry};
 use kaspa_wrpc_client::KaspaRpcClient;
-use rusqlite::Connection;
 use serde::Deserialize;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tracing::{info, warn};
 
 use crate::compiler;
@@ -232,7 +231,7 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
 }
 
 pub async fn sign_and_broadcast_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(payload): Json<SignAndBroadcastRequest>,
 ) -> Json<serde_json::Value> {
     // ── Step 1: Resolve private key ──────────────────────────────

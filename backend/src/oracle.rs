@@ -15,12 +15,10 @@
 //   - tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage: Groth16 + oracle fallback.
 
 use axum::{extract::Extension, extract::Json, routing::{get, post}, Router};
-use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::{Arc, Mutex};
 use tracing::info;
 use secp256k1::{schnorr::Signature, Keypair, Message, Secp256k1};
 use serde_json::json;
@@ -552,7 +550,7 @@ async fn verify_range_proof_async(proof: serde_json::Value, public_inputs: Vec<S
 
 /// Handle POST /api/oracle/verify-and-sign
 async fn verify_and_sign_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Json(input): Json<OracleVerifyInput>,
 ) -> Json<OracleVerifyOutput> {
     let timestamp = chrono::Utc::now().timestamp();

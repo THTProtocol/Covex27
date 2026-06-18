@@ -12,7 +12,6 @@ use kaspa_addresses::Address;
 use rusqlite::params;
 use serde_json::json;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use crate::game_engine;
 use crate::live;
@@ -70,7 +69,7 @@ enum Seat {
 /// seat the token belongs to so refund-channel can additionally restrict to the
 /// funder.
 fn authorize_money_caller(
-    db: &Mutex<rusqlite::Connection>,
+    db: &crate::db::Db,
     covenant_id: &str,
     supplied: &str,
 ) -> Result<Seat, String> {
@@ -114,7 +113,7 @@ struct AuthReq {
 /// Background sweep: finalise active matches whose side-to-move has run its clock out
 /// when neither client called claim-timeout (e.g. both closed the tab). Recorded as
 /// end_reason='abandon' - server-timed, so it may settle a real pot to the winner.
-pub fn spawn_timeout_sweeper(db: Arc<Mutex<rusqlite::Connection>>) {
+pub fn spawn_timeout_sweeper(db: crate::db::Db) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(30));
         loop {
@@ -191,7 +190,7 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
 const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch() FROM skill_games";
 
 fn fetch_game(
-    db: &Mutex<rusqlite::Connection>,
+    db: &crate::db::Db,
     covenant_id: &str,
 ) -> Option<serde_json::Value> {
     let conn = db.lock().unwrap();
@@ -218,7 +217,7 @@ fn xonly_hex_from_address(addr: &str) -> Result<String, String> {
 /// release the pot ONLY to the oracle-declared winner (settle-pot). Funded by player1
 /// via the testnet dev wallet, so both players must be dev wallets for this demo flow.
 async fn lock_pot(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
@@ -269,7 +268,7 @@ async fn lock_pot(
 /// oracle co-signs the payout ONLY because the outcome verifies - so the chain itself
 /// paid the winner.
 async fn settle_pot(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(auth): Json<AuthReq>,
 ) -> Json<serde_json::Value> {
@@ -362,7 +361,7 @@ async fn settle_pot(
 /// via player1 and both keys are dev wallets, so it exercises the mechanism end to end;
 /// production has each player's own wallet sign its half.
 async fn lock_channel(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
@@ -424,7 +423,7 @@ async fn lock_channel(
 /// player sign its half. A non-cooperating loser is handled by the CLTV-timeout default
 /// in the full state-channel build.)
 async fn settle_channel(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(auth): Json<AuthReq>,
 ) -> Json<serde_json::Value> {
@@ -513,7 +512,7 @@ async fn settle_channel(
 /// the chain reaches that DAA. No oracle key - the funder always recovers after the
 /// timeout, so the pot can never be frozen.
 async fn refund_channel(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(auth): Json<AuthReq>,
 ) -> Json<serde_json::Value> {
@@ -585,7 +584,7 @@ struct ResignReq {
 /// cooperating clients; the pot gate therefore does NOT settle a pot on a resign
 /// (only on server-timed timeouts or an engine-decisive board), see game_pot_outcome.
 async fn resign_game(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<ResignReq>,
 ) -> Json<serde_json::Value> {
@@ -640,7 +639,7 @@ async fn resign_game(
 /// budgets, so neither player can fake or dodge a timeout - which is why a timeout
 /// IS allowed to settle a real pot (unlike a forgeable resign).
 async fn claim_timeout(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
 ) -> Json<serde_json::Value> {
     let result = {
@@ -690,7 +689,7 @@ async fn claim_timeout(
 
 /// GET /games?status=waiting|active&limit=50 : matchmaking + arena counts.
 async fn list_games(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Query(p): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let status = p.get("status").cloned().unwrap_or_else(|| "waiting".into());
@@ -711,7 +710,7 @@ async fn list_games(
 }
 
 async fn get_game(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
 ) -> Json<serde_json::Value> {
     match fetch_game(&db, &covenant_id) {
@@ -732,7 +731,7 @@ struct JoinReq {
 /// POST /games/:id/join : first caller creates the match as player1 and
 /// waits; the second distinct address activates it as player2.
 async fn join_game(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<JoinReq>,
 ) -> Json<serde_json::Value> {
@@ -821,7 +820,7 @@ struct MoveReq {
 /// POST /games/:id/move : append a move, flip the turn, optionally finish.
 /// Turn enforcement: player1 moves on 'white', player2 on 'black'.
 async fn make_move(
-    Extension(db): Extension<Arc<Mutex<rusqlite::Connection>>>,
+    Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
     Json(req): Json<MoveReq>,
 ) -> Json<serde_json::Value> {

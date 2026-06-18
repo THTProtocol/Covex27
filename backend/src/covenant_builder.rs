@@ -39,7 +39,6 @@ use kaspa_txscript::opcodes::codes::{
 };
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
-use rusqlite::Connection;
 use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
@@ -1346,7 +1345,7 @@ pub struct P2shDeployRequest {
 
 /// POST /covenant/p2sh/deploy - lock `stake_kas` into a real P2SH covenant.
 pub async fn p2sh_deploy_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<P2shDeployRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -1885,7 +1884,7 @@ pub struct P2shSpendRequest {
 
 /// POST /covenant/p2sh/spend - redeem a P2SH covenant by satisfying its script.
 pub async fn p2sh_spend_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<P2shSpendRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -2369,7 +2368,7 @@ pub(crate) enum GamePot {
 /// have no server-side replay engine yet FAIL CLOSED: the oracle cannot prove who won, so
 /// it refuses to co-sign any payout (no value ever moves on an unproven outcome). This is
 /// the launch-safe default; adding a game's engine to game_engine re-enables its pots.
-pub(crate) fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> GamePot {
+pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
     let row: Option<(String, String, Option<String>, String, Option<String>)> = {
         let conn = db.lock().unwrap();
         conn.query_row(
@@ -2430,7 +2429,7 @@ pub(crate) fn game_pot_outcome(db: &Arc<Mutex<Connection>>, pot_tx: &str) -> Gam
 /// covenant. The oracle co-signs ONLY if the outcome verifies; the chain enforces the
 /// 2-of-2, so the disclosed oracle's signature is consensus-required (roadmap D1).
 pub async fn oracle_payout_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<OraclePayoutRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -2702,7 +2701,7 @@ pub struct PrepareOraclePayoutRequest {
 /// sighash that commits the winner output. Returns the sighash + oracle partial-sig so the
 /// winner signs their half in the browser. The server never sees the winner key.
 pub async fn prepare_oracle_payout_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<PrepareOraclePayoutRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -2896,7 +2895,7 @@ pub struct SubmitOraclePayoutRequest {
 /// stored oracle partial-sig into the satisfier and broadcast. The server never had the
 /// winner key; it only relays the assembled tx.
 pub async fn submit_oracle_payout_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<SubmitOraclePayoutRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -3007,7 +3006,7 @@ pub struct WalletPrepareRequest {
 /// POST /covenant/p2sh/prepare-spend - build the unsigned spend + return the sighash the
 /// user's wallet must sign. No key touches the server.
 pub async fn prepare_spend_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<WalletPrepareRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -3251,7 +3250,7 @@ pub struct WalletSubmitRequest {
 /// POST /covenant/p2sh/submit-signed - assemble the wallet signature(s) into the satisfier
 /// and broadcast. The server never had any key; it only relays the signed tx.
 pub async fn submit_signed_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<WalletSubmitRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -3416,7 +3415,7 @@ fn deploy_sessions() -> &'static Mutex<std::collections::HashMap<String, Pending
 /// POST /covenant/p2sh/prepare-deploy - build the unsigned funding tx + return the sighash
 /// the deployer's wallet must sign. No key touches the server.
 pub async fn prepare_deploy_handler(
-    Extension(_db): Extension<Arc<Mutex<Connection>>>,
+    Extension(_db): Extension<db::Db>,
     Json(req): Json<PrepareDeployRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -3532,7 +3531,7 @@ pub struct SubmitDeployRequest {
 /// POST /covenant/p2sh/submit-deploy - assemble the deployer's signature into the funding
 /// tx and broadcast, then index the new covenant. The server never had the key.
 pub async fn submit_deploy_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<SubmitDeployRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -3618,7 +3617,7 @@ pub struct ClaimCovenantInput {
 /// covenant becomes fully interactable on Covex: redeemable (a p2sh_covenants row) + richly
 /// displayed (metadata). Fully trustless — no key, no trust, just a hash match.
 pub async fn claim_covenant_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(input): Json<ClaimCovenantInput>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "ok": false, "error": m }));
@@ -3711,7 +3710,7 @@ pub struct BundleDeployRequest {
 /// They sum to T exactly; each leg names ONE key per outcome so consensus pays the right
 /// party with no introspection opcode.
 pub async fn bundle_deploy_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<BundleDeployRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -3985,7 +3984,7 @@ pub struct CreateMarketRequest {
 /// POST /covenant/market/create - commit a binary market; returns H_A/H_B (to deploy the
 /// bundle) plus the preimages (so the creator can reveal independently of Covex).
 pub async fn create_market_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<CreateMarketRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -4089,7 +4088,7 @@ pub struct ResolveMarketRequest {
 /// POST /covenant/market/resolve - reveal the winning outcome's secret (single-secret
 /// policy). After this anyone can settle the bundle legs with the secret + a Kaspa node.
 pub async fn resolve_market_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<ResolveMarketRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -4168,7 +4167,7 @@ pub struct GetMarketRequest {
 /// POST /covenant/market/get - market state; includes the revealed secret once resolved
 /// (so an offline claimer can read it here, or recover it from the on-chain claim witness).
 pub async fn get_market_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<GetMarketRequest>,
 ) -> Json<serde_json::Value> {
     match db::get_bundle_market(&db, &req.market_id) {
@@ -4200,7 +4199,7 @@ pub struct ListMarketsRequest {
 
 /// POST /covenant/market/list - all markets (optionally filtered by network), newest first.
 pub async fn list_markets_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<ListMarketsRequest>,
 ) -> Json<serde_json::Value> {
     let markets = db::list_bundle_markets(&db, req.network.as_deref(), 100);
@@ -4230,7 +4229,7 @@ pub struct PlaceOrderRequest {
 
 /// POST /covenant/market/order - place a YES(0)/NO(1) order on a market.
 pub async fn place_order_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<PlaceOrderRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -4297,7 +4296,7 @@ const MARKET_MIN_SEQ: u64 = 200_000;
 /// POST /covenant/market/match - pair open A/B orders (FIFO) into mini-pools and fund a
 /// conjoined bundle covenant per pair (dev-funded escrow on testnet). Marks orders funded.
 pub async fn match_market_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<MatchMarketRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
@@ -4378,7 +4377,7 @@ pub struct MarketBookRequest {
 
 /// POST /covenant/market/book - the order book, funded pool sizes, and live parimutuel odds.
 pub async fn market_book_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<MarketBookRequest>,
 ) -> Json<serde_json::Value> {
     let m = match db::get_bundle_market(&db, &req.market_id) {
@@ -4433,7 +4432,7 @@ pub struct SettleMarketRequest {
 /// the dev wallets don't hold) so it is skipped; in production each bettor claims their own
 /// leg non-custodially. Returns the spend tx for each settled leg.
 pub async fn settle_market_handler(
-    Extension(db): Extension<Arc<Mutex<Connection>>>,
+    Extension(db): Extension<db::Db>,
     Json(req): Json<SettleMarketRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));

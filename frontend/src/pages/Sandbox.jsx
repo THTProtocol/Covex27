@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
-  Terminal, Boxes, ShieldCheck, Radio, Lock, Check, ChevronDown,
+  Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock, Check, ChevronDown,
   ArrowRight, ArrowLeft, Palette, Wand2, Cpu, Rocket,
 } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import SandboxGallery from '../components/SandboxGallery';
 import CovenantAssistant from '../components/CovenantAssistant';
+import SilverTerminal from '../components/SilverTerminal';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -97,6 +98,38 @@ function PhaseHeader({ eyebrow, title, action }) {
   );
 }
 
+// The bold entry choice: Guided (Covex helps you build) vs Pro (you write the covenant
+// yourself in the terminal, no auto-fill). Hoisted to module scope.
+function ModeCard({ active, onClick, Icon, accent, tag, title, desc }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`hover-lift group relative text-left rounded-2xl border p-5 transition-all overflow-hidden ${
+        active
+          ? 'border-white/0 bg-white/[0.04] light:bg-white shadow-[0_20px_60px_-28px_var(--glow)]'
+          : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white/70 hover:border-white/25 light:hover:border-slate-300'
+      }`}
+      style={{ '--glow': `${accent}66`, ...(active ? { boxShadow: `0 0 0 1.5px ${accent}, 0 20px 60px -28px ${accent}88` } : {}) }}
+    >
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: active ? 1 : 0.5 }} />
+      <div className="flex items-center gap-3">
+        <span className="p-2.5 rounded-xl shrink-0 border" style={{ background: `${accent}1f`, borderColor: `${accent}4d` }}>
+          <Icon size={22} style={{ color: accent }} />
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-extrabold text-white light:text-slate-900">{title}</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border" style={{ color: accent, borderColor: `${accent}66` }}>{tag}</span>
+          </div>
+          <p className="text-[12.5px] text-gray-400 light:text-slate-500 leading-snug mt-1">{desc}</p>
+        </div>
+        {active && <Check size={18} className="ml-auto shrink-0" style={{ color: accent }} />}
+      </div>
+    </button>
+  );
+}
+
 export default function Sandbox() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -116,6 +149,15 @@ export default function Sandbox() {
     const hasContext = !!(params.get('name') || params.get('desc'));
     return raw && hasContext ? 'logic' : 'create';
   });
+  // Workspace mode: 'guided' (Covex helps you build) or 'pro' (raw SilverScript terminal, no
+  // auto-fill). Persisted in the URL so a pro can bookmark or deep-link straight into the terminal.
+  const [mode, setModeState] = useState(() => (params.get('mode') === 'pro' ? 'pro' : 'guided'));
+  const setMode = (m) => {
+    setModeState(m);
+    const next = new URLSearchParams(params);
+    if (m === 'pro') next.set('mode', 'pro'); else next.delete('mode');
+    setParams(next, { replace: true });
+  };
 
   const circuit = useMemo(() => ZK_CIRCUIT_TYPES.find((c) => c.id === selectedId) || null, [selectedId]);
   const kind = kindForCircuit(circuit);
@@ -184,12 +226,33 @@ export default function Sandbox() {
           <Badge variant="gold" dot>FREE TO EXPLORE</Badge>
         </div>
         <p className="text-sm text-gray-300 light:text-slate-600 max-w-3xl mb-5">
-          Build a real Kaspa covenant in three steps: create it, add the oracle or ZK logic, then design its
-          interactive website. Exploring and simulating is free and needs no wallet; deploy and the advanced editor
-          unlock with a tier. Nothing here overstates what the chain enforces.
+          Build a real Kaspa covenant. Choose your path: let Covex guide you, or write it yourself in the pro
+          terminal. Exploring and simulating is free and needs no wallet; deploy and the advanced editor unlock with a
+          tier. Nothing here overstates what the chain enforces.
         </p>
       </div>
 
+      {/* MODE SELECTOR: the bold entry choice. Guided build vs the raw pro terminal. */}
+      <div className="relative z-10 grid sm:grid-cols-2 gap-3 mb-7">
+        <ModeCard
+          active={mode === 'guided'} onClick={() => setMode('guided')} Icon={Wand2} accent="#49EACB" tag="For everyone"
+          title="Guided build"
+          desc="Describe what you want or pick a template. Covex helps you build it step by step: create, then logic, then a website."
+        />
+        <ModeCard
+          active={mode === 'pro'} onClick={() => setMode('pro')} Icon={TerminalSquare} accent="#E8AF34" tag="For experienced builders"
+          title="Pro terminal"
+          desc="Write the covenant yourself and compile it. No templates, no assistant, no auto-fill. Just you and the terminal."
+        />
+      </div>
+
+      {mode === 'pro' && (
+        <div className="relative z-10">
+          <SilverTerminal />
+        </div>
+      )}
+
+      {mode === 'guided' && (<>
       {/* STICKY STEPPER RAIL: one source of truth = the three phases. */}
       <div className="sticky top-16 z-30 -mx-4 px-4 py-2.5 mb-7 bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -337,6 +400,7 @@ export default function Sandbox() {
       <div className="mt-8 text-center text-xs text-gray-500 light:text-slate-400">
         Or browse ready-made starting points in the <Link to="/templates" className="text-kaspa-green hover:underline">template library</Link>.
       </div>
+      </>)}
     </div>
   );
 }

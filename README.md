@@ -25,7 +25,7 @@
 
 ---
 
-> **Status (2026-06-18):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches mainnet with real funds. Covex runs a real mainnet node today, with the covenant indexer armed: **the mainnet explorer is honestly empty until the first real covenant lands - no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs **off-chain** before any value moves. Kaspa has no on-chain pairing verifier, so the only thing checked on-chain at unlock is the disclosed oracle's Schnorr co-signature.
+> **Status (2026-06-18):** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches mainnet with real funds. Covex has the mainnet wRPC configured and the covenant indexer armed behind the honesty gate, with a mainnet node being synced ahead of the launch: **the mainnet explorer is honestly empty until the first real covenant lands - no placeholder data, ever.** Every primitive below is already proven on the **Toccata testnets (Testnet-12 and Testnet-10)**, where Covex indexes 13,000+ covenants and verifies real Groth16 proofs **off-chain** before any value moves. Kaspa has no on-chain pairing verifier, so the only thing checked on-chain at unlock is the disclosed oracle's Schnorr co-signature.
 
 **What's new (2026-06-16)**
 - **Real zero-knowledge you can run in your own browser** - the verified circuits (`merkle_membership`, `escrow_2party`, and `age_verification`) now generate a real Groth16 proof **client-side** (snarkjs over served artifacts; age computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser), which the backend verifies fail-closed **off-chain** before the oracle co-signs the 2-of-2 the chain requires. This is oracle-attested, not on-chain ZK: Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain and only the oracle's Schnorr co-signature is. Every other catalog circuit stays honestly labelled oracle-attested until its key ships - the trusted setup is a single-contributor dev ceremony, not a production MPC.
@@ -76,12 +76,12 @@ mindmap
 
 ### Mainnet status
 
-Covex is built for Kaspa **mainnet**. It runs a live mainnet node and an armed covenant indexer today. The mainnet explorer is **intentionally empty until the Toccata hard fork activates covenants** - nothing here is seeded, simulated, or projected, and no placeholder data is ever shown. A zero is the honest, expected reading until the first real covenant lands.
+Covex is built for Kaspa **mainnet**. The covenant indexer is armed behind the honesty gate today, and the mainnet node is being synced ahead of the 30 June 2026 launch. The mainnet explorer is **intentionally empty until the Toccata hard fork activates covenants** - nothing here is seeded, simulated, or projected, and no placeholder data is ever shown. A zero is the honest, expected reading until the first real covenant lands.
 
 | Mainnet (as of 2026-06-16) | Status |
 |----------------------------|--------|
 | Covenant indexer | Live, armed behind the honesty gate |
-| Mainnet node | Connected (real wRPC node, fully synced) |
+| Mainnet node | Being provisioned and synced ahead of the 30 June 2026 launch |
 | Covenants indexed | 0 - the first real covenant appears the moment one lands |
 | Provably paid covenants | 0 |
 | Total value locked | 0 KAS |
@@ -109,14 +109,10 @@ flowchart TB
         T10["Testnet-10, Toccata"]
     end
 
-    subgraph PC["Operator PC, WSL"]
-        WSLNODE["mainnet kaspad :17110"]
-    end
-
     subgraph SRV["Hetzner server, hightable.pro"]
+        KMN["kaspad Mainnet<br/>wRPC :17310<br/>syncing for 30 Jun 2026"]
         K12["kaspad TN12<br/>wRPC :17217"]
         K10["kaspad TN10<br/>wRPC :17210"]
-        TUN["reverse SSH tunnel<br/>loopback :17310"]
         subgraph BE["covex-backend, Rust / Axum :3006"]
             IDX["3 indexers per network<br/>crawler · live indexer · payment guardian"]
             API["HTTP API + WebSocket /ws"]
@@ -129,13 +125,12 @@ flowchart TB
 
     BROWSER["Browser: explorer, studio, arena<br/>KasWare · Kastle · Kasperia · OKX wallets"]
 
-    MN --- WSLNODE
-    WSLNODE -- "ssh -R, self-healing" --> TUN
+    MN --- KMN
     T12 --- K12
     T10 --- K10
+    KMN -- "wRPC borsh" --> IDX
     K12 -- "wRPC borsh" --> IDX
     K10 -- "wRPC borsh" --> IDX
-    TUN -- "wRPC borsh" --> IDX
     IDX --> DB
     DB --> API
     ORC --> API
@@ -178,7 +173,7 @@ On mainnet, bare P2SH commitments are **not** counted as covenants until Toccata
 - **Frontend:** React 19 + Vite, Tailwind v4, React Router 7, route-level code splitting, `@measured/puck` page builder, `react-chessboard` + `chess.js`, in-browser `snarkjs`, `@kasflow/wallet-connector`.
 - **Backend:** Rust, Axum 0.7, `kaspa-wrpc-client` (Borsh wRPC), vendored `kaspa-consensus-core` with the TN12 sighash fix, SQLite WAL, Tokio background tasks, `secp256k1` Schnorr signing.
 - **ZK/Oracle:** circom + circomlib circuits, `snarkjs` verification via a Node child process, a pluggable oracle registry (strict Groth16 / hybrid / attested per circuit).
-- **Infra:** Hetzner + systemd + nginx; mainnet node on the operator PC via a self-healing reverse SSH tunnel; nightly verified database backups with a weekly restore drill; triple-synced deploys (GitHub = server = hightable.pro).
+- **Infra:** Hetzner + systemd + nginx; the mainnet node provisioned on the Hetzner data volume and synced ahead of launch; nightly verified database backups with a weekly restore drill; triple-synced deploys (GitHub = server = hightable.pro).
 
 ---
 
@@ -337,7 +332,7 @@ A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verif
 
 #### 7.6 Why now
 
-The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex already indexes 13,000+ covenants across its testnets and runs a real mainnet node today, ready for the Toccata activation window. The goal of this codebase is to be ready, correct, honest, and complete, on day one of covenants on Kaspa mainnet.
+The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex has proven its indexer at scale and is provisioning its mainnet node ahead of the Toccata activation on 30 June 2026. The goal of this codebase is to be ready, correct, honest, and complete, on day one of covenants on Kaspa mainnet.
 
 ---
 

@@ -660,7 +660,7 @@ export default function Explorer() {
                   <>
                     <p className="text-lg font-semibold text-white mb-1">No covenants on mainnet yet</p>
                     <p className="text-sm text-gray-300 max-w-md mx-auto">
-                      SilverScript covenants activate on Kaspa mainnet with the Toccata hard fork (June 2026 window). Covex runs a live mainnet node and indexes in real time; the first real covenant appears here the moment it lands. Covenants are live now on Toccata TN12.
+                      SilverScript covenants activate on Kaspa mainnet with the Toccata hard fork on 30 June 2026. Covex has its mainnet indexer armed behind the honesty gate, with a mainnet node being synced ahead of launch; the first real covenant appears here the moment it lands, with no placeholder data before then.
                     </p>
                   </>
                 ) : (

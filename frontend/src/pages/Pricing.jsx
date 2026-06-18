@@ -1,11 +1,37 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Check, X as XIcon, Loader2, ArrowLeft, Terminal, Star, Crown, Eye } from 'lucide-react';
+import { Check, X as XIcon, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { toast } from '../components/ToastContext';
+
+// Copyable address pill - same honest clipboard pattern as EnforcedDeploy's CopyBtn:
+// only reports "copied" on a real successful write, surfaces a toast on failure.
+function CopyBtn({ text, label = 'copy' }) {
+  const [done, setDone] = useState(false);
+  async function onCopy() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable in this context.');
+      await navigator.clipboard.writeText(text);
+      setDone(true);
+      setTimeout(() => setDone(false), 1200);
+    } catch (e) {
+      toast.error('Could not copy. Select the text and copy it manually.', { title: 'Copy failed' });
+    }
+  }
+  return (
+    <button
+      onClick={onCopy}
+      className="inline-flex items-center gap-1.5 shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-gray-300 bg-white/5 border border-white/10 hover:text-[#49EACB] hover:border-[#49EACB]/40 transition-colors light:text-slate-600 light:bg-slate-100 light:border-slate-200"
+      aria-label="Copy treasury address"
+    >
+      {done ? <Check size={13} /> : <Copy size={13} />} {done ? 'copied' : label}
+    </button>
+  );
+}
 
 const TIERS = [
   {
@@ -222,50 +248,91 @@ const Pricing = () => {
             <DevConnectPanel compact />
           </div>
         )}
-        <Card className="max-w-xl mx-auto mb-8 detail-hero-enhanced">
-          <CardContent className="p-6">
-            <div className="flex justify-between gap-3 py-3 border-b border-white/10">
-              <span className="text-gray-300">Tier</span>
-              <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
+        {/* One premium card: order summary, copyable treasury, framed QR, and the
+            Send CTA - all on a single glass-panel + hero surface with a 3px accent
+            bar matching the CovenantCard vocabulary, so there is no layout jitter
+            between stacked wrappers and the QR no longer crowds the button. */}
+        <Card hero accent={p.accent} className="max-w-md mx-auto text-left">
+          <CardContent className="p-6 sm:p-8 space-y-6">
+            {/* Order summary */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-baseline gap-3">
+                <span className="text-sm text-gray-300 light:text-slate-500">Tier</span>
+                <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
+              </div>
+              <div className="flex justify-between items-baseline gap-3">
+                <span className="text-sm text-gray-300 light:text-slate-500">Send exactly</span>
+                <span className="font-mono text-lg font-black text-white light:text-slate-900">{p.price.toLocaleString()} KAS</span>
+              </div>
             </div>
-            <div className="flex justify-between gap-3 py-3 border-b border-white/10">
-              <span className="text-gray-300">Amount</span>
-              <span className="font-mono font-bold text-white">{p.price.toLocaleString()} KAS</span>
+
+            {/* Copyable treasury pill - replaces the cramped overflowing readout */}
+            <div>
+              <div className="text-xs text-gray-400 light:text-slate-500 mb-1.5">Treasury address</div>
+              <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2.5 light:bg-slate-50 light:border-slate-200">
+                <span className="font-mono text-[11px] leading-snug text-gray-200 light:text-slate-700 break-all min-w-0 flex-1">{TREASURY}</span>
+                <CopyBtn text={TREASURY} />
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-3 py-3">
-              <span className="text-gray-300 shrink-0">Treasury</span>
-              <span className="font-mono text-[10px] text-gray-200 break-all sm:text-right min-w-0">{TREASURY}</span>
+
+            <div className="h-px bg-white/10 light:bg-slate-200" aria-hidden="true" />
+
+            {/* QR code for easy payment. The tier is granted by the backend to the
+                PAYER address (the from_address of the funding tx), so payment must
+                come from the wallet you will deploy with, not just any wallet.
+                Rendered locally with qrcode.react so the payment URI never leaves the
+                browser - encodes the exact same kaspa: string the old external image
+                did. Framed on a white rounded chip; level H for damage resilience. */}
+            <div className="flex flex-col items-center text-center">
+              <div className="text-xs text-gray-400 light:text-slate-500 mb-4">Or scan to pay exactly {p.price.toLocaleString()} KAS from the wallet you will use to deploy</div>
+              <div className="rounded-2xl bg-white p-4 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] ring-1 ring-black/5">
+                <QRCodeSVG
+                  value={`kaspa:${TREASURY.replace(/^kaspa:|^kaspatest:/i, '')}?amount=${p.price}&message=COVEX-${p.id}`}
+                  size={180}
+                  level="H"
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  aria-label={`QR code to pay ${p.price} KAS for ${p.name} tier`}
+                />
+              </div>
+            </div>
+
+            {/* Subtle divider so the QR block and the Send CTA never crowd */}
+            <div className="h-px bg-white/10 light:bg-slate-200" aria-hidden="true" />
+
+            {/* Send CTA + error + cancel, with generous rhythm */}
+            <div className="space-y-4">
+              {paymentStatus?.type === 'error' && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm text-left light:bg-red-50 light:text-red-700 light:border-red-200">
+                  {paymentStatus.message}
+                </div>
+              )}
+              <Button
+                onClick={doActualPayment}
+                disabled={paymentStatus?.type === 'sending'}
+                className="w-full py-4 text-lg btn-shimmer"
+              >
+                {paymentStatus?.type === 'sending' ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" /> Broadcasting...
+                  </>
+                ) : (
+                  `Send ${p.price.toLocaleString()} KAS Now`
+                )}
+              </Button>
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 light:text-slate-400">
+                <ShieldCheck size={13} className="text-[#49EACB]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
+              </p>
+              <button
+                onClick={cancelPayment}
+                disabled={paymentStatus?.type === 'sending'}
+                className="w-full py-2.5 text-sm font-medium text-gray-400 hover:text-white transition disabled:opacity-40 light:text-slate-500 light:hover:text-slate-900"
+              >
+                Cancel
+              </button>
             </div>
           </CardContent>
         </Card>
-
-        {/* QR code for easy payment from any wallet (will be matched to your address by
-            indexer). Rendered locally with qrcode.react so the payment URI never leaves the
-            browser - encodes the exact same kaspa: string the old external image did. */}
-        <div className="max-w-md mx-auto mt-4">
-          <div className="text-xs text-gray-400 mb-1 text-center">Scan to pay exactly {p.price} KAS (from the wallet you will use to deploy)</div>
-          <div className="mx-auto w-fit rounded-lg border border-white/10 bg-white p-2">
-            <QRCodeSVG
-              value={`kaspa:${TREASURY.replace(/^kaspa:|^kaspatest:/i, '')}?amount=${p.price}&message=COVEX-${p.id}`}
-              size={180}
-              level="M"
-              bgColor="#ffffff"
-              fgColor="#000000"
-              aria-label={`QR code to pay ${p.price} KAS for ${p.name} tier`}
-            />
-          </div>
-        </div>
-        <div className="space-y-4 max-w-md mx-auto">
-          {paymentStatus?.type === 'error' && (
-            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm text-left">
-              {paymentStatus.message}
-            </div>
-          )}
-          <Button onClick={doActualPayment} disabled={paymentStatus?.type === 'sending'} className="w-full py-4 text-lg btn-shimmer">
-            {paymentStatus?.type === 'sending' ? 'Sending...' : `Send ${p.price.toLocaleString()} KAS Now`}
-          </Button>
-          <button onClick={cancelPayment} className="w-full py-3 text-sm text-gray-200 hover:text-white transition">Cancel</button>
-        </div>
       </div>
     );
   }

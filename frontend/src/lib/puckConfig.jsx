@@ -36,7 +36,7 @@ import Badge from '@/components/ui/Badge';
 import * as Lucide from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { renderSafeMarkdown } from './safeMarkdown';
-import { colorField, iconField, lucideByName } from './puckFields.jsx';
+import { colorField, iconField, imageField, lucideByName } from './puckFields.jsx';
 import './../styles/covexPuck.css';
 
 const align = (a) => (a === 'center' ? 'text-center mx-auto' : a === 'right' ? 'text-right ml-auto' : 'text-left');
@@ -242,7 +242,7 @@ export const puckConfig = {
     HeroImage: {
       label: 'Hero (image)',
       fields: {
-        backgroundImageUrl: { type: 'text', label: 'Background image URL (https, optional)' },
+        backgroundImageUrl: imageField('Background image (https or upload, optional)'),
         overlayOpacity: { type: 'select', options: [{ label: 'Light', value: '0.4' }, { label: 'Medium', value: '0.55' }, { label: 'Strong', value: '0.7' }, { label: 'Max', value: '0.82' }] },
         title: { type: 'text' },
         subtitle: { type: 'textarea' },
@@ -549,7 +549,7 @@ export const puckConfig = {
       label: 'Image Gallery',
       fields: {
         columns: { type: 'select', options: [{ label: '2', value: '2' }, { label: '3', value: '3' }, { label: '4', value: '4' }] },
-        images: { type: 'array', arrayFields: { url: { type: 'text', label: 'Image URL (https)' }, caption: { type: 'text' } }, defaultItemProps: { url: '', caption: '' } },
+        images: { type: 'array', arrayFields: { url: imageField('Image (https or upload)'), caption: { type: 'text' } }, defaultItemProps: { url: '', caption: '' } },
       },
       defaultProps: { columns: '3', images: [{ url: '', caption: '' }, { url: '', caption: '' }, { url: '', caption: '' }] },
       render: ({ columns, images }) => {
@@ -570,7 +570,7 @@ export const puckConfig = {
     Carousel: {
       label: 'Carousel',
       fields: {
-        images: { type: 'array', arrayFields: { url: { type: 'text', label: 'Image URL (https)' }, caption: { type: 'text' } }, defaultItemProps: { url: '', caption: '' } },
+        images: { type: 'array', arrayFields: { url: imageField('Image (https or upload)'), caption: { type: 'text' } }, defaultItemProps: { url: '', caption: '' } },
         autoplay: { type: 'radio', options: [{ label: 'Autoplay', value: 'yes' }, { label: 'Manual', value: 'no' }] },
       },
       defaultProps: { images: [{ url: '', caption: '' }, { url: '', caption: '' }], autoplay: 'no' },
@@ -580,7 +580,7 @@ export const puckConfig = {
       label: 'Logo Strip',
       fields: {
         title: { type: 'text' },
-        logos: { type: 'array', arrayFields: { url: { type: 'text', label: 'Logo URL (https)' } }, defaultItemProps: { url: '' } },
+        logos: { type: 'array', arrayFields: { url: imageField('Logo (https or upload)') }, defaultItemProps: { url: '' } },
       },
       defaultProps: { title: 'Trusted by', logos: [{ url: '' }, { url: '' }, { url: '' }, { url: '' }] },
       render: ({ title, logos }) => {
@@ -820,7 +820,7 @@ export const puckConfig = {
       },
     },
     ImageBlock: {
-      fields: { url: { type: 'text', label: 'Image URL (https)' }, caption: { type: 'text' }, rounded: { type: 'radio', options: [{ label: 'Rounded', value: 'yes' }, { label: 'Square', value: 'no' }] } },
+      fields: { url: imageField('Image (https or upload)'), caption: { type: 'text' }, rounded: { type: 'radio', options: [{ label: 'Rounded', value: 'yes' }, { label: 'Square', value: 'no' }] } },
       defaultProps: { url: '', caption: '', rounded: 'yes' },
       render: ({ url, caption, rounded }) => {
         if (!isHttpsImg(url)) return placeholder('Add your own image URL (https) - a picture relevant to this covenant');

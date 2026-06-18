@@ -1,12 +1,20 @@
 /**
- * Custom Puck fields for the covenant Studio: a premium color picker and a
- * searchable lucide icon picker. Both are Puck `type: 'custom'` fields, so they
- * store ONLY a plain string (a validated hex color, or a lucide icon name) in the
- * page JSON. No raw HTML, markup, or destination is ever stored or forwarded.
+ * Custom Puck fields for the covenant Studio: a premium color picker, a
+ * searchable lucide icon picker, and an image control that takes either an https
+ * URL or a locally-uploaded file. All are Puck `type: 'custom'` fields, so they
+ * store ONLY a plain string (a validated hex color, a lucide icon name, or an
+ * https/data:image URI) in the page JSON. No raw HTML, markup, or destination is
+ * ever stored or forwarded.
  *
  * Light + dark + mobile aware: fields use the app's theme tokens and stay usable
  * at 375px. The icon picker renders lucide via its named exports, so a stored name
  * resolves to a real React component at render time (see IconByName in puckConfig).
+ *
+ * The image upload is frontend-only: a chosen file is read with FileReader to a
+ * `data:image/*` URI (no backend, no network). Non-image files and anything over
+ * ~900KB are rejected (same cap as designPresets.validateDesignCode), so a page
+ * never carries an oversized payload. The existing https text input stays as the
+ * source of truth / fallback, and puckConfig's isHttpsImg already accepts both.
  */
 import * as React from 'react';
 import { HexColorPicker } from 'react-colorful';
@@ -143,6 +151,154 @@ export function IconPicker({ onChange, value, field }) {
   );
 }
 
+// Max stored image payload, matching designPresets.validateDesignCode's ~900KB cap.
+// A data:base64 URI is ~33% larger than the raw bytes, so this keeps a page's JSON
+// reasonable and prevents an oversized upload from bloating the document.
+const MAX_IMAGE_BYTES = 900 * 1024;
+
+// One-time injected styles for the upload control. We keep them here (not in the
+// shared covexPuck.css) so the control is self-contained; they reuse the same
+// --puck-color-* tokens as ColorField/IconPicker, so dark + light + mobile all
+// match the rest of the Studio sidebar. Injected once, guarded by an id.
+const IMG_FIELD_STYLE_ID = 'cvx-img-field-styles';
+function ensureImageFieldStyles() {
+  if (typeof document === 'undefined' || document.getElementById(IMG_FIELD_STYLE_ID)) return;
+  const el = document.createElement('style');
+  el.id = IMG_FIELD_STYLE_ID;
+  el.textContent = `
+    .cvx-img-row { display: flex; align-items: center; gap: 8px; }
+    .cvx-img-file { display: none; }
+    .cvx-img-upload-btn {
+      display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+      height: 34px; padding: 0 12px; border-radius: 9px;
+      border: 1px solid var(--puck-color-grey-09, #e2e8f0);
+      background: var(--puck-color-grey-11, #f1f5f9);
+      color: var(--puck-color-grey-03, #334155);
+      font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+    .cvx-img-upload-btn:hover:not(:disabled) { border-color: #49EACB; background: rgba(73,234,203,0.1); color: #0d9488; }
+    .cvx-img-upload-btn:disabled { opacity: .6; cursor: default; }
+    .cvx-img-spin { animation: cvx-img-spin .8s linear infinite; }
+    @keyframes cvx-img-spin { to { transform: rotate(360deg); } }
+    .cvx-img-preview {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px;
+      border-radius: 10px; border: 1px solid var(--puck-color-grey-09, #e2e8f0);
+      background: var(--puck-color-white, #fff);
+    }
+    .cvx-img-thumb {
+      width: 40px; height: 40px; flex-shrink: 0; object-fit: cover; border-radius: 7px;
+      border: 1px solid var(--puck-color-grey-09, #e2e8f0); background: var(--puck-color-grey-11, #f1f5f9);
+    }
+    .cvx-img-meta { flex: 1; min-width: 0; font-size: 12px; color: var(--puck-color-grey-05, #64748b); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cvx-img-clear {
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      width: 26px; height: 26px; border-radius: 7px; border: 1px solid transparent;
+      background: transparent; color: var(--puck-color-grey-06, #94a3b8); cursor: pointer;
+    }
+    .cvx-img-clear:hover { border-color: #ef4444; background: rgba(239,68,68,0.1); color: #ef4444; }
+    .cvx-img-err { margin: 6px 0 0; font-size: 12px; line-height: 1.4; color: #ef4444; }
+    .cvx-img-hint { margin-top: 6px; font-size: 11px; line-height: 1.4; color: var(--puck-color-grey-06, #94a3b8); }
+    @media (max-width: 640px) {
+      .cvx-img-upload-btn span { display: none; }
+      .cvx-img-upload-btn { padding: 0 10px; }
+    }
+  `;
+  document.head.appendChild(el);
+}
+
+const prettyBytes = (n) => (n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)}MB` : `${Math.round(n / 1024)}KB`);
+
+/**
+ * ImageUploadField: an https URL text input (the source of truth / fallback) PLUS
+ * an "Upload" button that reads a chosen file into a `data:image/*` URI via
+ * FileReader. Frontend-only: no network, no backend endpoint. The control stores a
+ * plain string in either case, and puckConfig.isHttpsImg accepts https:// and
+ * data:image/ alike. Non-image MIME types and files over ~900KB are rejected with
+ * an inline message; the existing value is left untouched on rejection.
+ */
+export function ImageUploadField({ onChange, value, field }) {
+  const inputRef = React.useRef(null);
+  const [err, setErr] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => { ensureImageFieldStyles(); }, []);
+  const placeholder = field?.placeholder || 'https://...';
+  const isData = typeof value === 'string' && value.startsWith('data:image/');
+  const isHttps = typeof value === 'string' && value.startsWith('https://');
+  const hasPreview = isData || isHttps;
+
+  const handleFile = (file) => {
+    setErr('');
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      setErr('That is not an image file. Pick a PNG, JPG, GIF, SVG or WebP.');
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setErr(`Image is too large (${prettyBytes(file.size)}). Max is ~900KB - resize or compress it first.`);
+      return;
+    }
+    setBusy(true);
+    const reader = new FileReader();
+    reader.onerror = () => { setBusy(false); setErr('Could not read that file. Try another image.'); };
+    reader.onload = () => {
+      setBusy(false);
+      const uri = typeof reader.result === 'string' ? reader.result : '';
+      // Guard the decoded result too: confirm it is an image data URI and that the
+      // encoded string did not balloon past the cap.
+      if (!uri.startsWith('data:image/')) { setErr('That file did not decode as an image.'); return; }
+      if (uri.length > MAX_IMAGE_BYTES * 1.4) { setErr('Encoded image is too large (max ~900KB). Compress it first.'); return; }
+      onChange(uri);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="cvx-field">
+      {field?.label && <label className="cvx-field-label">{field.label}</label>}
+      <div className="cvx-img-row">
+        <input
+          type="text"
+          className="cvx-color-input"
+          value={isData ? '' : (value ?? '')}
+          spellCheck={false}
+          placeholder={isData ? 'Uploaded image attached' : placeholder}
+          disabled={isData}
+          onChange={(e) => { setErr(''); onChange(e.target.value); }}
+        />
+        <button
+          type="button"
+          className="cvx-img-upload-btn"
+          onClick={() => inputRef.current && inputRef.current.click()}
+          disabled={busy}
+          aria-label="Upload an image from your device"
+        >
+          {busy ? <Lucide.Loader2 size={14} className="cvx-img-spin" /> : <Lucide.Upload size={14} />}
+          <span>{busy ? 'Reading' : 'Upload'}</span>
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="cvx-img-file"
+          onChange={(e) => { const f = e.target.files && e.target.files[0]; handleFile(f); e.target.value = ''; }}
+        />
+      </div>
+      {hasPreview && (
+        <div className="cvx-img-preview">
+          <img src={value} alt="" className="cvx-img-thumb" />
+          <span className="cvx-img-meta">{isData ? 'Uploaded image (stored in this page)' : 'Linked image'}</span>
+          <button type="button" className="cvx-img-clear" onClick={() => { setErr(''); onChange(''); }} aria-label="Remove image">
+            <Lucide.X size={13} />
+          </button>
+        </div>
+      )}
+      {err && <p className="cvx-img-err">{err}</p>}
+      <span className="cvx-img-hint">Paste an https link, or upload a file (max ~900KB, kept in this page only).</span>
+    </div>
+  );
+}
+
 // Factory helpers so puckConfig can declare these inline as `type: 'custom'` fields.
 export const colorField = (label) => ({
   type: 'custom',
@@ -154,4 +310,12 @@ export const iconField = (label) => ({
   type: 'custom',
   label,
   render: ({ onChange, value, field }) => <IconPicker onChange={onChange} value={value} field={{ ...field, label }} />,
+});
+
+// imageField(label): an https-or-upload image control. `placeholder` is optional
+// helper text shown in the URL input.
+export const imageField = (label, placeholder) => ({
+  type: 'custom',
+  label,
+  render: ({ onChange, value, field }) => <ImageUploadField onChange={onChange} value={value} field={{ ...field, label, placeholder }} />,
 });

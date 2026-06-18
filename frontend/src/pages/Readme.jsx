@@ -235,9 +235,9 @@ export default function Readme() {
             <p className="text-sm text-gray-300 leading-relaxed mb-4">
               For conditions richer than a signature (membership, ranges, identity, computation), Covex uses real{' '}
               <strong className="text-white">Groth16 zero-knowledge proofs</strong>. The prover generates a proof with
-              circom + snarkjs; the backend verifies it <span className="text-kaspa-green">fail-closed</span> (no proof body,
-              no missing key, no soft-pass). Only when a proof genuinely verifies does the oracle co-sign the 2-of-2 that
-              the chain requires, so a verified proof, and nothing else, releases the funds.
+              circom + snarkjs; the disclosed Covex oracle verifies it <span className="text-kaspa-green">fail-closed</span> off-chain (no proof body,
+              no missing key, no soft-pass). Only when a proof genuinely verifies does the oracle add its co-signature to the
+              2-of-2 the chain requires, so the named oracle co-signs only a verified proof and the chain enforces that co-signature at unlock.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {ZK_VERIFIED.map((z) => (
@@ -248,9 +248,12 @@ export default function Readme() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              These fourteen circuits have proofs that verify end-to-end today. More circuits are compiled and graduate to full
-              zero-knowledge as their proving keys ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev
-              ceremony. High-value mainnet covenants warrant an independent multi-party ceremony first.
+              These fourteen circuits have real Groth16 proofs that the disclosed Covex oracle verifies fail-closed before it
+              co-signs. The verification is off-chain (Kaspa has no on-chain pairing verifier), so this is oracle-verified, not
+              on-chain-trustless: a bad proof is rejected, but the named oracle’s co-signature is still what the chain checks.
+              More circuits are compiled and graduate as their proving keys ship and each proof is verified. Honest caveat: the
+              current trusted setup is a single-contributor dev ceremony. High-value mainnet covenants warrant an independent
+              multi-party ceremony first.
             </p>
           </div>
           <Card className="!p-6">
@@ -260,7 +263,7 @@ export default function Readme() {
                 ['Prove', 'You generate a Groth16 proof of the statement (e.g. “my committed value is in range”). Your secret never leaves your machine.'],
                 ['Verify', 'The backend runs snarkjs verification, fail-closed. A bodyless or invalid proof is rejected outright.'],
                 ['Co-sign', 'Only on a valid proof does the oracle add its BIP340 signature to the 2-of-2 the script demands.'],
-                ['Settle', 'Kaspa’s OP_CHECKMULTISIG enforces both signatures. The funds release, gated by cryptography, not trust.'],
+                ['Settle', 'Kaspa’s OP_CHECKMULTISIG enforces both signatures. The funds release, gated by an oracle-verified proof plus the disclosed oracle’s consensus-required co-signature.'],
               ].map(([t, d], i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="shrink-0 w-6 h-6 rounded-full bg-kaspa-green/10 border border-kaspa-green/30 text-kaspa-green text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
@@ -351,7 +354,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             [Boxes, 'Build in the Sandbox', 'One window: a free circuit library drives a live preview (enforcement, resolution flow, an accurate payout simulator and example SilverScript), then the builder deploys it.'],
             [FileCode2, 'Start from a template', 'An official catalog across primitives, ZK proofs, oracle markets, DeFi, identity and games. Each opens preconfigured in the sandbox.'],
             [Coins, 'Deploy non-custodially', 'Lock real funds into an enforced P2SH primitive; redeem them by satisfying the script with your own key. Covex never holds the money.'],
-            [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; the proof, verified fail-closed, is what releases the funds.'],
+            [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; the disclosed oracle verifies it fail-closed off-chain, then co-signs the 2-of-2 the chain requires to release the funds.'],
             [Sparkles, 'Play the arenas', 'Stake head-to-head games; a server-authoritative engine decides the result and the oracle co-signs the pot to the winner on-chain.'],
           ].map(([Icon, t, d]) => (
             <Card key={t}>

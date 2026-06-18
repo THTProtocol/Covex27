@@ -181,14 +181,16 @@ function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|i
 // wallet, ordered so the platform-appropriate ones come first. `deepLink` (mobile open-app
 // link) and `nativeOnly` (no injected provider + no real WC, so honest "open the app") drive
 // the per-platform primary action chosen in connect() and labeled in the UI.
+// Only wallets with a REAL, working Kaspa dApp-connect provider and a real logo are listed, so
+// every wallet shown actually connects + signs (no dead options). KasWare and Kastle are the two
+// genuinely Dapp-Ready Kaspa wallets (window.kasware / window.kastle, confirmed in their docs);
+// Kastle also ships a mobile app with an in-app dApp browser, so it covers mobile too. Wallets
+// without a confirmed dApp provider (Kasperia extension, KSPR / Kaspium / Tangem mobile-native)
+// were removed rather than shown as broken. Add a wallet here only once its injected global +
+// dApp connect are verified.
 const ALL_WALLETS = [
   { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
-  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome', platform: 'desktop', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
-  { id: 'Kasperia', name: 'Kasperia', url: WALLET_INSTALL_URLS.Kasperia, logo: WALLET_LOGOS.Kasperia, sub: 'Chrome', platform: 'desktop', detect: () => detectWallet('Kasperia'), provider: () => getProvider('Kasperia') },
-  { id: 'KSPR', name: 'KSPR Wallet', url: WALLET_INSTALL_URLS.KSPR, logo: WALLET_LOGOS.KSPR, sub: 'iOS · Android · Web', platform: 'both', deepLink: WALLET_DEEP_LINKS.KSPR, detect: () => detectWallet('KSPR'), provider: () => getProvider('KSPR') },
-  { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kasanova, detect: () => detectWallet('Kasanova'), provider: () => getProvider('Kasanova') },
-  { id: 'Kaspium', name: 'Kaspium', url: WALLET_INSTALL_URLS.Kaspium, logo: WALLET_LOGOS.Kaspium, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kaspium, nativeOnly: true, detect: () => detectWallet('Kaspium'), provider: () => getProvider('Kaspium') },
-  { id: 'Tangem', name: 'Tangem', url: WALLET_INSTALL_URLS.Tangem, logo: WALLET_LOGOS.Tangem, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Tangem, nativeOnly: true, detect: () => detectWallet('Tangem'), provider: () => getProvider('Tangem') },
+  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome · iOS · Android', platform: 'both', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
 ];
 
 // Order every wallet by platform fit for the CURRENT device (priority, never exclusion), so

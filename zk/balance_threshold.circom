@@ -2,6 +2,7 @@ pragma circom 2.0.0;
 
 include "node_modules/circomlib/circuits/poseidon.circom";
 include "node_modules/circomlib/circuits/comparators.circom";
+include "node_modules/circomlib/circuits/bitify.circom";
 
 // balance_threshold.circom — prove balance >= min_balance WITHOUT revealing balance (Covex27)
 // KYC-free solvency / income / accredited-investor gating.
@@ -31,7 +32,15 @@ template BalanceThreshold(bits) {
     h.inputs[1] <== salt;
     commitment === h.out;
 
-    // (2) The real >= predicate. bits must cover the value domain (64-bit balances).
+    // (2) Range-bind BOTH operands to [0, 2^bits) before comparing. circomlib GreaterEqThan is
+    // only sound when its inputs are already known to be < 2^bits; without this a field-wrap
+    // witness (balance = v + 2^bits) forges valid==1 with no real funds. Num2Bits is the gate.
+    component rbBalance = Num2Bits(bits);
+    rbBalance.in <== balance;
+    component rbMin = Num2Bits(bits);
+    rbMin.in <== min_balance;
+
+    // (3) The real >= predicate. bits must cover the value domain (64-bit balances).
     component ge = GreaterEqThan(bits);
     ge.in[0] <== balance;
     ge.in[1] <== min_balance;

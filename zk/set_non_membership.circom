@@ -2,6 +2,7 @@ pragma circom 2.0.0;
 
 include "node_modules/circomlib/circuits/poseidon.circom";
 include "node_modules/circomlib/circuits/comparators.circom";
+include "node_modules/circomlib/circuits/bitify.circom";
 
 // set_non_membership.circom — prove a PRIVATE leaf is NOT in a sorted blocklist (Covex27)
 // Blocklist / sanctions-free attestation without revealing the leaf.
@@ -41,6 +42,16 @@ template SetNonMembership(depth, bits) {
     signal output valid;
 
     // (1) Strict bracketing: lo < leaf < hi  (so leaf is strictly between two adjacent blocked entries).
+    // Range-bind lo, leaf, hi to [0, 2^bits) first: circomlib LessThan is only sound on inputs
+    // already known to be < 2^bits, else a field-wrap witness forges the bracketing and clears a
+    // genuinely blocked leaf.
+    component rbLo = Num2Bits(bits);
+    rbLo.in <== lo;
+    component rbLeaf = Num2Bits(bits);
+    rbLeaf.in <== leaf;
+    component rbHi = Num2Bits(bits);
+    rbHi.in <== hi;
+
     component ltLo = LessThan(bits);
     ltLo.in[0] <== lo;
     ltLo.in[1] <== leaf;

@@ -860,6 +860,14 @@ pub(crate) fn determine_outcome_for_circuit(
             | "timelock_absolute" | "timelock_abs" | "relative_timelock"
             | "turn_timer" | "pot_split_math" | "vrf_random" | "script_constraint"
             | "utxo_ownership" | "basic_utxo_ownership"
+            // The 5 circuits added 2026-06-18 also EXPOSE valid at publicSignals[0]. The three
+            // predicate circuits (balance_threshold, solvency_sum, set_non_membership) MUST read
+            // it (a below-threshold / not-bracketed proof carries valid==0 and must FAIL the
+            // gate); commitment_open + anon_membership_nullifier emit valid==1 by construction,
+            // so reading [0]==1 is correct and harmless. Without this they fell through to the
+            // proof-presence branch below and a valid==0 proof drained the pot.
+            | "commitment_open" | "balance_threshold" | "solvency_sum"
+            | "set_non_membership" | "anon_membership_nullifier"
     ) || circuit_type.contains("timelock")
     {
         // These circuits EXPOSE their gating result as publicSignals[0]

@@ -2,6 +2,7 @@ pragma circom 2.0.0;
 
 include "node_modules/circomlib/circuits/poseidon.circom";
 include "node_modules/circomlib/circuits/comparators.circom";
+include "node_modules/circomlib/circuits/bitify.circom";
 
 // solvency_sum.circom — proof of reserves: sum(amount_i) >= threshold, amounts HIDDEN (Covex27)
 //   N = 4 reserve buckets.
@@ -26,10 +27,15 @@ template SolvencySum(N, bits) {
     signal input salts[N];                                      // private witnesses
     signal output valid;
 
-    // (1) Bind each hidden amount to its public commitment + accumulate the sum.
+    // (1) Bind each hidden amount to its public commitment + accumulate the sum. Each amount is
+    // range-bound to [0, 2^bits) so the sum cannot field-wrap: without this a single amount of
+    // v + 2^bits would forge a verifying valid==1 with no real reserves.
     component h[N];
+    component rbAmt[N];
     var acc = 0;
     for (var i = 0; i < N; i++) {
+        rbAmt[i] = Num2Bits(bits);
+        rbAmt[i].in <== amounts[i];
         h[i] = Poseidon(2);
         h[i].inputs[0] <== amounts[i];
         h[i].inputs[1] <== salts[i];
@@ -38,7 +44,13 @@ template SolvencySum(N, bits) {
     }
     signal total <== acc;
 
-    // (2) The real proof-of-reserves predicate. sum < 2^(bits+2) for N<=4, so bits+2 covers it.
+    // (2) The real proof-of-reserves predicate. With each amount < 2^bits and N<=4, the sum is
+    // < 2^(bits+2); range-bind total and threshold to that domain so GreaterEqThan is sound.
+    component rbTotal = Num2Bits(bits + 2);
+    rbTotal.in <== total;
+    component rbThreshold = Num2Bits(bits + 2);
+    rbThreshold.in <== threshold;
+
     component ge = GreaterEqThan(bits + 2);
     ge.in[0] <== total;
     ge.in[1] <== threshold;

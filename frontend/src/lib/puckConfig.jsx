@@ -86,6 +86,22 @@ const isHttpsImg = (u) => typeof u === 'string' && (u.startsWith('https://') || 
 // Only an absolute https link is ever emitted as an href (no javascript:/data:/relative).
 const isHttpsLink = (u) => typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/i.test(u.trim());
 
+// Video embeds: a STRICT two-provider allowlist (YouTube, Vimeo). The creator never
+// supplies a raw src or iframe markup; we extract the video id and BUILD the embed URL
+// ourselves from a fixed template, so a hostile string can never become an arbitrary
+// frame. Anything that is not a recognised YouTube/Vimeo URL returns null (no embed).
+export const parseVideoEmbed = (raw) => {
+  const v = String(raw || '').trim();
+  if (!v) return null;
+  // YouTube: watch?v=ID | youtu.be/ID | /embed/ID  (ID is exactly 11 url-safe chars)
+  let m = v.match(/^https:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#].*)?$/i);
+  if (m) return { src: `https://www.youtube-nocookie.com/embed/${m[1]}`, title: 'YouTube video' };
+  // Vimeo: vimeo.com/ID | player.vimeo.com/video/ID  (ID is digits)
+  m = v.match(/^https:\/\/(?:www\.)?(?:vimeo\.com\/|player\.vimeo\.com\/video\/)(\d{6,12})(?:[?&#].*)?$/i);
+  if (m) return { src: `https://player.vimeo.com/video/${m[1]}`, title: 'Vimeo video' };
+  return null;
+};
+
 // Render a stored lucide icon name -> component, with an optional emoji fallback
 // (legacy blocks stored an emoji string). Honest, inert, no markup injected.
 function IconOrEmoji({ name, emoji, size = 22, className }) {
@@ -219,7 +235,7 @@ export const puckConfig = {
   categories: {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner', 'EnforcementBadge'] },
     layout: { title: 'Layout', components: ['Hero', 'Spacer', 'Divider', 'TwoColumns', 'SectionBackground', 'Tabs', 'Accordion'] },
-    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'ImageGallery', 'Carousel', 'FeatureGrid', 'LogoStrip', 'Timeline', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
+    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'LogoStrip', 'Timeline', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
     covenant: { title: 'Covenant (live)', components: ['StatRow', 'AnimatedCounter', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'PoolChart', 'ActivityFeed', 'Leaderboard', 'Marquee', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
@@ -811,6 +827,40 @@ export const puckConfig = {
         return (
           <figure className="mx-4 mb-3">
             <img src={url} alt={caption || 'covenant image'} className={`w-full max-h-96 object-cover border border-white/10 light:border-slate-200 ${rounded === 'yes' ? 'rounded-2xl' : ''}`} />
+            {caption && <figcaption className="text-[11px] cvx-faint mt-1 text-center">{caption}</figcaption>}
+          </figure>
+        );
+      },
+    },
+    Video: {
+      label: 'Video (YouTube / Vimeo)',
+      fields: {
+        url: { type: 'text', label: 'Video URL (YouTube or Vimeo only)' },
+        caption: { type: 'text' },
+        aspect: { type: 'radio', options: [{ label: '16:9', value: '16x9' }, { label: '4:3', value: '4x3' }] },
+      },
+      defaultProps: { url: '', caption: '', aspect: '16x9' },
+      // The embed src is ALWAYS a platform-built provider URL (parseVideoEmbed), never the
+      // creator's raw string, and the frame is cross-origin (youtube-nocookie / vimeo) and
+      // sandboxed, so it can neither reach this document nor be pointed anywhere else.
+      render: ({ url, caption, aspect }) => {
+        const embed = parseVideoEmbed(url);
+        if (!embed) return placeholder('Paste a YouTube or Vimeo link (https). Only those two providers embed, in a sandboxed frame.');
+        const pad = aspect === '4x3' ? '75%' : '56.25%';
+        return (
+          <figure className="mx-4 mb-3">
+            <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 light:border-slate-200 cvx-panel" style={{ paddingTop: pad }}>
+              <iframe
+                src={embed.src}
+                title={caption || embed.title}
+                className="absolute inset-0 w-full h-full"
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-popups-to-escape-sandbox"
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                allowFullScreen
+              />
+            </div>
             {caption && <figcaption className="text-[11px] cvx-faint mt-1 text-center">{caption}</figcaption>}
           </figure>
         );

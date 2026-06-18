@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { puckConfig, STARTER_TEMPLATES, LIVE_TOKENS, matchTemplate } from './puckConfig.jsx';
+import { puckConfig, STARTER_TEMPLATES, LIVE_TOKENS, matchTemplate, parseVideoEmbed } from './puckConfig.jsx';
 
 const COMPONENTS = new Set(Object.keys(puckConfig.components));
 const TOKENS = new Set(LIVE_TOKENS.map((t) => t.token));
@@ -18,6 +18,27 @@ function collectTokens(node, out) {
   }
   return out;
 }
+
+describe('parseVideoEmbed allowlist (Video block)', () => {
+  it('builds a nocookie/vimeo embed URL only from a recognised provider id', () => {
+    expect(parseVideoEmbed('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toEqual({ src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', title: 'YouTube video' });
+    expect(parseVideoEmbed('https://youtu.be/dQw4w9WgXcQ')).toEqual({ src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', title: 'YouTube video' });
+    expect(parseVideoEmbed('https://vimeo.com/123456789').src).toBe('https://player.vimeo.com/video/123456789');
+  });
+  it('rejects anything that is not a clean YouTube/Vimeo https url (never emits a raw src)', () => {
+    for (const bad of [
+      '', 'not a url',
+      'javascript:alert(1)',
+      'https://evil.com/embed/dQw4w9WgXcQ',
+      'https://www.youtube.com.evil.com/watch?v=dQw4w9WgXcQ',
+      'data:text/html,<script>alert(1)</script>',
+      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"></iframe><script>alert(1)</script>',
+      'http://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    ]) {
+      expect(parseVideoEmbed(bad)).toBeNull();
+    }
+  });
+});
 
 describe('STARTER_TEMPLATES integrity', () => {
   it('exposes the 7 expected templates', () => {

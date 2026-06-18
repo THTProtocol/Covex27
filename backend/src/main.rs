@@ -26,6 +26,7 @@ mod compiler;
 mod covenant_builder;
 mod covenant_catalog;
 mod disassembler;
+mod decompiler;
 #[allow(dead_code)]
 mod covenant_types;
 mod crawler;
@@ -376,6 +377,7 @@ async fn main() {
         .route("/covenants/:covenant_id/actions", get(covenant_actions_handler))
         .route("/compile", post(compile_handler))
         .route("/script/disassemble", post(disassemble_handler))
+        .route("/script/decompile", post(decompile_handler))
         .merge(live::live_routes())
         .merge(games::games_routes().layer(Extension(db.clone())))
         .merge(poker::poker_routes().layer(Extension(db.clone())))
@@ -587,7 +589,7 @@ async fn rate_limit_middleware(
     let path = req.uri().path();
     let expensive = matches!(
         path,
-        "/compile" | "/script/disassemble" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
+        "/compile" | "/script/disassemble" | "/script/decompile" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
     ) || path.starts_with("/oracle/")
         || (req.method() == axum::http::Method::POST && path.starts_with("/covenant/"));
     if !expensive {
@@ -1061,6 +1063,61 @@ async fn disassemble_handler(
         "asm": dis.asm,
         "tokens": dis.tokens,
         "error": dis.error,
+    })))
+}
+
+#[derive(serde::Deserialize)]
+struct DecompileRequest {
+    /// The recovered redeem script, hex-encoded (NOT the P2SH wrapper, NOT a tx payload).
+    redeem_hex: String,
+    /// Optional on-chain commitment to check against: either the 32-byte blake2b hash or
+    /// the 35-byte P2SH script_pubkey `aa20<hash>87`. When present, the response carries
+    /// `commitment_match`.
+    #[serde(default)]
+    commitment_hex: Option<String>,
+}
+
+/// POST /script/decompile -- recover a covenant's kind + named params + spend branches from
+/// its redeem script, and (the "Verified covenant" badge) confirm the decode by re-emitting
+/// the redeem and matching it byte-for-byte. Pure function; no DB, no key material.
+async fn decompile_handler(
+    Json(req): Json<DecompileRequest>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let hex_str = req.redeem_hex.trim();
+    let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+    if hex_str.is_empty() {
+        return Err((
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "missing redeem_hex"})),
+        ));
+    }
+    if hex_str.len() > 400 * 1024 {
+        return Err((
+            axum::http::StatusCode::PAYLOAD_TOO_LARGE,
+            Json(json!({"ok": false, "error": "redeem too large (max 200KB decoded / 400KB hex)"})),
+        ));
+    }
+    let bytes = match hex::decode(hex_str) {
+        Ok(b) => b,
+        Err(e) => {
+            return Err((
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(json!({"ok": false, "error": format!("invalid hex: {e}")})),
+            ));
+        }
+    };
+    let decoded = decompiler::decompile(&bytes);
+    // Optional commitment check (null if not supplied or the commitment is malformed).
+    let commitment_match = req.commitment_hex.as_ref().and_then(|c| {
+        let c = c.trim();
+        let c = c.strip_prefix("0x").unwrap_or(c);
+        let cb = hex::decode(c).ok()?;
+        decompiler::commitment_matches(&bytes, &cb)
+    });
+    Ok(Json(json!({
+        "ok": true,
+        "commitment_match": commitment_match,
+        "decoded": decoded,
     })))
 }
 

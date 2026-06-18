@@ -1,0 +1,96 @@
+name: CI
+
+# Covex CI. Runs on every push and pull request to master. The build + test +
+# sandbox-guard + frontend-build jobs are the gates that should be marked
+# "required" in the repo's branch-protection settings so they block merge to a
+# live, money-handling deploy. fmt + clippy + eslint run as advisory (they
+# surface drift without blocking, since this is a large existing codebase; tighten
+# to blocking once the tree is clean).
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + test + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        # The build relies on backend/vendor (Cargo.toml patches
+        # kaspa-consensus-core to a vendored path), which is committed in-repo,
+        # so a plain checkout resolves the patch.
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      # GATE: the release build must succeed (a vendored sighash debug_assert
+      # panics in debug, so the project builds and tests in release).
+      - name: cargo build --release
+        run: cargo build --release
+
+      # GATE: the 88 backend tests (they live in the bin target; --release is
+      # required for the engine/sighash tests).
+      - name: cargo test --release
+        run: cargo test --release
+
+      # Advisory: formatting drift (does not block a mature tree).
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+
+      # Advisory: clippy lints (no -D warnings, so it fails only on hard errors).
+      - name: cargo clippy
+        run: cargo clippy --release
+        continue-on-error: true
+
+  frontend:
+    name: Frontend (sandbox guard + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      # GATE: the XSS-escape sandbox guard (fails if a user-content srcDoc iframe
+      # carries allow-same-origin). Also runs again via the prebuild hook below.
+      - name: Sandbox allow-list guard
+        run: npm run check:sandbox
+
+      # Advisory: eslint (does not block a mature tree yet).
+      - name: eslint
+        run: npm run lint
+        continue-on-error: true
+
+      # GATE: the production build must succeed (its prebuild hook re-runs the
+      # sandbox guard).
+      - name: vite build
+        run: npm run build

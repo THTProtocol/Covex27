@@ -38,6 +38,7 @@ import { LifeBuoy } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
 import OnChainLockSection from '../components/OnChainLockSection';
+import ZkClaimPanel from '../components/ZkClaimPanel';
 import HonestLimits from '../components/HonestLimits';
 import { MarketView } from './Markets';
 
@@ -1133,6 +1134,14 @@ export default function CovenantInteractive() {
               full script_hex, P2SH structural verdict (aa20...87), redeem_script_hex, the Groth16
               vkey link, and the oracle x-only pubkey. Same honest disclosure as TransparencyModal. */}
           {covenant && <OnChainLockSection covenant={covenant} />}
+
+          {/* PUBLIC ZK prove + claim panel (Phase 4a): for ANY visitor, on ANY covenant whose
+              circuit is genuinely in VERIFIED_FULL_ZK. Generates a real Groth16 proof in-browser
+              bound to this covenant_id (H4), shows the public signals, and submits to the disclosed
+              oracle (/api/oracle/verify-and-sign) which verifies off-chain fail-closed and co-signs
+              only a valid proof. Self-guards: renders nothing for non-full-zk circuits. Replaces the
+              old creator-only lock. Honest copy: oracle-verified off-chain, never trustless. */}
+          {covenant && <ZkClaimPanel covenant={covenant} />}
 
           {/* Always-visible honest limits for EVERY covenant kind (no click, no modal):
               primitive, oracle/zk, and every game arena (chess + the rest) flow through this

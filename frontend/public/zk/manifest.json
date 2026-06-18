@@ -25,18 +25,6 @@
       "artifacts": true
     },
     {
-      "id": "black_scholes_approx",
-      "vkey": "/zk/black_scholes_approx/black_scholes_approx_vkey.json",
-      "demo_proof": "/zk/black_scholes_approx/demo_proof.json",
-      "artifacts": true
-    },
-    {
-      "id": "chess_ai_move",
-      "vkey": "/zk/chess_ai_move/chess_ai_move_vkey.json",
-      "demo_proof": "/zk/chess_ai_move/demo_proof.json",
-      "artifacts": true
-    },
-    {
       "id": "collateral_liquidation",
       "vkey": "/zk/collateral_liquidation/collateral_liquidation_vkey.json",
       "demo_proof": "/zk/collateral_liquidation/demo_proof.json",
@@ -79,27 +67,9 @@
       "artifacts": true
     },
     {
-      "id": "loan_health",
-      "vkey": "/zk/loan_health/loan_health_vkey.json",
-      "demo_proof": "/zk/loan_health/demo_proof.json",
-      "artifacts": true
-    },
-    {
       "id": "merkle_membership",
       "vkey": "/zk/merkle_membership/merkle_membership_vkey.json",
       "demo_proof": null,
-      "artifacts": true
-    },
-    {
-      "id": "ml_inference_stub",
-      "vkey": "/zk/ml_inference_stub/ml_inference_stub_vkey.json",
-      "demo_proof": "/zk/ml_inference_stub/demo_proof.json",
-      "artifacts": true
-    },
-    {
-      "id": "multi_sig_gating",
-      "vkey": "/zk/multi_sig_gating/multi_sig_gating_vkey.json",
-      "demo_proof": "/zk/multi_sig_gating/demo_proof.json",
       "artifacts": true
     },
     {
@@ -118,12 +88,6 @@
       "id": "onchain_sig_verify",
       "vkey": "/zk/onchain_sig_verify/onchain_sig_verify_vkey.json",
       "demo_proof": "/zk/onchain_sig_verify/demo_proof.json",
-      "artifacts": true
-    },
-    {
-      "id": "poker_equity",
-      "vkey": "/zk/poker_equity/poker_equity_vkey.json",
-      "demo_proof": "/zk/poker_equity/demo_proof.json",
       "artifacts": true
     },
     {
@@ -193,12 +157,6 @@
       "artifacts": true
     },
     {
-      "id": "verifiable_poker_solver",
-      "vkey": "/zk/verifiable_poker_solver/verifiable_poker_solver_vkey.json",
-      "demo_proof": "/zk/verifiable_poker_solver/demo_proof.json",
-      "artifacts": true
-    },
-    {
       "id": "vrf_dice_roll",
       "vkey": "/zk/vrf_dice_roll/vrf_dice_roll_vkey.json",
       "demo_proof": "/zk/vrf_dice_roll/demo_proof.json",
@@ -209,13 +167,7 @@
       "vkey": "/zk/vrf_random/vrf_random_vkey.json",
       "demo_proof": "/zk/vrf_random/demo_proof.json",
       "artifacts": true
-    },
-    {
-      "id": "weather_feed",
-      "vkey": "/zk/weather_feed/weather_feed_vkey.json",
-      "demo_proof": "/zk/weather_feed/demo_proof.json",
-      "artifacts": true
     }
   ],
-  "count": 36
+  "count": 28
 }

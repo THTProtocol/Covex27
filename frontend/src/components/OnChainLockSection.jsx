@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FileKey, Lock, Check, AlertTriangle, ExternalLink, KeyRound, MapPin } from 'lucide-react';
 import { CopyChip, Section } from './TransparencyModal';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
-import { vkeyPathFor } from '../lib/zk/circuits';
+import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 /**
  * OnChainLockSection - the same honest lock + verification disclosure that lives inside
@@ -15,9 +15,9 @@ import { vkeyPathFor } from '../lib/zk/circuits';
  * with the (already world-class, honest) modal. Pure-frontend, read-only, non-fund-path.
  */
 
-// Circuits with a real, working in-browser Groth16 prover. Mirrors TransparencyModal so the
-// "in-browser prover available" note is only shown when it is actually true.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock', 'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math']);
+// IN_BROWSER_PROVERS (the circuits with a real, working in-browser Groth16 prover) is imported
+// from the single source of truth in lib/zk/circuits.js, so the "in-browser prover available"
+// note here can never drift from the terminal / modal / ZkClaimPanel.
 
 // Reality categories that genuinely involve the disclosed oracle (so the oracle pubkey is relevant).
 const ORACLE_REALITIES = new Set(['oracle-attested', 'hybrid', 'full-zk']);

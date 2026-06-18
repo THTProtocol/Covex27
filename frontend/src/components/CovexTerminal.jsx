@@ -10,24 +10,13 @@ import {
   Download, RefreshCw,
 } from 'lucide-react';
 import { Chess } from 'chess.js';
-import { mimc7Commitment } from '../lib/mimc7';
 import { CovexMark } from './CovexLogo';
 import TransparencyModal from './TransparencyModal';
-
-// H4: bind every in-browser proof to the specific covenant it is generated for.
-// covenant_field_element = sha256(covenant_id) reduced mod the BN254 scalar field, byte-identical
-// to the backend oracle.rs covenant_field_element() (verified: JS == Rust for real + empty ids).
-// Because Groth16 binds public inputs, a proof made with covenantId = H(covenant A) only verifies
-// against H(A); the oracle requires H(its covenant_id) among the public signals, so a proof for one
-// covenant cannot be replayed onto another of the same circuit type (closes the H4 hole).
-const BN254_FIELD_R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
-async function covenantFieldElement(covenantId) {
-  const bytes = new TextEncoder().encode(String(covenantId || ''));
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-  let acc = 0n;
-  for (const b of digest) acc = (acc << 8n) | BigInt(b);
-  return (acc % BN254_FIELD_R).toString();
-}
+// Single source of truth for the ZK reality sets + the shared in-browser provers.
+// (VERIFIED_FULL_ZK / IN_BROWSER_PROVERS / STRICT_GROTH16 used to be duplicated here and in
+// TransparencyModal.jsx / OnChainLockSection.jsx; they now live in lib/zk/circuits.js.)
+import { VERIFIED_FULL_ZK, IN_BROWSER_PROVERS, STRICT_GROTH16 } from '../lib/zk/circuits';
+import { loadSnarkjs, makeFullProveBound, PROVERS } from '../lib/zk/provers';
 import { Chessboard } from 'react-chessboard';
 import { useWallet } from './WalletContext';
 import FullScreenPoker from './FullScreenPoker';
@@ -45,15 +34,8 @@ import { explorerTxUrl } from '../lib/explorer';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 
-// Lazy-load snarkjs for client-side ZK proof generation (implemented for merkle + range circuits)
-let snarkjsModule = null;
-const loadSnarkjs = async () => {
-  if (!snarkjsModule) {
-    snarkjsModule = await import('snarkjs');
-  }
-  return snarkjsModule;
-};
-
+// loadSnarkjs + the in-browser provers now live in lib/zk/provers.js (single source of truth,
+// shared with the public ZkClaimPanel). Imported above.
 
 const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
@@ -334,44 +316,13 @@ const ZK_CIRCUIT_TYPES_RAW = [
 
 // HONEST REALITY (build-up policy). A circuit may only advertise 'full-zk' if it ships a served
 // proving key (.zkey) AND a working in-browser prover, verified valid-accept + tamper-reject.
-// FOURTEEN circuits qualify today: merkle_membership, age_verification, escrow_2party, range_proof,
-// vrf_dice_roll, nullifier_set, utxo_ownership, hash_preimage, timelock_absolute, relative_timelock,
-// vrf_random, turn_timer, script_constraint, pot_split_math.
-// age + range_proof + hash_preimage compute their MiMC7 commitment in pure JS; the Poseidon circuits
-// (vrf_dice_roll, nullifier_set, utxo_ownership, vrf_random, script_constraint) compute via poseidon-lite
-// (byte-identical to circomlib, no wasm); the timelocks + turn_timer + pot_split_math take plain numeric
-// inputs and the circuits expose `valid`/`on_time`/`ok` as a PUBLIC output (the oracle requires it == 1).
-// All then fullProve the served wasm+zkey,
-// node-verified valid-accept + tamper-reject. Every other 'full-zk' label without a working prover is
-// honestly downgraded to 'oracle-attested' until its prover is wired + verified. The PREFERRED fix for
-// an overclaim is to BUILD the prover (then add the id here), not to relabel it down.
-const VERIFIED_FULL_ZK = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock', 'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math']);
-// Circuits with a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
-// age_verification + range_proof + hash_preimage compute their MiMC7 commitment in-browser via pure-JS
-// MiMC7; vrf_dice_roll + nullifier_set + utxo_ownership compute their Poseidon commitment via
-// poseidon-lite; timelock_absolute + relative_timelock are plain-numeric (wasm derives `valid`).
-// Kept in sync with VERIFIED_FULL_ZK (and OnChainLockSection.jsx / TransparencyModal.jsx).
-// range_collateral shares the range_proof circuit but its generator is not separately wired yet,
-// so it stays oracle-attested until that generator is wired.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock', 'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math']);
-// Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
-// a real proof is REQUIRED and a bodyless request is rejected, never rubber-stamped. ONLY these
-// honestly back the 'hybrid' label, whose UI copy promises "a zero-knowledge property proof
-// covers part of the logic". The backend's other tier, `HybridGroth16`, is "Groth16 when supplied,
-// else oracle-attested" - i.e. it can be spent with NO proof (the oracle attests the outcome), so
-// its honest floor is 'oracle-attested', not 'hybrid'.
-// Kept in sync with build_registry() in backend/src/oracle_verifier.rs, accounting for HashMap
-// last-insert-wins: vrf_random + relative_timelock are inserted Attested by the crypto/ownership
-// loops but RE-PINNED StrictGroth16 later (so they ARE strict); age_verification + escrow_2party
-// are likewise re-asserted Strict after the gating/defi loops overwrote them; utxo_ownership +
-// basic_utxo_ownership + vrf_dice_roll + nullifier_set are pinned Strict and removed from the
-// attested loops. These 19 ids are the COMPLETE final-state StrictGroth16 registry.
-const STRICT_GROTH16 = new Set([
-  'merkle_membership', 'merkle_dao', 'merkle_airdrop', 'range_proof', 'range_collateral',
-  'timelock_absolute', 'timelock_abs', 'hash_preimage', 'age_verification', 'escrow_2party',
-  'utxo_ownership', 'basic_utxo_ownership', 'relative_timelock', 'vrf_dice_roll', 'vrf_random',
-  'script_constraint', 'pot_split_math', 'turn_timer', 'nullifier_set',
-]);
+// The three canonical reality sets (VERIFIED_FULL_ZK / IN_BROWSER_PROVERS / STRICT_GROTH16) now
+// live in lib/zk/circuits.js as the SINGLE source of truth and are imported at the top of this
+// file (also imported by TransparencyModal.jsx, OnChainLockSection.jsx, and the public
+// ZkClaimPanel). They are NOT redefined here, which is what kills the duplicate-set drift that
+// previously let one badge lie while another stayed correct. Every 'full-zk' label without a
+// working prover is honestly downgraded to 'oracle-attested' below (see ZK_CIRCUIT_TYPES); the
+// PREFERRED fix for an overclaim is to BUILD the prover (add the id in circuits.js), not relabel.
 // Per-reality visual treatment for the circuit cards: an accent colour + a readable pill label.
 // Mirrors the honest 4-reality taxonomy (full-zk / hybrid / oracle-attested / decorative).
 const REALITY_META = {
@@ -808,8 +759,8 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   // H4: every in-browser prover routes through this so the proof commits covenantFieldElement(covenantId)
   // as the circuit's `covenantId` public signal, binding the proof to THIS covenant (no cross-covenant
   // replay). The recompiled circuits expose covenantId as the last public input; valid stays at index 0.
-  const fullProveBound = async (snarkjs, input, wasm, zkey) =>
-    snarkjs.groth16.fullProve({ ...input, covenantId: await covenantFieldElement(covenantId) }, wasm, zkey);
+  // Sourced from lib/zk/provers.js so the terminal and the public ZkClaimPanel bind identically.
+  const fullProveBound = makeFullProveBound(covenantId);
 
   // ── Section A: Covenant Configuration ──
   const [name, setName] = useState('');
@@ -1258,27 +1209,19 @@ contract VisualCovenant {
   const [zkGenerating, setZkGenerating] = useState(false);
   const [zkGenError, setZkGenError] = useState('');
 
-  // Generate a real Merkle Membership proof from browser using snarkjs (matches the simple merkle_membership.circom: rootHash public, secretLeaf private, valid output)
+  // The in-browser provers themselves (MiMC7 / Poseidon / numeric input prep, served wasm/zkey
+  // paths, the covenantFieldElement H4 binding) now live in lib/zk/provers.js as the single
+  // source of truth shared with the public ZkClaimPanel. The terminal wrappers below preserve
+  // EXACTLY the prior behavior: they call the shared prover (which fullProves the same artifacts),
+  // store the result into the oracle textarea, and keep the terminal-specific bundled fallbacks
+  // for merkle/range/escrow/age. The proving math is no longer duplicated here.
+
+  // Merkle: on failure, fall back to the bundled real proof (verifies fail-closed at the oracle).
   const generateMerkleProof = async () => {
     setZkGenerating(true); setZkGenError('');
     try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/merkle_membership/merkle_membership.wasm';
-      const zkey = '/zk/merkle_membership/merkle_membership_final.zkey';
-
-      // Circuit expects: public rootHash, private secretLeaf
-      const rootHash = "20473339414381364284988912838485478706292217748325897174032535818078518775705";
-      const secretLeaf = "42";
-
-      const input = {
-        rootHash: rootHash,
-        secretLeaf: secretLeaf,
-      };
-
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      const proofStr = JSON.stringify({ proof, publicSignals }, null, 2);
-      setOracleProof(proofStr);
-      // publicSignals typically [rootHash, valid] or similar - oracle uses last for some, or requested_outcome
+      const { proof, publicSignals } = await PROVERS.merkle_membership.prove(fullProveBound);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map(s => s.toString()).join(','));
     } catch (e) {
       setZkGenError(`Proof generation failed: ${e.message}. Loading bundled proof instead.`);
@@ -1288,35 +1231,16 @@ contract VisualCovenant {
     setZkGenerating(false);
   };
 
-  // Generate a Range Proof using the mimc_test workaround (compute commitment compatibly first)
+  // Range: the in-browser prover works (verified accept + tamper-reject); on a rare environment
+  // failure surface the real error and leave the proof empty - never fabricate.
   const generateRangeProof = async () => {
     setZkGenerating(true); setZkGenError('');
     try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/range_proof/range_proof.wasm';
-      const zkey = '/zk/range_proof/range_proof_final.zkey';
-
-      // The circuit's public commitment is MiMC7(value) with key 0. Compute it client-side in
-      // pure JS (the same hasher the age circuit uses), so the value stays a PRIVATE witness,
-      // then fullProve over the served wasm + final zkey. Verified end-to-end (valid proof
-      // accepted, tampered rejected); publicSignals = [valid, commitment, min, max].
-      const value = 42, minV = 0, maxV = 100;
-      const commitment = mimc7Commitment(value).toString();
-      const rangeInput = {
-        commitment,
-        min: minV.toString(),
-        max: maxV.toString(),
-        value: value.toString(),
-      };
-
-      const { proof, publicSignals } = await fullProveBound(snarkjs, rangeInput, wasm, zkey);
-      const proofStr = JSON.stringify({ proof, publicSignals }, null, 2);
-      setOracleProof(proofStr);
+      const { proof, publicSignals } = await PROVERS.range_proof.prove(fullProveBound);
+      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map(s => s.toString()).join(','));
-      setZkGenError(''); // clear any previous
+      setZkGenError('');
     } catch (e) {
-      // The in-browser prover works (verified valid-accept + tamper-reject). On a rare
-      // environment failure, surface the real error and leave the proof empty - never fabricate.
       setOracleProof('');
       setOraclePublicInputs('');
       setZkGenError(`In-browser range proof generation failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
@@ -1324,33 +1248,15 @@ contract VisualCovenant {
     setZkGenerating(false);
   };
 
-  // Generate a real Escrow 2-party proof from the browser via snarkjs. The circuit
-  // (escrow_2party.circom) takes only plain numeric inputs - no hash commitment - so it
-  // proves cleanly in-browser with the served wasm + final zkey (no circomlibjs needed).
-  // Public signals: [valid, deposit_daa, timeout_daa, current_daa, outcome].
-  // outcome 0 = refund-after-timeout; valid=1 requires current_daa >= deposit_daa + timeout_daa.
+  // Escrow: on a rare in-browser failure, fall back to the bundled real proof (never fabricated).
   const generateEscrowProof = async () => {
     setZkGenerating(true); setZkGenError('');
     try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/escrow_2party/escrow_2party.wasm';
-      const zkey = '/zk/escrow_2party/escrow_2party_final.zkey';
-
-      // A valid refund-after-timeout scenario (current_daa is past deposit + timeout).
-      const input = {
-        deposit_daa: '1000000',
-        timeout_daa: '100',
-        current_daa: '1000150',
-        outcome: '0',
-      };
-
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
+      const { proof, publicSignals } = await PROVERS.escrow_2party.prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
     } catch (e) {
-      // Match the merkle path: on a (rare) in-browser failure, fall back to the bundled
-      // proof that is itself real and verifies fail-closed at the oracle - never fabricated.
       setZkGenError(`In-browser proof generation failed (${e.message || e}). Loaded the bundled valid escrow proof instead.`);
       setOracleProof(bundledEscrowProof);
       setOraclePublicInputs('1,1000000,100,1000150,0');
@@ -1358,38 +1264,15 @@ contract VisualCovenant {
     setZkGenerating(false);
   };
 
-  // Generate a real Age Verification proof in the browser. Unlike escrow, this circuit's public
-  // commitment is MiMC7(birth_year), so we compute it client-side via a pure-JS MiMC7, then fullProve
-  // over the served wasm + final zkey. The birth year is a PRIVATE witness and never leaves the
-  // browser - only the commitment + (current_year, min_age) are public.
-  // Public signals: [valid, commitment, current_year, min_age]; valid=1 iff current_year - birth_year >= min_age.
+  // Age: on a rare in-browser failure, fall back to the bundled real proof (never fabricated).
   const generateAgeProof = async () => {
     setZkGenerating(true); setZkGenError('');
     try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/age_verification/age_verification.wasm';
-      const zkey = '/zk/age_verification/age_verification_final.zkey';
-
-      // A holder born in 1990 proving they are at least 18 as of 2026 (real, satisfiable scenario).
-      const birthYear = 1990;
-      const currentYear = 2026;
-      const minAge = 18;
-      // commitment = MiMC7(birth_year) computed locally in pure JS (no deps, matches the circuit).
-      const commitment = mimc7Commitment(birthYear);
-
-      const input = {
-        commitment,
-        current_year: currentYear.toString(),
-        min_age: minAge.toString(),
-        birth_year: birthYear.toString(), // PRIVATE witness - stays in the browser
-      };
-
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
+      const { proof, publicSignals } = await PROVERS.age_verification.prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
     } catch (e) {
-      // Honest fallback: a real, verifying bundled proof (NOT fabricated). Never emit a fake proof.
       setZkGenError(`In-browser proof generation failed (${e.message || e}). Loaded the bundled valid age proof instead.`);
       setOracleProof(bundledAgeProof);
       setOraclePublicInputs('1,9200635592700100900023685259419851615264527311517926356835164316867165626887,2026,18');
@@ -1397,266 +1280,32 @@ contract VisualCovenant {
     setZkGenerating(false);
   };
 
-  // Generate a real VRF Dice Roll proof in the browser. The roll is DERIVED from
-  // Poseidon(secret, seed): roll = (h mod faces) + 1, q = floor(h / faces). The circuit
-  // asserts q*faces + (roll-1) === h and 1 <= roll <= faces, so the prover cannot pick a
-  // favourable roll - it is forced by a hidden secret + the public seed. Public signals:
-  // [seed, roll]. Poseidon computed in pure JS (poseidon-lite, byte-identical to circomlib),
-  // so the secret never leaves the browser. Verified end-to-end (accept + tamper-reject).
-  const generateVrfDiceRoll = async () => {
+  // The remaining provers have no bundled fallback: on failure they surface the real error and
+  // leave the proof empty (nothing fake is ever submitted). One shared helper drives them all.
+  const runZkProver = async (circuitId, label) => {
     setZkGenerating(true); setZkGenError('');
     try {
-      const snarkjs = await loadSnarkjs();
-      const { poseidon2 } = await import('poseidon-lite');
-      const wasm = '/zk/vrf_dice_roll/vrf_dice_roll.wasm';
-      const zkey = '/zk/vrf_dice_roll/vrf_dice_roll_final.zkey';
-      const faces = 6n;
-      // A fresh-ish secret (kept private) + a public seed; vary the secret per call.
-      const secret = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''));
-      const seed = 999n;
-      const h = poseidon2([secret, seed]);
-      const roll = (h % faces) + 1n;
-      const q = (h - (roll - 1n)) / faces;
-      const input = { secret: secret.toString(), seed: seed.toString(), roll: roll.toString(), q: q.toString() };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
+      const { proof, publicSignals } = await PROVERS[circuitId].prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
       setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
       setZkGenError('');
     } catch (e) {
       setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser VRF dice proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
+      setZkGenError(`In-browser ${label} proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
     }
     setZkGenerating(false);
   };
 
-  // Generate a real Nullifier Set proof in the browser. nullifier = Poseidon(secret),
-  // merkle_root = Poseidon(secret, nullifier). The proof binds a (public) nullifier and set
-  // anchor to a single hidden secret, so a covenant can reject a re-used nullifier without ever
-  // learning the secret. Public signals: [spent(=0), nullifier, merkle_root]. The oracle's spent
-  // DB still tracks the consumed set; this proof guarantees the derivation is honest.
-  const generateNullifierSet = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const { poseidon1, poseidon2 } = await import('poseidon-lite');
-      const wasm = '/zk/nullifier_set/nullifier_set.wasm';
-      const zkey = '/zk/nullifier_set/nullifier_set_final.zkey';
-      const secret = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''));
-      const nullifier = poseidon1([secret]);
-      const merkle_root = poseidon2([secret, nullifier]);
-      const input = { nullifier: nullifier.toString(), merkle_root: merkle_root.toString(), secret: secret.toString() };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser nullifier proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real UTXO-note commitment opening proof in the browser. utxo_hash =
-  // Poseidon(pubkey_x, pubkey_y, amount_commit, owner_sig_r, owner_sig_s). The proof shows the
-  // prover knows the full pre-image of a public utxo_hash without revealing it. Honest bound:
-  // this OPENS the Poseidon commitment - it does not itself verify a Schnorr signature, so it is
-  // a note-binding primitive, not standalone spend authorization. Public signals: [valid(=1), utxo_hash].
-  const generateUtxoOwnership = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const { poseidon5 } = await import('poseidon-lite');
-      const wasm = '/zk/basic_utxo_ownership/basic_utxo_ownership.wasm';
-      const zkey = '/zk/basic_utxo_ownership/basic_utxo_ownership_final.zkey';
-      // A demo note (all five parts are private witnesses; nothing but the hash is public).
-      const x = 11n, y = 22n, amt = 33n, r = 44n, s = 55n;
-      const utxo_hash = poseidon5([x, y, amt, r, s]);
-      const input = {
-        pubkey_x: x.toString(), pubkey_y: y.toString(), amount_commit: amt.toString(),
-        owner_sig_r: r.toString(), owner_sig_s: s.toString(), utxo_hash: utxo_hash.toString(),
-      };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser UTXO note proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real Hash Preimage proof in the browser. commitment_hash = MiMC7(preimage)
-  // (the same Groth16-friendly hasher the age + range circuits use), computed in pure JS so the
-  // preimage stays a PRIVATE witness. This is the classic hidden-witness ZK primitive: prove you
-  // know the opening of a public commitment without revealing it. Public signals: [valid, commitment_hash].
-  // Honest bound: MiMC7, not SHA256 - for SHA256 script-hash HTLCs use the on-chain hashlock primitive.
-  const generateHashPreimage = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/hash_preimage/hash_preimage.wasm';
-      const zkey = '/zk/hash_preimage/hash_preimage_final.zkey';
-      // A fresh secret preimage per call (kept private); only its MiMC7 commitment is public.
-      const preimage = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(15))).map(b => b.toString(16).padStart(2, '0')).join(''));
-      const commitment_hash = mimc7Commitment(preimage).toString();
-      const input = { commitment_hash, preimage: preimage.toString() };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser hash preimage proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real Absolute Timelock proof in the browser. The circuit computes
-  // valid = (current_daa >= lock_threshold) and exposes valid as a PUBLIC output, so the oracle
-  // reads valid from the public signals and requires valid==1 (a prover cannot claim an unmet
-  // timelock). Public signals: [valid, current_daa, lock_threshold].
-  const generateTimelockAbsolute = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/timelock_absolute/timelock_absolute.wasm';
-      const zkey = '/zk/timelock_absolute/timelock_absolute_final.zkey';
-      // A satisfied absolute timelock (current DAA past the threshold).
-      const input = { current_daa: '5000000', lock_threshold: '1000000' };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser absolute timelock proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real Relative Timelock proof in the browser. valid = (current_daa >= reference_daa +
-  // lock_duration) is a PUBLIC output (the recompiled circuit exposes it), so the oracle requires
-  // valid==1 - an unsatisfied relative lock cannot be passed off as satisfied. Public signals:
-  // [valid, current_daa, reference_daa, lock_duration].
-  const generateRelativeTimelock = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/relative_timelock/relative_timelock.wasm';
-      const zkey = '/zk/relative_timelock/relative_timelock_final.zkey';
-      // A satisfied relative timelock (enough DAA elapsed since the reference point).
-      const input = { current_daa: '2000', reference_daa: '1000', lock_duration: '500' };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser relative timelock proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real generic VRF proof in the browser. output_val = Poseidon(secret, seed, vrf_key)
-  // with the secret PRIVATE, so the output is provably forced by a committed secret + public seed +
-  // public VRF key (no cherry-picking). Complements the dice VRF for lotteries, shuffles, fair draws.
-  // Public signals: [valid, output_val, pub_vrf_key, seed]. Poseidon via poseidon-lite (no wasm).
-  const generateVrfRandom = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const { poseidon3 } = await import('poseidon-lite');
-      const wasm = '/zk/vrf_random/vrf_random.wasm';
-      const zkey = '/zk/vrf_random/vrf_random_final.zkey';
-      const secret = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(15))).map(b => b.toString(16).padStart(2, '0')).join(''));
-      const seed = 12345n, vrfKey = 7n;
-      const output_val = poseidon3([secret, seed, vrfKey]).toString();
-      const input = { vrf_secret: secret.toString(), seed: seed.toString(), output_val, pub_vrf_key: vrfKey.toString() };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser VRF proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real Turn Timer proof in the browser. on_time = (current_daa - last_move_daa <=
-  // max_delta), where last_move_daa is a PRIVATE witness, so a player proves a move was on time
-  // without revealing exactly when. on_time is a public output the oracle requires == 1.
-  // Public signals: [on_time, current_daa, max_delta].
-  const generateTurnTimer = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/turn_timer/turn_timer.wasm';
-      const zkey = '/zk/turn_timer/turn_timer_final.zkey';
-      // A move made 50 DAA after the previous one, within a 100-DAA window (on time).
-      const input = { current_daa: '1000', last_move_daa: '950', max_delta: '100', move_hash: '42' };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser turn timer proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real Script Constraint proof in the browser. public_root = Poseidon(script_hash,
-  // constraint_id, value) with the script_hash PRIVATE, so a covenant can bind to a constraint
-  // bundle without revealing the script. Public signals: [ok, public_root, constraint_id, value].
-  const generateScriptConstraint = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const { poseidon3 } = await import('poseidon-lite');
-      const wasm = '/zk/script_constraint/script_constraint.wasm';
-      const zkey = '/zk/script_constraint/script_constraint_final.zkey';
-      const scriptHash = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(15))).map(b => b.toString(16).padStart(2, '0')).join(''));
-      const constraintId = 2n, value = 500n;
-      const public_root = poseidon3([scriptHash, constraintId, value]).toString();
-      const input = { script_hash: scriptHash.toString(), constraint_id: constraintId.toString(), value: value.toString(), public_root };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser script constraint proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
-
-  // Generate a real Pot Split proof in the browser. Proves winner_share + fee + ret === total_pot
-  // with fee/ret derived from the public bps, so a payout split is provably correct. Honest bound:
-  // all values except fee/ret are public, so this is a CORRECTNESS proof (verifiable fair split),
-  // not a privacy proof. Public signals: [valid, total_pot, fee_bps, pot_return_bps, winner_share].
-  const generatePotSplitMath = async () => {
-    setZkGenerating(true); setZkGenError('');
-    try {
-      const snarkjs = await loadSnarkjs();
-      const wasm = '/zk/pot_split_math/pot_split_math.wasm';
-      const zkey = '/zk/pot_split_math/pot_split_math_final.zkey';
-      // 3% fee, 2% pot-return on a 10000 pot: fee=300, ret=200, winner_share=9500.
-      const total = 10000, feeBps = 300, retBps = 200;
-      const fee = (total * feeBps) / 10000, ret = (total * retBps) / 10000;
-      const winnerShare = total - fee - ret;
-      const input = { total_pot: String(total), fee_bps: String(feeBps), pot_return_bps: String(retBps), winner_share: String(winnerShare), fee: String(fee), ret: String(ret) };
-      const { proof, publicSignals } = await fullProveBound(snarkjs, input, wasm, zkey);
-      setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
-      setOraclePublicInputs(publicSignals.map((s) => s.toString()).join(','));
-      setZkGenError('');
-    } catch (e) {
-      setOracleProof(''); setOraclePublicInputs('');
-      setZkGenError(`In-browser pot split proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
-    }
-    setZkGenerating(false);
-  };
+  const generateVrfDiceRoll      = () => runZkProver('vrf_dice_roll', 'VRF dice');
+  const generateNullifierSet     = () => runZkProver('nullifier_set', 'nullifier');
+  const generateUtxoOwnership    = () => runZkProver('utxo_ownership', 'UTXO note');
+  const generateHashPreimage     = () => runZkProver('hash_preimage', 'hash preimage');
+  const generateTimelockAbsolute = () => runZkProver('timelock_absolute', 'absolute timelock');
+  const generateRelativeTimelock = () => runZkProver('relative_timelock', 'relative timelock');
+  const generateVrfRandom        = () => runZkProver('vrf_random', 'VRF');
+  const generateTurnTimer        = () => runZkProver('turn_timer', 'turn timer');
+  const generateScriptConstraint = () => runZkProver('script_constraint', 'script constraint');
+  const generatePotSplitMath     = () => runZkProver('pot_split_math', 'pot split');
 
   // ── Mainnet is derived from the toggle (line 451) - no separate detection needed ──
 

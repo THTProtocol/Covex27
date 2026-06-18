@@ -5,7 +5,7 @@ import {
   FileKey, Cpu, AlertTriangle, Activity, BadgeCheck,
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
-import { vkeyPathFor } from '../lib/zk/circuits';
+import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 /**
  * TransparencyModal — press any ZK / oracle / enforcement badge to see, in plain terms:
@@ -17,13 +17,9 @@ import { vkeyPathFor } from '../lib/zk/circuits';
  *   - covenant : opened from an explorer / detail TrustBadge     (props.covenant = the covenant object)
  */
 
-// The 14 circuits with a real, working in-browser Groth16 prover (snarkjs over served wasm+zkey).
-// Source of truth: CovexTerminal VERIFIED_FULL_ZK / IN_BROWSER_PROVERS. age + range_proof +
-// hash_preimage commit via pure-JS MiMC7; vrf_dice_roll + nullifier_set + utxo_ownership +
-// vrf_random + script_constraint via poseidon-lite; timelock_absolute + relative_timelock +
-// turn_timer + pot_split_math are plain-numeric (wasm derives the public valid/on_time output).
-// All fullProve the served wasm+zkey; node-verified accept + tamper-reject.
-const IN_BROWSER_PROVERS = new Set(['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll', 'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock', 'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math']);
+// The 14 circuits with a real, working in-browser Groth16 prover are now defined once in
+// lib/zk/circuits.js (IN_BROWSER_PROVERS) and imported above, so this modal can never drift
+// out of sync with the terminal / OnChainLockSection / ZkClaimPanel.
 
 const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,

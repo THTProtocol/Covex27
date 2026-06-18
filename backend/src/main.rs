@@ -445,8 +445,34 @@ async fn main() {
 
     info!("Serving on {}", addr);
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
+}
+
+/// Resolves when the process is asked to stop (SIGTERM from systemd on deploy, or Ctrl-C).
+/// Wired into axum's graceful shutdown so a restart drains in-flight HTTP/WS instead of
+/// cutting them mid-request, which is what produced 502s during deploys.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut s) => {
+                s.recv().await;
+            }
+            Err(_) => std::future::pending::<()>().await,
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => info!("SIGINT received; draining in-flight requests before exit"),
+        _ = terminate => info!("SIGTERM received; draining in-flight requests before exit"),
+    }
 }
 
 async fn events_handler(

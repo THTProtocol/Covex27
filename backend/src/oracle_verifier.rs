@@ -538,21 +538,51 @@ fn run_groth16_verifier_sync(
     std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
-    let output = Command::new(node_binary())
+    // Spawn with a wall-clock timeout so a hung or malicious verifier can never hold a
+    // spawn_blocking thread forever (a self-inflicted DoS). On timeout we kill the child and
+    // fail closed: the oracle refuses to sign when verification does not complete in time.
+    const VERIFY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
+    let mut child = Command::new(node_binary())
         .arg(script.to_str().unwrap_or("zk/verify.js"))
         .arg(&tmp_path)
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .map_err(|e| format!("Failed to run verifier (node={} script={:?}): {}", node_binary(), script, e))?;
 
+    let started = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(st)) => break st,
+            Ok(None) => {
+                if started.elapsed() >= VERIFY_TIMEOUT {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = std::fs::remove_file(&tmp_path);
+                    return Err(format!("Verifier timed out after {}s and was killed", VERIFY_TIMEOUT.as_secs()));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(40));
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&tmp_path);
+                return Err(format!("Verifier wait failed: {}", e));
+            }
+        }
+    };
+
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    {
+        use std::io::Read as _;
+        if let Some(mut o) = child.stdout.take() { let _ = o.read_to_string(&mut stdout); }
+        if let Some(mut e) = child.stderr.take() { let _ = e.read_to_string(&mut stderr); }
+    }
     let _ = std::fs::remove_file(&tmp_path);
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    if !output.status.success() {
+    if !status.success() {
         return Err(format!(
             "Verifier exited {}: stdout={} stderr={}",
-            output.status, stdout.trim(), stderr.trim()
+            status, stdout.trim(), stderr.trim()
         ));
     }
 
@@ -579,6 +609,14 @@ pub(crate) async fn run_groth16_verifier_async(
     proof: Value,
     public_inputs: Vec<String>,
 ) -> Result<bool, String> {
+    // Cap concurrent verifications so a burst of proof submissions cannot spawn an unbounded
+    // number of node child processes (each holds a blocking thread + CPU). Excess requests wait.
+    static VERIFY_SEM: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
+    let _permit = VERIFY_SEM
+        .get_or_init(|| tokio::sync::Semaphore::new(6))
+        .acquire()
+        .await
+        .map_err(|e| format!("verify semaphore closed: {}", e))?;
     let script = zk_script_path(script_rel);
     tokio::task::spawn_blocking(move || run_groth16_verifier_sync(&script, tmp_prefix, &proof, &public_inputs))
         .await

@@ -196,10 +196,13 @@ async fn main() {
     // Only include mainnet if KASPA_WRPC_URL_MAINNET is explicitly configured — the default
     // ws://127.0.0.1:17110 hangs the startup if no mainnet node is running locally.
     let mut extra_networks: Vec<&str> = Vec::new();
-    if primary_network != "testnet-10" {
+    // Mainnet-only deployment (KASPA_NETWORK=mainnet): index ONLY mainnet, with no
+    // testnet crawlers at all. Otherwise index the testnets alongside the primary.
+    let mainnet_only = primary_network == "mainnet" || primary_network == "mainnet-1";
+    if !mainnet_only && primary_network != "testnet-10" {
         extra_networks.push("testnet-10");
     }
-    if primary_network != "testnet-12" && primary_network != "mainnet" && primary_network != "mainnet-1" {
+    if !mainnet_only && primary_network != "testnet-12" {
         extra_networks.push("testnet-12");
     }
     if primary_network != "mainnet" && primary_network != "mainnet-1"

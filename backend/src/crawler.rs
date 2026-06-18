@@ -148,6 +148,10 @@ pub async fn run_crawler(
         db::get_last_scanned_daa(&db, &network).unwrap_or(start_daa)
     };
     let mut total_found: u64 = 0;
+    // Reorg reconciliation anchor: the selected-chain sink (tip) we last diffed against.
+    // Each cycle we ask the node for the chain delta since this hash; removed chain blocks
+    // whose covenant txs were not re-accepted are flagged reorged (pre-finality only).
+    let mut last_sink: Option<kaspa_rpc_core::RpcHash> = None;
 
     loop {
         if !client.is_connected() {
@@ -202,6 +206,13 @@ pub async fn run_crawler(
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             continue;
         }
+
+        // Reorg/finality reconciliation. Runs every cycle (even when caught up at the tip),
+        // independent of the discovery walk: a chain reorg can drop a recently-indexed
+        // covenant whether or not new covenants are appearing. Isolated and fail-safe -
+        // any node/RPC error just re-anchors and skips the delta; it can never corrupt the
+        // discovery watermark.
+        last_sink = reconcile_reorgs(&client, &db, &network, dag.sink, virtual_daa, last_sink).await;
 
         if scan_daa >= virtual_daa {
             let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
@@ -381,6 +392,14 @@ pub async fn run_crawler(
                 ) {
                     Ok(_) => {
                         batch += 1;
+                        // Record the selected-chain block this was discovered in, so the reorg
+                        // reconciler can detect if it later leaves the chain. Also clears any
+                        // stale reorg flag (re-discovery proves it is back on the chain).
+                        let _ = db::mark_covenant_seen_in_block(
+                            &db,
+                            &tid,
+                            &block.header.hash.to_string(),
+                        );
                         info!(
                             "Crawler: FOUND {} {} DAA={} amt={}K tier={} script={}",
                             ctype,
@@ -488,6 +507,85 @@ pub async fn run_crawler(
         }
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
+}
+
+/// Reconcile the selected chain against the node and flag covenants that were reorged out
+/// before finality. Returns the new reconciliation anchor (sink) to diff against next cycle.
+///
+/// Uses get_virtual_chain_from_block(last_sink, include_accepted=true): the node returns the
+/// chain blocks removed since `last_sink` plus the txs the new chain blocks accept. A covenant
+/// is flagged ONLY if its discovery block is in `removed_chain_block_hashes` AND its funding tx
+/// was not re-accepted by the new chain (so a tx that simply moved to a different chain block is
+/// never falsely flagged). Pre-finality only; finalized covenants are untouchable. Never deletes.
+async fn reconcile_reorgs(
+    client: &KaspaRpcClient,
+    db: &db::Db,
+    network: &str,
+    sink: kaspa_rpc_core::RpcHash,
+    virtual_daa: u64,
+    last_sink: Option<kaspa_rpc_core::RpcHash>,
+) -> Option<kaspa_rpc_core::RpcHash> {
+    // First cycle (or after a re-anchor): nothing to diff yet, just record the anchor.
+    let start = match last_sink {
+        Some(h) => h,
+        None => return Some(sink),
+    };
+    if start == sink {
+        return Some(sink); // selected chain unchanged since last cycle
+    }
+    let resp = match tokio::time::timeout(
+        std::time::Duration::from_secs(15),
+        client.get_virtual_chain_from_block(start, true, None),
+    )
+    .await
+    {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => {
+            // The anchor itself may have been reorged out ("not a chain block"): re-anchor
+            // to the current sink and skip this delta rather than risk a wrong diff.
+            debug!("Crawler[{}]: reorg reconcile re-anchored ({})", network, e);
+            return Some(sink);
+        }
+        Err(_) => {
+            // Transient: keep the same anchor and retry next cycle (no chain progress lost).
+            warn!("Crawler[{}]: reorg reconcile timed out; will retry from same anchor", network);
+            return Some(start);
+        }
+    };
+    if resp.removed_chain_block_hashes.is_empty() {
+        return Some(sink); // pure chain extension, no reorg
+    }
+    let removed: Vec<String> = resp
+        .removed_chain_block_hashes
+        .iter()
+        .map(|h| h.to_string())
+        .collect();
+    let reaccepted: std::collections::HashSet<String> = resp
+        .accepted_transaction_ids
+        .iter()
+        .flat_map(|a| a.accepted_transaction_ids.iter())
+        .map(|t| t.to_string())
+        .collect();
+    match db::flag_reorged_covenants(
+        db,
+        network,
+        &removed,
+        &reaccepted,
+        virtual_daa,
+        db::FINALITY_DEPTH_DAA,
+    ) {
+        Ok(n) if n > 0 => warn!(
+            "Crawler[{}]: REORG flagged {} pre-finality covenant(s) ({} chain block(s) removed, not re-accepted)",
+            network, n, removed.len()
+        ),
+        Ok(_) => debug!(
+            "Crawler[{}]: {} chain block(s) reorged, no indexed covenants affected",
+            network,
+            removed.len()
+        ),
+        Err(e) => error!("Crawler[{}]: flag_reorged_covenants failed: {}", network, e),
+    }
+    Some(sink)
 }
 
 fn classify(hex: &str) -> String {

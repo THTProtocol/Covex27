@@ -350,6 +350,23 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         "CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);"
     )?;
 
+    // ── Migration: add 'block_hash' + 'reorged' columns for finality/reorg handling ──
+    // block_hash: the selected-chain block that the crawler discovered this covenant in.
+    // Lets the reorg reconciler match a covenant against the node's removed_chain_block_hashes
+    // delta. reorged: set when a covenant's funding tx left the selected chain before finality
+    // (and was not re-accepted). Hidden from the explorer via is_active=0; the flag drives the
+    // detail-page banner and is cleared automatically on re-discovery. Never hard-deleted.
+    let has_block_hash: bool = conn
+        .prepare("SELECT block_hash FROM covenants LIMIT 1")
+        .is_ok();
+    if !has_block_hash {
+        conn.execute_batch(
+            "ALTER TABLE covenants ADD COLUMN block_hash TEXT NOT NULL DEFAULT '';
+             ALTER TABLE covenants ADD COLUMN reorged INTEGER NOT NULL DEFAULT 0;
+             CREATE INDEX IF NOT EXISTS idx_covenants_block_hash ON covenants(block_hash);",
+        )?;
+    }
+
     // ── Migration: add 'network' column to payments if missing ──
     let has_payments_network: bool = conn
         .prepare("SELECT network FROM payments LIMIT 1")
@@ -556,6 +573,88 @@ pub fn insert_covenant(
     Ok(())
 }
 
+/// Record the selected-chain block a covenant was discovered in, and clear any prior reorg
+/// flag (re-discovery proves it is back on the chain). Called by the crawler right after a
+/// successful insert. No-op if the row does not exist (e.g. a deduped re-deposit).
+pub fn mark_covenant_seen_in_block(db: &Db, tx_id: &str, block_hash: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "UPDATE covenants SET block_hash = ?2, reorged = 0, is_active = 1 WHERE tx_id = ?1",
+        params![tx_id, block_hash],
+    )?;
+    Ok(())
+}
+
+/// Flag covenants whose discovery block left the selected chain (a reorg) and whose funding
+/// tx was NOT re-accepted by the new chain blocks, as long as they are still pre-finality.
+/// Flagged rows are hidden from the explorer (is_active = 0) but never deleted; the `reorged`
+/// flag drives an honest detail-page banner and is cleared automatically on re-discovery.
+/// `reaccepted_txids` are the base tx ids accepted by the added chain blocks this delta.
+/// Returns the number of covenants newly flagged.
+pub fn flag_reorged_covenants(
+    db: &Db,
+    network: &str,
+    removed_block_hashes: &[String],
+    reaccepted_txids: &std::collections::HashSet<String>,
+    virtual_daa: u64,
+    finality_depth: u64,
+) -> anyhow::Result<usize> {
+    if removed_block_hashes.is_empty() {
+        return Ok(0);
+    }
+    let conn = db.lock().unwrap();
+    // Pull only the (few) candidates whose discovery block is in the removed set, on this
+    // network, still flagged active and not already reorged.
+    let placeholders = removed_block_hashes
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
+    let sql = format!(
+        "SELECT tx_id, block_daa_score, amount_kaspa, covenant_type FROM covenants \
+         WHERE network = ? AND reorged = 0 AND is_active = 1 AND block_hash IN ({})",
+        placeholders
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let mut bind: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(removed_block_hashes.len() + 1);
+    bind.push(&network);
+    for h in removed_block_hashes {
+        bind.push(h);
+    }
+    let candidates: Vec<(String, u64, f64, String)> = stmt
+        .query_map(bind.as_slice(), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, u64>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut flagged = 0usize;
+    for (tx_id, block_daa, amount, ctype) in candidates {
+        // Never touch a finalized covenant (defensive: finalized blocks cannot be removed).
+        if virtual_daa.saturating_sub(block_daa) >= finality_depth {
+            continue;
+        }
+        // The DB tx_id is "<txid>:<index>"; re-acceptance is keyed by the base txid.
+        let base_txid = tx_id.split(':').next().unwrap_or(&tx_id);
+        if reaccepted_txids.contains(base_txid) {
+            // Re-included in the new selected chain; still valid, do not flag.
+            continue;
+        }
+        conn.execute(
+            "UPDATE covenants SET reorged = 1, is_active = 0 WHERE tx_id = ?1",
+            params![tx_id],
+        )?;
+        record_event(&conn, "covenant_reorged", &tx_id, network, amount, &ctype);
+        flagged += 1;
+    }
+    Ok(flagged)
+}
+
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct DbCovenant {
     pub tx_id: String,
@@ -578,6 +677,24 @@ pub struct DbCovenant {
     pub block_daa_score: u64,
     pub timestamp: i64,
     pub network: String,
+    /// Selected-chain block the crawler discovered this covenant in (for reorg matching).
+    #[serde(default)]
+    pub block_hash: String,
+    /// True if the funding tx left the selected chain before finality and was not re-accepted.
+    #[serde(default)]
+    pub reorged: bool,
+    /// Derived (not stored): confirmation depth against the live node tip. None when the
+    /// tip is unknown or the covenant has no on-chain DAA yet (block_daa_score == 0).
+    #[serde(default)]
+    pub confirmations: Option<u64>,
+    /// Derived honesty label: "final" (>= finality depth, consensus-irreversible),
+    /// "confirming" (seen on-chain, not yet final), "pending" (no on-chain DAA yet),
+    /// or "unknown" (node tip unavailable). Never claims more certainty than we have.
+    #[serde(default)]
+    pub finality: String,
+    /// Derived: approximate seconds until finality while "confirming" (None otherwise).
+    #[serde(default)]
+    pub finality_eta_secs: Option<u64>,
 }
 
 fn row_to_covenant(row: &rusqlite::Row) -> rusqlite::Result<DbCovenant> {
@@ -602,11 +719,62 @@ fn row_to_covenant(row: &rusqlite::Row) -> rusqlite::Result<DbCovenant> {
         block_daa_score: row.get(16)?,
         timestamp: row.get(17)?,
         network: row.get(18).unwrap_or_else(|_| "testnet-12".to_string()),
+        block_hash: row.get::<_, String>(19).unwrap_or_default(),
+        reorged: row.get::<_, i64>(20).unwrap_or(0) == 1,
+        // Derived fields: defaulted here, filled by annotate_finality() against the live tip.
+        confirmations: None,
+        finality: String::new(),
+        finality_eta_secs: None,
     })
 }
 
 const COVENANT_SELECT: &str =
-    "SELECT tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, verified_payment_tx, verified_at, custom_ui_enabled, full_logic_summary, receiving_addresses, is_active, block_daa_score, timestamp, network FROM covenants";
+    "SELECT tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, verified_payment_tx, verified_at, custom_ui_enabled, full_logic_summary, receiving_addresses, is_active, block_daa_score, timestamp, network, block_hash, reorged FROM covenants";
+
+/// Mainnet finality depth (DAA). Past this depth a chain block cannot be reorged, so the
+/// covenant is consensus-final. Same conservative bound applied on testnet (only makes the
+/// "confirming" window longer there, never shorter). Mirrors kaspa params finality_depth.
+pub const FINALITY_DEPTH_DAA: u64 = 86_400;
+/// Post-Crescendo blocks-per-second, for the "~N min to finality" ETA only.
+const BLOCKS_PER_SECOND: u64 = 10;
+
+/// Fill the derived confirmation/finality fields against the live node tip. Caches the tip
+/// per network so a large list does one node_status lookup per network, not one per row.
+/// Honest by construction: unknown tip -> "unknown"; no on-chain DAA -> "pending"; never
+/// claims "final" without real depth >= FINALITY_DEPTH_DAA.
+pub fn annotate_finality(covs: &mut [DbCovenant]) {
+    use std::collections::HashMap;
+    let mut tips: HashMap<String, Option<u64>> = HashMap::new();
+    for c in covs.iter_mut() {
+        let tip = *tips
+            .entry(c.network.clone())
+            .or_insert_with(|| crate::node_status::tip_daa(&c.network));
+        if c.block_daa_score == 0 {
+            // Inserted by a self-deploy path before the crawler confirmed it on-chain.
+            c.finality = "pending".to_string();
+            c.confirmations = None;
+            continue;
+        }
+        match tip {
+            None => {
+                c.finality = "unknown".to_string();
+                c.confirmations = None;
+            }
+            Some(t) => {
+                let conf = t.saturating_sub(c.block_daa_score);
+                c.confirmations = Some(conf);
+                if conf >= FINALITY_DEPTH_DAA {
+                    c.finality = "final".to_string();
+                    c.finality_eta_secs = None;
+                } else {
+                    c.finality = "confirming".to_string();
+                    c.finality_eta_secs =
+                        Some((FINALITY_DEPTH_DAA - conf) / BLOCKS_PER_SECOND.max(1));
+                }
+            }
+        }
+    }
+}
 
 pub fn get_all_covenants(
     db: &Db,
@@ -637,6 +805,7 @@ pub fn get_all_covenants(
             result.push(r?);
         }
     }
+    annotate_finality(&mut result);
     Ok(result)
 }
 
@@ -828,6 +997,7 @@ pub fn query_covenants_conn(
     for r in rows {
         result.push(r?);
     }
+    annotate_finality(&mut result);
     Ok((result, total))
 }
 
@@ -1110,7 +1280,11 @@ pub fn get_covenant_by_txid(
     let sql = format!("{} WHERE tx_id = ?1", COVENANT_SELECT);
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query_map(params![tx_id], |row| row_to_covenant(row))?;
-    Ok(rows.next().transpose()?)
+    let mut one: Option<DbCovenant> = rows.next().transpose()?;
+    if let Some(c) = one.as_mut() {
+        annotate_finality(std::slice::from_mut(c));
+    }
+    Ok(one)
 }
 
 pub fn get_covenants_by_creator(
@@ -1145,6 +1319,7 @@ pub fn get_covenants_by_creator(
             result.push(r?);
         }
     }
+    annotate_finality(&mut result);
     Ok(result)
 }
 

@@ -42,6 +42,15 @@ fn now() -> i64 {
     chrono::Utc::now().timestamp()
 }
 
+/// The last-known virtual DAA tip for a network, if the crawler has reported one.
+/// Used to compute live confirmation depth / finality for indexed covenants without
+/// storing a stale per-row value. Returns None when no node has reported yet (so
+/// callers can honestly say "unknown" rather than fabricate a confirmation count).
+pub fn tip_daa(network: &str) -> Option<u64> {
+    let m = reg().lock().unwrap();
+    m.get(network).map(|s| s.tip_daa).filter(|&d| d > 0)
+}
+
 /// A successful dag_info: the node is serving and we know the tip + scan point.
 pub fn report_ok(network: &str, tip_daa: u64, scanned_daa: u64) {
     let mut m = reg().lock().unwrap();

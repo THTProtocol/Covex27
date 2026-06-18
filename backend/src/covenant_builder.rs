@@ -116,6 +116,24 @@ pub enum RedeemKind {
         min_sequence: u64,
         refund: [u8; 32],
     },
+    /// Refundable oracle-enforced 2-of-2 (oracle + winner): the existing `OracleEnforced` 2-of-2
+    /// wrapped in an outer OP_IF, plus an OP_ELSE relative-timelock (CSV) refund branch so the
+    /// funder can reclaim if the oracle ever goes silent. Fixes the frozen-funds risk of the
+    /// non-refundable form (a mandatory oracle co-signature with no timeout). Additive: existing
+    /// `OracleEnforced` covenants are untouched.
+    OracleEnforcedRefundable { oracle: [u8; 32], winner: [u8; 32], min_sequence: u64, refund: [u8; 32] },
+    /// Refundable oracle-enforced 2-player escrow / game pot: the existing `OracleEscrow`
+    /// (`<oracle> CheckSigVerify IF <a> CheckSig ELSE <b> CheckSig ENDIF`) wrapped in an outer
+    /// OP_IF, plus an OP_ELSE relative-timelock (CSV) refund branch so the funder can reclaim if
+    /// the oracle ever goes silent. Fixes the frozen-funds risk of the non-refundable form.
+    /// Additive: existing `OracleEscrow` covenants are untouched.
+    OracleEscrowRefundable {
+        oracle: [u8; 32],
+        player_a: [u8; 32],
+        player_b: [u8; 32],
+        min_sequence: u64,
+        refund: [u8; 32],
+    },
 }
 
 impl RedeemKind {
@@ -145,6 +163,12 @@ impl RedeemKind {
             RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund } => {
                 redeem_binary_oracle_select(h_a, winner_a, h_b, winner_b, *min_sequence, refund)
             }
+            RedeemKind::OracleEnforcedRefundable { oracle, winner, min_sequence, refund } => {
+                redeem_oracle_enforced_refundable(oracle, winner, *min_sequence, refund)
+            }
+            RedeemKind::OracleEscrowRefundable { oracle, player_a, player_b, min_sequence, refund } => {
+                redeem_oracle_escrow_refundable(oracle, player_a, player_b, *min_sequence, refund)
+            }
         }
     }
 
@@ -170,6 +194,12 @@ impl RedeemKind {
             RedeemKind::BinaryOracleSelect { min_sequence, .. } => {
                 format!("binary_oracle_select:{min_sequence}")
             }
+            RedeemKind::OracleEnforcedRefundable { min_sequence, .. } => {
+                format!("oracle_enforced_refundable:{min_sequence}")
+            }
+            RedeemKind::OracleEscrowRefundable { min_sequence, .. } => {
+                format!("oracle_escrow_refundable:{min_sequence}")
+            }
         }
     }
 
@@ -191,6 +221,8 @@ impl RedeemKind {
             RedeemKind::RelativeTimelock { .. } => "p2sh_rcsv",
             RedeemKind::TimeDecay { .. } => "p2sh_timedecay",
             RedeemKind::BinaryOracleSelect { .. } => "p2sh_binary_oracle_select",
+            RedeemKind::OracleEnforcedRefundable { .. } => "oracle_enforced_refundable",
+            RedeemKind::OracleEscrowRefundable { .. } => "oracle_escrow_refundable",
         }
     }
 }
@@ -221,6 +253,14 @@ pub enum SpendKind {
     /// `binary_oracle_select:N` - two hashlock branches + a CSV refund. sig_op_count = 3
     /// (one CheckSig per branch); the refund branch needs the spend input's sequence >= N.
     BinaryOracleSelect { min_sequence: u64 },
+    /// `oracle_enforced_refundable:N` - the oracle_enforced 2-of-2 wrapped in OP_IF with a CSV
+    /// refund ELSE. sig_op_count = 3 (CheckMultiSig counts 2 for [oracle, winner], + 1 refund
+    /// CheckSig); the refund branch needs the spend input's sequence >= N.
+    OracleEnforcedRefundable { min_sequence: u64 },
+    /// `oracle_escrow_refundable:N` - the oracle_escrow logic wrapped in OP_IF with a CSV refund
+    /// ELSE. sig_op_count = 4 (oracle CheckSigVerify + player_a CheckSig + player_b CheckSig +
+    /// refund CheckSig); the refund branch needs the spend input's sequence >= N.
+    OracleEscrowRefundable { min_sequence: u64 },
 }
 
 impl SpendKind {
@@ -248,6 +288,12 @@ impl SpendKind {
             "binary_oracle_select" => {
                 Some(SpendKind::BinaryOracleSelect { min_sequence: param?.parse().ok()? })
             }
+            "oracle_enforced_refundable" => {
+                Some(SpendKind::OracleEnforcedRefundable { min_sequence: param?.parse().ok()? })
+            }
+            "oracle_escrow_refundable" => {
+                Some(SpendKind::OracleEscrowRefundable { min_sequence: param?.parse().ok()? })
+            }
             _ => None,
         }
     }
@@ -270,6 +316,10 @@ impl SpendKind {
             SpendKind::RelativeTimelock { .. } => 1,
             // IF CheckSig / ELSE IF CheckSig / ELSE CSV CheckSig = 3 static sig ops (one per branch).
             SpendKind::BinaryOracleSelect { .. } => 3,
+            // IF [2-of-2 multisig = 2 sig ops] ELSE [CSV refund CheckSig = 1] = 3 static sig ops.
+            SpendKind::OracleEnforcedRefundable { .. } => 3,
+            // IF [oracle CheckSigVerify + a CheckSig + b CheckSig = 3] ELSE [CSV refund CheckSig = 1] = 4.
+            SpendKind::OracleEscrowRefundable { .. } => 4,
             // Two multisigs (IF + ELSE), each counting one sig-op per listed pubkey.
             SpendKind::TimeDecay { n } => 2 * *n,
         }
@@ -514,6 +564,86 @@ pub fn redeem_oracle_escrow(
     b.add_op(OpCheckSig).map_err(|e| format!("escrow b OpCheckSig: {e}"))?;
     b.add_op(OpEndIf).map_err(|e| format!("escrow OpEndIf: {e}"))?;
     Ok(b.drain())
+}
+
+/// Redeem script for a REFUNDABLE oracle-enforced 2-player escrow / game pot. This is the
+/// frozen-funds-safe form of redeem_oracle_escrow: the existing oracle-cosigned 2-of-2 logic
+/// is wrapped verbatim in an outer OP_IF, and an OP_ELSE relative-timelock (CSV) branch lets
+/// the funder reclaim if the oracle ever goes silent (offline, lost key, refuses):
+///   `OP_IF <oracle> OpCheckSigVerify OP_IF <player_a> OpCheckSig OP_ELSE <player_b> OpCheckSig OP_ENDIF
+///    OP_ELSE <min_sequence> OpCheckSequenceVerify <refund> OpCheckSig OP_ENDIF`.
+/// The outer IF (true) branch is byte-for-byte the existing oracle escrow: the chain requires
+/// the disclosed oracle's signature AND the winning player's signature on their own sub-branch.
+/// The outer ELSE branch returns the pot to the refund key once the UTXO has aged
+/// `min_sequence` units (BIP68, node-enforced). Like CLTV/CSV elsewhere in this file,
+/// OpCheckSequenceVerify pops its operand, so there is NO OpDrop. The refund branch is signed
+/// entirely by the funder in their own wallet - no Covex/oracle key is in the refund path.
+pub fn redeem_oracle_escrow_refundable(
+    oracle: &[u8; 32],
+    player_a: &[u8; 32],
+    player_b: &[u8; 32],
+    min_sequence: u64,
+    refund: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    let mut b = ScriptBuilder::new();
+    // Outer IF (true) = the existing oracle-cosigned 2-of-2, identical to redeem_oracle_escrow.
+    b.add_op(OpIf).map_err(|e| format!("escrow_refundable OpIf(outer): {e}"))?;
+    b.add_data(oracle).map_err(|e| format!("escrow_refundable oracle: {e}"))?;
+    b.add_op(OpCheckSigVerify).map_err(|e| format!("escrow_refundable OpCheckSigVerify: {e}"))?;
+    b.add_op(OpIf).map_err(|e| format!("escrow_refundable OpIf(inner): {e}"))?;
+    b.add_data(player_a).map_err(|e| format!("escrow_refundable player_a: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("escrow_refundable a OpCheckSig: {e}"))?;
+    b.add_op(OpElse).map_err(|e| format!("escrow_refundable OpElse(inner): {e}"))?;
+    b.add_data(player_b).map_err(|e| format!("escrow_refundable player_b: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("escrow_refundable b OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("escrow_refundable OpEndIf(inner): {e}"))?;
+    // Outer ELSE = relative-timelock refund to the funder.
+    b.add_op(OpElse).map_err(|e| format!("escrow_refundable OpElse(outer): {e}"))?;
+    b.add_lock_time(min_sequence).map_err(|e| format!("escrow_refundable add seq: {e}"))?;
+    b.add_op(OpCheckSequenceVerify).map_err(|e| format!("escrow_refundable CSV: {e}"))?;
+    b.add_data(refund).map_err(|e| format!("escrow_refundable refund: {e}"))?;
+    b.add_op(OpCheckSig).map_err(|e| format!("escrow_refundable refund OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf).map_err(|e| format!("escrow_refundable OpEndIf(outer): {e}"))?;
+    Ok(b.drain())
+}
+
+/// Redeem script for a REFUNDABLE oracle-enforced payout - the frozen-funds-safe form of
+/// the `oracle_enforced` 2-of-2 (oracle + winner). The existing oracle-cosigned 2-of-2 multisig
+/// is wrapped verbatim in an outer OP_IF, and an OP_ELSE relative-timelock (CSV) branch lets the
+/// funder reclaim if the oracle goes silent:
+///   `OP_IF <2-of-2 multisig [oracle, winner]> OP_ELSE <min_sequence> OpCheckSequenceVerify
+///    <refund> OpCheckSig OP_ENDIF`.
+/// The outer IF (true) branch is byte-for-byte the existing oracle_enforced redeem (a real
+/// kaspa-txscript 2-of-2, spliced in as bytes exactly like redeem_timedecay_multisig does), so
+/// already-deployed oracle_enforced covenants are untouched. The outer ELSE returns the funds to
+/// the refund key once the UTXO has aged `min_sequence` units (BIP68). OpCheckSequenceVerify pops
+/// its operand, so NO OpDrop. The refund path is signed entirely by the funder in their own wallet.
+pub fn redeem_oracle_enforced_refundable(
+    oracle: &[u8; 32],
+    winner: &[u8; 32],
+    min_sequence: u64,
+    refund: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    // The IF branch is the EXACT bytes of the existing oracle_enforced 2-of-2 multisig.
+    let ms = redeem_multisig(&[*oracle, *winner], 2)?;
+    // Encode the CSV operand exactly as the other CSV builders do (a sub-builder), then splice
+    // everything into the IF/ELSE around the multisig sub-script.
+    let mut sb = ScriptBuilder::new();
+    sb.add_lock_time(min_sequence).map_err(|e| format!("enforced_refundable add seq: {e}"))?;
+    let seq_bytes = sb.drain();
+    let mut r: Vec<u8> = Vec::new();
+    r.push(OpIf);
+    r.extend_from_slice(&ms);
+    r.push(OpElse);
+    r.extend_from_slice(&seq_bytes);
+    r.push(OpCheckSequenceVerify);
+    // refund key push (0x20 <32 bytes>) + OpCheckSig.
+    let mut rb = ScriptBuilder::new();
+    rb.add_data(refund).map_err(|e| format!("enforced_refundable refund: {e}"))?;
+    r.extend_from_slice(&rb.drain());
+    r.push(OpCheckSig);
+    r.push(OpEndIf);
+    Ok(r)
 }
 
 /// Build the input `idx` signature_script that releases an oracle escrow to the winner.
@@ -963,6 +1093,64 @@ fn assemble_noncustodial_satisfier(
             satisfier.extend(push65(&wsig));
             satisfier.push(if winner_is_a { OpTrue } else { OpFalse });
             satisfier.extend(push65(osig));
+        }
+        // ── Refundable oracle kinds. Outer OP_IF (true) = the existing oracle-cosigned claim
+        // path (byte-identical layout to the non-refundable kinds, then OP_TRUE selects the outer
+        // IF). Outer OP_ELSE (branch_refund=true) = a CSV refund signed ENTIRELY by the funder in
+        // their own wallet (no oracle, no Covex key): refund sig then OP_FALSE selects the ELSE,
+        // and the spend input's sequence must be >= the redeem's min_sequence (BIP68). ──
+        "oracle_enforced_refundable" => {
+            if branch_refund {
+                // Outer ELSE: <refund_sig> OP_FALSE. members[2] is the refund key (after the
+                // 2-of-2 multisig's [oracle, winner]); accept solo for the funder's wallet sig.
+                let rsig = members.get(2).and_then(|p| sig_for(p)).or_else(|| solo.copied()).ok_or_else(|| {
+                    "oracle_enforced_refundable refund needs the funder/refund key signature".to_string()
+                })?;
+                satisfier.extend(push65(&rsig));
+                satisfier.push(OpFalse);
+            } else {
+                // Outer IF: the existing oracle_enforced 2-of-2 [oracle, winner], then OP_TRUE.
+                // OpCheckMultiSig pops sigs in pubkey (script) order: oracle first, then winner.
+                let osig = oracle_sig.ok_or_else(|| {
+                    "oracle_enforced_refundable payout needs the server oracle signature".to_string()
+                })?;
+                satisfier.extend(push65(osig));
+                let winner_pk = members.get(1).ok_or_else(|| {
+                    "oracle_enforced_refundable redeem missing the winner pubkey".to_string()
+                })?;
+                let wsig = sig_for(winner_pk).or_else(|| solo.copied()).ok_or_else(|| {
+                    "oracle_enforced_refundable payout needs the winner's browser signature".to_string()
+                })?;
+                satisfier.extend(push65(&wsig));
+                satisfier.push(OpTrue);
+            }
+        }
+        "oracle_escrow_refundable" => {
+            if branch_refund {
+                // Outer ELSE: <refund_sig> OP_FALSE. members (checksig_only) =
+                // [oracle, player_a, player_b, refund]; members[3] is the refund key. Accept solo.
+                let rsig = members.get(3).and_then(|p| sig_for(p)).or_else(|| solo.copied()).ok_or_else(|| {
+                    "oracle_escrow_refundable refund needs the funder/refund key signature".to_string()
+                })?;
+                satisfier.extend(push65(&rsig));
+                satisfier.push(OpFalse);
+            } else {
+                // Outer IF: the existing oracle_escrow layout, then OP_TRUE for the outer IF.
+                // bottom->top = <winner_sig> <inner_branch_selector> <oracle_sig> <OP_TRUE>.
+                let osig = oracle_sig.ok_or_else(|| {
+                    "oracle_escrow_refundable payout needs the server oracle signature".to_string()
+                })?;
+                let winner_pk = members.get(if winner_is_a { 1 } else { 2 }).ok_or_else(|| {
+                    "oracle_escrow_refundable redeem missing the winning player's pubkey".to_string()
+                })?;
+                let wsig = sig_for(winner_pk).or_else(|| solo.copied()).ok_or_else(|| {
+                    "oracle_escrow_refundable payout needs the winning player's browser signature".to_string()
+                })?;
+                satisfier.extend(push65(&wsig));
+                satisfier.push(if winner_is_a { OpTrue } else { OpFalse });
+                satisfier.extend(push65(osig));
+                satisfier.push(OpTrue);
+            }
         }
         other => return Err(format!("non-custodial assembly does not support '{other}'")),
     }
@@ -5143,6 +5331,225 @@ mod tests {
                 assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
             }),
             "the loser cannot take the winner's branch even with the oracle co-signature"
+        );
+    }
+
+    /// Wiring + sig_op_count for the two refundable oracle kinds: redeem_script() must be
+    /// byte-identical to the free builders, kind_str()/SpendKind::parse() must round-trip, and
+    /// the static sig_op_count must match what the node counts (every CheckSig/CheckSigVerify,
+    /// + the multisig's per-pubkey count).
+    #[test]
+    fn refundable_oracle_kinds_wiring() {
+        let o = [11u8; 32];
+        let w = [22u8; 32];
+        let a = [33u8; 32];
+        let b = [44u8; 32];
+        let rf = [55u8; 32];
+
+        // oracle_enforced_refundable: byte-identical, round-trips, 3 sig ops (2 multisig + 1 refund).
+        let ker = RedeemKind::OracleEnforcedRefundable { oracle: o, winner: w, min_sequence: 144, refund: rf };
+        assert_eq!(ker.redeem_script().unwrap(), redeem_oracle_enforced_refundable(&o, &w, 144, &rf).unwrap());
+        assert_eq!(ker.kind_str(), "oracle_enforced_refundable:144");
+        assert_eq!(ker.catalog_id(), "oracle_enforced_refundable");
+        assert_eq!(
+            SpendKind::parse("oracle_enforced_refundable:144"),
+            Some(SpendKind::OracleEnforcedRefundable { min_sequence: 144 })
+        );
+        assert_eq!(SpendKind::parse("oracle_enforced_refundable:144").unwrap().sig_op_count(), 3);
+
+        // oracle_escrow_refundable: byte-identical, round-trips, 4 sig ops (CSV(oracle) + a + b + refund).
+        let kes = RedeemKind::OracleEscrowRefundable { oracle: o, player_a: a, player_b: b, min_sequence: 200, refund: rf };
+        assert_eq!(kes.redeem_script().unwrap(), redeem_oracle_escrow_refundable(&o, &a, &b, 200, &rf).unwrap());
+        assert_eq!(kes.kind_str(), "oracle_escrow_refundable:200");
+        assert_eq!(kes.catalog_id(), "oracle_escrow_refundable");
+        assert_eq!(
+            SpendKind::parse("oracle_escrow_refundable:200"),
+            Some(SpendKind::OracleEscrowRefundable { min_sequence: 200 })
+        );
+        assert_eq!(SpendKind::parse("oracle_escrow_refundable:200").unwrap().sig_op_count(), 4);
+
+        // The refundable IF-branch is the existing redeem spliced in verbatim: the
+        // oracle_enforced_refundable IF body equals the oracle_enforced 2-of-2 multisig bytes, so
+        // already-deployed covenants are provably untouched.
+        let ms = redeem_multisig(&[o, w], 2).unwrap();
+        let er = redeem_oracle_enforced_refundable(&o, &w, 144, &rf).unwrap();
+        assert_eq!(&er[1..1 + ms.len()], &ms[..], "enforced_refundable IF branch must be the exact oracle_enforced 2-of-2 bytes");
+    }
+
+    /// The frozen-funds fix, proven against the REAL kaspa-txscript interpreter. The refundable
+    /// oracle-escrow wraps the existing `<oracle> CheckSigVerify IF <a> CheckSig ELSE <b> CheckSig
+    /// ENDIF` in an outer OP_IF and adds an OP_ELSE CSV refund. Proves (a) oracle+A claims the IF
+    /// branch, (b) oracle+B claims, (c) the refund key with sequence >= min_sequence reclaims via
+    /// the ELSE, (d) the refund FAILS below min_sequence (no early pull), and (e) no non-member key
+    /// can take any branch and the oracle alone cannot claim.
+    #[test]
+    fn noncustodial_oracle_escrow_refundable_claim_and_csv_refund() {
+        let oracle = test_keypair(91);
+        let player_a = test_keypair(92);
+        let player_b = test_keypair(93);
+        let refund = test_keypair(94);
+        let outsider = test_keypair(95);
+        let xo = oracle.x_only_public_key().0.serialize();
+        let xa = player_a.x_only_public_key().0.serialize();
+        let xb = player_b.x_only_public_key().0.serialize();
+        let xr = refund.x_only_public_key().0.serialize();
+        let min_seq: u64 = 144;
+        let redeem = redeem_oracle_escrow_refundable(&xo, &xa, &xb, min_seq, &xr).unwrap();
+        // checksig_only parse keeps the four pubkeys each directly followed by a checksig(verify).
+        let members = parse_redeem_pubkeys(&redeem, true);
+        assert_eq!(members, vec![xo, xa, xb, xr], "parse must yield [oracle, player_a, player_b, refund]");
+
+        // (a) oracle + player A satisfy the IF branch (winner A claims), lock_time/sequence irrelevant.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xa), ext_solo(s, &player_a));
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(a) oracle + A must claim the IF branch"
+        );
+        // (b) oracle + player B satisfy the inner ELSE (winner B claims).
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xb), ext_solo(s, &player_b));
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), false).unwrap()
+            }),
+            "(b) oracle + B must claim"
+        );
+        // (c) refund key with input.sequence >= min_seq satisfies the outer ELSE (CSV refund).
+        assert!(
+            run_spend_generic(&redeem, 0, min_seq, |s| {
+                let rsig = ext_solo(s, &refund);
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+            }),
+            "(c) the funder must reclaim once the UTXO has aged min_sequence"
+        );
+        // (d) refund BELOW min_seq fails - funds cannot be pulled before the CSV matures (BIP68).
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
+                let rsig = ext_solo(s, &refund);
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+            }),
+            "(d) the refund must be rejected before the relative timelock matures"
+        );
+        // (e1) a non-member key cannot take the refund branch even at maturity (final OpCheckSig).
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq, |s| {
+                let osig = ext_solo(s, &outsider);
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", true, &redeem, &members, &empty_sigs(), Some(&osig), None, None, true).unwrap()
+            }),
+            "(e) a non-refund key cannot take the refund branch (no theft)"
+        );
+        // (e2) the oracle alone (no winning player sig, taking A's branch) cannot claim: the inner
+        // OpCheckSig for player A fails because the oracle co-sign is supplied as the winner sig.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xa), ext_solo(s, &oracle)); // oracle masquerading as winner A
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(e) the oracle alone cannot claim a player's branch"
+        );
+        // (e3) the loser cannot take the winner's branch even with the oracle co-sign (anti-redirect).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xa), ext_solo(s, &player_b)); // B signing A's branch
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(e) the loser cannot take the winner's branch even with the oracle co-sign"
+        );
+        // (e4) the claim branch with a forged (non-oracle) co-sign fails at the leading CheckSigVerify.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &outsider); // not the oracle
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xa), ext_solo(s, &player_a));
+                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(e) without the real oracle co-sign the IF branch is unspendable"
+        );
+    }
+
+    /// The frozen-funds fix for the oracle-enforced 2-of-2 (oracle + winner), proven against the
+    /// REAL interpreter. The IF branch is the existing 2-of-2 multisig; the ELSE is a CSV refund.
+    /// Proves (a)/(b) the oracle + winner co-sign claims the IF branch (and the LOSER/forged
+    /// winner cannot), (c) the refund key matured reclaims the ELSE, (d) it FAILS before maturity,
+    /// and (e) a non-member cannot take any branch and the oracle alone cannot claim.
+    #[test]
+    fn noncustodial_oracle_enforced_refundable_claim_and_csv_refund() {
+        let oracle = test_keypair(81);
+        let winner = test_keypair(82);
+        let refund = test_keypair(84);
+        let outsider = test_keypair(85);
+        let xo = oracle.x_only_public_key().0.serialize();
+        let xw = winner.x_only_public_key().0.serialize();
+        let xr = refund.x_only_public_key().0.serialize();
+        let min_seq: u64 = 100;
+        let redeem = redeem_oracle_enforced_refundable(&xo, &xw, min_seq, &xr).unwrap();
+        // The IF body is a 2-of-2 multisig (pubkeys NOT followed by checksig), the refund key IS;
+        // checksig_only=false keeps every 0x20<32> push: [oracle, winner, refund].
+        let members = parse_redeem_pubkeys(&redeem, false);
+        assert_eq!(members, vec![xo, xw, xr], "parse must yield [oracle, winner, refund]");
+
+        // (a) oracle (server) + winner (browser) satisfy the IF branch 2-of-2.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xw), ext_solo(s, &winner));
+                assemble_noncustodial_satisfier("oracle_enforced_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(a) oracle + winner must claim the IF branch 2-of-2"
+        );
+        // (b) a forged winner signature (non-winner) fails: the chain binds the winner key.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xw), ext_solo(s, &outsider));
+                assemble_noncustodial_satisfier("oracle_enforced_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(b) a forged winner signature must not satisfy the IF branch"
+        );
+        // (c) refund key with input.sequence >= min_seq satisfies the outer ELSE (CSV refund).
+        assert!(
+            run_spend_generic(&redeem, 0, min_seq, |s| {
+                let rsig = ext_solo(s, &refund);
+                assemble_noncustodial_satisfier("oracle_enforced_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+            }),
+            "(c) the funder must reclaim once the UTXO has aged min_sequence"
+        );
+        // (d) refund BELOW min_seq fails - the CSV has not matured.
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
+                let rsig = ext_solo(s, &refund);
+                assemble_noncustodial_satisfier("oracle_enforced_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+            }),
+            "(d) the refund must be rejected before the relative timelock matures"
+        );
+        // (e1) a non-member key cannot take the refund branch even at maturity.
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq, |s| {
+                let osig = ext_solo(s, &outsider);
+                assemble_noncustodial_satisfier("oracle_enforced_refundable", true, &redeem, &members, &empty_sigs(), Some(&osig), None, None, true).unwrap()
+            }),
+            "(e) a non-refund key cannot take the refund branch (no theft)"
+        );
+        // (e2) the oracle alone (no winner) cannot claim the IF branch 2-of-2: a single sig fails.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let osig = ext_solo(s, &oracle);
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(xw), ext_solo(s, &oracle)); // oracle masquerading as the winner
+                assemble_noncustodial_satisfier("oracle_enforced_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+            }),
+            "(e) the oracle alone cannot satisfy the 2-of-2 claim"
         );
     }
 

@@ -216,6 +216,24 @@ pub const CATALOG: &[CatalogEntry] = &[
         summary: "A 2-player pot the chain releases only to the oracle-declared winner: requires the oracle co-signature AND the winning player's signature on their branch.",
     },
     CatalogEntry {
+        id: "oracle_enforced_refundable",
+        label: "Oracle-enforced + timeout refund (on-chain co-sign)",
+        category: "Verifiable Games (ZK/Oracle)",
+        reality: EnforcementReality::Hybrid,
+        builder: "covenant_builder",
+        params: &["stake_kas", "circuit_type", "lock_daa", "refund_pubkey_hex"],
+        summary: "Like oracle_enforced (a 2-of-2 of [oracle, winner] the chain co-signs), but wrapped with a relative-timelock (CSV) refund branch so the funder reclaims the stake if the oracle ever goes silent. Closes the frozen-funds risk of a mandatory oracle co-signature with no timeout.",
+    },
+    CatalogEntry {
+        id: "oracle_escrow_refundable",
+        label: "Oracle escrow + timeout refund (2-player pot)",
+        category: "Verifiable Games (ZK/Oracle)",
+        reality: EnforcementReality::Hybrid,
+        builder: "covenant_builder",
+        params: &["stake_kas", "circuit_type", "player_a_pubkey", "player_b_pubkey", "lock_daa", "refund_pubkey_hex"],
+        summary: "Like oracle_escrow (a 2-player pot the chain releases only to the oracle-declared winner), but wrapped with a relative-timelock (CSV) refund branch so the funder reclaims the pot if the oracle ever goes silent. Closes the frozen-funds risk of the non-refundable form.",
+    },
+    CatalogEntry {
         id: "oracle_game",
         label: "Oracle-resolved game / market (off-chain)",
         category: "Verifiable Games (ZK/Oracle)",
@@ -380,6 +398,8 @@ mod tests {
             RedeemKind::RelativeTimelock { min_sequence: 1, xonly_pubkey: a },
             RedeemKind::TimeDecay { pubkeys: vec![a, a], req_now: 2, req_after: 1, lock_daa: 1 },
             RedeemKind::BinaryOracleSelect { h_a: a, winner_a: a, h_b: a, winner_b: a, min_sequence: 1, refund: a },
+            RedeemKind::OracleEnforcedRefundable { oracle: a, winner: a, min_sequence: 1, refund: a },
+            RedeemKind::OracleEscrowRefundable { oracle: a, player_a: a, player_b: a, min_sequence: 1, refund: a },
         ];
         let ids: Vec<&str> = CATALOG.iter().map(|e| e.id).collect();
         for k in &kinds {

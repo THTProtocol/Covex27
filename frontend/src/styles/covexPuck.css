@@ -1,0 +1,172 @@
+/**
+ * covexPuck.css - theme-aware surfaces for the covenant page builder.
+ *
+ * The Puck <Render> output inherits .light / .dark from <html>, but block render
+ * functions run once and cannot branch on the theme in JS. So every structural
+ * surface (panel bg, border, muted text, divider) is a `.cvx-*` class here with a
+ * matching `.light .cvx-*` override, giving full dark + light parity without any
+ * per-render theme logic. Creator-chosen accent HEX values stay inline (the creator
+ * picked them); only the platform chrome adapts. Mobile-safe at 375px.
+ *
+ * Neon brand mapping mirrors index.css: teal #49EACB -> #0d9488, gold #E8AF34 ->
+ * #b45309, neutral text lightens/darkens, near-black panels -> off-white.
+ */
+
+/* ---- Surfaces ---- */
+.cvx-panel {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+.light .cvx-panel {
+  border-color: rgba(13, 148, 136, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px) saturate(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(1.06);
+}
+.cvx-panel-soft { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.light .cvx-panel-soft { background: rgba(255, 255, 255, 0.78); border-color: rgba(13, 148, 136, 0.12); }
+
+/* ---- Text roles ---- */
+.cvx-title { color: #ffffff; }
+.light .cvx-title { color: #0f172a; }
+.cvx-body { color: #d1d5db; }
+.light .cvx-body { color: #334155; }
+.cvx-muted { color: #9ca3af; }
+.light .cvx-muted { color: #64748b; }
+.cvx-faint { color: #6b7280; }
+.light .cvx-faint { color: #94a3b8; }
+.cvx-divider { border-color: rgba(255, 255, 255, 0.08); }
+.light .cvx-divider { border-color: #e2e8f0; }
+
+/* ---- Brand accent text that flips on light (teal / gold) ---- */
+.cvx-accent-teal { color: #49EACB; }
+.light .cvx-accent-teal { color: #0d9488; }
+.cvx-accent-gold { color: #E8AF34; }
+.light .cvx-accent-gold { color: #b45309; }
+
+/* ---- Icon chip (replaces the emoji tile) ---- */
+.cvx-icon-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 3rem; height: 3rem; border-radius: 0.85rem;
+  background: rgba(73, 234, 203, 0.1); color: #49EACB;
+}
+.light .cvx-icon-chip { background: rgba(13, 148, 136, 0.1); color: #0d9488; }
+
+/* ---- Hero (image) overlay text stays light over the dark photo overlay in BOTH
+        themes, since the overlay itself is dark; only the no-image fallback flips. */
+.cvx-hero-fallback { background: radial-gradient(120% 130% at 50% 0%, var(--cvx-hero-accent, #49EACB28) 0%, rgba(5,5,10,0.86) 55%), #0a0a0f; }
+.light .cvx-hero-fallback { background: radial-gradient(120% 130% at 50% 0%, var(--cvx-hero-accent-l, rgba(13,148,136,0.16)) 0%, #ffffff 62%), #f8fafc; }
+.light .cvx-hero-fallback .cvx-hero-sub { color: #334155; }
+
+/* ---- CTA banner gradient surfaces (flip to light tints) ---- */
+.cvx-cta-kaspa { background: linear-gradient(135deg, rgba(73,234,203,0.28) 0%, rgba(73,234,203,0.06) 100%), #0a0a0f; }
+.cvx-cta-gold { background: linear-gradient(135deg, rgba(232,175,52,0.24) 0%, rgba(232,175,52,0.05) 100%), #0a0a0f; }
+.cvx-cta-purple { background: linear-gradient(135deg, rgba(168,85,247,0.22) 0%, rgba(73,234,203,0.08) 100%), #0a0a0f; }
+.cvx-cta-blue { background: linear-gradient(135deg, rgba(59,130,246,0.20) 0%, rgba(73,234,203,0.07) 100%), #0a0a0f; }
+.light .cvx-cta-kaspa { background: linear-gradient(135deg, rgba(13,148,136,0.16) 0%, rgba(13,148,136,0.04) 100%), #f0fdfa; }
+.light .cvx-cta-gold { background: linear-gradient(135deg, rgba(180,83,9,0.14) 0%, rgba(180,83,9,0.03) 100%), #fffbeb; }
+.light .cvx-cta-purple { background: linear-gradient(135deg, rgba(126,34,206,0.14) 0%, rgba(13,148,136,0.05) 100%), #faf5ff; }
+.light .cvx-cta-blue { background: linear-gradient(135deg, rgba(37,99,235,0.13) 0%, rgba(13,148,136,0.04) 100%), #eff6ff; }
+.cvx-cta-title { color: #ffffff; }
+.light .cvx-cta-title { color: #0f172a; }
+
+/* ---- Big-stat surface ---- */
+.cvx-stat-surface { border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01)); }
+.light .cvx-stat-surface { border-color: rgba(13,148,136,0.12); background: linear-gradient(135deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65)); }
+
+/* ---- Fee notice (amber) ---- */
+.cvx-fee { border: 1px solid rgba(245,158,11,0.25); background: rgba(245,158,11,0.06); }
+.light .cvx-fee { border-color: rgba(180,83,9,0.25); background: rgba(245,158,11,0.08); }
+.cvx-fee-label { color: #fcd34d; }
+.light .cvx-fee-label { color: #b45309; }
+.cvx-fee-body { color: rgba(254,243,199,0.8); }
+.light .cvx-fee-body { color: #92400e; }
+
+/* ---- Bars / meters track ---- */
+.cvx-track { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
+.light .cvx-track { background: rgba(15,23,42,0.06); border-color: rgba(15,23,42,0.1); }
+
+/* ---- Timeline / roadmap ---- */
+.cvx-timeline-rail { background: rgba(255,255,255,0.1); }
+.light .cvx-timeline-rail { background: #e2e8f0; }
+
+/* ---- Tabs / accordion ---- */
+.cvx-tab { color: #9ca3af; border-bottom: 2px solid transparent; }
+.cvx-tab[data-active="true"] { color: #ffffff; }
+.light .cvx-tab { color: #64748b; }
+.light .cvx-tab[data-active="true"] { color: #0f172a; }
+
+/* ---- Footer ---- */
+.cvx-footer { border-top: 1px solid rgba(255,255,255,0.08); color: #9ca3af; }
+.light .cvx-footer { border-top-color: #e2e8f0; color: #64748b; }
+
+/* ---- Social row chips ---- */
+.cvx-social { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #d1d5db; }
+.cvx-social:hover { border-color: rgba(73,234,203,0.4); color: #49EACB; }
+.light .cvx-social { border-color: #e2e8f0; background: #f8fafc; color: #334155; }
+.light .cvx-social:hover { border-color: rgba(13,148,136,0.4); color: #0d9488; }
+
+/* ---- RichText prose ---- */
+.cvx-prose { color: #d1d5db; line-height: 1.7; }
+.light .cvx-prose { color: #334155; }
+.cvx-prose strong { color: #ffffff; }
+.light .cvx-prose strong { color: #0f172a; }
+.cvx-prose a { color: #49EACB; text-decoration: underline; text-underline-offset: 2px; }
+.light .cvx-prose a { color: #0d9488; }
+.cvx-prose code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 5px; font-family: var(--font-mono, monospace); font-size: 0.85em; }
+.light .cvx-prose code { background: #f1f5f9; }
+.cvx-prose ul, .cvx-prose ol { padding-left: 1.25rem; margin: 0.5rem 0; }
+.cvx-prose li { margin: 0.2rem 0; list-style: disc; }
+.cvx-prose ol li { list-style: decimal; }
+.cvx-prose p { margin: 0.5rem 0; }
+
+/* ---- Placeholder (empty image slots) ---- */
+.cvx-placeholder { border: 1px dashed rgba(255,255,255,0.15); color: #6b7280; }
+.light .cvx-placeholder { border-color: #cbd5e1; color: #94a3b8; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Custom Puck fields (ColorField + IconPicker) + studio chrome
+   ═══════════════════════════════════════════════════════════════ */
+.cvx-field { display: flex; flex-direction: column; gap: 6px; }
+.cvx-field-label { font-size: 12px; font-weight: 600; color: var(--puck-color-grey-04, #6b7280); }
+.cvx-color-row { display: flex; align-items: center; gap: 8px; }
+.cvx-color-swatch-btn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+.cvx-color-input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--puck-color-grey-09, #e2e8f0); background: var(--puck-color-white, #fff); color: var(--puck-color-grey-02, #1e293b); font-family: var(--font-mono, monospace); font-size: 13px; }
+.cvx-color-pop { margin-top: 8px; padding: 10px; border-radius: 12px; border: 1px solid var(--puck-color-grey-09, #e2e8f0); background: var(--puck-color-white, #fff); }
+.cvx-color-pop .react-colorful { width: 100%; height: 150px; }
+.cvx-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cvx-swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.12); cursor: pointer; }
+
+.cvx-icon-current { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--puck-color-grey-09, #e2e8f0); background: var(--puck-color-white, #fff); color: var(--puck-color-grey-02, #1e293b); cursor: pointer; width: 100%; }
+.cvx-icon-name { font-size: 13px; color: var(--puck-color-grey-04, #6b7280); }
+.cvx-icon-none { color: var(--puck-color-grey-06, #94a3b8); font-size: 12px; }
+.cvx-icon-pop { margin-top: 8px; padding: 10px; border-radius: 12px; border: 1px solid var(--puck-color-grey-09, #e2e8f0); background: var(--puck-color-white, #fff); }
+.cvx-icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 8px; max-height: 220px; overflow-y: auto; }
+.cvx-icon-cell { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; border-radius: 8px; border: 1px solid transparent; background: var(--puck-color-grey-11, #f1f5f9); color: var(--puck-color-grey-03, #334155); cursor: pointer; }
+.cvx-icon-cell:hover { border-color: #49EACB; background: rgba(73,234,203,0.1); color: #0d9488; }
+
+@media (max-width: 640px) {
+  .cvx-icon-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ---- Sidebar block search (wraps Puck's component list) ---- */
+.cvx-block-search-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 10px; padding: 0 10px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--puck-color-grey-09, #e2e8f0);
+  background: var(--puck-color-white, #fff);
+  color: var(--puck-color-grey-05, #64748b);
+}
+.cvx-block-search-bar input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  color: var(--puck-color-grey-02, #1e293b); font-size: 13px;
+}
+.cvx-block-search-bar input::placeholder { color: var(--puck-color-grey-06, #94a3b8); }
+.cvx-block-search-bar button { display: inline-flex; color: var(--puck-color-grey-06, #94a3b8); cursor: pointer; }
+.cvx-block-search-bar button:hover { color: var(--puck-color-grey-03, #334155); }
+
+/* The token cheat-sheet summary marker is hidden (we use our own chrome). */
+.cvx-cheatsheet summary::-webkit-details-marker { display: none; }

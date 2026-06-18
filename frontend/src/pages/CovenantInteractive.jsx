@@ -487,6 +487,10 @@ export default function CovenantInteractive() {
       oracle_pubkey: oraclePubkey || '',
       commitment_a: covenant.h_a || '',
       commitment_b: covenant.h_b || '',
+      // Server-derived enforcement reality, surfaced to the EnforcementBadge block as
+      // a STATIC honesty label only (never a fund flow). Passed through verbatim so the
+      // block never overclaims (on-chain / oracle / full-zk / metadata).
+      enforcement_reality: covenant.enforcement_reality || '',
     };
   }, [covenant, actions, oraclePubkey]);
 

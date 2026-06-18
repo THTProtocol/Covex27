@@ -1,4 +1,43 @@
+import { useId } from 'react';
 import { QrCode } from 'lucide-react';
+
+/**
+ * Strictly sanitize + SCOPE a creator's custom CSS before it is ever injected.
+ * Previously config.customCSS was written verbatim into a <style> in the PARENT
+ * document via dangerouslySetInnerHTML - a CSS-injection / data-exfiltration
+ * surface (a creator could style :root, @import a remote sheet, set
+ * background:url(...) beacons, or break out with </style>). Now we:
+ *   - reject the whole sheet if it contains @import, expression(), behavior:,
+ *     -moz-binding, javascript:, </style, or non-https/non-data url() values;
+ *   - prefix EVERY top-level selector with the unique #scopeId of THIS preview,
+ *     so nothing can reach outside the card (no global :root / html / body / *).
+ * The result only ever styles this component's own subtree.
+ */
+function sanitizeAndScopeCss(css, scopeSel) {
+  if (typeof css !== 'string' || !css.trim()) return '';
+  // Hard reject the entire sheet on any dangerous construct.
+  if (/@import|expression\s*\(|behavior\s*:|-moz-binding|javascript:|<\/?\s*style|<!--|-->/i.test(css)) return '';
+  // url() may only reference https: or data: (no http:, no relative beacons).
+  const urls = css.match(/url\(\s*([^)]*)\)/gi) || [];
+  for (const u of urls) {
+    const inner = u.replace(/url\(\s*|\s*\)/gi, '').replace(/^['"]|['"]$/g, '').trim();
+    if (!/^(https:|data:)/i.test(inner)) return '';
+  }
+  // Scope each rule's selector(s) under scopeSel. We only keep simple `selector {decls}`
+  // rules; @media/@supports blocks and @keyframes are dropped (rare in a card preview,
+  // and they complicate safe scoping). Selectors are prefixed so they cannot escape.
+  let out = '';
+  const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = ruleRe.exec(css)) !== null) {
+    const sel = m[1].trim();
+    const decls = m[2].trim();
+    if (!sel || sel.startsWith('@')) continue; // drop at-rules
+    const scoped = sel.split(',').map((s) => `${scopeSel} ${s.trim()}`).join(', ');
+    out += `${scoped}{${decls}}\n`;
+  }
+  return out;
+}
 
 /**
  * Shared CovenantPreview, renders covenant data with custom_ui_config styling.
@@ -7,6 +46,10 @@ import { QrCode } from 'lucide-react';
  */
 export default function CovenantPreview({ config, covenant, children, className = '' }) {
   if (!config) config = {};
+  const rawScopeId = useId();
+  // useId returns ":r0:"-style ids; make a CSS-safe class token.
+  const scopeClass = `cvx-pv-${String(rawScopeId).replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const scopedCss = config.customCSS ? sanitizeAndScopeCss(config.customCSS, `.${scopeClass}`) : '';
 
   const pc = config.primaryColor || '#49EACB';
   const bg = config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' :
@@ -37,7 +80,7 @@ export default function CovenantPreview({ config, covenant, children, className 
 
   return (
     <div
-      className={`rounded-xl overflow-hidden transition-all ${anim} ${className}`}
+      className={`${scopeClass} rounded-xl overflow-hidden transition-all ${anim} ${className}`}
       style={{
         background: bg,
         border: borderW === '0px' ? 'none' : `${borderW} solid ${borderColor}`,
@@ -47,8 +90,10 @@ export default function CovenantPreview({ config, covenant, children, className 
         ...fontStyle,
       }}
     >
-      {/* Custom CSS injection (MAX tier) */}
-      {config.customCSS && <style dangerouslySetInnerHTML={{ __html: config.customCSS }} />}
+      {/* Custom CSS (MAX tier): sanitized + scoped to THIS preview's subtree only.
+          Never reaches the parent document's :root/html/body and cannot @import or
+          beacon out. See sanitizeAndScopeCss above. */}
+      {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
       {/* Feature Badge */}
       {config.featureBadge && (
         <div

@@ -287,6 +287,35 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
             created_at        INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_p2sh_address ON p2sh_covenants(p2sh_address);
+        -- Non-custodial oracle co-sign payout sessions, persisted so a backend restart between
+        -- PREPARE and SUBMIT cannot orphan a winner who already received the prepare response.
+        -- Every field is what submit needs to reconstruct the EXACT same PendingOraclePayout the
+        -- oracle co-signed at prepare, so the stored BIP340 oracle signature still matches the
+        -- reconstructed sighash. unsigned_tx_json + entry_json are serde_json of the kaspa
+        -- consensus Transaction / UtxoEntry (both derive Serialize/Deserialize and round-trip to
+        -- value-identical structs, hence an identical sighash). Byte fields are stored as hex.
+        -- Single-use: the row is deleted on consume (success or refusal); a TTL cleanup deletes
+        -- rows older than the 10-minute session lifetime.
+        CREATE TABLE IF NOT EXISTS oracle_payout_sessions (
+            session_id           TEXT PRIMARY KEY,
+            network              TEXT NOT NULL,
+            unsigned_tx_json     TEXT NOT NULL,
+            entry_json           TEXT NOT NULL,
+            redeem_hex           TEXT NOT NULL,
+            deploy_tx_id         TEXT NOT NULL,
+            kind_base            TEXT NOT NULL,
+            oracle_sig_hex       TEXT NOT NULL,
+            member_pubkeys_json  TEXT NOT NULL,
+            winner_is_a          INTEGER NOT NULL,
+            winner_xonly_hex     TEXT NOT NULL,
+            committed_txid       TEXT NOT NULL,
+            committed_index      INTEGER NOT NULL,
+            committed_amount     INTEGER NOT NULL,
+            committed_p2sh_hex   TEXT NOT NULL,
+            p2sh_address         TEXT NOT NULL,
+            created_at           INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_oracle_payout_created ON oracle_payout_sessions(created_at);
         CREATE TABLE IF NOT EXISTS bundle_markets (
             market_id        TEXT PRIMARY KEY,
             network          TEXT NOT NULL,
@@ -1752,6 +1781,125 @@ pub fn mark_p2sh_spent(db: &Db, tx_id: &str, spent_tx_id: &str) -> anyhow::Resul
     conn.execute(
         "UPDATE p2sh_covenants SET spent_tx_id = ?2 WHERE tx_id = ?1",
         params![tx_id, spent_tx_id],
+    )?;
+    Ok(())
+}
+
+// ── Non-custodial oracle co-sign payout sessions (restart-durable, fail-closed) ──
+// These persist the PREPARE-time PendingOraclePayout so a backend restart before SUBMIT does
+// not orphan a winner who already received the prepare response. The stored fields are exactly
+// what submit needs to reconstruct a value-identical PendingOraclePayout (hence an identical
+// reconstructed sighash, so the stored oracle BIP340 signature still verifies). The kaspa
+// consensus types are kept out of db.rs: covenant_builder.rs serializes the unsigned
+// Transaction + UtxoEntry to JSON and the byte fields to hex before calling, and reverses that
+// on load. db.rs only moves opaque strings/ints. A DB error here makes the caller FAIL CLOSED.
+
+/// One persisted oracle-payout session row, as raw stored columns. covenant_builder.rs does the
+/// typed (de)serialization (serde_json for unsigned_tx_json/entry_json, hex for the byte fields).
+#[derive(Clone, Debug)]
+pub struct PersistedOraclePayout {
+    pub session_id: String,
+    pub network: String,
+    pub unsigned_tx_json: String,
+    pub entry_json: String,
+    pub redeem_hex: String,
+    pub deploy_tx_id: String,
+    pub kind_base: String,
+    pub oracle_sig_hex: String,
+    pub member_pubkeys_json: String,
+    pub winner_is_a: bool,
+    pub winner_xonly_hex: String,
+    pub committed_txid: String,
+    pub committed_index: u32,
+    pub committed_amount: u64,
+    pub committed_p2sh_hex: String,
+    pub p2sh_address: String,
+    pub created_at: i64,
+}
+
+/// Persist a prepared oracle-payout session. INSERT OR REPLACE keyed by session_id so a re-run
+/// with the same uuid is idempotent (uuids are unique in practice). Returns Err on any DB
+/// failure so the caller can fail closed (refuse to co-sign rather than risk an unrecoverable
+/// session after a restart).
+pub fn insert_oracle_payout_session(db: &Db, s: &PersistedOraclePayout) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO oracle_payout_sessions
+         (session_id, network, unsigned_tx_json, entry_json, redeem_hex, deploy_tx_id, kind_base,
+          oracle_sig_hex, member_pubkeys_json, winner_is_a, winner_xonly_hex, committed_txid,
+          committed_index, committed_amount, committed_p2sh_hex, p2sh_address, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+        params![
+            s.session_id, s.network, s.unsigned_tx_json, s.entry_json, s.redeem_hex,
+            s.deploy_tx_id, s.kind_base, s.oracle_sig_hex, s.member_pubkeys_json,
+            s.winner_is_a as i64, s.winner_xonly_hex, s.committed_txid, s.committed_index,
+            s.committed_amount as i64, s.committed_p2sh_hex, s.p2sh_address, s.created_at,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Load a persisted oracle-payout session by id (used at submit after a restart drops the
+/// in-memory map). Returns Ok(None) when the row is absent. Err only on a real DB error, so the
+/// caller can distinguish unknown-session (refuse) from DB-down (refuse, fail closed).
+pub fn get_oracle_payout_session(db: &Db, session_id: &str) -> anyhow::Result<Option<PersistedOraclePayout>> {
+    let conn = db.lock().unwrap();
+    let row = conn.query_row(
+        "SELECT session_id, network, unsigned_tx_json, entry_json, redeem_hex, deploy_tx_id,
+                kind_base, oracle_sig_hex, member_pubkeys_json, winner_is_a, winner_xonly_hex,
+                committed_txid, committed_index, committed_amount, committed_p2sh_hex,
+                p2sh_address, created_at
+         FROM oracle_payout_sessions WHERE session_id = ?1",
+        params![session_id],
+        |r| {
+            Ok(PersistedOraclePayout {
+                session_id: r.get(0)?,
+                network: r.get(1)?,
+                unsigned_tx_json: r.get(2)?,
+                entry_json: r.get(3)?,
+                redeem_hex: r.get(4)?,
+                deploy_tx_id: r.get(5)?,
+                kind_base: r.get(6)?,
+                oracle_sig_hex: r.get(7)?,
+                member_pubkeys_json: r.get(8)?,
+                winner_is_a: r.get::<_, i64>(9)? != 0,
+                winner_xonly_hex: r.get(10)?,
+                committed_txid: r.get(11)?,
+                committed_index: r.get::<_, i64>(12)? as u32,
+                committed_amount: r.get::<_, i64>(13)? as u64,
+                committed_p2sh_hex: r.get(14)?,
+                p2sh_address: r.get(15)?,
+                created_at: r.get(16)?,
+            })
+        },
+    );
+    // Distinguish unknown-session (no row -> Ok(None), the caller refuses) from a real DB error
+    // (-> Err, the caller also refuses but fails closed loudly). Never silently treat a DB error
+    // as "no session" - that could hide a real failure on the fund path.
+    match row {
+        Ok(s) => Ok(Some(s)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Single-use: delete a session row on consume (success or refusal) so it can never be replayed.
+pub fn delete_oracle_payout_session(db: &Db, session_id: &str) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "DELETE FROM oracle_payout_sessions WHERE session_id = ?1",
+        params![session_id],
+    )?;
+    Ok(())
+}
+
+/// TTL cleanup: delete sessions older than `cutoff_ts` (the 10-minute session lifetime), matching
+/// the in-memory map's retain(). Best-effort; called from prepare so it piggybacks on the write.
+pub fn cleanup_oracle_payout_sessions(db: &Db, cutoff_ts: i64) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "DELETE FROM oracle_payout_sessions WHERE created_at <= ?1",
+        params![cutoff_ts],
     )?;
     Ok(())
 }

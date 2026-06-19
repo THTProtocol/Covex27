@@ -2821,6 +2821,106 @@ fn oracle_payout_sessions() -> &'static Mutex<std::collections::HashMap<String, 
     S.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
 }
 
+/// HARDENING (ii) - PERSIST the session across a backend restart. The in-memory map above is a
+/// lost-on-restart fast path; a restart between PREPARE (where the winner already received the
+/// oracle co-signature) and SUBMIT must not orphan that winner. So prepare ALSO writes the
+/// session to the oracle_payout_sessions table, and submit loads + reconstructs it when the map
+/// is empty (post-restart).
+///
+/// CRITICAL CORRECTNESS: the oracle BIP340 signature was computed over
+/// calc_schnorr_signature_hash(unsigned_tx, 0, SIG_HASH_ALL, ..) with the entry's
+/// script_public_key + amount. So the persisted-then-reconstructed unsigned Transaction + UtxoEntry
+/// MUST yield a value-identical struct, hence an identical recomputed sighash, or the stored oracle
+/// signature would no longer verify against the assembled spend. The kaspa consensus Transaction
+/// and UtxoEntry both derive Serialize/Deserialize/PartialEq/Eq, and serde_json round-trips them to
+/// VALUE-identical structs (proven by the node-free unit test below, which also re-derives the
+/// sighash before/after and asserts it is byte-identical). All byte fields are stored as hex and
+/// the Vec<[u8;32]> member list as a JSON array of hex strings, each an exact reversible encoding.
+/// Any (de)serialization error FAILS CLOSED (the caller refuses to sign / broadcast).
+
+/// Serialize an in-memory PendingOraclePayout into the DB row form. Returns Err on any
+/// serde_json failure so prepare can fail closed rather than persist a corrupt session.
+fn persisted_from_pending(
+    session_id: &str,
+    p: &PendingOraclePayout,
+) -> Result<db::PersistedOraclePayout, String> {
+    let unsigned_tx_json = serde_json::to_string(&p.unsigned_tx)
+        .map_err(|e| format!("serialize unsigned tx: {e}"))?;
+    let entry_json = serde_json::to_string(&p.entry)
+        .map_err(|e| format!("serialize utxo entry: {e}"))?;
+    let member_pubkeys_hex: Vec<String> = p.member_pubkeys.iter().map(hex::encode).collect();
+    let member_pubkeys_json = serde_json::to_string(&member_pubkeys_hex)
+        .map_err(|e| format!("serialize member pubkeys: {e}"))?;
+    Ok(db::PersistedOraclePayout {
+        session_id: session_id.to_string(),
+        network: p.network.clone(),
+        unsigned_tx_json,
+        entry_json,
+        redeem_hex: hex::encode(&p.redeem),
+        deploy_tx_id: p.deploy_tx_id.clone(),
+        kind_base: p.kind_base.clone(),
+        oracle_sig_hex: hex::encode(p.oracle_sig),
+        member_pubkeys_json,
+        winner_is_a: p.winner_is_a,
+        winner_xonly_hex: hex::encode(p.winner_xonly),
+        committed_txid: p.committed_txid.clone(),
+        committed_index: p.committed_index,
+        committed_amount: p.committed_amount,
+        committed_p2sh_hex: hex::encode(&p.committed_p2sh_script),
+        p2sh_address: p.p2sh_address.clone(),
+        created_at: p.created_at,
+    })
+}
+
+/// Reconstruct a PendingOraclePayout from its persisted DB row. Every field is decoded strictly:
+/// any malformed hex, wrong-length byte field, or serde_json failure returns Err so submit fails
+/// closed (refuses to assemble / broadcast) rather than risk a mismatched sighash.
+fn pending_from_persisted(s: db::PersistedOraclePayout) -> Result<PendingOraclePayout, String> {
+    let unsigned_tx: Transaction = serde_json::from_str(&s.unsigned_tx_json)
+        .map_err(|e| format!("deserialize unsigned tx: {e}"))?;
+    let entry: UtxoEntry = serde_json::from_str(&s.entry_json)
+        .map_err(|e| format!("deserialize utxo entry: {e}"))?;
+    let redeem = hex::decode(&s.redeem_hex).map_err(|e| format!("decode redeem: {e}"))?;
+    let committed_p2sh_script =
+        hex::decode(&s.committed_p2sh_hex).map_err(|e| format!("decode committed p2sh: {e}"))?;
+    let oracle_sig: [u8; 64] = hex::decode(&s.oracle_sig_hex)
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or_else(|| "stored oracle signature is not 64 bytes".to_string())?;
+    let winner_xonly: [u8; 32] = hex::decode(&s.winner_xonly_hex)
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or_else(|| "stored winner xonly is not 32 bytes".to_string())?;
+    let member_pubkeys_hex: Vec<String> = serde_json::from_str(&s.member_pubkeys_json)
+        .map_err(|e| format!("deserialize member pubkeys: {e}"))?;
+    let mut member_pubkeys: Vec<[u8; 32]> = Vec::with_capacity(member_pubkeys_hex.len());
+    for h in &member_pubkeys_hex {
+        let pk: [u8; 32] = hex::decode(h)
+            .ok()
+            .and_then(|b| b.try_into().ok())
+            .ok_or_else(|| "a stored member pubkey is not 32 bytes".to_string())?;
+        member_pubkeys.push(pk);
+    }
+    Ok(PendingOraclePayout {
+        network: s.network,
+        unsigned_tx,
+        entry,
+        redeem,
+        deploy_tx_id: s.deploy_tx_id,
+        kind_base: s.kind_base,
+        oracle_sig,
+        member_pubkeys,
+        winner_is_a: s.winner_is_a,
+        winner_xonly,
+        committed_txid: s.committed_txid,
+        committed_index: s.committed_index,
+        committed_amount: s.committed_amount,
+        committed_p2sh_script,
+        p2sh_address: s.p2sh_address,
+        created_at: s.created_at,
+    })
+}
+
 #[derive(Deserialize)]
 pub struct PrepareOraclePayoutRequest {
     #[serde(default = "default_network")]
@@ -3005,20 +3105,34 @@ pub async fn prepare_oracle_payout_handler(
     let kind_base = if is_escrow { "oracle_escrow".to_string() } else { "oracle_enforced".to_string() };
     let session_id = uuid::Uuid::new_v4().to_string();
     let now_ts = chrono::Utc::now().timestamp();
+    let pending = PendingOraclePayout {
+        network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
+        deploy_tx_id: cov.tx_id.clone(), kind_base, oracle_sig, member_pubkeys,
+        winner_is_a, winner_xonly,
+        committed_txid, committed_index, committed_amount: amount,
+        committed_p2sh_script, p2sh_address: cov.p2sh_address.clone(),
+        created_at: now_ts,
+    };
+
+    // HARDENING (ii): PERSIST the session BEFORE returning the oracle co-signature, so a backend
+    // restart between this prepare response and submit cannot orphan a winner who already holds the
+    // co-signature. The DB row is the durable source of truth; the in-memory map is just a fast
+    // path. A serialize or DB-write failure FAILS CLOSED: we do NOT return the oracle signature,
+    // because a winner who received it but whose session was never persisted could be orphaned.
+    let persisted = match persisted_from_pending(&session_id, &pending) {
+        Ok(p) => p,
+        Err(e) => return err(format!("could not persist payout session, refusing to co-sign: {e}")),
+    };
+    // TTL cleanup of expired rows piggybacks on this write (matches the in-memory 10-min retain).
+    let _ = db::cleanup_oracle_payout_sessions(&db, now_ts - 600);
+    if let Err(e) = db::insert_oracle_payout_session(&db, &persisted) {
+        return err(format!("could not persist payout session, refusing to co-sign: {e}"));
+    }
+
     {
         let mut s = oracle_payout_sessions().lock().unwrap();
         s.retain(|_, v| v.created_at > now_ts - 600); // drop sessions older than 10 min
-        s.insert(
-            session_id.clone(),
-            PendingOraclePayout {
-                network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
-                deploy_tx_id: cov.tx_id.clone(), kind_base, oracle_sig, member_pubkeys,
-                winner_is_a, winner_xonly,
-                committed_txid, committed_index, committed_amount: amount,
-                committed_p2sh_script, p2sh_address: cov.p2sh_address.clone(),
-                created_at: now_ts,
-            },
-        );
+        s.insert(session_id.clone(), pending);
     }
     Json(serde_json::json!({
         "success": true,
@@ -3052,11 +3166,39 @@ pub async fn submit_oracle_payout_handler(
     Json(req): Json<SubmitOraclePayoutRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
-    let pending = {
+    // SINGLE-USE acquisition. Try the in-memory fast path; on a miss (e.g. after a restart) load
+    // the persisted row and reconstruct. Whichever path supplies the session, we DELETE the DB row
+    // immediately (mirroring the in-memory remove), so every return below - success OR refusal -
+    // consumes it exactly once and it can never be replayed.
+    let now_ts = chrono::Utc::now().timestamp();
+    let in_mem = {
         let mut s = oracle_payout_sessions().lock().unwrap();
-        match s.remove(&req.session_id) {
-            Some(p) => p,
-            None => return err("unknown or expired session_id (call /covenant/oracle-payout/prepare first; sessions last 10 minutes)".into()),
+        s.remove(&req.session_id)
+    };
+    let pending = match in_mem {
+        Some(p) => {
+            // Consume the durable copy too (it is the same session, persisted at prepare).
+            let _ = db::delete_oracle_payout_session(&db, &req.session_id);
+            p
+        }
+        None => {
+            // Post-restart (or map-evicted) path: load from the DB. A DB error FAILS CLOSED.
+            let persisted = match db::get_oracle_payout_session(&db, &req.session_id) {
+                Ok(Some(p)) => p,
+                Ok(None) => return err("unknown or expired session_id (call /covenant/oracle-payout/prepare first; sessions last 10 minutes)".into()),
+                Err(e) => return err(format!("session lookup failed; refusing to broadcast: {e}")),
+            };
+            // Consume the row NOW (single-use), before any reconstruction or broadcast.
+            let _ = db::delete_oracle_payout_session(&db, &req.session_id);
+            // Enforce the 10-minute TTL on the durable path too (the in-memory retain is gone after
+            // a restart). An expired row is refused, not honored.
+            if persisted.created_at <= now_ts - 600 {
+                return err("unknown or expired session_id (call /covenant/oracle-payout/prepare first; sessions last 10 minutes)".into());
+            }
+            match pending_from_persisted(persisted) {
+                Ok(p) => p,
+                Err(e) => return err(format!("could not reconstruct payout session; refusing to broadcast: {e}")),
+            }
         }
     };
     let winner_sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
@@ -5046,6 +5188,127 @@ mod tests {
         let redeem = redeem_singlesig(&kp.x_only_public_key().0.serialize()).unwrap();
         let addr = p2sh_address(&redeem, Prefix::Testnet).unwrap();
         assert!(addr.to_string().starts_with("kaspatest:"), "testnet P2SH address prefix");
+    }
+
+    /// HARDENING (ii): the persisted oracle-payout session must reconstruct to a VALUE-identical
+    /// PendingOraclePayout so the stored oracle BIP340 signature still matches the recomputed
+    /// sighash after a backend restart. This proves, with NO live node, that serializing then
+    /// deserializing the unsigned Transaction + UtxoEntry (plus the hex/JSON scalar fields) yields
+    /// (1) an identical Transaction and UtxoEntry by value, and (2) a BYTE-IDENTICAL sighash. If
+    /// either failed, the persisted session would orphan or mis-sign a winner, so this is the
+    /// consensus-correctness gate for restart durability.
+    #[test]
+    fn oracle_payout_session_persist_round_trip_preserves_sighash() {
+        // Build the SAME shape prepare_oracle_payout_handler builds: an oracle_enforced 2-of-2
+        // (oracle + winner), a single input spending the covenant UTXO, and a single output paying
+        // the winner. new_non_finalized matches prepare exactly (id/mass at their defaults).
+        let oracle_kp = test_keypair(7);
+        let winner_kp = test_keypair(8);
+        let oracle_xonly = oracle_kp.x_only_public_key().0.serialize();
+        let winner_xonly = winner_kp.x_only_public_key().0.serialize();
+        let redeem = redeem_multisig(&[oracle_xonly, winner_xonly], 2).unwrap();
+        let p2sh_spk = p2sh_script_pubkey(&redeem);
+
+        let prev_txid = kaspa_hashes::Hash::from_bytes([42u8; 32]);
+        let amount: u64 = 100_000_000;
+        let inputs = vec![TransactionInput {
+            previous_outpoint: TransactionOutpoint { transaction_id: prev_txid, index: 3 },
+            signature_script: vec![],
+            sequence: 0,
+            sig_op_count: 2,
+        }];
+        let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: p2sh_spk.clone() }];
+        let unsigned = Transaction::new_non_finalized(
+            0,
+            inputs,
+            outputs,
+            0,
+            SubnetworkId::from_bytes([0u8; 20]),
+            0,
+            b"covex-oracle-payout".to_vec(),
+        );
+        let entry = UtxoEntry {
+            amount,
+            script_public_key: p2sh_spk.clone(),
+            block_daa_score: 12_345,
+            is_coinbase: false,
+        };
+
+        // The sighash the oracle WOULD sign at prepare.
+        let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+        let mut reused = SigHashReusedValues::new();
+        let orig_sighash =
+            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+        // A real oracle signature over that exact sighash (fixed bytes are fine; we only check it
+        // survives the round-trip unchanged).
+        let msg = secp256k1::Message::from_digest_slice(orig_sighash.as_bytes().as_slice()).unwrap();
+        let oracle_sig: [u8; 64] = *oracle_kp.sign_schnorr(msg).as_ref();
+
+        let pending = PendingOraclePayout {
+            network: "testnet-12".to_string(),
+            unsigned_tx: unsigned.clone(),
+            entry: entry.clone(),
+            redeem: redeem.clone(),
+            deploy_tx_id: "deadbeef".to_string(),
+            kind_base: "oracle_enforced".to_string(),
+            oracle_sig,
+            member_pubkeys: vec![oracle_xonly, winner_xonly],
+            winner_is_a: false,
+            winner_xonly,
+            committed_txid: prev_txid.to_string(),
+            committed_index: 3,
+            committed_amount: amount,
+            committed_p2sh_script: p2sh_spk.script().to_vec(),
+            p2sh_address: "kaspatest:qexample".to_string(),
+            created_at: 1_700_000_000,
+        };
+
+        // Serialize -> deserialize (the exact DB persistence path, minus the SQLite hop).
+        let persisted = persisted_from_pending("sess-1", &pending).expect("serialize must succeed");
+        let restored = pending_from_persisted(persisted).expect("deserialize must succeed");
+
+        // (1) The consensus types reconstruct to VALUE-identical structs.
+        assert_eq!(restored.unsigned_tx, unsigned, "unsigned tx must round-trip value-identical");
+        assert_eq!(restored.entry, entry, "utxo entry must round-trip value-identical");
+
+        // (2) The recomputed sighash is BYTE-IDENTICAL, so the stored oracle signature still
+        // matches. This is the property restart durability hinges on.
+        let restored_signable =
+            SignableTransaction::with_entries(restored.unsigned_tx.clone(), vec![restored.entry.clone()]);
+        let mut reused2 = SigHashReusedValues::new();
+        let restored_sighash =
+            calc_schnorr_signature_hash(&restored_signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused2);
+        assert_eq!(
+            restored_sighash.as_bytes(),
+            orig_sighash.as_bytes(),
+            "reconstructed sighash must be byte-identical or the oracle signature would not verify"
+        );
+
+        // The oracle's BIP340 signature must still verify against the reconstructed sighash.
+        let restored_msg =
+            secp256k1::Message::from_digest_slice(restored_sighash.as_bytes().as_slice()).unwrap();
+        let sig = secp256k1::schnorr::Signature::from_slice(&restored.oracle_sig).unwrap();
+        let xonly = secp256k1::XOnlyPublicKey::from_slice(&oracle_xonly).unwrap();
+        assert!(
+            secp256k1::SECP256K1.verify_schnorr(&sig, &restored_msg, &xonly).is_ok(),
+            "stored oracle signature must verify against the reconstructed sighash"
+        );
+
+        // All scalar fields survive intact.
+        assert_eq!(restored.oracle_sig, oracle_sig);
+        assert_eq!(restored.member_pubkeys, vec![oracle_xonly, winner_xonly]);
+        assert_eq!(restored.winner_xonly, winner_xonly);
+        assert_eq!(restored.redeem, redeem);
+        assert_eq!(restored.committed_p2sh_script, p2sh_spk.script().to_vec());
+        assert_eq!(restored.committed_txid, prev_txid.to_string());
+        assert_eq!(restored.committed_index, 3);
+        assert_eq!(restored.committed_amount, amount);
+        assert_eq!(restored.winner_is_a, false);
+        assert_eq!(restored.kind_base, "oracle_enforced");
+        assert_eq!(restored.network, "testnet-12");
+        assert_eq!(restored.deploy_tx_id, "deadbeef");
+        assert_eq!(restored.p2sh_address, "kaspatest:qexample");
+        assert_eq!(restored.created_at, 1_700_000_000);
     }
 
     #[test]

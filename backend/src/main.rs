@@ -515,7 +515,7 @@ async fn address_summary_handler(
             false,
         )
         .unwrap_or((vec![], 0));
-        let ui_ids = db::get_custom_ui_id_set_conn(conn).unwrap_or_default();
+        let ui_ids = db::get_custom_ui_id_set_cached_conn(conn);
         (covs, total, ui_ids)
     })
     .await;
@@ -946,7 +946,7 @@ async fn covenants_handler(
             offset,
             genuine_only,
         );
-        let ui_ids = db::get_custom_ui_id_set_conn(conn).unwrap_or_default();
+        let ui_ids = db::get_custom_ui_id_set_cached_conn(conn);
         let stats_row = if want_stats {
             db::covenant_stats_conn(conn, network_filter.as_deref()).ok()
         } else {

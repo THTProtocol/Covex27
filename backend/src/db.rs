@@ -54,7 +54,11 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         )
     });
     let pool = r2d2::Pool::builder()
-        .max_size(8)
+        // Raised from 8 -> 16 for more concurrent reads. WAL lets readers proceed during
+        // a write, and the per-connection busy_timeout (above) absorbs lock contention, so
+        // a deeper pool serves the hot read handlers (/covenants, /balance) without
+        // serializing them behind 8 slots.
+        .max_size(16)
         .build(manager)
         .map_err(|e| anyhow::anyhow!("failed to build SQLite pool: {e}"))?;
 
@@ -79,7 +83,8 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
             receiving_addresses TEXT NOT NULL DEFAULT '',
             is_active           INTEGER NOT NULL DEFAULT 1,
             block_daa_score     INTEGER NOT NULL DEFAULT 0,
-            timestamp           INTEGER NOT NULL DEFAULT (unixepoch())
+            timestamp           INTEGER NOT NULL DEFAULT (unixepoch()),
+            tier_rank           INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_covenants_address ON covenants(address);
         CREATE INDEX IF NOT EXISTS idx_covenants_type ON covenants(covenant_type);
@@ -396,6 +401,29 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         )?;
     }
 
+    // ── Migration: add 'tier_rank' column + composite index for the list sort ──
+    // The covenant-list ORDER BY used to be a CASE expression on verified_tier, which
+    // SQLite cannot satisfy from an index, forcing a full scan + filesort of every
+    // is_active row on every /covenants request. tier_rank stores the SAME integer the
+    // CASE produced (MAX=100, PRO=50, BUILDER=10, else 0) as a real column so the sort
+    // becomes ORDER BY tier_rank DESC, amount_kaspa DESC, timestamp DESC and is served
+    // directly by idx_covenants_rank (no filesort). Backfill existing rows once; new and
+    // re-discovered rows keep it correct via insert_covenant. Identical ordering to before.
+    let has_tier_rank: bool = conn
+        .prepare("SELECT tier_rank FROM covenants LIMIT 1")
+        .is_ok();
+    if !has_tier_rank {
+        conn.execute_batch(
+            "ALTER TABLE covenants ADD COLUMN tier_rank INTEGER NOT NULL DEFAULT 0;
+             UPDATE covenants SET tier_rank = CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END;",
+        )?;
+    }
+    // Created unconditionally (idempotent). Composite index ordered exactly like the sort
+    // so SQLite walks it in reverse for ORDER BY ... DESC + LIMIT without a filesort.
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_covenants_rank ON covenants(is_active, tier_rank DESC, amount_kaspa DESC, timestamp DESC);"
+    )?;
+
     // ── Migration: add 'network' column to payments if missing ──
     let has_payments_network: bool = conn
         .prepare("SELECT network FROM payments LIMIT 1")
@@ -573,9 +601,11 @@ pub fn insert_covenant(
             return Ok(());
         }
     }
+    // tier_rank mirrors verified_tier (see tier_rank_for) so the list sort can use an index.
+    let tier_rank = tier_rank_for(verified_tier);
     conn.execute(
-        "INSERT INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses, network)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13, ?14)
+        "INSERT INTO covenants (tx_id, address, amount_kaspa, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, is_active, block_daa_score, timestamp, full_logic_summary, receiving_addresses, network, tier_rank)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, unixepoch(), ?12, ?13, ?14, ?15)
          ON CONFLICT(tx_id) DO UPDATE SET
            address = excluded.address,
            amount_kaspa = excluded.amount_kaspa,
@@ -583,11 +613,15 @@ pub fn insert_covenant(
            script_hex = excluded.script_hex,
            is_active = 1,
            block_daa_score = excluded.block_daa_score,
-           network = excluded.network
+           network = excluded.network,
+           -- Recompute from the PRESERVED verified_tier (not excluded) so tier_rank stays
+           -- consistent with the tier this row keeps. Re-discovery never downgrades a paid
+           -- covenant, so its rank must not drop to the incoming FREE crawl value either.
+           tier_rank = CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END
            -- verified_tier, verified_payment_tx, descriptions and custom metadata
            -- are intentionally preserved: re-discovery must never downgrade a paid
            -- covenant or erase creator edits.",
-        params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, block_daa_score, full_logic_summary, receiving_addresses, network],
+        params![tx_id, address, amount, script_hash, script_hex, covenant_type, category, creator_addr, description, verified_tier, block_daa_score, full_logic_summary, receiving_addresses, network, tier_rank],
     )?;
     if !already {
         record_event(
@@ -812,12 +846,12 @@ pub fn get_all_covenants(
     let conn = db.lock().unwrap();
     let sql = if let Some(_net) = network {
         format!(
-            "{} WHERE is_active = 1 AND network = ?1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC",
+            "{} WHERE is_active = 1 AND network = ?1 ORDER BY tier_rank DESC, amount_kaspa DESC, timestamp DESC",
             COVENANT_SELECT
         )
     } else {
         format!(
-            "{} WHERE is_active = 1 ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC",
+            "{} WHERE is_active = 1 ORDER BY tier_rank DESC, amount_kaspa DESC, timestamp DESC",
             COVENANT_SELECT
         )
     };
@@ -1017,7 +1051,7 @@ pub fn query_covenants_conn(
     let total: i64 = conn.query_row(&count_sql, params_ref.as_slice(), |r| r.get(0))?;
 
     let sql = format!(
-        "{} WHERE {} ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, amount_kaspa DESC, timestamp DESC LIMIT {} OFFSET {}",
+        "{} WHERE {} ORDER BY tier_rank DESC, amount_kaspa DESC, timestamp DESC LIMIT {} OFFSET {}",
         COVENANT_SELECT, where_sql, limit.clamp(1, 200), offset.max(0)
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -1285,6 +1319,61 @@ pub fn get_custom_ui_id_set_conn(
     Ok(set)
 }
 
+/// Time-to-live for the custom-UI id-set cache. This set drives only a cosmetic
+/// "has custom UI" badge in the explorer list, and it changes slowly (a publish is
+/// rare relative to list reads), so a few seconds of staleness is harmless. It saves
+/// a full `SELECT DISTINCT covenant_id FROM generated_uis` scan on every /covenants
+/// request under load.
+const CUSTOM_UI_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(15);
+
+// `fetched_at` is None until the first successful DB load, so the very first read
+// always refreshes (no fragile Instant-underflow seeding needed).
+#[allow(clippy::type_complexity)]
+static CUSTOM_UI_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<(Option<std::time::Instant>, std::collections::HashSet<String>)>,
+> = std::sync::OnceLock::new();
+
+/// Cached variant of `get_custom_ui_id_set_conn`. Returns a clone of the cached set
+/// when it was loaded within CUSTOM_UI_CACHE_TTL, otherwise refreshes from the DB once
+/// and serves subsequent callers from memory. On a DB error during refresh, falls back
+/// to the (possibly stale) cached value rather than failing the request; before the
+/// first successful load this is an empty set. Honest: it is a badge hint, never a
+/// money-path gate.
+pub fn get_custom_ui_id_set_cached_conn(
+    conn: &Connection,
+) -> std::collections::HashSet<String> {
+    let now = std::time::Instant::now();
+    let cell = CUSTOM_UI_CACHE
+        .get_or_init(|| std::sync::Mutex::new((None, std::collections::HashSet::new())));
+    let mut guard = cell.lock().unwrap_or_else(|p| p.into_inner());
+    let fresh = matches!(guard.0, Some(at) if now.duration_since(at) < CUSTOM_UI_CACHE_TTL);
+    if fresh {
+        return guard.1.clone();
+    }
+    match get_custom_ui_id_set_conn(conn) {
+        Ok(set) => {
+            guard.0 = Some(now);
+            guard.1 = set;
+            guard.1.clone()
+        }
+        // Keep serving the last good set on a transient DB error; retry next call.
+        Err(_) => guard.1.clone(),
+    }
+}
+
+/// Sort weight for a verified tier. The SINGLE source of truth for the `tier_rank`
+/// column: the migration backfill, `insert_covenant`, and the list ORDER BY all agree
+/// on these exact values (MAX=100, PRO=50, BUILDER=10, else 0), which are identical to
+/// the old `CASE verified_tier ...` expression so the returned ordering is unchanged.
+pub fn tier_rank_for(verified_tier: &str) -> i64 {
+    match verified_tier {
+        "MAX" => 100,
+        "PRO" => 50,
+        "BUILDER" => 10,
+        _ => 0,
+    }
+}
+
 /// Resolve ui_config for a tier: glow + expanded for PRO/MAX, basic for others
 pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
     match tier {
@@ -1390,7 +1479,10 @@ pub fn upgrade_covenant_record(
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
-        "UPDATE covenants SET verified_tier = ?2, verified_payment_tx = ?3, verified_at = unixepoch(), custom_ui_enabled = 1, full_logic_summary = ?4, receiving_addresses = ?5 WHERE tx_id = ?1 AND (verified_payment_tx IS NULL OR verified_payment_tx != ?3)",
+        // Keep tier_rank in lockstep with verified_tier (?2) so the indexed list sort
+        // reflects the upgraded tier. Derived from the same value being written; pure
+        // ordering metadata, no fund flow.
+        "UPDATE covenants SET verified_tier = ?2, tier_rank = CASE ?2 WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END, verified_payment_tx = ?3, verified_at = unixepoch(), custom_ui_enabled = 1, full_logic_summary = ?4, receiving_addresses = ?5 WHERE tx_id = ?1 AND (verified_payment_tx IS NULL OR verified_payment_tx != ?3)",
         params![covenant_id, verified_tier, verified_payment_tx, full_logic_summary, receiving_addresses],
     )?;
     Ok(())
@@ -2421,4 +2513,117 @@ fn compute_mixer_root(leaves: &[String]) -> anyhow::Result<String> {
         last_err,
         candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
     )
+}
+
+#[cfg(test)]
+mod perf_sort_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    // tier_rank must use EXACTLY the values the old CASE expression produced, otherwise
+    // the indexed sort would reorder the list. This is the single source of truth shared
+    // by the migration backfill, insert_covenant, and upgrade_covenant_record.
+    #[test]
+    fn tier_rank_matches_legacy_case_values() {
+        assert_eq!(tier_rank_for("MAX"), 100);
+        assert_eq!(tier_rank_for("PRO"), 50);
+        assert_eq!(tier_rank_for("BUILDER"), 10);
+        assert_eq!(tier_rank_for("FREE"), 0);
+        assert_eq!(tier_rank_for("EXPLORER"), 0);
+        assert_eq!(tier_rank_for(""), 0);
+        assert_eq!(tier_rank_for("anything-else"), 0);
+    }
+
+    /// Build a minimal covenants table (just the columns the sort touches), populate
+    /// tier_rank from verified_tier exactly as the migration/insert do, create the
+    /// composite index, then assert that the NEW indexed ORDER BY returns rows in the
+    /// IDENTICAL order to the OLD CASE-expression ORDER BY, and that the index exists.
+    #[test]
+    fn indexed_sort_matches_legacy_case_order_and_index_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE covenants (
+                tx_id         TEXT PRIMARY KEY,
+                amount_kaspa  REAL NOT NULL DEFAULT 0,
+                verified_tier TEXT NOT NULL DEFAULT 'FREE',
+                is_active     INTEGER NOT NULL DEFAULT 1,
+                timestamp     INTEGER NOT NULL DEFAULT 0,
+                tier_rank     INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX idx_covenants_rank ON covenants(is_active, tier_rank DESC, amount_kaspa DESC, timestamp DESC);",
+        )
+        .unwrap();
+
+        // (tx_id, tier, amount, timestamp) chosen to exercise every tier and every tie-break:
+        // same-tier-different-amount, same-tier-same-amount-different-timestamp.
+        let rows = [
+            ("a_max_hi", "MAX", 500.0_f64, 10_i64),
+            ("b_max_lo", "MAX", 100.0, 20),
+            ("c_pro_hi", "PRO", 900.0, 30),
+            ("d_pro_tieA", "PRO", 100.0, 40),
+            ("e_pro_tieB", "PRO", 100.0, 35),
+            ("f_builder", "BUILDER", 300.0, 50),
+            ("g_free_hi", "FREE", 800.0, 60),
+            ("h_free_lo", "FREE", 50.0, 70),
+            ("i_explorer", "EXPLORER", 800.0, 65),
+        ];
+        for (id, tier, amt, ts) in rows {
+            conn.execute(
+                "INSERT INTO covenants (tx_id, verified_tier, amount_kaspa, timestamp, is_active, tier_rank)
+                 VALUES (?1, ?2, ?3, ?4, 1, ?5)",
+                params![id, tier, amt, ts, tier_rank_for(tier)],
+            )
+            .unwrap();
+        }
+
+        let order = |sql: &str| -> Vec<String> {
+            let mut stmt = conn.prepare(sql).unwrap();
+            stmt.query_map([], |r| r.get::<_, String>(0))
+                .unwrap()
+                .map(|r| r.unwrap())
+                .collect()
+        };
+
+        let legacy = order(
+            "SELECT tx_id FROM covenants WHERE is_active = 1 \
+             ORDER BY CASE verified_tier WHEN 'MAX' THEN 100 WHEN 'PRO' THEN 50 WHEN 'BUILDER' THEN 10 ELSE 0 END DESC, \
+             amount_kaspa DESC, timestamp DESC",
+        );
+        let indexed = order(
+            "SELECT tx_id FROM covenants WHERE is_active = 1 \
+             ORDER BY tier_rank DESC, amount_kaspa DESC, timestamp DESC",
+        );
+
+        assert_eq!(
+            legacy, indexed,
+            "indexed tier_rank sort must reproduce the legacy CASE-expression order exactly"
+        );
+
+        // Sanity: the documented tier-then-amount-then-timestamp order.
+        assert_eq!(
+            indexed,
+            vec![
+                "a_max_hi",   // MAX 500
+                "b_max_lo",   // MAX 100
+                "c_pro_hi",   // PRO 900
+                "d_pro_tieA", // PRO 100 ts40 (newer wins tie)
+                "e_pro_tieB", // PRO 100 ts35
+                "f_builder",  // BUILDER 300
+                // rank-0 group sorted by amount DESC then timestamp DESC:
+                "i_explorer", // EXPLORER(=0) 800 ts65 (amount tie w/ g, newer ts wins)
+                "g_free_hi",  // FREE(=0) 800 ts60
+                "h_free_lo",  // FREE(=0) 50
+            ]
+        );
+
+        // The composite index that serves the sort must exist.
+        let idx_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_covenants_rank'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(idx_exists, 1, "idx_covenants_rank must exist");
+    }
 }

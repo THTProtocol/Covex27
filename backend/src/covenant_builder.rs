@@ -2718,6 +2718,70 @@ pub async fn oracle_payout_handler(
 // select carries NO oracle key (pure on-chain), so it does NOT route through here; its
 // non-custodial winner-only spend is a separate (still-pending) extension of the plain
 // /covenant/p2sh/prepare-spend flow, and its custodial spend already works today.
+//
+// HARDENING (i) - UTXO-BIND the session: the oracle co-signs a sighash that commits ONE
+// specific input outpoint, and that signature must NEVER be applied to a different or stale
+// input. Between prepare (where the oracle signed) and submit (where the winner's half
+// arrives), a reorg, a double-spend, or an independent claim can spend or replace that exact
+// covenant UTXO. So at submit we re-fetch the covenant's P2SH UTXO set and re-validate that
+// the EXACT committed outpoint is still present, unspent, and unchanged (same amount + same
+// P2SH locking script) before we ever assemble or broadcast. If it is gone, spent, or
+// changed, we REFUSE and drop the session (fail-closed). The helper below is the pure,
+// node-free core of that check so it can be unit-tested without a live node.
+
+/// A re-fetched on-chain UTXO reduced to the fields hardening (i) compares: the outpoint
+/// (transaction id string + index), the amount in sompi, and the raw P2SH locking-script
+/// bytes. `submit_oracle_payout_handler` maps the node's get_utxos_by_addresses response
+/// into a Vec of these and hands it to `oracle_payout_outpoint_still_valid`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OnChainUtxoView {
+    txid: String,
+    index: u32,
+    amount: u64,
+    p2sh_script: Vec<u8>,
+}
+
+/// Pure, node-free core of hardening (i). Returns Ok(()) only when the EXACT committed
+/// outpoint (committed_txid/committed_index) is still present in `current` AND unchanged
+/// (same amount, same P2SH locking script). Any drift -> Err with a fail-closed reason:
+///   - outpoint absent  => spent / reorged out / already claimed
+///   - amount differs   => a different UTXO reused the outpoint or a reorg replaced it
+///   - script differs   => the locked output is not the covenant we verified at prepare
+/// The oracle signature must never be applied to an input that no longer matches what was
+/// verified and signed at prepare, so the caller drops the session and refuses to broadcast
+/// on any Err.
+fn oracle_payout_outpoint_still_valid(
+    committed_txid: &str,
+    committed_index: u32,
+    committed_amount: u64,
+    committed_p2sh_script: &[u8],
+    current: &[OnChainUtxoView],
+) -> Result<(), String> {
+    let found = current
+        .iter()
+        .find(|u| u.txid == committed_txid && u.index == committed_index);
+    let utxo = match found {
+        Some(u) => u,
+        None => {
+            return Err(format!(
+                "covenant UTXO {committed_txid}:{committed_index} is no longer present or unspent on-chain (reorg, double-spend, or already claimed between prepare and submit); the oracle co-signature would apply to a stale input, so the payout is refused"
+            ));
+        }
+    };
+    if utxo.amount != committed_amount {
+        return Err(format!(
+            "covenant UTXO {committed_txid}:{committed_index} amount changed (prepared {committed_amount} sompi, now {} sompi); the input no longer matches what the oracle co-signed, so the payout is refused",
+            utxo.amount
+        ));
+    }
+    if utxo.p2sh_script.as_slice() != committed_p2sh_script {
+        return Err(format!(
+            "covenant UTXO {committed_txid}:{committed_index} locking script changed since prepare; the input no longer matches what the oracle co-signed, so the payout is refused"
+        ));
+    }
+    Ok(())
+}
+
 struct PendingOraclePayout {
     network: String,
     unsigned_tx: Transaction,
@@ -2738,6 +2802,16 @@ struct PendingOraclePayout {
     winner_is_a: bool,
     /// The x-only pubkey the winner's browser signature must come from (the winner member).
     winner_xonly: [u8; 32],
+    /// HARDENING (i): the EXACT input outpoint the oracle signed over. submit re-fetches the
+    /// covenant's UTXO set and refuses unless this outpoint is still present + unchanged.
+    committed_txid: String,
+    committed_index: u32,
+    /// The amount (sompi) committed in the prepared sighash; must still match at submit.
+    committed_amount: u64,
+    /// The covenant's P2SH locking-script bytes; must still match at submit.
+    committed_p2sh_script: Vec<u8>,
+    /// The covenant's P2SH address, so submit re-fetches the SAME UTXO set as prepare.
+    p2sh_address: String,
     created_at: i64,
 }
 
@@ -2875,11 +2949,16 @@ pub async fn prepare_oracle_payout_handler(
     if amount <= TX_FEE {
         return err("locked amount does not cover the tx fee".into());
     }
+    // HARDENING (i): capture the EXACT outpoint identity the oracle is about to sign over, so
+    // submit can re-validate it against a fresh UTXO fetch before broadcasting.
+    let committed_txid = utxo.outpoint.transaction_id.to_string();
+    let committed_index = utxo.outpoint.index;
     let dest_script = match script_pub_key_from_address(&req.destination_addr) {
         Ok(s) => s,
         Err(e) => return err(e),
     };
     let p2sh_spk = p2sh_script_pubkey(&redeem);
+    let committed_p2sh_script = p2sh_spk.script().to_vec();
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
@@ -2934,7 +3013,10 @@ pub async fn prepare_oracle_payout_handler(
             PendingOraclePayout {
                 network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
                 deploy_tx_id: cov.tx_id.clone(), kind_base, oracle_sig, member_pubkeys,
-                winner_is_a, winner_xonly, created_at: now_ts,
+                winner_is_a, winner_xonly,
+                committed_txid, committed_index, committed_amount: amount,
+                committed_p2sh_script, p2sh_address: cov.p2sh_address.clone(),
+                created_at: now_ts,
             },
         );
     }
@@ -2985,6 +3067,46 @@ pub async fn submit_oracle_payout_handler(
     let mut sigs: std::collections::HashMap<String, [u8; 64]> = std::collections::HashMap::new();
     sigs.insert(hex::encode(pending.winner_xonly), winner_sig);
 
+    // HARDENING (i): the session has been removed (single-use), so any return below drops it
+    // fail-closed. BEFORE assembling or broadcasting, re-fetch the covenant's P2SH UTXO set
+    // and re-validate that the EXACT outpoint the oracle co-signed is still present, unspent,
+    // and unchanged. A reorg, double-spend, or independent claim between prepare and submit
+    // would otherwise let the oracle partial-sig be applied to a stale/different input.
+    let client = match client_for_network(&pending.network).await {
+        Ok(c) => c,
+        Err(e) => return err(e),
+    };
+    let p2sh_addr = match Address::try_from(pending.p2sh_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => return err(format!("stored p2sh address invalid: {e}")),
+    };
+    let current_utxos = match client.get_utxos_by_addresses(vec![p2sh_addr]).await {
+        Ok(u) => u,
+        Err(e) => return err(format!("UTXO re-fetch failed; refusing to broadcast: {e}")),
+    };
+    let current_view: Vec<OnChainUtxoView> = current_utxos
+        .iter()
+        .map(|u| OnChainUtxoView {
+            txid: u.outpoint.transaction_id.to_string(),
+            index: u.outpoint.index,
+            amount: u.utxo_entry.amount,
+            p2sh_script: u.utxo_entry.script_public_key.script().to_vec(),
+        })
+        .collect();
+    if let Err(reason) = oracle_payout_outpoint_still_valid(
+        &pending.committed_txid,
+        pending.committed_index,
+        pending.committed_amount,
+        &pending.committed_p2sh_script,
+        &current_view,
+    ) {
+        warn!(
+            "Non-custodial oracle payout REFUSED for {}: {}",
+            pending.deploy_tx_id, reason
+        );
+        return err(reason);
+    }
+
     let sig_script = match assemble_noncustodial_satisfier(
         &pending.kind_base, false, &pending.redeem, &pending.member_pubkeys,
         &sigs, Some(&winner_sig), None,
@@ -2996,10 +3118,6 @@ pub async fn submit_oracle_payout_handler(
     let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
     signable.tx.inputs[0].signature_script = sig_script;
     signable.tx.finalize();
-    let client = match client_for_network(&pending.network).await {
-        Ok(c) => c,
-        Err(e) => return err(e),
-    };
     let rpc_tx = RpcTransaction::from(&signable.tx);
     match client.submit_transaction(rpc_tx, false).await {
         Ok(tx_id) => {
@@ -4881,6 +4999,45 @@ mod tests {
         assert_eq!(script[0], 0xaa, "leading OpBlake2b opcode");
         assert_eq!(script[1], 0x20, "32-byte push");
         assert_eq!(script[34], 0x87, "trailing OpEqual");
+    }
+
+    // HARDENING (i): the pure outpoint-rebind check the non-custodial oracle keystone runs at
+    // submit. The oracle co-signs a sighash committing ONE outpoint at prepare; if a reorg,
+    // double-spend, or independent claim changes or removes that UTXO before submit, the
+    // co-signature must NOT be applied to a stale/different input. This proves the helper
+    // accepts only an exact match and fails closed on absent / spent / amount / script drift.
+    #[test]
+    fn oracle_payout_outpoint_rebind_fail_closed() {
+        let txid = "a".repeat(64);
+        let script = vec![0xaau8, 0x20, 0x01, 0x02, 0x03, 0x87];
+        let amount = 90_000_000u64;
+        let present = OnChainUtxoView {
+            txid: txid.clone(),
+            index: 0,
+            amount,
+            p2sh_script: script.clone(),
+        };
+
+        // Exact match -> Ok.
+        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[present.clone()]).is_ok());
+
+        // Empty set (spent / reorged out / already claimed) -> refuse.
+        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[]).is_err());
+
+        // Same txid, different index (a sibling output, not the committed one) -> refuse.
+        assert!(oracle_payout_outpoint_still_valid(&txid, 1, amount, &script, &[present.clone()]).is_err());
+
+        // Different txid present, committed one absent -> refuse.
+        let other = OnChainUtxoView { txid: "b".repeat(64), ..present.clone() };
+        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[other]).is_err());
+
+        // Outpoint matches but amount changed (reorg replacement) -> refuse.
+        let changed_amount = OnChainUtxoView { amount: amount + 1, ..present.clone() };
+        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[changed_amount]).is_err());
+
+        // Outpoint matches but locking script changed (different covenant) -> refuse.
+        let changed_script = OnChainUtxoView { p2sh_script: vec![0xaau8, 0x20, 0x09, 0x87], ..present.clone() };
+        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[changed_script]).is_err());
     }
 
     #[test]

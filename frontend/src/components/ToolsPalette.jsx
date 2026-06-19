@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronDown, ChevronRight, Box, Blocks, Plus, ExternalLink, X, Info } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Box, Blocks, Plus, ExternalLink, X, Info, GripVertical } from 'lucide-react';
 import { LOGIC_PRIMITIVES, PAGE_BLOCKS } from '../lib/tools-catalog.js';
 
 // Two-section searchable palette over covenant LOGIC primitives + page-design BLOCKS.
@@ -41,6 +41,29 @@ const REALITY_CHIP = {
     label: 'Metadata only',
     cls: 'bg-white/[0.06] border-white/15 text-gray-300 light:bg-slate-100 light:text-slate-600 light:border-slate-300',
   },
+};
+
+// Icon-chip accent by enforcement reality (logic rows). Mirrors REALITY_CHIP so the
+// honesty color tells you what you're looking at from a meter away.
+const REALITY_ICON_CHIP = {
+  'on-chain': 'bg-emerald-500/12 text-emerald-300 light:text-emerald-700',
+  'full-zk': 'bg-violet-500/12 text-violet-300 light:text-violet-700',
+  hybrid: 'bg-sky-500/12 text-sky-300 light:text-sky-700',
+  'oracle-attested': 'bg-amber-500/12 text-amber-300 light:text-amber-700',
+  decorative: 'bg-white/[0.06] text-gray-300 light:text-slate-600',
+};
+
+// Icon-chip accent by page-block category. Keeps the palette glanceable so a creator
+// finds Hero vs Footer vs Live data without reading every label.
+const BLOCK_CATEGORY_CHIP = {
+  Hero: 'bg-sky-500/12 text-sky-300 light:text-sky-700',
+  Layout: 'bg-sky-500/12 text-sky-300 light:text-sky-700',
+  Content: 'bg-emerald-500/12 text-emerald-300 light:text-emerald-700',
+  Media: 'bg-emerald-500/12 text-emerald-300 light:text-emerald-700',
+  Social: 'bg-emerald-500/12 text-emerald-300 light:text-emerald-700',
+  'Live data': 'bg-amber-500/12 text-amber-300 light:text-amber-700',
+  Actions: 'bg-amber-500/12 text-amber-300 light:text-amber-700',
+  Honesty: 'bg-violet-500/12 text-violet-300 light:text-violet-700',
 };
 
 function RealityChip({ reality }) {
@@ -143,11 +166,32 @@ function SectionHeader({ title, count, total, open, onToggle, Icon }) {
 
 function ItemRow({ kind, entry, onSeeExample, onAdd }) {
   const Icon = kind === 'logic' ? Box : Blocks;
+  const chipColor =
+    kind === 'logic'
+      ? REALITY_ICON_CHIP[entry.reality] || REALITY_ICON_CHIP['decorative']
+      : BLOCK_CATEGORY_CHIP[entry.category] || 'bg-white/[0.06] text-gray-300 light:text-slate-600';
+  // draggable hints at the canvas-drop affordance. The actual insert path is the Add
+  // button (or Puck's own sidebar drag), so we only set a lightweight payload here.
+  const onDragStart = (e) => {
+    try {
+      e.dataTransfer.setData('text/plain', entry.name || entry.id || '');
+      e.dataTransfer.effectAllowed = 'copy';
+    } catch (_) { /* no-op */ }
+  };
   return (
-    <div className="group rounded-lg border border-white/[0.05] bg-white/[0.015] hover:border-white/[0.12] hover:bg-white/[0.03] light:border-slate-200 light:bg-white light:hover:border-slate-300 light:hover:bg-slate-50 transition-colors p-2.5">
-      <div className="flex items-start gap-2.5">
-        <div className="w-7 h-7 rounded-md bg-white/[0.04] border border-white/[0.08] light:bg-slate-100 light:border-slate-200 flex items-center justify-center shrink-0">
-          <Icon size={13} className="text-gray-300 light:text-slate-600" />
+    <div
+      draggable
+      onDragStart={onDragStart}
+      className="group rounded-lg border border-white/[0.05] bg-white/[0.015] hover:border-white/[0.12] hover:bg-white/[0.03] light:border-slate-200 light:bg-white light:hover:border-slate-300 light:hover:bg-slate-50 transition-colors p-2.5 cursor-grab active:cursor-grabbing"
+    >
+      <div className="flex items-start gap-2">
+        <GripVertical
+          size={12}
+          className="mt-1.5 text-gray-400 light:text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity shrink-0"
+          aria-hidden="true"
+        />
+        <div className={`w-7 h-7 rounded-md border border-white/[0.08] light:border-slate-200 flex items-center justify-center shrink-0 ${chipColor}`}>
+          <Icon size={13} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2 flex-wrap">

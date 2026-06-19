@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, ArrowRight } from 'lucide-react';
+import { Info, ArrowRight, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 /**
@@ -30,7 +30,7 @@ export default function HowThisWorks({
 }) {
   return (
     <details
-      className={`group rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white p-3 ${className}`}
+      className={`group rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white p-3 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/[0.04] light:hover:bg-slate-50 transition-colors min-h-[44px] ${className}`}
       open={defaultOpen}
     >
       <summary className="flex items-start gap-2 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">
@@ -38,7 +38,7 @@ export default function HowThisWorks({
           className="h-4 w-4 mt-0.5 shrink-0 text-cyan-400 light:text-cyan-700"
           aria-hidden="true"
         />
-        <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <div className="flex-1 min-w-0 flex items-center gap-x-2 min-w-0">
           <span className="text-sm font-medium text-white light:text-slate-900">
             {title}
           </span>
@@ -48,13 +48,7 @@ export default function HowThisWorks({
             </span>
           )}
         </div>
-        <span
-          className="text-xs text-gray-500 light:text-slate-500 shrink-0 mt-0.5 motion-reduce:transition-none transition-transform group-open:rotate-180"
-          aria-hidden="true"
-        >
-          {/* simple chevron via unicode, rotated when open */}
-          v
-        </span>
+        <ChevronDown size={14} aria-hidden="true" className="text-gray-500 light:text-slate-500 shrink-0 motion-reduce:transition-none transition-transform group-open:rotate-180" />
       </summary>
 
       {(details || learnMore) && (

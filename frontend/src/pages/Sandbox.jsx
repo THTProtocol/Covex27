@@ -2,17 +2,15 @@ import { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
-  Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock, Check, ChevronDown,
-  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket,
+  Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock,
+  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket, LayoutTemplate,
 } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import SandboxGallery from '../components/SandboxGallery';
 import CovenantAssistant from '../components/CovenantAssistant';
 import SilverTerminal from '../components/SilverTerminal';
-import BuildStepsRail from '../components/BuildStepsRail.jsx';
 import HowThisWorks from '../components/HowThisWorks.jsx';
-import ToolsPalette from '../components/ToolsPalette.jsx';
 import EnforcedDeploy from './EnforcedDeploy';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -82,6 +80,24 @@ const PHASES = [
   { id: 'deploy', n: 3, label: 'Deploy', Icon: TerminalSquare },
 ];
 
+// Phase 1 information architecture: three intentional, equal entry points. Persisted via ?tab=
+// so a deep link can land anywhere. Assistant is the default. Templates is a curated 6-card grid
+// of the most popular starting points; Catalog is the full circuit set.
+const CREATE_TABS = [
+  { id: 'assistant', label: 'Assistant', Icon: Wand2 },
+  { id: 'templates', label: 'Templates', Icon: LayoutTemplate },
+  { id: 'catalog', label: 'Catalog', Icon: Boxes },
+];
+
+// The curated 6-card Templates set. Hand-picked across honest realities so a newcomer sees one
+// of each kind they can actually start from: an oracle market, two real-Groth16 ZK circuits
+// verified fail-closed by the disclosed Covex oracle, a parimutuel game, age-gating, and a
+// verifiable pot split. All six are present in ZK_CIRCUIT_TYPES and land in Phase 2 on click.
+const TEMPLATE_IDS = [
+  'prediction_market', 'merkle_membership', 'escrow_2party',
+  'chess_blitz', 'age_verification', 'pot_distribution',
+];
+
 // Reduced-motion-safe cross-fade between phase panels (the y offset is dropped when reduced).
 const PANEL_FADE = {
   hidden: { opacity: 0, y: 8 },
@@ -109,53 +125,6 @@ function PhaseHeader({ eyebrow, title, action }) {
       <h2 className="text-2xl sm:text-[28px] font-extrabold tracking-[-0.015em] leading-tight text-white light:text-slate-900">{title}</h2>
       <p className="text-[15px] text-gray-300 light:text-slate-600 mt-1.5 max-w-2xl">{action}</p>
     </div>
-  );
-}
-
-// The bold entry choice: Guided (Covex helps you build) vs Pro (you write the covenant
-// yourself in the terminal, no auto-fill). Hoisted to module scope. Guided is the
-// recommended primary, marked with a kaspa Badge chip and a brighter aurora wash; Pro is
-// a calmer secondary with reduced surface emphasis.
-function ModeCard({ active, onClick, Icon, accent, tag, title, desc, recommended = false, auroraBright = false, secondary = false }) {
-  const bgIdle = secondary
-    ? 'bg-white/[0.01] light:bg-white/60'
-    : 'bg-white/[0.015] light:bg-white/70';
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={`hover-lift group relative text-left rounded-2xl border p-5 sm:p-6 transition-all overflow-hidden ${
-        active
-          ? 'border-white/0 bg-white/[0.04] light:bg-white shadow-[0_20px_60px_-28px_var(--glow)]'
-          : `border-white/10 light:border-slate-200 ${bgIdle} hover:border-white/25 light:hover:border-slate-300`
-      }`}
-      style={{ '--glow': `${accent}66`, ...(active ? { boxShadow: `0 0 0 1.5px ${accent}, 0 20px 60px -28px ${accent}88` } : {}) }}
-    >
-      {auroraBright && (
-        <span
-          aria-hidden="true"
-          className="absolute -top-12 -right-10 w-56 h-40 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(closest-side, ${accent}40, transparent 70%)`, filter: 'blur(8px)', opacity: active ? 0.9 : 0.55 }}
-        />
-      )}
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: active ? 1 : (secondary ? 0.3 : 0.5) }} />
-      <div className="relative flex items-center gap-3">
-        <span className="p-2.5 rounded-xl shrink-0 border" style={{ background: `${accent}1f`, borderColor: `${accent}4d` }}>
-          <Icon size={22} style={{ color: accent }} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-extrabold text-white light:text-slate-900">{title}</span>
-            {recommended && (
-              <Badge variant="builder" dot className="text-[10px] py-0">Recommended</Badge>
-            )}
-            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border" style={{ color: accent, borderColor: `${accent}66` }}>{tag}</span>
-          </div>
-          <p className="text-[12.5px] text-gray-400 light:text-slate-500 leading-snug mt-1">{desc}</p>
-        </div>
-        {active && <Check size={18} className="ml-auto shrink-0" style={{ color: accent }} />}
-      </div>
-    </button>
   );
 }
 
@@ -199,8 +168,27 @@ export default function Sandbox() {
     if (m === 'pro') next.set('mode', 'pro'); else next.delete('mode');
     setParams(next, { replace: true });
   };
+  // Phase-1 tab persistence. ?tab=templates|catalog lands a newcomer directly on either entry
+  // point; default Assistant matches the first-load eyebrow promise. Tab state is independent of
+  // ?phase= so a deep link can both pick a tab and a phase without one clobbering the other.
+  const [createTab, setCreateTabState] = useState(() => {
+    const t = params.get('tab');
+    return CREATE_TABS.some((x) => x.id === t) ? t : 'assistant';
+  });
+  const setCreateTab = (id) => {
+    setCreateTabState(id);
+    const next = new URLSearchParams(params);
+    if (id && id !== 'assistant') next.set('tab', id); else next.delete('tab');
+    setParams(next, { replace: true });
+  };
 
   const circuit = useMemo(() => ZK_CIRCUIT_TYPES.find((c) => c.id === selectedId) || null, [selectedId]);
+  // The Templates tab reuses SandboxGallery against this filtered subset, so styling, badges, and
+  // selection wiring stay identical to the Catalog. Order matches TEMPLATE_IDS for visual rhythm.
+  const templateCircuits = useMemo(() => {
+    const byId = new Map(ZK_CIRCUIT_TYPES.map((c) => [c.id, c]));
+    return TEMPLATE_IDS.map((id) => byId.get(id)).filter(Boolean);
+  }, []);
   const kind = kindForCircuit(circuit);
   const reality = circuit ? (REALITY[circuit.reality] || REALITY['oracle-attested']) : null;
 
@@ -264,31 +252,78 @@ export default function Sandbox() {
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <Terminal size={22} className="text-kaspa-green" />
           <h1 className="h-page text-white light:text-slate-900">Covenant Sandbox</h1>
-          <Badge variant="gold" dot>FREE TO EXPLORE</Badge>
+          <Badge variant="glass" dot>Free to explore, wallet only for deploy</Badge>
         </div>
-        <p className="text-base sm:text-lg text-gray-300 light:text-slate-600 max-w-3xl mb-7">
-          Build a real Kaspa covenant. Choose your path: let Covex guide you, or write it yourself in the pro
-          terminal. Exploring and simulating is free and needs no wallet; deploy and the advanced editor unlock with a
-          tier. Nothing here overstates what the chain enforces.
+        <p className="text-sm sm:text-lg text-gray-300 light:text-slate-600 max-w-3xl mb-4 sm:mb-7">
+          Build a real Kaspa covenant.<span className="hidden sm:inline"> Exploring and simulating is free and needs no wallet; deploying and the advanced editor unlock with a tier.</span>
         </p>
       </div>
 
-      {/* MODE SELECTOR: Guided is the recommended primary; Pro stays a calmer secondary. */}
-      <div className="relative z-10 grid sm:grid-cols-[6fr_4fr] gap-4 sm:gap-5 mb-10">
-        <ModeCard
-          active={mode === 'guided'} onClick={() => setMode('guided')} Icon={Wand2} accent="#49EACB" tag="For everyone"
-          title="Guided build"
-          desc="Describe what you want or pick a template. Covex helps you build it step by step: create, then logic, then a website."
-          recommended
-          auroraBright
-        />
-        <ModeCard
-          active={mode === 'pro'} onClick={() => setMode('pro')} Icon={TerminalSquare} accent="#94a3b8" tag="For experienced builders"
-          title="Pro terminal"
-          desc="Write the covenant yourself and compile it. No templates, no assistant, no auto-fill. Just you and the terminal."
-          secondary
-        />
-      </div>
+      {/* HERO CTA: one obvious primary action on first paint. Pro terminal demoted to a ghost link
+          below so newcomers are not asked to make a paralysis decision before they know what a
+          covenant is. Selecting either path still mutates ?mode= so deep-links keep working. */}
+      {mode === 'guided' && (
+        <div className="relative z-10 mb-6">
+          <Card accent="#49EACB" className="overflow-hidden">
+            <span
+              aria-hidden="true"
+              className="absolute -top-16 -right-12 w-72 h-48 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(closest-side, #49EACB40, transparent 70%)', filter: 'blur(10px)', opacity: 0.7 }}
+            />
+            <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
+              <span className="p-3 rounded-xl shrink-0 border self-start" style={{ background: '#49EACB1f', borderColor: '#49EACB4d' }}>
+                <Wand2 size={26} style={{ color: '#49EACB' }} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  <Badge variant="builder" dot className="text-[10px] py-0">Recommended</Badge>
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border" style={{ color: '#49EACB', borderColor: '#49EACB66' }}>For everyone</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white light:text-slate-900 leading-tight">
+                  Start a guided build
+                </h2>
+                <p className="text-sm text-gray-400 light:text-slate-500 leading-snug mt-1.5 max-w-xl">
+                  Describe what you want or pick a template. Covex walks you through create, logic, and a website, step by step.
+                </p>
+              </div>
+              <Button
+                variant="kaspa"
+                size="lg"
+                shimmer
+                onClick={() => setPhase('create')}
+                className="shrink-0 self-start sm:self-center"
+              >
+                Start guided build
+                <ArrowRight size={18} className="ml-1" />
+              </Button>
+            </div>
+          </Card>
+          <div className="mt-3 flex justify-center sm:justify-start">
+            <button
+              type="button"
+              onClick={() => setMode('pro')}
+              className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
+            >
+              <TerminalSquare size={14} />
+              Prefer to write it yourself? Open the pro terminal
+              <ArrowRight size={12} className="opacity-60" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'pro' && (
+        <div className="relative z-10 mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setMode('guided')}
+            className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
+          >
+            <Wand2 size={14} />
+            Back to guided build
+          </button>
+        </div>
+      )}
 
       {mode === 'pro' && (
         <div className="relative z-10">
@@ -297,10 +332,8 @@ export default function Sandbox() {
       )}
 
       {mode === 'guided' && (<>
-      {/* Global 5-step rail. Behavior-compatible: BuildStepsRail returns null when not applicable. */}
-      <div className="relative z-30 mb-5">
-        <BuildStepsRail />
-      </div>
+      {/* 5-step rail is rendered globally in App.jsx; no per-page mount here to
+          avoid stacking two rails (the global one under the nav + an in-page copy). */}
       {circuit && reality && (
         <div className="relative z-10 mb-4 flex items-center justify-end">
           <SelectionChip name={name} reality={reality} />
@@ -311,36 +344,75 @@ export default function Sandbox() {
       <AnimatePresence mode="wait">
         <motion.div key={phase} {...panelMotion} className="relative z-10 min-w-0 pb-24 sm:pb-20">
 
-          {/* PHASE 1 - CREATE */}
+          {/* PHASE 1 - CREATE. Three intentional, equal entry points (Assistant / Templates /
+              Catalog) above one shared content surface. The ToolsPalette sidebar belongs to the
+              Studio context in Phase 2 and is intentionally not mounted here. */}
           {phase === 'create' && (
-            <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
-              <aside className="hidden lg:block min-w-0">
-                <ToolsPalette context="logic" />
-              </aside>
-              <div className="space-y-7 min-w-0">
-                <PhaseHeader eyebrow="Step 1" title="Create the covenant" action="Start from an idea, a template, or code." />
-                <HowThisWorks
-                  title="What is a covenant?"
-                  summary="A small program that locks Kaspa funds until rules are satisfied."
-                  details={(
-                    <p>
-                      Covex compiles your covenant DSL into a Kaspa redeem script. Funds lock to its P2SH commitment.
-                      Some redeem paths are consensus-enforced by Kaspa alone; oracle paths require the disclosed
-                      Covex oracle to co-sign, which is the off-chain reality for ZK and parimutuel circuits.
-                    </p>
-                  )}
-                />
-                <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
-                {/* Progressive disclosure: the full 170+ catalog mounts only when opened. */}
-                <details className="group rounded-2xl border border-white/10 light:border-slate-200 bg-black/20 light:bg-white open:bg-transparent">
-                  <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-widest text-gray-400 light:text-slate-500">
-                    <Boxes size={13} className="text-kaspa-green" /> Browse the full catalog (170+ covenants)
-                    <ChevronDown size={14} className="ml-auto transition-transform group-open:rotate-180" />
-                  </summary>
-                  <div className="p-4 pt-0">
-                    <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
-                  </div>
-                </details>
+            <div className="space-y-7 min-w-0">
+              <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Create the covenant" action="Start from an idea, a template, or the full catalog." />
+              <HowThisWorks
+                title="What is a covenant?"
+                summary="A small program that locks Kaspa funds until rules are satisfied."
+                details={(
+                  <p>
+                    Covex compiles your covenant DSL into a Kaspa redeem script. Funds lock to its P2SH commitment.
+                    Some redeem paths are consensus-enforced by Kaspa alone; oracle paths require the disclosed
+                    Covex oracle to co-sign, which is the off-chain reality for ZK and parimutuel circuits.
+                  </p>
+                )}
+              />
+              {/* Segmented tab control. role=tablist + role=tab keep this keyboard + screen-reader
+                  honest. The active tab gets the kaspa-green underline + text-kaspa-green per brief. */}
+              <Card className="overflow-hidden">
+                <div role="tablist" aria-label="Create entry points" className="grid grid-cols-3">
+                  {CREATE_TABS.map((t) => {
+                    const Icon = t.Icon;
+                    const active = createTab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        aria-controls={`create-tab-${t.id}`}
+                        id={`create-tab-btn-${t.id}`}
+                        onClick={() => setCreateTab(t.id)}
+                        className={`relative flex items-center justify-center gap-2 px-3 py-3 text-[13px] sm:text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
+                          active
+                            ? 'text-kaspa-green bg-white/[0.02] light:bg-white'
+                            : 'text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900'
+                        }`}
+                      >
+                        <Icon size={15} className="shrink-0" />
+                        <span className="truncate">{t.label}</span>
+                        <span
+                          aria-hidden="true"
+                          className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full transition-opacity ${
+                            active ? 'bg-kaspa-green opacity-100' : 'opacity-0'
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </Card>
+              {/* Shared content surface. One tab body mounts at a time so heavy children (the full
+                  catalog) only render when requested. */}
+              <div
+                id={`create-tab-${createTab}`}
+                role="tabpanel"
+                aria-labelledby={`create-tab-btn-${createTab}`}
+                className="min-w-0"
+              >
+                {createTab === 'assistant' && (
+                  <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
+                )}
+                {createTab === 'templates' && (
+                  <SandboxGallery circuits={templateCircuits} selectedId={selectedId} onSelect={select} />
+                )}
+                {createTab === 'catalog' && (
+                  <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
+                )}
               </div>
             </div>
           )}
@@ -348,7 +420,7 @@ export default function Sandbox() {
           {/* PHASE 2 - ADD LOGIC */}
           {phase === 'logic' && (circuit && reality ? (
             <div className="space-y-4 min-w-0">
-              <PhaseHeader eyebrow="Step 2" title="Choose how it resolves" action="See exactly what the chain enforces and who decides the outcome, then tune it." />
+              <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Choose how it resolves" action="See exactly what the chain enforces and who decides the outcome, then tune it." />
               <HowThisWorks
                 title="What does 'how it resolves' mean?"
                 summary="This decides who or what can settle the covenant: the chain alone, the disclosed Covex oracle, or a mix."
@@ -386,43 +458,17 @@ export default function Sandbox() {
           {/* PHASE 3 - DEPLOY (the real builder). The page / website step lives in /covenant/:id/studio. */}
           {phase === 'deploy' && (circuit ? (
             <div className="space-y-5 min-w-0">
-              <PhaseHeader eyebrow="Step 3" title="Deploy" action="Sign the funding transaction in your wallet. The page step opens in /covenant/:id/studio after a successful deploy." />
-              {/* Honest Studio explainer. No fake reward, no fake deployed id, no decoder pre-deploy. */}
-              <Card hover accent="#49EACB" className="p-5">
-                <div className="flex items-start gap-4">
-                  <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 shrink-0">
-                    <Rocket size={20} className="text-[#49EACB]" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-white light:text-slate-900">Deploy, then design the public page in Studio</h3>
-                    <p className="text-xs text-gray-400 light:text-slate-500 mt-1 leading-relaxed">
-                      The visual Studio (drag and drop, safe platform components only) binds to a deployed covenant id.
-                      Sign the funding transaction in the builder below, then open Covenant Studio from the builder's
-                      Custom UI Integration section or from your covenant page at /covenant/:id/studio. Markets and game
-                      covenants get their full custom-UI page this way.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button variant="glass" size="sm" onClick={() => navigate('/templates')}>Browse templates</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setPhase('logic')}>
-                        <ArrowLeft size={14} /> Back to logic
-                      </Button>
-                    </div>
-                  </div>
+              <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Deploy" action="Sign the funding transaction in your wallet to create the covenant." />
+              {/* Universal signing honesty banner. The single most important truth in the flow:
+                  the user's wallet signs, Covex never holds the key. Always visible, never tucked
+                  inside a collapsed details element. */}
+              <div className="rounded-xl border border-kaspa-green/30 bg-kaspa-green/[0.04] light:bg-emerald-50 px-4 py-3 flex items-start gap-2.5">
+                <ShieldCheck size={16} className="text-kaspa-green mt-0.5 shrink-0" />
+                <div className="text-xs">
+                  <div className="font-bold text-white light:text-slate-900">Your wallet signs this. Covex never holds your key.</div>
+                  <div className="text-gray-400 light:text-slate-600 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting P2SH address.</div>
                 </div>
-              </Card>
-              {/* Universal signing explainer. Stays above the form on every primitive so the user
-                  always sees the honest reality before approving anything in their wallet. */}
-              <HowThisWorks
-                title="Why am I signing this?"
-                summary="Your wallet signs the funding transaction. Covex never holds your key."
-                details={(
-                  <p>
-                    The funding tx broadcasts to a real Kaspa node. The covenant id is the resulting P2SH address.
-                    Covex never custodies your funds; for demo flows that use sandbox wallets, the surface clearly
-                    says "Demo uses the dev wallets".
-                  </p>
-                )}
-              />
+              </div>
               {/* THE REAL BUILDER. EnforcedDeploy owns the 12 primitive kinds end to end (signing,
                   broadcast, covenant id). On a successful deploy it hands back the new covenant id
                   and we open Studio with ?fresh=1 so the page starts empty. Everything outside that
@@ -436,6 +482,29 @@ export default function Sandbox() {
               ) : (
                 <CovexTerminal externalCircuit={selectedId} />
               )}
+              {/* Post-deploy nudge. Moved BELOW the builder so it's a next-step pointer, not a
+                  pre-deploy primer that buries the signing banner. */}
+              <Card hover accent="#49EACB" className="p-5">
+                <div className="flex items-start gap-4">
+                  <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 shrink-0">
+                    <Rocket size={20} className="text-[#49EACB]" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-white light:text-slate-900">After deploy: design the public page in Studio</h3>
+                    <p className="text-xs text-gray-400 light:text-slate-500 mt-1 leading-relaxed">
+                      The visual Studio (drag and drop, safe platform components only) binds to the new covenant id.
+                      Once the funding tx confirms, Studio opens automatically; you can also reach it later from your
+                      covenant page at /covenant/:id/studio or from the builder's Custom UI Integration section.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button variant="glass" size="sm" onClick={() => navigate('/templates')}>Browse templates</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setPhase('logic')}>
+                        <ArrowLeft size={14} /> Back to logic
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             </div>
           ) : emptyState)}
 

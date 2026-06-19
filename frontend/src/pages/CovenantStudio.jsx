@@ -2,14 +2,12 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Puck, Render as PuckRender } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench, Info } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import puckConfig, { LIVE_TOKENS, STARTER_TEMPLATES, matchTemplate, SAFE_COLOR } from '../lib/puckConfig';
 import { getPresets, presetBackdrop } from '../lib/designPresets';
-import BuildStepsRail from '../components/BuildStepsRail.jsx';
-import HowThisWorks from '../components/HowThisWorks.jsx';
 import ToolsPalette from '../components/ToolsPalette.jsx';
 
 // Random-id helper matching the convention puckConfig.blk() uses so blocks added
@@ -80,6 +78,7 @@ export default function CovenantStudio() {
   // single icon on <md so row 1 is only Back + Title + Publish (44px touch targets).
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showTokensMobile, setShowTokensMobile] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   // Bump this to force the Puck tree to re-mount with fresh data (template / theme apply).
   const [dataKey, setDataKey] = useState(0);
   const puckDataRef = useRef(EMPTY_PAGE);
@@ -314,8 +313,8 @@ export default function CovenantStudio() {
 
   return (
     <div className="covex-studio relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      {/* 5-step build rail. Step 4 (Design) is the current step on this route. */}
-      <BuildStepsRail compact />
+      {/* 5-step rail is mounted globally in App.jsx; it auto-switches to its
+          compact form on this route, so no per-page mount is needed here. */}
 
       {/* Post-deploy success banner. Shown once when arriving via ?fresh=1 from the
           deploy step. Dismiss strips the query so a refresh never resurfaces it. */}
@@ -330,17 +329,13 @@ export default function CovenantStudio() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:block w-72">
-              <HowThisWorks
-                title="What can I publish?"
-                summary="Platform blocks only, live tokens, server-derived enforcement."
-                details={(
-                  <>
-                    <p>Blocks are platform-authored. No raw HTML or JS. Live tokens like <code>{'{{total_locked}}'}</code> and <code>{'{{pool_yes}}'}</code> resolve at render time. The EnforcementBadge always reads the server-derived reality.</p>
-                  </>
-                )}
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowPicker(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 light:text-emerald-900 hover:underline"
+            >
+              Pick a starter template <ArrowRight size={12} />
+            </button>
             <button
               type="button"
               onClick={dismissFresh}
@@ -354,28 +349,29 @@ export default function CovenantStudio() {
       )}
 
       <div className="relative flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
-        <Link to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
+        <Link data-tour="public-page" to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
           <ArrowLeft size={16} /> <span className="hidden sm:inline">Back to covenant</span>
         </Link>
         <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Page Studio</p>
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
           {/* Desktop: inline secondary actions (md+). Mobile: collapsed into overflow menu. */}
-          <button onClick={() => setShowSettings(true)} aria-label="Page settings" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => setShowSettings(true)} aria-label="Page settings" title="Stake amount, name, description. Saved with your page. The fund destination is always derived from the indexed covenant record, never from page settings." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Settings size={14} /> <span className="hidden sm:inline">Page settings</span>
           </button>
-          <button onClick={() => setShowThemes(true)} aria-label="Theme" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => setShowThemes(true)} aria-label="Theme" title="One click sets the accent color and page background. Your block content is preserved, no re-publishing needed." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Palette size={14} /> <span className="hidden sm:inline">Theme</span>
           </button>
-          <button onClick={() => setShowPicker(true)} aria-label="Templates" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => setShowPicker(true)} aria-label="Templates" title="Start from a premium, honest layout. Tweak everything after. Blocks are platform-authored, never raw HTML." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <LayoutTemplate size={14} /> <span className="hidden sm:inline">Templates</span>
           </button>
           <button
+            data-tour="studio-block"
             onClick={() => setShowToolsPalette((v) => !v)}
-            aria-label="Tools palette"
+            aria-label="Add block panel"
             aria-expanded={showToolsPalette}
             className={`hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border transition-colors ${showToolsPalette ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100'}`}
           >
-            <Wrench size={14} /> <span className="hidden sm:inline">Tools</span>
+            <Wrench size={14} /> <span className="hidden sm:inline">Add block</span>
           </button>
           {/* Mobile-only overflow trigger (44px touch target). */}
           <button
@@ -426,58 +422,17 @@ export default function CovenantStudio() {
         )}
       </div>
 
-      {/* Secondary toolbar row (desktop): inline HowThisWorks chips under the
-          Templates, Theme and Page settings buttons, plus a toggle for the
-          ToolsPalette floating side panel. Honesty-first copy throughout. */}
-      <div className="hidden md:grid grid-cols-3 gap-3 px-5 py-3 border-b border-white/[0.06] light:border-slate-200 bg-[#08080c] light:bg-slate-50">
-        <HowThisWorks
-          title="Templates"
-          summary="Start from a premium, honest layout. Tweak everything after."
-          details={(
-            <p>Templates are platform-authored starting points: they pre-fill the canvas with blocks for a hero, live odds, leaderboard, and footer. Replace anything. The EnforcementBadge always reads the server-derived reality, never an override from the template.</p>
-          )}
-        />
-        <HowThisWorks
-          title="Theme"
-          summary="One click sets the accent color and page background."
-          details={(
-            <p>Theme applies a palette to the page root: the accent color flows into CTAs and highlights, and the background swaps to a matching preset. Your block content is preserved. Switch any time without re-publishing your data.</p>
-          )}
-        />
-        <HowThisWorks
-          title="Page settings"
-          summary="Stake amount, name, and description. Saved with your page."
-          details={(
-            <p>The default stake is the suggested amount shown on the public page and arena, not a fund destination. Custody and payouts are non-custodial and consensus-enforced where the script supports it, or oracle co-signed by the disclosed Covex oracle. The fund destination is always derived from the indexed covenant record.</p>
-          )}
-        />
-      </div>
-
-      {/* Instructional strip above the Puck canvas (desktop). Three short
-          HowThisWorks chips explaining publish scope, live tokens, enforcement.
-          Hidden on mobile because the canvas itself is hidden there too. */}
-      <div className="hidden md:grid grid-cols-3 gap-3 px-5 pt-3 pb-1 bg-[#0A0A0D] light:bg-white border-b border-white/[0.04] light:border-slate-100">
-        <HowThisWorks
-          title="What can I publish?"
-          summary="Platform blocks only. No raw HTML or JS."
-          details={(
-            <p>Blocks are platform-authored. No raw HTML or JS. Live tokens like <code>{'{{total_locked}}'}</code> and <code>{'{{pool_yes}}'}</code> resolve at render time. The EnforcementBadge always reads the server-derived reality.</p>
-          )}
-        />
-        <HowThisWorks
-          title="How do live tokens work?"
-          summary="Insert any of 18 tokens from the cheat sheet."
-          details={(
-            <p>Insert any of the 18 tokens from the cheat sheet (TokenCheatSheet); they are replaced at render time with current covenant state.</p>
-          )}
-        />
-        <HowThisWorks
-          title="How is enforcement displayed?"
-          summary="Server-derived. You cannot override it on the page."
-          details={(
-            <p>EnforcementBadge shows the server's enforcement_reality. You cannot override it on the page.</p>
-          )}
-        />
+      {/* Compact instructional strip above the Puck canvas (desktop). One link
+          opens a slide-over with all explainers grouped, so the action bar above
+          stays the visual primary. Hidden on mobile because the canvas is too. */}
+      <div className="hidden md:flex items-center justify-end px-5 py-2 border-b border-white/[0.06] light:border-slate-200 bg-[#08080c] light:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => setShowHelp(true)}
+          className="text-[11px] text-gray-400 light:text-slate-500 hover:text-kaspa-green flex items-center gap-1 transition-colors"
+        >
+          <Info size={12} /> How the Studio works
+        </button>
       </div>
 
       {isMobile ? (
@@ -502,38 +457,25 @@ export default function CovenantStudio() {
                 {saving && <span className="text-xs text-gray-400 flex items-center gap-1"><Save size={12} /> Saving...</span>}
               </>
             ),
-            // Sidebar block list with a live search filter (Priority 8).
-            components: ({ children }) => <BlockSearch>{children}</BlockSearch>,
+            // Sidebar block list with a live search filter (Priority 8). When the
+            // creator opens the palette, it docks into the same Puck sidebar
+            // column above the search instead of floating over the fields panel.
+            components: ({ children }) => (
+              <BlockSearch
+                paletteOpen={showToolsPalette}
+                onClosePalette={() => setShowToolsPalette(false)}
+                onAddBlock={onAddBlock}
+              >
+                {children}
+              </BlockSearch>
+            ),
           }}
         />
       )}
 
-      {/* Floating ToolsPalette side panel (desktop). Opens via the Tools button in
-          the toolbar; one-click "Add" appends a validated block to the Puck tree
-          via onAddBlock. Hidden on mobile because the canvas is hidden too. */}
-      {showToolsPalette && (
-        <aside
-          className="hidden md:flex fixed top-24 right-3 z-[88] w-80 max-h-[calc(100vh-140px)] flex-col rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/97 light:bg-white/97 backdrop-blur shadow-2xl"
-          aria-label="Tools palette"
-        >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] light:border-slate-200">
-            <p className="flex items-center gap-2 text-xs font-bold text-kaspa-green">
-              <Wrench size={13} /> Tools palette
-            </p>
-            <button
-              type="button"
-              aria-label="Close tools palette"
-              onClick={() => setShowToolsPalette(false)}
-              className="flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
-            >
-              <X size={15} />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3">
-            <ToolsPalette context="blocks" onAddBlock={onAddBlock} />
-          </div>
-        </aside>
-      )}
+      {/* ToolsPalette docks into the Puck sidebar above BlockSearch via the
+          overrides.components slot (see <Puck overrides> above). It is no longer
+          a floating aside, so it never occludes the field editor panel. */}
 
       {/* Live token cheat sheet: click any token to copy it for pasting into a field.
           Hidden on <md to keep the canvas clear; mobile creators reach it via the
@@ -562,15 +504,93 @@ export default function CovenantStudio() {
           onClose={() => setShowSettings(false)}
         />
       )}
+      {showHelp && <StudioHelpDrawer onClose={() => setShowHelp(false)} />}
       {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
     </div>
   );
 }
 
+// Slide-over that groups all Studio explainers (templates, theme, page settings,
+// publish surface, live tokens, enforcement reality). Opened by the single
+// "How the Studio works" link so the canvas+toolbar stay the visual primary.
+// Hoisted to module scope so it never remounts when the parent re-renders.
+function StudioHelpDrawer({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const sections = [
+    {
+      title: 'Templates',
+      body: <p>Templates are platform-authored starting points: they pre-fill the canvas with blocks for a hero, live odds, leaderboard, and footer. Replace anything. Blocks are platform-authored, no raw HTML or JS. The EnforcementBadge always reads the server-derived reality, never an override from the template.</p>,
+    },
+    {
+      title: 'Theme',
+      body: <p>One click sets the accent color and page background. Your block content is preserved, no re-publishing needed. Both light and dark mode previews stay in parity.</p>,
+    },
+    {
+      title: 'Page settings',
+      body: <p>Stake amount, name, description. Saved with your page. The fund destination is always derived from the indexed covenant record, never from page settings, so a typo here cannot redirect funds.</p>,
+    },
+    {
+      title: 'What can I publish?',
+      body: <p>Blocks are platform-authored. No raw HTML or JS. Custom CSS is sandboxed to your page. The EnforcementBadge always reads the server-derived reality.</p>,
+    },
+    {
+      title: 'How do live tokens work?',
+      body: <p>Open the TokenCheatSheet and click any of the 18 tokens to copy it. Paste it into a text block or field. Tokens like <code>{'{{total_locked}}'}</code> and <code>{'{{pool_yes}}'}</code> are replaced at render time with current covenant state.</p>,
+    },
+    {
+      title: 'How is enforcement displayed?',
+      body: <p>EnforcementBadge shows the server's enforcement_reality for this covenant. You cannot override it on the page. The Kaspa script holds the funds at a P2SH commitment. Where the script alone can settle, payouts are consensus-enforced; otherwise the disclosed Covex oracle co-signs the payout transaction (fail-closed if the oracle is unavailable). The fund destination is derived from the indexed covenant record, not from this field.</p>,
+    },
+  ];
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close help"
+        onClick={onClose}
+        className="fixed inset-0 z-[120] bg-black/50"
+      />
+      <aside
+        role="dialog"
+        aria-label="How the Studio works"
+        className="fixed right-0 top-0 bottom-0 z-[121] w-full sm:w-[420px] max-w-full overflow-y-auto bg-[#0A0A0D] light:bg-white border-l border-white/[0.12] light:border-slate-200 shadow-2xl"
+      >
+        <div className="sticky top-0 flex items-center justify-between px-5 py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D] light:bg-white">
+          <p className="text-[13px] font-bold text-white light:text-slate-900">How the Studio works</p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex items-center justify-center h-9 w-9 rounded-lg text-gray-300 light:text-slate-600 hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          {sections.map((s) => (
+            <section key={s.title}>
+              <h3 className="text-[12px] font-bold text-kaspa-green mb-1">{s.title}</h3>
+              <div className="text-[12px] leading-relaxed text-gray-300 light:text-slate-600">
+                {s.body}
+              </div>
+            </section>
+          ))}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ── Sidebar block search: filters Puck's component list by label text. The list
 // items render the label as text, so we hide non-matching draggables via a data
-// attribute the user-supplied query drives. Hoisted so it never remounts. ──
-function BlockSearch({ children }) {
+// attribute the user-supplied query drives. Hoisted so it never remounts.
+// When paletteOpen is true, ToolsPalette docks above the search bar so the
+// one-click "Add block" UI lives in the same column as the drag list. ──
+function BlockSearch({ children, paletteOpen = false, onClosePalette, onAddBlock }) {
   const [q, setQ] = useState('');
   const ref = useRef(null);
   useEffect(() => {
@@ -586,6 +606,28 @@ function BlockSearch({ children }) {
   }, [q, children]);
   return (
     <div ref={ref} className="cvx-block-search">
+      {paletteOpen && (
+        <div className="mb-2 rounded-xl border border-kaspa-green/30 bg-kaspa-green/[0.04] light:bg-kaspa-green/[0.06]">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-kaspa-green/20">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-kaspa-green">
+              <Wrench size={12} /> Add block
+            </p>
+            {onClosePalette && (
+              <button
+                type="button"
+                aria-label="Close add-block panel"
+                onClick={onClosePalette}
+                className="flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-white hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <div className="p-2 max-h-[42vh] overflow-y-auto">
+            <ToolsPalette context="blocks" onAddBlock={onAddBlock} />
+          </div>
+        </div>
+      )}
       <div className="cvx-block-search-bar">
         <Search size={14} />
         <input
@@ -729,7 +771,7 @@ function PageSettingsModal({ covenant, saving, onSave, onClose }) {
               />
             </div>
             <p className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5 leading-relaxed">
-              The suggested stake shown on the public page and arena. Custody and payouts are always non-custodial and on-chain. The stake never sets a fund destination, which is derived from the covenant on-chain.
+              This is the suggested stake shown on the public page and arena. It never sets a fund destination, which is always derived from the indexed covenant record. Custody and payouts are consensus-enforced where the script supports it, or oracle co-signed by the disclosed Covex oracle, fail-closed.
             </p>
           </div>
         </div>

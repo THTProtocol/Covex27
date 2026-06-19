@@ -1,14 +1,15 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
-import { useBuildStep } from '../lib/build-steps.js';
+import { useBuildStep, BUILD_STEPS } from '../lib/build-steps.js';
 
-const STEPS = [
-  { n: 1, label: 'Pick' },
-  { n: 2, label: 'Logic' },
-  { n: 3, label: 'Deploy' },
-  { n: 4, label: 'Design' },
-  { n: 5, label: 'Share' },
-];
+// Single source of truth: BUILD_STEPS. The rail only needs { n, label }.
+const STEPS = BUILD_STEPS.map(({ n, label }) => ({ n, label }));
+
+// Routes where the rail should render in its tighter, dot-only form.
+// Page Studio packs a lot of chrome under the rail already, so the full
+// chip+label row pushed the canvas too far down.
+const COMPACT_ROUTE = /^\/covenant\/[^/]+\/studio(\/|$)/;
 
 /**
  * BuildStepsRail
@@ -18,23 +19,29 @@ const STEPS = [
  *
  * Honesty note: this is a UI breadcrumb, not an enforcement claim. The actual
  * consensus-enforced vs oracle co-signed reality is surfaced elsewhere.
+ *
+ * `compact` may be passed explicitly; if omitted, it auto-switches on the
+ * Page Studio route. Mounted exactly once globally from App.jsx.
  */
-export default function BuildStepsRail({ compact = false }) {
+export default function BuildStepsRail({ compact }) {
   const ctx = useBuildStep() || {};
   const { current, goTo, isDone } = ctx;
+  const location = useLocation();
 
   if (current == null) return null;
 
-  const chipBase = compact
+  const isCompact = compact === undefined ? COMPACT_ROUTE.test(location.pathname) : compact;
+
+  const chipBase = isCompact
     ? 'inline-flex items-center justify-center shrink-0 rounded-full border font-bold transition-all snap-start'
     : 'inline-flex items-center gap-2 shrink-0 pl-1.5 pr-3 py-2 rounded-full border text-xs font-bold transition-all snap-start';
-  const chipSize = compact ? 'w-7 h-7 text-[10px]' : '';
+  const chipSize = isCompact ? 'w-7 h-7 text-[10px]' : '';
 
-  const dotSize = compact ? 'w-5 h-5 text-[10px]' : 'w-5 h-5 text-[10px]';
+  const dotSize = isCompact ? 'w-5 h-5 text-[10px]' : 'w-5 h-5 text-[10px]';
 
   return (
     <div
-      className={`relative sm:sticky sm:top-16 z-30 -mx-4 px-4 ${compact ? 'py-1.5' : 'py-3'} ${compact ? '' : 'mb-5'} bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200`}
+      className={`relative sm:sticky sm:top-16 z-30 -mx-4 px-4 ${isCompact ? 'py-1.5' : 'py-3'} ${isCompact ? '' : 'mb-5'} bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200`}
       role="navigation"
       aria-label="Covenant build steps"
     >
@@ -67,7 +74,7 @@ export default function BuildStepsRail({ compact = false }) {
             className: `${chipBase} ${chipSize} ${stateClasses}`,
           };
 
-          const inner = compact ? (
+          const inner = isCompact ? (
             done ? <Check size={12} /> : s.n
           ) : (
             <>

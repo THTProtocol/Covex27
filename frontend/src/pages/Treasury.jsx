@@ -35,7 +35,7 @@ function VolumeSparkline({ upgrades }) {
 
   if (!points) {
     return (
-      <p className="text-xs text-gray-500 light:text-slate-400 mt-2 italic">No payments in this window.</p>
+      <p className="text-xs text-gray-500 light:text-slate-500 mt-2 italic">No payments in this window.</p>
     );
   }
   const { bins, peak } = points;
@@ -106,7 +106,7 @@ export default function Treasury() {
           <p className="text-sm text-gray-400 light:text-slate-500">Every tier payment is an <span className="text-kaspa-green/90 light:text-emerald-700 font-semibold">on-chain</span> transaction to a public address. Verify everything yourself.</p>
         </div>
       </div>
-      <p className="text-xs text-gray-500 light:text-slate-400 mb-8">Network: <span className="font-mono text-gray-300 light:text-slate-700">{network}</span></p>
+      <p className="text-xs text-gray-500 light:text-slate-500 mb-8">Network: <span className="font-mono text-gray-300 light:text-slate-700">{network}</span></p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <Card hover accent="#49EACB" className="p-5">
@@ -123,12 +123,12 @@ export default function Treasury() {
           {balance === null
             ? <div className="skeleton light:bg-slate-100 h-7 w-40 mt-1" />
             : <p className="text-2xl font-black text-white light:text-slate-900 tabular-nums">{`${balance.toLocaleString()} KAS`}</p>}
-          <p className="text-[10px] text-gray-500 light:text-slate-400 mt-1">Consensus-enforced address balance (read-only)</p>
+          <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1">Consensus-enforced address balance (read-only)</p>
         </Card>
         <Card hover accent="#49EACB" className="p-5">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-2">Treasury address</p>
           <p className="text-[11px] font-mono text-kaspa-green light:text-emerald-700 break-all">{treasury}</p>
-          <p className="text-[10px] text-gray-500 light:text-slate-400 mt-1">Public, watch-only. Covex never holds your keys.</p>
+          <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1">Public, watch-only. Covex never holds your keys.</p>
         </Card>
       </div>
 
@@ -155,7 +155,7 @@ export default function Treasury() {
         </div>
         <VolumeSparkline upgrades={upgrades} />
         {upgrades.length === 0 ? (
-          <p className="text-xs text-gray-500 light:text-slate-400 mt-4">No tier upgrades recorded in the recent event window. New payments appear here within 15 seconds of confirmation.</p>
+          <p className="text-xs text-gray-500 light:text-slate-500 mt-4">No tier upgrades recorded in the recent event window. New payments appear here within 15 seconds of confirmation.</p>
         ) : (
           <div className="space-y-2 mt-4">
             {upgrades.slice(0, 20).map((u) => {
@@ -174,7 +174,7 @@ export default function Treasury() {
                   <span className="font-bold text-amber-300 light:text-amber-600 shrink-0">{u.detail}</span>
                   <span className="font-mono text-gray-400 light:text-slate-500 truncate flex-1 min-w-0">{u.covenant_id.slice(0, 24)}...</span>
                   <span className="font-mono text-white light:text-slate-900 shrink-0 tabular-nums">{u.amount_kaspa} KAS</span>
-                  <span className="text-gray-500 light:text-slate-400 shrink-0 w-full sm:w-auto sm:text-right tabular-nums">{new Date(u.timestamp * 1000).toLocaleString()}</span>
+                  <span className="text-gray-500 light:text-slate-500 shrink-0 w-full sm:w-auto sm:text-right tabular-nums">{new Date(u.timestamp * 1000).toLocaleString()}</span>
                   <ExternalLink size={11} className="text-gray-500 light:text-slate-400 group-hover:text-kaspa-green light:group-hover:text-emerald-600 shrink-0" aria-hidden="true" />
                 </a>
               );

@@ -292,89 +292,88 @@ describe('ZkClaimPanel state machine', () => {
   });
 });
 
-// --- async handler integration -------------------------------------------
+// --- payload-builder tests -----------------------------------------------
 
-// These tests don't drive renders; they exercise the handlers' async paths via
-// the mocked module boundaries to verify proveInBrowser is invoked with the
-// covenant_id (H4 binding) and that fetch is called with the documented body.
-// The component's status transitions on a real DOM would then follow; without
-// a DOM we verify the inputs the handlers feed into the boundary.
+// buildOraclePayload is the pure helper extracted from ZkClaimPanel.jsx that
+// handleSubmit calls to construct the /api/oracle/verify-and-sign body. We
+// import it from the SAME module as the component, so these assertions
+// exercise the exact code the production submit path runs - not a mock.
+//
+// This replaced an earlier describe block whose tests called a mocked
+// proveInBrowser / fetch with the args under test and then asserted those
+// same args came back - tautological. The honesty surface (H4 covenant_id
+// binding, documented payload shape, public_inputs serialized as strings)
+// is now anchored to a real function.
 
-describe('ZkClaimPanel handler boundaries', () => {
-  it('proveInBrowser is called with the covenant tx_id (H4 binding to THIS covenant)', async () => {
-    mockProveInBrowser.mockResolvedValueOnce({
+describe('ZkClaimPanel buildOraclePayload (production helper)', () => {
+  it('binds the payload to THIS covenant_id (H4): prevents cross-covenant replay', async () => {
+    const { buildOraclePayload } = await import('../ZkClaimPanel.jsx');
+    const payload = buildOraclePayload({
+      covenantId: COVENANT.tx_id,
+      circuitType: 'merkle_membership',
       proof: FAKE_PROOF,
       publicSignals: FAKE_PUBLIC_SIGNALS,
     });
-    const { proveInBrowser } = await import('../../lib/zk/provers');
-    const { proof, publicSignals } = await proveInBrowser(
-      'merkle_membership',
-      COVENANT.tx_id,
-    );
-    expect(mockProveInBrowser).toHaveBeenCalledWith(
-      'merkle_membership',
-      COVENANT.tx_id,
-    );
-    expect(proof).toEqual(FAKE_PROOF);
-    expect(publicSignals).toEqual(FAKE_PUBLIC_SIGNALS);
-  });
-
-  it('on prove failure, the error is surfaced honestly (no silent fabrication)', async () => {
-    const realErr = new Error('snarkjs missing wasm');
-    mockProveInBrowser.mockRejectedValueOnce(realErr);
-    const { proveInBrowser } = await import('../../lib/zk/provers');
-    await expect(
-      proveInBrowser('merkle_membership', COVENANT.tx_id),
-    ).rejects.toThrow('snarkjs missing wasm');
-    // The component wraps this into errMsg "In-browser proof generation failed:
-    // <e.message>. No proof was produced; nothing fake is ever submitted." -
-    // verified by the error-render test above.
-  });
-
-  it('fetch to /api/oracle/verify-and-sign carries covenant_id, circuit_type, proof, public_inputs', async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({ success: true, signature: 'ff', message: 'm', outcome: 1 }),
-    }));
-    globalThis.fetch = fetchMock;
-    const payload = {
-      covenant_id: COVENANT.tx_id,
-      circuit_type: 'merkle_membership',
+    expect(payload.covenant_id).toBe(COVENANT.tx_id);
+    // A different covenant id MUST produce a distinguishable payload, otherwise
+    // H4 binding is decorative. We assert byte inequality of the serialized form
+    // the panel actually sends over the wire.
+    const otherPayload = buildOraclePayload({
+      covenantId: 'a-completely-different-covenant-id',
+      circuitType: 'merkle_membership',
       proof: FAKE_PROOF,
-      public_inputs: FAKE_PUBLIC_SIGNALS.map((s) => s.toString()),
-    };
-    const res = await fetch('/api/oracle/verify-and-sign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      publicSignals: FAKE_PUBLIC_SIGNALS,
     });
-    const data = await res.json();
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/oracle/verify-and-sign',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }),
-    );
-    expect(data.success).toBe(true);
-    expect(data.signature).toBe('ff');
+    expect(JSON.stringify(payload)).not.toBe(JSON.stringify(otherPayload));
   });
 
-  it('on oracle refusal (success:false) the result carries error, no fabricated signature', async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({ success: false, error: 'verification failed' }),
-    }));
-    globalThis.fetch = fetchMock;
-    const res = await fetch('/api/oracle/verify-and-sign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ covenant_id: COVENANT.tx_id }),
+  it('emits the documented field set in the documented shape', async () => {
+    const { buildOraclePayload } = await import('../ZkClaimPanel.jsx');
+    const payload = buildOraclePayload({
+      covenantId: COVENANT.tx_id,
+      circuitType: 'merkle_membership',
+      proof: FAKE_PROOF,
+      publicSignals: FAKE_PUBLIC_SIGNALS,
     });
-    const data = await res.json();
-    expect(data.success).toBe(false);
-    expect(data.signature).toBeUndefined();
-    expect(data.error).toBe('verification failed');
+    // The four documented fields, no extras, no omissions.
+    expect(Object.keys(payload).sort()).toEqual(
+      ['circuit_type', 'covenant_id', 'proof', 'public_inputs'].sort(),
+    );
+    expect(payload.circuit_type).toBe('merkle_membership');
+    expect(payload.proof).toEqual(FAKE_PROOF);
+  });
+
+  it('serializes public_inputs as STRINGS (the oracle expects decimal field elements as strings)', async () => {
+    const { buildOraclePayload } = await import('../ZkClaimPanel.jsx');
+    // Mixed input types - what snarkjs actually hands back: bigints, numbers, strings.
+    const mixed = [1n, 42, '0xabcdef'];
+    const payload = buildOraclePayload({
+      covenantId: COVENANT.tx_id,
+      circuitType: 'merkle_membership',
+      proof: FAKE_PROOF,
+      publicSignals: mixed,
+    });
+    expect(payload.public_inputs).toEqual(['1', '42', '0xabcdef']);
+    // Each element must be a string - if any leaks as a bigint, JSON.stringify
+    // will throw inside fetch and the submit path silently breaks.
+    for (const s of payload.public_inputs) {
+      expect(typeof s).toBe('string');
+    }
+  });
+
+  it('does not fabricate a public_inputs array when none were produced', async () => {
+    const { buildOraclePayload } = await import('../ZkClaimPanel.jsx');
+    const payload = buildOraclePayload({
+      covenantId: COVENANT.tx_id,
+      circuitType: 'merkle_membership',
+      proof: FAKE_PROOF,
+      publicSignals: null,
+    });
+    expect(payload.public_inputs).toEqual([]);
+    // The witness MUST NOT leak in here under any code path - the panel never
+    // passes a witness to this helper; if a future refactor accidentally does,
+    // this shape assertion narrows the blast radius.
+    expect(payload).not.toHaveProperty('witness');
+    expect(payload).not.toHaveProperty('secret');
   });
 });

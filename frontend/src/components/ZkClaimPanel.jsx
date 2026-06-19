@@ -5,6 +5,23 @@ import { PROVERS, circuitTypeFor, proveInBrowser } from '../lib/zk/provers';
 import { REALITY_HEADLINE, REALITY_BODY } from '../lib/enforcement-copy';
 
 /**
+ * buildOraclePayload - pure builder for the /api/oracle/verify-and-sign request body.
+ *
+ * Extracted so the documented payload shape (covenant_id binding, circuit_type, the
+ * Groth16 proof, and the public_inputs as strings) is verifiable in unit tests
+ * WITHOUT a DOM. The component's handleSubmit uses this exact function below;
+ * tests assert the shape on the function the production code path runs.
+ */
+export function buildOraclePayload({ covenantId, circuitType, proof, publicSignals }) {
+  return {
+    covenant_id: covenantId,
+    circuit_type: circuitType,
+    proof,
+    public_inputs: (publicSignals || []).map((s) => s.toString()),
+  };
+}
+
+/**
  * ZkClaimPanel - the PUBLIC, any-visitor ZK prove + claim panel on a covenant detail page.
  *
  * Replaces the old creator-only lock. For ANY covenant whose circuit is genuinely in
@@ -81,12 +98,12 @@ export default function ZkClaimPanel({ covenant }) {
       const res = await fetch('/api/oracle/verify-and-sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          covenant_id: covenantId,
-          circuit_type: circuitType,
+        body: JSON.stringify(buildOraclePayload({
+          covenantId,
+          circuitType,
           proof: proofObj,
-          public_inputs: publicSignals.map((s) => s.toString()),
-        }),
+          publicSignals,
+        })),
       });
       const data = await res.json();
       setOracleResult(data);

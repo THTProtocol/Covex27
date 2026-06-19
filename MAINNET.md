@@ -19,7 +19,7 @@ The frontend sends `network` in every API payload. The backend stores a `network
 
 - Frontend: Deploy.jsx and PaidDeploy.jsx hide all dev wallet buttons when mainnet is selected. Only real wallet extensions (KasWare etc.) are supported.
 - Backend: signer.rs `sign_and_broadcast_handler` hard-rejects `use_dev_mode=true` when `network=mainnet` with a clear error: "Dev mode and hardcoded keys are DISABLED on mainnet."
-- dev_wallets.rs: mainnet section returns explicit ENV_REQUIRED dummies. Real keys must come from environment variables.
+- dev_wallets.rs: the mainnet section hardcodes only the public `TREASURY_ADDRESS_MAINNET` (where KAS is sent). No mainnet private keys live in source. All mainnet signing goes through wallet extensions, and any signer paths that need a key resolve it from environment variables only.
 
 ## Pre-flight env validator
 
@@ -32,9 +32,10 @@ When `KASPA_NETWORK=mainnet`, the validator requires:
 - `KASPA_NETWORK` is exactly `mainnet` (case-sensitive). Any other value is treated as non-mainnet and the validator is a no-op.
 - `COVENANT_TREASURY_ADDRESS` is set and non-empty.
 - The treasury does NOT start with `kaspatest:` (testnet address on a mainnet binary is rejected).
-- The treasury is not one of the dev placeholder sentinels (`ENV_REQUIRED`, `kaspa:YOUR_REAL_MAINNET_TREASURY`, or any address containing `placeholder`/`dummy`/`changeme`).
+- The treasury (lowercased) does NOT contain any of the following placeholder substrings: `placeholder`, `example`, `dev_wallet`, `devwallet`, `your_address`, `youraddress`, `todo`, `xxxxxx`. This list is the exact set enforced by `validate_mainnet_env` in `backend/src/main.rs` (lines 81-90); update this doc and the code together if it ever changes.
+- The treasury does NOT exact-match, and does NOT end with the bech32 body of, any of the known testnet/dev addresses pulled from `dev_wallets.rs`: `TREASURY_ADDRESS_TN12`, `TREASURY_ADDRESS_TN10`, `DEV_WALLET_1_ADDRESS_TN12`, `DEV_WALLET_2_ADDRESS_TN12`, `DEV_WALLET_1_ADDRESS_TN10`, `DEV_WALLET_2_ADDRESS_TN10`. The body-suffix check catches the case where someone strips the `kaspatest:` prefix and re-prefixes with `kaspa:`.
 
-The check is independent of consensus and only inspects process env. It does not prove the treasury key is held by the operator; it only prevents the obvious foot-guns (forgot to set it, pasted a testnet address, left the systemd template literal in).
+The check is independent of consensus and only inspects process env. It does not prove the treasury key is held by the operator; it only prevents the obvious foot-guns (forgot to set it, pasted a testnet address, reused a known dev/testnet address, or left a placeholder-looking literal in).
 
 ### What FATAL exit looks like
 
@@ -62,8 +63,10 @@ KASPA_NETWORK=mainnet \
   cargo run --release 2>&1 | head -5
 
 # 3. Negative case: placeholder literal -- should exit 1 with FATAL.
+#    Must contain one of: placeholder, example, dev_wallet, devwallet,
+#    your_address, youraddress, todo, xxxxxx (case-insensitive).
 KASPA_NETWORK=mainnet \
-  COVENANT_TREASURY_ADDRESS=kaspa:YOUR_REAL_MAINNET_TREASURY \
+  COVENANT_TREASURY_ADDRESS=kaspa:your_address_placeholder \
   cargo run --release 2>&1 | head -5
 
 # 4. Positive case: real mainnet treasury -- validator passes, startup continues

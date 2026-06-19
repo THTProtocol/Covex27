@@ -146,6 +146,35 @@ fn tier_fee_sompi(tier: Option<&str>) -> u64 {
     }
 }
 
+// ── Honesty gate (c): decorative-covenant mainnet predicate ──────────
+//
+// Extracted as a pub(crate) free function so the production handler AND
+// the unit test in `mainnet_fail_closed_tests` call the SAME code path.
+// If this predicate is ever weakened or deleted, both sites change and
+// the test fails - which is the regression we want CI to catch.
+//
+// `is_pure_tier_payment` mirrors the inline derivation in the handler
+// (Step 3): a pure tier payment is either the explicit flag, or a
+// tier-fee-bearing request whose script_hex is empty or the bare `aa20`
+// metadata prefix (no real covenant payload).
+pub(crate) fn is_pure_tier_payment(req: &SignAndBroadcastRequest) -> bool {
+    let tier_fee = tier_fee_sompi(req.tier.as_deref());
+    req.pure_tier_payment
+        || (tier_fee > 0
+            && (req.script_hex.trim().is_empty() || req.script_hex.trim() == "aa20"))
+}
+
+/// True when a request on mainnet would deploy a DECORATIVE covenant
+/// (metadata only; the chain does not enforce its outcome) without the
+/// caller explicitly opting in via `acknowledge_unenforced`. Pure tier
+/// payments are exempt because they are plain treasury transfers, not a
+/// covenant deploy. Testnets are never blocked.
+pub(crate) fn decorative_mainnet_blocked(req: &SignAndBroadcastRequest) -> bool {
+    (req.network == "mainnet" || req.network == "mainnet-1")
+        && !is_pure_tier_payment(req)
+        && !req.acknowledge_unenforced
+}
+
 // ── Helper: parse address → ScriptPublicKey ────────────────────────
 
 fn script_pub_key_from_address(addr_str: &str) -> Result<ScriptPublicKey, String> {
@@ -399,15 +428,16 @@ pub async fn sign_and_broadcast_handler(
 
     // Pure tier payment (upgrade pay button) = send *exactly* tier_fee to treasury.
     // Regular deploy bundles 1 KAS covenant funding output + tier_fee in same tx.
-    let is_pure_tier = payload.pure_tier_payment
-        || (tier_fee > 0 && (payload.script_hex.trim().is_empty() || payload.script_hex.trim() == "aa20"));
+    // Predicate is centralised so the unit test exercises the same code path.
+    let is_pure_tier = is_pure_tier_payment(&payload);
 
     // Mainnet reality gate (B6): a legacy deploy here is a DECORATIVE covenant - it
     // self-pays and only embeds an aa20 metadata payload, so the chain enforces nothing
     // about its outcome. Refuse it on mainnet unless the caller explicitly acknowledges,
     // and point them at the real script-enforced builder. (Pure tier payments are just
-    // treasury transfers and are unaffected.)
-    if (network == "mainnet" || network == "mainnet-1") && !is_pure_tier && !payload.acknowledge_unenforced {
+    // treasury transfers and are unaffected.) Predicate lives in
+    // `decorative_mainnet_blocked` so it can be unit-tested directly.
+    if decorative_mainnet_blocked(&payload) {
         return Json(serde_json::json!(SignAndBroadcastResponse {
             success: false,
             tx_id: None,
@@ -777,12 +807,13 @@ pub fn signer_routes() -> Router {
 //       the outcome. The caller must opt in or use POST /covenant/p2sh/deploy.
 //
 // Gates (a) and (b) return before any wRPC I/O, so the handler can be
-// called directly with an in-memory Db. Gate (c) is checked after a UTXO
-// fetch, which would require a live mainnet node in a full handler call.
-// To keep the test hermetic, we replicate gate (c)'s exact boolean
-// expression and assert on it directly. If anyone edits the gate at line
-// ~410, this test must be updated in lockstep - that is by design (the
-// test pins the precise predicate that protects mainnet money).
+// called directly with an in-memory Db. Gate (c) is checked AFTER a UTXO
+// fetch in the live handler, which would require a live mainnet node to
+// reach via a full handler call. Instead of replicating the predicate in
+// the test (which would pin the test's own copy, not prod), the gate is
+// extracted into `decorative_mainnet_blocked` and BOTH the handler at
+// line ~410 and the gate (c) test below call that one function. A
+// regression in either site is caught.
 #[cfg(test)]
 mod mainnet_fail_closed_tests {
     use super::*;
@@ -905,45 +936,28 @@ mod mainnet_fail_closed_tests {
     }
 
     /// (c) Decorative-covenant mainnet gate (line ~410):
-    ///   if (network == "mainnet" || network == "mainnet-1")
-    ///       && !is_pure_tier
-    ///       && !payload.acknowledge_unenforced
-    ///   { reject; }
+    ///   if decorative_mainnet_blocked(&payload) { reject; }
     ///
-    /// This gate sits AFTER a UTXO fetch in the live handler, so calling
-    /// the handler directly would require a live mainnet wRPC. We instead
-    /// replicate the predicate verbatim and assert on it: any future edit
-    /// to the gate at line ~410 must update this replica in lockstep, or
-    /// the test fails.
+    /// The predicate is extracted as a pub(crate) free function so the
+    /// handler and this test exercise the SAME code. If gate (c) is ever
+    /// deleted or weakened in the handler, the function it now calls
+    /// changes, this test changes with it, and CI catches the regression.
+    /// (Calling the full handler is not possible here because gate (c)
+    /// sits after a UTXO fetch that would need a live mainnet wRPC.)
     #[test]
     fn decorative_covenant_gate_rejects_unacknowledged_mainnet() {
-        // is_pure_tier derivation, mirrored from lines ~402-403:
-        //   pure_tier_payment || (tier_fee > 0 && (script_hex empty || script_hex == "aa20"))
-        fn is_pure_tier(req: &SignAndBroadcastRequest) -> bool {
-            let tier_fee = tier_fee_sompi(req.tier.as_deref());
-            req.pure_tier_payment
-                || (tier_fee > 0
-                    && (req.script_hex.trim().is_empty() || req.script_hex.trim() == "aa20"))
-        }
-        // Gate predicate, mirrored from line ~410:
-        fn gate_blocks(req: &SignAndBroadcastRequest) -> bool {
-            (req.network == "mainnet" || req.network == "mainnet-1")
-                && !is_pure_tier(req)
-                && !req.acknowledge_unenforced
-        }
-
         // The vulnerable shape: mainnet, real script_hex (not aa20), no
         // acknowledgement, no pure tier. MUST be blocked.
         let mut req = base_mainnet_request();
         assert!(
-            gate_blocks(&req),
+            decorative_mainnet_blocked(&req),
             "unacknowledged decorative deploy on mainnet must be blocked"
         );
 
         // Same on the alternate spelling.
         req.network = "mainnet-1".to_string();
         assert!(
-            gate_blocks(&req),
+            decorative_mainnet_blocked(&req),
             "unacknowledged decorative deploy on mainnet-1 must be blocked"
         );
 
@@ -952,26 +966,60 @@ mod mainnet_fail_closed_tests {
         // a permanent ban.
         req.acknowledge_unenforced = true;
         assert!(
-            !gate_blocks(&req),
+            !decorative_mainnet_blocked(&req),
             "acknowledge_unenforced=true must release the gate"
         );
 
         // Pure tier payments are exempt: they are just treasury transfers,
-        // not a decorative covenant. Reset and exercise this branch.
+        // not a decorative covenant. Reset and exercise this branch via
+        // the explicit flag.
         let mut tier_req = base_mainnet_request();
         tier_req.pure_tier_payment = true;
         assert!(
-            !gate_blocks(&tier_req),
+            !decorative_mainnet_blocked(&tier_req),
             "pure_tier_payment=true must bypass the decorative-covenant gate"
+        );
+
+        // Also exercise the derived-pure-tier branch of `is_pure_tier_payment`:
+        // tier set + empty script_hex (or bare "aa20") must register as a pure
+        // tier payment and therefore release the gate. This pins the second
+        // arm of the predicate, not just the explicit flag.
+        let mut empty_script_tier = base_mainnet_request();
+        empty_script_tier.tier = Some("PRO".to_string());
+        empty_script_tier.script_hex = String::new();
+        assert!(
+            is_pure_tier_payment(&empty_script_tier),
+            "tier set + empty script_hex must be classified as a pure tier payment"
+        );
+        assert!(
+            !decorative_mainnet_blocked(&empty_script_tier),
+            "derived pure tier payment must bypass the decorative-covenant gate"
+        );
+        let mut aa20_script_tier = base_mainnet_request();
+        aa20_script_tier.tier = Some("BUILDER".to_string());
+        aa20_script_tier.script_hex = "aa20".to_string();
+        assert!(
+            is_pure_tier_payment(&aa20_script_tier),
+            "tier set + bare aa20 script_hex must be classified as a pure tier payment"
+        );
+        assert!(
+            !decorative_mainnet_blocked(&aa20_script_tier),
+            "derived pure tier payment (aa20) must bypass the decorative-covenant gate"
         );
 
         // Testnets are never blocked by this gate, regardless of the other
         // fields. Belt-and-braces: the gate must be MAINNET-scoped only.
         let mut tn_req = base_mainnet_request();
         tn_req.network = "testnet-12".to_string();
-        assert!(!gate_blocks(&tn_req), "testnet-12 must not trip the mainnet gate");
+        assert!(
+            !decorative_mainnet_blocked(&tn_req),
+            "testnet-12 must not trip the mainnet gate"
+        );
         tn_req.network = "testnet-10".to_string();
-        assert!(!gate_blocks(&tn_req), "testnet-10 must not trip the mainnet gate");
+        assert!(
+            !decorative_mainnet_blocked(&tn_req),
+            "testnet-10 must not trip the mainnet gate"
+        );
     }
 
     /// Bonus consistency check: the gate (a) rejection precedes gate (b),

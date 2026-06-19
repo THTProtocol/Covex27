@@ -208,14 +208,25 @@ function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|i
 // the per-platform primary action chosen in connect() and labeled in the UI.
 // Only wallets with a REAL, working Kaspa dApp-connect provider and a real logo are listed, so
 // every wallet shown actually connects + signs (no dead options). KasWare and Kastle are the two
-// genuinely Dapp-Ready Kaspa wallets (window.kasware / window.kastle, confirmed in their docs);
-// Kastle also ships a mobile app with an in-app dApp browser, so it covers mobile too. Wallets
-// without a confirmed dApp provider (Kasperia extension, KSPR / Kaspium / Tangem mobile-native)
-// were removed rather than shown as broken. Add a wallet here only once its injected global +
-// dApp connect are verified.
+// genuinely Dapp-Ready Kaspa wallets (window.kasware / window.kastle, confirmed in their docs).
+// HONESTY NOTE on mobile (verified 2026-06-19 against docs.kasware.xyz and docs.kastle.cc):
+//   - KasWare: Chrome extension (+ an Android APK), but NO documented in-app dApp browser and
+//     NO deep/universal link to open a dApp URL. So it is desktop-extension-only here; on a
+//     phone it honestly shows "Install" (no fake mobile connect, no fabricated deep link).
+//   - Kastle: injects window.kastle on desktop. Its mobile app's in-app dApp browser is
+//     explicitly "coming soon" per the Kastle FAQ, NOT available yet, and there is no published
+//     deep link to open a dApp inside it. So Kastle is treated as a desktop wallet (no mobile
+//     deepLink); its `sub` no longer implies a working mobile dApp connect. Re-enable a mobile
+//     Kastle path only once the in-app browser ships and a deep link is documented.
+// Wallets without a confirmed dApp provider (Kasperia extension, Tangem mobile-native) were
+// removed rather than shown as broken. Add a wallet here only once its injected global + dApp
+// connect (or, for mobile, its in-app browser deep link) are verified.
 const ALL_WALLETS = [
   { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
-  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome · iOS · Android', platform: 'both', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
+  // Kastle injects window.kastle in its desktop extension. Mobile in-app browser is "coming
+  // soon" (docs.kastle.cc FAQ), so we do NOT advertise a mobile dApp connect or a deep link;
+  // desktop platform keeps it honest. `sub` reflects the desktop extension only.
+  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome extension', platform: 'desktop', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
   // Mobile-app wallets with an in-app dApp browser. On mobile these show "Open in <app>" (a
   // universal link that launches the app to Covex); once you are inside that app's browser, the
   // injected provider is detected and the synthetic "Your Kaspa wallet" entry (added in

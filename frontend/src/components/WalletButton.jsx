@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { explorerAddressUrl } from '../lib/explorer';
 import { Link } from 'react-router-dom';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction } from './WalletContext';
-import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2 } from 'lucide-react';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction, isMobile } from './WalletContext';
+import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2, QrCode, KeyRound, ShieldCheck } from 'lucide-react';
 import { toast } from './ToastContext';
 
 // Dot color must match the Stats.jsx EVENT_META / NETWORKS palette so the network
@@ -35,6 +37,87 @@ function WalletLogo({ wallet }) {
       <span className={`w-9 h-9 rounded-md items-center justify-center text-xs font-bold text-white/60 bg-white/5 ${wallet.logo ? 'hidden' : 'flex'}`}>
         {wallet.name?.charAt(0) || '?'}
       </span>
+    </div>
+  );
+}
+
+// ── Honest "Connecting on mobile" panel ──────────────────────────────────────
+// Shown ONLY when we are on a phone AND no wallet provider is injected (i.e. a normal
+// Safari/Chrome tab, where a Kaspa wallet extension cannot run). It does not fake a
+// connection; it explains the real options:
+//   1. Open Covex inside a wallet app's built-in dApp browser (per-wallet "Open in" deep
+//      links + a scannable QR of this page so you can paste/scan it in that browser).
+//   2. Use a key-based flow that needs NO extension and works in ANY mobile browser
+//      (the Recover page + the standalone offline cold-recovery tool).
+// `openWallets` are the device wallets that carry a real deep link (Kasanova / KSPR today).
+// Hoisted to module scope so it never remounts on parent re-render.
+function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
+  return (
+    <div className="mt-5 rounded-xl border border-[#49EACB]/20 bg-[#49EACB]/[0.04] p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Smartphone size={14} className="text-[#49EACB] shrink-0" />
+        <span className="text-xs font-bold uppercase tracking-wider text-[#49EACB]/90">Connecting on mobile</span>
+      </div>
+      <p className="text-[12px] text-gray-300 light:text-slate-600 leading-relaxed">
+        Mobile browsers cannot run wallet extensions. Open Covex inside your Kaspa wallet's
+        built-in browser, or use a key-based flow that needs no extension.
+      </p>
+
+      {/* Per-wallet "Open in <app>" deep links (only wallets that actually expose one). */}
+      {openWallets.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {openWallets.map((w) => (
+            <button
+              key={w.id}
+              onClick={() => onOpen(w)}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-white hover:border-[#49EACB] transition-all group text-left"
+            >
+              <WalletLogo wallet={w} />
+              <div className="flex-1 min-w-0">
+                <div className="text-white light:text-slate-900 font-medium text-[13px] truncate">Open in {w.name.replace(/ Wallet$/, '')}</div>
+                <div className="text-[11px] text-gray-500 truncate">Launches the app's in-app browser</div>
+              </div>
+              {pendingId === w.id
+                ? <Loader2 size={15} className="animate-spin text-[#49EACB] shrink-0" />
+                : <ExternalLink size={14} className="text-[#49EACB] shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Scannable QR of this exact page: scan it from the wallet app's in-app browser to
+          land back on Covex inside that browser, where the injected provider is detected. */}
+      <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-black/30 light:bg-slate-50 border border-white/[0.06] light:border-slate-200">
+        <div className="rounded-lg bg-white p-1.5 shrink-0 ring-1 ring-black/5">
+          <QRCodeSVG value={pageUrl} size={64} level="M" bgColor="#ffffff" fgColor="#000000" aria-label="QR code of this page to open in your wallet's in-app browser" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold text-white light:text-slate-900 flex items-center gap-1.5"><QrCode size={12} className="text-[#49EACB] shrink-0" /> Scan in your wallet app</div>
+          <p className="text-[11px] text-gray-400 light:text-slate-500 leading-snug mt-0.5">Open your wallet's in-app browser and scan to load Covex inside it.</p>
+        </div>
+      </div>
+
+      {/* Key-based options that work in ANY mobile browser, no extension needed. */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Link
+          to="/recover"
+          className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-[#49EACB]/40 hover:text-[#49EACB] transition-colors"
+        >
+          <KeyRound size={13} className="shrink-0" /> Recover / claim
+        </Link>
+        <a
+          href="/tools/cold-recovery/"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-[#49EACB]/40 hover:text-[#49EACB] transition-colors"
+        >
+          <ShieldCheck size={13} className="shrink-0" /> Cold tool
+        </a>
+      </div>
+      <p className="mt-2 text-[10px] text-gray-500 leading-relaxed">
+        Key-based flows derive and sign locally in your browser - your private key is never
+        transmitted. They work for claiming covenant funds without any wallet extension.
+      </p>
     </div>
   );
 }
@@ -275,20 +358,24 @@ export default function WalletButton() {
   const shownOthers = showAllWallets ? others : others.slice(0, collapsedCount);
   const topPick = others.find((w) => w.recommended) || others[0];
 
-  return (
-    <>
-      <button
-        ref={connectBtnRef}
-        onClick={() => { clearError(); setLeaving(false); setOpen(true); }}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className="btn-transition flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
-      >
-        <Wallet size={16} className="text-[#49EACB] shrink-0" />
-        CONNECT<span className="hidden sm:inline">&nbsp;WALLET</span>
-      </button>
+  // ── Mobile-only honest helper ──
+  // On a phone with NO injected provider (a normal Safari/Chrome tab), surface the honest
+  // mobile-connect panel: open Covex inside a wallet app's in-app browser, or use a
+  // key-based flow. `mobile` is the UA test; `detected.length` tells us a provider IS
+  // injected (we are already inside a wallet's in-app browser), in which case the one-click
+  // "Ready to connect" row already covers it and the helper is unnecessary.
+  const mobile = isMobile();
+  const showMobileHelp = mobile && detected.length === 0;
+  // Wallets that expose a real "open the app" deep link (Kasanova / KSPR today). Built from
+  // the device wallet list so it stays honest: only wallets with a deepLink appear.
+  const openWallets = wallets.filter((w) => w.deepLink);
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : 'https://hightable.pro';
 
-      {open && (
+  // Render the drawer through a portal to <body>. The nav that hosts this button has a
+  // backdrop-filter (.glass-panel), which establishes a containing block for fixed-position
+  // descendants - without the portal the "fixed inset-0" drawer was trapped inside the 58px
+  // navbar instead of covering the viewport on mobile.
+  const drawer = open ? (
         <div className={`fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm ${leaving ? 'covex-scrim-out' : 'covex-scrim-in'}`} onClick={closeDrawer}>
           <div
             role="dialog"
@@ -433,6 +520,15 @@ export default function WalletButton() {
               <p className="mt-6 text-[11px] text-gray-500 leading-relaxed">
                 Installed wallets connect in one click. On a phone, an installed wallet opens its app; if it is not installed you go to its app page. Covex is non-custodial: keys never leave your wallet, every transaction is signed by you.
               </p>
+
+              {showMobileHelp && (
+                <MobileConnectHelp
+                  openWallets={openWallets}
+                  onOpen={handleWalletClick}
+                  pendingId={pendingId}
+                  pageUrl={pageUrl}
+                />
+              )}
             </div>
 
             {/* Tightened footer copy: drop the redundant "Keys stay in your wallet" tail; the
@@ -448,7 +544,21 @@ export default function WalletButton() {
             </div>
           </div>
         </div>
-      )}
+  ) : null;
+
+  return (
+    <>
+      <button
+        ref={connectBtnRef}
+        onClick={() => { clearError(); setLeaving(false); setOpen(true); }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className="btn-transition flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
+      >
+        <Wallet size={16} className="text-[#49EACB] shrink-0" />
+        CONNECT<span className="hidden sm:inline">&nbsp;WALLET</span>
+      </button>
+      {typeof document !== 'undefined' && drawer ? createPortal(drawer, document.body) : null}
     </>
   );
 }

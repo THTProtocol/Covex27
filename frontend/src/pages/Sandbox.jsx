@@ -63,8 +63,6 @@ function kindForCircuit(c) {
   return 'zk';
 }
 
-const DEFAULT_CIRCUIT = 'prediction_market';
-
 // The 12 primitive kinds that the EnforcedDeploy builder owns end to end (real signing,
 // real broadcast, real covenant id). When the picked circuit matches one of these, Phase 3
 // mounts EnforcedDeploy embedded; otherwise we fall back to the broader CovexTerminal which
@@ -166,11 +164,14 @@ export default function Sandbox() {
   const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
 
-  // Initial selection: from a template deep-link (?circuit=), else a representative default.
+  // Initial selection: from a template deep-link (?circuit=), else NOTHING selected. The create
+  // flow must not pre-select a covenant kind (in particular it must not default to a prediction
+  // market); the user actively picks one. The phase panels + reachability already handle a null
+  // selection (the logic/deploy panels show "Pick a covenant first" and Continue is disabled).
   const [selectedId, setSelectedId] = useState(() => {
     const raw = params.get('circuit');
     const resolved = raw ? resolveCircuit(raw, params.get('kind') || '') : null;
-    return (resolved && ZK_CIRCUIT_TYPES.some((c) => c.id === resolved)) ? resolved : DEFAULT_CIRCUIT;
+    return (resolved && ZK_CIRCUIT_TYPES.some((c) => c.id === resolved)) ? resolved : null;
   });
   // Template / assistant name only applies to the very first (deep-linked) selection.
   const [tplName, setTplName] = useState(() => params.get('name') || '');
@@ -464,7 +465,7 @@ export default function Sandbox() {
             variant="kaspa"
             shimmer
             className="shrink-0 w-full sm:w-auto"
-            disabled={!circuit && phase !== 'create'}
+            disabled={!circuit}
             onClick={goForward}
           >
             <span className="sm:hidden">Continue</span>

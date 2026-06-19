@@ -1,9 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { explorerAddressUrl } from '../lib/explorer';
 import { Link } from 'react-router-dom';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork, walletPrimaryAction } from './WalletContext';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction } from './WalletContext';
 import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2 } from 'lucide-react';
 import { toast } from './ToastContext';
+
+// Dot color must match the Stats.jsx EVENT_META / NETWORKS palette so the network
+// signal reads as the same color family across the app. Mainnet shares Covex teal
+// with `covenant_discovered`; TN12 shares the violet with `resolution_signed`.
+const NETWORK_DOT = {
+  'mainnet': '#49EACB',
+  'mainnet-1': '#49EACB',
+  'testnet-10': '#F59E0B',
+  'testnet-12': '#A78BFA',
+};
+const networkDotColor = (net) => NETWORK_DOT[net] || '#9CA3AF';
 
 // Wallet icon tile with graceful fallback to a letter avatar if the CDN logo fails.
 function WalletLogo({ wallet }) {
@@ -37,8 +48,19 @@ export default function WalletButton() {
   const [showAllWallets, setShowAllWallets] = useState(false);
   const [pendingId, setPendingId] = useState(null);
   const [, bumpDetect] = useState(0); // forces re-detect re-render for late-injecting extensions
+  const [network, setNetwork] = useState(getCurrentNetwork());
   const panelRef = useRef(null);
-  const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'MAINNET';
+  // Track the trigger that opened the account panel / drawer so we can restore focus on close
+  // (a11y: a closing dialog should never drop focus to <body>). The connect button is a stable
+  // node so we keep one ref for it; the address pill uses the same pattern.
+  const connectBtnRef = useRef(null);
+  const accountBtnRef = useRef(null);
+  const netLabel = NETWORK_LABELS[network] || 'MAINNET';
+  const netDot = networkDotColor(network);
+
+  // Live network signal: the nav switcher emits 'kaspa-network-change' on toggle. Without this
+  // subscription the badge would freeze at whatever network was active on mount.
+  useEffect(() => onNetworkChange((n) => setNetwork(n)), []);
 
   // Drawer dismiss: play the slide-out, then unmount on animationend. prefers-reduced-motion
   // skips the keyframes (covex-drawer-out becomes a no-op) so we still need the safety timeout.
@@ -66,9 +88,42 @@ export default function WalletButton() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [panel]);
 
+  // Escape closes the account panel and restores focus to the address-pill trigger so
+  // keyboard users do not get dumped at <body>. The drawer's Escape handler lives in
+  // the disconnected branch because the trigger ref differs.
+  useEffect(() => {
+    if (!panel) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setPanel(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [panel]);
+  // Restore focus to the trigger when the panel transitions from open to closed (not on mount).
+  const panelWasOpen = useRef(false);
+  useEffect(() => {
+    if (panel) { panelWasOpen.current = true; return; }
+    if (panelWasOpen.current && accountBtnRef.current) accountBtnRef.current.focus();
+    panelWasOpen.current = false;
+  }, [panel]);
+
   // Close the connect drawer the moment a wallet actually connects (covers the deep-link return
   // case: the in-app browser injects a provider, auto-connect fires, address appears).
   useEffect(() => { if (address && open && !leaving) closeDrawer(); }, [address, open, leaving]);
+
+  // Drawer: Escape closes it (matches the X button). Connect drawer is a modal so this is
+  // expected keyboard behavior. The close-animation flow handles unmount + focus restore.
+  useEffect(() => {
+    if (!open || leaving) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, leaving]);
+  // Drawer: restore focus to the connect button after it fully closes.
+  const drawerWasOpen = useRef(false);
+  useEffect(() => {
+    if (open) { drawerWasOpen.current = true; return; }
+    if (drawerWasOpen.current && connectBtnRef.current) connectBtnRef.current.focus();
+    drawerWasOpen.current = false;
+  }, [open]);
 
   // Some wallet extensions inject their provider a beat after page load. While the drawer is
   // open, re-check detection a few times so a freshly-installed wallet surfaces as "Installed"
@@ -122,7 +177,10 @@ export default function WalletButton() {
     return (
       <div className="relative" ref={panelRef}>
         <button
+          ref={accountBtnRef}
           onClick={() => setPanel((p) => !p)}
+          aria-haspopup="dialog"
+          aria-expanded={panel}
           className="btn-transition flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)] whitespace-nowrap"
           title="Account"
         >
@@ -138,14 +196,26 @@ export default function WalletButton() {
         </button>
 
         {panel && (
-          <div className="absolute right-0 top-[calc(100%+8px)] w-[calc(100vw-1.5rem)] sm:w-80 max-w-[20rem] z-[90] rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Account"
+            className="absolute right-0 top-[calc(100%+8px)] w-[calc(100vw-1.5rem)] sm:w-80 max-w-[20rem] z-[90] rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+          >
             <div className="p-4 border-b border-white/[0.06] light:border-slate-100 flex items-center gap-3">
               {meta?.logo
                 ? <img src={meta.logo} alt={meta?.name || 'wallet'} className="w-9 h-9 rounded-lg" />
                 : <span className="w-9 h-9 rounded-lg bg-[#49EACB]/10 flex items-center justify-center"><Wallet size={16} className="text-[#49EACB]" /></span>}
               <div className="min-w-0">
                 <p className="text-sm font-bold text-white light:text-slate-900 truncate">{meta?.name || 'Wallet'}</p>
-                <p className="text-[10px] font-mono text-gray-500 truncate">{netLabel}</p>
+                <p className="text-[10px] font-mono text-gray-500 truncate flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: netDot, boxShadow: `0 0 6px ${netDot}` }}
+                  />
+                  {netLabel}
+                </p>
               </div>
               <button onClick={() => { refreshBalance && refreshBalance(); }} className="ml-auto p-1.5 rounded-lg text-gray-400 hover:text-[#49EACB] hover:bg-white/5" title="Refresh balance">
                 <RefreshCw size={13} />
@@ -165,6 +235,10 @@ export default function WalletButton() {
             </div>
 
             <div className="p-2">
+              {/* Navigate: internal portfolio/builder/treasury links + the external explorer
+                  link grouped under one kicker so the panel reads as Header / Balance / Navigate
+                  / Disconnect rather than four undifferentiated rows. */}
+              <p className="kicker px-3 pt-1 pb-1.5">Navigate</p>
               {[
                 { to: `/address/${encodeURIComponent(address)}`, icon: LayoutDashboard, label: 'My portfolio' },
                 { to: '/fix', icon: Palette, label: 'My covenants and looks' },
@@ -179,6 +253,7 @@ export default function WalletButton() {
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-gray-300 light:text-slate-700 hover:bg-[#49EACB]/[0.07] hover:text-white transition-colors">
                 <ExternalLink size={15} className="text-[#49EACB]" /> View on Kaspa Explorer
               </a>
+              <div className="h-px bg-white/[0.06] light:bg-slate-100 my-1.5 mx-3" />
               <button onClick={() => { disconnect(); setPanel(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-300 light:text-red-600 hover:bg-red-500/10 transition-colors">
                 <LogOut size={15} /> Disconnect
@@ -203,7 +278,10 @@ export default function WalletButton() {
   return (
     <>
       <button
+        ref={connectBtnRef}
         onClick={() => { clearError(); setLeaving(false); setOpen(true); }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className="btn-transition flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
       >
         <Wallet size={16} className="text-[#49EACB] shrink-0" />
@@ -213,6 +291,9 @@ export default function WalletButton() {
       {open && (
         <div className={`fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm ${leaving ? 'covex-scrim-out' : 'covex-scrim-in'}`} onClick={closeDrawer}>
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Connect Wallet"
             className={`absolute top-0 right-0 h-[100dvh] max-h-[100dvh] w-full sm:w-[420px] bg-[#0a0a0a] light:bg-white border-l border-[#1f1f1f] light:border-slate-200 shadow-2xl flex flex-col ${leaving ? 'covex-drawer-out' : 'covex-drawer-in'}`}
             onClick={(e) => e.stopPropagation()}
             onAnimationEnd={(e) => {
@@ -354,8 +435,16 @@ export default function WalletButton() {
               </p>
             </div>
 
-            <div className="p-4 border-t border-[#1f1f1f] light:border-slate-200 text-center text-[10px] font-mono text-gray-500 shrink-0">
-              {netLabel} · Non-custodial · Keys stay in your wallet
+            {/* Tightened footer copy: drop the redundant "Keys stay in your wallet" tail; the
+                drawer body already explains keys never leave the wallet. Footer stays as a
+                quiet network + posture signal, not a recap. */}
+            <div className="p-3 border-t border-[#1f1f1f] light:border-slate-200 text-center text-[10px] font-mono text-gray-500 shrink-0 flex items-center justify-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: netDot, boxShadow: `0 0 6px ${netDot}` }}
+              />
+              {netLabel} · Non-custodial
             </div>
           </div>
         </div>

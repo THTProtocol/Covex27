@@ -186,14 +186,13 @@ const Pricing = () => {
         setAwaitingConfirmation(null);
         setPayingTier(null);
         setPaymentStatus(null);
-        // Auto-redirect directly to the full PremiumBuilder terminal (the magic place)
-        sessionStorage.setItem('payment_just_confirmed', JSON.stringify({
-          tier: payingTier.name,
-          id: payingTier.id,
-          address,
-          txid: result.txid || 'tx-pending-' + Date.now(),
-          timestamp: Date.now()
-        }));
+        // Honesty: do NOT write a "payment_just_confirmed" marker here. The tx has only
+        // been BROADCAST; the chain has not confirmed it yet. The 'payment_broadcast_tx'
+        // marker written above already encodes that exact meaning (broadcast, pending),
+        // and the Sandbox surface reads it to show an honest "awaiting on-chain
+        // confirmation" banner. Tier access is decided only by the backend
+        // (/api/paid-status) once the funding tx is on-chain. /premium is a Navigate to
+        // /sandbox?paid=1, where the banner lives.
         navigate('/premium');
       } else {
         setPaymentStatus({ type: 'error', message: 'Payment failed: ' + (result.error || 'Unknown error') });

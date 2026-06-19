@@ -28,57 +28,41 @@ export default class ErrorBoundary extends React.Component {
       console.error('Covex ErrorBoundary:', this.state.error);
       // A stale dynamically-imported chunk (common right after a redeploy) throws a
       // distinctive error; the fix is always a reload (the SW serves the fresh shell).
-      const isChunkError = /dynamically imported module|Importing a module script failed|ChunkLoadError|Failed to fetch/i.test(msg);
+      // Cover Vite/rolldown ("Failed to fetch dynamically imported module"), webpack
+      // ("Loading chunk N failed", "ChunkLoadError"), and Safari ("Importing a module
+      // script failed"). Unknown errors fall through to the generic recovery panel.
+      const isChunkError = (
+        /dynamically imported module/i.test(msg) ||
+        /Failed to fetch dynamically imported module/i.test(msg) ||
+        /Importing a module script failed/i.test(msg) ||
+        /ChunkLoadError/i.test(msg) ||
+        /Loading chunk \d+ failed/i.test(msg) ||
+        /Failed to fetch/i.test(msg)
+      );
       return (
-        <div style={{ 
-          minHeight: '100vh', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          background: '#05050A',
-          color: '#E5E5E5',
-          padding: '40px',
-          fontFamily: 'system-ui, sans-serif'
-        }}>
-          <div style={{ maxWidth: '560px', textAlign: 'center' }}>
-            <h1 style={{ fontSize: '28px', marginBottom: '16px', color: '#49EACB' }}>
+        <div className="min-h-screen flex items-center justify-center px-6 py-10 bg-[#05050A] light:bg-slate-50 text-gray-200 light:text-slate-800 font-sans">
+          <div className="max-w-xl w-full text-center">
+            <h1 className="text-2xl sm:text-[28px] font-bold mb-4 text-kaspa-green">
               {isChunkError ? 'A new version is available' : 'Something went wrong'}
             </h1>
-            <p style={{ color: '#999', marginBottom: '24px', lineHeight: 1.5 }}>
+            <p className="text-sm sm:text-base text-gray-400 light:text-slate-500 mb-6 leading-relaxed">
               {isChunkError
                 ? 'Covex was updated while this tab was open. Reload to get the latest version.'
                 : 'We hit an unexpected error while loading the page. This is usually temporary.'}
             </p>
-            <pre style={{
-              display: isChunkError ? 'none' : 'block',
-              background: '#111', 
-              color: '#F87171', 
-              padding: '12px', 
-              borderRadius: '8px', 
-              fontSize: '12px', 
-              overflow: 'auto',
-              textAlign: 'left',
-              marginBottom: '24px',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}>
-              {msg}
-            </pre>
-            <button 
+            {!isChunkError && (
+              <pre className="text-left text-xs leading-relaxed bg-black/60 light:bg-slate-100 text-red-400 light:text-red-600 border border-white/5 light:border-slate-200 rounded-lg p-3 mb-6 overflow-auto whitespace-pre-wrap break-words max-h-48">
+                {msg}
+              </pre>
+            )}
+            <button
+              type="button"
               onClick={() => window.location.reload()}
-              style={{
-                background: '#49EACB',
-                color: '#05050A',
-                border: 'none',
-                padding: '12px 28px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center justify-center rounded-lg bg-kaspa-green text-[#05050A] light:text-slate-900 px-7 py-3 text-sm font-semibold cursor-pointer hover:bg-kaspa-green/90 focus:outline-none focus:ring-2 focus:ring-kaspa-green/60 transition-colors"
             >
               Reload Page
             </button>
-            <div style={{ marginTop: '32px', fontSize: '12px', color: '#666' }}>
+            <div className="mt-8 text-xs text-gray-500 light:text-slate-400">
               If this keeps happening, please try again in a few minutes.
             </div>
           </div>

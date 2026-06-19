@@ -889,6 +889,74 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       .finally(() => setCheckingPaid(false));
   }, [connectedAddress, kaspaNetwork]);
 
+  // ── Pending broadcast banner ─────────────────────────────────────────────────
+  // After Pricing.jsx broadcasts a tier payment it writes a sessionStorage marker
+  // (payment_broadcast_tx) with the payer address + txid + broadcastAt. We surface
+  // an HONEST banner here ("broadcast, awaiting on-chain confirmation") rather than
+  // a dishonest "confirmed" claim. Three hard requirements from the audit:
+  //   1) Poll using the STORED payer address - the user could have swapped wallets
+  //      between Pricing and Sandbox, so trusting connectedAddress would silently
+  //      poll the wrong account.
+  //   2) Pass network=kaspaNetwork - auth/paid-status defaults to testnet-12 server
+  //      side; mainnet payments would never confirm against that lookup.
+  //   3) Show a visible timeout (75s) so a failed broadcast or wrong-network tx does
+  //      not leave the user stuck on an infinite spinner (replacing one dishonest
+  //      UX with another). After the timeout we keep the banner up but switch the
+  //      copy to a "not seeing this on chain yet - open the explorer" hint.
+  // The banner mirrors the existing /api/paid-status source of truth (no parallel
+  // /api/auth-session poller); the existing connectedAddress poll above and this
+  // stored-address poll BOTH push paidStatus on a real confirmation so the banner
+  // drops the instant a tier upgrade lands.
+  const [pendingBroadcast, setPendingBroadcast] = useState(() => {
+    try {
+      const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('payment_broadcast_tx') : null;
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) { return null; }
+  });
+  const [pendingTimedOut, setPendingTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!pendingBroadcast?.address || !pendingBroadcast?.txid) return;
+    // Drop the banner the moment the existing paidStatus shows a real tier upgrade.
+    if (paidStatus && paidStatus.highest_tier && paidStatus.highest_tier !== 'FREE') {
+      try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+      setPendingBroadcast(null);
+      setPendingTimedOut(false);
+      return;
+    }
+    let cancelled = false;
+    const storedAddress = pendingBroadcast.address;
+    const net = kaspaNetwork;
+    const poll = () => {
+      fetch(`/api/paid-status?address=${encodeURIComponent(storedAddress)}&network=${net}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (cancelled || !data) return;
+          if (data.highest_tier && data.highest_tier !== 'FREE') {
+            // If the payer is the connected wallet, also sync local paidStatus so the
+            // whole terminal unlocks without waiting for the connectedAddress poll tick.
+            if (connectedAddress && connectedAddress === storedAddress) {
+              setPaidStatus(data);
+            }
+            try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+            setPendingBroadcast(null);
+            setPendingTimedOut(false);
+          }
+        })
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    const broadcastAt = Number(pendingBroadcast.broadcastAt) || Date.now();
+    const remaining = Math.max(0, 75000 - (Date.now() - broadcastAt));
+    const timeoutId = setTimeout(() => { if (!cancelled) setPendingTimedOut(true); }, remaining);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+    };
+  }, [pendingBroadcast, kaspaNetwork, connectedAddress, paidStatus]);
+
   // Preload a circuit + metadata from URL params (?circuit=, ?kind=, ?name=, ?desc=).
   // The official template catalog links into the sandbox this way, so "Use Template"
   // opens a preconfigured builder with the right ZK circuit / oracle already selected.
@@ -2398,6 +2466,69 @@ ${gameMeta.outcomeBranches}
           )}
           {!connectedAddress && <p className="text-xs text-amber-400 mt-2">Connect a wallet to see payment options for this network.</p>}
         </section>
+      )}
+
+      {/* Honest pending banner: a tier payment has been BROADCAST (sessionStorage
+          marker from Pricing.jsx) but the chain has not confirmed it yet. We drop
+          this the instant paidStatus upgrades from FREE; if it hangs past ~75s we
+          flip the copy to "not seeing this on chain - check the explorer" so the
+          user has a way out rather than an infinite spinner. The polling effect
+          uses the STORED payer address (not connectedAddress) and passes
+          network=kaspaNetwork so a mainnet payment is never checked against the
+          server's testnet-12 default. */}
+      {pendingBroadcast && pendingBroadcast.txid && currentTier === 'FREE' && (
+        <div className="mb-4 p-5 rounded-2xl bg-gradient-to-br from-amber-500/[0.10] to-amber-400/[0.04] border border-amber-500/30 shadow-[0_0_28px_-12px_rgba(245,158,11,0.40)] animate-[slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both] light:from-amber-100 light:to-amber-50 light:border-amber-300/60">
+          <div className="flex items-start gap-3.5">
+            <div className="h-11 w-11 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 light:bg-amber-200/60 light:border-amber-400/60">
+              {pendingTimedOut ? (
+                <AlertTriangle size={22} className="text-amber-400 light:text-amber-700" />
+              ) : (
+                <Clock size={22} className="text-amber-400 animate-pulse light:text-amber-700" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base font-bold text-white light:text-slate-900">
+                  {pendingTimedOut
+                    ? 'Payment not seen on chain yet'
+                    : 'Payment broadcast - awaiting on-chain confirmation'}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold tracking-wide light:bg-amber-200 light:text-amber-800 light:border-amber-400/60">
+                  {pendingBroadcast.tier || pendingBroadcast.id || 'TIER'} PENDING
+                </span>
+              </div>
+              <p className="text-xs text-gray-300 mt-1 leading-relaxed light:text-slate-700">
+                {pendingTimedOut ? (
+                  <>
+                    We have not seen this transaction on chain after 75 seconds. The broadcast may
+                    have failed, the tx may have been evicted from mempool, or it may have been sent
+                    on a different network than the one you are viewing
+                    {' '}(<span className="font-mono">{kaspaNetwork}</span>).
+                    Open the explorer to check the txid and confirm. Once the funding tx is on chain,
+                    the tier unlocks automatically for the payer address.
+                  </>
+                ) : (
+                  <>
+                    Your tier payment has been broadcast to a Kaspa node. The full terminal will
+                    unlock automatically for the payer address as soon as the funding tx is included
+                    in the chain. No tier is granted client side.
+                  </>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                <a href={explorerTxUrl(pendingBroadcast.txid, kaspaNetwork)} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] font-mono text-amber-300 hover:text-amber-200 hover:border-amber-500/50 transition-colors light:bg-amber-100 light:text-amber-800 light:border-amber-400/60 light:hover:text-amber-900">
+                  <ExternalLink size={12} /> {pendingTimedOut ? 'Check explorer' : 'View transaction'}: {String(pendingBroadcast.txid).slice(0, 20)}{String(pendingBroadcast.txid).length > 20 ? '...' : ''}
+                </a>
+                {connectedAddress && pendingBroadcast.address && connectedAddress !== pendingBroadcast.address && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-gray-300 light:bg-slate-100 light:border-slate-200 light:text-slate-700">
+                    <Info size={12} /> Paid from a different wallet than the one currently connected. The tier unlocks for the payer address.
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {paymentSuccess && (

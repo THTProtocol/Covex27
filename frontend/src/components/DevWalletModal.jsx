@@ -582,9 +582,24 @@ function MainnetWalletModal({ walletContext, onClose }) {
           {error && (
             <div className="p-3 rounded-lg bg-red-500/[0.06] light:bg-red-50 border border-red-500/20 light:border-red-200 flex items-start gap-2">
               <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs text-red-300 light:text-red-700">{error}</p>
-                <button onClick={clearError} className="text-[10px] text-red-400/70 light:text-red-500 hover:text-red-300 mt-1">Dismiss</button>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-red-300 light:text-red-700 break-words">{error}</p>
+                <div className="mt-2 flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => {
+                      clearError();
+                      onClose();
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('covex:open-wallet-drawer'));
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-kaspa-green/15 hover:bg-kaspa-green/25 border border-kaspa-green/30 text-[11px] font-bold text-kaspa-green light:text-[#0d9488] transition-colors"
+                  >
+                    <Wallet size={11} /> Open the wallet connector
+                    <ArrowRight size={11} />
+                  </button>
+                  <button onClick={clearError} className="text-[10px] text-red-400/70 light:text-red-500 hover:text-red-300">Dismiss</button>
+                </div>
               </div>
             </div>
           )}

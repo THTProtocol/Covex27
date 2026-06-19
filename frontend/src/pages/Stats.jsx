@@ -23,16 +23,38 @@ const NETWORK_LABEL = (slug) => {
 };
 const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) || '#9CA3AF';
 
-// tier_upgraded sources its color from tierPalette so the Stats event chart and
-// the Pricing/Explorer PRO surfaces share one hex (#E8AF34, Kaspa-gold). The old
-// '#F59E0B' generic amber drifted from PRO's real brand color and read as a
-// different event family on the same screen.
+// Single source of truth for every event_type the backend persists to the
+// events table and the /api/stats timeline pivots over. Today the backend
+// emits exactly these strings (search: record_event / record_event_once):
+//   covenant_discovered  - crawler indexed a new covenant on Kaspa
+//   tier_upgraded        - payment_verifier confirmed an on-chain tier payment
+//   resolution_signed    - the disclosed Covex oracle signed an outcome
+//   covenant_reorged     - the discovery block left the selected chain
+//   game_finished        - a poker match decided a winner off-chain
+// tier_upgraded sources its color from tierPalette so the Stats event chart
+// and the Pricing/Explorer PRO surfaces share one hex (#E8AF34, Kaspa-gold).
+// The remaining hues reuse the KPI accents (#49EACB / #A78BFA / #EF4444) so
+// the legend reads as the same accent family across the page. covenant_reorged
+// uses the same red the inflow KPI uses, signalling a chain-state correction.
+// game_finished gets a distinct steel-blue so it does not collide visually
+// with discovered or resolutions.
 const EVENT_META = {
-  covenant_discovered: { label: 'Discovered', color: '#49EACB' },
-  tier_upgraded: { label: 'Tier upgrades', color: TIER_PALETTE_COLOR.PRO },
-  resolution_signed: { label: 'Resolutions', color: '#A78BFA' },
+  covenant_discovered: { label: 'Discovered',     color: '#49EACB' },
+  tier_upgraded:       { label: 'Tier upgrades',  color: TIER_PALETTE_COLOR.PRO },
+  resolution_signed:   { label: 'Resolutions',    color: '#A78BFA' },
+  covenant_reorged:    { label: 'Reorgs',         color: '#EF4444' },
+  game_finished:       { label: 'Games decided',  color: '#60A5FA' },
 };
-const eventMeta = (t) => EVENT_META[t] || { label: t.replace(/_/g, ' '), color: '#6B7280' };
+// Graceful fallback for any new event_type the backend may add before this
+// map catches up: split on underscores, capitalize each word. Returns
+// "Market Resolution Signed" not "market resolution_signed".
+const humanizeEventType = (t) =>
+  String(t || '')
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+const eventMeta = (t) => EVENT_META[t] || { label: humanizeEventType(t), color: '#6B7280' };
 
 // Tier identity sourced from the shared palette so BUILDER/PRO/MAX match Pricing,
 // Explorer, and PremiumBuilder exactly. EXPLORER is a server-side legacy alias

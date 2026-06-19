@@ -16,6 +16,51 @@ const newBlockId = (type) => `${type}-${Math.random().toString(36).slice(2, 9)}`
 
 const EMPTY_PAGE = { content: [], root: { props: {} } };
 
+// Simple focus trap: while `active`, scopes Tab / Shift+Tab cycling to focusable
+// elements inside `ref.current`, restoring focus to the previously-focused element
+// on deactivate. Used by every Studio drawer so a keyboard user cannot tab into
+// the canvas behind an open dialog. No new dep, no portal contract assumed.
+// Hoisted to module scope so it never remounts. Reduced-motion-safe (no animation).
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+function useFocusTrap(ref, active) {
+  useEffect(() => {
+    if (!active) return undefined;
+    const root = ref.current;
+    if (!root) return undefined;
+    const previouslyFocused = typeof document !== 'undefined' ? document.activeElement : null;
+    // Focus the first focusable element inside the drawer on open. If none, focus
+    // the container itself so subsequent Tab presses can be intercepted.
+    const focusables = () => Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    const first = focusables()[0];
+    if (first && typeof first.focus === 'function') {
+      first.focus();
+    } else if (root.tabIndex < 0) {
+      root.setAttribute('tabindex', '-1');
+      root.focus();
+    }
+    const onKey = (e) => {
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) { e.preventDefault(); return; }
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      const activeEl = document.activeElement;
+      if (e.shiftKey) {
+        if (activeEl === firstEl || !root.contains(activeEl)) { e.preventDefault(); lastEl.focus(); }
+      } else if (activeEl === lastEl) {
+        e.preventDefault(); firstEl.focus();
+      }
+    };
+    root.addEventListener('keydown', onKey);
+    return () => {
+      root.removeEventListener('keydown', onKey);
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        try { previouslyFocused.focus(); } catch (_) { /* no-op */ }
+      }
+    };
+  }, [ref, active]);
+}
+
 // Track viewport <md so we can swap the unusable DnD canvas for a desktop-link
 // interstitial on phones. md = 768px in Tailwind v4 defaults. Hoisted to module
 // scope so it never remounts and is SSR-safe.
@@ -66,25 +111,32 @@ export default function CovenantStudio() {
   // One-time "deploy succeeded" banner controlled by ?fresh=1 in the URL.
   // Dismiss strips the query param so a refresh never resurfaces it.
   const [showFreshBanner, setShowFreshBanner] = useState(isFresh);
-  // Floating right-side ToolsPalette panel (desktop-only collapsible).
-  const [showToolsPalette, setShowToolsPalette] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-  const [showThemes, setShowThemes] = useState(false);
-  // Page settings drawer: stake amount + name / description override. These were the
-  // only unique controls in the old Fix page, absorbed here so a creator never needs a
-  // second tool. They persist via the SAME terminal-config POST as the page itself.
-  const [showSettings, setShowSettings] = useState(false);
-  // Mobile overflow menu: collapses Settings / Theme / Templates / Tokens behind a
-  // single icon on <md so row 1 is only Back + Title + Publish (44px touch targets).
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showTokensMobile, setShowTokensMobile] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  // Single source of truth for every Studio drawer / overlay. Only one is open at
+  // a time, which removes the prior "Esc closed only the topmost" ambiguity and
+  // lets a single page-level Escape handler and one focus trap own the contract.
+  // Drawer ids: 'tools' | 'picker' | 'themes' | 'settings' | 'more' | 'tokens' | 'help'.
+  // Page settings drawer absorbs the only unique controls the old Fix page had
+  // (stake / name / description), persisted via the SAME terminal-config POST.
+  // The 'more' overflow menu collapses Settings / Theme / Templates / Tokens behind
+  // a single icon on <md so row 1 stays Back + Title + Publish (44px touch targets).
+  const [activeDrawer, setActiveDrawer] = useState(null);
+  const openDrawer = useCallback((drawerId) => setActiveDrawer(drawerId), []);
+  const closeDrawer = useCallback(() => setActiveDrawer(null), []);
   // Bump this to force the Puck tree to re-mount with fresh data (template / theme apply).
   const [dataKey, setDataKey] = useState(0);
   const puckDataRef = useRef(EMPTY_PAGE);
   // On phones the drag-and-drop canvas is unusable (tiny targets, no hover, the
   // Puck sidebar overlaps content). Show a desktop-link interstitial instead.
   const isMobile = useIsMobile();
+
+  // Page-level Escape closes whichever drawer is open. One listener owns the
+  // contract for the whole Studio so per-drawer Escape handlers are not needed.
+  useEffect(() => {
+    if (!activeDrawer) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeDrawer, closeDrawer]);
 
   useEffect(() => {
     setLoading(true);
@@ -99,7 +151,7 @@ export default function CovenantStudio() {
         setInitialData(data);
         puckDataRef.current = data;
         // First run (no saved page yet): offer the starter-template picker.
-        if (isEmpty) setShowPicker(true);
+        if (isEmpty) setActiveDrawer('picker');
       })
       .catch(() => setCovenant(null))
       .finally(() => setLoading(false));
@@ -177,16 +229,16 @@ export default function CovenantStudio() {
     setInitialData(data);
     puckDataRef.current = data;
     setDataKey((k) => k + 1);
-    setShowPicker(false);
+    closeDrawer();
     toast.success(`Loaded the "${tpl.name}" starter.`);
-  }, []);
+  }, [closeDrawer]);
 
   const startBlank = useCallback(() => {
     setInitialData(EMPTY_PAGE);
     puckDataRef.current = EMPTY_PAGE;
     setDataKey((k) => k + 1);
-    setShowPicker(false);
-  }, []);
+    closeDrawer();
+  }, [closeDrawer]);
 
   // Dismiss the post-deploy success banner by stripping ?fresh=1 from the URL,
   // so a refresh never resurfaces it. Preserves any other query params present.
@@ -227,9 +279,9 @@ export default function CovenantStudio() {
     setInitialData(next);
     puckDataRef.current = next;
     setDataKey((k) => k + 1);
-    setShowThemes(false);
+    closeDrawer();
     toast.success(`Applied the "${preset.palette.name}" page theme.`);
-  }, []);
+  }, [closeDrawer]);
 
   // Single POST to the protected terminal-config endpoint, reused by both the Puck
   // publish (page design) and the Page settings drawer (stake / name / description).
@@ -284,10 +336,10 @@ export default function CovenantStudio() {
     });
     if (ok) {
       setCovenant((c) => (c ? { ...c, name: name || c.name, description: description || c.description, custom_ui_config: { ...(c.custom_ui_config || {}), theme } } : c));
-      setShowSettings(false);
+      closeDrawer();
     }
     return ok;
-  }, [postConfig, covenant]);
+  }, [postConfig, covenant, closeDrawer]);
 
   if (loading) {
     return <div className="flex justify-center py-32"><div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" /></div>;
@@ -331,7 +383,7 @@ export default function CovenantStudio() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setShowPicker(true)}
+              onClick={() => openDrawer('picker')}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 light:text-emerald-900 hover:underline"
             >
               Pick a starter template <ArrowRight size={12} />
@@ -355,29 +407,29 @@ export default function CovenantStudio() {
         <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Page Studio</p>
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
           {/* Desktop: inline secondary actions (md+). Mobile: collapsed into overflow menu. */}
-          <button onClick={() => setShowSettings(true)} aria-label="Page settings" title="Stake amount, name, description. Saved with your page. The fund destination is always derived from the indexed covenant record, never from page settings." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => openDrawer('settings')} aria-label="Page settings" title="Stake amount, name, description. Saved with your page. The fund destination is always derived from the indexed covenant record, never from page settings." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Settings size={14} /> <span className="hidden sm:inline">Page settings</span>
           </button>
-          <button onClick={() => setShowThemes(true)} aria-label="Theme" title="One click sets the accent color and page background. Your block content is preserved, no re-publishing needed." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => openDrawer('themes')} aria-label="Theme" title="One click sets the accent color and page background. Your block content is preserved, no re-publishing needed." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Palette size={14} /> <span className="hidden sm:inline">Theme</span>
           </button>
-          <button onClick={() => setShowPicker(true)} aria-label="Templates" title="Start from a premium, honest layout. Tweak everything after. Blocks are platform-authored, never raw HTML." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => openDrawer('picker')} aria-label="Templates" title="Start from a premium, honest layout. Tweak everything after. Blocks are platform-authored, never raw HTML." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <LayoutTemplate size={14} /> <span className="hidden sm:inline">Templates</span>
           </button>
           <button
             data-tour="studio-block"
-            onClick={() => setShowToolsPalette((v) => !v)}
+            onClick={() => setActiveDrawer((cur) => (cur === 'tools' ? null : 'tools'))}
             aria-label="Add block panel"
-            aria-expanded={showToolsPalette}
-            className={`hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border transition-colors ${showToolsPalette ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100'}`}
+            aria-expanded={activeDrawer === 'tools'}
+            className={`hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border transition-colors ${activeDrawer === 'tools' ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100'}`}
           >
             <Wrench size={14} /> <span className="hidden sm:inline">Add block</span>
           </button>
           {/* Mobile-only overflow trigger (44px touch target). */}
           <button
-            onClick={() => setShowMoreMenu((v) => !v)}
+            onClick={() => setActiveDrawer((cur) => (cur === 'more' ? null : 'more'))}
             aria-label="More page tools"
-            aria-expanded={showMoreMenu}
+            aria-expanded={activeDrawer === 'more'}
             className="md:hidden flex items-center justify-center h-11 w-11 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
           >
             <MoreHorizontal size={18} />
@@ -395,30 +447,8 @@ export default function CovenantStudio() {
         </div>
 
         {/* Mobile overflow menu: Settings / Theme / Templates / Live tokens. */}
-        {showMoreMenu && (
-          <>
-            <button
-              type="button"
-              aria-label="Close menu"
-              onClick={() => setShowMoreMenu(false)}
-              className="md:hidden fixed inset-0 z-[95] bg-black/30"
-            />
-            <div role="menu" className="md:hidden absolute right-3 top-[calc(100%+6px)] z-[96] min-w-[200px] rounded-xl border border-white/[0.12] light:border-slate-200 bg-[#0A0A0D]/98 light:bg-white/98 backdrop-blur shadow-2xl p-1.5">
-              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowSettings(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
-                <Settings size={15} /> Page settings
-              </button>
-              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowThemes(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
-                <Palette size={15} /> Theme
-              </button>
-              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowPicker(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
-                <LayoutTemplate size={15} /> Templates
-              </button>
-              <div className="h-px bg-white/[0.08] light:bg-slate-200 my-1" />
-              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowTokensMobile(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-kaspa-green hover:bg-kaspa-green/[0.08] light:hover:bg-teal-50 transition-colors">
-                <Zap size={15} /> Live data tokens
-              </button>
-            </div>
-          </>
+        {activeDrawer === 'more' && (
+          <MoreMenu openDrawer={openDrawer} closeDrawer={closeDrawer} />
         )}
       </div>
 
@@ -428,7 +458,7 @@ export default function CovenantStudio() {
       <div className="hidden md:flex items-center justify-end px-5 py-2 border-b border-white/[0.06] light:border-slate-200 bg-[#08080c] light:bg-slate-50">
         <button
           type="button"
-          onClick={() => setShowHelp(true)}
+          onClick={() => openDrawer('help')}
           className="text-[11px] text-gray-400 light:text-slate-500 hover:text-kaspa-green flex items-center gap-1 transition-colors"
         >
           <Info size={12} /> How the Studio works
@@ -462,8 +492,8 @@ export default function CovenantStudio() {
             // column above the search instead of floating over the fields panel.
             components: ({ children }) => (
               <BlockSearch
-                paletteOpen={showToolsPalette}
-                onClosePalette={() => setShowToolsPalette(false)}
+                paletteOpen={activeDrawer === 'tools'}
+                onClosePalette={closeDrawer}
                 onAddBlock={onAddBlock}
               >
                 {children}
@@ -483,30 +513,64 @@ export default function CovenantStudio() {
       <div className="hidden md:block">
         <TokenCheatSheet />
       </div>
-      {showTokensMobile && (
-        <TokenCheatSheetModal onClose={() => setShowTokensMobile(false)} />
+      {activeDrawer === 'tokens' && (
+        <TokenCheatSheetModal onClose={closeDrawer} />
       )}
 
-      {showPicker && (
+      {activeDrawer === 'picker' && (
         <TemplatePickerModal
           defaultId={defaultTemplateId}
           onPick={applyTemplate}
           onBlank={startBlank}
-          onClose={() => setShowPicker(false)}
+          onClose={closeDrawer}
         />
       )}
-      {showThemes && <ThemePickerModal onApply={applyTheme} onClose={() => setShowThemes(false)} />}
-      {showSettings && (
+      {activeDrawer === 'themes' && <ThemePickerModal onApply={applyTheme} onClose={closeDrawer} />}
+      {activeDrawer === 'settings' && (
         <PageSettingsModal
           covenant={covenant}
           saving={saving}
           onSave={saveSettings}
-          onClose={() => setShowSettings(false)}
+          onClose={closeDrawer}
         />
       )}
-      {showHelp && <StudioHelpDrawer onClose={() => setShowHelp(false)} />}
+      {activeDrawer === 'help' && <StudioHelpDrawer onClose={closeDrawer} />}
       {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
     </div>
+  );
+}
+
+// Mobile overflow menu (Settings / Theme / Templates / Live tokens). Hoisted so
+// it never remounts. Wears a focus trap because Tab inside the menu must stay in
+// the menu while it is open. Tapping a row swaps activeDrawer to the target id
+// in one shot through openDrawer, so closeDrawer-then-openDrawer is not needed.
+function MoreMenu({ openDrawer, closeDrawer }) {
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close menu"
+        onClick={closeDrawer}
+        className="md:hidden fixed inset-0 z-[95] bg-black/30"
+      />
+      <div ref={trapRef} role="menu" aria-label="More page tools" className="md:hidden absolute right-3 top-[calc(100%+6px)] z-[96] min-w-[200px] rounded-xl border border-white/[0.12] light:border-slate-200 bg-[#0A0A0D]/98 light:bg-white/98 backdrop-blur shadow-2xl p-1.5">
+        <button role="menuitem" onClick={() => openDrawer('settings')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <Settings size={15} /> Page settings
+        </button>
+        <button role="menuitem" onClick={() => openDrawer('themes')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <Palette size={15} /> Theme
+        </button>
+        <button role="menuitem" onClick={() => openDrawer('picker')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <LayoutTemplate size={15} /> Templates
+        </button>
+        <div className="h-px bg-white/[0.08] light:bg-slate-200 my-1" />
+        <button role="menuitem" onClick={() => openDrawer('tokens')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-kaspa-green hover:bg-kaspa-green/[0.08] light:hover:bg-teal-50 transition-colors">
+          <Zap size={15} /> Live data tokens
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -515,11 +579,10 @@ export default function CovenantStudio() {
 // "How the Studio works" link so the canvas+toolbar stay the visual primary.
 // Hoisted to module scope so it never remounts when the parent re-renders.
 function StudioHelpDrawer({ onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Page-level Escape handler in CovenantStudio owns dismissal; this drawer only
+  // needs the focus trap so Tab stays inside the dialog while it is open.
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
   const sections = [
     {
       title: 'Templates',
@@ -555,7 +618,9 @@ function StudioHelpDrawer({ onClose }) {
         className="fixed inset-0 z-[120] bg-black/50"
       />
       <aside
+        ref={trapRef}
         role="dialog"
+        aria-modal="true"
         aria-label="How the Studio works"
         className="fixed right-0 top-0 bottom-0 z-[121] w-full sm:w-[420px] max-w-full overflow-y-auto bg-[#0A0A0D] light:bg-white border-l border-white/[0.12] light:border-slate-200 shadow-2xl"
       >
@@ -647,9 +712,11 @@ function BlockSearch({ children, paletteOpen = false, onClosePalette, onAddBlock
 // ── First-run starter-template picker. Defaults the selection by covenant type. ──
 function TemplatePickerModal({ defaultId, onPick, onBlank, onClose }) {
   const [sel, setSel] = useState(defaultId);
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 light:bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Start from a template" className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] light:border-slate-200">
           <div>
             <p className="text-sm font-black text-white light:text-slate-900">Start from a template</p>
@@ -686,9 +753,11 @@ function TemplatePickerModal({ defaultId, onPick, onBlank, onClose }) {
 function ThemePickerModal({ onApply, onClose }) {
   // Use the dark-mood palettes only (one swatch per palette) for a clean grid.
   const presets = useMemo(() => getPresets().filter((p) => p.mood.id === 'dark'), []);
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 light:bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Page theme" className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] light:border-slate-200">
           <div>
             <p className="text-sm font-black text-white light:text-slate-900">Page theme</p>
@@ -725,9 +794,11 @@ function PageSettingsModal({ covenant, saving, onSave, onClose }) {
     const s = covenant?.custom_ui_config?.theme?.default_stake;
     return Number.isFinite(Number(s)) && Number(s) > 0 ? Number(s) : 50;
   });
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 light:bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Page settings" className="w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] light:border-slate-200">
           <div>
             <p className="text-sm font-black text-white light:text-slate-900">Page settings</p>
@@ -833,6 +904,8 @@ function TokenCheatSheet() {
 // crowd the small canvas. ──
 function TokenCheatSheetModal({ onClose }) {
   const [copied, setCopied] = useState('');
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
   const copy = (tok) => {
     const text = `{{${tok}}}`;
     try {
@@ -843,7 +916,7 @@ function TokenCheatSheetModal({ onClose }) {
   };
   return (
     <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/98 light:bg-white/98 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Live data tokens" className="w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/98 light:bg-white/98 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] light:border-slate-200">
           <p className="flex items-center gap-2 text-xs font-bold text-kaspa-green">
             <Zap size={13} /> Live data tokens

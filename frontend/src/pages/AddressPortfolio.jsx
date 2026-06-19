@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Wallet, Layers, Coins, Crown, ArrowLeft } from 'lucide-react';
+import { Wallet, Layers, Coins, Crown, ArrowLeft, ExternalLink } from 'lucide-react';
 import CopyButton from '../components/CopyButton';
+import { explorerAddressUrl } from '../lib/explorer';
+
+// Mirror Stats.jsx EVENT_META/NETWORKS palette so the Address page and the
+// Platform Statistics page show the same dot for the same network. testnet-12
+// is purple (TN12), testnet-10 is amber (TN10), mainnet is the Covex teal.
+const NETWORK_DOT_COLOR = {
+  'mainnet':     '#49EACB',
+  'mainnet-1':   '#49EACB',
+  'testnet-10':  '#F59E0B',
+  'testnet-12':  '#A78BFA',
+};
+const networkDotColor = (n) => NETWORK_DOT_COLOR[n] || '#9CA3AF';
 
 /** Public portfolio for any Kaspa address: covenants created, totals, tier mix. */
 export default function AddressPortfolio() {
@@ -41,7 +53,21 @@ export default function AddressPortfolio() {
               <span className="break-all">{addr}</span>
               <CopyButton value={addr} label="Copy address" size={12} className="mt-0.5" />
             </div>
-            <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">Network: {network}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <p className="text-[11px] text-gray-500 light:text-slate-500 inline-flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: networkDotColor(network) }} aria-hidden="true" />
+                Network: {network}
+              </p>
+              <a
+                href={explorerAddressUrl(addr, network)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-gray-400 light:text-slate-500 hover:text-kaspa-green light:hover:text-kaspa-green transition-colors"
+                title="Open this address on the Kaspa block explorer"
+              >
+                View on explorer <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -77,27 +103,30 @@ export default function AddressPortfolio() {
           </div>
         </>
       ) : !data || (data.covenants || []).length === 0 ? (
-        <div className="glass-panel rounded-2xl px-6 py-14 text-center max-w-2xl mx-auto">
+        <div className="glass-panel rounded-2xl px-4 sm:px-6 py-10 sm:py-14 text-center max-w-2xl mx-auto">
           <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
             <Layers size={22} className="text-kaspa-green" />
           </div>
-          <h2 className="text-lg font-bold text-white light:text-slate-900 mb-2">You have not deployed a covenant from this address yet.</h2>
-          <p className="text-sm text-gray-400 light:text-slate-600 mb-6 max-w-md mx-auto">Start with a hashlock: 1 KAS, consensus-enforced by Kaspa, no oracle in the path.</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+          <h2 className="text-base sm:text-lg font-bold text-white light:text-slate-900 mb-2 break-words">You have not deployed a covenant from this address yet.</h2>
+          <p className="text-sm text-gray-400 light:text-slate-600 mb-6 max-w-md mx-auto break-words">Start with a hashlock: 1 KAS, consensus-enforced by Kaspa, no oracle in the path.</p>
+          <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center items-stretch sm:items-center max-w-sm sm:max-w-none mx-auto">
             <Link
               to="/sandbox?circuit=hashlock&phase=logic"
-              className="btn-shimmer inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:bg-kaspa-green/90 transition-colors"
+              className="btn-shimmer inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:bg-kaspa-green/90 transition-colors min-w-0"
             >
               Build a hashlock
             </Link>
             <Link
               to="/templates"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 light:border-slate-300 text-gray-200 light:text-slate-700 font-semibold text-sm hover:border-kaspa-green/40 hover:text-white light:hover:text-slate-900 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl border border-white/10 light:border-slate-300 text-gray-200 light:text-slate-700 font-semibold text-sm hover:border-kaspa-green/40 hover:text-white light:hover:text-slate-900 transition-colors min-w-0"
             >
               Browse templates
             </Link>
           </div>
-          <p className="text-[11px] text-gray-500 light:text-slate-500 mt-6">Network: {network}. Covenants appear here as soon as the indexer discovers them.</p>
+          <p className="text-[11px] text-gray-500 light:text-slate-500 mt-6 inline-flex flex-wrap items-center justify-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: networkDotColor(network) }} aria-hidden="true" />
+            <span>Network: {network}. Covenants appear here as soon as the indexer discovers them.</span>
+          </p>
         </div>
       ) : (
         <>

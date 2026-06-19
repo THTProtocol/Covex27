@@ -1,0 +1,124 @@
+# Covex
+
+> Covex is a non-custodial Kaspa covenant explorer and builder at https://hightable.pro.
+> It indexes covenants on the Kaspa DAG, lets anyone build and deploy real on-chain
+> covenants without writing script, and gives each covenant an interactive website UI.
+> Covex never takes custody of funds: it indexes, builds scripts, and (for some kinds)
+> attests outcomes, but the chain or the user's own keys move the money.
+
+This file helps an AI agent understand and use Covex to help a user build covenants and
+their interactive website UIs. Every endpoint below is real. Do not invent endpoints.
+
+## What Covex is
+
+- A read API and explorer over Kaspa covenants (mainnet, testnet-10, testnet-12).
+- A no-code builder: pick a covenant kind, set its logic, deploy a real P2SH covenant.
+- A website builder: each covenant gets a custom, interactive page (Puck-based).
+- Honest by design: every covenant is labeled by HOW its outcome is actually enforced.
+
+## Read API
+
+Base URL: https://hightable.pro/api
+All list endpoints are paginated with `limit` (max 200) and `offset`. Responses are JSON
+and are not cached (live data). The same API powers the explorer UI.
+
+- GET /covenants
+  List covenants. Query: network (mainnet | testnet-10 | testnet-12), limit, offset,
+  q (keyword, pipe = OR e.g. `chess|fide`), category, creator.
+- GET /covenants/:id
+  Full covenant detail including script_hex, enforcement reality, and custom UI config.
+- GET /covenants/:id/actions
+  Per-covenant activity history (deploy, tier upgrades, oracle resolutions, game updates).
+- GET /address/:addr
+  Public portfolio for a Kaspa address: covenants created, payments, totals.
+- GET /resolve/:query?network=mainnet|testnet-10|testnet-12  (default mainnet)
+  Smart-resolve a free-form query. Powers the explorer search bar and AI/API callers.
+  Classifies the query and resolves KNS .kas domains to their owner address.
+  Returns: { query, type ("kns"|"address"|"txid"|"covenant"|"keyword"), resolved (bool),
+  address (string|null), covenant_id (string|null), network, network_hint
+  ("mainnet"|"testnet"|null), kns ({name, owner}|null), note (string|null) }.
+  KNS is indexed on mainnet and testnet-10 only; on testnet-12 resolved is false.
+  KNS lookups are fail-closed and time-bounded: a lookup error never fabricates an owner.
+- GET /events
+  Recent activity feed across covenants. Query: network, limit.
+- GET /stats
+  Public platform statistics (covenants, TVL, tiers, categories, activity timeline).
+  Query: network (all | mainnet | testnet-10 | testnet-12).
+- GET /analytics
+  Creator or global analytics. Query: creator.
+- GET /covenant/catalog
+  The catalog of deployable covenant kinds, each with its honest enforcement reality,
+  builder, params, and a summary. Read this before suggesting a covenant kind.
+- GET /openapi.json
+  Machine-readable OpenAPI 3.0 schema for the read API.
+
+## Covenant kinds and their honest enforcement reality
+
+Covex labels every covenant by how its outcome is ACTUALLY enforced, strongest first.
+Never describe a covenant as more enforced than its label. Source of truth: /covenant/catalog.
+
+- on-chain: Kaspa consensus enforces the spend condition (a P2SH script). No oracle, no
+  trust. Kinds: single-key P2SH, hashlock, absolute timelock (CLTV), N-of-M multisig,
+  HTLC, 2-of-2 state-channel pot, dead-man's switch, relative timelock (CSV), and
+  time-decaying multisig. Also the binary outcome selector unit (every branch is gated by
+  a specific key, no Covex key in the redeem).
+- hybrid: a real on-chain script gates release, but an oracle supplies a signature the
+  script checks (e.g. an oracle co-signature verified on-chain). Trust the signer set, not
+  pure math. Kinds: oracle-enforced (2-of-2 of oracle + winner), oracle escrow (2-player
+  pot), and their timeout-refundable variants (a CSV refund branch if the oracle goes
+  silent). The oracle co-signs only a verified outcome.
+- oracle-attested: the outcome is asserted by the Covex oracle's real BIP340 signature,
+  but funds are NOT script-gated to that signature; they move by an ordinary transaction.
+  Trust the oracle. Kind: oracle-resolved game / market (off-chain). Prefer an on-chain or
+  hybrid kind when value is at stake.
+- decorative: no enforcement. A metadata / marker covenant; the chain enforces nothing
+  about the outcome. Not for value at stake.
+
+Honesty rules for an agent using Covex:
+- Never overclaim enforcement. Use the catalog's reality label verbatim.
+- For hybrid and oracle-attested kinds, state the oracle-liveness caveat: if the oracle is
+  unavailable, an outcome may not be attested; the refundable variants add a timeout so the
+  funder can reclaim the stake.
+- ZK circuits on Covex are oracle-verified off-chain, not on-chain (with narrow exceptions).
+  Do not describe them as on-chain ZK verification.
+
+## Covenant lifecycle and the build flow
+
+A covenant on Covex moves through: built -> deployed (funds locked to the P2SH) ->
+discovered/indexed by the crawler -> (optionally) resolved or claimed.
+
+The 5-step build flow:
+1. Pick: choose a covenant kind from the catalog.
+2. Logic: set its parameters (keys, hashes, timelocks, stake, circuit type).
+3. Deploy: lock real funds to the generated P2SH covenant on the chosen network.
+4. Design: build the covenant's interactive website UI (Puck-based, below).
+5. Share: publish the covenant page; anyone can view, interact, and verify it.
+
+## The interactive website UI
+
+Each covenant gets a custom page on Covex. The UI is built with a Puck-based editor and
+stored as a custom_ui config on the covenant. It renders interactive blocks (text, media,
+allowlisted video, enforcement badges, action panels) on the covenant page, so a covenant
+can present like a small website while the explorer still shows the honest enforcement
+reality and the raw script.
+
+## The non-custodial claim path
+
+Covex does not custody funds, so claiming is non-custodial:
+- For script-enforced kinds and revealed-secret branches, a client-side redeemer builds and
+  signs the spend in the browser; the private key never leaves the client.
+- An offline cold-recovery tool (a standalone, self-contained HTML page built from the repo
+  at frontend/tools/cold-recovery/) lets a winner or refund-key holder claim from a
+  file:// page with no Covex frontend and no Covex backend in the loop. Its signing bytes
+  are CI-proven byte-for-byte identical to the backend satisfier.
+- Honest matrix: script-enforced and revealed-secret branches are offline-claimable; oracle
+  (hybrid / oracle-attested) kinds depend on the oracle for the winning outcome and offer a
+  timeout refund rather than unconditional offline claim.
+
+## Summary for an agent
+
+To help a user build on Covex: read /covenant/catalog for the available kinds and their
+honest enforcement reality, pick the kind that matches the user's trust requirement (prefer
+on-chain), use the read API to inspect existing covenants and addresses, use /resolve to
+turn a .kas name or pasted string into an address or covenant, and always communicate the
+enforcement reality and oracle-liveness caveats truthfully.

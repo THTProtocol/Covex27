@@ -44,6 +44,7 @@ mod poker;
 mod oracle;
 mod oracle_verifier;
 mod payment_verifier;
+mod resolve;
 mod resolver_failover;
 mod signer;
 mod ui_generator;
@@ -385,6 +386,9 @@ async fn main() {
         .merge(poker::poker_routes().layer(Extension(db.clone())))
         .route("/events", get(events_handler))
         .route("/address/:addr", get(address_summary_handler))
+        // Smart-resolve: classifies a query (KNS .kas / address / txid|covenant / keyword)
+        // and resolves .kas ownership via KNS. Read-only; powers the search bar + AI callers.
+        .merge(resolve::resolve_routes().layer(Extension(db.clone())))
         .route("/openapi.json", get(openapi_handler))
         .route("/status", get(status_handler))
         .route("/tiers", get(tiers_handler))
@@ -561,6 +565,20 @@ async fn openapi_handler() -> Json<serde_json::Value> {
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "maximum": 200, "default": 30}}
             ]}},
             "/address/{addr}": {"get": {"summary": "Public portfolio for an address", "parameters": [{"name": "addr", "in": "path", "required": true, "schema": {"type": "string"}}]}},
+            "/resolve/{query}": {"get": {"summary": "Smart-resolve a free-form query. Classifies it as a KNS .kas domain, a Kaspa address, a txid/covenant, or a keyword, and resolves .kas ownership via KNS (fail-closed). Powers the explorer search bar and AI/API callers.", "parameters": [
+                {"name": "query", "in": "path", "required": true, "description": "A .kas domain, a kaspa:/kaspatest: address, a 64-hex txid or covenant id, or a keyword.", "schema": {"type": "string"}},
+                {"name": "network", "in": "query", "description": "KNS is indexed on mainnet and testnet-10 only (testnet-12 returns resolved:false).", "schema": {"type": "string", "enum": ["mainnet", "testnet-10", "testnet-12"], "default": "mainnet"}}
+            ], "responses": {"200": {"description": "Resolution result", "content": {"application/json": {"schema": {"type": "object", "properties": {
+                "query": {"type": "string"},
+                "type": {"type": "string", "enum": ["kns", "address", "txid", "covenant", "keyword"]},
+                "resolved": {"type": "boolean"},
+                "address": {"type": "string", "nullable": true},
+                "covenant_id": {"type": "string", "nullable": true},
+                "network": {"type": "string"},
+                "network_hint": {"type": "string", "enum": ["mainnet", "testnet"], "nullable": true},
+                "kns": {"type": "object", "nullable": true, "properties": {"name": {"type": "string"}, "owner": {"type": "string"}}},
+                "note": {"type": "string", "nullable": true}
+            }}}}}}}}},
             "/analytics": {"get": {"summary": "Creator or global analytics", "parameters": [{"name": "creator", "in": "query", "schema": {"type": "string"}}]}},
             "/stats": {"get": {"summary": "Public platform statistics (covenants, TVL, tiers, categories, activity timeline)", "parameters": [{"name": "network", "in": "query", "schema": {"type": "string", "enum": ["all", "testnet-12", "testnet-10", "mainnet"]}}]}},
             "/balance/{addr}": {"get": {"summary": "Address balance in sompi", "parameters": [{"name": "addr", "in": "path", "required": true, "schema": {"type": "string"}}]}},

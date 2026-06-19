@@ -36,6 +36,10 @@ chrono = { version = "0.4", features = ["serde"] }
 workflow-serializer = "0.18.0"
 secp256k1 = { version = "0.29.1", features = ["recovery", "hashes"] }
 shakmaty = "0.27"
+# Outbound HTTP for the read-only KNS .kas resolver (resolve.rs). rustls (not openssl)
+# to keep the build lean; reqwest is already in the lock transitively via workflow-http,
+# so this only promotes it to a direct dependency and adds the json feature.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 
 [patch.crates-io]
 kaspa-consensus-core = { path = "vendor/kaspa-consensus-core" }

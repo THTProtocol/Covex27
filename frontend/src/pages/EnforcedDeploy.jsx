@@ -409,7 +409,7 @@ export default function EnforcedDeploy() {
         'Covex self-recovery bundle. This is everything required to SPEND this covenant',
         'WITHOUT Covex. The redeem script is not a secret; it is required to spend and is',
         'safe to keep. To recover: reconstruct + sign the spend with your own key using',
-        'tools/spend-covenant.mjs (or any Kaspa script tooling) and broadcast it to ANY',
+        'tools/recover-covenant.mjs (or any Kaspa script tooling) and broadcast it to ANY',
         'Kaspa node (e.g. api.kaspa.org or your own kaspad) - you do NOT need Covex.',
         c.preimage ? 'KEEP the preimage safe: a hashlock cannot be spent without it.' : null,
       ].filter(Boolean),

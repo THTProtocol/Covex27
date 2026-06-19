@@ -357,18 +357,29 @@ export default function TemplateLibrary() {
                 : t.reality === 'hybrid'
                 ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
                 : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+              const CAT_ICON = { 'P2SH Commitments': '\u{1F512}', 'Atomic Swaps & HTLC': '\u{1F501}', 'Vesting & Timelocks': '\u{23F3}', 'Multi-sig': '\u{1F511}', 'State Channels': '\u{1F517}', 'Games': '\u{1F3AE}', 'ZK Proofs & Claims': '\u{1F52E}', 'Prediction & Markets': '\u{1F4CA}', 'Financial Tools': '\u{1F4B0}', 'Identity & Gating': '\u{1FAAA}', 'Compute & Cross-chain': '⚙️' };
+              const icon = CAT_ICON[t.category] || '\u{1F4DC}';
+              const hue = (idx * 47 + String(t.id || t.name || '').length * 17) % 360;
+              const accent = `hsl(${hue} 72% 62%)`;
               return (
-                <div key={t.id || idx} className="glass-panel rounded-2xl p-5 flex flex-col border border-white/[0.06] hover:border-kaspa-green/30 transition-all">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-500 truncate min-w-0">{t.category || 'Covenant'}</div>
-                    {t.reality && <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-full border font-bold uppercase ${realityStyle}`}>{t.reality}</span>}
+                <div key={t.id || idx}
+                  className="hover-lift group relative flex flex-col rounded-3xl border border-white/[0.08] light:border-slate-200 overflow-hidden bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 transition-colors duration-300 hover:border-[color:var(--ta)]"
+                  style={{ '--ta': `hsl(${hue} 74% 60% / 0.55)` }}>
+                  <div className="h-[3px] w-full shrink-0" aria-hidden="true"
+                    style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: 0.8 }} />
+                  <div className="p-6 flex flex-col flex-1">
+                    <div className="flex items-start justify-between mb-3 gap-3">
+                      <div className="text-4xl leading-none">{icon}</div>
+                      {t.reality && <span className={`shrink-0 text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${realityStyle}`}>{t.reality}</span>}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5 truncate">{t.category || 'Covenant'}</div>
+                    <h3 className="text-lg font-bold text-white light:text-slate-900 mb-1.5 leading-tight break-words">{t.name || t.id}</h3>
+                    <p className="text-xs text-gray-400 light:text-slate-500 mb-4 leading-relaxed break-words line-clamp-3">{t.description}</p>
+                    <a href={hrefFor(t)}
+                      className="mt-auto inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:bg-[#3dd9b8] active:scale-[0.985] transition group-hover:gap-2">
+                      Use Template <span aria-hidden="true">&rarr;</span>
+                    </a>
                   </div>
-                  <div className="font-bold text-white light:text-slate-900 mb-1 break-words">{t.name || t.id}</div>
-                  <p className="text-xs text-gray-400 light:text-slate-500 mb-3 leading-relaxed break-words line-clamp-3">{t.description}</p>
-                  <a href={hrefFor(t)}
-                    className="mt-auto text-center py-2 rounded-xl bg-[#49EACB] text-black text-sm font-bold hover:brightness-110 transition-all">
-                    Use Template
-                  </a>
                 </div>
               );
             })}

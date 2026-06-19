@@ -41,7 +41,7 @@ const SECTIONS = [
       "Covex is explicit about what is trustless and what is not.",
       "Custody is fully trustless: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet.",
       "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
-      "Resolution is oracle-attested: four circuits (merkle_membership, escrow_2party, age_verification, range_proof) verify a real Groth16 proof fail-closed OFF-CHAIN before the oracle co-signs; every other outcome is attested by the oracle without a proof. The proof is never verified on-chain (Kaspa has no on-chain pairing verifier); only the oracle's BIP340 co-signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.",
+      "Resolution is oracle-attested: fourteen circuits (including merkle_membership, escrow_2party, age_verification, range_proof, and others) verify a real Groth16 proof fail-closed OFF-CHAIN before the oracle co-signs; every other outcome is attested by the oracle without a proof. The proof is never verified on-chain (Kaspa has no on-chain pairing verifier); only the oracle's BIP340 co-signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.",
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
     ],
   },
@@ -132,7 +132,7 @@ export default function Whitepaper() {
           {[
             ['Toccata hard fork outlook & KIPs (Michael Sutton)', 'https://medium.com/@michaelsuttonil/kaspa-covenants-toccata-hard-fork-outlook-a4d81a40900c'],
             ['Kaspa Improvement Proposals (KIPs)', 'https://github.com/kaspanet/kips'],
-            ['Crescendo / 10 BPS roadmap', 'https://kaspa.org/crescendo-hard-fork-roadmap-10bps'],
+            ['Crescendo / 10 BPS roadmap', 'https://medium.com/@michaelsuttonil/unveiling-the-crescendo-hard-fork-roadmap-10bps-and-more-6072329e177f'],
             ['SilverScript', 'https://github.com/kaspanet/silverscript'],
             ['Mainnet activation window', 'https://kas.live/'],
             ['rusty-kaspa node & SDK', 'https://github.com/kaspanet/rusty-kaspa'],

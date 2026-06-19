@@ -225,7 +225,7 @@ export default function WhatIsKaspaPage() {
               { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
               { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },
               { icon: Code2, label: 'Primary Node', value: 'rusty-kaspa', sub: 'Production Rust implementation, high performance', badge: null },
-              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Live on the Toccata testnets (TN12 and TN10); mainnet via Toccata hard fork in the 2026 window (no confirmed day)', badge: 'TN12 · TN10' },
+              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Live on the Toccata testnets (TN12 and TN10); mainnet via Toccata hard fork on 30 June 2026', badge: 'TN12 · TN10' },
               { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
               { icon: FlaskConical, label: 'Active Testnets', value: 'Toccata TN12 + TN10', sub: 'SilverScript development and covenant testing networks', badge: 'ACTIVE' },
             ].map((s, i) => (
@@ -271,11 +271,11 @@ export default function WhatIsKaspaPage() {
               { title: "Rusty Kaspa (GitHub)", desc: "The production Rust node: consensus, RPC, UTXO index, covenant support", href: "https://github.com/kaspanet/rusty-kaspa" },
               { title: "Kaspa Documentation Hub", desc: "Protocol spec, REST/WebSocket APIs, SilverScript reference, node setup", href: "https://github.com/kaspanet/docs" },
               { title: "Covenant Design Document (KIP-17)", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
-              { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
+              { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.com" },
               { title: "Toccata Testnet Faucet & Explorer", desc: "TN12 resources for developers testing covenants (faucet-tn12.kaspanet.io)", href: "https://faucet-tn12.kaspanet.io" },
               { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://kaspa.org/community" },
               { title: "Kaspa Improvement Proposals (KIPs)", desc: "Formal process for protocol changes", href: "https://github.com/kaspanet/kips" },
-              { title: "Core Team & Research Blog", desc: "Updates from the researchers and protocol engineers", href: "https://research.kaspa.org" },
+              { title: "Core Team & Research Blog", desc: "Updates from the researchers and protocol engineers", href: "https://research.kas.pa" },
             ].map((r, i) => (
               <a key={i} href={r.href} target="_blank" rel="noreferrer"
                  className="block p-4 rounded-xl border border-white/10 bg-white/[0.01] hover:border-[#49EACB]/25 hover:bg-white/[0.015] transition-all group">

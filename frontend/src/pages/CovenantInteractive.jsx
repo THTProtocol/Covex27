@@ -32,7 +32,7 @@ const GAME_REGISTRY = {
 };
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Zap, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
@@ -46,10 +46,7 @@ import { MarketView } from './Markets';
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
 
-// Hardcoded test wallets for examples, fee receiver, dev notes (user can import with seeds for testnet funds):
-// 1. kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353 (seed: fitness narrow gap scheme fold regret faint neck blanket discover feel machine)
-// 2. kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs (seed: giggle alpha happy until wing zone cat argue april walnut uncover rate)
-// 3. kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m (seed: upon machine office cup raw vehicle will jelly goddess mother lesson disagree)  <-- DEPLOYER / TREASURY / creator fee receiver example
+// DEPLOYER is the Covex treasury / creator-fee receiver address the backend matches against.
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 const tierValue = (t) => ({ MAX: 3, PRO: 2, BUILDER: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
@@ -169,7 +166,7 @@ export default function CovenantInteractive() {
   const [covexPaidTier, setCovexPaidTier] = useState(null);
   useEffect(() => {
     if (!address) { setCovexPaidTier(null); return; }
-    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -299,18 +296,6 @@ export default function CovenantInteractive() {
     setUpgradePaid(false);
   };
 
-  const handleSimulatePayment = async (tier) => {
-    // Dev/test helper: immediately mark as paid (simulates faucet / indexer credit). Real flow waits for on-chain + verifier.
-    // Testnet only. A paid tier must NEVER be granted without a confirmed payment on mainnet.
-    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
-    if (net === 'mainnet') {
-      toast.error('The testnet faucet simulation is not available on mainnet.');
-      return;
-    }
-    setUpgradePaid(true);
-    toast.success(`Simulated ${tier.price} KAS ${tier.label} tier credit (local only)`);
-  };
-
   const handleUpgradePay = async (tier) => {
     // No wallet: never fake a payment and never open a dead protocol tab. Show the scannable
     // payment URI/QR (which leads somewhere real) and offer the connect modal.
@@ -335,7 +320,7 @@ export default function CovenantInteractive() {
     }
   };
 
-  const getUpgradeUri = (tier) => `kaspatest:${TREASURY.replace('kaspatest:', '')}?amount=${tier.price}`;
+  const getUpgradeUri = (tier) => `${TREASURY}?amount=${tier.price}`;
 
   const [actions, setActions] = useState([]);
   useEffect(() => {
@@ -458,7 +443,7 @@ export default function CovenantInteractive() {
     return {
       name: covenant.name || covenant.covenant_type || 'Covenant',
       status: covenant.is_active === false ? 'Settled' : 'Active',
-      network: covenant.network || 'testnet-12',
+      network: covenant.network || 'mainnet',
       amount_kaspa: locked,
       total_locked: `${locked.toLocaleString()} KAS`,
       tx_count: actions.length,
@@ -1654,7 +1639,7 @@ export default function CovenantInteractive() {
                               toast.success('Template applied to preview. Publish to make live.');
                             }} className={`flex-1 text-xs py-1.5 rounded-xl font-medium ${active ? 'bg-kaspa-green text-black' : 'bg-white/10 hover:bg-white/15'}`}>{active ? 'Chosen' : 'Choose'}</button>
                             <button onClick={() => {
-                              // Open a real full preview modal of the built page (mirrors CovenantFix),
+                              // Open a real full preview modal of the built page (mirrors Page Studio),
                               // never a false-success toast for a CTA with no visible effect.
                               const html = buildTransparentCustomUI(covenant, {...config, ...tpl.config});
                               setShowTemplatePreview({ tpl, html });
@@ -1859,7 +1844,7 @@ export default function CovenantInteractive() {
                       if (res && res.success === false) {
                         toast.error(res.needsWallet ? 'Connect a Kaspa wallet to stake.' : ('Stake failed: ' + (res.error || 'transaction rejected')));
                       } else {
-                        toast.success('Stake sent (real tx on testnet)!');
+                        toast.success('Stake sent (real on-chain tx)!');
                       }
                     } catch(e) { toast.error('Stake failed: ' + e.message); }
                   } else {
@@ -1934,7 +1919,7 @@ export default function CovenantInteractive() {
       </div>
 
       {/* Template full preview modal (Fix tab) - shows exactly what publishing produces,
-          mirroring CovenantFix. Never a false-success toast for a CTA with no UI. */}
+          mirroring Page Studio. Never a false-success toast for a CTA with no UI. */}
       {showTemplatePreview && (
         <div className="fixed inset-0 z-[95] bg-black/95 flex items-center justify-center p-4" onClick={() => setShowTemplatePreview(null)}>
           <div className="w-full max-w-[1080px] bg-[#050507] rounded-3xl border border-white/10 overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -2045,20 +2030,6 @@ export default function CovenantInteractive() {
                     QR Code
                   </button>
                 </div>
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-white/10"></div>
-                  <span className="flex-shrink-0 mx-3 text-[10px] text-gray-200 uppercase">Testnet Faucet</span>
-                  <div className="flex-grow border-t border-white/10"></div>
-                </div>
-                {(localStorage.getItem('kaspaNetwork') || 'testnet-12') !== 'mainnet' && (
-                <button
-                  onClick={() => handleSimulatePayment(upgradeTier)}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-kaspa-gold/40 bg-kaspa-gold/[0.05] text-kaspa-gold font-semibold text-sm hover:bg-kaspa-gold/10 hover:border-kaspa-gold/60 transition-all"
-                >
-                  <Zap size={16} />
-                  Simulate tKAS Payment (Faucet)
-                </button>
-                )}
                 <p className="text-[11px] text-gray-200 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
               </div>
             )}

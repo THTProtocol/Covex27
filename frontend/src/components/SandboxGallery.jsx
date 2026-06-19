@@ -48,8 +48,8 @@ const ONCHAIN_PRIMITIVES = [
   { kind: 'timelock', label: 'Timelock (CLTV)' },
   { kind: 'relative_timelock', label: 'Relative timelock (CSV)' },
   // The multi-party primitives are genuinely consensus-enforced, but on this platform their
-  // demo deploys via server-assisted testnet dev wallets (the builder discloses this). Mark
-  // them so the section never reads as if every chip is a non-custodial mainnet deploy.
+  // demo deploys via server-assisted dev wallets (the builder discloses this). Mark
+  // them so the section never reads as if every chip is a non-custodial deploy.
   { kind: 'htlc', label: 'HTLC', demo: true },
   { kind: 'channel', label: 'Payment channel', demo: true },
   { kind: 'deadman', label: "Dead-man's switch", demo: true },
@@ -176,14 +176,14 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
               <span className="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/12 text-emerald-300 border border-emerald-500/35">On-chain</span>
             </div>
             <p className="text-[11px] text-gray-400 leading-snug mb-3 max-w-xl">
-              These seven are enforced by Kaspa consensus: the redeem script itself releases the funds, not an oracle or proof. Open the real on-chain builder rather than a ZK or oracle look-alike. The ones marked demo deploy via testnet dev wallets on this platform; the single-key ones (hashlock, timelock, CSV) deploy non-custodially.
+              These seven are enforced by Kaspa consensus: the redeem script itself releases the funds, not an oracle or proof. Open the real on-chain builder rather than a ZK or oracle look-alike. The ones marked demo deploy via server-assisted dev wallets on this platform; the single-key ones (hashlock, timelock, CSV) deploy non-custodially.
             </p>
             <div className="flex flex-wrap gap-2 max-w-2xl">
               {ONCHAIN_PRIMITIVES.map((p) => (
                 <Link
                   key={p.kind}
                   to={`/deploy/enforced?kind=${p.kind}`}
-                  title={p.demo ? `Deploy ${p.label} - on-chain enforced (testnet dev-wallet demo on this platform)` : `Deploy ${p.label} - on-chain enforced, non-custodial`}
+                  title={p.demo ? `Deploy ${p.label} - on-chain enforced (server-assisted dev-wallet demo on this platform)` : `Deploy ${p.label} - on-chain enforced, non-custodial`}
                   className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/[0.06] text-[12px] font-semibold text-emerald-200 hover:border-emerald-400/60 hover:bg-emerald-500/[0.12] hover:text-emerald-100 transition-all"
                 >
                   <Lock size={11} className="opacity-70" />

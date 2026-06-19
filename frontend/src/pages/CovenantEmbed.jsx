@@ -17,7 +17,6 @@ const REALITY = {
   decorative: { label: 'Metadata', icon: FileText, dot: '#9ca3af', text: 'text-gray-300', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.30)' },
 };
 const realityOf = (r) => REALITY[r] || REALITY['oracle-attested'];
-const NET_LABEL = { 'testnet-12': 'Testnet-12', 'testnet-10': 'Testnet-10', mainnet: 'Mainnet' };
 
 // Honest VALUE LOCKED formatting, mirrored from the Explorer CovenantCard so the
 // embed reads the same real on-chain figure (compact K/M, no fabricated value).
@@ -33,7 +32,7 @@ export default function CovenantEmbed() {
   const { id } = useParams();
   const [params] = useSearchParams();
   const theme = params.get('theme') === 'light' ? 'light' : 'dark';
-  const network = params.get('network') || 'testnet-12';
+  const network = params.get('network') || 'mainnet';
   const [cov, setCov] = useState(null);
   const [state, setState] = useState('loading'); // loading | ok | error
 
@@ -97,9 +96,6 @@ export default function CovenantEmbed() {
                   <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border" style={{ color: rm.dot, background: rm.bg, borderColor: rm.border }}>
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: rm.dot }} /> {rm.label}
-                    </span>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: shell.sub, background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.05)' }}>
-                      {NET_LABEL[cov.network] || cov.network}
                     </span>
                     {(cov.verified_tier && cov.verified_tier !== 'FREE') && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: '#0b0d14', background: '#49EACB' }}>

@@ -12,7 +12,7 @@ import {
 // Conjoined-covenant parimutuel markets. Each market commits two outcome secrets (H_A/H_B);
 // bettors place YES/NO orders that the matcher pairs into mini-pools, each funded by a bundle
 // of binary_oracle_select P2SH covenants. Revealing one secret routes the whole bundle on-chain.
-const net = () => (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+const net = () => (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
 const api = (path, body) =>
   fetch('/api' + path, {
     method: 'POST',

@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom';
 import { Landmark, ArrowUpRight, Scale, Coins } from 'lucide-react';
 
 const TREASURIES = {
-  'testnet-12': 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m',
-  'testnet-10': 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m',
   mainnet: 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2',
 };
 
@@ -14,8 +12,8 @@ const TREASURIES = {
  * Covex asks creators for transparency, so the platform shows its own first.
  */
 export default function Treasury() {
-  const network = localStorage.getItem('kaspaNetwork') || 'testnet-12';
-  const treasury = TREASURIES[network] || TREASURIES['testnet-12'];
+  const network = localStorage.getItem('kaspaNetwork') || 'mainnet';
+  const treasury = TREASURIES[network] || TREASURIES['mainnet'];
   const [balance, setBalance] = useState(null);
   const [upgrades, setUpgrades] = useState([]);
 

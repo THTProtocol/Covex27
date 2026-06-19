@@ -44,7 +44,7 @@ const ChessMini = ({ compact = false, stake = 50 }) => {
 
       <div className="px-2 py-1 bg-[#0f0f0f] border-t border-white/10 text-[8px]">
         {demo==='idle' && <button onClick={start} className="w-full py-0.5 bg-[#49EACB] text-black font-bold rounded text-[9px]">STAKE &amp; MATCH, PLAY NOW</button>}
-        {demo==='matched' && <div className="text-center text-[#49EACB] font-mono py-0.5">MATCHING ON TN12...</div>}
+        {demo==='matched' && <div className="text-center text-[#49EACB] font-mono py-0.5">MATCHING ON KASPA...</div>}
         {demo==='playing' && <div className="flex gap-1"><button onClick={end} className="flex-1 bg-emerald-500 text-[8px] py-px rounded font-bold">WHITE WINS</button><button onClick={end} className="flex-1 bg-rose-500 text-[8px] py-px rounded font-bold">BLACK WINS</button></div>}
         {demo==='finished' && <div className="text-center text-emerald-400 font-bold tracking-wider">ZK VERIFIED • WINNER TAKES ALL</div>}
       </div>

@@ -8,39 +8,31 @@ import {
 
 const WalletContext = createContext(null);
 
-// ── Network-aware helpers ──
+// ── Network helpers ──
+// Covex is mainnet-only: the only user-visible network is Kaspa mainnet. Any stored value
+// resolves to mainnet so links, derivation and balances all target the real chain.
 export function getCurrentNetwork() {
-  if (typeof window === 'undefined') return 'testnet-12';
-  return localStorage.getItem('kaspaNetwork') || 'testnet-12';
+  return 'mainnet';
 }
 
 export function onNetworkChange(fn) {
-  const handler = (e) => {
-    const net = e?.detail || localStorage.getItem('kaspaNetwork') || 'testnet-12';
-    fn(net);
-  };
+  const handler = () => fn('mainnet');
   window.addEventListener('kaspa-network-change', handler);
   // Also listen to regular storage changes (for other tabs)
-  const storageHandler = () => {
-    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
-    fn(net);
-  };
-  window.addEventListener('storage', storageHandler);
+  window.addEventListener('storage', handler);
   return () => {
     window.removeEventListener('kaspa-network-change', handler);
-    window.removeEventListener('storage', storageHandler);
+    window.removeEventListener('storage', handler);
   };
 }
 
 const NETWORK_LABELS = {
-  'testnet-12': 'TN12 (Toccata)',
-  'testnet-10': 'TN10',
   'mainnet': 'MAINNET',
   'mainnet-1': 'MAINNET',
 };
 
 function getDevStorageKey(net) {
-  const safe = String(net || 'testnet-12').replace(/[^a-z0-9_-]/gi, '_');
+  const safe = String(net || 'mainnet').replace(/[^a-z0-9_-]/gi, '_');
   return `covex_dev_wallet_${safe}`;
 }
 
@@ -306,7 +298,7 @@ export async function loadKaspaWasm() {
   return _wasmInitPromise;
 }
 
-export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
+export async function deriveFromMnemonic(phrase, networkId = 'mainnet') {
   const wasm = await loadKaspaWasm();
   if (!wasm) throw new Error('kaspa-wasm module failed to load');
 
@@ -317,8 +309,8 @@ export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   const xprv = new XPrv(seed);
   const derived = xprv.derivePath("m/44'/111111'/0'/0/0");
   const privateKeyHex = derived.toPrivateKey().toString();
-  // The wasm module expects 'kaspa' or 'testnet' strings, NOT 'kaspatest'
-  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'testnet';
+  // The wasm module expects the 'kaspa' network string for mainnet addresses.
+  const addrNetwork = 'kaspa';
   let address = derived.toPrivateKey().toAddress(addrNetwork);
   const addressStr = address.toString();
   mnemonic.free();
@@ -327,7 +319,7 @@ export async function deriveFromMnemonic(phrase, networkId = 'testnet-12') {
   return { privateKeyHex, address: addressStr };
 }
 
-export async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
+export async function deriveFromPrivateKey(hexKey, networkId = 'mainnet') {
   const wasm = await loadKaspaWasm();
   if (!wasm) throw new Error('kaspa-wasm module failed to load');
 
@@ -337,8 +329,8 @@ export async function deriveFromPrivateKey(hexKey, networkId = 'testnet-12') {
     throw new Error('Invalid private key hex. Must be 64 hex characters (32 bytes).');
   }
   const pk = new PrivateKey(cleanHex);
-  // The wasm module expects 'kaspa' or 'testnet' strings, NOT 'kaspatest'
-  const addrNetwork = (networkId && (String(networkId).includes('main') || String(networkId) === 'kaspa')) ? 'kaspa' : 'testnet';
+  // The wasm module expects the 'kaspa' network string for mainnet addresses.
+  const addrNetwork = 'kaspa';
   let address = pk.toAddress(addrNetwork);
   const addressStr = address.toString();
   pk.free();
@@ -505,7 +497,7 @@ function WalletBridge({ children }) {
   const [appNetwork, setAppNetwork] = useState(() => getCurrentNetwork());
   useEffect(() => onNetworkChange(setAppNetwork), []);
 
-  // When the global network toggle changes, load the dev wallet saved for *that* specific network (separate connections for TN10 vs TN12)
+  // Load the dev wallet saved for the active (mainnet) network when it becomes available.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const key = getDevStorageKey(appNetwork);
@@ -694,12 +686,12 @@ function WalletBridge({ children }) {
     window.open(wallet.url, '_blank');
   }, [resolveProvider, connectViaProvider, openAppThenDetect]);
 
-  // ── Dev mode connect (persists to localStorage, per-network for TN10/TN12) ──
+  // ── Dev mode connect (persists the in-browser generated/imported wallet to localStorage) ──
   const connectDevMode = useCallback((devState) => {
     const isMain = appNetwork === 'mainnet' || appNetwork === 'mainnet-1';
     // Hardcoded dev wallets (which carry neither their own phrase nor hex) stay blocked on
     // mainnet. A wallet the user GENERATED or imported here carries its own phrase/hexKey and
-    // is their own real wallet — allowed on mainnet. Its private key is held only in this
+    // is their own real wallet, allowed on mainnet. Its private key is held only in this
     // browser and is never transmitted (sendPayment refuses the custodial path on mainnet).
     if (isMain && !devState?.phrase && !devState?.hexKey) {
       setError('Hardcoded dev wallets are disabled on mainnet. Generate a new wallet or connect a wallet extension.');
@@ -742,13 +734,13 @@ function WalletBridge({ children }) {
   }
 
   // Read an address's on-chain balance from the backend (sums UTXOs at the node). This is the
-  // balance source for dev-mode (mnemonic/hex) wallets — which have no extension provider — and a
+  // balance source for dev-mode (mnemonic/hex) wallets (which have no extension provider) and a
   // fallback for extension wallets whose provider does not expose getBalance(). Works for ANY
   // address. Returns sompi (integer); WalletButton divides by 1e8 for KAS display.
   async function fetchBackendBalance(addr) {
     if (!addr) return;
     try {
-      const net = (typeof localStorage !== 'undefined' && localStorage.getItem('kaspaNetwork')) || appNetwork || 'testnet-12';
+      const net = (typeof localStorage !== 'undefined' && localStorage.getItem('kaspaNetwork')) || appNetwork || 'mainnet';
       const r = await fetch(`/api/balance/${encodeURIComponent(addr)}?network=${encodeURIComponent(net)}`);
       const d = await r.json();
       // GET /balance/:address returns { balance: <sompi> } (broadcast.rs get_balance_by_address).
@@ -800,8 +792,8 @@ function WalletBridge({ children }) {
     setError(null);
   }, [devMode, kf]);
 
-  // On network switch (after mount), disconnect any real (extension) wallet because wallet connections are network-specific.
-  // User will re-connect the desired wallet while the chosen network (TN12/TN10/MAIN) is active.
+  // If the active network identifier ever changes, disconnect any real (extension) wallet
+  // because wallet connections are network-specific. Covex is mainnet-only, so this is effectively a no-op.
   useEffect(() => {
     if (prevNetworkRef.current !== null && prevNetworkRef.current !== appNetwork) {
       if (activeWalletId && activeWalletId !== '__dev_mode__' && !devMode) {
@@ -864,7 +856,7 @@ function WalletBridge({ children }) {
   }, [activeWalletId]);
 
   const buildUri = useCallback((recipient, amountKas, meta = {}) => {
-    const prefix = appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'kaspa:' : 'kaspatest:';
+    const prefix = 'kaspa:';
     const addr = recipient.replace(/^(kaspatest:|kaspa:)/, '');
     const q = [];
     if (amountKas) q.push(`amount=${amountKas}`);
@@ -909,51 +901,10 @@ function WalletBridge({ children }) {
 
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
     if (devMode && activeAddress) {
-      const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-      // TRUSTLESS GUARANTEE: a generated/imported wallet's private key must NEVER be transmitted
-      // on mainnet. The custodial /api/sign-and-broadcast path below posts the key, so it is
-      // refused on mainnet. On mainnet, covenant deploy/spend uses the non-custodial
-      // prepare/submit flow (the key signs locally in the browser); for tier payments use a
-      // wallet extension. (Testnet keeps the custodial path — test money only.)
-      if (net === 'mainnet' || net === 'mainnet-1') {
-        return { success: false, error: 'This wallet never sends its key off your device. On mainnet, deploy covenants non-custodially (your key signs locally) or use a wallet extension for tier payments.' };
-      }
-      // Map amount to tier for backend signer - the backend constructs real TXs
-      // with actual UTXOs from kaspad, schnorr signs, and broadcasts via wRPC.
-      const tier = amountKas >= 1000 ? 'MAX' : amountKas >= 500 ? 'PRO' : amountKas >= 100 ? 'BUILDER' : null;
-      const tierLabel = tier || 'FREE';
-      // Pure tier payment (e.g. "Pay 100 KAS" upgrade button in CovenantInteractive) sends *only* the tier fee to treasury.
-      // Deployments bundle 1 KAS covenant output + tier fee in one tx. Detect via exact tier amounts + memo/recipient.
-      const isPureTierPayment = !!tier && (
-        (recipient || '').includes('qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m') ||
-        (meta.memo || '').toLowerCase().includes('upgrade') ||
-        (meta.memo || '').toLowerCase().includes('tier') ||
-        (meta.description || '').toLowerCase().includes('tier payment')
-      );
-      try {
-        const resp = await fetch('/api/sign-and-broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            private_key_hex: devMode.privateKeyHex,
-            deployer_addr: activeAddress,
-            script_hex: isPureTierPayment ? '' : 'aa20',
-            tier: tierLabel,
-            covenant_name: tier ? `Covex ${tier} Tier Payment` : 'Covex Payment',
-            description: meta.memo || `Tier payment: ${tierLabel}`,
-            use_dev_mode: true,
-            network: net,
-            pure_tier_payment: isPureTierPayment,
-          }),
-        });
-        const data = await resp.json();
-        if (data.success && data.tx_id) {
-          return { success: true, method: 'dev-mode-backend', txid: data.tx_id };
-        }
-        return { success: false, error: data.error || 'Backend signer rejected payment' };
-      } catch (err) {
-        return { success: false, error: err.message || 'Network error during payment broadcast' };
-      }
+      // TRUSTLESS GUARANTEE: a generated/imported wallet's private key NEVER leaves this browser.
+      // Covex never transmits it. Covenant deploy/spend uses the non-custodial prepare/submit
+      // flow (the key signs locally in the browser); for tier payments, connect a wallet extension.
+      return { success: false, error: 'This wallet never sends its key off your device. Deploy covenants non-custodially (your key signs locally) or use a wallet extension for tier payments.' };
     }
     const provider = getActiveProvider();
     if (provider && activeAddress) {
@@ -980,7 +931,7 @@ function WalletBridge({ children }) {
       } catch (_) {}
     }
     // No wallet available to sign (no dev mode, no extension, no kasflow connection). Do NOT
-    // open a dead protocol tab: a kaspatest:/kaspa: URI has no browser handler, so window.open
+    // open a dead protocol tab: a kaspa: URI has no browser handler, so window.open
     // just renders a blank page. Return the payable URI + a needsWallet flag so the caller can
     // show a scannable QR / connect prompt instead of a broken redirect.
     const uri = buildUri(recipient, amountKas, meta);
@@ -1009,7 +960,7 @@ function WalletBridge({ children }) {
     balanceLoading,
     connecting,
     error,
-    network: activeWalletNetwork || (appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'mainnet' : 'kaspatest'),
+    network: activeWalletNetwork || 'mainnet',
     appNetwork,
 
     walletMeta,
@@ -1102,12 +1053,11 @@ export function useWallet() {
 }
 
 export function WalletProvider({ children }) {
-  const network = getCurrentNetwork();
   return (
     <KasFlowProvider
       config={{
         appName: 'Covex',
-        network: network === 'mainnet' || network === 'mainnet-1' ? network : 'testnet-12',
+        network: 'mainnet',
         autoConnect: false,
         adapters: [kaswareAdapter()],
       }}

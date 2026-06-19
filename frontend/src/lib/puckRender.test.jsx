@@ -10,11 +10,11 @@ import { renderSafeMarkdown } from './safeMarkdown.js';
 // labels are correct, and the theme-aware .cvx-* surfaces are emitted (they flip
 // in light mode via .light overrides in covexPuck.css).
 const LIVE = {
-  name: 'Test Covenant', status: 'Active', network: 'testnet-12',
+  name: 'Test Covenant', status: 'Active', network: 'mainnet',
   amount_kaspa: 1234, total_locked: '1,234 KAS', tx_count: 7,
   fee_pct: 2, rebate_pct: 1, pool_total: 1234, pool_yes: 800, pool_no: 434,
   odds_yes: '1.50', odds_no: '2.80', kickoff: '', settle_at: '', timelock: '',
-  oracle_pubkey: '', creator: 'kaspatest:q', actions: [], pool: { total: 1234 }, odds: {},
+  oracle_pubkey: '', creator: 'kaspa:q', actions: [], pool: { total: 1234 }, odds: {},
 };
 
 function renderTemplate(tpl, live = LIVE) {

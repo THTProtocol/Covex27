@@ -35,7 +35,7 @@ export default function WalletButton() {
   const [showAllWallets, setShowAllWallets] = useState(false);
   const [, bumpDetect] = useState(0); // forces re-detect re-render for late-injecting extensions
   const panelRef = useRef(null);
-  const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'TN12 (Toccata)';
+  const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'MAINNET';
 
   useEffect(() => {
     const onDoc = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) setPanel(false); };

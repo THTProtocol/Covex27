@@ -185,7 +185,7 @@ export default function WhatIsKaspaPage() {
               { title: "SPECTRE: Serialization of Proof-of-work Events", subtitle: "Sompolinsky, Lewenberg & Zohar (2016). The earlier inclusive protocol that influenced all later BlockDAG work.", href: "https://eprint.iacr.org/2016/1159.pdf" },
               { title: "Inclusive Block Chain Protocols", subtitle: "Lewenberg, Sompolinsky & Zohar (2015). The paper that introduced the idea of rewarding all honest work instead of discarding orphans.", href: "https://eprint.iacr.org/2015/1139.pdf" },
               { title: "The GHOST Protocol", subtitle: "Sompolinsky & Zohar (2013). The original Greedy Heaviest Observed SubTree idea that eventually became GHOSTDAG.", href: "https://eprint.iacr.org/2013/881.pdf" },
-              { title: "KIP-17: Covenants and Improved Scripting Capabilities", subtitle: "Ori Newman. The canonical covenant design document: introspection opcodes (aa20-aa23 / 0xb2+), covenant semantics, and how they are validated in the Rust node. Implemented and activated on the Toccata testnets.", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
+              { title: "KIP-17: Covenants and Improved Scripting Capabilities", subtitle: "Ori Newman. The canonical covenant design document: introspection opcodes (aa20-aa23 / 0xb2+), covenant semantics, and how they are validated in the Rust node. Activated for Kaspa mainnet via the Toccata covenant hard fork.", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
               { title: "kHeavyHash Specification & Rationale", subtitle: "Kaspa documentation. Details on the custom PoW, optical mining design goals, and why it differs from SHA256 / Ethash / etc.", href: "https://github.com/kaspanet/docs" },
               { title: "Kaspa Rust Node Architecture (rusty-kaspa)", subtitle: "The reference implementation. Covers consensus core, UTXO set, mempool, RPC, and how covenants are indexed.", href: "https://github.com/kaspanet/rusty-kaspa" },
             ].map((p, i) => (
@@ -211,7 +211,7 @@ export default function WhatIsKaspaPage() {
               <CheckCircle2 size={20} className="text-[#49EACB] shrink-0" />
               Network Specifications
             </h2>
-            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono break-words">COVENANTS LIVE ON TN12 · MAINNET WITH TOCCATA</span>
+            <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono break-words">COVENANTS ON KASPA MAINNET WITH TOCCATA</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -225,9 +225,9 @@ export default function WhatIsKaspaPage() {
               { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
               { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },
               { icon: Code2, label: 'Primary Node', value: 'rusty-kaspa', sub: 'Production Rust implementation, high performance', badge: null },
-              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Live on the Toccata testnets (TN12 and TN10); mainnet via Toccata hard fork on 30 June 2026', badge: 'TN12 · TN10' },
+              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Native Kaspa covenants, activating on mainnet via the Toccata hard fork in the 2026 window (no confirmed day)', badge: 'TOCCATA' },
               { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
-              { icon: FlaskConical, label: 'Active Testnets', value: 'Toccata TN12 + TN10', sub: 'SilverScript development and covenant testing networks', badge: 'ACTIVE' },
+              { icon: FlaskConical, label: 'Covenant Fork', value: 'Toccata', sub: 'The covenant-centric hard fork bringing SilverScript to Kaspa mainnet', badge: 'TARGET' },
             ].map((s, i) => (
               <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.005] p-5 hover:border-[#49EACB]/40 hover:bg-white/[0.02] hover:shadow-[0_0_25px_rgba(73,234,203,0.08)] transition-all duration-300 group">
                 <div className="flex items-start justify-between mb-2">
@@ -238,7 +238,7 @@ export default function WhatIsKaspaPage() {
                     <span className={`text-[8px] px-2 py-0.5 rounded-full font-mono tracking-wider shrink-0 ${
                       s.badge === 'VERIFIED' ? 'bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/25' :
                       s.badge === 'TARGET' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25' :
-                      s.badge === 'TN12' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/25' :
+                      s.badge === 'TOCCATA' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/25' :
                       'bg-blue-500/10 text-blue-400 border border-blue-500/25'
                     }`}>{s.badge}</span>
                   )}
@@ -254,7 +254,7 @@ export default function WhatIsKaspaPage() {
             <p className="text-[11px] text-gray-400 leading-relaxed">
               <span className="text-[#49EACB] font-mono text-[10px] uppercase tracking-wider">Sources:</span> kaspa.org, kaspa.stream, rusty-kaspa GitHub, official Crescendo/DAGKNIGHT/Toccata hard-fork announcements, and developer updates (mid-2026).
               Finality is probabilistic; practical spendability is near-instant for most use cases.
-              SilverScript covenants are experimental on Toccata TN12; mainnet support arrives with the Toccata covenant-centric hard fork.
+              SilverScript covenant support arrives on Kaspa mainnet with the Toccata covenant-centric hard fork.
             </p>
           </div>
         </section>
@@ -271,8 +271,7 @@ export default function WhatIsKaspaPage() {
               { title: "Rusty Kaspa (GitHub)", desc: "The production Rust node: consensus, RPC, UTXO index, covenant support", href: "https://github.com/kaspanet/rusty-kaspa" },
               { title: "Kaspa Documentation Hub", desc: "Protocol spec, REST/WebSocket APIs, SilverScript reference, node setup", href: "https://github.com/kaspanet/docs" },
               { title: "Covenant Design Document (KIP-17)", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
-              { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.com" },
-              { title: "Toccata Testnet Faucet & Explorer", desc: "TN12 resources for developers testing covenants (faucet-tn12.kaspanet.io)", href: "https://faucet-tn12.kaspanet.io" },
+              { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
               { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://kaspa.org/community" },
               { title: "Kaspa Improvement Proposals (KIPs)", desc: "Formal process for protocol changes", href: "https://github.com/kaspanet/kips" },
               { title: "Core Team & Research Blog", desc: "Updates from the researchers and protocol engineers", href: "https://research.kas.pa" },
@@ -295,7 +294,7 @@ export default function WhatIsKaspaPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-white mb-4">How Covex Uses the Kaspa BlockDAG</h2>
           <div className="glass-panel rounded-2xl p-6 border border-white/10 text-sm text-gray-300 leading-relaxed">
-            Covex is a covenant-first application layer on top of SilverScript. Every covenant you deploy through Covex is a real UTXO on Toccata (Testnet-12) or eventually mainnet. 
+            Covex is a covenant-first application layer on top of SilverScript. Every covenant you deploy through Covex is a real UTXO on Kaspa, enforced by the consensus layer once the Toccata covenant hard fork activates SilverScript on mainnet.
             The one-time tier payment (BUILDER 100 KAS, PRO 500 KAS, MAX 1000 KAS) is a simple P2SH-style spend to a known treasury address. 
             The indexer watches for these payments, upgrades the covenant's visibility tier, and grants the owner Terminal + custom UI capabilities. 
             All of this is verifiable on-chain by anyone running a Kaspa node with UTXO indexing.

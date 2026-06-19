@@ -190,7 +190,7 @@ export default function Explorer() {
   // LABELED now (no fabricated types), so there's no reason to hide them — "Verified only" is an
   // opt-in filter for users who want just paid + real-description covenants.
   const [includeRaw, setIncludeRaw] = useState(true);
-  const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'testnet-12');
+  const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'mainnet');
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
   const [liveMatches, setLiveMatches] = useState([]);
@@ -200,7 +200,7 @@ export default function Explorer() {
 
   useEffect(() => {
     const handler = (e) => {
-      setKaspaNetwork(typeof e.detail === 'string' ? e.detail : localStorage.getItem('kaspaNetwork') || 'testnet-12');
+      setKaspaNetwork(typeof e.detail === 'string' ? e.detail : localStorage.getItem('kaspaNetwork') || 'mainnet');
     };
     window.addEventListener('kaspa-network-change', handler);
     return () => window.removeEventListener('kaspa-network-change', handler);
@@ -377,7 +377,7 @@ export default function Explorer() {
     return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
 
-  const netLabel = { 'testnet-12': 'TN12', 'testnet-10': 'TN10', 'mainnet': 'MAINNET' }[kaspaNetwork] || kaspaNetwork;
+  const netLabel = 'MAINNET';
 
   return (
     <>
@@ -508,7 +508,7 @@ export default function Explorer() {
                 <Search size={18} className="text-kaspa-green shrink-0" />
                 <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-                  placeholder="kaspatest:qr... or covenant txid (hash:0)"
+                  placeholder="kaspa:qr... or covenant txid (hash:0)"
                   className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white placeholder:text-gray-200"
                   autoFocus spellCheck={false} autoComplete="off"
                 />
@@ -521,7 +521,7 @@ export default function Explorer() {
             </form>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-200">
               <span>Try:</span>
-              <button onClick={() => setSearchQuery('kaspatest:')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspatest:...</button>
+              <button onClick={() => setSearchQuery('kaspa:')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
               <button onClick={() => setSearchQuery(':')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
             </div>
             {searchLoading && (

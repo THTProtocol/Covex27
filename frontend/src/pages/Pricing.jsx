@@ -107,33 +107,23 @@ const TIERS = [
   },
 ];
 
-const TESTNET_TREASURY_TN12 = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-// TN10 uses the same treasury address (same private key, valid on both testnet chains).
-// Backend monitors this address independently on each network via network-tagged verifiers.
-const TESTNET_TREASURY_TN10 = TESTNET_TREASURY_TN12;
 const MAINNET_TREASURY = 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2';
 
-const getTreasuryAddress = () => {
-  if (typeof window === 'undefined') return TESTNET_TREASURY_TN12;
-  const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
-  if (net === 'mainnet' || net === 'mainnet-1') return MAINNET_TREASURY;
-  if (net === 'testnet-10') return TESTNET_TREASURY_TN10;
-  return TESTNET_TREASURY_TN12;
-};
+const getTreasuryAddress = () => MAINNET_TREASURY;
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
   const [currentNetwork, setCurrentNetwork] = useState(() => {
-    if (typeof window === 'undefined') return 'testnet-12';
-    return localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    if (typeof window === 'undefined') return 'mainnet';
+    return localStorage.getItem('kaspaNetwork') || 'mainnet';
   });
   const isMainnet = currentNetwork === 'mainnet' || currentNetwork === 'mainnet-1';
   const TREASURY = getTreasuryAddress();
 
   useEffect(() => {
     const handler = () => {
-      const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
       setCurrentNetwork(net);
     };
     window.addEventListener('kaspa-network-change', handler);
@@ -167,8 +157,8 @@ const Pricing = () => {
       if (result.success) {
         // Payment broadcast. Server-side payment verifier will detect it.
         // The server auth-session endpoint confirms real on-chain payment.
-        // Save txid so PaidBuilder knows to poll for confirmation (not instant).
-        // For dev testnet we also set local marker so the robust unlock in PaidBuilder fires immediately.
+        // Save txid so the premium builder knows to poll for confirmation (not instant).
+        // For the dev wallet we also set a local marker so the robust unlock fires immediately.
         if (result.txid) {
           sessionStorage.setItem('payment_broadcast_tx', JSON.stringify({ 
             tier: payingTier.name, 

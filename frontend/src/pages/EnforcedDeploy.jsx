@@ -13,7 +13,7 @@ const KINDS = [
   { id: 'singlesig', label: 'Single-key', icon: KeyRound, blurb: 'Funds lock to a script hash, spendable only by your key. The minimal real covenant.' },
   { id: 'hashlock', label: 'Hashlock', icon: Lock, blurb: 'Release requires revealing a secret preimage plus a signature. The HTLC building block.' },
   { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting, dispute windows.' },
-  { id: 'multisig', label: 'Multisig (2-of-2 demo)', icon: Users, blurb: 'Release requires 2 of 2 dev-wallet keys. DAO treasuries, 2-of-3 escrow. Demo uses the testnet dev wallets.' },
+  { id: 'multisig', label: 'Multisig (2-of-2 demo)', icon: Users, blurb: 'Release requires 2 of 2 dev-wallet keys. DAO treasuries, 2-of-3 escrow. Demo uses the server-assisted dev wallets.' },
   { id: 'htlc', label: 'HTLC (atomic swap)', icon: ArrowLeftRight, blurb: 'Receiver claims by revealing a secret; sender refunds after a timelock. The cross-party / cross-chain swap building block. Demo uses the dev wallets.' },
   { id: 'channel', label: 'State-channel pot', icon: Network, blurb: 'A 2-of-2 cooperative-close pot with a funder refund after a timelock. The chain pays the agreed winner, no oracle. Demo uses the dev wallets.' },
   { id: 'deadman', label: "Dead-man's switch", icon: HeartPulse, blurb: 'The owner spends or refreshes any time; the heir can claim only after the timelock, so funds pass on if the owner goes silent. Demo uses the dev wallets.' },
@@ -129,7 +129,7 @@ export default function EnforcedDeploy() {
   }, []);
 
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
-  // Multi-party / oracle primitives deploy via the testnet dev wallets (server-assisted),
+  // Multi-party / oracle primitives deploy via server-assisted dev wallets,
   // exactly like the multisig demo. Single-signer kinds stay fully non-custodial.
   const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow'];
   const usesDevWallets = DEV_WALLET_KINDS.includes(kind);
@@ -248,7 +248,7 @@ export default function EnforcedDeploy() {
       }
 
       // Server-assisted fallback: the multisig demo locks to the two dev wallets, so it is
-      // funded + signed server-side with use_dev_mode (testnet only).
+      // funded + signed server-side with use_dev_mode (server-assisted demo only).
       const body = { network: net, deployer_addr: address || '', use_dev_mode: true, stake_kas: stakeKas, redeem };
       const res = await fetch('/api/covenant/p2sh/deploy', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -336,10 +336,9 @@ export default function EnforcedDeploy() {
         // supplied; fall through to the server-assisted path rather than signing nothing.
       }
       // TRUSTLESS GUARANTEE: the server-assisted fallback below would post private_key_hex.
-      // On mainnet a generated/imported wallet's key must NEVER leave the device, so refuse
-      // the fallback there (only the non-custodial local-signing path above is allowed; for
-      // covenant types it doesn't cover, redeem with a wallet extension). Testnet (dev/test
-      // money) keeps the convenience fallback.
+      // On mainnet a generated/imported wallet's key must NEVER leave the device, so the
+      // fallback is refused here (only the non-custodial local-signing path above is allowed;
+      // for covenant types it doesn't cover, redeem with a wallet extension).
       if ((net === 'mainnet' || net === 'mainnet-1') && !c.dev) {
         setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
         return;
@@ -503,8 +502,8 @@ export default function EnforcedDeploy() {
         {KINDS.map((k) => {
           const Icon = k.icon;
           const active = kind === k.id;
-          // Honest deploy-reality chip: DEV_WALLET_KINDS deploy via server-assisted testnet
-          // dev wallets (not a non-custodial mainnet deploy), so flag them so a mainnet user
+          // Honest deploy-reality chip: DEV_WALLET_KINDS deploy via server-assisted
+          // dev wallets (not a non-custodial deploy), so flag them so a user
           // is not led into a dead-end. The single-signer primitives are non-custodial and
           // mainnet-capable; market is a hybrid creation flow.
           const isDevWalletKind = DEV_WALLET_KINDS.includes(k.id);
@@ -537,10 +536,10 @@ export default function EnforcedDeploy() {
                 </span>
                 {isDevWalletKind ? (
                   <span
-                    title="Deploys via server-assisted testnet dev wallets, not a non-custodial mainnet deploy. Honest demo of the primitive."
+                    title="Deploys via server-assisted dev wallets, not a non-custodial deploy. Honest demo of the primitive."
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[9px] font-bold uppercase tracking-wider"
                   >
-                    <span className="h-1 w-1 rounded-full bg-amber-400" aria-hidden="true" /> Testnet demo
+                    <span className="h-1 w-1 rounded-full bg-amber-400" aria-hidden="true" /> Server-assisted demo
                   </span>
                 ) : isMainnetCapable ? (
                   <span
@@ -641,7 +640,7 @@ export default function EnforcedDeploy() {
           <p className="text-[11px] text-gray-400">A random secret is generated at deploy. Save it - it is required to redeem and is never stored on the server.</p>
         )}
         {kind === 'multisig' && (
-          <p className="text-[11px] text-gray-400">This demo locks to a 2-of-2 of the testnet dev wallets and redeems with both. Custom member keys are supported via the API.</p>
+          <p className="text-[11px] text-gray-400">This demo locks to a 2-of-2 of the server-assisted dev wallets and redeems with both. Custom member keys are supported via the API.</p>
         )}
         {kind === 'htlc' && (
           <p className="text-[11px] text-gray-400">Demo HTLC: the dev-wallet receiver claims by revealing a secret generated at deploy; the dev-wallet sender refunds after the timelock above. The cross-chain atomic-swap building block.</p>
@@ -653,10 +652,10 @@ export default function EnforcedDeploy() {
           <p className="text-[11px] text-gray-400">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
         )}
         {kind === 'oracle_enforced' && (
-          <p className="text-[11px] text-gray-400">A 2-of-2 of the Covex oracle and the winner (dev wallet 1). The chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. Testnet demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
+          <p className="text-[11px] text-gray-400">A 2-of-2 of the Covex oracle and the winner (dev wallet 1). The chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. Server-assisted demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
         )}
         {kind === 'oracle_escrow' && (
-          <p className="text-[11px] text-gray-400">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Testnet demo; oracle covenants activate on mainnet at Toccata.</p>
+          <p className="text-[11px] text-gray-400">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Server-assisted demo; oracle covenants activate on mainnet at Toccata.</p>
         )}
 
         <DeployDisclosure reality={isHybridKind ? 'hybrid' : 'on-chain'} />

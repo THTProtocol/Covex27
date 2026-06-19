@@ -24,7 +24,7 @@ export default function AdvancedComposer() {
       return;
     }
     setAuth(p => ({ ...p, loading: true }));
-    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

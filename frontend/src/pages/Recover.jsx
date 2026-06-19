@@ -296,7 +296,7 @@ export default function Recover() {
                 ))}
               </ol>
               <p className="text-[11px] text-gray-500 light:text-slate-400 mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200 leading-relaxed">
-                A push-button in-browser redeemer (steps 3-4 automated via kaspa-wasm + a public node) is in the works and will be added here once it is end-to-end tested on testnet. Until then this kit gives any Kaspa developer everything needed, and your funds remain fully under your control.
+                A push-button in-browser redeemer (steps 3-4 automated via kaspa-wasm + a public node) is in the works and will be added here once it is end-to-end tested on the Kaspa mainnet. Until then this kit gives any Kaspa developer everything needed, and your funds remain fully under your control.
               </p>
             </div>
           </div>

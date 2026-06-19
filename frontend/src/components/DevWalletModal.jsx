@@ -3,8 +3,9 @@ import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFr
 import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ShieldCheck, ArrowRight, Check, Smartphone, Download } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
-// Now network-aware - derives keys for the currently selected network (TN10/TN12/Mainnet).
-// Uses kaspa-wasm to derive keys locally from mnemonic or hex private key.
+// Covex is mainnet-only, so this always presents the mainnet connect flow (real wallet
+// extensions + a non-custodial in-browser wallet generator). Keys are derived locally via
+// kaspa-wasm and never leave the browser.
 
 let _wasmModule = null;
 
@@ -78,7 +79,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
         if (!trimmed) throw new Error('Enter a 12 or 24-word mnemonic phrase');
         const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
         if (wordCount !== 12 && wordCount !== 24) throw new Error('Mnemonic must be exactly 12 or 24 words');
-        result = await deriveFromMnemonic(trimmed, network);  // pass 'testnet-12' etc, normalized inside
+        result = await deriveFromMnemonic(trimmed, network);  // normalized to mainnet inside
       } else {
         const trimmed = hexKey.trim();
         if (!trimmed) throw new Error('Enter a 64-character hex private key');

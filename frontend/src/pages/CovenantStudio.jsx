@@ -103,7 +103,7 @@ export default function CovenantStudio() {
     return {
       name: covenant.name || covenant.covenant_type || 'Covenant',
       status: covenant.is_active === false ? 'Settled' : 'Active',
-      network: covenant.network || 'testnet-12',
+      network: covenant.network || 'mainnet',
       amount_kaspa: locked,
       total_locked: `${locked.toLocaleString()} KAS`,
       tx_count: covenant.tx_count || 0,

@@ -8,7 +8,7 @@ export default function AddressPortfolio() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const network = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+  const network = localStorage.getItem('kaspaNetwork') || 'mainnet';
 
   useEffect(() => {
     setLoading(true);

@@ -457,7 +457,7 @@ export function resolveCircuit(raw, kind) {
   return kind === 'oracle' ? 'oracle_single' : 'merkle_membership';
 }
 
-// ── Standalone SilverScript Generator (exported for PaidBuilder / premium flow) ──
+// ── Standalone SilverScript Generator (exported for the premium builder flow) ──
 export function generateSilverScriptForConfig(cfg) {
   const {
     gameType = 'chess_v1',
@@ -817,9 +817,8 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   const [potReturnPercent, setPotReturnPercent] = useState(2);
   const [reusable, setReusable] = useState(true);
 
-  // Network selector: supports TN12, TN10, and Mainnet (architecture ready now)
-  // When mainnet selected: strong warnings + real funds. TN12/TN10 use test addresses.
-  const [kaspaNetwork, setKaspaNetwork] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('kaspaNetwork') || 'testnet-12') : 'testnet-12'));
+  // Covex is mainnet-only. Real funds: strong warnings apply to every action.
+  const [kaspaNetwork, setKaspaNetwork] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('kaspaNetwork') || 'mainnet') : 'mainnet'));
 
   // Keep localStorage + notify the rest of the app (global nav switcher, Explorer, Deploy pages etc.)
   useEffect(() => {
@@ -829,7 +828,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     }
   }, [kaspaNetwork]);
 
-  // React to changes from the global nav NetworkSwitcher
+  // React to any app-level kaspa-network-change events (mainnet is pinned app-wide).
   useEffect(() => {
     const handler = (e) => {
       if (e.detail && typeof e.detail === 'string') {
@@ -840,12 +839,9 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     return () => window.removeEventListener('kaspa-network-change', handler);
   }, []);
 
-  const isTN10 = kaspaNetwork === 'testnet-10';
-  const isMainnet = kaspaNetwork === 'mainnet' || kaspaNetwork === 'mainnet-1';
-  const networkLabel = isMainnet ? 'MAINNET' : (isTN10 ? 'TN10' : 'TN12');
-  const networkColorClass = isMainnet 
-    ? 'text-red-400 border-red-500/40 bg-red-500/10' 
-    : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30');
+  const isMainnet = true;
+  const networkLabel = 'MAINNET';
+  const networkColorClass = 'text-red-400 border-red-500/40 bg-red-500/10';
 
   // ── Paid tier enforcement (for advanced features like circuits - required on ALL networks including mainnet)
   // Free basic SilverScript creation is always allowed (no special treatment).
@@ -948,33 +944,12 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     { id: 'MAX', name: 'MAX', price: 1000, accent: '#A855F7', desc: 'Max visibility + all features' },
   ];
 
-  // Per-network config - fully adapts when you switch (same pattern as TN10)
-  const getNetConfig = (net) => {
-    if (net === 'mainnet' || net === 'mainnet-1') {
-      return {
-        treasury: 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2',
-        seeds: [], // real mainnet seeds ONLY via secure env, never hardcoded
-        warning: 'REAL KAS - PRODUCTION'
-      };
-    }
-    if (net === 'testnet-10') {
-      return {
-        treasury: 'kaspatest:tn10-treasury-replace-with-accurate',
-        seeds: ['kaspatest:tn10-dev1-replace', 'kaspatest:tn10-dev2-replace'],
-        warning: 'TN10'
-      };
-    }
-    // default TN12
-    return {
-      treasury: 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m',
-      seeds: [
-        'kaspatest:qrh603rmy6v0jsq58jrh2yr4ewdk02gctjhxg9feg7uwdl98t04dqmzlrt353',
-        'kaspatest:qpw2yxrmfudv56lvav32s8jz6uwqhp2x0x7fna0640qx3gwp70d55uue9uecs',
-        'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m'
-      ],
-      warning: ''
-    };
-  };
+  // Mainnet-only config. Real mainnet seeds ONLY via secure env, never hardcoded.
+  const getNetConfig = () => ({
+    treasury: 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2',
+    seeds: [],
+    warning: 'REAL KAS - PRODUCTION'
+  });
   const netConfig = getNetConfig(kaspaNetwork);
   const [allowTopups, setAllowTopups] = useState(false);
 
@@ -1018,12 +993,12 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     }
     const treasury = netConfig.treasury;
     const memo = `COVEX-${tier.id}-${connectedAddress.slice(0,8)}`;
-    let txid = 'dev-testnet-tx-' + Date.now();
+    let txid = 'dev-tx-' + Date.now();
     try {
       const res = await sendPayment(treasury, tier.price, { memo });
       if (res && res.txid) txid = res.txid;
       if (res && res.success === false) {
-        toast.error('Dev payment broadcast failed: ' + (res.error || 'Unknown error from signer. Check balance/UTXOs on TN12 and that your mnemonic has funds.'));
+        toast.error('Dev payment broadcast failed: ' + (res.error || 'Unknown error from signer. Check balance/UTXOs and that your wallet has funds.'));
         setPayingTier(null);
         return;
       }
@@ -1679,7 +1654,7 @@ ${gameMeta.outcomeBranches}
     setChessGame(fresh);
     setChessMatchState('posted');
     setChessPlayerColor('w');
-    setChessOpponent('kaspatest:qqp2...waiting');
+    setChessOpponent('kaspa:qqp2...waiting');
     setChessResult(null);
     setChessZkVerified(false);
     setChessProofHash('');
@@ -1694,7 +1669,7 @@ ${gameMeta.outcomeBranches}
     setChessMatchState('matched');
     setTimeout(() => {
       setChessMatchState('playing');
-      setChessOpponent('kaspatest:qpw2x7... (dev-wallet-2)');
+      setChessOpponent('kaspa:qpw2x7... (dev-wallet-2)');
       // Start clocks from the configured base time (e.g. 5+0, 3+2, 1+0)
       setWhiteTime(chessBaseMs);
       setBlackTime(chessBaseMs);
@@ -2097,7 +2072,7 @@ ${gameMeta.outcomeBranches}
         timelock: buildTimelockConfig(),
         oracle_proof: JSON.stringify(proofObj),
         oracle_public_inputs: JSON.stringify(publicInputs),
-        network: kaspaNetwork, // tn12 / tn10 / mainnet - fully isolated data per network
+        network: kaspaNetwork, // mainnet
       };
       await fetch(`/api/terminal-config/${covenantId}`, {
         method: 'POST',
@@ -2312,7 +2287,7 @@ ${gameMeta.outcomeBranches}
                 <li><strong className="text-white">Exact payout structure</strong>: Who gets what percentage of the pot under each outcome</li>
                 <li><strong className="text-white">Resolution method</strong>: Which oracle or ZK circuit decides outcomes, with keys/endpoints</li>
                 <li><strong className="text-white">Reusable configuration</strong>: Whether the covenant accepts multiple sessions and top-ups, and if % flows back to the pot</li>
-                <li><strong className="text-white">Test evidence</strong>: Testnet-12 transaction links showing the covenant works</li>
+                <li><strong className="text-white">Test evidence</strong>: on-chain transaction links showing the covenant works</li>
               </ul>
               <p><strong className="text-amber-300">Incomplete transparency = no trust.</strong> Participants need to know exactly how their KAS will be handled before staking.</p>
             </div>
@@ -2342,8 +2317,8 @@ ${gameMeta.outcomeBranches}
                 <p className="text-gray-300">For chess or other game outcomes where fairness matters, prefer ZK resolution when circuits are available.</p>
               </div>
               <div className="space-y-1">
-                <p className="text-white font-semibold">5. Test on TN12 first</p>
-                <p className="text-gray-300">Use the testnet covenant deploy flow. Verify oracle/ZK submission works before mainnet stakes.</p>
+                <p className="text-white font-semibold">5. Test thoroughly first</p>
+                <p className="text-gray-300">Verify oracle/ZK submission works before opening to real stakes.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">6. Paste rich UI from Studio</p>
@@ -2361,21 +2336,6 @@ ${gameMeta.outcomeBranches}
             <Shield size={16} /> CIRCUITS & ADVANCED FEATURES - PAYMENT REQUIRED
           </div>
           <p className="text-xs text-gray-300 mt-1">Free basic SilverScript is always available. The Live SilverScript Editor (side add-ons for fee, ZK circuits with full list, oracles, timing, live code updates, public UI designer) + all tools for the best covenant are unlocked only after one-time payment from this exact connected wallet to the treasury. TXs broadcast in real time via backend signer.</p>
-
-          {/* Dev wallet real testnet payments on TN12/TN10 */}
-          {devModeFromContext && (kaspaNetwork === 'testnet-12' || kaspaNetwork === 'testnet-10') && (
-            <div className="mt-3 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30">
-              <div className="text-xs text-emerald-400 font-bold mb-2">DEV MODE ON TESTNET - REAL TXS TO UNLOCK TERMINAL</div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {TIERS.map((t) => (
-                  <button key={t.id} onClick={() => payWithDevWallet(t)} className="p-2 rounded border text-left text-xs hover:bg-emerald-500/10" style={{ borderColor: t.accent + '40' }}>
-                    Pay {t.price} KAS with Dev Wallet → {t.name}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[9px] text-emerald-300/70 mt-1">Real testnet tx via your dev private key. Marks local + paidStatus immediately. The paywall disappears and full ZK circuits + advanced features unlock right here in the terminal (no page change needed).</p>
-            </div>
-          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
             {TIERS.map((t) => (
@@ -2408,7 +2368,7 @@ ${gameMeta.outcomeBranches}
                 </button>
                 <button onClick={cancelPayment} className="px-3 py-2 text-xs border border-white/20 rounded">Cancel</button>
               </div>
-              <div className="text-[9px] text-gray-400 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain for this network. Works on mainnet (real KAS) and testnets.</div>
+              <div className="text-[9px] text-gray-400 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain. Works on mainnet with real KAS.</div>
             </div>
           )}
           {!connectedAddress && <p className="text-xs text-amber-400 mt-2">Connect a wallet to see payment options for this network.</p>}
@@ -2604,10 +2564,9 @@ ${gameMeta.outcomeBranches}
               ];
               const list = showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => popular.includes(c.id));
               return list.map((gt) => {
-                // Circuits are usable on every tier on TESTNET (experiment freely): the outcome
-                // resolves via the live oracle-attested path (a real BIP340 oracle signature),
-                // which is honest and works for free users. On MAINNET the paid tier still unlocks
-                // the full circuit set + the in-browser ZK proving experience.
+                // The outcome resolves via the live oracle-attested path (a real BIP340 oracle
+                // signature), which is honest. The paid tier unlocks the full circuit set + the
+                // in-browser ZK proving experience.
                 const disabled = isMainnet && !hasPaidAccess;
                 const selected = gameType === gt.id;
                 const circuitDescriptions = {
@@ -3025,7 +2984,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Common Pitfalls</p>
-                <p>Forgetting to set a verifier key for custom circuits. Leaving resolution logic ambiguous. Deploying without testing on TN12 first. Not saving Terminal config after deploy. Using an un-audited circuit without key verification.</p>
+                <p>Forgetting to set a verifier key for custom circuits. Leaving resolution logic ambiguous. Deploying without thorough testing first. Not saving Terminal config after deploy. Using an un-audited circuit without key verification.</p>
               </div>
             </div>
           </div>
@@ -3691,8 +3650,8 @@ ${gameMeta.outcomeBranches}
             <div>
               <div className="font-bold text-red-400 text-lg">⚠️ MAINNET MODE - REAL CAPITAL AT RISK</div>
               <div className="text-sm text-red-300/90 mt-1">
-                You have selected <strong>MAINNET</strong>. All stakes, fees, and payouts are REAL KAS on the live Kaspa mainnet. 
-                There are no testnet do-overs, refunds, or second chances. Double-check treasury, seeds, oracle, resolution logic, and pot return %.
+                Covex runs on <strong>MAINNET</strong>. All stakes, fees, and payouts are REAL KAS on the live Kaspa mainnet.
+                There are no do-overs, refunds, or second chances. Double-check treasury, seeds, oracle, resolution logic, and pot return %.
                 Only proceed if you have real mainnet dev wallets and treasury configured via environment variables.
               </div>
               <div className="text-[10px] text-red-400/70 mt-2 font-mono">NETWORK: {kaspaNetwork}</div>
@@ -3715,32 +3674,13 @@ ${gameMeta.outcomeBranches}
           Covenant Configuration
         </div>
 
-        {/* Network switcher - choose TN12 / TN10 / Mainnet. Fully separate per-network data, wallets, indexers. */}
+        {/* Mainnet-only. Real KAS on the live Kaspa mainnet. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className="text-[10px] uppercase tracking-widest text-gray-400">NETWORK</span>
-          <button 
-            onClick={() => setKaspaNetwork('testnet-12')} 
-            className={`px-2.5 py-0.5 text-xs rounded border ${!isTN10 && !isMainnet ? 'bg-kaspa-green text-black border-kaspa-green' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}
-          >
-            TN12
-          </button>
-          <button 
-            onClick={() => setKaspaNetwork('testnet-10')} 
-            className={`px-2.5 py-0.5 text-xs rounded border ${isTN10 ? 'bg-amber-500 text-black border-amber-500' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}
-          >
-            TN10
-          </button>
-          <button 
-            onClick={() => setKaspaNetwork('mainnet')} 
-            className={`px-2.5 py-0.5 text-xs rounded border ${isMainnet ? 'bg-red-600 text-white border-red-600' : 'border-white/20 text-gray-300 hover:bg-white/5'}`}
-            title="MAINNET: REAL KAS. Extreme caution. Requires real mainnet keys and full testing."
-          >
-            MAINNET
-          </button>
-          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isMainnet ? 'text-red-400 border-red-500/30 bg-red-500/10' : (isTN10 ? 'text-amber-400 border-amber-500/30' : 'text-kaspa-green border-kaspa-green/30')}`}>
-            {networkLabel}{isMainnet ? '' : ' (test)'}
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded border text-red-400 border-red-500/30 bg-red-500/10">
+            {networkLabel}
           </span>
-          <span className="text-[9px] text-gray-500">- fully isolated per network</span>
+          <span className="text-[9px] text-gray-500">- real KAS on the live Kaspa mainnet</span>
         </div>
 
         <div className="space-y-4">
@@ -3984,7 +3924,7 @@ ${gameMeta.outcomeBranches}
                 type="text"
                 value={customOracleKey}
                 onChange={(e) => setCustomOracleKey(e.target.value)}
-                placeholder="kaspatest:q..."
+                placeholder="kaspa:q..."
                 className={`${INPUT} font-mono text-xs`}
               />
             </div>
@@ -4458,7 +4398,7 @@ ${gameMeta.outcomeBranches}
                 <div className="text-[11px] text-[#3B82F6]/80 leading-relaxed">
                   <p className="font-semibold mb-1">Next Step: Unlock Covenant</p>
                   <p>
-                    Copy this signature and use it as witness data when unlocking the covenant on testnet.
+                    Copy this signature and use it as witness data when unlocking the covenant.
                     The unlock transaction must include the oracle signature + outcome as witness fields.
                     The covenant script should verify the signature against the oracle's public key before releasing funds.
                     See TASK 2 in the specification for the covenant template unlock path.

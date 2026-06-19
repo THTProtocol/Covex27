@@ -22,13 +22,11 @@ const getIcon = (id) => {
 };
 
 const NET_TREASURIES = {
-  'testnet-12': 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m',
-  'testnet-10': 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m', // same as TN12 for dev (real one loaded from env in prod)
   'mainnet': 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2' // real mainnet treasury (from env in prod)
 };
 
 function getTreasuryForNet(net) {
-  return NET_TREASURIES[net] || NET_TREASURIES['testnet-12'];
+  return NET_TREASURIES[net] || NET_TREASURIES['mainnet'];
 }
 
 export default function PremiumBuilder() {
@@ -66,7 +64,7 @@ export default function PremiumBuilder() {
   useEffect(() => {
     if (!address) { setAuth({ token: null, tier: null, address: null, loading: false, error: null }); return; }
     setAuth(p => ({ ...p, loading: true }));
-    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -91,7 +89,7 @@ export default function PremiumBuilder() {
   }, [auth.loading, auth.token, auth.tier, address, navigate]);
 
   // === COVENANT CREATION STATE (best UX for paid users) ===
-  const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+  const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
   const isMainnet = net === 'mainnet' || net === 'mainnet-1';
   const treasury = getTreasuryForNet(net);
 
@@ -169,8 +167,7 @@ export default function PremiumBuilder() {
   // Transparent disclosure (auto from net + connected wallet + treasury)
   const disclosedWallets = [
     { role: 'Creator (you)', addr: address || 'connect wallet' },
-    { role: isMainnet ? 'Mainnet Treasury (REAL KAS - verify on-chain)' : 'Testnet Treasury (dev funded)', addr: treasury },
-    { role: 'Dev (testnet only - transparent for debugging)', addr: isMainnet ? 'N/A (real wallet only on mainnet)' : 'dev-wallet-per-net (see /api/status or env)' },
+    { role: 'Treasury (REAL KAS - verify on-chain)', addr: treasury },
   ];
 
   // Live preview data
@@ -218,17 +215,17 @@ export default function PremiumBuilder() {
     if (!auth.token) { toast.error('No valid auth token. Pay first.'); return; }
     if (!address) { toast.error('Connect your wallet first.'); return; }
     if (isMainnet) {
-      setDeployResult({ success: false, error: 'Enforced on-chain deploy on mainnet needs wallet-side funding (coming soon). Switch to a testnet to deploy a real script-enforced covenant now.' });
+      setDeployResult({ success: false, error: 'Enforced on-chain deploy needs wallet-side funding from your connected Kaspa wallet (coming soon).' });
       return;
     }
     if (!canSign) {
-      setDeployResult({ success: false, error: 'Connect a testnet key (in the On-chain Enforcement panel) to sign the real on-chain deploy.' });
+      setDeployResult({ success: false, error: 'Connect a signing key (in the On-chain Enforcement panel) to sign the real on-chain deploy.' });
       return;
     }
     setDeploying(true);
     try {
       const def = generateCovenantDef();
-      const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+      const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
 
       // Build the enforced redeem for the chosen primitive. singlesig/timelock/hashlock
       // all lock to the deployer's OWN key, so the deployer (and only the deployer) can
@@ -636,10 +633,10 @@ ${featureTiles}
           </div>
           {enforceKind === 'hashlock' && <p className="text-[11px] text-gray-400 mt-2">A random secret is generated at deploy and shown once. Save it - it is required to redeem and is never stored on the server.</p>}
           {isMainnet ? (
-            <p className="text-[11px] text-amber-300 mt-3">On mainnet, enforced deploys need wallet-side funding (coming soon). Switch to a testnet to deploy a real covenant now.</p>
+            <p className="text-[11px] text-amber-300 mt-3">Enforced deploys need wallet-side funding from your connected Kaspa wallet (coming soon).</p>
           ) : !canSign ? (
             <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-gray-300 mb-3">Connect a testnet key to sign the real on-chain deploy.</p>
+              <p className="text-sm text-gray-300 mb-3">Connect a signing key to sign the real on-chain deploy.</p>
               <DevConnectPanel compact />
             </div>
           ) : (

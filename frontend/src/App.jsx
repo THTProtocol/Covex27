@@ -31,7 +31,6 @@ import Explorer from './pages/Explorer';
 // else (games, builders, wasm, snarkjs, three.js) loads on demand. This is the
 // difference between a 16MB and a sub-1MB initial bundle.
 const CovenantInteractive = lazy(() => import('./pages/CovenantInteractive'));
-const CovenantFix = lazy(() => import('./pages/CovenantFix'));
 const WhatIsKaspaPage = lazy(() => import('./pages/WhatIsKaspa'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary'));
@@ -39,7 +38,6 @@ const AdvancedComposer = lazy(() => import('./pages/AdvancedComposer'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
-const PaidBuilder = lazy(() => import('./pages/PaidBuilder'));
 const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
 const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
 const ApiDocs = lazy(() => import('./pages/ApiDocs'));
@@ -105,7 +103,7 @@ function SmartDeployLink() {
 
   useEffect(() => {
     if (!address) return;
-    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -129,7 +127,7 @@ function SmartTerminalLink() {
 
   useEffect(() => {
     if (!address) { setIsPaid(false); return; }
-    const net = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+    const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -144,42 +142,14 @@ function SmartTerminalLink() {
   return <NavLink to="/premium" className={NL}>Terminal</NavLink>;
 }
 
-function NetworkSwitcher() {
-  const [network, setNetwork] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('kaspaNetwork') || 'testnet-12';
-    return 'testnet-12';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('kaspaNetwork', network);
-    // Dispatch event so CovexTerminal and other components sync
-    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: network }));
-  }, [network]);
-
-  const networks = [
-    { value: 'testnet-12', label: 'TN12', color: '#49EACB', title: 'Toccata Testnet 12' },
-    { value: 'testnet-10', label: 'TN10', color: '#F59E0B', title: 'Testnet 10' },
-    { value: 'mainnet', label: 'MAIN', color: '#EF4444', title: 'Kaspa MAINNET - REAL FUNDS' },
-  ];
-
-  return (
-    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 light:bg-white light:border-slate-200" title={networks.find(n => n.value === network)?.title}>
-      {networks.map(n => (
-        <button
-          key={n.value}
-          onClick={() => setNetwork(n.value)}
-          className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
-            network === n.value
-              ? 'text-black'
-              : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
-          }`}
-          style={network === n.value ? { backgroundColor: n.color } : {}}
-        >
-          {n.label}
-        </button>
-      ))}
-    </div>
-  );
+// Covex is mainnet-only. Pin the stored network to mainnet once on mount so any code that
+// still reads localStorage('kaspaNetwork') resolves to mainnet, and notify listeners.
+function ensureMainnetNetwork() {
+  if (typeof window === 'undefined') return;
+  if (localStorage.getItem('kaspaNetwork') !== 'mainnet') {
+    localStorage.setItem('kaspaNetwork', 'mainnet');
+    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: 'mainnet' }));
+  }
 }
 
 function LiveStatus() {
@@ -189,7 +159,7 @@ function LiveStatus() {
     let mounted = true;
     const load = () => {
       const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
-      const selectedNet = localStorage.getItem('kaspaNetwork') || 'testnet-12';
+      const selectedNet = localStorage.getItem('kaspaNetwork') || 'mainnet';
       Promise.all([
         tryFetch('/api/status'),
         tryFetch(`/api/covenants?network=${selectedNet}&limit=1`),
@@ -204,7 +174,7 @@ function LiveStatus() {
           const ready = d.mainnet_ready
             ? ' • mainnet live'
             : (d.mainnet_wrpc_configured ? ' • mainnet wRPC configured' : '');
-          setInfo(`${git} • ${selectedNet} • ${totalStr} covenants${ready}`);
+          setInfo(`${git} • ${totalStr} covenants${ready}`);
         })
         .catch(() => { /* silent, keep footer clean */ });
     };
@@ -333,6 +303,9 @@ function InstallAppButton({ variant = 'menu', onInstalled }) {
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Covex is mainnet-only: pin the stored network to mainnet on first paint.
+  useEffect(() => { ensureMainnetNetwork(); }, []);
+
   // Close mobile menu on route change or escape
   useEffect(() => {
     const close = () => setMobileMenuOpen(false);
@@ -364,7 +337,6 @@ export default function App() {
                 <NavLink to="/sandbox" className={NL}>Build</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
-                <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
               </div>
@@ -395,9 +367,6 @@ export default function App() {
                   <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
                   <NavLink to="/docs" className={NL} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
                   <NavLink to="/whitepaper" className={NL} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
-                  <div className="pt-2 border-t border-white/10 light:border-slate-200">
-                    <NetworkSwitcher />
-                  </div>
                   {/* Add Covex to your home screen (only shown when installable) */}
                   <InstallAppButton variant="menu" onInstalled={() => setMobileMenuOpen(false)} />
                 </div>

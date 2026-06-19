@@ -11,13 +11,13 @@ const EXAMPLE_RESPONSE = `{
   "covenants": [
     {
       "name": "p2sh-commitment",
-      "network": "testnet-12",
+      "network": "mainnet",
       "category": "P2SH Commitments",
       "covenant_type": "p2sh-commitment",
       "enforcement_reality": "on-chain",
       "amount_kaspa": 200,
       "script_hash": "aa20…87",
-      "address": "kaspatest:qr…",
+      "address": "kaspa:qr…",
       "tier": "FREE",
       "is_active": true,
       "timestamp": 1750000638
@@ -44,7 +44,7 @@ export default function ApiDocs() {
     if (method === 'post') {
       return `curl -X POST https://hightable.pro/api${sample} \\\n  -H "Content-Type: application/json" \\\n  -d '{"source":"contract T { ... }"}'`;
     }
-    const q = sample.includes('covenants') && !sample.includes('<') ? '?network=testnet-12&limit=10' : '';
+    const q = sample.includes('covenants') && !sample.includes('<') ? '?network=mainnet&limit=10' : '';
     return `curl https://hightable.pro/api${sample}${q}`;
   };
 
@@ -75,7 +75,7 @@ export default function ApiDocs() {
       {/* Quick reference - every fact verified against the live spec + backend route table. */}
       <div className="grid sm:grid-cols-2 gap-3 mb-6">
         {[
-          ['Networks', <>The <code className="text-white">network=</code> query accepts <span className="text-white">testnet-12</span> (default), <span className="text-white">testnet-10</span>, and <span className="text-white">mainnet</span>. Mainnet is configured and indexing-ready but returns <span className="text-white">0 covenants until the Toccata upgrade (2026 window, no confirmed day)</span> activates on-chain covenants - that is expected, not an error.</>],
+          ['Networks', <>The <code className="text-white">network=</code> query defaults to <span className="text-white">mainnet</span>. Mainnet is configured and indexing-ready but returns <span className="text-white">0 covenants until the Toccata upgrade (2026 window, no confirmed day)</span> activates on-chain covenants - that is expected, not an error.</>],
           ['Auth & limits', <>No API key for reads. Requests are rate-limited per IP (a burst returns <code className="text-white">429</code> "rate limit exceeded"). Lists paginate with <code className="text-white">limit</code> (max 200, default 60) and <code className="text-white">offset</code>.</>],
           ['Search', <>Keyword search supports OR alternatives with a pipe: <code className="text-white">q=chess|poker</code>. Fetch a single covenant by txid at <code className="text-white">/covenants/&lt;txid&gt;</code>.</>],
           ['Honesty', <>Every covenant carries an <code className="text-white">enforcement_reality</code>, one of <span className="text-white">on-chain</span> / <span className="text-white">hybrid</span> / <span className="text-white">oracle-attested</span> / <span className="text-white">decorative</span> (a metadata-only marker). The finer "zero-knowledge" label in the UI is a resolution-trust badge for the proof-verified circuits, layered on top - not a separate API value. The API never claims more enforcement than the chain provides.</>],

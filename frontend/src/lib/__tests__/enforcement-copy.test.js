@@ -86,3 +86,35 @@ describe('enforcementSummary', () => {
     expect(() => enforcementSummary(null)).not.toThrow();
   });
 });
+
+describe('full-zk-chain honesty', () => {
+  it('exists in all four reality dictionaries (headline, body, badge, verb)', () => {
+    expect(typeof REALITY_HEADLINE['full-zk-chain']).toBe('string');
+    expect(REALITY_HEADLINE['full-zk-chain'].length).toBeGreaterThan(0);
+    expect(typeof REALITY_BODY['full-zk-chain']).toBe('string');
+    expect(REALITY_BODY['full-zk-chain'].length).toBeGreaterThan(0);
+    expect(typeof REALITY_BADGE_LABEL['full-zk-chain']).toBe('string');
+    expect(REALITY_BADGE_LABEL['full-zk-chain'].length).toBeGreaterThan(0);
+    expect(typeof REALITY_VERB['full-zk-chain']).toBe('string');
+    expect(REALITY_VERB['full-zk-chain'].length).toBeGreaterThan(0);
+  });
+
+  it('full-zk-chain body must NOT claim oracle-cosigned payout (it is chain-enforced)', () => {
+    const body = REALITY_BODY['full-zk-chain'];
+    expect(body).toBeTruthy();
+    expect(
+      /oracle-cosigned/i.test(body),
+      'REALITY_BODY["full-zk-chain"] must not say "oracle-cosigned" (the chain enforces it)',
+    ).toBe(false);
+    expect(
+      /oracle co-signature/i.test(body),
+      'REALITY_BODY["full-zk-chain"] must not say "oracle co-signature" (the chain enforces it)',
+    ).toBe(false);
+  });
+
+  it('full-zk body must explicitly say "Not chain-enforced end-to-end"', () => {
+    const body = REALITY_BODY['full-zk'];
+    expect(body).toBeTruthy();
+    expect(body).toContain('Not chain-enforced end-to-end');
+  });
+});

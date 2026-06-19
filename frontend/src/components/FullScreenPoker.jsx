@@ -512,18 +512,25 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
   return (
     <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 55%, #0a1a12 0%, #050510 72%)' }}>
       {/* Top bar */}
-      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between px-3 sm:px-4 text-sm bg-black/60 backdrop-blur-xl shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="font-bold tracking-wider text-[#E8AF34] truncate">POKER · HEADS-UP NLHE · KASPA COVENANT</div>
-          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10">{stake * 2} KAS POT · BLINDS {m?.blinds?.[0] ?? 1}/{m?.blinds?.[1] ?? 2}</div>
+      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-sm bg-black/60 backdrop-blur-xl shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="font-bold tracking-wider text-[#E8AF34] truncate text-[11px] sm:text-sm">
+            <span className="sm:hidden">POKER · NLHE</span>
+            <span className="hidden sm:inline">POKER · HEADS-UP NLHE · KASPA COVENANT</span>
+          </div>
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{stake * 2} KAS POT · BLINDS {m?.blinds?.[0] ?? 1}/{m?.blinds?.[1] ?? 2}</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {hand?.commitment && (
             <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 font-mono" title="sha256 deck commitment, published before any card was visible">
               <ShieldCheck size={12} className="text-[#49EACB]" /> deal {hand.commitment.slice(0, 12)}…
             </div>
           )}
-          <button onClick={onClose} className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold">EXIT</button>
+          <button
+            onClick={onClose}
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1.5 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold"
+            aria-label="Exit poker arena"
+          >EXIT</button>
         </div>
       </div>
 
@@ -778,8 +785,8 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
         )}
       </div>
 
-      <div className="h-8 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0 px-2 text-center">
-        ORACLE-DEALT · COMMITMENT PUBLISHED BEFORE EVERY DEAL · SEED REVEALED AFTER · HOLE CARDS BEHIND WALLET-SIGNED SESSIONS
+      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
+        COMMIT-REVEAL DEAL · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · PAYOUT ENFORCED ON-CHAIN BY THE REDEEM SCRIPT
       </div>
     </div>
   );

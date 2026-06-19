@@ -16,6 +16,7 @@ export const REALITY_HEADLINE = {
   'hybrid':          'Groth16 proof plus oracle co-signature',
   'oracle-attested': 'Settled by the named Covex oracle',
   'full-zk':         'Zero-knowledge proof, oracle-verified off-chain',
+  'full-zk-chain':   'ZK proof, chain-enforced via hashlock',
 };
 
 export const REALITY_BODY = {
@@ -26,7 +27,9 @@ export const REALITY_BODY = {
   'oracle-attested':
     'An off-chain outcome (a game result, a market event, a data feed) is signed by the Covex oracle, whose co-signature the chain still requires via the redeem script. Trust sits with that named, publicly-keyed oracle, the settlement itself is on-chain.',
   'full-zk':
-    'A real Groth16 zero-knowledge proof is verified off-chain by the disclosed Covex oracle, then co-signed on-chain. The oracle will not co-sign without a valid proof. Not on-chain trustless because Kaspa lacks a pairing verifier, so the proof is checked off-chain and its result gates the consensus-required co-signature.',
+    'A real Groth16 zero-knowledge proof is verified off-chain by the disclosed Covex oracle, then co-signed on-chain. The oracle will not co-sign without a valid proof. Not chain-enforced end-to-end because Kaspa lacks a pairing verifier, so payout still requires the oracle co-signature and is gated by that trusted off-chain check.',
+  'full-zk-chain':
+    'The Groth16 proof is verified off-chain by the disclosed Covex oracle. Because the circuit reduces to a hashlock the chain checks (one of merkle_membership, age_verification, escrow_2party, range_proof), payout enforcement IS end-to-end on Kaspa: consensus runs the redeem script and releases the money only if the hashlock is satisfied.',
 };
 
 export const REALITY_BADGE_LABEL = {
@@ -34,6 +37,7 @@ export const REALITY_BADGE_LABEL = {
   'hybrid':          'Hybrid',
   'oracle-attested': 'Oracle-attested',
   'full-zk':         'Full ZK',
+  'full-zk-chain':   'Chain-enforced ZK',
 };
 
 export const REALITY_VERB = {
@@ -41,6 +45,7 @@ export const REALITY_VERB = {
   'hybrid':          'Proof verified, oracle co-signs',
   'oracle-attested': 'Co-signed by the Covex oracle',
   'full-zk':         'Proof verified off-chain, co-signed on-chain',
+  'full-zk-chain':   'Reduces to chain hashlock',
 };
 
 const ORACLE_NOTE = {
@@ -49,10 +54,12 @@ const ORACLE_NOTE = {
   'oracle-attested':
     'The named, publicly-keyed Covex oracle signs the outcome. Settlement is on-chain, but trust in the outcome sits with that oracle.',
   'full-zk':
-    'The disclosed Covex oracle verifies the proof off-chain and supplies the consensus-required co-signature. Kaspa has no on-chain pairing verifier yet.',
+    'Proof verified off-chain by the disclosed Covex oracle; payout requires the oracle co-signature (not chain-enforced end-to-end).',
+  'full-zk-chain':
+    'Proof verified off-chain by the disclosed Covex oracle, payout enforced by chain hashlock.',
 };
 
-const KNOWN_REALITIES = new Set(['on-chain', 'hybrid', 'oracle-attested', 'full-zk']);
+const KNOWN_REALITIES = new Set(['on-chain', 'hybrid', 'oracle-attested', 'full-zk', 'full-zk-chain']);
 
 export function enforcementSummary(reality) {
   const key = KNOWN_REALITIES.has(reality) ? reality : 'on-chain';

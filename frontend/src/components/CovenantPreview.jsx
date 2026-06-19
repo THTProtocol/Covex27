@@ -72,8 +72,37 @@ export default function CovenantPreview({ config, covenant, children, className 
   const glowInt = { low: '15', medium: '30', high: '60' };
   const glowVal = glowInt[config.glowIntensity] || '30';
   const shadow = config.showGlow ? shadowMap[config.shadow || 'soft'] : shadowMap.soft;
-  const animMap = { none: '', pulse: 'animate-pulse', shimmer: 'animate-pulse', float: 'animate-bounce', glitch: 'animate-pulse' };
+  // Animation map. Each option maps to a DISTINCT visual: 'shimmer' and 'glitch'
+  // used to silently fall back to animate-pulse (dishonest UI), so they now drive
+  // their own keyframes injected inline below (no new CSS file, scoped via the
+  // unique scopeClass). prefers-reduced-motion disables all of them.
+  const animMap = { none: '', pulse: 'animate-pulse', shimmer: 'cvx-anim-shimmer', float: 'animate-bounce', glitch: 'cvx-anim-glitch' };
   const anim = animMap[config.animation] || '';
+  // Inline keyframes for shimmer/glitch, scoped to THIS preview so they cannot
+  // leak into the parent document. Only emitted when actually used.
+  const needsAnimCss = anim === 'cvx-anim-shimmer' || anim === 'cvx-anim-glitch';
+  const animCss = needsAnimCss ? `
+    @keyframes ${scopeClass}-shimmer {
+      0% { background-position: -150% 0; }
+      100% { background-position: 250% 0; }
+    }
+    .${scopeClass}.cvx-anim-shimmer {
+      background-image: linear-gradient(110deg, transparent 35%, ${pc}22 50%, transparent 65%);
+      background-size: 250% 100%;
+      background-repeat: no-repeat;
+      animation: ${scopeClass}-shimmer 2.6s ease-in-out infinite;
+    }
+    @keyframes ${scopeClass}-glitch {
+      0%, 92%, 100% { transform: translate(0, 0); filter: none; }
+      93% { transform: translate(-1px, 0); filter: hue-rotate(8deg); }
+      95% { transform: translate(1px, -1px); filter: hue-rotate(-8deg); }
+      97% { transform: translate(-1px, 1px); filter: hue-rotate(6deg); }
+    }
+    .${scopeClass}.cvx-anim-glitch { animation: ${scopeClass}-glitch 3.2s steps(1, end) infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .${scopeClass}.cvx-anim-shimmer, .${scopeClass}.cvx-anim-glitch { animation: none; background-image: none; }
+    }
+  ` : '';
   const fontStyle = { fontFamily: config.font === 'mono' ? 'monospace' : config.font === 'serif' ? 'serif' : 'sans-serif' };
   const badgeMap = { pill: 'rounded-lg', banner: 'rounded-none', tag: 'inline-block px-3' };
   const badgeCls = badgeMap[config.badgeStyle] || 'rounded-lg';
@@ -94,6 +123,8 @@ export default function CovenantPreview({ config, covenant, children, className 
           Never reaches the parent document's :root/html/body and cannot @import or
           beacon out. See sanitizeAndScopeCss above. */}
       {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
+      {/* Per-instance keyframes for shimmer/glitch (only emitted when active). */}
+      {animCss && <style dangerouslySetInnerHTML={{ __html: animCss }} />}
       {/* Feature Badge */}
       {config.featureBadge && (
         <div

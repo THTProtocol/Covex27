@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ShieldCheck, Cpu, Loader, CheckCircle2, XCircle, Lock, Info, Eye, EyeOff } from 'lucide-react';
-import { isVerifiedFullZk } from '../lib/zk/circuits';
+import { ShieldCheck, Cpu, Loader, CheckCircle2, XCircle, Lock, Info, Eye, EyeOff, Link2 } from 'lucide-react';
+import { isVerifiedFullZk, isChainEnforcedZk } from '../lib/zk/circuits';
 import { PROVERS, circuitTypeFor, proveInBrowser } from '../lib/zk/provers';
+import { REALITY_HEADLINE, REALITY_BODY } from '../lib/enforcement-copy';
 
 /**
  * ZkClaimPanel - the PUBLIC, any-visitor ZK prove + claim panel on a covenant detail page.
@@ -43,6 +44,13 @@ export default function ZkClaimPanel({ covenant }) {
 
   const meta = PROVERS[circuitId];
   const circuitType = circuitTypeFor(circuitId);
+  // HONESTY: 4 of the 19 in-browser-provable circuits reduce to a hashlock the Kaspa
+  // chain itself checks (merkle_membership, age_verification, escrow_2party, range_proof).
+  // The other 15 are oracle-cosigned only. Surface this distinction here, do not lump them.
+  const chainEnforced = isChainEnforcedZk(circuitId);
+  const realityKey = chainEnforced ? 'full-zk-chain' : 'full-zk';
+  const realityHeadline = REALITY_HEADLINE[realityKey];
+  const realityBody = REALITY_BODY[realityKey];
 
   const reset = () => {
     setProofObj(null); setPublicSignals(null); setOracleResult(null);
@@ -96,12 +104,52 @@ export default function ZkClaimPanel({ covenant }) {
 
   return (
     <div className="mb-6 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.04] p-5">
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         <ShieldCheck size={16} className="text-emerald-300" />
         <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-300">
-          Oracle-attested ZK claim · {meta.label}
+          {chainEnforced ? 'Chain-enforced ZK claim' : 'Oracle-cosigned ZK claim'} · {meta.label}
         </span>
       </div>
+
+      {/* Per-circuit enforcement reality (4 chain-enforced vs 15 oracle-cosigned). */}
+      <div
+        className={
+          'mb-3 rounded-xl border p-3 ' +
+          (chainEnforced
+            ? 'border-emerald-500/35 bg-emerald-500/[0.06]'
+            : 'border-amber-500/30 bg-amber-500/[0.05]')
+        }
+      >
+        <div className="flex items-center gap-1.5 mb-1">
+          {chainEnforced ? (
+            <Link2 size={13} className="text-emerald-300" />
+          ) : (
+            <Lock size={13} className="text-amber-300" />
+          )}
+          <span
+            className={
+              'text-[11px] font-extrabold uppercase tracking-[0.14em] ' +
+              (chainEnforced ? 'text-emerald-200' : 'text-amber-200')
+            }
+          >
+            {realityHeadline}
+          </span>
+        </div>
+        <p
+          className={
+            'text-[12.5px] leading-relaxed ' +
+            (chainEnforced ? 'text-emerald-100/90' : 'text-amber-100/90')
+          }
+        >
+          {chainEnforced
+            ? "This circuit's predicate reduces to a hashlock the chain checks. Once your proof verifies off-chain, payout enforcement is end-to-end on Kaspa."
+            : "This circuit is oracle-cosigned. The disclosed Covex oracle verifies your proof off-chain and co-signs the payout transaction. Payout enforcement requires the oracle's signature."}
+        </p>
+        <p className="mt-1.5 text-[11.5px] text-gray-400 leading-relaxed">
+          {realityBody}
+        </p>
+      </div>
+
       <p className="text-[12.5px] text-gray-300 leading-relaxed mb-1">
         {meta.note}
       </p>
@@ -109,9 +157,7 @@ export default function ZkClaimPanel({ covenant }) {
         Anyone can run this here. The circuit's prover runs in your browser on its example statement,
         binds the proof to this exact covenant (so it cannot be replayed onto another), and submits
         only the proof and its public signals (never the witness). The disclosed Covex oracle then
-        verifies the proof off-chain, fail-closed, and co-signs only if it is genuinely valid. It is
-        a live, verifiable run of the prove-and-verify pipeline on this covenant. This is not
-        trustless and not on-chain ZK: the named oracle is the verifier.
+        verifies the proof off-chain, fail-closed, and co-signs only if it is genuinely valid.
       </p>
 
       {/* Step 1: prove in-browser */}
@@ -206,9 +252,11 @@ export default function ZkClaimPanel({ covenant }) {
           <p className="text-[12.5px] text-gray-300 leading-relaxed mb-3">
             The disclosed Covex oracle verified this Groth16 proof off-chain (snarkjs plus the served
             verification key), fail-closed, and issued a BIP340 Schnorr co-signature. This
-            co-signature is the consensus-required piece an eligible claimant combines with their own
-            wallet signature and the covenant's other script conditions to spend its ZK-gated branch;
-            it is not a transfer of funds by itself. The oracle is the trust boundary here, not the chain.
+            co-signature is combined with the claimant's own wallet signature and the covenant's
+            other script conditions to spend its ZK-gated branch; it is not a transfer of funds by
+            itself. {chainEnforced
+              ? "Because this circuit reduces to a hashlock the chain checks, payout enforcement is end-to-end on Kaspa."
+              : "Payout for this circuit is gated by the oracle co-signature, so the oracle is the trust boundary for enforcement."}
           </p>
           {oracleResult?.outcome != null && (
             <div className="mb-2">

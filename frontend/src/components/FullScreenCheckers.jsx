@@ -422,11 +422,18 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
   return (
     <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a0f0d 0%, #050505 70%)' }}>
       {/* Top bar */}
-      <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
-        <div className="font-bold tracking-wider text-[#49EACB]">CHECKERS • KASPA COVENANT</div>
-        <div className="flex items-center gap-2">
-          <div className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10">{totalPot} KAS POT • {potReturnPercent}% POT RETURN</div>
-          <button onClick={onClose} className="px-3 py-1 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold">EXIT</button>
+      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
+        <div className="font-bold tracking-wider text-[#49EACB] truncate text-[11px] sm:text-sm">
+          <span className="sm:hidden">CHECKERS</span>
+          <span className="hidden sm:inline">CHECKERS · KASPA COVENANT</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{totalPot} KAS POT · {potReturnPercent}% POT RETURN</div>
+          <button
+            onClick={onClose}
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold"
+            aria-label="Exit checkers arena"
+          >EXIT</button>
         </div>
       </div>
 
@@ -664,8 +671,8 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         )}
       </div>
 
-      <div className="h-8 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0">
-        CHECKERS • FORCED JUMPS • KINGS • LIVE MULTIPLAYER • ORACLE ATTESTED • {potReturnPercent}% TO POT
+      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
+        FORCED JUMPS · KINGS · LIVE MULTIPLAYER · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% TO POT
       </div>
     </div>
   );

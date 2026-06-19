@@ -1741,8 +1741,8 @@ export default function CovenantInteractive() {
               /* FIX TAB INLINE: super clean, lots of space, big text, minimal labels. Exactly the Customization Garage grid + ONE section for stake amount and all of that. Reuses the generator and publish. Focused on this covenant. */
               <div className="space-y-8">
                 <div>
-                  <div className="text-2xl font-semibold tracking-tight">Fix: Looks and Stake</div>
-                  <div className="text-sm text-gray-400 mt-1">Creator only. Pick a template for instant preview. One clean section to set the stake amount and rules. Publish once. Everyone sees the nice transparent view.</div>
+                  <div className="text-2xl font-semibold tracking-tight light:text-slate-900">Fix: Looks and Stake</div>
+                  <div className="text-sm text-gray-400 mt-1 light:text-slate-600">Creator only. Pick a template for instant preview. One clean section to set the stake amount and rules. Publish once. Everyone sees the nice transparent view.</div>
                 </div>
 
                 {/* Garage grid - templates that turn into nice preview (customisation garage) */}
@@ -1782,39 +1782,40 @@ export default function CovenantInteractive() {
                 <div className="space-y-4">
                   <div>
                     <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Title (optional)</div>
-                    <input value={config.titleOverride || ''} onChange={e => setConfig(s => ({...s, titleOverride: e.target.value}))} placeholder={covenant.name || 'Covenant title'} className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40" />
+                    <input value={config.titleOverride || ''} onChange={e => setConfig(s => ({...s, titleOverride: e.target.value}))} placeholder={covenant.name || 'Covenant title'} aria-label="Override covenant title" className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40 light:bg-white light:border-slate-200 light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-emerald-500/50" />
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Short description (optional)</div>
-                    <input value={config.descOverride || ''} onChange={e => setConfig(s => ({...s, descOverride: e.target.value}))} placeholder={covenant.description || 'What this covenant does'} className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40" />
+                    <input value={config.descOverride || ''} onChange={e => setConfig(s => ({...s, descOverride: e.target.value}))} placeholder={covenant.description || 'What this covenant does'} aria-label="Override covenant short description" className="w-full rounded-2xl bg-black/40 border border-white/10 px-4 py-3 text-sm focus:border-kaspa-green/40 light:bg-white light:border-slate-200 light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-emerald-500/50" />
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Accent color</div>
                     <div className="flex gap-2 flex-wrap">
                       {['#49EACB','#E8AF34','#10B981','#3B82F6','#8B5CF6','#EC4899','#F59E0B'].map(c => (
-                        <button key={c} onClick={() => setConfig(s => ({...s, primaryColor: c}))} className={`h-8 w-8 rounded-full border-2 ${config.primaryColor === c ? 'border-white scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                        <button key={c} type="button" onClick={() => setConfig(s => ({...s, primaryColor: c}))} aria-label={`Accent color ${c}`} aria-pressed={config.primaryColor === c} className={`h-8 w-8 rounded-full border-2 ${config.primaryColor === c ? 'border-white scale-110 light:border-slate-900' : 'border-transparent'}`} style={{ background: c }} />
                       ))}
-                      <input type="color" value={config.primaryColor} onChange={e => setConfig(s => ({...s, primaryColor: e.target.value}))} className="h-8 w-9 rounded border-0 p-0 overflow-hidden" />
+                      <input type="color" value={config.primaryColor} onChange={e => setConfig(s => ({...s, primaryColor: e.target.value}))} aria-label="Custom accent color" title="Custom accent color" className="h-8 w-9 rounded border-0 p-0 overflow-hidden" />
                     </div>
                   </div>
                 </div>
 
                 {/* EXACTLY 1 SECTION for stake amount and all of that - super clean simple easy */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.015] p-6">
-                  <div className="font-semibold text-xl tracking-tight mb-1">Stake amount and all of that</div>
-                  <div className="text-sm text-gray-400 mb-5">Just set the number. Everything else is fixed, transparent, and already explained to players. One publish updates the public view.</div>
+                <div className="rounded-3xl border border-white/10 bg-white/[0.015] p-6 light:border-slate-200 light:bg-slate-50/60">
+                  <div className="font-semibold text-xl tracking-tight mb-1 light:text-slate-900">Stake amount and all of that</div>
+                  <div className="text-sm text-gray-400 mb-5 light:text-slate-600">Just set the number. Everything else is fixed, transparent, and already explained to players. One publish updates the public view.</div>
 
                   <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2">AMOUNT TO STAKE (KAS)</div>
                   <input
                     type="number"
                     value={chessStake}
                     onChange={e => setChessStake(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                    className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-4 bg-transparent border border-white/10 rounded-2xl focus:outline-none focus:border-kaspa-green/40 mb-1"
+                    aria-label="Stake amount in KAS per player"
+                    className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-4 bg-transparent border border-white/10 rounded-2xl focus:outline-none focus:border-kaspa-green/40 mb-1 light:border-slate-200 light:text-slate-900 light:focus:border-emerald-500/50"
                   />
                   <div className="text-center text-xs text-gray-500 mb-6">per player for this chess arena</div>
 
                   {/* Clean rules paragraph, all in order, simplistic transparent */}
-                  <div className="rounded-2xl bg-black/40 border border-white/10 p-5 text-sm text-gray-200 leading-relaxed mb-6">
+                  <div className="rounded-2xl bg-black/40 border border-white/10 p-5 text-sm text-gray-200 leading-relaxed mb-6 light:bg-slate-50 light:border-slate-200 light:text-slate-700">
                     10 minute winner takes all chess.<br/><br/>
                     Second player must match the stake within 5 minutes or the funds return automatically to the staker.<br/><br/>
                     Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
@@ -1921,9 +1922,10 @@ export default function CovenantInteractive() {
             </div>
             <button
               onClick={() => setFullscreenUI(true)}
+              aria-label="Open creator preview in fullscreen"
               className="ml-auto px-4 py-2 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30 text-kaspa-green text-xs font-bold hover:bg-kaspa-green/20 transition-all flex items-center gap-2"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
               Fullscreen
             </button>
           </div>
@@ -2034,9 +2036,10 @@ export default function CovenantInteractive() {
               </div>
               <button
                 onClick={() => setFullscreenUI(false)}
-                className="p-2 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors"
+                aria-label="Close fullscreen covenant preview"
+                className="p-2 rounded-lg hover:bg-white/5 text-gray-200 hover:text-white transition-colors light:text-slate-500 light:hover:bg-slate-100 light:hover:text-slate-900"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
             <iframe
@@ -2050,8 +2053,8 @@ export default function CovenantInteractive() {
       )}
 
       {/* Disclaimer */}
-      <div className="glass-panel p-6 mt-8 text-xs text-gray-200 leading-relaxed max-w-3xl mx-auto">
-        <p className="text-gray-300 font-semibold mb-2">Transparency Notice</p>
+      <div className="glass-panel p-6 mt-8 text-xs text-gray-200 leading-relaxed max-w-3xl mx-auto light:bg-white light:border light:border-slate-200 light:text-slate-600">
+        <p className="text-gray-300 font-semibold mb-2 light:text-slate-900">Transparency Notice</p>
         <p>
           This covenant is immutable on the Kaspa BlockDAG. Covex does not create, modify, or control
           it. We only index publicly available data. All interactions occur
@@ -2096,8 +2099,8 @@ export default function CovenantInteractive() {
               <h3 className="text-lg font-semibold text-white tracking-tight">
                 Upgrade Covenant: {covenant.name || TRUNC(covenant.tx_id)}
               </h3>
-              <button onClick={() => setShowUpgrade(false)} className="text-gray-300 hover:text-white transition-colors text-2xl leading-none">
-                &times;
+              <button onClick={() => setShowUpgrade(false)} aria-label="Close upgrade modal" className="text-gray-300 hover:text-white transition-colors text-2xl leading-none">
+                <span aria-hidden="true">&times;</span>
               </button>
             </div>
 

@@ -361,16 +361,28 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
   return (
     <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
       {/* Top bar */}
-      <div className="h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between px-4 text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <div className="font-bold tracking-wider text-amber-400 light:text-amber-600">BLACKJACK OPEN DUEL • KASPA COVENANT</div>
-          <div className="px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300">{totalPot} KAS POT • {feePercent}% FEE</div>
-          <div className="text-[10px] text-emerald-400 light:text-emerald-700 font-mono">CO-COMMITTED DECK • NO HOUSE</div>
+      <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="font-bold tracking-wider text-amber-400 light:text-amber-600 truncate text-[11px] sm:text-sm">
+            <span className="sm:hidden">BLACKJACK DUEL</span>
+            <span className="hidden sm:inline">BLACKJACK OPEN DUEL · KASPA COVENANT</span>
+          </div>
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300 whitespace-nowrap">{totalPot} KAS POT · {feePercent}% FEE</div>
+          <div className="hidden md:block text-[10px] text-emerald-400 light:text-emerald-700 font-mono whitespace-nowrap">CO-COMMITTED DECK · NO HOUSE</div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-[10px] text-gray-400 light:text-slate-600 font-mono">ORACLE ATTESTED RESULT</div>
-          <button onClick={onClose} className="px-4 py-1.5 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold">
-            EXIT FULL SCREEN
+        <div className="flex items-center gap-2 shrink-0">
+          <div
+            className="hidden md:block text-[10px] text-gray-400 light:text-slate-600 font-mono"
+            title="The outcome is co-signed by the disclosed Covex oracle; the chain requires that signature via the redeem script."
+          >
+            CO-SIGNED BY COVEX ORACLE
+          </div>
+          <button
+            onClick={onClose}
+            className="min-h-[44px] sm:min-h-0 px-3 sm:px-4 py-2 sm:py-1.5 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold"
+            aria-label="Exit blackjack arena"
+          >
+            EXIT
           </button>
         </div>
       </div>
@@ -612,8 +624,8 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
       </div>
 
       {/* Footer */}
-      <div className="h-10 border-t border-white/10 light:border-slate-300/70 text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono">
-        BLACKJACK OPEN DUEL • CO-COMMITTED DECK (COMMIT-REVEAL) • OPEN HANDS • CLOSEST TO 21 • ORACLE ATTESTED
+      <div className="h-10 border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono px-3 text-center shrink-0">
+        CO-COMMITTED DECK (COMMIT-REVEAL) · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · PAYOUT ENFORCED ON-CHAIN BY THE REDEEM SCRIPT
       </div>
     </div>
   );

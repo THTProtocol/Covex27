@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight } from 'lucide-react';
 import { KIND_CLAIM_MATRIX } from '../lib/redeemer/covenantRedeemer';
+
+// Focus-trap selector parity with CovenantStudio's drawer trap: keep Tab cycling
+// inside the modal subtree, restore focus on close. No new dep.
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // Self-custody recovery kit. Every covenant Covex deploys is a script-enforced P2SH covenant:
 // the KASPA CHAIN enforces the spend rules, not Covex. On mainnet, oracle-dependent covenants are
@@ -10,11 +14,48 @@ import { KIND_CLAIM_MATRIX } from '../lib/redeemer/covenantRedeemer';
 // with NO Covex involvement. This kit exports exactly that data so a holder can settle even if
 // Covex is permanently offline. It contains NO private keys (those never leave the user's wallet).
 export default function RecoveryKitModal({ open, onClose, covenant }) {
+  const dialogRef = useRef(null);
+  const previouslyFocusedRef = useRef(null);
+  const titleId = 'recovery-kit-title';
+
+  // Escape closes + Tab-cycle focus trap + restore focus on close. Matches the
+  // a11y contract used by CovenantStudio drawers and WalletButton's dialogs.
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    if (!open) return undefined;
+    previouslyFocusedRef.current = typeof document !== 'undefined' ? document.activeElement : null;
+    const root = dialogRef.current;
+    const focusables = () => (root
+      ? Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter((el) => el.offsetParent !== null || el === document.activeElement)
+      : []);
+    const first = focusables()[0];
+    if (first && typeof first.focus === 'function') {
+      first.focus();
+    } else if (root && root.tabIndex < 0) {
+      root.setAttribute('tabindex', '-1');
+      root.focus();
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+      if (e.key !== 'Tab' || !root) return;
+      const items = focusables();
+      if (items.length === 0) { e.preventDefault(); return; }
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      const activeEl = document.activeElement;
+      if (e.shiftKey) {
+        if (activeEl === firstEl || !root.contains(activeEl)) { e.preventDefault(); lastEl.focus(); }
+      } else if (activeEl === lastEl) {
+        e.preventDefault(); firstEl.focus();
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const prev = previouslyFocusedRef.current;
+      if (prev && typeof prev.focus === 'function') {
+        try { prev.focus(); } catch (_) { /* no-op */ }
+      }
+    };
   }, [open, onClose]);
 
   if (!open || !covenant) return null;
@@ -72,16 +113,22 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg glass-panel rounded-2xl border border-white/10 p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-lg glass-panel rounded-2xl border border-white/10 p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
               <LifeBuoy size={17} className="text-kaspa-green" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white leading-tight">Recover without Covex</h2>
+              <h2 id={titleId} className="text-base font-bold text-white leading-tight">Recover without Covex</h2>
               <p className="text-[11px] text-gray-400">Your funds are safe even if Covex disappears.</p>
             </div>
           </div>
@@ -125,7 +172,7 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
         <Link to={covenant.tx_id ? `/recover?id=${encodeURIComponent(String(covenant.tx_id).split(':')[0])}` : '/recover'} onClick={onClose} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-kaspa-green/25 bg-kaspa-green/[0.05] text-kaspa-green text-[12px] font-semibold hover:bg-kaspa-green/[0.1] hover:border-kaspa-green/40 transition-colors">
           Open the recovery page <ArrowRight size={13} />
         </Link>
-        <p className="mt-2 text-center text-[10px] text-gray-500">The recovery page walks you through redeeming with the kit above, independently of Covex. A push-button in-browser redeemer is in the works.</p>
+        <p className="mt-2 text-center text-[10px] text-gray-500">The in-browser redeemer is live on the Recover page: paste the kit, sign with your wallet, broadcast through any Kaspa node. No Covex involvement required.</p>
       </div>
     </div>
   );

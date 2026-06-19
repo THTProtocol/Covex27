@@ -87,3 +87,23 @@ export const STRICT_GROTH16 = new Set([
 export function isVerifiedFullZk(circuitId) {
   return !!circuitId && VERIFIED_FULL_ZK.has(circuitId) && IN_BROWSER_PROVERS.has(circuitId);
 }
+
+// HONESTY ABSOLUTE: of the 19 VERIFIED_FULL_ZK circuits, only these 4 reduce to a hashlock the
+// Kaspa chain itself checks end-to-end. For them the ZK proof is verified off-chain by the
+// disclosed Covex oracle AND payout enforcement is on-chain via a real hashlock (the oracle
+// co-signature is not the only on-chain gate). The OTHER 15 are oracle-cosigned only: their
+// payout depends on the oracle's BIP340 co-signature and is NOT end-to-end chain-enforced.
+// Do not add to this set without proving a tampered proof is rejected AND that the redeem
+// script's hashlock corresponds to the circuit's public output (consensus-checked).
+export const CHAIN_ENFORCED_ZK = new Set([
+  'merkle_membership',
+  'age_verification',
+  'escrow_2party',
+  'range_proof',
+]);
+
+// True iff the circuit's ZK guarantee is enforced end-to-end on Kaspa via a hashlock the
+// chain itself checks (in addition to off-chain oracle verification of the Groth16 proof).
+export function isChainEnforcedZk(circuitId) {
+  return !!circuitId && CHAIN_ENFORCED_ZK.has(circuitId);
+}

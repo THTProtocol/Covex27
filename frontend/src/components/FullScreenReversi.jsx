@@ -279,9 +279,19 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
 
   return (
     <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a120a 0%, #050505 70%)' }}>
-      <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur shrink-0">
-        <div className="font-bold tracking-wider text-[#49EACB]">REVERSI / OTHELLO • KASPA COVENANT</div>
-        <div className="flex items-center gap-2"><div className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10">{totalPot} KAS POT • {potReturnPercent}% RETURN</div><button onClick={onClose} className="px-3 py-1 rounded-xl border border-white/20 text-xs font-bold">EXIT</button></div>
+      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur shrink-0">
+        <div className="font-bold tracking-wider text-[#49EACB] truncate text-[11px] sm:text-sm">
+          <span className="sm:hidden">REVERSI</span>
+          <span className="hidden sm:inline">REVERSI / OTHELLO · KASPA COVENANT</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{totalPot} KAS POT · {potReturnPercent}% RETURN</div>
+          <button
+            onClick={onClose}
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 text-xs font-bold"
+            aria-label="Exit reversi arena"
+          >EXIT</button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-3 p-2 overflow-auto">
@@ -426,7 +436,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
         </div>
       )}
 
-      <div className="h-8 border-t border-white/10 text-[10px] text-gray-500 text-center font-mono">REVERSI • LEGAL FLIPS ONLY • LIVE MULTIPLAYER • ORACLE • {potReturnPercent}% POT RETURN</div>
+      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">LEGAL FLIPS ONLY · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
     </div>
   );
 }

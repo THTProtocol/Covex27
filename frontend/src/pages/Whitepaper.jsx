@@ -2,7 +2,22 @@ import { useState, useEffect, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, ExternalLink, ChevronDown, ShieldCheck } from 'lucide-react';
 import Card from '@/components/ui/Card';
-import { vkeyPathFor } from '@/lib/zk/circuits';
+import { vkeyPathFor, VERIFIED_FULL_ZK, CHAIN_ENFORCED_ZK } from '@/lib/zk/circuits';
+
+// Computed at module load from the canonical sets in lib/zk/circuits.js so this
+// page cannot drift from the registry. The two derived counts are the load-bearing
+// honesty facts in sections 4 and 5: total ZK circuits in the registry, and how
+// many of them are end-to-end chain-enforced via hashlock vs oracle-cosigned only.
+const ZK_TOTAL = VERIFIED_FULL_ZK.size;
+const ZK_CHAIN = CHAIN_ENFORCED_ZK.size;
+const ZK_ORACLE_COSIGNED = ZK_TOTAL - ZK_CHAIN;
+// Small number-to-word helper so the prose reads naturally without hard-coding
+// the count. Falls back to digits past the table, which is fine for any future
+// registry growth and keeps the diff surgical.
+const NUM_WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five'];
+const numWord = (n) => (n >= 0 && n < NUM_WORDS.length ? NUM_WORDS[n] : String(n));
+const ZK_TOTAL_WORD = numWord(ZK_TOTAL);
+const ZK_ORACLE_WORD = numWord(ZK_ORACLE_COSIGNED);
 
 // Source the disclosed treasury addresses from the same constant Treasury.jsx renders,
 // duplicated here (single field today: mainnet) rather than cross-importing a page module.
@@ -50,14 +65,14 @@ const SECTIONS = [
       "Covex is explicit about what is trustless and what is not.",
       "Custody is non-custodial: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet. For oracle-resolved covenants the disclosed Covex oracle co-signs the winning branch, so the payout is on-chain enforced but not trustless. For the deterministic primitives the payout is trustless.",
       "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
-      "Resolution is oracle-attested with one honest carve-out. The fourteen ZK circuits are verified OFF-CHAIN by the disclosed Covex oracle. Four of them (merkle_membership, age_verification, escrow_2party, range_proof) verify END-TO-END to consensus enforcement because their predicate reduces to a hashlock the chain checks; the other ten remain oracle-cosigned. Every non-ZK outcome is attested by the oracle without a proof. Kaspa has no on-chain pairing verifier, so for the ten oracle-cosigned circuits only the oracle's BIP340 co-signature is what the chain checks at unlock, and each covenant page states which mode applies via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.",
+      `Resolution is oracle-attested with one honest carve-out. There are ${ZK_TOTAL_WORD} ZK circuits in the Covex registry. Their Groth16 proofs are verified OFF-CHAIN by the disclosed Covex oracle. Four of them (merkle_membership, age_verification, escrow_2party, range_proof) verify END-TO-END to consensus enforcement because their predicate reduces to a hashlock the chain checks. The remaining ${ZK_ORACLE_WORD} are oracle-cosigned: the oracle attests the proof, the chain enforces only the oracle's signature. Every non-ZK outcome is attested by the oracle without a proof. Kaspa has no on-chain pairing verifier, so for the ${ZK_ORACLE_WORD} oracle-cosigned circuits only the oracle's BIP340 co-signature is what the chain checks at unlock, and each covenant page states which mode applies via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.`,
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
     ],
   },
   {
     id: 'roadmap', n: '5 · Roadmap to trustlessness',
     body: [
-      "Today, four circuits already verify END-TO-END to consensus enforcement because their predicate reduces to a hashlock the chain checks: merkle_membership, age_verification, escrow_2party, and range_proof. The other ten compiled circuits (including timelock, pot-split, VRF and the rest) are verified off-chain by the disclosed Covex oracle, and only its Schnorr co-signature is checked on-chain at unlock. If a future KIP-16 ships an on-chain proof-verification opcode, those ten would migrate to on-chain Groth16 verification as their proving keys and a real multi-party ceremony ship. Until then, and at the 30 June 2026 mainnet launch, the carve-out is the four end-to-end circuits; everything else in the ZK set remains oracle-cosigned.",
+      `Today, four circuits already verify END-TO-END to consensus enforcement because their predicate reduces to a hashlock the chain checks: merkle_membership, age_verification, escrow_2party, and range_proof. The other ${ZK_ORACLE_WORD} compiled circuits in the registry (including timelock, pot-split, VRF and the rest) are verified off-chain by the disclosed Covex oracle, and only its Schnorr co-signature is checked on-chain at unlock. If a future KIP-16 ships an on-chain proof-verification opcode, those ${ZK_ORACLE_WORD} would migrate to on-chain Groth16 verification as their proving keys and a real multi-party ceremony ship. Until then, and at the 30 June 2026 mainnet launch, the carve-out is the four end-to-end circuits; everything else in the ZK set remains oracle-cosigned.`,
       "As that migration completes, the oracle's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
       "Beyond resolution: multi-oracle threshold signing for whatever remains attested, a real MPC ceremony or STARK paths to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.",
     ],
@@ -217,7 +232,7 @@ export default function Whitepaper() {
         </div>
         <div className="min-w-0">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white light:text-slate-900">Covex Whitepaper</h1>
-          <p className="text-sm text-gray-400 light:text-slate-500 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-17</p>
+          <p className="text-sm text-gray-400 light:text-slate-500 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.2 · 2026-06-19</p>
         </div>
       </Card>
 

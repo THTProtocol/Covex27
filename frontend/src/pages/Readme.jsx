@@ -3,6 +3,13 @@ import {
   ShieldCheck, Lock, Cpu, Radio, KeyRound, Boxes, Zap, CheckCircle2,
   FileCode2, Layers, ArrowRight, Sparkles, Network, Eye, Workflow, Hash, Gavel, Coins,
 } from 'lucide-react';
+import { VERIFIED_FULL_ZK, CHAIN_ENFORCED_ZK } from '../lib/zk/circuits.js';
+
+// Honest counts pulled from the single source of truth (lib/zk/circuits.js).
+// Do NOT hard-code these; the registry is the only place they may diverge.
+const ZK_TOTAL = VERIFIED_FULL_ZK.size;
+const ZK_CHAIN_ENFORCED = CHAIN_ENFORCED_ZK.size;
+const ZK_ORACLE_COSIGNED = ZK_TOTAL - ZK_CHAIN_ENFORCED;
 
 /*
   /readme - the definitive, factual "how Covex works" page, framed around Kaspa mainnet.
@@ -43,7 +50,7 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
-    trust: 'Proof, oracle-verified off-chain', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the fourteen circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
+    trust: 'Proof, oracle-verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Of those, ${ZK_CHAIN_ENFORCED} (merkle_membership, age_verification, escrow_2party, range_proof) reduce to a hashlock Kaspa itself enforces end-to-end; the other ${ZK_ORACLE_COSIGNED} are oracle-cosigned. Kaspa has no on-chain pairing verifier yet, so the Groth16 check is off-chain and its result gates the consensus-required co-signature.` },
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
@@ -105,6 +112,11 @@ const ZK_VERIFIED = [
   { name: 'Turn Timer', what: 'Prove a move happened within a DAA window, keeping the exact last-move time private. Clock enforcement for chess/poker.' },
   { name: 'Script Constraint', what: 'Prove you know the hidden script_hash whose Poseidon bundle equals a public root. Bind a covenant to a rule without revealing it.' },
   { name: 'Pot Split', what: 'Prove winner_share + fee + return == total_pot at the chosen bps. A verifiable fair payout split.' },
+  { name: 'Commitment Open', what: 'Prove you can open a Poseidon commitment to a hidden value without revealing it. The minimal hidden-witness primitive for richer covenants.' },
+  { name: 'Balance Threshold', what: 'Prove a committed balance meets a public threshold, revealing nothing else. Private solvency floors for lending and access gates.' },
+  { name: 'Solvency Sum', what: 'Prove the sum of committed balances clears a public liability without revealing individual amounts. Proof-of-reserves without disclosure.' },
+  { name: 'Set Non-Membership', what: 'Prove a value is NOT in a committed set without revealing it. Blocklist / sanction-list checks with hidden identity.' },
+  { name: 'Anon Membership + Nullifier', what: 'Prove set membership and emit a single-use nullifier in one proof. Anonymous one-shot eligibility (votes, claims, drops).' },
 ];
 
 export default function Readme() {
@@ -260,12 +272,14 @@ export default function Readme() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              These fourteen circuits have real Groth16 proofs that the disclosed Covex oracle verifies fail-closed before it
-              co-signs. The verification is off-chain (Kaspa has no on-chain pairing verifier), so this is oracle-verified, not
-              on-chain-trustless: a bad proof is rejected, but the named oracle’s co-signature is still what the chain checks.
-              More circuits are compiled and graduate as their proving keys ship and each proof is verified. Honest caveat: the
-              current trusted setup is a single-contributor dev ceremony. High-value mainnet covenants warrant an independent
-              multi-party ceremony first.
+              These {ZK_TOTAL} circuits have real Groth16 proofs that the disclosed Covex oracle verifies fail-closed before it
+              co-signs. {ZK_CHAIN_ENFORCED} of them (merkle_membership, age_verification, escrow_2party, range_proof) verify
+              end-to-end to consensus enforcement; the other {ZK_ORACLE_COSIGNED} are oracle-cosigned. The Groth16 verification
+              itself is always off-chain (Kaspa has no on-chain pairing verifier), so it is oracle-verified, not
+              on-chain-trustless: a bad proof is rejected, but for the oracle-cosigned set the named oracle’s co-signature is
+              still what the chain checks. More circuits are compiled and graduate as their proving keys ship and each proof is
+              verified. Honest caveat: the current trusted setup is a single-contributor dev ceremony. High-value mainnet
+              covenants warrant an independent multi-party ceremony first.
             </p>
           </div>
           <Card className="!p-6">

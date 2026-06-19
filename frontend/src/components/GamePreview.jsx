@@ -1,34 +1,69 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Zap, Gamepad2, X, Play } from 'lucide-react';
 import ChessMini from './chess/ChessMini';
+import { VERIFIED_FULL_ZK } from '../lib/zk/circuits';
 // Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
-// Covex main pages (Explorer) must remain neutral - no gambling visuals.
-// Only chess has a native React preview. All other ZK circuits show a generic badge.
+// Covex main pages (Explorer) must remain neutral - no gambling visuals (no
+// cards, chips, or dice rendered). Non-chess board games get a NEUTRAL
+// board-style mini-thumb plus the honest game name, never a "ZK Circuit" label
+// that would be factually wrong for an oracle-attested game.
 
-// Detect game type from covenant data
+// Games we can render a small neutral preview for. Chess has its own native
+// interactive mini; everything else falls through to the board-thumb tile.
+const KNOWN_GAMES = new Set([
+  'chess', 'poker', 'blackjack', 'checkers', 'connect4', 'reversi', 'rps', 'tictactoe',
+]);
+
+// Normalize varied game_type / name spellings into our canonical KNOWN_GAMES key.
+const normalizeGameKey = (raw) => {
+  if (!raw) return null;
+  const g = String(raw).toLowerCase();
+  if (g.includes('chess')) return 'chess';
+  if (g.includes('poker')) return 'poker';
+  if (g.includes('blackjack') || g === 'bj' || g === '21') return 'blackjack';
+  if (g.includes('checker') || g.includes('draught')) return 'checkers';
+  if (g.includes('connect4') || g.includes('connect_4') || g.includes('connect-four')) return 'connect4';
+  if (g.includes('reversi') || g.includes('othello')) return 'reversi';
+  if (g === 'rps' || g.includes('rock_paper') || g.includes('rock-paper') || g.includes('rockpaper')) return 'rps';
+  if (g.includes('tictactoe') || g.includes('tic_tac_toe') || g.includes('tic-tac-toe') || g === 'ttt') return 'tictactoe';
+  return null;
+};
+
+// Detect game type from covenant data. Returns a KNOWN_GAMES key, or null when
+// the covenant is not a recognized game (it may still be a ZK circuit).
 const detectGameType = (covenant) => {
-  const name = (covenant.name || covenant.covenant_type || '').toLowerCase();
-  const desc = (covenant.description || '').toLowerCase();
-  const category = (covenant.category || '').toLowerCase();
-  const combined = `${name} ${desc} ${category}`;
-
-  // Try config game_type first
+  // Try config game_type first - this is the authoritative declaration.
   try {
     const cfg = typeof covenant.custom_ui_config === 'string'
       ? JSON.parse(covenant.custom_ui_config)
       : covenant.custom_ui_config;
-    if (cfg?.game_type) {
-      const gt = cfg.game_type.toLowerCase();
-      if (gt.includes('chess')) return 'chess';
-      // New ZK circuit types (non-game) return null - no game preview
-      if (gt.includes('merkle') || gt.includes('range_proof') || gt.includes('age_verify') || gt.includes('verifiable')) return null;
-    }
+    const fromCfg = normalizeGameKey(cfg?.game_type);
+    if (fromCfg) return fromCfg;
   } catch (_) {}
 
-  // Fallback name-based detection - chess only
-  if (combined.includes('chess') || combined.includes('chess_v1')) return 'chess';
+  // Fallback: name / description / category sniffing.
+  const name = (covenant.name || covenant.covenant_type || '').toLowerCase();
+  const desc = (covenant.description || '').toLowerCase();
+  const category = (covenant.category || '').toLowerCase();
+  const combined = `${name} ${desc} ${category}`;
+  return normalizeGameKey(combined);
+};
 
-  return null;
+// True only when the covenant is actually a ZK circuit (declared zk_circuit /
+// circuit_type that resolves to a real verified circuit, OR enforcement_reality
+// is in the ZK family). Used to gate the "ZK Circuit" label so we never slap it
+// on an oracle-attested game covenant.
+const isZkCircuitCovenant = (covenant) => {
+  const reality = String(covenant.enforcement_reality || '').toLowerCase();
+  if (reality === 'full-zk' || reality === 'full-zk-chain' || reality === 'hybrid') return true;
+  try {
+    const cfg = typeof covenant.custom_ui_config === 'string'
+      ? JSON.parse(covenant.custom_ui_config)
+      : covenant.custom_ui_config;
+    const id = String(cfg?.zk_circuit || cfg?.circuit_type || '').toLowerCase();
+    if (id && VERIFIED_FULL_ZK.has(id)) return true;
+  } catch (_) {}
+  return false;
 };
 
 // Has actual custom UI HTML (from Covenant Studio / custom paste)
@@ -42,24 +77,92 @@ const hasCustomUI = (covenant) => {
 // ── Native React game previews (fast, no iframe) ──────────────────────────
 
 const NativePreview = ({ gameType, covenant, compact }) => {
-  switch (gameType) {
-    case 'chess':
-      // Chess is the only game with a full ZK-native interactive preview
-      return <ChessMini compact={compact} />;
-    default:
-      // Non-game ZK circuit types (merkle, range, age, verifiable) use a generic circuit badge
-      return <CircuitBadge compact={compact} />;
+  if (gameType === 'chess') {
+    // Chess is the only game with a full interactive native preview.
+    return <ChessMini compact={compact} />;
   }
+  if (gameType && KNOWN_GAMES.has(gameType)) {
+    // Honest neutral tile for the other known games: board-style mini-thumb
+    // plus the game name. No cards / chips / dice (Explorer stays neutral).
+    return <GameThumbTile gameType={gameType} compact={compact} />;
+  }
+  // Not a recognized game. Only call it a ZK Circuit if the covenant actually
+  // IS a ZK circuit; otherwise show a neutral covenant tile.
+  return <GenericPreviewTile compact={compact} isZk={isZkCircuitCovenant(covenant)} />;
 };
 
-const CircuitBadge = ({ compact }) => {
+// Display name for a known game key, used in the neutral thumb tile + modal copy.
+const GAME_LABEL = {
+  chess: 'Chess',
+  poker: 'Poker',
+  blackjack: 'Blackjack',
+  checkers: 'Checkers',
+  connect4: 'Connect Four',
+  reversi: 'Reversi',
+  rps: 'Rock Paper Scissors',
+  tictactoe: 'Tic Tac Toe',
+};
+
+// Neutral board-style mini-thumb for non-chess games. Pure geometry, no
+// gambling iconography. Each game picks a grid that hints at its real board.
+const GameThumbTile = ({ gameType, compact }) => {
+  const label = GAME_LABEL[gameType] || gameType;
+  // Grid shape per game. Stays abstract: just a grid + a couple of marker dots.
+  const grid = (() => {
+    switch (gameType) {
+      case 'checkers':  return { cols: 8, rows: 8 };
+      case 'reversi':   return { cols: 8, rows: 8 };
+      case 'connect4':  return { cols: 7, rows: 6 };
+      case 'tictactoe': return { cols: 3, rows: 3 };
+      case 'poker':     return { cols: 5, rows: 1 };
+      case 'blackjack': return { cols: 4, rows: 1 };
+      case 'rps':       return { cols: 3, rows: 1 };
+      default:          return { cols: 4, rows: 4 };
+    }
+  })();
+  const cells = grid.cols * grid.rows;
   return (
-    <div className="flex items-center justify-center bg-black/30 rounded-lg"
+    <div
+      className="flex flex-col items-center justify-center bg-black/30 light:bg-black/[0.04] rounded-lg gap-2 px-3"
+      style={{ height: compact ? '140px' : '220px' }}
+      aria-label={`${label} covenant preview`}
+    >
+      <div
+        className="grid gap-[2px] opacity-60"
+        style={{
+          gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`,
+          width: compact ? 72 : 104,
+        }}
+      >
+        {Array.from({ length: cells }).map((_, i) => {
+          const r = Math.floor(i / grid.cols);
+          const dark = (r + i) % 2 === 0;
+          return (
+            <div
+              key={i}
+              className={dark ? 'bg-[#49EACB]/25' : 'bg-white/10 light:bg-black/10'}
+              style={{ aspectRatio: '1 / 1', borderRadius: 1 }}
+            />
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-gray-200 light:text-gray-700 font-mono uppercase tracking-wider">
+        {label}
+      </p>
+    </div>
+  );
+};
+
+// Fallback tile when the covenant is not a recognized game. Only says "ZK
+// Circuit" when the covenant actually is one; otherwise a neutral covenant tile.
+const GenericPreviewTile = ({ compact, isZk }) => {
+  return (
+    <div className="flex items-center justify-center bg-black/30 light:bg-black/[0.04] rounded-lg"
       style={{ height: compact ? '140px' : '220px' }}>
       <div className="text-center">
         <div className="text-4xl mb-2"><Zap size={40} className="mx-auto text-gray-400" /></div>
-        <p className="text-xs text-gray-200 font-mono uppercase tracking-wider">
-          ZK Circuit
+        <p className="text-xs text-gray-200 light:text-gray-700 font-mono uppercase tracking-wider">
+          {isZk ? 'ZK Circuit' : 'Covenant'}
         </p>
       </div>
     </div>
@@ -154,8 +257,10 @@ const GamePreview = ({ covenant, compact = false, large = false }) => {
   // If no game type detected and no custom UI - no preview
   if (!gameType && !customUI) return null;
 
-  // Choose preview strategy: native React for chess, iframe for custom UI
-  const useNative = gameType === 'chess';
+  // Choose preview strategy: native React for any recognized game (chess gets
+  // the interactive mini, the rest get a neutral board-thumb tile). Custom UI
+  // covenants without a recognized game_type fall through to the iframe path.
+  const useNative = !!gameType && KNOWN_GAMES.has(gameType);
 
   // Premium covenants with custom UI get a large preview (350px), others compact (140px) or normal (200px)
   const previewHeight = large ? 350 : compact ? 140 : 200;
@@ -232,7 +337,7 @@ const GamePreview = ({ covenant, compact = false, large = false }) => {
                       {covenant.name || covenant.covenant_type || 'Covenant'} Preview
                     </h3>
                     <p className="text-[10px] text-gray-200 font-mono">
-                      {gameType ? `${gameType} game` : 'Custom interactive UI'}
+                      {gameType ? `${GAME_LABEL[gameType] || gameType} game` : 'Custom interactive UI'}
                     </p>
                   </div>
                 </div>

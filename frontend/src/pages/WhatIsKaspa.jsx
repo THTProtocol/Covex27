@@ -117,7 +117,7 @@ export default function WhatIsKaspaPage() {
           <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">DAGKNIGHT: The Parameterless Future</h2>
           <div className="glass-panel rounded-2xl p-6 border border-white/10">
             <p className="text-gray-300 leading-relaxed mb-4">
-              DAGKNIGHT (2022) is the next-generation consensus protocol for Kaspa. It eliminates the single most important operational parameter (k) by continuously estimating the actual network latency and attack surface in real time.
+              DAGKNIGHT (2022) is the parameterless successor BlockDAG protocol generalizing GHOSTDAG. It eliminates the single most important operational parameter (k) by continuously estimating the actual network latency and attack surface in real time.
             </p>
             <ul className="list-disc pl-5 space-y-1 text-gray-300 text-sm">
               <li>Automatically adjusts "aggressiveness" based on observed conditions.</li>
@@ -220,7 +220,7 @@ export default function WhatIsKaspaPage() {
               { icon: TrendingUp, label: 'Block Rate', value: '10 BPS', sub: 'Mainnet, post-Crescendo hard fork (2025)', badge: 'VERIFIED' },
               { icon: Zap, label: 'Scaling Target', value: '100+ BPS', sub: 'DAGKNIGHT and subsequent protocol upgrades', badge: 'TARGET' },
               { icon: Coins, label: 'Max Supply', value: '28.7 B KAS', sub: 'Exactly 28,704,026,601 coins', badge: 'VERIFIED' },
-              { icon: Shield, label: 'Consensus', value: 'PoW + GHOSTDAG', sub: 'DAGKNIGHT enables higher block rates', badge: null },
+              { icon: Shield, label: 'Consensus', value: 'PoW + GHOSTDAG', sub: 'BlockDAG (parallel blocks ordered by GHOSTDAG) vs single-chain: 10 BPS today, 100x Bitcoin', badge: null },
               { icon: Fingerprint, label: 'Hash Algorithm', value: 'kHeavyHash', sub: 'Optical-miner friendly, ASIC-resistant design', badge: null },
               { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
               { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },

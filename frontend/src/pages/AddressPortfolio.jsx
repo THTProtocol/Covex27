@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Wallet, Layers, Coins, Crown, ArrowLeft, Copy, Check } from 'lucide-react';
+import { Wallet, Layers, Coins, Crown, ArrowLeft } from 'lucide-react';
+import CopyButton from '../components/CopyButton';
 
 /** Public portfolio for any Kaspa address: covenants created, totals, tier mix. */
 export default function AddressPortfolio() {
   const { addr } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const network = localStorage.getItem('kaspaNetwork') || 'mainnet';
 
   useEffect(() => {
@@ -18,13 +18,6 @@ export default function AddressPortfolio() {
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [addr, network]);
-
-  const copy = () => {
-    navigator.clipboard?.writeText(addr).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
 
   return (
     <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-10">
@@ -44,9 +37,10 @@ export default function AddressPortfolio() {
           </div>
           <div className="min-w-0">
             <h1 className="text-2xl font-black text-white light:text-slate-900 mb-1">Address Portfolio</h1>
-            <button onClick={copy} className="flex items-start gap-2 text-xs font-mono text-gray-400 light:text-slate-500 hover:text-kaspa-green transition-colors break-all text-left">
-              <span className="break-all">{addr}</span> {copied ? <Check size={12} className="text-kaspa-green shrink-0 mt-0.5" /> : <Copy size={12} className="shrink-0 mt-0.5" />}
-            </button>
+            <div className="flex items-start gap-1.5 text-xs font-mono text-gray-400 light:text-slate-500">
+              <span className="break-all">{addr}</span>
+              <CopyButton value={addr} label="Copy address" size={12} className="mt-0.5" />
+            </div>
             <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">Network: {network}</p>
           </div>
         </div>

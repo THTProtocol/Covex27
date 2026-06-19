@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   Database, Search, Sparkles, Play,
@@ -30,8 +30,40 @@ import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePrev
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
 import FirstCovenantTour from '../components/FirstCovenantTour';
+import CopyButton from '../components/CopyButton';
 import { Badge } from '../components/ui/Badge';
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
+
+// Middle-truncate a long address/hash for a compact resolved-chip readout:
+// kaspa:qpz2...n4uk5a. Keeps both ends (network prefix + checksum tail) legible.
+const truncMiddle = (s, head = 12, tail = 6) =>
+  s && s.length > head + tail + 3 ? `${s.slice(0, head)}...${s.slice(-tail)}` : s || '';
+
+// Normalize a pasted search box value: a full Covex/explorer URL or a bare 64-hex
+// txid both resolve to the term the existing search path expects. Humans paste
+// links and raw hashes constantly; meet them where they are.
+//   https://hightable.pro/?search=foo            -> "foo"
+//   https://hightable.pro/covenant/<id>%3A0      -> "<id>:0"
+//   <64-hex>                                      -> "<64-hex>:0"  (covenant outpoint)
+function normalizeSearchTerm(raw) {
+  let q = (raw || '').trim();
+  if (!q) return q;
+  // Pasted URL: pull the covenant id from /covenant/<id> or the ?search= param.
+  if (/^https?:\/\//i.test(q)) {
+    try {
+      const u = new URL(q);
+      const m = u.pathname.match(/\/covenant\/([^/?#]+)/i);
+      if (m && m[1]) return decodeURIComponent(m[1]);
+      const sp = u.searchParams.get('search') || u.searchParams.get('q');
+      if (sp) return sp.trim();
+    } catch {
+      /* not a parseable URL, fall through */
+    }
+  }
+  // A bare 64-hex string is a tx hash; covenant outpoints are addressed as hash:index.
+  if (/^[0-9a-fA-F]{64}$/.test(q)) return `${q.toLowerCase()}:0`;
+  return q;
+}
 
 const formatKaspa = (kas) => {
   if (kas == null) return 'N/A';
@@ -214,6 +246,8 @@ export default function Explorer() {
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  // Shown when a .kas name resolves to an owner address (covenant.kas -> kaspa:qpz2...n4uk5a).
+  const [resolvedChip, setResolvedChip] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
   // Default to showing ALL on-chain commitments (the full, thriving count). Covenants are honestly
@@ -250,6 +284,17 @@ export default function Explorer() {
     window.addEventListener('kaspa-network-change', handler);
     return () => window.removeEventListener('kaspa-network-change', handler);
   }, []);
+
+  // Switch the active network using the same mechanism as the header picker
+  // (localStorage + the 'kaspa-network-change' CustomEvent that WalletContext,
+  // Stats and LiveStatus all listen on). Returns the network actually selected.
+  const switchNetwork = useCallback((next) => {
+    if (!next || next === kaspaNetwork) return kaspaNetwork;
+    try { localStorage.setItem('kaspaNetwork', next); } catch { /* private mode */ }
+    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: next }));
+    setKaspaNetwork(next);
+    return next;
+  }, [kaspaNetwork]);
 
   const buildListUrl = useCallback((off) => {
     let url = `/api/covenants?network=${kaspaNetwork}&limit=${PAGE_SIZE}&offset=${off}`;
@@ -349,11 +394,60 @@ export default function Explorer() {
       .finally(() => setLoadingMore(false));
   }, [offset, buildListUrl]);
 
+  // Run the creator-address search path for a given address, on a given network.
+  // Shared by the raw-address branch and the KNS-resolved-owner branch.
+  const runWalletSearch = useCallback((addr, net) => {
+    fetch(`/api/covenants?network=${net}&creator=${encodeURIComponent(addr)}&limit=200`)
+      .then(r => r.json())
+      .then(d => {
+        const matches = Array.isArray(d.covenants) ? d.covenants : [];
+        setSearchResults({ type: 'wallet', query: addr, data: matches });
+        if (matches.length === 0) setSearchError(`No covenants found for wallet: ${truncMiddle(addr, 18, 6)}`);
+        setSearchLoading(false);
+      })
+      .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
+  }, []);
+
   const handleSearch = useCallback((e) => {
     if (e?.preventDefault) e.preventDefault();
-    const q = searchQuery.trim();
+    // Accept a pasted explorer URL or a bare 64-hex txid, not just clean queries.
+    const q = normalizeSearchTerm(searchQuery);
     if (!q) return;
-    setSearchLoading(true); setSearchError(null); setSearchResults(null);
+    setSearchLoading(true); setSearchError(null); setSearchResults(null); setResolvedChip(null);
+
+    // Auto-detect network from a pasted address prefix and switch to match before
+    // searching, so a kaspatest: address pasted while the picker is on mainnet does
+    // not silently return nothing. The picker (and WalletContext / Stats) follow.
+    let net = kaspaNetwork;
+    if (q.startsWith('kaspatest:') && kaspaNetwork === 'mainnet') {
+      net = switchNetwork('testnet-10');
+    } else if (q.startsWith('kaspa:') && kaspaNetwork !== 'mainnet') {
+      net = switchNetwork('mainnet');
+    }
+
+    // KNS .kas name: resolve via the backend to an owner address, then run the
+    // existing creator-address search for that owner. Honest: we say what resolved.
+    if (q.toLowerCase().endsWith('.kas')) {
+      fetch(`/api/resolve/${encodeURIComponent(q)}?network=${net}`)
+        .then(r => (r.ok ? r.json() : {}))
+        .then(d => {
+          // If the resolver returns a network hint that disagrees with the picker,
+          // follow it so a mainnet .kas resolved while on testnet still finds funds.
+          let searchNet = net;
+          if (d && d.network_hint === 'mainnet' && net !== 'mainnet') searchNet = switchNetwork('mainnet');
+          else if (d && d.network_hint === 'testnet' && net === 'mainnet') searchNet = switchNetwork('testnet-10');
+          if (d && d.resolved && d.address) {
+            setResolvedChip({ name: q, address: d.address });
+            runWalletSearch(d.address, searchNet);
+          } else {
+            setSearchError(`No KNS owner found for ${q} on ${searchNet}`);
+            setSearchLoading(false);
+          }
+        })
+        .catch(() => { setSearchError(`Could not reach the KNS resolver for ${q}`); setSearchLoading(false); });
+      return;
+    }
+
     // A Kaspa address carries a ':' in its prefix (kaspatest:/kaspa:), so detect the
     // address FIRST; only a non-address string with a ':' is a covenant txid (hash:index).
     const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:');
@@ -368,18 +462,10 @@ export default function Explorer() {
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     } else if (isWalletAddr) {
-      fetch(`/api/covenants?network=${kaspaNetwork}&creator=${encodeURIComponent(q)}&limit=200`)
-        .then(r => r.json())
-        .then(d => {
-          const matches = Array.isArray(d.covenants) ? d.covenants : [];
-          setSearchResults({ type: 'wallet', query: q, data: matches });
-          if (matches.length === 0) setSearchError(`No covenants found for wallet: ${q.slice(0, 20)}...`);
-          setSearchLoading(false);
-        })
-        .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
+      runWalletSearch(q, net);
     } else {
       // Keyword search across name, description and category
-      fetch(`/api/covenants?network=${kaspaNetwork}&q=${encodeURIComponent(q)}&limit=100`)
+      fetch(`/api/covenants?network=${net}&q=${encodeURIComponent(q)}&limit=100`)
         .then(r => r.json())
         .then(d => {
           const matches = Array.isArray(d.covenants) ? d.covenants : [];
@@ -389,7 +475,7 @@ export default function Explorer() {
         })
         .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
     }
-  }, [searchQuery, kaspaNetwork]);
+  }, [searchQuery, kaspaNetwork, switchNetwork, runWalletSearch]);
 
   // MAIN SORT: MAX first, then PRO, then BUILDER, then FREE. Within each tier: highest TVL at top.
   const allCovenantsSorted = [...covenants].sort((a, b) => {
@@ -536,7 +622,7 @@ export default function Explorer() {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); setShowArena(false); }}
+                onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); setResolvedChip(null); setShowArena(false); }}
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   activeTab === tab.id && !showArena ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
@@ -545,7 +631,7 @@ export default function Explorer() {
               </button>
             ))}
             <button
-              onClick={() => { setShowArena(!showArena); setActiveTab('explore'); setSearchResults(null); setSearchError(null); setSearchQuery(''); }}
+              onClick={() => { setShowArena(!showArena); setActiveTab('explore'); setSearchResults(null); setSearchError(null); setSearchQuery(''); setResolvedChip(null); }}
               className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
               }`}
@@ -573,8 +659,8 @@ export default function Explorer() {
                 <Search size={18} className="text-kaspa-green shrink-0" />
                 <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-                  placeholder="kaspa:qr... or covenant txid (hash:0)"
-                  className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white placeholder:text-gray-200"
+                  placeholder="name.kas, kaspa:qr... address, txid, or a covenant link"
+                  className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white light:text-slate-900 placeholder:text-gray-200 light:placeholder:text-slate-400"
                   autoFocus spellCheck={false} autoComplete="off"
                 />
                 <button type="submit" disabled={searchLoading || !searchQuery.trim()}
@@ -584,11 +670,30 @@ export default function Explorer() {
                 </button>
               </div>
             </form>
-            <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-200">
+            <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-200 light:text-slate-500">
               <span>Try:</span>
-              <button onClick={() => setSearchQuery('kaspa:')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
-              <button onClick={() => setSearchQuery(':')} className="px-2 py-0.5 rounded border border-white/5 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
+              <button onClick={() => setSearchQuery('covenant.kas')} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
+              <button onClick={() => setSearchQuery('kaspa:')} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
+              <button onClick={() => setSearchQuery(':')} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
             </div>
+            {/* Resolved chip: a .kas name that resolved to an owner address, with a copy
+                button. covenant.kas -> kaspa:qpz2...n4uk5a. Honest: KNS owner, not a claim. */}
+            {resolvedChip && !searchLoading && (
+              <div className="flex items-center flex-wrap gap-2 px-3 py-2 rounded-xl bg-kaspa-green/[0.06] border border-kaspa-green/20 text-xs font-mono">
+                <KeyRound size={13} className="text-kaspa-green shrink-0" />
+                <span className="text-kaspa-green font-semibold">{resolvedChip.name}</span>
+                <span className="text-gray-500 light:text-slate-400">{'->'}</span>
+                <Link
+                  to={`/address/${encodeURIComponent(resolvedChip.address)}`}
+                  className="text-gray-200 light:text-slate-700 hover:text-kaspa-green transition-colors truncate"
+                  title={resolvedChip.address}
+                >
+                  {truncMiddle(resolvedChip.address)}
+                </Link>
+                <CopyButton value={resolvedChip.address} label="Copy owner address" size={12} stopPropagation={false} />
+                <span className="text-gray-500 light:text-slate-400">KNS owner</span>
+              </div>
+            )}
             {searchLoading && (
               <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
                 <div className="w-8 h-8 border-2 border-kaspa-green/30 border-t-kaspa-green rounded-full animate-spin" />
@@ -598,7 +703,13 @@ export default function Explorer() {
             {searchError && !searchLoading && (
               <div className="p-6 rounded-2xl bg-red-500/[0.04] border border-red-500/20 text-center">
                 <p className="text-sm text-red-400 font-mono mb-1">No Results</p>
-                <p className="text-xs text-gray-300">{searchError}</p>
+                <p className="text-xs text-gray-300 light:text-slate-600 mb-4">{searchError}</p>
+                <div className="flex flex-wrap items-center justify-center gap-2 text-[11px]">
+                  <span className="text-gray-500 light:text-slate-400">Search instead by</span>
+                  <button onClick={() => { setSearchQuery('kaspa:'); setSearchError(null); }} className="px-2.5 py-1 rounded-lg border border-white/10 light:border-slate-200 text-gray-300 light:text-slate-600 hover:text-kaspa-green hover:border-kaspa-green/30 transition-colors font-mono">an address</button>
+                  <button onClick={() => { setSearchQuery('covenant.kas'); setSearchError(null); }} className="px-2.5 py-1 rounded-lg border border-white/10 light:border-slate-200 text-gray-300 light:text-slate-600 hover:text-kaspa-green hover:border-kaspa-green/30 transition-colors font-mono">a .kas name</button>
+                  <button onClick={() => { setActiveTab('explore'); setSearchError(null); setShowCategoryPanel(true); }} className="px-2.5 py-1 rounded-lg border border-white/10 light:border-slate-200 text-gray-300 light:text-slate-600 hover:text-kaspa-green hover:border-kaspa-green/30 transition-colors">a category</button>
+                </div>
               </div>
             )}
             {searchResults && !searchLoading && searchResults.data.length > 0 && (
@@ -832,6 +943,7 @@ export default function Explorer() {
 
 /* PREMIUM COVENANT CARD - rich data, all info, premium visuals */
 function CovenantCard({ covenant: c, index, ownerAddress }) {
+  const navigate = useNavigate();
   const tierKey = (c.verified_tier || c.tier || 'FREE').toUpperCase();
   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
   const IconComponent = cfg.icon;
@@ -962,7 +1074,10 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             style={isPaidVerified ? { color: themeAccent } : undefined}>
             {covenantName}
           </h3>
-          <div className="mt-0.5 text-[10px] font-mono text-gray-500 light:text-slate-400 truncate opacity-60">{txShort}...</div>
+          <div className="mt-0.5 flex items-center gap-1 text-[10px] font-mono text-gray-500 light:text-slate-400 opacity-60">
+            <span className="truncate">{txShort}...</span>
+            {c.tx_id && <CopyButton value={c.tx_id} label="Copy txid" size={11} className="p-0.5 opacity-80" />}
+          </div>
         </div>
 
         {/* Value-locked hero + live status (the pot - leads like a gambling card) */}
@@ -1036,10 +1151,24 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           </div>
         )}
 
-        {/* Footer - quiet provenance on the left, the action on the right */}
+        {/* Footer - quiet provenance on the left, the action on the right. The creator
+            address is a click target to its portfolio. The card is itself a <Link>, so
+            a nested <Link> would be invalid HTML; navigate programmatically and stop the
+            event from bubbling to the card. */}
         <div className="mt-auto pt-3.5 border-t border-white/5 flex items-center justify-between gap-2 text-[10px] font-mono">
           <span className="text-gray-500 truncate">
-            <span className="text-gray-400">{creatorName.slice(0, 10)}…</span>
+            {creatorName ? (
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/address/${encodeURIComponent(creatorName)}`); }}
+                title={`View ${creatorName} portfolio`}
+                className="text-gray-400 hover:text-kaspa-green transition-colors"
+              >
+                {creatorName.slice(0, 10)}…
+              </button>
+            ) : (
+              <span className="text-gray-400">Unknown</span>
+            )}
             <span className="mx-1.5 text-white/15">·</span>
             {timestamp}
           </span>

@@ -34,6 +34,7 @@ import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
 import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
+import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -1232,21 +1233,45 @@ export default function CovenantInteractive() {
             <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest light:text-slate-600">Receiving Addresses (all flows public)</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
-                <div className="text-gray-400 light:text-slate-500">Covenant / Pot Address</div>
-                <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.address || covenant.receiving_addresses || 'On-chain covenant address'}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-gray-400 light:text-slate-500">Covenant / Pot Address</div>
+                  {(covenant.address || covenant.receiving_addresses) && (
+                    <CopyButton value={covenant.address || covenant.receiving_addresses} label="Copy covenant address" size={12} stopPropagation={false} />
+                  )}
+                </div>
+                {covenant.address ? (
+                  <Link to={`/address/${encodeURIComponent(covenant.address)}`} className="font-mono text-white break-all mt-0.5 light:text-slate-900 hover:text-kaspa-green light:hover:text-emerald-700 transition-colors block">{covenant.address}</Link>
+                ) : (
+                  <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.receiving_addresses || 'On-chain covenant address'}</div>
+                )}
               </div>
               {covenant.fee_recipient ? (
                 <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
-                  <div className="text-gray-400 light:text-slate-500">Fee Recipient</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-gray-400 light:text-slate-500">Fee Recipient</div>
+                    <CopyButton value={covenant.fee_recipient} label="Copy fee recipient" size={12} stopPropagation={false} />
+                  </div>
                   <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.fee_recipient}</div>
                 </div>
               ) : null}
               <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
-                <div className="text-gray-400 light:text-slate-500">Creator Address (fee cut / sustain)</div>
-                <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.creator_addr || 'See covenant deployer'}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-gray-400 light:text-slate-500">Creator Address (fee cut / sustain)</div>
+                  {covenant.creator_addr && (
+                    <CopyButton value={covenant.creator_addr} label="Copy creator address" size={12} stopPropagation={false} />
+                  )}
+                </div>
+                {covenant.creator_addr ? (
+                  <Link to={`/address/${encodeURIComponent(covenant.creator_addr)}`} className="font-mono text-white break-all mt-0.5 light:text-slate-900 hover:text-kaspa-green light:hover:text-emerald-700 transition-colors block">{covenant.creator_addr}</Link>
+                ) : (
+                  <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">See covenant deployer</div>
+                )}
               </div>
               <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
-                <div className="text-gray-400 light:text-slate-500">TX / Script</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-gray-400 light:text-slate-500">TX / Script</div>
+                  {covenant.tx_id && <CopyButton value={covenant.tx_id} label="Copy txid" size={12} stopPropagation={false} />}
+                </div>
                 <div className="font-mono text-white break-all mt-0.5 text-[10px] light:text-slate-900">{covenant.tx_id} / {covenant.script_hash || 'on-chain'}</div>
               </div>
             </div>
@@ -1286,8 +1311,11 @@ export default function CovenantInteractive() {
           </div>
 
           {/* TXID */}
-          <div className="mt-4 p-3 rounded-xl bg-black/30 border border-white/5">
-            <p className="text-xs text-gray-300 mb-1">TXID</p>
+          <div className="mt-4 p-3 rounded-xl bg-black/30 border border-white/5 light:bg-slate-50 light:border-slate-200">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-xs text-gray-300 light:text-slate-500">TXID</p>
+              {covenant.tx_id && <CopyButton value={covenant.tx_id} label="Copy txid" size={12} stopPropagation={false} />}
+            </div>
             <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
           </div>
 

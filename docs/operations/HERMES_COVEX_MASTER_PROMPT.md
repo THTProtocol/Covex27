@@ -113,7 +113,7 @@ In `Explorer.jsx`, enhance CovenantCard to show:
 ### PHASE 5: FULL PAYMENT FLOW VERIFICATION (10 min)
 In `Pricing.jsx`, verify:
 - Payment triggers `sendPayment` to correct treasury (per-network)
-- On success: saves `payment_just_confirmed` to sessionStorage, navigates to `/premium`
+- On success: saves a `payment_broadcast_tx` HINT to sessionStorage (payer address + txid + broadcastAt) so the Sandbox can show an honest "broadcast, awaiting on-chain confirmation" banner, then navigates to `/premium` (which is a Navigate to `/sandbox?paid=1`). The marker is never trusted for tier gating; tier access is decided only by `/api/paid-status` once the chain confirms.
 - `/premium` (PremiumBuilder) reads sessionStorage, verifies via `/api/auth-session`, grants sandbox access
 - No intermediate `/paid-builder` page - direct to sandbox
 

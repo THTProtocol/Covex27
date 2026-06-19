@@ -110,7 +110,7 @@
 110|110|    - User selects tier → sends KAS to treasury via wallet extension
 111|111|    - Tier prices: FREE (0), BUILDER (100), PRO (500), MAX (1000)
 112|112|    - Payment memo: "covex-upgrade:<tier_id>"
-113|113|    - Success → sessionStorage.payment_just_confirmed → navigate to /paid-builder
+113|113|    - Broadcast → sessionStorage.payment_broadcast_tx (HINT only, never trusted for tier) → navigate to /premium (Navigate to /sandbox?paid=1)
 114|114|    
 115|115|    STATUS: WORKING. Uses real wallet.sendPayment(). No localStorage bypass.
 116|116|
@@ -142,8 +142,10 @@
 142|142|## 2.3 ISSUES
 143|143|
 144|144|  None critical. The server-auth paywall is working as designed.
-145|145|  Minor note: sessionStorage.payment_just_confirmed is a bridge mechanism but
-146|146|  token validation still happens server-side so no security issue.
+145|145|  Minor note: the dead `payment_just_confirmed` bridge marker was REMOVED in
+146|146|  favor of a single `payment_broadcast_tx` HINT (broadcast pending) that the
+147|147|  Sandbox surfaces as an honest "awaiting on-chain confirmation" banner. Tier
+148|148|  validation still happens server-side via /api/paid-status, so no security issue.
 147|147|
 148|148|================================================================================
 149|149|SECTION 3: DEPLOYMENT FLOW AUDIT

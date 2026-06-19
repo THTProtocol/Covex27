@@ -27,6 +27,7 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/lock-pot", post(lock_pot))
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
         .route("/games/:covenant_id/lock-channel", post(lock_channel))
+        .route("/games/:covenant_id/bind-channel-pot", post(bind_channel_pot))
         .route("/games/:covenant_id/settle-channel", post(settle_channel))
         .route("/games/:covenant_id/refund-channel", post(refund_channel))
 }
@@ -99,6 +100,39 @@ fn authorize_money_caller(
     }
     Err("invalid or missing seat token - only a seated player of this match may move its funds"
         .to_string())
+}
+
+// ── Public thin wrappers for the off-chain channel relay (channel.rs). They expose
+// the SAME fail-closed auth and the SAME address->x-only derivation the money routes
+// use, so the relay cannot accept a caller or a member the on-chain path would not. ──
+
+/// Authorise a channel-relay caller by seat token. Ok = a seated player of this
+/// match; Err = rejected (fail-closed, empty token always rejected). The seat
+/// identity is intentionally collapsed to () here: a checkpoint may be advanced by
+/// either seated player, and which member a partial sig belongs to is enforced
+/// separately by matching the signer x-only against the players.
+pub fn authorize_money_caller_pub(
+    db: &crate::db::Db,
+    covenant_id: &str,
+    supplied: &str,
+) -> Result<(), String> {
+    authorize_money_caller(db, covenant_id, supplied).map(|_| ())
+}
+
+/// Derive a schnorr x-only pubkey (hex) from a kaspa address. Same derivation the
+/// channel deploy/close uses, so the relay validates members against the exact keys
+/// that appear in the on-chain redeem.
+pub fn xonly_hex_from_address_pub(addr: &str) -> Result<String, String> {
+    xonly_hex_from_address(addr)
+}
+
+/// (player1, player2) addresses for a match, or None if the match does not exist.
+pub fn game_players_pub(db: &crate::db::Db, covenant_id: &str) -> Option<(String, String)> {
+    let game = fetch_game(db, covenant_id)?;
+    Some((
+        game["player1"].as_str().unwrap_or("").to_string(),
+        game["player2"].as_str().unwrap_or("").to_string(),
+    ))
 }
 
 /// Body for the no-arg money routes (settle-pot, settle-channel, refund-channel):
@@ -353,13 +387,16 @@ async fn settle_pot(
     Json(v)
 }
 
-/// POST /games/:id/lock-channel {stake_kas, network?} : the TRUSTLESS games pot. Locks
-/// the stake into a 2-of-2 multisig between the two PLAYERS only - there is NO Covex
-/// oracle key in the redeem, so Covex can never move the funds. The pot releases only
-/// when both players co-sign (cooperative close to the agreed winner, see settle-channel)
-/// or, in the full state-channel design, via a CLTV-timeout default. The dev flow funds
-/// via player1 and both keys are dev wallets, so it exercises the mechanism end to end;
-/// production has each player's own wallet sign its half.
+/// POST /games/:id/lock-channel {stake_kas, refund_after_daa, network?} : the TRUSTLESS,
+/// NON-CUSTODIAL games pot. Locks the stake into the on-chain channel script (OP_IF 2-of-2
+/// [player1, player2] cooperative close, OP_ELSE a CLTV refund to the funder = player1).
+/// There is NO Covex oracle key in the redeem, so Covex can never move the funds.
+///
+/// De-custodialized: this returns the UNSIGNED funding tx + the sighash for player1's
+/// WALLET to sign in the browser (via /covenant/p2sh/prepare-deploy). The browser then
+/// posts the signature to /covenant/p2sh/submit-deploy. No private key ever touches the
+/// server - the old use_dev_mode operator-custody path is gone. The funder is player1 so
+/// that the CLTV refund branch (which only the funder can take) matches who paid in.
 async fn lock_channel(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -386,42 +423,113 @@ async fn lock_channel(
     let net = req.get("network").and_then(|v| v.as_str()).unwrap_or("testnet-12").to_string();
     // refund_after_daa: the absolute DAA after which the funder may reclaim if there is no
     // cooperative close (so a vanished counterparty cannot freeze the pot). The caller
-    // (frontend) passes the current node DAA plus a window from /api/status.
+    // (frontend) passes the current node DAA plus a window from /api/status. Keep the
+    // window SHORT for low-trust games; note that the funder (player1) could stall a
+    // losing position by refusing the cooperative close and refunding after this DAA.
     let refund_after_daa = match req.get("refund_after_daa").and_then(|v| v.as_u64()) {
         Some(d) => d,
-        None => return Json(json!({ "success": false, "error": "lock-channel requires refund_after_daa (current node DAA + a refund window)" })),
+        None => return Json(json!({ "success": false, "error": "lock-channel requires refund_after_daa (current node DAA + a SHORT refund window)" })),
     };
     let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
     let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
 
     // Trustless channel: cooperative 2-of-2 [player1, player2] close OR a funder refund
-    // after refund_after_daa. NO oracle pubkey - Covex is never in the payout path.
-    let dreq: crate::covenant_builder::P2shDeployRequest = match serde_json::from_value(json!({
-        "network": net, "deployer_addr": p1, "use_dev_mode": true, "stake_kas": stake,
+    // after refund_after_daa. NO oracle pubkey - Covex is never in the payout path. We
+    // build the funding tx but DO NOT sign it: player1's wallet signs the returned sighash.
+    let dreq: crate::covenant_builder::PrepareDeployRequest = match serde_json::from_value(json!({
+        "network": net, "deployer_addr": p1, "stake_kas": stake,
         "redeem": { "kind": "channel", "pubkeys_hex": [p1x, p2x], "lock_daa": refund_after_daa }
     })) {
         Ok(r) => r,
         Err(e) => return Json(json!({ "success": false, "error": format!("build channel deploy: {e}") })),
     };
-    let v = crate::covenant_builder::p2sh_deploy_handler(Extension(db.clone()), Json(dreq)).await.0;
-    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
-        if let Some(tx) = v.get("deploy_tx_id").and_then(|t| t.as_str()) {
-            let conn = db.lock().unwrap();
-            let _ = conn.execute(
-                "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, updated_at = unixepoch() WHERE covenant_id = ?3",
-                params![tx, stake, covenant_id],
-            );
-        }
+    let v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(dreq)).await.0;
+    // The browser signs `sighash` and calls /covenant/p2sh/submit-deploy. We record the
+    // resulting deploy_tx_id by having the frontend re-call /games/:id/bind-channel-pot,
+    // OR (simpler) the frontend passes the deploy_tx_id to settle/refund directly. Here we
+    // surface a hint so the caller knows the next step; we do NOT mark pot_tx yet (no tx
+    // exists until the wallet broadcasts it).
+    let mut out = v;
+    if out.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        out["next"] = json!("sign `sighash` with player1's wallet, POST {session_id, signature_hex} to /covenant/p2sh/submit-deploy, then POST the returned deploy_tx_id to /games/:id/bind-channel-pot to link the pot to this match");
+        out["funder"] = json!(p1);
     }
-    Json(v)
+    Json(out)
 }
 
-/// POST /games/:id/settle-channel : cooperative close. Reads the SERVER-VERIFIED winner
-/// and releases the 2-of-2 player pot to them with BOTH players' signatures. No Covex
-/// oracle key is ever used - the chain pays the winner purely on the two players'
-/// co-signature. (Dev flow signs both dev wallets to exercise it; production has each
-/// player sign its half. A non-cooperating loser is handled by the CLTV-timeout default
-/// in the full state-channel build.)
+/// POST /games/:id/bind-channel-pot {deploy_tx_id, token} : after the funder's wallet has
+/// broadcast the channel funding tx (via /covenant/p2sh/submit-deploy), link that on-chain
+/// pot to this match so settle/refund can find it. Seat-token gated (fail-closed). We
+/// require the deploy_tx_id to be an indexed channel covenant whose funder address matches
+/// player1, so a caller cannot bind an unrelated or non-channel covenant as the pot.
+async fn bind_channel_pot(
+    Extension(db): Extension<crate::db::Db>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
+        return Json(json!({ "success": false, "error": e }));
+    }
+    let deploy_tx = match req.get("deploy_tx_id").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        Some(t) => t.to_string(),
+        None => return Json(json!({ "success": false, "error": "bind-channel-pot requires deploy_tx_id (from submit-deploy)" })),
+    };
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    // Verify the bound tx is a channel covenant funded by player1, so the pot the chain
+    // enforces is the 2-of-2 [p1, p2] / p1-refund script for THIS match.
+    let (kind, creator): (String, String) = {
+        let conn = db.lock().unwrap();
+        match conn.query_row(
+            "SELECT redeem_kind, creator_addr FROM p2sh_covenants WHERE tx_id = ?1",
+            params![deploy_tx],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+        ) {
+            Ok(v) => v,
+            Err(_) => return Json(json!({ "success": false, "error": "deploy_tx_id is not an indexed covenant (broadcast and index it via submit-deploy first)" })),
+        }
+    };
+    if !kind.starts_with("channel") {
+        return Json(json!({ "success": false, "error": format!("deploy_tx_id is a '{kind}' covenant, not a channel pot") }));
+    }
+    if creator != p1 {
+        return Json(json!({ "success": false, "error": "the channel pot was not funded by this match's player1 (funder mismatch)" }));
+    }
+    let pot_kas = game["pot_amount_kas"].as_f64().unwrap_or(0.0);
+    {
+        let conn = db.lock().unwrap();
+        let _ = conn.execute(
+            "UPDATE skill_games SET pot_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
+            params![deploy_tx, covenant_id],
+        );
+        let _ = conn.execute(
+            "UPDATE skill_games SET pot_amount_kas = (SELECT amount_kaspa FROM covenants WHERE tx_id = ?1 || ':0') WHERE covenant_id = ?2 AND pot_amount_kas = 0",
+            params![deploy_tx, covenant_id],
+        );
+        let _ = pot_kas;
+    }
+    Json(json!({ "success": true, "pot_tx": deploy_tx, "message": "channel pot linked to this match" }))
+}
+
+/// POST /games/:id/settle-channel : the cooperative close. Reads the SERVER-VERIFIED winner
+/// and builds the UNSIGNED 2-of-2 close paying that winner, returning the sighash BOTH
+/// players must sign in their own wallets. No Covex oracle key is ever used and the server
+/// holds NO key: the chain pays the winner purely on the two players' co-signature.
+///
+/// De-custodialized: the old use_dev_mode operator-custody path is gone. settle-channel no
+/// longer broadcasts; it returns {session_id, sighash, required_signers:[player1, player2]}.
+/// The browser collects BOTH BIP340 signatures over that exact sighash and POSTs them to
+/// /covenant/p2sh/submit-signed (channel close branch), which assembles `<sig_p2> <sig_p1>
+/// OP_TRUE` and broadcasts. A single-sig or wrong-signer close fails the on-chain script.
+///
+/// HONESTY: a non-cooperating loser is NOT punished on-chain (Kaspa 0.15.0 has no
+/// introspection opcodes, so no Lightning-style penalty tx is expressible). If a player
+/// refuses to co-sign, the ONLY recourse is the CLTV refund branch (funder = player1) after
+/// the channel's lock_daa. Keep the timeout window short for low-trust games.
 async fn settle_channel(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -485,32 +593,38 @@ async fn settle_channel(
         }
     }
     let dest = if dest_outcome == 0 { &p1 } else { &p2 };
-    // 2-of-2 cooperative close: spend the multisig pot to the winner. The spend handler
-    // uses both players' keys (dev wallets in dev mode); NO oracle key is involved.
-    let sreq: crate::covenant_builder::P2shSpendRequest = match serde_json::from_value(json!({
-        "network": net, "deploy_tx_id": pot_tx, "use_dev_mode": true, "destination_addr": dest
+    // 2-of-2 cooperative close: build the UNSIGNED spend paying the winner and return the
+    // sighash BOTH players sign in their wallets. NO server key, NO oracle key. The browser
+    // posts both sigs to /covenant/p2sh/submit-signed; the satisfier `<sig_p2> <sig_p1>
+    // OP_TRUE` selects the IF (cooperative-close) branch, so a single or wrong signature
+    // fails the script. We do NOT broadcast here.
+    let preq: crate::covenant_builder::WalletPrepareRequest = match serde_json::from_value(json!({
+        "network": net, "deploy_tx_id": pot_tx, "destination_addr": dest, "branch": "close"
     })) {
         Ok(r) => r,
         Err(e) => return Json(json!({ "success": false, "error": format!("build channel close: {e}") })),
     };
-    let v = crate::covenant_builder::p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
-    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
-        if let Some(tx) = v.get("spend_tx_id").and_then(|t| t.as_str()) {
-            let conn = db.lock().unwrap();
-            let _ = conn.execute(
-                "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
-                params![tx, covenant_id],
-            );
-        }
+    let v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq)).await.0;
+    let mut out = v;
+    if out.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        out["next"] = json!("both player1 and player2 sign `sighash` (BIP340) in their wallets, then POST {session_id, signatures:[{signer_xonly, signature_hex} x2]} to /covenant/p2sh/submit-signed to broadcast the cooperative close");
+        out["winner_dest"] = json!(dest);
     }
-    Json(v)
+    Json(out)
 }
 
 /// POST /games/:id/refund-channel : the funder (player1) reclaims the channel pot via the
 /// timeout branch when there was no cooperative close (e.g. the opponent vanished). The
-/// spend sets lock_time to the channel's refund_after_daa, so the node rejects it until
-/// the chain reaches that DAA. No oracle key - the funder always recovers after the
-/// timeout, so the pot can never be frozen.
+/// spend sets lock_time to the channel's refund_after_daa, so the node rejects it until the
+/// chain reaches that DAA, and the ELSE branch's CheckSig is player1's key, so ONLY the
+/// funder can take it. No oracle key - the funder always recovers after the timeout, so the
+/// pot can never be permanently frozen.
+///
+/// De-custodialized: the old use_dev_mode operator-custody path is gone. This returns the
+/// UNSIGNED refund tx + the sighash for PLAYER1's wallet to sign (branch=refund, satisfier
+/// `<sig_p1> OP_FALSE`). The browser POSTs {session_id, signature_hex} to
+/// /covenant/p2sh/submit-signed to broadcast. Restricted to player1 at BOTH layers: the
+/// seat-token gate here AND the on-chain refund CheckSig (player1's key).
 async fn refund_channel(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -550,23 +664,23 @@ async fn refund_channel(
         Some(t) if !t.is_empty() => t,
         _ => return Json(json!({ "success": false, "error": "no channel pot locked" })),
     };
-    let sreq: crate::covenant_builder::P2shSpendRequest = match serde_json::from_value(json!({
-        "network": net, "deploy_tx_id": pot_tx, "use_dev_mode": true, "destination_addr": p1, "channel_mode": "refund"
+    // Build the UNSIGNED refund spend (ELSE/timeout branch) and return the sighash for
+    // player1's wallet. branch=refund commits lock_time = the channel's refund DAA, so the
+    // node rejects it until the chain reaches it. NO server key, NO oracle key. The browser
+    // signs and POSTs to /covenant/p2sh/submit-signed; the satisfier `<sig_p1> OP_FALSE`
+    // selects the ELSE branch, which only player1's key can satisfy.
+    let preq: crate::covenant_builder::WalletPrepareRequest = match serde_json::from_value(json!({
+        "network": net, "deploy_tx_id": pot_tx, "destination_addr": p1, "branch": "refund"
     })) {
         Ok(r) => r,
         Err(e) => return Json(json!({ "success": false, "error": format!("build channel refund: {e}") })),
     };
-    let v = crate::covenant_builder::p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
-    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
-        if let Some(tx) = v.get("spend_tx_id").and_then(|t| t.as_str()) {
-            let conn = db.lock().unwrap();
-            let _ = conn.execute(
-                "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
-                params![tx, covenant_id],
-            );
-        }
+    let v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq)).await.0;
+    let mut out = v;
+    if out.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        out["next"] = json!("player1 signs `sighash` (BIP340) in their wallet, then POST {session_id, signature_hex} to /covenant/p2sh/submit-signed to broadcast the refund (valid only after the channel's refund DAA)");
     }
-    Json(v)
+    Json(out)
 }
 
 #[derive(serde::Deserialize)]

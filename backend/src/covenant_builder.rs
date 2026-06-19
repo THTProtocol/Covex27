@@ -5935,6 +5935,30 @@ mod tests {
             }),
             "channel close with a forged player2 signature must fail"
         );
+        // De-custodialization gate (deliverable b): a cooperative close needs BOTH DISTINCT
+        // player signatures. A close attempted with ONLY player1's signature must be refused
+        // at assembly (player2's sig is absent), so a lone player cannot self-pay the pot.
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                run_spend_generic(&redeem, 0, 0, |s| {
+                    let sigs = ext_sigs(s, &[&p1]); // only player1 present
+                    // assemble must Err ("channel close needs player2's signature"); unwrap panics.
+                    assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                })
+            }))
+            .is_err(),
+            "a single-signer (player1-only) cooperative close must be rejected at assembly"
+        );
+        // And player1 signing BOTH halves (the same key twice, no genuine second party) must
+        // not satisfy the on-chain script: the p2 OpCheckSig is bound to player2's key.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let mut sigs = ext_sigs(s, &[&p1]);
+                sigs.insert(hex::encode(xp2), ext_solo(s, &p1)); // player1 forging player2's slot
+                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+            }),
+            "player1 cannot fill player2's signature slot - a real second-party sig is required"
+        );
         // Refund: funder (p1) signs, lock_time = lock_daa.
         assert!(
             run_spend_generic(&redeem, lock_daa, 0, |s| {

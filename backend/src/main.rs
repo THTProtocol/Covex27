@@ -21,6 +21,7 @@ mod broadcast;
 #[allow(dead_code)]
 mod game_engine;
 mod games;
+mod channel;
 mod live;
 mod compiler;
 mod covenant_builder;
@@ -380,6 +381,7 @@ async fn main() {
         .route("/script/decompile", post(decompile_handler))
         .merge(live::live_routes())
         .merge(games::games_routes().layer(Extension(db.clone())))
+        .merge(channel::channel_routes().layer(Extension(db.clone())))
         .merge(poker::poker_routes().layer(Extension(db.clone())))
         .route("/events", get(events_handler))
         .route("/address/:addr", get(address_summary_handler))

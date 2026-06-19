@@ -1,8 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight, Info } from 'lucide-react';
+import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight, Info, Eye, X } from 'lucide-react';
 import TransparencyModal from './TransparencyModal';
+import SandboxCircuitPreview from './SandboxCircuitPreview';
+
+// Lazy: the example-page preview pulls the Puck render bundle. Loading it only when
+// a visitor opens "See an example" keeps the Sandbox initial load lean.
+const CircuitExamplePreview = lazy(() => import('./CircuitExamplePreview'));
 
 // Lightweight load-time entrance for the on-load circuit grids: cards fade + rise 12px,
 // staggered. Drop-in layer that never touches the CircuitCard internals or its hover-lift.
@@ -60,7 +65,7 @@ const ONCHAIN_PRIMITIVES = [
   { kind: 'multisig', label: 'N-of-M multisig', demo: true },
 ];
 
-function CircuitCard({ c, active, onSelect, onInspect }) {
+function CircuitCard({ c, active, onSelect, onInspect, onExample }) {
   const m = rm(c.reality);
   return (
     <div
@@ -71,11 +76,21 @@ function CircuitCard({ c, active, onSelect, onInspect }) {
       }`}
     >
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity z-10" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />
-      <button onClick={() => onSelect(c.id)} title={`${c.name} - ${c.reality}`} className="block w-full text-left p-3">
+      <button onClick={() => onSelect(c.id)} title={`${c.name} - ${c.reality}`} className="block w-full text-left p-3 pb-1.5">
         <div className="relative flex items-start gap-2 pr-16">
           <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white light:text-slate-900'}`}>{c.name}</span>
         </div>
         <p className="relative text-[11px] text-gray-400 light:text-slate-500 leading-snug mt-1 line-clamp-2 pr-2">{c.description}</p>
+      </button>
+      {/* See an example: opens a read-only render of the resulting page (or, for
+          games, the resolution mini-flow) so the visitor previews before picking. */}
+      <button
+        type="button"
+        onClick={() => onExample(c)}
+        title="See an example: a read-only preview of the page this covenant lands in"
+        className="mx-3 mb-2.5 inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 light:text-slate-500 hover:text-kaspa-green transition-colors"
+      >
+        <Eye size={11} /> See an example
       </button>
       {/* The reality badge is itself the inspect trigger: press it to see how this is verified + the source. */}
       <button
@@ -91,10 +106,41 @@ function CircuitCard({ c, active, onSelect, onInspect }) {
   );
 }
 
+// Modal: a read-only example of what a circuit produces. Games (and pot-style
+// categories) show the SandboxCircuitPreview resolution mini-flow, which is the
+// honest "what happens" view; everything else shows a scaled, read-only render of
+// the covenant website the circuit lands in. Hoisted so it never remounts.
+function CircuitExampleModal({ circuit, onClose }) {
+  const isGame = circuit?.category === 'game' || circuit?.reality === 'decorative';
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={`Example: ${circuit?.name || 'covenant'}`} className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0f] light:bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.08] light:border-slate-200 shrink-0">
+          <div className="min-w-0">
+            <p className="text-sm font-black text-white light:text-slate-900 flex items-center gap-2"><Eye size={15} className="text-kaspa-green shrink-0" /> Example: {circuit?.name}</p>
+            <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5 truncate">{isGame ? 'How this resolves. Read-only preview, no wallet.' : 'A read-only preview of the page this covenant lands in.'}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white light:hover:text-slate-900 shrink-0"><X size={18} /></button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4">
+          {isGame ? (
+            <SandboxCircuitPreview circuit={circuit} kind="game" />
+          ) : (
+            <Suspense fallback={<div className="py-16 text-center text-[12px] text-gray-500 light:text-slate-400">Loading preview...</div>}>
+              <CircuitExamplePreview circuit={circuit} />
+            </Suspense>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SandboxGallery({ circuits, selectedId, onSelect }) {
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState({});
   const [infoCircuit, setInfoCircuit] = useState(null);
+  const [exampleCircuit, setExampleCircuit] = useState(null);
   const prefersReduced = useReducedMotion();
 
   const grouped = useMemo(() => {
@@ -116,6 +162,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
   return (
     <div>
       {infoCircuit && <TransparencyModal circuit={infoCircuit} onClose={() => setInfoCircuit(null)} />}
+      {exampleCircuit && <CircuitExampleModal circuit={exampleCircuit} onClose={() => setExampleCircuit(null)} />}
       <div className="flex items-center gap-2 mb-5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 max-w-md">
         <Search size={15} className="text-gray-400 shrink-0" />
         <input
@@ -129,7 +176,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
 
       {searchResults ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {searchResults.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} />)}
+          {searchResults.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} onExample={setExampleCircuit} />)}
           {searchResults.length === 0 && <div className="text-sm text-gray-500 py-8 col-span-full text-center">No covenants match your search.</div>}
         </div>
       ) : (
@@ -156,7 +203,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
                 >
                   {visible.map((c) => (
                     <motion.div key={c.id} variants={prefersReduced ? undefined : CARD_RISE}>
-                      <CircuitCard c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} />
+                      <CircuitCard c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} onExample={setExampleCircuit} />
                     </motion.div>
                   ))}
                 </motion.div>

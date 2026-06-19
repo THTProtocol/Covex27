@@ -170,3 +170,27 @@
 
 /* The token cheat-sheet summary marker is hidden (we use our own chrome). */
 .cvx-cheatsheet summary::-webkit-details-marker { display: none; }
+
+/* ---- Read-only scaled thumbnail of a Puck page ----
+   Used by the Studio starter-template picker, the TemplateGrid preview, and the
+   Sandbox "see an example" affordance to show a real, scaled-down <PuckRender>
+   layout (NOT a blank box) before the user commits. The inner .cvx-puck-thumb-page
+   renders at a fixed desktop design width and is scaled to fit via inline
+   transform; the outer clip hides the overflow and disables interaction. The
+   --cvx-thumb-scale var is set inline per call site so one rule serves every size. */
+.cvx-puck-thumb-clip {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0a0a0f;
+}
+.light .cvx-puck-thumb-clip { background: #f8fafc; }
+.cvx-puck-thumb-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1024px;
+  transform-origin: top left;
+  transform: scale(var(--cvx-thumb-scale, 0.12));
+  pointer-events: none;
+}

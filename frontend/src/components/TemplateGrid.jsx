@@ -9,6 +9,7 @@ import {
 } from '../lib/templates/templates';
 import { X, ArrowRight } from 'lucide-react';
 import { useWallet } from './WalletContext';
+import SandboxCircuitPreview from './SandboxCircuitPreview';
 
 // Stable identity hue per template (no Math.random), seeded purely by id. Mirrors the
 // Explorer CovenantCard top-accent vocabulary.
@@ -58,6 +59,49 @@ function templateReality(template) {
   if (mode === 'hybrid') return { key: 'hybrid', label: 'hybrid', style: 'bg-blue-500/15 text-blue-300 border-blue-500/30' };
   if (mode === 'zk') return { key: 'zk', label: 'zk · oracle-verified', style: 'bg-violet-500/15 text-violet-300 border-violet-500/30' };
   return { key: 'oracle', label: 'oracle-attested', style: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+}
+
+// Map a template's reality key (from templateReality) onto the enforcement-reality
+// vocabulary SandboxCircuitPreview understands (its RESOLUTION_FLOW keys). This keeps
+// the visual "how it resolves" mini-flow keyed to the SAME honest reality the chip
+// shows: on-chain stays on-chain, zk -> full-zk, hybrid stays hybrid, everything
+// else -> oracle-attested. No reality is upgraded.
+const TEMPLATE_REALITY_TO_CIRCUIT = { 'on-chain': 'on-chain', zk: 'full-zk', hybrid: 'hybrid', oracle: 'oracle-attested' };
+
+// Map a template category onto the circuit category SandboxCircuitPreview uses to
+// decide whether a competitive-pot payout simulation is meaningful (POT_CATEGORIES:
+// game / defi / oracle). Anything else falls through to a non-pot category.
+function templateCircuitCategory(category) {
+  if (category === 'Games') return 'game';
+  if (category === 'Prediction & Markets') return 'oracle';
+  if (category === 'Financial Tools' || category === 'Governance & DAOs') return 'defi';
+  return 'other';
+}
+
+// Synthesize the minimal circuit object SandboxCircuitPreview needs ({ id, name,
+// description, reality, category }) from a TemplateGrid template, so the preview
+// modal can render a REAL resolution mini-flow (and, for pot categories, the
+// faithful payout simulator) instead of only a metadata spec sheet. The reality is
+// taken from the same templateReality() the card chip uses, so the two never diverge.
+function templateToCircuit(template) {
+  if (!template) return null;
+  const reality = TEMPLATE_REALITY_TO_CIRCUIT[templateReality(template).key] || 'oracle-attested';
+  return {
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    reality,
+    category: templateCircuitCategory(template.category),
+  };
+}
+
+// The `kind` SandboxCircuitPreview expects: 'game' for game templates, 'oracle' for
+// oracle/market templates, otherwise a neutral value. Drives both the simulator
+// gating and the declared-logic resolutionMode inside the preview.
+function templatePreviewKind(template) {
+  if (template?.category === 'Games') return 'game';
+  if (template?.category === 'Prediction & Markets') return 'oracle';
+  return 'covenant';
 }
 
 /**
@@ -248,16 +292,21 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
       </motion.div>
 
       {/* Preview Modal - glass-panel + detail-hero-enhanced + covex-aurora. Embedded hosts
-          can render their own preview if they need a different surface. */}
+          can render their own preview if they need a different surface. Now actually
+          visual: it embeds the SandboxCircuitPreview "how it resolves" mini-flow (and,
+          for pot categories, the faithful payout simulator), keyed to the same honest
+          enforcement reality the card chip shows, so "Preview" stops being a spec sheet. */}
       {!embedded && selectedTemplate && (() => {
         const reality = templateReality(selectedTemplate);
         const hue = templateHue(selectedTemplate.id);
+        const circuit = templateToCircuit(selectedTemplate);
+        const previewKind = templatePreviewKind(selectedTemplate);
         return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-6" onClick={() => setSelectedTemplate(null)}>
-          <div className="glass-panel detail-hero-enhanced relative overflow-hidden border border-white/10 light:border-slate-200 rounded-3xl max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 sm:p-6" onClick={() => setSelectedTemplate(null)}>
+          <div className="glass-panel detail-hero-enhanced relative overflow-hidden border border-white/10 light:border-slate-200 rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="covex-aurora" aria-hidden="true" style={{ top: -30, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 340, height: 180, maxWidth: '90vw', opacity: 0.5 }} />
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-6 gap-3">
+            <div className="relative z-10 flex flex-col min-h-0 p-6 sm:p-8">
+              <div className="flex justify-between items-start mb-6 gap-3 shrink-0">
                 <div>
                   <div className="text-5xl mb-4">{selectedTemplate.icon}</div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -268,16 +317,21 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
                 <button onClick={() => setSelectedTemplate(null)} className="shrink-0 p-1.5 rounded-lg text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 light:hover:bg-slate-100 transition-colors" aria-label="Close"><X size={18} /></button>
               </div>
 
-              <p className="text-gray-300 light:text-slate-600 mb-6 leading-relaxed">{selectedTemplate.description}</p>
+              <div className="flex-1 min-h-0 overflow-y-auto -mr-2 pr-2">
+                <p className="text-gray-300 light:text-slate-600 mb-6 leading-relaxed">{selectedTemplate.description}</p>
 
-              <div className="text-sm space-y-2 mb-6 rounded-2xl border border-white/[0.07] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 p-4 text-gray-200 light:text-slate-700">
-                <div><span className="text-gray-400 light:text-slate-500">Category:</span> {selectedTemplate.category}</div>
-                <div><span className="text-gray-400 light:text-slate-500">Difficulty:</span> {selectedTemplate.difficulty}</div>
-                <div><span className="text-gray-400 light:text-slate-500">Recommended Tier:</span> {selectedTemplate.recommendedTier}</div>
-                <div><span className="text-gray-400 light:text-slate-500">Setup Time:</span> {selectedTemplate.estimatedTime}</div>
+                {/* Visual preview: the real resolution mini-flow this template lands in. */}
+                {circuit && <SandboxCircuitPreview circuit={circuit} kind={previewKind} />}
+
+                <div className="text-sm space-y-2 mb-2 rounded-2xl border border-white/[0.07] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 p-4 text-gray-200 light:text-slate-700">
+                  <div><span className="text-gray-400 light:text-slate-500">Category:</span> {selectedTemplate.category}</div>
+                  <div><span className="text-gray-400 light:text-slate-500">Difficulty:</span> {selectedTemplate.difficulty}</div>
+                  <div><span className="text-gray-400 light:text-slate-500">Recommended Tier:</span> {selectedTemplate.recommendedTier}</div>
+                  <div><span className="text-gray-400 light:text-slate-500">Setup Time:</span> {selectedTemplate.estimatedTime}</div>
+                </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 mt-6 shrink-0">
                 <button
                   onClick={() => setSelectedTemplate(null)}
                   className="flex-1 py-3 rounded-xl border border-white/15 light:border-slate-200 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition"

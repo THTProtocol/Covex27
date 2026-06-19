@@ -17,6 +17,52 @@ const newBlockId = (type) => `${type}-${Math.random().toString(36).slice(2, 9)}`
 
 const EMPTY_PAGE = { content: [], root: { props: {} } };
 
+// Human-readable label for a Puck content block, drawn from the catalog's own
+// component `label` (e.g. HeroImage -> "Hero (image)") so the transparency list
+// the user reads matches the editor's own naming. Falls back to the raw type.
+const blockLabel = (type) => (puckConfig.components?.[type]?.label) || type || 'Block';
+
+// Ordered, de-duplicated list of the human-readable block names a Puck page
+// contains. Powers the "what this layout includes" transparency line (T4) under
+// each template thumbnail. Pure; safe to call during render.
+const pageBlockNames = (data) => {
+  const seen = new Set();
+  const out = [];
+  for (const item of (data?.content || [])) {
+    const name = blockLabel(item?.type);
+    if (!seen.has(name)) { seen.add(name); out.push(name); }
+  }
+  return out;
+};
+
+// Read-only, scaled-down thumbnail of a Puck page. Reuses the SAME PuckRender +
+// puckConfig + live metadata the canvas and public page use, so the preview is a
+// real layout, never a mock. Rendered at a fixed 1024px design width inside a
+// clipped, pointer-events:none container and scaled to fit (covexPuck.css owns
+// the clip + transform; only the per-call scale + height vary). Hoisted to module
+// scope so it never remounts. ResizeObserver-free: the scale is fixed and the
+// clip height is a prop, which is enough for a static thumbnail.
+function PuckPageThumb({ data, liveData, height = 120, scale = 0.16, className = '' }) {
+  const hasContent = !!(data && data.content && data.content.length);
+  return (
+    <div
+      className={`cvx-puck-thumb-clip ${className}`}
+      style={{ height }}
+      aria-hidden="true"
+    >
+      {hasContent ? (
+        <div className="cvx-puck-thumb-page" style={{ '--cvx-thumb-scale': scale }}>
+          <PuckRender config={puckConfig} data={data} metadata={{ live: liveData }} />
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-full text-[10px] uppercase tracking-widest font-bold text-gray-500 light:text-slate-400">
+          Blank page
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Simple focus trap: while `active`, scopes Tab / Shift+Tab cycling to focusable
 // elements inside `ref.current`, restoring focus to the previously-focused element
 // on deactivate. Used by every Studio drawer so a keyboard user cannot tab into
@@ -115,7 +161,7 @@ export default function CovenantStudio() {
   // Single source of truth for every Studio drawer / overlay. Only one is open at
   // a time, which removes the prior "Esc closed only the topmost" ambiguity and
   // lets a single page-level Escape handler and one focus trap own the contract.
-  // Drawer ids: 'tools' | 'picker' | 'themes' | 'settings' | 'more' | 'tokens' | 'help'.
+  // Drawer ids: 'tools' | 'picker' | 'themes' | 'settings' | 'more' | 'tokens' | 'help' | 'preview'.
   // Page settings drawer absorbs the only unique controls the old Fix page had
   // (stake / name / description), persisted via the SAME terminal-config POST.
   // The 'more' overflow menu collapses Settings / Theme / Templates / Tokens behind
@@ -451,6 +497,17 @@ export default function CovenantStudio() {
           >
             <Wrench size={14} /> <span className="hidden sm:inline">Add block</span>
           </button>
+          {/* Preview page: opens the CLEAN public render (no editor chrome / drag
+              handles) using the SAME PuckRender + data the public page uses, so it
+              is exactly what viewers see. Desktop inline; mobile in overflow menu. */}
+          <button
+            onClick={() => openDrawer('preview')}
+            aria-label="Preview page"
+            title="See the clean public page exactly as visitors will, with no editor handles. Nothing is published."
+            className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+          >
+            <Eye size={14} /> <span className="hidden sm:inline">Preview page</span>
+          </button>
           {/* Mobile-only overflow trigger (44px touch target). */}
           <button
             ref={moreBtnRef}
@@ -547,8 +604,17 @@ export default function CovenantStudio() {
       {activeDrawer === 'picker' && (
         <TemplatePickerModal
           defaultId={defaultTemplateId}
+          liveData={liveData}
           onPick={applyTemplate}
           onBlank={startBlank}
+          onClose={closeDrawer}
+        />
+      )}
+      {activeDrawer === 'preview' && (
+        <PagePreviewModal
+          data={puckDataRef.current || initialData || EMPTY_PAGE}
+          liveData={liveData}
+          covenantId={id}
           onClose={closeDrawer}
         />
       )}
@@ -591,6 +657,9 @@ function MoreMenu({ openDrawer, closeDrawer }) {
         </button>
         <button role="menuitem" onClick={() => openDrawer('picker')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
           <LayoutTemplate size={15} /> Templates
+        </button>
+        <button role="menuitem" onClick={() => openDrawer('preview')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <Eye size={15} /> Preview page
         </button>
         <div className="h-px bg-white/[0.08] light:bg-slate-200 my-1" />
         <button role="menuitem" onClick={() => openDrawer('tokens')} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-kaspa-green hover:bg-kaspa-green/[0.08] light:hover:bg-teal-50 transition-colors">
@@ -737,7 +806,7 @@ function BlockSearch({ children, paletteOpen = false, onClosePalette, onAddBlock
 }
 
 // ── First-run starter-template picker. Defaults the selection by covenant type. ──
-function TemplatePickerModal({ defaultId, onPick, onBlank, onClose }) {
+function TemplatePickerModal({ defaultId, liveData, onPick, onBlank, onClose }) {
   const [sel, setSel] = useState(defaultId);
   const trapRef = useRef(null);
   useFocusTrap(trapRef, true);
@@ -754,15 +823,29 @@ function TemplatePickerModal({ defaultId, onPick, onBlank, onClose }) {
         <div className="p-4 grid sm:grid-cols-2 gap-3 sm:gap-4">
           {STARTER_TEMPLATES.map((t) => {
             const active = sel === t.id;
+            const blocks = pageBlockNames(t.data);
             return (
               <button key={t.id} onClick={() => setSel(t.id)}
-                className={`text-left rounded-xl border p-4 transition-all ${active ? 'border-kaspa-green bg-kaspa-green/[0.06]' : 'border-white/10 light:border-slate-200 hover:border-white/25 light:hover:border-slate-300'}`}>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-sm font-bold text-white light:text-slate-900">{t.name}</span>
-                  {active && <Check size={15} className="text-kaspa-green shrink-0" />}
-                  {!active && t.id === defaultId && <span className="text-[9px] font-bold uppercase tracking-wider text-kaspa-green shrink-0">Suggested</span>}
+                className={`text-left rounded-xl border overflow-hidden transition-all ${active ? 'border-kaspa-green bg-kaspa-green/[0.06]' : 'border-white/10 light:border-slate-200 hover:border-white/25 light:hover:border-slate-300'}`}>
+                {/* Real, scaled read-only render of the starter layout so the user
+                    sees it before applying. Pointer-events disabled inside. */}
+                <PuckPageThumb data={t.data} liveData={liveData} height={130} scale={0.135} className="border-b border-white/[0.06] light:border-slate-200" />
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-sm font-bold text-white light:text-slate-900">{t.name}</span>
+                    {active && <Check size={15} className="text-kaspa-green shrink-0" />}
+                    {!active && t.id === defaultId && <span className="text-[9px] font-bold uppercase tracking-wider text-kaspa-green shrink-0">Suggested</span>}
+                  </div>
+                  <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed">{t.desc}</p>
+                  {/* T4 transparency: name every block this layout drops in. */}
+                  {blocks.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1">
+                      {blocks.map((b) => (
+                        <span key={b} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/[0.06] light:border-slate-200">{b}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed">{t.desc}</p>
               </button>
             );
           })}
@@ -770,6 +853,56 @@ function TemplatePickerModal({ defaultId, onPick, onBlank, onClose }) {
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-white/[0.08] light:border-slate-200">
           <button onClick={onBlank} className="text-xs font-semibold text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900">Start blank</button>
           <button onClick={() => onPick(sel)} className="px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 transition-all">Use this template</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── "Preview page" overlay: the CLEAN public render, no editor chrome. ──
+// Uses the SAME PuckRender + puckConfig + live metadata the public page uses, so
+// it is exactly what a visitor sees, not a separate mock. Read-only by nature
+// (PuckRender emits no drag handles), and pointer-events stay live so the user can
+// scroll the page; only publishing is gated behind the Publish button. Also offers
+// a direct link to the real /covenant/:id page in a new tab. Hoisted so it never
+// remounts; wears the same focus trap as the other Studio dialogs.
+function PagePreviewModal({ data, liveData, covenantId, onClose }) {
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, true);
+  const hasContent = !!(data && data.content && data.content.length);
+  const publicUrl = covenantId ? `/covenant/${encodeURIComponent(covenantId)}` : null;
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/75 light:bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Page preview" className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0f] light:bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.08] light:border-slate-200 shrink-0">
+          <div className="min-w-0">
+            <p className="text-sm font-black text-white light:text-slate-900 flex items-center gap-2"><Eye size={15} className="text-kaspa-green shrink-0" /> Preview page</p>
+            <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5 truncate">Exactly what visitors see. Nothing is published until you press Publish.</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {publicUrl && (
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-9 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+              >
+                Open public page
+              </a>
+            )}
+            <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white light:hover:text-slate-900"><X size={18} /></button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          {hasContent ? (
+            <PuckRender config={puckConfig} data={data} metadata={{ live: liveData }} />
+          ) : (
+            <div className="px-5 py-16 text-center">
+              <Sparkles size={20} className="text-kaspa-green mx-auto mb-2" />
+              <p className="text-[13px] font-semibold text-white light:text-slate-900">Nothing to preview yet</p>
+              <p className="text-[11px] text-gray-400 light:text-slate-500 mt-1 leading-relaxed">Pick a starter template or add a block, then preview.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -134,6 +134,24 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
   // null = modal closed; opening preselects the covenant whose row was clicked.
   const [shareForId, setShareForId] = useState(null);
 
+  // Live winner-multiplier preview for the market builder, recomputed as the user
+  // types the fee / rebate. Uses the SAME parimutuel math as the market page's
+  // winMult (CovenantInteractive winMult): with fee f and rebate r, a winner gets
+  // (1-f) + (1-f-r)*(opp/your). For an even pool (your == opp -> ratio 1) that is
+  // 2 - 2f - r. This turns two abstract percentages into a previewable payout.
+  // Honest framing: it is an EXAMPLE on an even pool, not a guaranteed return; the
+  // real multiple moves with the actual pool split and is computed identically on
+  // the live page. Returns null when the inputs are out of the allowed range.
+  const marketWinMult = useMemo(() => {
+    const f = parseFloat(mfee);
+    const r = parseFloat(mrebate);
+    if (!(f >= 0) || !(r >= 0) || (f + r) >= 100) return null;
+    const fF = f / 100;
+    const rF = r / 100;
+    const mult = (1 - fF) + (1 - fF - rF); // even pool: opp/your = 1
+    return mult > 0 ? mult : null;
+  }, [mfee, mrebate]);
+
   useEffect(() => {
     fetch('/api/covenant/catalog').then((r) => r.json()).then((j) => setCatalog(j.catalog || [])).catch(() => {});
     fetch('/api/status').then((r) => r.json()).then((j) => {
@@ -724,6 +742,26 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                   className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
               </label>
             </div>
+            {/* Live payout preview: turns the two percentages into a concrete example
+                multiple using the SAME math as the live market page (winMult). */}
+            {marketWinMult != null ? (
+              <div className="rounded-lg border border-kaspa-green/25 bg-kaspa-green/[0.06] px-3 py-2.5 light:border-emerald-500/30 light:bg-emerald-500/[0.06]">
+                <p className="text-[12px] text-gray-200 light:text-slate-700 leading-relaxed">
+                  Example: with an even pool, a winner gets back about{' '}
+                  <span className="font-mono font-bold text-kaspa-green light:text-emerald-600">{marketWinMult.toFixed(2)}x</span>{' '}
+                  their stake after fees.
+                </p>
+                <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1 leading-snug">
+                  An illustration on a balanced pool, not a guaranteed return. The real multiple moves with the actual YES/NO split and is computed the same way on the market page.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5">
+                <p className="text-[11px] text-amber-300 light:text-amber-700 leading-snug">
+                  Fee + rebate must stay under 100% so winners are funded. Adjust the percentages to see the example payout.
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-gray-400 light:text-slate-600 leading-relaxed">
               Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the disclosed oracle reveals one committed outcome secret; once it is revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
             </p>

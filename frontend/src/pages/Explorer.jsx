@@ -397,13 +397,14 @@ export default function Explorer() {
             Build a Covenant
           </Link>
           {/* Secondary hero CTA: the consensus-enforced primitives (hashlock, timelocks, HTLC,
-              channel, dead-man, multisig) are the strongest honest claim, so put the on-chain
-              builder one click from home. Emerald = on-chain enforcement reality. */}
+              channel, dead-man, multisig) stay one click from home, but as a ghost button so
+              "Build a Covenant" is the single primary. The subtle emerald accent keeps the
+              on-chain enforcement reality legible without competing with the primary. */}
           <Link
             to="/deploy/enforced"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-300 font-bold text-sm hover:border-emerald-400/60 hover:bg-emerald-500/[0.12] hover:text-emerald-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/[0.03] text-emerald-300/90 font-semibold text-sm hover:border-emerald-400/50 hover:bg-emerald-500/[0.08] hover:text-emerald-200 transition-all duration-300"
           >
-            <ShieldCheck size={16} className="transition-transform duration-300 group-hover:scale-110" />
+            <ShieldCheck size={16} className="text-emerald-400/90 transition-transform duration-300 group-hover:scale-110" />
             Deploy on-chain enforced
           </Link>
           <Link

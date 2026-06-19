@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useParams } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Route-level boundary: catches a single page's render/chunk-load error (e.g. a stale
@@ -8,6 +8,17 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 function RouteErrorBoundary({ children }) {
   const location = useLocation();
   return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
+}
+
+// The covenant Fix page is consolidated into Page Studio (one create -> design ->
+// preview -> deploy flow). /covenant/:id/fix redirects to that covenant's Studio,
+// preserving the id. Bare /fix has no covenant context, so it falls back to the
+// Sandbox builder where a creator starts a new covenant.
+function FixToStudioRedirect() {
+  const { id } = useParams();
+  return id
+    ? <Navigate to={`/covenant/${encodeURIComponent(id)}/studio`} replace />
+    : <Navigate to="/sandbox" replace />;
 }
 import { WalletProvider, useWallet } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
@@ -39,6 +50,7 @@ const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 const CovenantEmbed = lazy(() => import('./pages/CovenantEmbed'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
 const Readme = lazy(() => import('./pages/Readme'));
+const About = lazy(() => import('./pages/About'));
 const Recover = lazy(() => import('./pages/Recover'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { ThemeProvider } from './components/ThemeProvider';
@@ -51,6 +63,7 @@ import { Menu, X, ChevronDown, Download } from 'lucide-react';
 function LearnMenu() {
   const [open, setOpen] = useState(false);
   const items = [
+    ['About Covex', '/about'],
     ['How it Works', '/readme'],
     ['What is Kaspa', '/kaspa'],
     ['API Docs', '/docs'],
@@ -348,7 +361,7 @@ export default function App() {
               {/* Desktop Nav */}
               <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
-                <NavLink to="/sandbox" className={NL}>Sandbox</NavLink>
+                <NavLink to="/sandbox" className={NL}>Build</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
                 <NetworkSwitcher />
@@ -375,7 +388,7 @@ export default function App() {
               <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 text-sm">
                   <NavLink to="/" end className={NL} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
-                  <NavLink to="/sandbox" className={NL} onClick={() => setMobileMenuOpen(false)}>Sandbox</NavLink>
+                  <NavLink to="/sandbox" className={NL} onClick={() => setMobileMenuOpen(false)}>Build</NavLink>
                   <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <div className="mt-1 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
                   <NavLink to="/readme" className={NL} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
@@ -405,12 +418,13 @@ export default function App() {
             }>
             <Routes>
               <Route path="/" element={<Explorer />} />
-              <Route path="/fix" element={<CovenantFix />} />
+              {/* Fix is consolidated into Page Studio; preserve the id where present. */}
+              <Route path="/fix" element={<FixToStudioRedirect />} />
               {/* /covenant was leftover demo scaffolding ("Demo not found" with no param);
                   send it to the real deploy flow. */}
               <Route path="/covenant" element={<Navigate to="/deploy/enforced" replace />} />
               <Route path="/covenant/:id" element={<CovenantInteractive />} />
-              <Route path="/covenant/:id/fix" element={<CovenantFix />} />
+              <Route path="/covenant/:id/fix" element={<FixToStudioRedirect />} />
               <Route path="/kaspa" element={<WhatIsKaspaPage />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/terms" element={<Terms />} />
@@ -422,11 +436,13 @@ export default function App() {
               {/* /deploy/paid was an orphan duplicate builder; the live paid path is
                   Pricing -> /premium. Redirect to the canonical enforced deploy. */}
               <Route path="/deploy/paid" element={<Navigate to="/deploy/enforced" replace />} />
-              <Route path="/paid-builder" element={<PaidBuilder />} />
+              {/* /paid-builder was an orphan duplicate; the live paid path is /premium. */}
+              <Route path="/paid-builder" element={<Navigate to="/premium" replace />} />
               <Route path="/premium" element={<PremiumBuilder />} />
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/sandbox" element={<Sandbox />} />
               <Route path="/readme" element={<Readme />} />
+              <Route path="/about" element={<About />} />
               <Route path="/recover" element={<Recover />} />
               <Route path="/advanced" element={<AdvancedComposer />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />

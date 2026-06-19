@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Puck } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
@@ -36,6 +36,10 @@ export default function CovenantStudio() {
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  // Page settings drawer: stake amount + name / description override. These were the
+  // only unique controls in the old Fix page, absorbed here so a creator never needs a
+  // second tool. They persist via the SAME terminal-config POST as the page itself.
+  const [showSettings, setShowSettings] = useState(false);
   // Bump this to force the Puck tree to re-mount with fresh data (template / theme apply).
   const [dataKey, setDataKey] = useState(0);
   const puckDataRef = useRef(EMPTY_PAGE);
@@ -157,33 +161,63 @@ export default function CovenantStudio() {
     toast.success(`Applied the "${preset.palette.name}" page theme.`);
   }, []);
 
-  const save = useCallback(async (data) => {
+  // Single POST to the protected terminal-config endpoint, reused by both the Puck
+  // publish (page design) and the Page settings drawer (stake / name / description).
+  // `overrides` lets the settings drawer change name / description / theme without a
+  // separate endpoint or backend change. Stake round-trips inside theme.default_stake,
+  // exactly like the old Fix page, so it reads back via GET /api/terminal-config/:id.
+  const postConfig = useCallback(async ({ name, description, theme, puck_data, successMsg }) => {
     setSaving(true);
     try {
       const proof = await signCovenantOwnership(id, address, signMessage);
       const res = await fetch(`/api/terminal-config/${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...proof,
-          name: covenant?.name,
-          description: covenant?.description,
-          theme: covenant?.custom_ui_config?.theme || null,
-          puck_data: data,
-        }),
+        body: JSON.stringify({ ...proof, name, description, theme, puck_data }),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && (d.success || d.ok)) {
-        toast.success('Page published. Visitors now see your design.');
-      } else {
-        toast.error(d.error || 'Save failed. Check covenant ownership and try again.');
+        toast.success(successMsg || 'Saved.');
+        return true;
       }
+      toast.error(d.error || 'Save failed. Check covenant ownership and try again.');
+      return false;
     } catch (e) {
       toast.error(e?.message || 'Network error while saving.');
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [id, address, signMessage, covenant]);
+  }, [id, address, signMessage]);
+
+  // Puck publish: persists the page design. Name / description / theme carry forward
+  // from the covenant record so a publish never clobbers the Page settings values.
+  const save = useCallback((data) => postConfig({
+    name: covenant?.name,
+    description: covenant?.description,
+    theme: covenant?.custom_ui_config?.theme || null,
+    puck_data: data,
+    successMsg: 'Page published. Visitors now see your design.',
+  }), [postConfig, covenant]);
+
+  // Page settings: stake amount + name / description override. Preserves the current
+  // page design (puckDataRef) and merges stake into theme so neither is lost.
+  const saveSettings = useCallback(async ({ name, description, stake }) => {
+    const baseTheme = covenant?.custom_ui_config?.theme || {};
+    const theme = { ...baseTheme, default_stake: stake };
+    const ok = await postConfig({
+      name: name || covenant?.name,
+      description: description || covenant?.description,
+      theme,
+      puck_data: puckDataRef.current,
+      successMsg: 'Page settings saved. Stake, name and description updated.',
+    });
+    if (ok) {
+      setCovenant((c) => (c ? { ...c, name: name || c.name, description: description || c.description, custom_ui_config: { ...(c.custom_ui_config || {}), theme } } : c));
+      setShowSettings(false);
+    }
+    return ok;
+  }, [postConfig, covenant]);
 
   if (loading) {
     return <div className="flex justify-center py-32"><div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" /></div>;
@@ -215,6 +249,9 @@ export default function CovenantStudio() {
         </Link>
         <p className="text-xs font-bold text-white truncate min-w-0 px-2">{covenant.name || 'Covenant'} · Page Studio</p>
         <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+            <Settings size={13} /> Page settings
+          </button>
           <button onClick={() => setShowThemes(true)} className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Palette size={13} /> Theme
           </button>
@@ -256,6 +293,14 @@ export default function CovenantStudio() {
         />
       )}
       {showThemes && <ThemePickerModal onApply={applyTheme} onClose={() => setShowThemes(false)} />}
+      {showSettings && (
+        <PageSettingsModal
+          covenant={covenant}
+          saving={saving}
+          onSave={saveSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
       {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
     </div>
   );
@@ -358,6 +403,85 @@ function ThemePickerModal({ onApply, onClose }) {
               </div>
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page settings drawer: stake amount + name / description override. These are the
+// only unique controls the old Fix page had, absorbed into Studio so creators never
+// need a second tool. Saves via the SAME terminal-config POST (no new endpoint). The
+// stake is a default DISPLAY amount for the public page and arena; it never sets a fund
+// destination, which always derives from the indexed covenant record. Hoisted so it
+// never remounts mid-typing. Full dark / light / mobile parity. ──
+function PageSettingsModal({ covenant, saving, onSave, onClose }) {
+  const [name, setName] = useState(covenant?.name || '');
+  const [description, setDescription] = useState(covenant?.description || '');
+  const [stake, setStake] = useState(() => {
+    const s = covenant?.custom_ui_config?.theme?.default_stake;
+    return Number.isFinite(Number(s)) && Number(s) > 0 ? Number(s) : 50;
+  });
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 light:bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] light:border-slate-200">
+          <div>
+            <p className="text-sm font-black text-white light:text-slate-900">Page settings</p>
+            <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5">Stake amount, name and description. Saved with your page, one publish.</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white light:hover:text-slate-900"><X size={18} /></button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-400 light:text-slate-500 mb-1.5">Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={covenant?.name || 'Covenant name'}
+              className="w-full rounded-xl bg-black/40 light:bg-slate-50 border border-white/10 light:border-slate-300 px-3.5 py-2.5 text-sm text-white light:text-slate-900 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-400 light:text-slate-500 mb-1.5">Short description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder={covenant?.description || 'What this covenant does'}
+              className="w-full resize-none rounded-xl bg-black/40 light:bg-slate-50 border border-white/10 light:border-slate-300 px-3.5 py-2.5 text-sm text-white light:text-slate-900 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-gray-400 light:text-slate-500 mb-1.5">Default stake (KAS)</label>
+            <div className="flex items-center gap-2 rounded-xl bg-black/40 light:bg-slate-50 border border-white/10 light:border-slate-300 px-3.5 py-2.5 focus-within:border-kaspa-green/50">
+              <Coins size={16} className="text-kaspa-green shrink-0" />
+              <input
+                type="number"
+                min={1}
+                value={stake}
+                onChange={(e) => setStake(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                className="w-full bg-transparent text-sm text-white light:text-slate-900 focus:outline-none"
+              />
+            </div>
+            <p className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5 leading-relaxed">
+              The suggested stake shown on the public page and arena. Custody and payouts are always non-custodial and on-chain. The stake never sets a fund destination, which is derived from the covenant on-chain.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2.5 px-5 py-4 border-t border-white/[0.08] light:border-slate-200">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors">Cancel</button>
+          <button
+            onClick={() => onSave({ name: name.trim(), description: description.trim(), stake })}
+            disabled={saving}
+            className="px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-60 transition-all flex items-center gap-2"
+          >
+            <Save size={15} /> {saving ? 'Saving...' : 'Save settings'}
+          </button>
         </div>
       </div>
     </div>

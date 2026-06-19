@@ -16,8 +16,8 @@ import { Badge } from '../components/ui/Badge';
 
 // Covenant Sandbox: a calm, premium ORCHESTRATOR. It only sequences and frames the existing
 // engine, never re-implements its logic. The flow follows the user's exact mental model in three
-// named phases: (1) Create the covenant, (2) Add the oracle / ZK logic, (3) Add the interactive UI
-// website. One focused panel renders at a time with a persistent context bar so a newcomer never
+// named phases: (1) Create the covenant, (2) Choose how it resolves (the oracle / ZK logic),
+// (3) Build the page. One focused panel renders at a time with a persistent context bar so a newcomer never
 // gets lost, while an expert can jump phases without losing the selection. The non-custodial deploy
 // path inside CovexTerminal is untouched; tier gating via /api/paid-status stays intact; template
 // deep-links (?circuit=&kind=&name=&desc=) keep working and can land directly in Phase 2.
@@ -64,8 +64,8 @@ const DEFAULT_CIRCUIT = 'prediction_market';
 // The three renamed phases. One source of truth for the stepper rail and the bottom CTA.
 const PHASES = [
   { id: 'create', n: 1, label: 'Create', Icon: Wand2 },
-  { id: 'logic', n: 2, label: 'Add logic', Icon: Cpu },
-  { id: 'ui', n: 3, label: 'Interactive UI', Icon: Rocket },
+  { id: 'logic', n: 2, label: 'Choose how it resolves', Icon: Cpu },
+  { id: 'ui', n: 3, label: 'Build the page', Icon: Rocket },
 ];
 
 // Reduced-motion-safe cross-fade between phase panels (the y offset is dropped when reduced).
@@ -310,7 +310,7 @@ export default function Sandbox() {
           {/* PHASE 2 - ADD LOGIC */}
           {phase === 'logic' && (circuit && reality ? (
             <div className="space-y-4 min-w-0">
-              <PhaseHeader eyebrow="Step 2" title="Add the oracle / ZK logic" action="See exactly what the chain enforces, then tune it." />
+              <PhaseHeader eyebrow="Step 2" title="Choose how it resolves" action="See exactly what the chain enforces and who decides the outcome, then tune it." />
               <Card accent={reality.accent} className="overflow-hidden">
                 <div className="px-5 py-4 flex flex-wrap items-center gap-3">
                   <Boxes size={18} className="text-kaspa-green" />
@@ -337,7 +337,7 @@ export default function Sandbox() {
           {/* PHASE 3 - INTERACTIVE UI + the real builder */}
           {phase === 'ui' && (circuit ? (
             <div className="space-y-5 min-w-0">
-              <PhaseHeader eyebrow="Step 3" title="Add the interactive UI website" action="Build it, deploy non-custodially, then design its public page." />
+              <PhaseHeader eyebrow="Step 3" title="Build the page" action="Build it, deploy non-custodially, then design its public page." />
               {/* Honest Studio explainer. No fake reward, no fake deployed id, no decoder pre-deploy. */}
               <Card hover accent="#E8AF34" className="p-5">
                 <div className="flex items-start gap-4">
@@ -392,7 +392,7 @@ export default function Sandbox() {
             disabled={!circuit && phase !== 'create'}
             onClick={goForward}
           >
-            {phase === 'create' ? 'Continue: add logic' : 'Continue: interactive UI'} <ArrowRight size={15} />
+            {phase === 'create' ? 'Continue: choose how it resolves' : 'Continue: build the page'} <ArrowRight size={15} />
           </Button>
         </div>
       )}

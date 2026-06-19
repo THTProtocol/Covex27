@@ -895,22 +895,6 @@ export default function CovenantInteractive() {
         <ArrowLeft size={16} /> Return to Registry
       </Link>
 
-      {/* PROMINENT CREATOR FIX BAR AT THE VERY TOP OF THE PAGE */}
-      {isCreator && (
-        <div className="mb-6 p-4 rounded-3xl bg-purple-500/10 border-2 border-purple-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="text-purple-400 font-bold text-lg tracking-tight">Creator Mode: You own this covenant</div>
-            <div className="text-sm text-purple-300/80">Use the Fix tools to change how it looks and set the stake amount in one clean section.</div>
-          </div>
-          <Link 
-            to={`/covenant/${encodeURIComponent(id)}/fix`} 
-            className="px-8 py-3 bg-purple-500 hover:bg-purple-600 text-white font-extrabold rounded-2xl text-base flex items-center gap-2 shadow-xl active:scale-[0.98] whitespace-nowrap border border-purple-300/30"
-          >
-            <Palette size={18} /> FIX LOOKS + STAKE SETTINGS
-          </Link>
-        </div>
-      )}
-
       {/* Creator-designed page (Puck blocks, platform components only): a full-width
           hero section that LEADS the page, so the covenant reads like a real website.
           Live on-chain figures flow in via metadata.live and blocks resolve {{tokens}}
@@ -923,29 +907,33 @@ export default function CovenantInteractive() {
         </div>
       )}
 
-      {/* No custom page yet. For the creator, a clear call to design one; for a
-          visitor, a subtle honest note that the creator CAN build a full page
-          here (so the capability is discoverable without overstating it). */}
-      {!(covenant?.custom_ui_config?.puck_data?.content?.length > 0) && (
-        isCreator ? (
-          <Link
-            to={`/covenant/${encodeURIComponent(id)}/studio`}
-            className="mb-10 flex items-center gap-3 rounded-2xl border border-dashed border-kaspa-green/30 bg-kaspa-green/[0.04] hover:bg-kaspa-green/[0.08] hover:border-kaspa-green/50 light:border-emerald-500/40 light:bg-emerald-500/[0.05] px-4 sm:px-5 py-4 transition-all group"
-          >
-            <span className="shrink-0 w-9 h-9 rounded-xl bg-kaspa-green/10 flex items-center justify-center"><Layers size={17} className="text-kaspa-green" /></span>
-            <span className="min-w-0">
-              <span className="block text-sm font-bold text-white light:text-slate-900">Design a full interactive page</span>
-              <span className="block text-[12px] text-gray-400 light:text-slate-600">Open Page Studio to build a custom website for this covenant. Visitors will see it, and stake or interact buttons run the same non-custodial flow.</span>
+      {/* The single, persistent creator entry point to the builder. It shows for the
+          creator whether or not a page has been published yet (so the capability never
+          disappears after the first publish), and is the one green "Build / edit this
+          site" CTA that routes to Page Studio. The copy adapts to whether a page exists.
+          Visitors with no published page see a subtle honest note instead. */}
+      {isCreator ? (
+        <Link
+          to={`/covenant/${encodeURIComponent(id)}/studio`}
+          className="mb-10 flex items-center gap-3 rounded-2xl border border-kaspa-green/40 bg-kaspa-green/[0.06] hover:bg-kaspa-green/[0.12] hover:border-kaspa-green/60 light:border-emerald-500/50 light:bg-emerald-500/[0.07] px-4 sm:px-5 py-4 transition-all group"
+        >
+          <span className="shrink-0 w-9 h-9 rounded-xl bg-kaspa-green/15 flex items-center justify-center"><Layers size={17} className="text-kaspa-green" /></span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-white light:text-slate-900">Build / edit this site</span>
+            <span className="block text-[12px] text-gray-400 light:text-slate-600">
+              {covenant?.custom_ui_config?.puck_data?.content?.length > 0
+                ? 'Open Page Studio to keep editing this covenant public website. Visitors see your design, and stake or interact buttons run the same non-custodial flow.'
+                : 'Open Page Studio to build a custom website for this covenant. Visitors will see it, and stake or interact buttons run the same non-custodial flow.'}
             </span>
-            <ArrowRight size={16} className="ml-auto shrink-0 text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
-          </Link>
-        ) : (
-          <div className="mb-10 flex items-center gap-2.5 rounded-2xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-4 py-3 text-[12px] text-gray-400 light:text-slate-500">
-            <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-400" />
-            <span>The creator can design a full interactive page for this covenant in Covex Page Studio. Until then, you can interact with it directly below.</span>
-          </div>
-        )
-      )}
+          </span>
+          <ArrowRight size={16} className="ml-auto shrink-0 text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+      ) : !(covenant?.custom_ui_config?.puck_data?.content?.length > 0) ? (
+        <div className="mb-10 flex items-center gap-2.5 rounded-2xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-4 py-3 text-[12px] text-gray-400 light:text-slate-500">
+          <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-400" />
+          <span>The creator can design a full interactive page for this covenant in Covex Page Studio. Until then, you can interact with it directly below.</span>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left: Covenant metadata */}
@@ -991,21 +979,14 @@ export default function CovenantInteractive() {
                 <Share2 size={16} className="text-kaspa-green" /> Share
               </button>
 
-              {/* PROMINENT FIX BUTTON ON TOP for creators only, right next to title */}
-              {isCreator && (
-                <Link
-                  to={`/covenant/${encodeURIComponent(id)}/fix`}
-                  className="px-5 sm:px-6 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all border border-purple-400/30 whitespace-nowrap"
-                >
-                  <Palette size={16} /> FIX LOOKS + STAKE
-                </Link>
-              )}
+              {/* Single creator CTA next to the title: the one green Build / edit this
+                  site button that opens Page Studio. */}
               {isCreator && (
                 <Link
                   to={`/covenant/${encodeURIComponent(id)}/studio`}
                   className="px-5 sm:px-6 py-2.5 rounded-2xl bg-kaspa-green/90 hover:bg-kaspa-green text-black font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all whitespace-nowrap"
                 >
-                  <Layers size={16} /> PAGE STUDIO
+                  <Layers size={16} /> Build / edit this site
                 </Link>
               )}
             </div>
@@ -1293,12 +1274,6 @@ export default function CovenantInteractive() {
             <p className="text-xs font-mono text-kaspa-green break-all">{covenant.tx_id}</p>
           </div>
 
-          {/* For creators: note that Fix tab is open above for the clean garage + stake. Dedicated full list page still available. */}
-          {isCreator && (
-            <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="mt-6 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/10 transition-all text-sm font-semibold">
-              <Palette size={16} /> Open Full Fix Page (manage all my covenants)
-            </Link>
-          )}
         </motion.div>
 
         {/* Right: Tabs - Arena / Play (default, public, pro chess.com style for chess) | Fix (creator only, super clean garage + 1 stake section) | Terminal (creator advanced only) */}
@@ -1782,10 +1757,10 @@ export default function CovenantInteractive() {
                   <h3 className="text-lg font-semibold text-white mb-1">Fix: Manage Looks + Stake</h3>
                   <p className="text-xs text-gray-400">Super clean. One section for the stake amount and all the rules. Changes publish as the transparent view everyone else sees.</p>
                 </div>
-                <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="block w-full text-center px-6 py-4 rounded-3xl bg-kaspa-green text-black font-bold text-base">
-                  Open Full Fix Manager (Garage + Single Stake Section)
+                <Link to={`/covenant/${encodeURIComponent(id)}/studio`} className="block w-full text-center px-6 py-4 rounded-3xl bg-kaspa-green text-black font-bold text-base">
+                  Build / edit this site in Page Studio
                 </Link>
-                <div className="text-[11px] text-gray-500 text-center">The full clean editor (templates, live preview, one big stake input + rules) lives here and on the dedicated /fix page. All previous requirements (no paid hints, simplistic, transparent) are enforced.</div>
+                <div className="text-[11px] text-gray-500 text-center">Page Studio is the full drag and drop editor: templates, live preview, blocks, and the stake settings, all in one place.</div>
               </div>
             ) : (
               /* fallback for old builder or other */
@@ -1797,8 +1772,8 @@ export default function CovenantInteractive() {
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">Use the Fix tab (creator only) for the clean manager.</p>
                 </div>
-                <Link to={`/covenant/${encodeURIComponent(id)}/fix`} className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-kaspa-green text-black font-bold">
-                  Open Fix
+                <Link to={`/covenant/${encodeURIComponent(id)}/studio`} className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-kaspa-green text-black font-bold">
+                  Build / edit this site
                 </Link>
               </div>
             )}

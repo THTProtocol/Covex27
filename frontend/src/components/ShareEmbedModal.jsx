@@ -25,10 +25,13 @@ const TABS = [
 function OgCard({ name, reality, directUrl }) {
   const badge = REALITY_BADGE_LABEL[reality] || REALITY_BADGE_LABEL['on-chain'];
   // Honest palette mirrored from TrustBadge so this preview never overclaims:
-  // on-chain emerald, full-zk violet, hybrid sky, oracle amber, fallback slate.
+  // on-chain emerald, full-zk violet, full-zk-chain violet fill with emerald
+  // stroke (the 4-of-19 carve-out where ZK reduces to a chain hashlock),
+  // hybrid sky, oracle amber, fallback slate.
   const palette = {
     'on-chain': { fg: '#34d399', bg: 'rgba(16,185,129,0.16)', stroke: 'rgba(16,185,129,0.55)' },
     'full-zk': { fg: '#c4b5fd', bg: 'rgba(139,92,246,0.18)', stroke: 'rgba(139,92,246,0.6)' },
+    'full-zk-chain': { fg: '#a78bfa', bg: 'rgba(139,92,246,0.18)', stroke: 'rgba(16,185,129,0.7)' },
     'oracle-attested': { fg: '#fbbf24', bg: 'rgba(245,158,11,0.16)', stroke: 'rgba(245,158,11,0.55)' },
     hybrid: { fg: '#7dd3fc', bg: 'rgba(14,165,233,0.16)', stroke: 'rgba(14,165,233,0.55)' },
   }[reality] || { fg: '#cbd5e1', bg: 'rgba(148,163,184,0.16)', stroke: 'rgba(148,163,184,0.45)' };

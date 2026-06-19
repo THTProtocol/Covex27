@@ -42,6 +42,11 @@ const REALITY = {
     variant: 'full-zk',
     note: 'A real Groth16 proof, verified off-chain by the oracle. Not on-chain ZK.',
   },
+  'full-zk-chain': {
+    label: 'chain-enforced ZK',
+    variant: 'full-zk-chain',
+    note: 'Off-chain Groth16 verification gates a chain-enforced hashlock payout, end-to-end on Kaspa.',
+  },
   metadata: {
     label: 'metadata',
     variant: 'metadata',

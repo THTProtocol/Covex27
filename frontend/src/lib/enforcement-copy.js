@@ -59,7 +59,7 @@ const ORACLE_NOTE = {
     'Proof verified off-chain by the disclosed Covex oracle, payout enforced by chain hashlock.',
 };
 
-const KNOWN_REALITIES = new Set(['on-chain', 'hybrid', 'oracle-attested', 'full-zk', 'full-zk-chain']);
+export const KNOWN_REALITIES = new Set(['on-chain', 'hybrid', 'oracle-attested', 'full-zk', 'full-zk-chain']);
 
 export function enforcementSummary(reality) {
   const key = KNOWN_REALITIES.has(reality) ? reality : 'on-chain';

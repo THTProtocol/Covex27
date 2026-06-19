@@ -12,15 +12,20 @@
 // CANONICAL ENFORCEMENT-REALITY PALETTE (single source of truth, mirrored in
 // TrustBadge.jsx). Honesty palette is load-bearing brand: the same honesty word
 // must render the same color everywhere or readers stop trusting any of them.
-//   on-chain   = emerald  (consensus-enforced, the strongest signal)
-//   hybrid     = sky      (script + oracle input)
-//   oracle     = amber    (signed attestation only)
-//   full-zk    = violet   (real proof, oracle-verified, not on-chain)
-//   metadata   = slate    (label only, no enforcement)
+//   on-chain      = emerald  (consensus-enforced, the strongest signal)
+//   hybrid        = sky      (script + oracle input)
+//   oracle        = amber    (signed attestation only)
+//   full-zk       = violet   (real proof, oracle-verified, not on-chain)
+//   full-zk-chain = violet + emerald left-rail (the 4-of-19 circuits whose
+//                   proof reduces to a chain-enforced hashlock; end-to-end
+//                   honest, not just oracle-verified)
+//   metadata      = slate    (label only, no enforcement)
 // NOTE: full-zk previously used the brand teal #49EACB, which made an
 // oracle-verified proof read as MORE prominent than on-chain consensus. The
 // brand teal stays reserved for primary CTAs / consensus signals; violet keeps
 // full-zk honest as "verified by Covex's disclosed oracle, not by the chain".
+// full-zk-chain inherits that violet base then adds an emerald left rail so the
+// upgrade reads as "violet proof PLUS emerald consensus enforcement" at a glance.
 
 import * as React from 'react';
 import { cva } from 'class-variance-authority';
@@ -51,6 +56,11 @@ export const badgeVariants = cva(
         hybrid:    'border-sky-500/40 bg-sky-500/15 text-sky-300 light:border-sky-600/60 light:bg-sky-50 light:text-sky-700',
         oracle:    'border-amber-500/40 bg-amber-500/15 text-amber-300 light:border-amber-600/60 light:bg-amber-50 light:text-amber-700',
         'full-zk': 'border-violet-500/40 bg-violet-500/15 text-violet-300 light:border-violet-600/60 light:bg-violet-50 light:text-violet-700',
+        // Same violet base as full-zk, but with an emerald left rail to signal
+        // that consensus also enforces the payout (the 4-of-19 chain-enforced
+        // circuits). The double border keeps both signals readable in mono
+        // print and at card-corner sizes.
+        'full-zk-chain': 'border-violet-500/40 bg-violet-500/15 text-violet-300 light:border-violet-600/60 light:bg-violet-50 light:text-violet-700 border-l-2 border-l-emerald-400 light:border-l-emerald-600',
         metadata:  'border-slate-400/30 bg-slate-400/10 text-slate-300 light:border-slate-300 light:bg-slate-100 light:text-slate-700',
         decorative:'border-slate-400/30 bg-slate-400/10 text-slate-300 light:border-slate-300 light:bg-slate-100 light:text-slate-600',
         gold:      'border-[#E8AF34]/40 bg-[#E8AF34]/15 text-[#E8AF34] light:border-amber-600/60 light:bg-amber-50 light:text-amber-700',
@@ -72,6 +82,10 @@ const DOT = {
   hybrid:     'bg-sky-400 light:bg-sky-600',
   oracle:     'bg-amber-400 light:bg-amber-600',
   'full-zk':  'bg-violet-400 light:bg-violet-600',
+  // Same violet dot as full-zk. The emerald left rail on the chip itself
+  // (border-l-emerald-*) already carries the "consensus also enforces" signal,
+  // so a split violet/emerald dot would just add noise at 1.5px.
+  'full-zk-chain': 'bg-violet-400 light:bg-violet-600',
   metadata:   'bg-slate-400 light:bg-slate-500',
   decorative: 'bg-slate-400 light:bg-slate-500',
   gold:       'bg-[#E8AF34]',

@@ -3,13 +3,17 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock, Check, ChevronDown,
-  ArrowRight, ArrowLeft, Palette, Wand2, Cpu, Rocket,
+  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket,
 } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import SandboxGallery from '../components/SandboxGallery';
 import CovenantAssistant from '../components/CovenantAssistant';
 import SilverTerminal from '../components/SilverTerminal';
+import BuildStepsRail from '../components/BuildStepsRail.jsx';
+import HowThisWorks from '../components/HowThisWorks.jsx';
+import ToolsPalette from '../components/ToolsPalette.jsx';
+import EnforcedDeploy from './EnforcedDeploy';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -61,11 +65,23 @@ function kindForCircuit(c) {
 
 const DEFAULT_CIRCUIT = 'prediction_market';
 
-// The three renamed phases. One source of truth for the stepper rail and the bottom CTA.
+// The 12 primitive kinds that the EnforcedDeploy builder owns end to end (real signing,
+// real broadcast, real covenant id). When the picked circuit matches one of these, Phase 3
+// mounts EnforcedDeploy embedded; otherwise we fall back to the broader CovexTerminal which
+// covers the long tail of ZK / oracle circuits.
+const ENFORCED_DEPLOY_KINDS = new Set([
+  'singlesig', 'hashlock', 'timelock', 'multisig', 'htlc', 'channel',
+  'deadman', 'relative_timelock', 'timedecay', 'oracle_enforced',
+  'oracle_escrow', 'market',
+]);
+
+// The three sandbox phases in the 5-step model. The website / page step lives in
+// /covenant/:id/studio after deploy, so it is intentionally not in this array.
+// One source of truth for ?phase= persistence and the bottom CTA.
 const PHASES = [
   { id: 'create', n: 1, label: 'Create', Icon: Wand2 },
   { id: 'logic', n: 2, label: 'Choose how it resolves', Icon: Cpu },
-  { id: 'ui', n: 3, label: 'Build the page', Icon: Rocket },
+  { id: 'deploy', n: 3, label: 'Deploy', Icon: TerminalSquare },
 ];
 
 // Reduced-motion-safe cross-fade between phase panels (the y offset is dropped when reduced).
@@ -159,11 +175,20 @@ export default function Sandbox() {
   // Template / assistant name only applies to the very first (deep-linked) selection.
   const [tplName, setTplName] = useState(() => params.get('name') || '');
   // Deep-links carrying a name or desc (a template or an assistant pick) land directly in Phase 2.
-  const [phase, setPhase] = useState(() => {
+  // ?phase= persists the current step; an explicit value wins over the deep-link heuristic.
+  const [phase, setPhaseState] = useState(() => {
+    const explicit = params.get('phase');
+    if (explicit && PHASES.some((p) => p.id === explicit)) return explicit;
     const raw = params.get('circuit');
     const hasContext = !!(params.get('name') || params.get('desc'));
     return raw && hasContext ? 'logic' : 'create';
   });
+  const setPhase = (id) => {
+    setPhaseState(id);
+    const next = new URLSearchParams(params);
+    if (id && id !== 'create') next.set('phase', id); else next.delete('phase');
+    setParams(next, { replace: true });
+  };
   // Workspace mode: 'guided' (Covex helps you build) or 'pro' (raw SilverScript terminal, no
   // auto-fill). Persisted in the URL so a pro can bookmark or deep-link straight into the terminal.
   const [mode, setModeState] = useState(() => (params.get('mode') === 'pro' ? 'pro' : 'guided'));
@@ -271,37 +296,15 @@ export default function Sandbox() {
       )}
 
       {mode === 'guided' && (<>
-      {/* STICKY STEPPER RAIL: one source of truth = the three phases. */}
-      <div className="relative sm:sticky sm:top-16 z-30 -mx-4 px-4 py-3 mb-7 bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200">
-        <div className="flex items-center gap-2 flex-wrap">
-          {PHASES.map((p, i) => {
-            const active = phase === p.id;
-            const done = phaseIdx > i;
-            const ok = reachable(i);
-            return (
-              <button
-                key={p.id}
-                onClick={() => ok && setPhase(p.id)}
-                disabled={!ok}
-                className={`inline-flex items-center gap-2 pl-1.5 pr-3 py-2 rounded-full border text-xs font-bold transition-all ${
-                  active ? 'border-kaspa-green/60 bg-kaspa-green/15 text-white light:text-slate-900'
-                    : done ? 'border-kaspa-green/30 bg-kaspa-green/[0.06] text-emerald-300 light:text-emerald-700'
-                    : ok ? 'border-white/10 text-gray-300 hover:border-white/25 light:border-slate-200 light:text-slate-600'
-                    : 'border-white/5 text-gray-500 cursor-not-allowed light:border-slate-200 light:text-slate-500'
-                }`}
-              >
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${active ? 'bg-kaspa-green text-black' : done ? 'bg-kaspa-green/20 text-kaspa-green' : 'bg-white/10 text-gray-400'}`}>
-                  {done ? <Check size={11} /> : p.n}
-                </span>
-                {p.label}
-              </button>
-            );
-          })}
-          {circuit && reality && (
-            <SelectionChip name={name} reality={reality} className="ml-auto" />
-          )}
-        </div>
+      {/* Global 5-step rail. Behavior-compatible: BuildStepsRail returns null when not applicable. */}
+      <div className="relative z-30 mb-5">
+        <BuildStepsRail />
       </div>
+      {circuit && reality && (
+        <div className="relative z-10 mb-4 flex items-center justify-end">
+          <SelectionChip name={name} reality={reality} />
+        </div>
+      )}
 
       {/* ONE PHASE PANEL AT A TIME */}
       <AnimatePresence mode="wait">
@@ -309,19 +312,35 @@ export default function Sandbox() {
 
           {/* PHASE 1 - CREATE */}
           {phase === 'create' && (
-            <div className="space-y-7">
-              <PhaseHeader eyebrow="Step 1" title="Create the covenant" action="Start from an idea, a template, or code." />
-              <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
-              {/* Progressive disclosure: the full 170+ catalog mounts only when opened. */}
-              <details className="group rounded-2xl border border-white/10 light:border-slate-200 bg-black/20 light:bg-white open:bg-transparent">
-                <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-widest text-gray-400 light:text-slate-500">
-                  <Boxes size={13} className="text-kaspa-green" /> Browse the full catalog (170+ covenants)
-                  <ChevronDown size={14} className="ml-auto transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="p-4 pt-0">
-                  <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
-                </div>
-              </details>
+            <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
+              <aside className="hidden lg:block min-w-0">
+                <ToolsPalette context="logic" />
+              </aside>
+              <div className="space-y-7 min-w-0">
+                <PhaseHeader eyebrow="Step 1" title="Create the covenant" action="Start from an idea, a template, or code." />
+                <HowThisWorks
+                  title="What is a covenant?"
+                  summary="A small program that locks Kaspa funds until rules are satisfied."
+                  details={(
+                    <p>
+                      Covex compiles your covenant DSL into a Kaspa redeem script. Funds lock to its P2SH commitment.
+                      Some redeem paths are consensus-enforced by Kaspa alone; oracle paths require the disclosed
+                      Covex oracle to co-sign, which is the off-chain reality for ZK and parimutuel circuits.
+                    </p>
+                  )}
+                />
+                <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
+                {/* Progressive disclosure: the full 170+ catalog mounts only when opened. */}
+                <details className="group rounded-2xl border border-white/10 light:border-slate-200 bg-black/20 light:bg-white open:bg-transparent">
+                  <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-widest text-gray-400 light:text-slate-500">
+                    <Boxes size={13} className="text-kaspa-green" /> Browse the full catalog (170+ covenants)
+                    <ChevronDown size={14} className="ml-auto transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="p-4 pt-0">
+                    <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
+                  </div>
+                </details>
+              </div>
             </div>
           )}
 
@@ -329,6 +348,17 @@ export default function Sandbox() {
           {phase === 'logic' && (circuit && reality ? (
             <div className="space-y-4 min-w-0">
               <PhaseHeader eyebrow="Step 2" title="Choose how it resolves" action="See exactly what the chain enforces and who decides the outcome, then tune it." />
+              <HowThisWorks
+                title="What does 'how it resolves' mean?"
+                summary="This decides who or what can settle the covenant: the chain alone, the disclosed Covex oracle, or a mix."
+                details={(
+                  <p>
+                    On-chain enforced means the Kaspa script alone decides. Oracle co-signed means the disclosed Covex
+                    oracle attests the off-chain outcome and co-signs the payout transaction. Full-ZK circuits collapse
+                    to oracle co-signed because Kaspa has no on-chain pairing verifier.
+                  </p>
+                )}
+              />
               <Card accent={reality.accent} className="overflow-hidden">
                 <div className="px-5 py-4 flex flex-wrap items-center gap-3">
                   <Boxes size={18} className="text-kaspa-green" />
@@ -352,23 +382,23 @@ export default function Sandbox() {
             </div>
           ) : emptyState)}
 
-          {/* PHASE 3 - INTERACTIVE UI + the real builder */}
-          {phase === 'ui' && (circuit ? (
+          {/* PHASE 3 - DEPLOY (the real builder). The page / website step lives in /covenant/:id/studio. */}
+          {phase === 'deploy' && (circuit ? (
             <div className="space-y-5 min-w-0">
-              <PhaseHeader eyebrow="Step 3" title="Build the page" action="Build it, deploy non-custodially, then design its public page." />
+              <PhaseHeader eyebrow="Step 3" title="Deploy" action="Sign the funding transaction in your wallet. The page step opens in /covenant/:id/studio after a successful deploy." />
               {/* Honest Studio explainer. No fake reward, no fake deployed id, no decoder pre-deploy. */}
               <Card hover accent="#49EACB" className="p-5">
                 <div className="flex items-start gap-4">
                   <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 shrink-0">
-                    <Palette size={20} className="text-[#49EACB]" />
+                    <Rocket size={20} className="text-[#49EACB]" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-white light:text-slate-900">Design your covenant's public website</h3>
+                    <h3 className="text-sm font-bold text-white light:text-slate-900">Deploy, then design the public page in Studio</h3>
                     <p className="text-xs text-gray-400 light:text-slate-500 mt-1 leading-relaxed">
                       The visual Studio (drag and drop, safe platform components only) binds to a deployed covenant id.
-                      Deploy non-custodially in the builder below, then open Covenant Studio from the builder's Custom UI
-                      Integration section or from your covenant page at /covenant/:id. Markets and game covenants get
-                      their full custom-UI page this way.
+                      Sign the funding transaction in the builder below, then open Covenant Studio from the builder's
+                      Custom UI Integration section or from your covenant page at /covenant/:id/studio. Markets and game
+                      covenants get their full custom-UI page this way.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button variant="glass" size="sm" onClick={() => navigate('/templates')}>Browse templates</Button>
@@ -379,16 +409,40 @@ export default function Sandbox() {
                   </div>
                 </div>
               </Card>
-              {/* THE REAL BUILDER, untouched. It owns deploy/broadcast + tier gating + its own Studio handoff. */}
-              <CovexTerminal externalCircuit={selectedId} />
+              {/* Universal signing explainer. Stays above the form on every primitive so the user
+                  always sees the honest reality before approving anything in their wallet. */}
+              <HowThisWorks
+                title="Why am I signing this?"
+                summary="Your wallet signs the funding transaction. Covex never holds your key."
+                details={(
+                  <p>
+                    The funding tx broadcasts to a real Kaspa node. The covenant id is the resulting P2SH address.
+                    Covex never custodies your funds; for demo flows that use sandbox wallets, the surface clearly
+                    says "Demo uses the dev wallets".
+                  </p>
+                )}
+              />
+              {/* THE REAL BUILDER. EnforcedDeploy owns the 12 primitive kinds end to end (signing,
+                  broadcast, covenant id). On a successful deploy it hands back the new covenant id
+                  and we open Studio with ?fresh=1 so the page starts empty. Everything outside that
+                  set still falls back to CovexTerminal, which owns the long-tail ZK / oracle circuits
+                  plus its own tier gating and Studio handoff. */}
+              {ENFORCED_DEPLOY_KINDS.has(selectedId) ? (
+                <EnforcedDeploy
+                  embedded
+                  onDeployed={(covenantId) => navigate('/covenant/' + covenantId + '/studio?fresh=1')}
+                />
+              ) : (
+                <CovexTerminal externalCircuit={selectedId} />
+              )}
             </div>
           ) : emptyState)}
 
         </motion.div>
       </AnimatePresence>
 
-      {/* PERSISTENT BOTTOM ACTION BAR. Hidden on phase 'ui' where CovexTerminal owns the deploy CTA. */}
-      {phase !== 'ui' && (
+      {/* PERSISTENT BOTTOM ACTION BAR. Hidden on phase 'deploy' where CovexTerminal owns the deploy CTA. */}
+      {phase !== 'deploy' && (
         <div
           className="static sm:sticky z-20 mt-6 flex flex-wrap sm:flex-nowrap sm:items-center sm:justify-between gap-4 gap-y-2 rounded-2xl glass-panel border border-kaspa-green/30 px-5 py-3.5"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
@@ -415,7 +469,7 @@ export default function Sandbox() {
           >
             <span className="sm:hidden">Continue</span>
             <span className="hidden sm:inline">
-              {phase === 'create' ? 'Continue: choose how it resolves' : 'Continue: build the page'}
+              {phase === 'create' ? 'Continue to logic' : 'Continue to deploy'}
             </span>
             <ArrowRight size={15} />
           </Button>

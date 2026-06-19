@@ -1,13 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Puck, Render as PuckRender } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import puckConfig, { LIVE_TOKENS, STARTER_TEMPLATES, matchTemplate, SAFE_COLOR } from '../lib/puckConfig';
 import { getPresets, presetBackdrop } from '../lib/designPresets';
+import BuildStepsRail from '../components/BuildStepsRail.jsx';
+import HowThisWorks from '../components/HowThisWorks.jsx';
+import ToolsPalette from '../components/ToolsPalette.jsx';
+
+// Random-id helper matching the convention puckConfig.blk() uses so blocks added
+// from the ToolsPalette are uniquely keyed inside the Puck content tree.
+const newBlockId = (type) => `${type}-${Math.random().toString(36).slice(2, 9)}`;
 
 const EMPTY_PAGE = { content: [], root: { props: {} } };
 
@@ -51,11 +58,18 @@ const VIEWPORTS = [
  */
 export default function CovenantStudio() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isFresh = searchParams.get('fresh') === '1';
   const { address, signMessage } = useWallet();
   const [covenant, setCovenant] = useState(null);
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // One-time "deploy succeeded" banner controlled by ?fresh=1 in the URL.
+  // Dismiss strips the query param so a refresh never resurfaces it.
+  const [showFreshBanner, setShowFreshBanner] = useState(isFresh);
+  // Floating right-side ToolsPalette panel (desktop-only collapsible).
+  const [showToolsPalette, setShowToolsPalette] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
   // Page settings drawer: stake amount + name / description override. These were the
@@ -175,6 +189,34 @@ export default function CovenantStudio() {
     setShowPicker(false);
   }, []);
 
+  // Dismiss the post-deploy success banner by stripping ?fresh=1 from the URL,
+  // so a refresh never resurfaces it. Preserves any other query params present.
+  const dismissFresh = useCallback(() => {
+    setShowFreshBanner(false);
+    const next = new URLSearchParams(searchParams);
+    next.delete('fresh');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // Append a block to the active Puck tree from the ToolsPalette. Validates the
+  // componentId against the puckConfig.components registry; an unknown id is a
+  // no-op. The data is replaced via the same setInitialData + dataKey-bump pattern
+  // applyTemplate / applyTheme already use, so Puck cleanly remounts with the new
+  // tree. The block id matches the convention puckConfig.blk() uses.
+  const onAddBlock = useCallback((componentId) => {
+    if (!componentId || !puckConfig.components || !Object.prototype.hasOwnProperty.call(puckConfig.components, componentId)) {
+      return;
+    }
+    const cur = puckDataRef.current || EMPTY_PAGE;
+    const defaults = (puckConfig.components[componentId] && puckConfig.components[componentId].defaultProps) || {};
+    const block = { type: componentId, props: { id: newBlockId(componentId), ...defaults } };
+    const next = { ...cur, content: [...(cur.content || []), block], root: cur.root || { props: {} } };
+    setInitialData(next);
+    puckDataRef.current = next;
+    setDataKey((k) => k + 1);
+    toast.success(`Added "${componentId}" block.`);
+  }, []);
+
   // Apply a designPresets palette to the Puck ROOT (accent + nearest background).
   const applyTheme = useCallback((preset) => {
     const cur = puckDataRef.current || EMPTY_PAGE;
@@ -272,6 +314,45 @@ export default function CovenantStudio() {
 
   return (
     <div className="covex-studio relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      {/* 5-step build rail. Step 4 (Design) is the current step on this route. */}
+      <BuildStepsRail compact />
+
+      {/* Post-deploy success banner. Shown once when arriving via ?fresh=1 from the
+          deploy step. Dismiss strips the query so a refresh never resurfaces it. */}
+      {showFreshBanner && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 md:px-5 py-2.5 border-b border-emerald-500/20 light:border-emerald-600/30 bg-emerald-500/[0.07] light:bg-emerald-50">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="flex items-center justify-center h-6 w-6 rounded-full bg-emerald-500/20 light:bg-emerald-600/15 text-emerald-300 light:text-emerald-700 shrink-0">
+              <Check size={13} />
+            </span>
+            <p className="text-[12px] font-bold text-emerald-300 light:text-emerald-800 truncate">
+              Your covenant is live. Now design its public page.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="hidden sm:block w-72">
+              <HowThisWorks
+                title="What can I publish?"
+                summary="Platform blocks only, live tokens, server-derived enforcement."
+                details={(
+                  <>
+                    <p>Blocks are platform-authored. No raw HTML or JS. Live tokens like <code>{'{{total_locked}}'}</code> and <code>{'{{pool_yes}}'}</code> resolve at render time. The EnforcementBadge always reads the server-derived reality.</p>
+                  </>
+                )}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={dismissFresh}
+              aria-label="Dismiss success banner"
+              className="flex items-center justify-center h-9 w-9 rounded-lg text-emerald-300 light:text-emerald-700 hover:bg-emerald-500/[0.1] light:hover:bg-emerald-600/10 transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="relative flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
         <Link to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
           <ArrowLeft size={16} /> <span className="hidden sm:inline">Back to covenant</span>
@@ -287,6 +368,14 @@ export default function CovenantStudio() {
           </button>
           <button onClick={() => setShowPicker(true)} aria-label="Templates" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <LayoutTemplate size={14} /> <span className="hidden sm:inline">Templates</span>
+          </button>
+          <button
+            onClick={() => setShowToolsPalette((v) => !v)}
+            aria-label="Tools palette"
+            aria-expanded={showToolsPalette}
+            className={`hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border transition-colors ${showToolsPalette ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100'}`}
+          >
+            <Wrench size={14} /> <span className="hidden sm:inline">Tools</span>
           </button>
           {/* Mobile-only overflow trigger (44px touch target). */}
           <button
@@ -337,6 +426,60 @@ export default function CovenantStudio() {
         )}
       </div>
 
+      {/* Secondary toolbar row (desktop): inline HowThisWorks chips under the
+          Templates, Theme and Page settings buttons, plus a toggle for the
+          ToolsPalette floating side panel. Honesty-first copy throughout. */}
+      <div className="hidden md:grid grid-cols-3 gap-3 px-5 py-3 border-b border-white/[0.06] light:border-slate-200 bg-[#08080c] light:bg-slate-50">
+        <HowThisWorks
+          title="Templates"
+          summary="Start from a premium, honest layout. Tweak everything after."
+          details={(
+            <p>Templates are platform-authored starting points: they pre-fill the canvas with blocks for a hero, live odds, leaderboard, and footer. Replace anything. The EnforcementBadge always reads the server-derived reality, never an override from the template.</p>
+          )}
+        />
+        <HowThisWorks
+          title="Theme"
+          summary="One click sets the accent color and page background."
+          details={(
+            <p>Theme applies a palette to the page root: the accent color flows into CTAs and highlights, and the background swaps to a matching preset. Your block content is preserved. Switch any time without re-publishing your data.</p>
+          )}
+        />
+        <HowThisWorks
+          title="Page settings"
+          summary="Stake amount, name, and description. Saved with your page."
+          details={(
+            <p>The default stake is the suggested amount shown on the public page and arena, not a fund destination. Custody and payouts are non-custodial and consensus-enforced where the script supports it, or oracle co-signed by the disclosed Covex oracle. The fund destination is always derived from the indexed covenant record.</p>
+          )}
+        />
+      </div>
+
+      {/* Instructional strip above the Puck canvas (desktop). Three short
+          HowThisWorks chips explaining publish scope, live tokens, enforcement.
+          Hidden on mobile because the canvas itself is hidden there too. */}
+      <div className="hidden md:grid grid-cols-3 gap-3 px-5 pt-3 pb-1 bg-[#0A0A0D] light:bg-white border-b border-white/[0.04] light:border-slate-100">
+        <HowThisWorks
+          title="What can I publish?"
+          summary="Platform blocks only. No raw HTML or JS."
+          details={(
+            <p>Blocks are platform-authored. No raw HTML or JS. Live tokens like <code>{'{{total_locked}}'}</code> and <code>{'{{pool_yes}}'}</code> resolve at render time. The EnforcementBadge always reads the server-derived reality.</p>
+          )}
+        />
+        <HowThisWorks
+          title="How do live tokens work?"
+          summary="Insert any of 18 tokens from the cheat sheet."
+          details={(
+            <p>Insert any of the 18 tokens from the cheat sheet (TokenCheatSheet); they are replaced at render time with current covenant state.</p>
+          )}
+        />
+        <HowThisWorks
+          title="How is enforcement displayed?"
+          summary="Server-derived. You cannot override it on the page."
+          details={(
+            <p>EnforcementBadge shows the server's enforcement_reality. You cannot override it on the page.</p>
+          )}
+        />
+      </div>
+
       {isMobile ? (
         <MobileStudioInterstitial
           covenantId={id}
@@ -363,6 +506,33 @@ export default function CovenantStudio() {
             components: ({ children }) => <BlockSearch>{children}</BlockSearch>,
           }}
         />
+      )}
+
+      {/* Floating ToolsPalette side panel (desktop). Opens via the Tools button in
+          the toolbar; one-click "Add" appends a validated block to the Puck tree
+          via onAddBlock. Hidden on mobile because the canvas is hidden too. */}
+      {showToolsPalette && (
+        <aside
+          className="hidden md:flex fixed top-24 right-3 z-[88] w-80 max-h-[calc(100vh-140px)] flex-col rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/97 light:bg-white/97 backdrop-blur shadow-2xl"
+          aria-label="Tools palette"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] light:border-slate-200">
+            <p className="flex items-center gap-2 text-xs font-bold text-kaspa-green">
+              <Wrench size={13} /> Tools palette
+            </p>
+            <button
+              type="button"
+              aria-label="Close tools palette"
+              onClick={() => setShowToolsPalette(false)}
+              className="flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            <ToolsPalette context="blocks" onAddBlock={onAddBlock} />
+          </div>
+        </aside>
       )}
 
       {/* Live token cheat sheet: click any token to copy it for pasting into a field.

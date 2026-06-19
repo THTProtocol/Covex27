@@ -60,11 +60,19 @@ function CopyBtn({ text }) {
   );
 }
 
-export default function EnforcedDeploy() {
+export default function EnforcedDeploy({ embedded = false, onDeployed = null }) {
   const { address, isDevMode, devMode, DevConnectPanel } = useWallet();
   const net = getCurrentNetwork();
   const isMainnet = net === 'mainnet' || net === 'mainnet-1';
   const canSign = isDevMode && devMode?.privateKeyHex;
+  // The external-spend handoff is a full-page UX (wallet non-custody invariant: the redeem
+  // path must not be wrapped or constrained inside a host UI). If the handoff is queued,
+  // force standalone behavior even when the caller requested embedded.
+  const hasRedeemHandoff = (() => {
+    try { return typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem('redeem_covenant'); }
+    catch { return false; }
+  })();
+  const effectiveEmbedded = embedded && !hasRedeemHandoff;
 
   const [catalog, setCatalog] = useState([]);
   const [searchParams] = useSearchParams();
@@ -169,6 +177,7 @@ export default function EnforcedDeploy() {
       });
       const j = await res.json();
       if (!j.success || !j.market_id) { setError(j.error || 'Could not create the market.'); return; }
+      if (onDeployed) { onDeployed(j.market_id); return; }
       navigate(`/covenant/${j.market_id}`);
     } catch (e) {
       setError('Network error: ' + e.message);
@@ -244,6 +253,7 @@ export default function EnforcedDeploy() {
           redeem_script_hex: sub.redeem_script_hex || prep.redeem_script_hex || null,
           preimage, dev: false, nonCustodialDeploy: true, lock_daa: redeem.lock_daa || null, spent: null,
         }, ...m]);
+        if (onDeployed && sub.deploy_tx_id) onDeployed(`${sub.deploy_tx_id}:0`);
         return;
       }
 
@@ -260,6 +270,7 @@ export default function EnforcedDeploy() {
         redeem_script_hex: j.redeem_script_hex || null,
         preimage, dev: usesDevWallets, lock_daa: redeem.lock_daa || null, spent: null,
       }, ...m]);
+      if (onDeployed && j.deploy_tx_id) onDeployed(`${j.deploy_tx_id}:0`);
     } catch (e) {
       setError('Network error: ' + e.message);
     } finally {
@@ -439,15 +450,20 @@ export default function EnforcedDeploy() {
   const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market'].includes(kind);
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8">
-      {/* Ambient aurora behind the hero (no intrinsic size: width/height + centering set inline) */}
-      <div
-        className="covex-aurora"
-        aria-hidden="true"
-        style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 620, height: 280, maxWidth: '92vw' }}
-      />
+    <div className={effectiveEmbedded ? 'relative w-full space-y-6' : 'relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8'}>
+      {/* Ambient aurora behind the hero (no intrinsic size: width/height + centering set inline).
+          Suppressed in embedded mode so the host page owns its own background. */}
+      {!effectiveEmbedded && (
+        <div
+          className="covex-aurora"
+          aria-hidden="true"
+          style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 620, height: 280, maxWidth: '92vw' }}
+        />
+      )}
 
-      {/* Premium hero header: detail-hero-enhanced glass + 3px on-chain identity accent bar */}
+      {/* Premium hero header: detail-hero-enhanced glass + 3px on-chain identity accent bar.
+          The host (e.g. Sandbox Phase 3) renders its own title above us when embedded. */}
+      {!effectiveEmbedded && (
       <div className="relative z-10 overflow-hidden rounded-2xl glass-panel detail-hero-enhanced p-6 sm:p-8">
         <div
           aria-hidden="true"
@@ -486,8 +502,9 @@ export default function EnforcedDeploy() {
           )}
         </p>
       </div>
+      )}
 
-      {isMainnet && (
+      {!effectiveEmbedded && isMainnet && (
         <div className="relative z-10 glass-panel p-4 border-amber-500/30 bg-amber-500/[0.05]">
           <p className="text-sm text-amber-200">
             You are on mainnet. Single-key, hashlock, timelock, and relative-timelock (CSV) covenants deploy non-custodially here:
@@ -681,8 +698,9 @@ export default function EnforcedDeploy() {
         {error && <p className="text-sm text-red-400">{error}</p>}
       </div>
 
-      {/* This session's enforced covenants */}
-      {mine.length > 0 && (
+      {/* This session's enforced covenants. Hidden in embedded mode: the host owns the
+          post-deploy navigation (via onDeployed) and renders its own follow-up UI. */}
+      {!effectiveEmbedded && mine.length > 0 && (
         <div className="relative z-10 glass-panel overflow-hidden">
           <div className="px-6 py-4 border-b border-white/5">
             <div className="text-white font-semibold">Your enforced covenants (this session)</div>
@@ -740,7 +758,7 @@ export default function EnforcedDeploy() {
       )}
 
       {/* Honest catalog */}
-      {onchainEntries.length > 0 && (
+      {!effectiveEmbedded && onchainEntries.length > 0 && (
         <div className="relative z-10 glass-panel p-6">
           <div className="text-white font-semibold mb-3">What "on-chain enforced" means here</div>
           <p className="text-sm text-gray-300 mb-4">
@@ -759,8 +777,10 @@ export default function EnforcedDeploy() {
       )}
 
       {/* Interact with ANY covenant, including ones not created on Covex. Intentionally
-          subtle and at the bottom, but fully functional - the trustless point is that any
-          P2SH covenant is spendable by its key-holder with only the redeem script. */}
+          subtle and at the bottom, but fully functional: any deterministic Kaspa P2SH
+          covenant is spendable by its key-holder with only the redeem script.
+          Hidden in embedded mode (and the redeem handoff forces standalone anyway). */}
+      {!effectiveEmbedded && (
       <div className="relative z-10 glass-panel p-5 opacity-70 hover:opacity-100 transition-opacity">
         <button onClick={() => setExtOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
           <span className="text-xs font-medium text-gray-400">Interact with any covenant (including ones not created on Covex)</span>
@@ -810,6 +830,7 @@ export default function EnforcedDeploy() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

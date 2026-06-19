@@ -29,6 +29,7 @@ import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
+import FirstCovenantTour from '../components/FirstCovenantTour';
 import { Badge } from '../components/ui/Badge';
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
 
@@ -226,6 +227,21 @@ export default function Explorer() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
+  // Tour mount flag. The tour itself reads localStorage `covex_tour_active`,
+  // so triggering it from a click means: clear the skipped flag, set the
+  // active flag, then mount the component. The tour falls back to a
+  // centered modal when the step-1 anchor is not present, so it never
+  // gets stuck even if no covenant cards are visible.
+  const [tourMounted, setTourMounted] = useState(false);
+  const startTour = useCallback(() => {
+    try {
+      window.localStorage.removeItem('covex_tour_skipped');
+      window.localStorage.setItem('covex_tour_active', '1');
+    } catch {
+      /* ignore quota / private mode */
+    }
+    setTourMounted(true);
+  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -447,6 +463,19 @@ export default function Explorer() {
           >
             How It Works
           </Link>
+        </div>
+        {/* Calm tertiary text link: launches the FirstCovenantTour overlay,
+            which anchors step 1 to the first visible covenant card (with a
+            centered-modal fallback if no anchor matches). Honesty-first copy:
+            describes a guided walkthrough, not a product claim. */}
+        <div className="-mt-6 mb-10">
+          <button
+            type="button"
+            onClick={startTour}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-white/55 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
+          >
+            Take the 60-second tour
+          </button>
         </div>
         <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-6 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
@@ -737,9 +766,29 @@ export default function Explorer() {
                   </button>
                 </div>
                 {filteredCovenants.length === 0 ? (
-                  <div className="glass-panel rounded-2xl py-14 text-center">
-                    <p className="text-gray-300 text-sm font-semibold mb-1">No covenants match this filter yet</p>
-                    <p className="text-gray-500 text-xs">Try another category or check back soon. New covenants are indexed within seconds.</p>
+                  /* Teach-empty-state: the filtered result set is zero, so
+                     instead of a dead end we offer the guided tour (primary)
+                     and a one-click filter reset (secondary). Light + dark
+                     parity, no em dashes, no overclaims. */
+                  <div className="glass-panel rounded-2xl px-6 py-12 text-center">
+                    <p className="text-lg font-semibold text-white light:text-slate-900 mb-1">No covenants match those filters.</p>
+                    <p className="text-sm text-gray-300 light:text-slate-600 mb-5">Want to build one? It takes about a minute.</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={startTour}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                      >
+                        Take the 60-second tour
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setActiveCategory('All'); setSearchQuery(''); setShowCategoryPanel(false); }}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <motion.div
@@ -771,6 +820,12 @@ export default function Explorer() {
           </>
         )}
       </div>
+      {/* Mount the FirstCovenantTour overlay only after the user clicks a
+          "Take the 60-second tour" trigger. The tour component itself reads
+          localStorage `covex_tour_active` to start; we also still respect the
+          ?tour=1 URL param activation by mounting unconditionally when that
+          flag is already set on first render. */}
+      {tourMounted && <FirstCovenantTour />}
     </>
   );
 }

@@ -83,9 +83,27 @@ export default function AddressPortfolio() {
           </div>
         </>
       ) : !data || (data.covenants || []).length === 0 ? (
-        <div className="glass-panel rounded-2xl py-16 text-center">
-          <p className="text-gray-300 light:text-slate-700 font-semibold mb-1">No covenants created by this address on {network}</p>
-          <p className="text-gray-500 light:text-slate-500 text-xs">Covenants appear here as soon as the indexer discovers them on-chain.</p>
+        <div className="glass-panel rounded-2xl px-6 py-14 text-center max-w-2xl mx-auto">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
+            <Layers size={22} className="text-kaspa-green" />
+          </div>
+          <h2 className="text-lg font-bold text-white light:text-slate-900 mb-2">You have not deployed a covenant from this address yet.</h2>
+          <p className="text-sm text-gray-400 light:text-slate-600 mb-6 max-w-md mx-auto">Start with a hashlock: 1 KAS, consensus-enforced by Kaspa, no oracle in the path.</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+            <Link
+              to="/sandbox?circuit=hashlock&phase=logic"
+              className="btn-shimmer inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:bg-kaspa-green/90 transition-colors"
+            >
+              Build a hashlock
+            </Link>
+            <Link
+              to="/templates"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 light:border-slate-300 text-gray-200 light:text-slate-700 font-semibold text-sm hover:border-kaspa-green/40 hover:text-white light:hover:text-slate-900 transition-colors"
+            >
+              Browse templates
+            </Link>
+          </div>
+          <p className="text-[11px] text-gray-500 light:text-slate-500 mt-6">Network: {network}. Covenants appear here as soon as the indexer discovers them.</p>
         </div>
       ) : (
         <>

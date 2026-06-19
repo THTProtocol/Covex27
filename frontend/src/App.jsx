@@ -25,6 +25,7 @@ import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import CovexLogo from './components/CovexLogo';
 import LegalModal from './components/LegalModal';
+import BuildStepsRail from './components/BuildStepsRail';
 import Explorer from './pages/Explorer';
 
 // Route-level code splitting: the Explorer (homepage) stays eager, everything
@@ -34,11 +35,9 @@ const CovenantInteractive = lazy(() => import('./pages/CovenantInteractive'));
 const WhatIsKaspaPage = lazy(() => import('./pages/WhatIsKaspa'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary'));
-const AdvancedComposer = lazy(() => import('./pages/AdvancedComposer'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
-const PremiumBuilder = lazy(() => import('./pages/PremiumBuilder'));
 const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
 const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Whitepaper = lazy(() => import('./pages/Whitepaper'));
@@ -425,6 +424,7 @@ export default function App() {
                 </div>
               </div>
             )}
+            <BuildStepsRail />
           </nav>
 
           <div className="relative z-10 pt-16">
@@ -443,8 +443,8 @@ export default function App() {
               {/* Fix is consolidated into Page Studio; preserve the id where present. */}
               <Route path="/fix" element={<FixToStudioRedirect />} />
               {/* /covenant was leftover demo scaffolding ("Demo not found" with no param);
-                  send it to the real deploy flow. */}
-              <Route path="/covenant" element={<Navigate to="/deploy/enforced" replace />} />
+                  send it to the sandbox builder. */}
+              <Route path="/covenant" element={<Navigate to="/sandbox" replace />} />
               <Route path="/covenant/:id" element={<CovenantInteractive />} />
               <Route path="/covenant/:id/fix" element={<FixToStudioRedirect />} />
               <Route path="/kaspa" element={<WhatIsKaspaPage />} />
@@ -460,13 +460,13 @@ export default function App() {
               <Route path="/deploy/paid" element={<Navigate to="/deploy/enforced" replace />} />
               {/* /paid-builder was an orphan duplicate; the live paid path is /premium. */}
               <Route path="/paid-builder" element={<Navigate to="/premium" replace />} />
-              <Route path="/premium" element={<PremiumBuilder />} />
+              <Route path="/premium" element={<Navigate to="/sandbox?paid=1" replace />} />
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/sandbox" element={<Sandbox />} />
               <Route path="/readme" element={<Readme />} />
               <Route path="/about" element={<About />} />
               <Route path="/recover" element={<Recover />} />
-              <Route path="/advanced" element={<AdvancedComposer />} />
+              <Route path="/advanced" element={<Navigate to="/sandbox?phase=logic" replace />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />
               <Route path="/docs" element={<ApiDocs />} />
               <Route path="/whitepaper" element={<Whitepaper />} />
@@ -494,7 +494,7 @@ export default function App() {
                   ['Treasury', '/treasury'],
                   // Discoverable entry for "I have a redeem script, spend any covenant":
                   // the external-spend panel lives on the enforced deploy page.
-                  ['Spend a Covenant', '/deploy/enforced'],
+                  ['Advanced: spend a redeem script', '/deploy/enforced'],
                   ['Recover', '/recover'],
                   ['Stats', '/stats'],
                   ['Templates', '/templates'],

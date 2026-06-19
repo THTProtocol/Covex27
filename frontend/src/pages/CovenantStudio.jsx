@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Puck } from '@measured/puck';
+import { Puck, Render as PuckRender } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
@@ -10,6 +10,28 @@ import puckConfig, { LIVE_TOKENS, STARTER_TEMPLATES, matchTemplate, SAFE_COLOR }
 import { getPresets, presetBackdrop } from '../lib/designPresets';
 
 const EMPTY_PAGE = { content: [], root: { props: {} } };
+
+// Track viewport <md so we can swap the unusable DnD canvas for a desktop-link
+// interstitial on phones. md = 768px in Tailwind v4 defaults. Hoisted to module
+// scope so it never remounts and is SSR-safe.
+function useIsMobile(maxPx = 767) {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia(`(max-width: ${maxPx}px)`).matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mql = window.matchMedia(`(max-width: ${maxPx}px)`);
+    const onChange = (e) => setIsMobile(e.matches);
+    if (mql.addEventListener) mql.addEventListener('change', onChange);
+    else mql.addListener(onChange);
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener('change', onChange);
+      else mql.removeListener(onChange);
+    };
+  }, [maxPx]);
+  return isMobile;
+}
 
 // Device-preview viewports for Puck's built-in toolbar toggle (mobile / desktop).
 const VIEWPORTS = [
@@ -40,9 +62,16 @@ export default function CovenantStudio() {
   // only unique controls in the old Fix page, absorbed here so a creator never needs a
   // second tool. They persist via the SAME terminal-config POST as the page itself.
   const [showSettings, setShowSettings] = useState(false);
+  // Mobile overflow menu: collapses Settings / Theme / Templates / Tokens behind a
+  // single icon on <md so row 1 is only Back + Title + Publish (44px touch targets).
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showTokensMobile, setShowTokensMobile] = useState(false);
   // Bump this to force the Puck tree to re-mount with fresh data (template / theme apply).
   const [dataKey, setDataKey] = useState(0);
   const puckDataRef = useRef(EMPTY_PAGE);
+  // On phones the drag-and-drop canvas is unusable (tiny targets, no hover, the
+  // Puck sidebar overlaps content). Show a desktop-link interstitial instead.
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setLoading(true);
@@ -243,53 +272,108 @@ export default function CovenantStudio() {
 
   return (
     <div className="covex-studio relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
-        <Link to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-10">
-          <ArrowLeft size={14} /> <span className="hidden sm:inline">Back to covenant</span>
+      <div className="relative flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
+        <Link to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
+          <ArrowLeft size={16} /> <span className="hidden sm:inline">Back to covenant</span>
         </Link>
-        <p className="text-xs font-bold text-white truncate min-w-0 px-2">{covenant.name || 'Covenant'} · Page Studio</p>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setShowSettings(true)} aria-label="Page settings" className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+        <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Page Studio</p>
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          {/* Desktop: inline secondary actions (md+). Mobile: collapsed into overflow menu. */}
+          <button onClick={() => setShowSettings(true)} aria-label="Page settings" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Settings size={14} /> <span className="hidden sm:inline">Page settings</span>
           </button>
-          <button onClick={() => setShowThemes(true)} aria-label="Theme" className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => setShowThemes(true)} aria-label="Theme" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <Palette size={14} /> <span className="hidden sm:inline">Theme</span>
           </button>
-          <button onClick={() => setShowPicker(true)} aria-label="Templates" className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+          <button onClick={() => setShowPicker(true)} aria-label="Templates" className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
             <LayoutTemplate size={14} /> <span className="hidden sm:inline">Templates</span>
+          </button>
+          {/* Mobile-only overflow trigger (44px touch target). */}
+          <button
+            onClick={() => setShowMoreMenu((v) => !v)}
+            aria-label="More page tools"
+            aria-expanded={showMoreMenu}
+            className="md:hidden flex items-center justify-center h-11 w-11 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+          >
+            <MoreHorizontal size={18} />
           </button>
           <button
             onClick={() => save(puckDataRef.current)}
             disabled={saving}
-            className="btn-shimmer flex items-center gap-1.5 text-[11px] font-bold px-3 h-10 rounded-lg bg-kaspa-green text-black hover:brightness-110 disabled:opacity-60 transition-all"
+            aria-label="Publish page"
+            className="btn-shimmer flex items-center justify-center md:justify-start gap-1.5 text-[11px] font-bold h-11 w-11 md:w-auto md:h-10 md:px-3 rounded-lg bg-kaspa-green text-black hover:brightness-110 disabled:opacity-60 transition-all"
           >
-            <Save size={14} /> <span className="hidden sm:inline">{saving ? 'Publishing...' : 'Publish'}</span>
+            <Save size={16} className="md:hidden" />
+            <Save size={14} className="hidden md:inline" />
+            <span className="hidden sm:inline">{saving ? 'Publishing...' : 'Publish'}</span>
           </button>
         </div>
+
+        {/* Mobile overflow menu: Settings / Theme / Templates / Live tokens. */}
+        {showMoreMenu && (
+          <>
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setShowMoreMenu(false)}
+              className="md:hidden fixed inset-0 z-[95] bg-black/30"
+            />
+            <div role="menu" className="md:hidden absolute right-3 top-[calc(100%+6px)] z-[96] min-w-[200px] rounded-xl border border-white/[0.12] light:border-slate-200 bg-[#0A0A0D]/98 light:bg-white/98 backdrop-blur shadow-2xl p-1.5">
+              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowSettings(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+                <Settings size={15} /> Page settings
+              </button>
+              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowThemes(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+                <Palette size={15} /> Theme
+              </button>
+              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowPicker(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+                <LayoutTemplate size={15} /> Templates
+              </button>
+              <div className="h-px bg-white/[0.08] light:bg-slate-200 my-1" />
+              <button role="menuitem" onClick={() => { setShowMoreMenu(false); setShowTokensMobile(true); }} className="w-full flex items-center gap-2.5 text-[12px] font-semibold px-3 h-11 rounded-lg text-kaspa-green hover:bg-kaspa-green/[0.08] light:hover:bg-teal-50 transition-colors">
+                <Zap size={15} /> Live data tokens
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      <Puck
-        key={dataKey}
-        config={puckConfig}
-        data={initialData || EMPTY_PAGE}
-        metadata={{ live: liveData }}
-        viewports={VIEWPORTS}
-        onChange={(d) => { puckDataRef.current = d; }}
-        onPublish={save}
-        overrides={{
-          headerActions: ({ children }) => (
-            <>
-              {children}
-              {saving && <span className="text-xs text-gray-400 flex items-center gap-1"><Save size={12} /> Saving...</span>}
-            </>
-          ),
-          // Sidebar block list with a live search filter (Priority 8).
-          components: ({ children }) => <BlockSearch>{children}</BlockSearch>,
-        }}
-      />
+      {isMobile ? (
+        <MobileStudioInterstitial
+          covenantId={id}
+          data={initialData || EMPTY_PAGE}
+          liveData={liveData}
+        />
+      ) : (
+        <Puck
+          key={dataKey}
+          config={puckConfig}
+          data={initialData || EMPTY_PAGE}
+          metadata={{ live: liveData }}
+          viewports={VIEWPORTS}
+          onChange={(d) => { puckDataRef.current = d; }}
+          onPublish={save}
+          overrides={{
+            headerActions: ({ children }) => (
+              <>
+                {children}
+                {saving && <span className="text-xs text-gray-400 flex items-center gap-1"><Save size={12} /> Saving...</span>}
+              </>
+            ),
+            // Sidebar block list with a live search filter (Priority 8).
+            components: ({ children }) => <BlockSearch>{children}</BlockSearch>,
+          }}
+        />
+      )}
 
-      {/* Live token cheat sheet: click any token to copy it for pasting into a field. */}
-      <TokenCheatSheet />
+      {/* Live token cheat sheet: click any token to copy it for pasting into a field.
+          Hidden on <md to keep the canvas clear; mobile creators reach it via the
+          overflow menu, which opens a centered modal version of the same list. */}
+      <div className="hidden md:block">
+        <TokenCheatSheet />
+      </div>
+      {showTokensMobile && (
+        <TokenCheatSheetModal onClose={() => setShowTokensMobile(false)} />
+      )}
 
       {showPicker && (
         <TemplatePickerModal
@@ -529,5 +613,138 @@ function TokenCheatSheet() {
         </ul>
       </div>
     </details>
+  );
+}
+
+// ── Mobile token cheat sheet: same content as TokenCheatSheet, centered modal.
+// Surfaced from the toolbar overflow menu on <md so the floating panel does not
+// crowd the small canvas. ──
+function TokenCheatSheetModal({ onClose }) {
+  const [copied, setCopied] = useState('');
+  const copy = (tok) => {
+    const text = `{{${tok}}}`;
+    try {
+      if (navigator.clipboard) navigator.clipboard.writeText(text);
+    } catch (_) { /* no-op */ }
+    setCopied(tok);
+    setTimeout(() => setCopied((c) => (c === tok ? '' : c)), 1200);
+  };
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/98 light:bg-white/98 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] light:border-slate-200">
+          <p className="flex items-center gap-2 text-xs font-bold text-kaspa-green">
+            <Zap size={13} /> Live data tokens
+          </p>
+          <button type="button" aria-label="Close" onClick={onClose} className="flex items-center justify-center h-9 w-9 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-4 py-3 max-h-[60vh] overflow-y-auto">
+          <p className="text-[11px] text-gray-500 light:text-slate-500 mb-2 leading-relaxed">Tap a token to copy it, then paste it into any text field. It updates live from the chain.</p>
+          <ul className="space-y-1">
+            {LIVE_TOKENS.map((t) => (
+              <li key={t.token}>
+                <button
+                  type="button"
+                  onClick={() => copy(t.token)}
+                  className="w-full flex items-center justify-between gap-2 text-[11px] px-2 py-2 rounded-lg hover:bg-kaspa-green/[0.08] light:hover:bg-teal-50 transition-colors text-left"
+                >
+                  <code className="text-kaspa-green font-mono shrink-0">{copied === t.token ? 'Copied!' : `{{${t.token}}}`}</code>
+                  <span className="text-gray-500 light:text-slate-500 text-right min-w-0 truncate">{t.desc}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile interstitial. The Puck drag-and-drop canvas is unusable on phones
+// (tiny drag targets, no hover, overlapping sidebar), so on <md we render a
+// hero-style panel that explains this is a desktop tool, lets the creator mail
+// themselves the studio link, and shows a read-only preview of the current
+// design so the trip was not wasted. Hoisted so it never remounts. Full
+// dark / light parity, no em dashes anywhere. ──
+function MobileStudioInterstitial({ covenantId, data, liveData }) {
+  const studioUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/studio/${encodeURIComponent(covenantId)}`;
+  }, [covenantId]);
+  const [copied, setCopied] = useState(false);
+  const copyLink = useCallback(() => {
+    try { if (navigator.clipboard) navigator.clipboard.writeText(studioUrl); } catch (_) { /* no-op */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  }, [studioUrl]);
+  const mailHref = useMemo(() => {
+    const subject = encodeURIComponent('Open Covex Page Studio on desktop');
+    const body = encodeURIComponent(`Open this on a desktop browser to design your covenant page:\n\n${studioUrl}\n\nThe studio uses drag and drop, which needs a larger screen.`);
+    return `mailto:?subject=${subject}&body=${body}`;
+  }, [studioUrl]);
+  const hasContent = !!(data && data.content && data.content.length);
+  return (
+    <div className="px-3 py-4 sm:px-5 sm:py-6 space-y-4">
+      {/* Hero shell: matches the studio's Card / panel idiom (dark + light parity). */}
+      <div className="rounded-2xl border border-white/[0.08] light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-xl overflow-hidden">
+        <div className="px-5 pt-5 pb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="flex items-center justify-center h-9 w-9 rounded-xl bg-kaspa-green/15 light:bg-teal-50 text-kaspa-green">
+              <Monitor size={18} />
+            </span>
+            <span className="text-[10px] uppercase tracking-widest font-bold text-kaspa-green">Desktop tool</span>
+          </div>
+          <p className="text-base font-black text-white light:text-slate-900 leading-tight">Studio is best on desktop</p>
+          <p className="text-[12px] text-gray-400 light:text-slate-500 mt-1.5 leading-relaxed">
+            The page builder uses drag and drop, which needs a larger screen. Open this link on a desktop browser to design and publish. Your visitors see the published page fine on any device.
+          </p>
+        </div>
+        <div className="px-5 pb-4 space-y-2">
+          <a
+            href={mailHref}
+            className="btn-shimmer w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 transition-all"
+          >
+            <Mail size={15} /> Email me the studio link
+          </a>
+          <button
+            type="button"
+            onClick={copyLink}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 text-xs font-semibold transition-colors"
+          >
+            {copied ? <Check size={15} className="text-kaspa-green" /> : <Copy size={15} />}
+            {copied ? 'Link copied' : 'Copy link to clipboard'}
+          </button>
+        </div>
+        <div className="px-5 py-3 border-t border-white/[0.06] light:border-slate-100 flex items-center gap-2">
+          <Smartphone size={13} className="text-gray-500 light:text-slate-400 shrink-0" />
+          <p className="text-[11px] text-gray-500 light:text-slate-500 leading-snug">
+            Tip: page settings, theme and templates still work here from the toolbar overflow menu.
+          </p>
+        </div>
+      </div>
+
+      {/* Read-only preview of the saved design so the trip was not wasted. */}
+      <div className="rounded-2xl border border-white/[0.08] light:border-slate-200 bg-[#0A0A0D] light:bg-slate-50 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] light:border-slate-200">
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-gray-300 light:text-slate-600">
+            <Eye size={13} className="text-kaspa-green" /> Live preview
+          </span>
+          <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500 light:text-slate-500">Read only</span>
+        </div>
+        <div className="cvx-mobile-preview overflow-x-hidden">
+          {hasContent ? (
+            <PuckRender config={puckConfig} data={data} metadata={{ live: liveData }} />
+          ) : (
+            <div className="px-5 py-10 text-center">
+              <Sparkles size={20} className="text-kaspa-green mx-auto mb-2" />
+              <p className="text-[12px] font-semibold text-white light:text-slate-900">No design saved yet</p>
+              <p className="text-[11px] text-gray-400 light:text-slate-500 mt-1 leading-relaxed">Open the studio on desktop to pick a starter template and publish your first page.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

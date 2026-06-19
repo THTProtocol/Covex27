@@ -6,9 +6,10 @@ import {
   ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
   Zap, AlertTriangle, CheckCircle2, Info, Key, Palette,
   Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft,
-  Loader, Server, XCircle, Clock, BadgeCheck, Globe, Rocket,
+  Loader, Loader2, Server, XCircle, Clock, BadgeCheck, Globe, Rocket,
   Download, RefreshCw,
 } from 'lucide-react';
+import { copyWithFeedback } from '../lib/copy';
 import { Chess } from 'chess.js';
 import { CovexMark } from './CovexLogo';
 import TransparencyModal from './TransparencyModal';
@@ -2202,11 +2203,35 @@ ${gameMeta.outcomeBranches}
 
   if (!configLoaded) {
     return (
-      <div className="p-20 text-center">
-        <div className="w-8 h-8 border-2 border-kaspa-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-300 font-mono text-sm uppercase tracking-widest animate-pulse">
-          Loading terminal...
-        </p>
+      <div
+        className="space-y-6 animate-in fade-in duration-300"
+        role="status"
+        aria-busy="true"
+        aria-label="Loading terminal"
+      >
+        {/* Header skeleton mirrors the real Terminal header row */}
+        <div className="flex items-center gap-4 mb-2">
+          <div className="h-11 w-11 rounded-xl bg-white/[0.06] border border-white/10 animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-44 rounded bg-white/[0.08] animate-pulse" />
+            <div className="h-2.5 w-56 rounded bg-white/[0.05] animate-pulse" />
+          </div>
+        </div>
+        {/* Three form-row skeletons matching the section/label/input rhythm */}
+        {[0, 1, 2].map((i) => (
+          <div key={i} className={SECTION_BASE}>
+            <div className="h-3 w-40 rounded bg-white/[0.07] animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-2.5 w-24 rounded bg-white/[0.06] animate-pulse" />
+              <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/10 animate-pulse" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-2.5 w-32 rounded bg-white/[0.06] animate-pulse" />
+              <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/10 animate-pulse" />
+            </div>
+          </div>
+        ))}
+        <span className="sr-only">Loading terminal</span>
       </div>
     );
   }
@@ -2359,7 +2384,7 @@ ${gameMeta.outcomeBranches}
                 <div className="text-xs flex-1 space-y-1">
                   <div>URI (tap to pay in wallet):</div>
                   <div className="font-mono break-all bg-black/40 p-1 rounded text-amber-300">{payingTier.uri}</div>
-                  <button onClick={() => navigator.clipboard?.writeText(payingTier.uri)} className="text-[10px] underline">Copy URI</button>
+                  <button onClick={() => copyWithFeedback(payingTier.uri, { label: 'Payment URI copied' })} className="text-[10px] underline">Copy URI</button>
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
@@ -4107,11 +4132,20 @@ ${gameMeta.outcomeBranches}
                 {gameType === 'merkle_membership' ? 'Load bundled proof (secret=42, rootHash precomputed)' : gameType === 'range_proof' ? 'Load demo valid range proof (value inside [0,100])' : gameType === 'escrow_2party' ? 'Load bundled escrow proof (valid refund after timeout)' : gameType === 'age_verification' ? 'Load bundled age proof (born 1990, >= 18 by 2026)' : 'Load demo attested proof'}
               </button>
 
+              {/* Global busy hint - explains why the active prover and any siblings are disabled */}
+              {zkGeneratingId && (
+                <p role="status" aria-live="polite" className="text-[10px] text-gray-300 font-mono">
+                  Generating proof for {zkGeneratingId}. Other provers are paused until this run finishes.
+                </p>
+              )}
+
               {/* Generate real ZK proof client-side via snarkjs (circuit-specific) */}
               {gameType === 'merkle_membership' ? (
                 <button
                   onClick={generateMerkleProof}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'merkle_membership'}
+                  title={zkGeneratingId && zkGeneratingId !== 'merkle_membership' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'merkle_membership'
                       ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
@@ -4120,13 +4154,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'merkle_membership' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'merkle_membership' ? 'Generating ZK Proof...' : 'Generate Real Merkle Proof (snarkjs)'}
+                  {zkGeneratingId === 'merkle_membership' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'merkle_membership' ? 'Generating proof' : 'Generate Real Merkle Proof (snarkjs)'}
                 </button>
               ) : gameType === 'range_proof' ? (
                 <button
                   onClick={generateRangeProof}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'range_proof'}
+                  title={zkGeneratingId && zkGeneratingId !== 'range_proof' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'range_proof'
                       ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60'
@@ -4135,13 +4171,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'range_proof' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'range_proof' ? 'Generating Range Proof...' : 'Generate Range Proof (snarkjs + mimc workaround)'}
+                  {zkGeneratingId === 'range_proof' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'range_proof' ? 'Generating proof' : 'Generate Range Proof (snarkjs + mimc workaround)'}
                 </button>
               ) : gameType === 'escrow_2party' ? (
                 <button
                   onClick={generateEscrowProof}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'escrow_2party'}
+                  title={zkGeneratingId && zkGeneratingId !== 'escrow_2party' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'escrow_2party'
                       ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
@@ -4150,13 +4188,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'escrow_2party' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'escrow_2party' ? 'Generating ZK Proof...' : 'Generate Real Escrow Proof (snarkjs)'}
+                  {zkGeneratingId === 'escrow_2party' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'escrow_2party' ? 'Generating proof' : 'Generate Real Escrow Proof (snarkjs)'}
                 </button>
               ) : gameType === 'age_verification' ? (
                 <button
                   onClick={generateAgeProof}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'age_verification'}
+                  title={zkGeneratingId && zkGeneratingId !== 'age_verification' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'age_verification'
                       ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
@@ -4165,13 +4205,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'age_verification' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'age_verification' ? 'Generating ZK Proof...' : 'Generate Real Age Proof (snarkjs + MiMC)'}
+                  {zkGeneratingId === 'age_verification' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'age_verification' ? 'Generating proof' : 'Generate Real Age Proof (snarkjs + MiMC)'}
                 </button>
               ) : gameType === 'vrf_dice_roll' ? (
                 <button
                   onClick={generateVrfDiceRoll}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'vrf_dice_roll'}
+                  title={zkGeneratingId && zkGeneratingId !== 'vrf_dice_roll' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'vrf_dice_roll'
                       ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60'
@@ -4180,13 +4222,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'vrf_dice_roll' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'vrf_dice_roll' ? 'Generating VRF Proof...' : 'Generate Real VRF Dice Proof (snarkjs + Poseidon)'}
+                  {zkGeneratingId === 'vrf_dice_roll' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'vrf_dice_roll' ? 'Generating proof' : 'Generate Real VRF Dice Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'nullifier_set' ? (
                 <button
                   onClick={generateNullifierSet}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'nullifier_set'}
+                  title={zkGeneratingId && zkGeneratingId !== 'nullifier_set' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'nullifier_set'
                       ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
@@ -4195,13 +4239,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'nullifier_set' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'nullifier_set' ? 'Generating Nullifier Proof...' : 'Generate Real Nullifier Proof (snarkjs + Poseidon)'}
+                  {zkGeneratingId === 'nullifier_set' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'nullifier_set' ? 'Generating proof' : 'Generate Real Nullifier Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'utxo_ownership' ? (
                 <button
                   onClick={generateUtxoOwnership}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'utxo_ownership'}
+                  title={zkGeneratingId && zkGeneratingId !== 'utxo_ownership' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'utxo_ownership'
                       ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60'
@@ -4210,13 +4256,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'utxo_ownership' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'utxo_ownership' ? 'Generating UTXO Proof...' : 'Generate Real UTXO Note Proof (snarkjs + Poseidon)'}
+                  {zkGeneratingId === 'utxo_ownership' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'utxo_ownership' ? 'Generating proof' : 'Generate Real UTXO Note Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'hash_preimage' ? (
                 <button
                   onClick={generateHashPreimage}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'hash_preimage'}
+                  title={zkGeneratingId && zkGeneratingId !== 'hash_preimage' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'hash_preimage'
                       ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60'
@@ -4225,13 +4273,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'hash_preimage' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'hash_preimage' ? 'Generating Preimage Proof...' : 'Generate Real Hash Preimage Proof (snarkjs + MiMC)'}
+                  {zkGeneratingId === 'hash_preimage' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'hash_preimage' ? 'Generating proof' : 'Generate Real Hash Preimage Proof (snarkjs + MiMC)'}
                 </button>
               ) : gameType === 'timelock_absolute' ? (
                 <button
                   onClick={generateTimelockAbsolute}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'timelock_absolute'}
+                  title={zkGeneratingId && zkGeneratingId !== 'timelock_absolute' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'timelock_absolute'
                       ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
@@ -4240,13 +4290,15 @@ ${gameMeta.outcomeBranches}
                       : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(249,115,22,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'timelock_absolute' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'timelock_absolute' ? 'Generating Timelock Proof...' : 'Generate Real Absolute Timelock Proof (snarkjs)'}
+                  {zkGeneratingId === 'timelock_absolute' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'timelock_absolute' ? 'Generating proof' : 'Generate Real Absolute Timelock Proof (snarkjs)'}
                 </button>
               ) : gameType === 'relative_timelock' ? (
                 <button
                   onClick={generateRelativeTimelock}
                   disabled={zkGeneratingId !== null}
+                  aria-busy={zkGeneratingId === 'relative_timelock'}
+                  title={zkGeneratingId && zkGeneratingId !== 'relative_timelock' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'relative_timelock'
                       ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60'
@@ -4255,32 +4307,32 @@ ${gameMeta.outcomeBranches}
                       : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGeneratingId === 'relative_timelock' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'relative_timelock' ? 'Generating Timelock Proof...' : 'Generate Real Relative Timelock Proof (snarkjs)'}
+                  {zkGeneratingId === 'relative_timelock' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'relative_timelock' ? 'Generating proof' : 'Generate Real Relative Timelock Proof (snarkjs)'}
                 </button>
               ) : gameType === 'vrf_random' ? (
-                <button onClick={generateVrfRandom} disabled={zkGeneratingId !== null}
+                <button onClick={generateVrfRandom} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'vrf_random'} title={zkGeneratingId && zkGeneratingId !== 'vrf_random' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'vrf_random' ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400' : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
-                  <Cpu size={14} className={zkGeneratingId === 'vrf_random' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'vrf_random' ? 'Generating VRF Proof...' : 'Generate Real VRF Proof (snarkjs + Poseidon)'}
+                  {zkGeneratingId === 'vrf_random' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'vrf_random' ? 'Generating proof' : 'Generate Real VRF Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'turn_timer' ? (
-                <button onClick={generateTurnTimer} disabled={zkGeneratingId !== null}
+                <button onClick={generateTurnTimer} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'turn_timer'} title={zkGeneratingId && zkGeneratingId !== 'turn_timer' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'turn_timer' ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400' : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
-                  <Cpu size={14} className={zkGeneratingId === 'turn_timer' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'turn_timer' ? 'Generating Timer Proof...' : 'Generate Real Turn Timer Proof (snarkjs)'}
+                  {zkGeneratingId === 'turn_timer' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'turn_timer' ? 'Generating proof' : 'Generate Real Turn Timer Proof (snarkjs)'}
                 </button>
               ) : gameType === 'script_constraint' ? (
-                <button onClick={generateScriptConstraint} disabled={zkGeneratingId !== null}
+                <button onClick={generateScriptConstraint} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'script_constraint'} title={zkGeneratingId && zkGeneratingId !== 'script_constraint' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'script_constraint' ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'}`}>
-                  <Cpu size={14} className={zkGeneratingId === 'script_constraint' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'script_constraint' ? 'Generating Constraint Proof...' : 'Generate Real Script Constraint Proof (snarkjs + Poseidon)'}
+                  {zkGeneratingId === 'script_constraint' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'script_constraint' ? 'Generating proof' : 'Generate Real Script Constraint Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'pot_split_math' ? (
-                <button onClick={generatePotSplitMath} disabled={zkGeneratingId !== null}
+                <button onClick={generatePotSplitMath} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'pot_split_math'} title={zkGeneratingId && zkGeneratingId !== 'pot_split_math' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'pot_split_math' ? 'opacity-40 cursor-not-allowed bg-red-600/30 text-red-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-red-500/15 border border-red-500/30 text-red-400' : 'bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
-                  <Cpu size={14} className={zkGeneratingId === 'pot_split_math' ? 'animate-spin' : ''} />
-                  {zkGeneratingId === 'pot_split_math' ? 'Generating Split Proof...' : 'Generate Real Pot Split Proof (snarkjs)'}
+                  {zkGeneratingId === 'pot_split_math' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
+                  {zkGeneratingId === 'pot_split_math' ? 'Generating proof' : 'Generate Real Pot Split Proof (snarkjs)'}
                 </button>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">

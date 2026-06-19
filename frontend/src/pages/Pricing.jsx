@@ -314,15 +314,13 @@ const Pricing = () => {
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 light:text-slate-400">
                 <ShieldCheck size={13} className="text-[#49EACB]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
               </p>
-              <Button
+              <button
                 onClick={cancelPayment}
                 disabled={paymentStatus?.type === 'sending'}
-                variant="ghost"
-                size="sm"
-                className="w-full"
+                className="block mx-auto text-xs text-gray-400 hover:text-gray-200 light:text-slate-500 light:hover:text-slate-700 underline-offset-4 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancel
-              </Button>
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -331,7 +329,7 @@ const Pricing = () => {
   }
 
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-16">
+    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-16">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 660, height: 300, maxWidth: '90vw' }} />
       {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reason') === 'advanced' && (
         <div className="max-w-2xl mx-auto mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm text-center">
@@ -339,8 +337,8 @@ const Pricing = () => {
         </div>
       )}
       <div className="relative z-10 text-center max-w-2xl mx-auto mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Deploy Interactive Covenants</h1>
-        <p className="text-base md:text-lg text-gray-300 leading-relaxed">
+        <h1 className="h-display text-white light:text-slate-900 mb-4">Deploy Interactive Covenants</h1>
+        <p className="text-lg md:text-xl text-gray-300 light:text-slate-600 leading-relaxed">
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
         </p>
         <p className="mt-3 text-sm">
@@ -354,9 +352,8 @@ const Pricing = () => {
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
-            <Card key={tier.id} className={`relative overflow-hidden flex flex-col h-full pricing-tier-card hover-lift ${!isFree ? 'border-2' : ''}`}
+            <Card key={tier.id} accent={!isFree ? tier.accent : undefined} className={`relative overflow-hidden flex flex-col h-full pricing-tier-card hover-lift ${!isFree ? 'border-2' : ''}`}
               style={!isFree ? { borderColor: tier.accent + '40', boxShadow: tier.id === 'PRO' ? `0 0 0 1px ${tier.accent}55, 0 22px 55px -24px ${tier.accent}77` : undefined } : {}}>
-              {!isFree && <div className="absolute top-0 inset-x-0 h-[3px]" aria-hidden="true" style={{ background: `linear-gradient(90deg, transparent, ${tier.accent}, transparent)` }} />}
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">

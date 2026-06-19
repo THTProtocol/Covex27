@@ -21,38 +21,43 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 
-// Enforcement-reality palette. Kept honest: on-chain is the only "trustless"
-// tier; oracle-attested and full-zk both have the Covex oracle in the payout path.
+// Enforcement-reality copy. The visual palette lives in ui/Badge.jsx (single
+// source of truth) so the honesty colors stay identical everywhere. Mapping the
+// page's "oracle-attested" label onto the canonical "oracle" Badge variant.
 const REALITY = {
   'on-chain': {
     label: 'on-chain',
+    variant: 'on-chain',
     note: 'The chain enforces it. Your wallet redeems. No Covex key in the path.',
-    chip: 'bg-[#49EACB]/12 text-[#49EACB] border-[#49EACB]/30 light:bg-teal-50 light:text-teal-700 light:border-teal-300',
   },
   'oracle-attested': {
     label: 'oracle-attested',
+    variant: 'oracle',
     note: 'The disclosed Covex oracle co-signs a server-verified result. Not trustless.',
-    chip: 'bg-amber-400/12 text-amber-300 border-amber-400/30 light:bg-amber-50 light:text-amber-700 light:border-amber-300',
   },
   'full-zk': {
     label: 'full-zk',
+    variant: 'full-zk',
     note: 'A real Groth16 proof, verified off-chain by the oracle. Not on-chain ZK.',
-    chip: 'bg-purple-400/12 text-purple-300 border-purple-400/30 light:bg-purple-50 light:text-purple-700 light:border-purple-300',
   },
   metadata: {
     label: 'metadata',
+    variant: 'metadata',
     note: 'Discovery and display only. A real on-chain object, described, not enforced.',
-    chip: 'bg-white/8 text-gray-300 border-white/15 light:bg-slate-100 light:text-slate-600 light:border-slate-300',
   },
 };
 
 function RealityChip({ kind }) {
   const r = REALITY[kind] || REALITY.metadata;
   return (
-    <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${r.chip}`}>
+    <Badge
+      variant={r.variant}
+      className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5"
+    >
       {r.label}
-    </span>
+    </Badge>
   );
 }
 
@@ -78,7 +83,7 @@ const PILLARS = [
   {
     icon: ShieldCheck,
     title: 'Trust',
-    body: 'Every page carries an honest enforcement-reality badge and finality state. The treasury, ranking formula, and payment history are public. Non-custodial end to end.',
+    body: 'On-chain custody for every covenant; oracle co-signed for resolved kinds (games, markets, ZK circuits). The enforcement-reality badge says which on each page.',
     tag: 'Always on',
   },
 ];
@@ -183,8 +188,8 @@ export default function AboutPage() {
           >
             Covex is the covenant explorer and studio for Kaspa mainnet. Index every covenant,
             interact with any of them safely, and design the beautiful interactive websites that
-            other people use to act on them. Non-custodial end to end, and honest about exactly
-            who enforces every outcome.
+            other people use to act on them. On-chain custody, honestly labeled resolution, and
+            your wallet in the path of every value-moving action.
           </motion.p>
           <motion.div variants={rise} className="mt-9 flex flex-wrap gap-3 justify-center">
             <Link to="/deploy/enforced">
@@ -337,7 +342,7 @@ export default function AboutPage() {
         </Section>
 
         {/* ── Trust model ──────────────────────────────────────── */}
-        <Section title="The honest trust model" kicker="Non-custodial, end to end">
+        <Section title="The honest trust model" kicker="On-chain custody, honestly labeled resolution">
           <motion.div
             initial="hidden"
             whileInView="show"

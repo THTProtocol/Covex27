@@ -185,7 +185,8 @@ function NetworkSwitcher() {
 }
 
 function LiveStatus() {
-  const [info, setInfo] = useState(null);
+  // state.kind: 'live' (pulse green) | 'pending' (static amber) | 'none' (no mainnet text)
+  const [state, setState] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -201,14 +202,23 @@ function LiveStatus() {
           const git = (d.git_commit || 'dev').slice(0, 7);
           const total = (list && typeof list.total === 'number') ? list.total : (d.total_covenants || 0);
           const totalStr = total > 1000 ? `${(total / 1000).toFixed(1)}k` : total.toString();
-          // Honest mainnet signal: "live" only when wRPC is connected AND the covenant
-          // gate (Toccata) is active (that is what mainnet_ready encodes server-side);
-          // otherwise show "mainnet node connected" when the node URL is set but the
-          // covenant gate is not yet open.
-          const ready = d.mainnet_ready
-            ? ' • mainnet live'
-            : (d.mainnet_wrpc_configured ? ' • mainnet node connected' : '');
-          setInfo(`${git} • ${selectedNet} • ${totalStr} covenants${ready}`);
+          // Honest mainnet signal:
+          //   - pulse green ONLY when mainnet_ready (wRPC connected AND Toccata gate open
+          //     AND indexed tip DAA is non-zero, i.e. we are actually seeing blocks).
+          //   - static amber "mainnet node configured, sync pending" when the wRPC URL is
+          //     set but we have not yet ingested a non-zero tip.
+          //   - suppress all mainnet text otherwise.
+          const mainnetTip = Number(d?.node_sync?.mainnet?.tip_daa || 0);
+          let kind = 'none';
+          let suffix = '';
+          if (d.mainnet_ready && mainnetTip > 0) {
+            kind = 'live';
+            suffix = ' • mainnet live';
+          } else if (d.mainnet_wrpc_configured) {
+            kind = 'pending';
+            suffix = ' • mainnet node configured, sync pending';
+          }
+          setState({ kind, text: `${git} • ${totalStr} covenants${suffix}` });
         })
         .catch(() => { /* silent, keep footer clean */ });
     };
@@ -219,15 +229,24 @@ function LiveStatus() {
     return () => { mounted = false; clearInterval(id); window.removeEventListener('kaspa-network-change', onNet); };
   }, []);
 
-  if (!info) return null;
+  if (!state) return null;
+
+  const isLive = state.kind === 'live';
+  // Live: pulsing kaspa-green. Pending: static amber. Both are theme-safe.
+  const dotColor = isLive ? 'bg-kaspa-green' : 'bg-amber-400';
+  const ariaLabel = isLive
+    ? 'Mainnet live'
+    : (state.kind === 'pending' ? 'Mainnet node configured, sync pending' : 'Network status');
 
   return (
     <div className="text-[10px] opacity-60 tracking-wider flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-2">
-      <span className="relative inline-flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 motion-safe:animate-ping" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
+      <span className="relative inline-flex h-1.5 w-1.5 shrink-0" aria-label={ariaLabel} role="img">
+        {isLive && (
+          <span aria-hidden="true" className={`absolute inline-flex h-full w-full rounded-full ${dotColor} opacity-60 motion-safe:animate-ping`} />
+        )}
+        <span aria-hidden="true" className={`relative inline-flex h-1.5 w-1.5 rounded-full ${dotColor}`} />
       </span>
-      <span className="break-words">Covex {info}</span>
+      <span className="break-words">Covex {state.text}</span>
     </div>
   );
 }
@@ -466,7 +485,7 @@ export default function App() {
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center space-y-2.5">
-              <p>Non-custodial custody. Your wallet signs every payment, and Covex holds no user keys. Some covenants (games, prediction markets, full-zk circuits) are oracle-cosigned; see the enforcement badge on each page.</p>
+              <p>Custody is on-chain: funds lock to a Kaspa P2SH script hash and your wallet signs every spend. Covex holds no user keys. For oracle-resolved covenants (games, prediction markets, ZK circuits) the disclosed Covex oracle co-signs the winning branch, so payout is on-chain enforced but not trustless. Each covenant page shows its enforcement-reality badge.</p>
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
                 {[
                   ['How it Works', '/readme'],

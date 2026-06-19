@@ -35,6 +35,7 @@ export default function WalletButton() {
   const [panel, setPanel] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showAllWallets, setShowAllWallets] = useState(false);
+  const [pendingId, setPendingId] = useState(null);
   const [, bumpDetect] = useState(0); // forces re-detect re-render for late-injecting extensions
   const panelRef = useRef(null);
   const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'MAINNET';
@@ -86,6 +87,7 @@ export default function WalletButton() {
   const handleWalletClick = async (wallet) => {
     clearError();
     const action = walletPrimaryAction(wallet);
+    setPendingId(wallet.id);
     try {
       await connect(wallet.id);
       // Close only if we actually connected (provider path). Deep-link / install paths keep the
@@ -94,6 +96,8 @@ export default function WalletButton() {
     } catch (_) {
       // connect surfaces the reason via the context `error` state shown in the drawer; keep the
       // drawer open on failure so the user sees what went wrong instead of a silent dead-end.
+    } finally {
+      setPendingId(null);
     }
   };
 
@@ -119,7 +123,7 @@ export default function WalletButton() {
       <div className="relative" ref={panelRef}>
         <button
           onClick={() => setPanel((p) => !p)}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium transition-[border-color,box-shadow] duration-150 ease-out text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)] whitespace-nowrap"
+          className="btn-transition flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)] whitespace-nowrap"
           title="Account"
         >
           {meta?.logo
@@ -200,7 +204,7 @@ export default function WalletButton() {
     <>
       <button
         onClick={() => { clearError(); setLeaving(false); setOpen(true); }}
-        className="flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
+        className="btn-transition flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
       >
         <Wallet size={16} className="text-[#49EACB] shrink-0" />
         CONNECT<span className="hidden sm:inline">&nbsp;WALLET</span>
@@ -254,24 +258,30 @@ export default function WalletButton() {
                     <Check size={11} /> Ready to connect
                   </div>
                   <div className="space-y-2">
-                    {detected.map((wallet) => (
-                      <button
-                        key={wallet.id}
-                        onClick={() => handleWalletClick(wallet)}
-                        disabled={connecting}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#49EACB]/40 bg-[#49EACB]/[0.06] hover:bg-[#49EACB]/[0.12] hover:border-[#49EACB]/70 transition-all group disabled:opacity-50 text-left shadow-[0_0_20px_-8px_rgba(73,234,203,0.5)]"
-                      >
-                        <WalletLogo wallet={wallet} />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2">
-                            <span className="truncate">{wallet.name}</span>
-                            <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/15 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><Check size={9} /> Installed</span>
+                    {detected.map((wallet) => {
+                      const isPending = pendingId === wallet.id;
+                      return (
+                        <button
+                          key={wallet.id}
+                          onClick={() => handleWalletClick(wallet)}
+                          disabled={connecting}
+                          aria-busy={isPending}
+                          className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#49EACB]/40 bg-[#49EACB]/[0.06] hover:bg-[#49EACB]/[0.12] hover:border-[#49EACB]/70 transition-all group disabled:opacity-50 text-left shadow-[0_0_20px_-8px_rgba(73,234,203,0.5)]"
+                        >
+                          <WalletLogo wallet={wallet} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2">
+                              <span className="truncate">{wallet.name}</span>
+                              <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/15 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><Check size={9} /> Installed</span>
+                            </div>
+                            <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
                           </div>
-                          <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
-                        </div>
-                        <ArrowRight size={16} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />
-                      </button>
-                    ))}
+                          {isPending
+                            ? <Loader2 size={16} className="animate-spin text-[#49EACB] shrink-0" />
+                            : <ArrowRight size={16} className="text-[#49EACB] group-hover:translate-x-0.5 transition-transform shrink-0" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -285,11 +295,13 @@ export default function WalletButton() {
                   {shownOthers.map((wallet) => {
                     const action = walletPrimaryAction(wallet);
                     const isOpen = action.kind === 'open';
+                    const isPending = pendingId === wallet.id;
                     return (
                       <button
                         key={wallet.id}
                         onClick={() => handleWalletClick(wallet)}
                         disabled={connecting}
+                        aria-busy={isPending}
                         className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-slate-50 hover:border-[#49EACB] hover:bg-[#1a1a1a] light:hover:bg-white transition-all group disabled:opacity-50 text-left"
                       >
                         <WalletLogo wallet={wallet} />
@@ -302,9 +314,11 @@ export default function WalletButton() {
                           </div>
                           <div className="text-[11px] text-gray-500 truncate">{isOpen ? action.label : wallet.sub}</div>
                         </div>
-                        {isOpen
-                          ? <Smartphone size={14} className="text-[#49EACB] shrink-0" />
-                          : <Download size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />}
+                        {isPending
+                          ? <Loader2 size={16} className="animate-spin text-[#49EACB] shrink-0" />
+                          : isOpen
+                            ? <Smartphone size={14} className="text-[#49EACB] shrink-0" />
+                            : <Download size={13} className="text-gray-600 group-hover:text-gray-400 shrink-0" />}
                       </button>
                     );
                   })}

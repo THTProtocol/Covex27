@@ -29,10 +29,11 @@ export const buttonVariants = cva(
         kaspa:
           'bg-[#49EACB] text-black hover:brightness-110 hover:shadow-[0_0_24px_rgba(73,234,203,0.4)] light:bg-[#0f766e] light:text-white',
         gold:
-          'bg-[#E8AF34] text-black hover:brightness-110 hover:shadow-[0_0_24px_rgba(232,175,52,0.4)]',
+          'bg-[#E8AF34] text-black hover:brightness-110 hover:shadow-[0_0_24px_rgba(232,175,52,0.4)] light:bg-[#b8860b] light:text-white light:hover:bg-[#9a6f08]',
         glass:
-          'border border-white/10 bg-white/[0.06] text-white backdrop-blur-sm hover:bg-white/[0.1] hover:border-white/20',
-        danger: 'bg-red-500/90 text-white hover:bg-red-500 hover:shadow-[0_0_22px_rgba(248,113,113,0.35)]',
+          'border border-white/10 bg-white/[0.06] text-white backdrop-blur-sm hover:bg-white/[0.1] hover:border-white/20 light:bg-slate-100 light:hover:bg-slate-200 light:border-slate-200 light:hover:border-slate-300 light:text-slate-700 light:backdrop-blur-none',
+        danger:
+          'bg-red-500/90 text-white hover:bg-red-500 hover:shadow-[0_0_22px_rgba(248,113,113,0.35)] light:bg-red-600 light:!text-white light:hover:bg-red-700',
       },
       size: {
         default: 'h-10 px-5 py-2',

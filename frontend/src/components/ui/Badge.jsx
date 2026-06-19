@@ -37,16 +37,23 @@ export const badgeVariants = cva(
         destructive: 'border-transparent bg-red-500/80 text-white hover:bg-red-500',
         outline: 'text-white border-white/30',
         max: 'border-purple-500/40 bg-purple-500/15 text-purple-300',
-        pro: 'border-amber-500/40 bg-amber-500/15 text-amber-300',
+        // PRO tier uses Kaspa-gold (#E8AF34, mirrors tierPalette.js) NOT generic
+        // amber, so it never collides with the honesty `oracle` chip. The dot
+        // prefix is the strongest disambiguator at card-corner sizes: it makes
+        // the chip read as a tier marker, not an enforcement chip.
+        pro: 'border-[#E8AF34]/40 bg-[#E8AF34]/15 text-[#E8AF34] light:border-[#B45309]/60 light:bg-[#FEF3C7] light:text-[#92400E]',
         builder: 'border-[#49EACB]/40 bg-[#49EACB]/15 text-[#49EACB]',
         // Honest enforcement-reality chips (canonical palette - see file header).
-        'on-chain': 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
-        hybrid:    'border-sky-500/40 bg-sky-500/15 text-sky-300',
-        oracle:    'border-amber-500/40 bg-amber-500/15 text-amber-300',
-        'full-zk': 'border-violet-500/40 bg-violet-500/15 text-violet-300',
-        metadata:  'border-slate-400/30 bg-slate-400/10 text-slate-300',
-        decorative:'border-slate-400/30 bg-slate-400/10 text-slate-300',
-        gold:      'border-[#E8AF34]/40 bg-[#E8AF34]/15 text-[#E8AF34]',
+        // Each variant carries explicit light: overrides so the sacred honesty
+        // palette stays >= 4.5:1 against #ffffff. Without these, the full-zk
+        // and metadata chips render at ~1.5:1 on the light glass surfaces.
+        'on-chain': 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 light:border-emerald-600/60 light:bg-emerald-50 light:text-emerald-700',
+        hybrid:    'border-sky-500/40 bg-sky-500/15 text-sky-300 light:border-sky-600/60 light:bg-sky-50 light:text-sky-700',
+        oracle:    'border-amber-500/40 bg-amber-500/15 text-amber-300 light:border-amber-600/60 light:bg-amber-50 light:text-amber-700',
+        'full-zk': 'border-violet-500/40 bg-violet-500/15 text-violet-300 light:border-violet-600/60 light:bg-violet-50 light:text-violet-700',
+        metadata:  'border-slate-400/30 bg-slate-400/10 text-slate-300 light:border-slate-300 light:bg-slate-100 light:text-slate-700',
+        decorative:'border-slate-400/30 bg-slate-400/10 text-slate-300 light:border-slate-300 light:bg-slate-100 light:text-slate-600',
+        gold:      'border-[#E8AF34]/40 bg-[#E8AF34]/15 text-[#E8AF34] light:border-amber-600/60 light:bg-amber-50 light:text-amber-700',
       },
     },
     defaultVariants: {
@@ -63,12 +70,23 @@ const DOT = {
   metadata:   'bg-slate-400',
   decorative: 'bg-slate-400',
   gold:       'bg-[#E8AF34]',
+  pro:        'bg-[#E8AF34]',
+  max:        'bg-purple-400',
+  builder:    'bg-[#49EACB]',
 };
 
+// Paid-tier chips ALWAYS render with a leading dot so they read as tier
+// markers, not enforcement-reality chips. Without this, a top-right `PRO`
+// chip and a top-left `oracle` honesty chip on the same Explorer card
+// rendered as visually identical amber rectangles. Sacred honesty palette
+// (oracle = amber) stays unchanged; PRO moves to its real Kaspa-gold token.
+const FORCED_DOT_VARIANTS = new Set(['pro', 'max', 'builder']);
+
 function Badge({ className, variant, dot = false, children, ...props }) {
+  const showDot = dot || FORCED_DOT_VARIANTS.has(variant);
   return (
     <div className={cn(badgeVariants({ variant }), className)} {...props}>
-      {dot && <span className={cn('h-1.5 w-1.5 rounded-full', DOT[variant] || 'bg-current')} aria-hidden="true" />}
+      {showDot && <span className={cn('h-1.5 w-1.5 rounded-full', DOT[variant] || 'bg-current')} aria-hidden="true" />}
       {children}
     </div>
   );

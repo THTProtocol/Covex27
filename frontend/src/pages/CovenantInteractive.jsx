@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import TrustBadge, { trustInfo } from '../components/TrustBadge';
+import TrustBadge from '../components/TrustBadge';
 import { motion } from 'framer-motion';
 import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
@@ -32,7 +32,7 @@ const GAME_REGISTRY = {
 };
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock, Link2, Radio, ShieldQuestion } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
@@ -43,6 +43,17 @@ import ZkClaimPanel from '../components/ZkClaimPanel';
 import HonestLimits from '../components/HonestLimits';
 import { MarketView } from './Markets';
 import { Button, buttonVariants } from '../components/ui/Button';
+import { Separator } from '../components/ui/Separator';
+
+// Tier accent palette: drives the hero TIER chip color so verified-tier covenants
+// read their true level (purple MAX, gold PRO, blue BUILDER) instead of a fixed gold.
+const TIER_PALETTE = {
+  MAX:     { bg: 'bg-purple-500/10',  text: 'text-purple-300',  border: 'border-purple-500/30',  light: 'light:bg-purple-500/15 light:text-purple-700 light:border-purple-500/40',  glow: 'tier-glow-max' },
+  PRO:     { bg: 'bg-kaspa-gold/10',  text: 'text-kaspa-gold',  border: 'border-kaspa-gold/20',  light: 'light:bg-amber-500/15 light:text-amber-700 light:border-amber-500/40',    glow: 'tier-glow-pro' },
+  BUILDER: { bg: 'bg-sky-500/10',     text: 'text-sky-300',     border: 'border-sky-500/30',     light: 'light:bg-sky-500/15 light:text-sky-700 light:border-sky-500/40',          glow: 'tier-glow-builder' },
+  FREE:    { bg: 'bg-white/[0.05]',   text: 'text-gray-300',    border: 'border-white/10',       light: 'light:bg-slate-100 light:text-slate-600 light:border-slate-300',          glow: '' },
+  EXPLORER:{ bg: 'bg-white/[0.05]',   text: 'text-gray-300',    border: 'border-white/10',       light: 'light:bg-slate-100 light:text-slate-600 light:border-slate-300',          glow: '' },
+};
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -284,7 +295,7 @@ export default function CovenantInteractive() {
       });
       const d = await r.json();
       if (d && d.ok) {
-        toast.success('Verified on-chain. This covenant is now fully interactable.');
+        toast.success('Script matches the on-chain commitment. Custody is verified; outcome enforcement reality is unchanged (see the trust badge).');
         setClaimOpen(false);
         fetch(`/api/covenants/${encodeURIComponent(id)}`).then(x => x.ok ? x.json() : null).then(x => x && setCovenant(x.covenant || null)).catch(() => {});
       } else {
@@ -871,6 +882,14 @@ export default function CovenantInteractive() {
     typeof covenant?.custom_ui_html === 'string' &&
     covenant.custom_ui_html.length > 10;
 
+  // Single creator surface switch: render EXACTLY ONE creator-authored view.
+  // Puck data wins (the structured editor output); the legacy sandboxed iframe
+  // is only used when there is no Puck data. Prevents double-rendered surfaces
+  // (hero + bottom iframe) that previously fought for attention.
+  const creatorSurface = covenant?.custom_ui_config?.puck_data?.content?.length > 0
+    ? 'puck'
+    : (hasCreatorUI ? 'iframe' : null);
+
   // Preview style based on config
   const previewStyle = {
     primaryColor: config.primaryColor,
@@ -899,7 +918,7 @@ export default function CovenantInteractive() {
           at render. No creator input ever sets a fund destination. Images are always
           the creator's own choice (https URLs); with none set, the blocks fall back to
           the branded gradient look. */}
-      {covenant?.custom_ui_config?.puck_data?.content?.length > 0 && (
+      {creatorSurface === 'puck' && (
         <div className="mb-10 rounded-3xl overflow-hidden border border-white/[0.06]">
           <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
         </div>
@@ -908,7 +927,7 @@ export default function CovenantInteractive() {
       {/* The full-width "Build / edit this site" banner was removed: the single creator
           entry point now lives next to the title row (Button variant='kaspa'). Visitors with
           no published page see a subtle honest note inviting them to interact directly. */}
-      {!isCreator && !(covenant?.custom_ui_config?.puck_data?.content?.length > 0) ? (
+      {!isCreator && !creatorSurface ? (
         <div className="mb-10 flex items-center gap-2.5 rounded-2xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-4 py-3 text-[12px] text-gray-400 light:text-slate-500">
           <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-400" />
           <span>The creator can design a full interactive page for this covenant in Covex Page Studio. Until then, you can interact with it directly below.</span>
@@ -920,7 +939,7 @@ export default function CovenantInteractive() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass-panel detail-hero-enhanced p-8 sm:p-10 rounded-3xl flex flex-col light:bg-white light:border light:border-slate-200 light:shadow-sm"
+          className="glass-panel detail-hero-enhanced p-6 sm:p-8 rounded-3xl flex flex-col space-y-5 light:bg-white light:border light:border-slate-200 light:shadow-sm"
         >
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
             <div className="relative shrink-0">
@@ -934,9 +953,15 @@ export default function CovenantInteractive() {
                 {covenant.name || TRUNC(covenant.tx_id)}
               </h1>
               <div className="flex flex-wrap items-center gap-3 mt-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest light:bg-amber-500/15 light:text-amber-700 light:border-amber-500/40 ${({ MAX: 'tier-glow-max', PRO: 'tier-glow-pro', BUILDER: 'tier-glow-builder' }[(covenant.tier || covenant.verified_tier || '').toUpperCase()]) || ''}`}>
-                  {covenant.tier || covenant.verified_tier || 'FREE'} TIER
-                </span>
+                {(() => {
+                  const currentTier = (covenant.tier || covenant.verified_tier || 'FREE').toUpperCase();
+                  const p = TIER_PALETTE[currentTier] || TIER_PALETTE.FREE;
+                  return (
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-widest ${p.bg} ${p.text} ${p.border} ${p.light} ${p.glow}`}>
+                      {currentTier} TIER
+                    </span>
+                  );
+                })()}
                 <span className="text-sm text-gray-300 font-mono light:text-slate-600">{covenant.category || 'General'}</span>
               </div>
             </div>
@@ -1024,7 +1049,8 @@ export default function CovenantInteractive() {
 
           {/* Lifecycle timeline + resolution trust: always visible, never hideable */}
           {covenant && (
-            <div className="mb-6 glass-panel rounded-xl p-4 border border-white/[0.06]">
+            <div className="py-5">
+              <Separator className="mb-5 light:bg-slate-200" />
               <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Covenant Lifecycle</p>
                 <div className="flex items-center gap-2">
@@ -1044,24 +1070,9 @@ export default function CovenantInteractive() {
                       <Clock size={11} />Pending
                     </span>
                   )}
-                  {/* Non-pressable enforcement-reality cue. The full pressable TrustBadge
-                      lives once at the top of the page (with description), so this title
-                      row chip is a passive visual echo, not a second modal trigger. */}
-                  {(() => {
-                    const t = trustInfo(covenant);
-                    const chip = {
-                      onchain:    'bg-emerald-500/10 border-emerald-500/25 text-emerald-300 light:text-emerald-600',
-                      hybrid:     'bg-sky-500/10 border-sky-500/25 text-sky-300 light:text-sky-600',
-                      oracle:     'bg-amber-500/10 border-amber-500/25 text-amber-300 light:text-amber-600',
-                      decorative: 'bg-white/[0.05] border-white/15 text-gray-300 light:text-slate-500',
-                    }[t.kind];
-                    const Dot = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, decorative: ShieldQuestion }[t.kind];
-                    return (
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${chip}`} title={t.desc}>
-                        <Dot size={11} />{t.label}
-                      </span>
-                    );
-                  })()}
+                  {/* The full enforcement-reality TrustBadge leads the page above the
+                      grid; the duplicate chip that used to sit here was removed so the
+                      lifecycle row carries finality only, not a second reality cue. */}
                 </div>
               </div>
               {/* All four stages flex to fit at any width: no horizontal slider. Stages are
@@ -1103,7 +1114,8 @@ export default function CovenantInteractive() {
 
           {/* On-chain activity history: everything the indexers have seen for this covenant */}
           {actions.length > 0 && (
-            <div className="mb-6 glass-panel rounded-xl p-4 border border-white/[0.06]">
+            <div className="py-5">
+              <Separator className="mb-5 light:bg-slate-200" />
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Activity History</p>
               <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                 {actions.slice().reverse().map((a, i) => {
@@ -1135,49 +1147,52 @@ export default function CovenantInteractive() {
               covenant gets a positive banner even when the creator never paid for the
               "verified tier" (a separate disclosure feature). Only metadata-only covenants -
               which the chain does NOT enforce - get the caution banner. */}
-          {isChess || verified ? (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
-              <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-400">
-                  {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
-                </p>
-                <p className="text-xs text-emerald-400/70">
-                  {isChess ? 'All receiving addresses, fees, timers, the disclosed oracle, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
-                </p>
+          <div className="py-5">
+            <Separator className="mb-5 light:bg-slate-200" />
+            {isChess || verified ? (
+              <div className="px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3">
+                <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400">
+                    {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
+                  </p>
+                  <p className="text-xs text-emerald-400/70">
+                    {isChess ? 'All receiving addresses, fees, timers, the disclosed oracle, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : isMarketLeg ? (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-sky-500/[0.06] border border-sky-500/25 flex items-center gap-3">
-              <ShieldCheck size={20} className="text-sky-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-sky-400">ON-CHAIN CUSTODY, ORACLE-RESOLVED</p>
-                <p className="text-xs text-sky-400/80">
-                  This is one leg of a parimutuel market. Custody and every payout are script-locked on-chain (P2SH, hashlock + winner key), but which outcome wins is decided by the secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless: you trust the named oracle to reveal the secret for the true result.
-                </p>
+            ) : isMarketLeg ? (
+              <div className="px-5 py-4 rounded-xl bg-sky-500/[0.06] border border-sky-500/25 flex items-center gap-3">
+                <ShieldCheck size={20} className="text-sky-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-sky-400">ON-CHAIN CUSTODY, ORACLE-RESOLVED</p>
+                  <p className="text-xs text-sky-400/80">
+                    This is one leg of a parimutuel market. Custody and every payout are script-locked on-chain (P2SH, hashlock + winner key), but which outcome wins is decided by the secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless: you trust the named oracle to reveal the secret for the true result.
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : covenant?.enforcement_reality === 'on-chain' && !isMarketLeg ? (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3 zk-live-glow">
-              <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-400">ON-CHAIN ENFORCED</p>
-                <p className="text-xs text-emerald-400/70">
-                  Kaspa consensus enforces this covenant - the strongest guarantee. Funds lock to a script hash and move only by satisfying it, with no oracle and no trust in Covex. (The paid "verified tier" only adds extra creator-published disclosure; it is separate from enforcement.)
-                </p>
+            ) : covenant?.enforcement_reality === 'on-chain' && !isMarketLeg ? (
+              <div className="px-5 py-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 flex items-center gap-3 zk-live-glow">
+                <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400">ON-CHAIN ENFORCED</p>
+                  <p className="text-xs text-emerald-400/70">
+                    Kaspa consensus enforces this covenant, the strongest guarantee. Funds lock to a script hash and move only by satisfying it, with no oracle and no trust in Covex. (The paid "verified tier" only adds extra creator-published disclosure; it is separate from enforcement.)
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="mb-6 px-5 py-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 flex items-center gap-3">
-              <AlertTriangle size={20} className="text-amber-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-400">Metadata only - not consensus-enforced</p>
-                <p className="text-xs text-amber-400/80">
-                  The chain records this covenant but does not enforce its stated logic, and disclosure is limited to tx_id, script_hash, and amount. Review the on-chain facts and the creator before sending funds.
-                </p>
+            ) : (
+              <div className="px-5 py-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 flex items-center gap-3">
+                <AlertTriangle size={20} className="text-amber-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-400">Metadata only, not consensus-enforced</p>
+                  <p className="text-xs text-amber-400/80">
+                    The chain records this covenant but does not enforce its stated logic, and disclosure is limited to tx_id, script_hash, and amount. Review the on-chain facts and the creator before sending funds.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* On-chain lock + verification, always visible on the page body (no modal needed):
               full script_hex, P2SH structural verdict (aa20...87), redeem_script_hex, the Groth16
@@ -1204,7 +1219,7 @@ export default function CovenantInteractive() {
             </h3>
             <p className="text-gray-300 leading-relaxed light:text-slate-700">
               {isChess 
-                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. The experience is fully non custodial. The game runs on a server authoritative engine and the outcome is attested by the disclosed Covex oracle using a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
+                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine and the outcome is co-signed by the disclosed Covex oracle (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
                 : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
@@ -1212,24 +1227,25 @@ export default function CovenantInteractive() {
           </div>
 
           {/* Always-visible full transparency: receiving addresses + logic (public on default) */}
-          <div className="mb-6">
+          <div className="py-5">
+            <Separator className="mb-5 light:bg-slate-200" />
             <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest light:text-slate-600">Receiving Addresses (all flows public)</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
                 <div className="text-gray-400 light:text-slate-500">Covenant / Pot Address</div>
                 <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.address || covenant.receiving_addresses || 'On-chain covenant address'}</div>
               </div>
               {covenant.fee_recipient ? (
-                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
                   <div className="text-gray-400 light:text-slate-500">Fee Recipient</div>
                   <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.fee_recipient}</div>
                 </div>
               ) : null}
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+              <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
                 <div className="text-gray-400 light:text-slate-500">Creator Address (fee cut / sustain)</div>
                 <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.creator_addr || 'See covenant deployer'}</div>
               </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+              <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
                 <div className="text-gray-400 light:text-slate-500">TX / Script</div>
                 <div className="font-mono text-white break-all mt-0.5 text-[10px] light:text-slate-900">{covenant.tx_id} / {covenant.script_hash || 'on-chain'}</div>
               </div>
@@ -1246,7 +1262,7 @@ export default function CovenantInteractive() {
                   <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends game.<br/>
                   <strong>Payout:</strong> Winner takes full pot minus 2% fee (fee to creator address to sustain future games).<br/>
                   <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions); the final outcome is oracle co-signed (BIP340 Schnorr) by the disclosed Covex oracle, not trustless. No zero-knowledge proof of moves.<br/>
-                  <strong>Non-custodial:</strong> All stakes and payouts go directly to covenant addresses on Kaspa. Custody and payout are script-locked on-chain and verifiable on the explorer; the outcome is oracle co-signed, not trustless.
+                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by the disclosed Covex oracle BIP340 co-signature (oracle-attested, not trustless).
                 </>
               ) : (
                 covenant.full_logic_summary || covenant.description || 'All parameters, fees, resolution method, circuits, oracles, and payout rules are fully disclosed on-chain and in the published view.'
@@ -1325,7 +1341,7 @@ export default function CovenantInteractive() {
             )}
           </div>
 
-          <div className="p-8 flex-1">
+          <div className="p-6 sm:p-7 flex-1">
             {activeTab === 'interact' ? (
               <div className="space-y-8">
 
@@ -1377,7 +1393,7 @@ export default function CovenantInteractive() {
                               <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome oracle-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
-                          <div className="text-[10px] text-emerald-300/70 mt-1 text-center">Transparent • Non-custodial • Direct to covenant on Kaspa</div>
+                          <div className="text-[10px] text-emerald-300/70 mt-1 text-center">Transparent · Custody on-chain · Outcome oracle-attested</div>
                         </div>
                       </div>
                     </div>
@@ -1438,8 +1454,10 @@ export default function CovenantInteractive() {
                 )}
 
                 {/* Custom UI iframe ONLY for a genuine creator-published UI. Auto-generated
-                    blobs are skipped so the clean native panel below speaks for the covenant. */}
-                {hasCreatorUI && !isCreator && !isChess && (
+                    blobs are skipped so the clean native panel below speaks for the covenant.
+                    Suppressed when a Puck surface already leads the page, so only one creator
+                    surface ever renders. */}
+                {creatorSurface === 'iframe' && !isCreator && !isChess && (
                   <div className="mb-4">
                     <div className="text-xs uppercase tracking-widest text-kaspa-green/80 mb-1">Creator-Published Custom Interface</div>
                     <div className="rounded-2xl overflow-hidden border border-kaspa-green/20 bg-black/60">
@@ -1448,8 +1466,11 @@ export default function CovenantInteractive() {
                   </div>
                 )}
 
-                {/* General Amount to Lock + execute ONLY for non-chess covenants. For chess the pro arena panel above is the complete simple experience. */}
-                {!isChess && (
+                {/* General Amount to Lock + execute ONLY for covenants that have NO
+                    dedicated game arena (chess, etc.). Any game with its own stake CTA
+                    already collected the amount above, so we never show a second stake
+                    input. */}
+                {!gameType && (
                   <>
                     {covenant.spent_tx_id ? (
                       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
@@ -1524,7 +1545,7 @@ export default function CovenantInteractive() {
                         {claimOpen && (
                           <div className="px-4 pb-4 space-y-3">
                             <p className="text-xs text-gray-300 leading-relaxed">
-                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. Fully trustless.
+                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. The hash check is trustless; enforcement reality afterwards depends on kind: merkle_membership, age_verification, escrow_2party, and range_proof verify on-chain end-to-end, while oracle_escrow and oracle_enforced remain oracle-attested by the disclosed Covex oracle (BIP340).
                             </p>
                             <textarea value={claimForm.redeem_script_hex} onChange={e => setClaimForm(f => ({ ...f, redeem_script_hex: e.target.value }))} placeholder="Redeem script (hex)" rows={3} className="w-full text-xs font-mono bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus:border-blue-400/50 outline-none" spellCheck={false} />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1576,14 +1597,17 @@ export default function CovenantInteractive() {
                       </div>
                     )}
 
-                    <button
+                    <Button
+                      variant="kaspa"
+                      size="lg"
+                      shimmer
                       onClick={handleExecute}
                       disabled={executing}
-                      className="btn-shimmer w-full bg-kaspa-green text-black font-extrabold py-5 rounded-2xl text-lg hover:shadow-[0_0_40px_rgba(73,234,203,0.5)] transition-all disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-3 uppercase tracking-wide"
+                      className="w-full font-extrabold uppercase tracking-wide"
                     >
-                      {executing ? null : address ? <ShieldCheck size={24} /> : <Lock size={24} />}
+                      {executing ? null : address ? <ShieldCheck size={20} /> : <Lock size={20} />}
                       {executing ? 'Processing...' : address ? 'Sign & Execute' : 'Interact with this covenant'}
-                    </button>
+                    </Button>
 
                     {deployUri && (
                       <div className="p-3 rounded-xl bg-black/30 border border-white/5">
@@ -1715,24 +1739,27 @@ export default function CovenantInteractive() {
                     Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
                     Resign, timeout or checkmate ends the game.<br/><br/>
                     Winner receives the pot minus 2 percent. The 2 percent goes to the creator address to keep the arena running for the next games.<br/><br/>
-                    All stakes are sent directly to the covenant address on Kaspa. Fully non-custodial.<br/><br/>
+                    Custody on-chain, payout gated by the disclosed Covex oracle BIP340 co-signature (oracle-attested, not trustless).<br/><br/>
                     The game runs on a server authoritative engine that enforces legal moves, and the final outcome is attested by the disclosed Covex oracle with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
                   </div>
 
-                  <button
+                  <Button
+                    variant="kaspa"
+                    size="lg"
+                    shimmer
                     onClick={async () => {
                       // publishCustomUI already shows the accurate success/error toast and
                       // returns whether it actually published. Only add the extra success
-                      // note when it really went live - never claim success on failure.
+                      // note when it really went live, never claim success on failure.
                       const ok = await publishCustomUI(false);
                       if (ok) {
                         toast.success('Published! The public view and arena now reflect your settings. Refresh to see for visitors.');
                       }
                     }}
-                    className="w-full py-4 bg-kaspa-green hover:bg-[#3bc2a6] active:scale-[0.985] text-black font-bold rounded-3xl flex items-center justify-center gap-2 text-base"
+                    className="w-full"
                   >
                     <Save size={18} /> PUBLISH LOOKS + STAKE SETTINGS
-                  </button>
+                  </Button>
                   <div className="text-[10px] text-center text-gray-500 mt-2">Changes are immediate for the transparent public experience. No terminal shown to regular users.</div>
                 </div>
 
@@ -1747,7 +1774,7 @@ export default function CovenantInteractive() {
             ) : activeTab === 'terminal' ? (
               /* ── Terminal Tab: ONLY the creator sees this (to deploy custom nice UI, ZK, oracles, etc). Regular users never see terminal or settings. ── */
               isCreator ? (
-                <div className="-m-8">
+                <div className="-m-6 sm:-m-7">
                   <CovexTerminal covenant={covenant} />
                 </div>
               ) : (
@@ -1757,18 +1784,6 @@ export default function CovenantInteractive() {
                   <p className="text-gray-300 mb-6 max-w-md mx-auto">Advanced terminal (ZK circuits, oracles, custom UI deployment) is only available to the creator of this covenant.</p>
                 </div>
               )
-            ) : activeTab === 'fix' && isCreator ? (
-              /* Fix Tab (creator only): the super clean 1 section manager right inside the covenant page exactly as requested */
-              <div className="space-y-6">
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-1">Fix: Manage Looks + Stake</h3>
-                  <p className="text-xs text-gray-400">Super clean. One section for the stake amount and all the rules. Changes publish as the transparent view everyone else sees.</p>
-                </div>
-                <Link to={`/covenant/${encodeURIComponent(id)}/studio`} className="block w-full text-center px-6 py-4 rounded-3xl bg-kaspa-green text-black font-bold text-base">
-                  Build / edit this site in Page Studio
-                </Link>
-                <div className="text-[11px] text-gray-500 text-center">Page Studio is the full drag and drop editor: templates, live preview, blocks, and the stake settings, all in one place.</div>
-              </div>
             ) : (
               /* fallback for old builder or other */
               <div className="space-y-6">
@@ -1779,7 +1794,7 @@ export default function CovenantInteractive() {
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">Use the Fix tab (creator only) for the clean manager.</p>
                 </div>
-                <Link to={`/covenant/${encodeURIComponent(id)}/studio`} className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-kaspa-green text-black font-bold">
+                <Link to={`/covenant/${encodeURIComponent(id)}/studio`} className={`${buttonVariants({ variant: 'kaspa', size: 'lg' })} btn-shimmer w-full`}>
                   Build / edit this site
                 </Link>
               </div>
@@ -1789,8 +1804,10 @@ export default function CovenantInteractive() {
       </div>
 
       {/* Custom UI Rendering: creator published transparent view (via Fix page).
-          Reserved for genuine creator UIs - auto-generated blobs are never framed here. */}
-      {hasCreatorUI && (
+          Reserved for genuine creator UIs - auto-generated blobs are never framed
+          here. Routed through the single creatorSurface switch so a covenant with
+          Puck data never doubles up with this legacy iframe. */}
+      {creatorSurface === 'iframe' && (
         <div className="mt-8 w-full">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30">

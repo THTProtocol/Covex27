@@ -79,9 +79,9 @@ const PANEL_FADE = {
 function SelectionChip({ name, reality, className = '' }) {
   return (
     <span className={`inline-flex items-center gap-2 min-w-0 max-w-full ${className}`}>
-      <Boxes size={13} className="text-kaspa-green shrink-0" />
+      <Boxes size={13} className="text-gray-400 light:text-slate-500 shrink-0" />
       <span className="text-[12px] font-semibold text-white light:text-slate-900 truncate">{name}</span>
-      <Badge variant={reality.badgeVariant} dot className="shrink-0 text-[10px] py-0">{reality.label}</Badge>
+      <Badge variant={reality.badgeVariant} dot className="hidden sm:inline shrink-0 text-[10px] py-0">{reality.label}</Badge>
     </span>
   );
 }
@@ -91,9 +91,9 @@ function SelectionChip({ name, reality, className = '' }) {
 function PhaseHeader({ eyebrow, title, action }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-widest text-kaspa-green font-bold mb-1">{eyebrow}</div>
-      <h2 className="text-xl font-bold text-white light:text-slate-900">{title}</h2>
-      <p className="text-sm text-gray-400 light:text-slate-500 mt-1">{action}</p>
+      <div className="label-xs text-kaspa-green mb-1">{eyebrow}</div>
+      <h2 className="text-2xl sm:text-[28px] font-extrabold tracking-[-0.015em] leading-tight text-white light:text-slate-900">{title}</h2>
+      <p className="text-[15px] text-gray-300 light:text-slate-600 mt-1.5 max-w-2xl">{action}</p>
     </div>
   );
 }
@@ -237,7 +237,7 @@ export default function Sandbox() {
       <div className="relative z-10">
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <Terminal size={22} className="text-kaspa-green" />
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white light:text-slate-900">Covenant Sandbox</h1>
+          <h1 className="h-page text-white light:text-slate-900">Covenant Sandbox</h1>
           <Badge variant="gold" dot>FREE TO EXPLORE</Badge>
         </div>
         <p className="text-base sm:text-lg text-gray-300 light:text-slate-600 max-w-3xl mb-7">
@@ -272,8 +272,8 @@ export default function Sandbox() {
 
       {mode === 'guided' && (<>
       {/* STICKY STEPPER RAIL: one source of truth = the three phases. */}
-      <div className="sticky top-16 z-30 -mx-4 px-4 py-2.5 mb-7 bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200">
-        <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="relative sm:sticky sm:top-16 z-30 -mx-4 px-4 py-3 mb-7 bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200">
+        <div className="flex items-center gap-2 flex-wrap">
           {PHASES.map((p, i) => {
             const active = phase === p.id;
             const done = phaseIdx > i;
@@ -283,11 +283,11 @@ export default function Sandbox() {
                 key={p.id}
                 onClick={() => ok && setPhase(p.id)}
                 disabled={!ok}
-                className={`inline-flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+                className={`inline-flex items-center gap-2 pl-1.5 pr-3 py-2 rounded-full border text-xs font-bold transition-all ${
                   active ? 'border-kaspa-green/60 bg-kaspa-green/15 text-white light:text-slate-900'
-                    : done ? 'border-kaspa-green/30 bg-kaspa-green/[0.06] text-kaspa-green'
+                    : done ? 'border-kaspa-green/30 bg-kaspa-green/[0.06] text-emerald-300 light:text-emerald-700'
                     : ok ? 'border-white/10 text-gray-300 hover:border-white/25 light:border-slate-200 light:text-slate-600'
-                    : 'border-white/5 text-gray-600 cursor-not-allowed light:border-slate-200 light:text-slate-400'
+                    : 'border-white/5 text-gray-500 cursor-not-allowed light:border-slate-200 light:text-slate-500'
                 }`}
               >
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${active ? 'bg-kaspa-green text-black' : done ? 'bg-kaspa-green/20 text-kaspa-green' : 'bg-white/10 text-gray-400'}`}>
@@ -389,7 +389,10 @@ export default function Sandbox() {
 
       {/* PERSISTENT BOTTOM ACTION BAR. Hidden on phase 'ui' where CovexTerminal owns the deploy CTA. */}
       {phase !== 'ui' && (
-        <div className="static sm:sticky sm:bottom-4 z-20 mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 px-4 py-3">
+        <div
+          className="static sm:sticky z-20 mt-6 flex flex-wrap sm:flex-nowrap sm:items-center sm:justify-between gap-4 gap-y-2 rounded-2xl glass-panel border border-kaspa-green/30 px-5 py-3.5"
+          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
           <div className="min-w-0 flex items-center gap-2">
             {phase !== 'create' && (
               <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 
 // Branded 404. Guarded ambient aurora behind a centered hero, big glyph, one honest
 // line, two btn-shimmer CTAs back into the working app. Lazy-loaded in App.jsx so this
@@ -28,18 +29,12 @@ export default function NotFound() {
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            to="/"
-            className="btn-shimmer inline-flex items-center px-5 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black hover:brightness-110 hover:shadow-[0_0_18px_rgba(73,234,203,0.3)] transition-all"
-          >
-            Back to Explorer
-          </Link>
-          <Link
-            to="/sandbox"
-            className="inline-flex items-center px-5 py-2.5 rounded-xl font-semibold text-sm border border-white/10 text-white hover:bg-white/[0.06] light:border-slate-300 light:text-slate-700 light:hover:bg-slate-100 transition-colors"
-          >
-            Open the Sandbox
-          </Link>
+          <Button asChild variant="kaspa" size="default" shimmer>
+            <Link to="/">Back to Explorer</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/sandbox">Open the Sandbox</Link>
+          </Button>
         </div>
       </div>
     </div>

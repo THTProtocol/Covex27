@@ -54,6 +54,13 @@ export function trustInfo(covenant) {
       desc: 'An on-chain script gates release but checks an oracle-supplied input.',
     };
   }
+  if (reality === 'full-zk') {
+    return {
+      kind: 'fullzk',
+      label: 'ZK proof, oracle-verified',
+      desc: 'A real Groth16 proof, verified fail-closed by the disclosed Covex oracle. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
+    };
+  }
   if (reality === 'oracle-attested') {
     return {
       kind: 'oracle',
@@ -68,11 +75,20 @@ export function trustInfo(covenant) {
       desc: 'The chain does not enforce this covenant outcome. Not for value at stake.',
     };
   }
-  // Fallback for older API responses that predate enforcement_reality.
+  // Fallback for older API responses that predate enforcement_reality. A
+  // covenant declaring a non-none ZK circuit means a real proof is verified
+  // fail-closed: tag it full-zk, not oracle, so the 4-tier hierarchy survives.
   const cfg = covenant?.custom_ui_config;
   const circuit = (typeof cfg === 'object' && cfg?.circuit) || null;
   const cat = `${covenant?.category || ''} ${covenant?.covenant_type || ''}`.toLowerCase();
-  if ((circuit && circuit !== 'none') || /zk|oracle|chess|turn_timer|range|merkle|game|predict/.test(cat)) {
+  if (circuit && circuit !== 'none') {
+    return {
+      kind: 'fullzk',
+      label: 'ZK proof, oracle-verified',
+      desc: 'A real Groth16 proof, verified fail-closed by the disclosed Covex oracle. Not on-chain consensus.',
+    };
+  }
+  if (/zk|oracle|chess|turn_timer|range|merkle|game|predict/.test(cat)) {
     return {
       kind: 'oracle',
       label: 'Oracle attested',
@@ -86,21 +102,39 @@ export function trustInfo(covenant) {
   };
 }
 
-export default function TrustBadge({ covenant, size = 'sm', showDesc = false, inspect = true }) {
+// Abbreviated labels for tight contexts (Explorer card header at 375px). The
+// honest meaning is preserved by the styling palette + the Transparency modal
+// behind the click; we just shorten the word so the full chip group still fits
+// on one row at the narrowest supported viewport. Never aliases across kinds.
+const COMPACT_LABEL = {
+  onchain: 'ON-CHAIN',
+  hybrid: 'HYBRID',
+  oracle: 'ORACLE',
+  fullzk: 'FULL-ZK',
+  decorative: 'METADATA',
+};
+
+export default function TrustBadge({ covenant, size = 'sm', showDesc = false, inspect = true, compact = false }) {
   const [open, setOpen] = useState(false);
   const t = trustInfo(covenant);
   const styles = {
-    onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 light:text-emerald-700 light:border-emerald-500/40',
-    hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300 light:text-sky-700 light:border-sky-500/40',
-    oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300 light:text-amber-700 light:border-amber-500/40',
+    onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-600/60',
+    hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300 light:bg-sky-50 light:text-sky-700 light:border-sky-600/60',
+    oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300 light:bg-amber-50 light:text-amber-700 light:border-amber-600/60',
+    // full-zk gets its own violet styling so the 4-tier honesty hierarchy
+    // (on-chain > full-zk > oracle > decorative) reads at a glance. Aliasing
+    // it to oracle would visually equate a Groth16 proof with a bare signature.
+    fullzk: 'bg-violet-500/10 border-violet-500/30 text-violet-300 light:bg-violet-50 light:text-violet-700 light:border-violet-600/60',
     decorative: 'bg-white/[0.04] border-white/10 text-gray-300 light:bg-slate-100 light:border-slate-300 light:text-slate-600',
   }[t.kind];
-  const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, decorative: ShieldQuestion }[t.kind];
+  const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, fullzk: ShieldCheck, decorative: ShieldQuestion }[t.kind];
   const pad = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs';
+  const label = compact ? COMPACT_LABEL[t.kind] : t.label;
   const inner = (
-    <span className={`inline-flex items-center gap-1.5 rounded-md border font-bold uppercase tracking-wider ${pad} ${styles} ${inspect ? 'cursor-pointer hover:brightness-110 transition' : ''}`}>
-      <Icon size={size === 'sm' ? 11 : 14} /> {t.label}
-      {inspect && <Info size={size === 'sm' ? 10 : 12} className="opacity-50" />}
+    <span className={`inline-flex items-center gap-1.5 rounded-md border font-bold uppercase tracking-wider ${pad} ${styles} ${inspect ? 'cursor-pointer hover:brightness-110 transition' : ''}`}
+      title={compact ? t.label : undefined}>
+      <Icon size={size === 'sm' ? 11 : 14} /> {label}
+      {inspect && !compact && <Info size={size === 'sm' ? 10 : 12} className="opacity-50" />}
     </span>
   );
   return (

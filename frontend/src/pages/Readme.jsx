@@ -35,16 +35,28 @@ function Script({ children }) {
 }
 
 // ── Enforcement reality model ────────────────────────────────────────────────
+// Sacred honesty palette - mirrors the canonical mapping in components/ui/Badge.jsx
+// and TrustBadge.jsx. The same enforcement label must render the same color here
+// as it does on every covenant page, or readers stop trusting any of them.
+//   on-chain = emerald | hybrid = sky | oracle-attested = amber | full-zk = violet
 const REALITIES = [
-  { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
+  { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
-  { name: 'Zero-knowledge', icon: Cpu, cls: 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10',
-    trust: 'Proof, oracle-verified', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the fourteen circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
-  { name: 'Hybrid', icon: Layers, cls: 'text-amber-300 border-amber-500/40 bg-amber-500/10',
+  { name: 'Zero-knowledge', icon: Cpu, cls: 'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
+    trust: 'Proof, oracle-verified off-chain', desc: 'A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the fourteen circuits with served keys and a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split). Kaspa has no on-chain pairing verifier yet, so the proof is checked off-chain and its result gates the consensus-required co-signature.' },
+  { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
-  { name: 'Oracle-attested', icon: Radio, cls: 'text-sky-300 border-sky-500/40 bg-sky-500/10',
+  { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
     trust: 'Named oracle', desc: 'An off-chain outcome (a game result, a market event, a data feed) is signed by the Covex oracle, whose co-signature the chain still requires via the redeem script. Trust sits with that named, publicly-keyed oracle; the settlement itself is on-chain.' },
 ];
+
+// Inline pill palette for PRIMITIVES (matches REALITIES above). Keyed by p.reality.
+const REALITY_PILL = {
+  'on-chain':        'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
+  'hybrid':          'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
+  'oracle-attested': 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
+  'full-zk':         'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
+};
 
 // ── The real primitives (redeem scripts straight from covenant_builder.rs) ─────
 const PRIMITIVES = [
@@ -219,7 +231,7 @@ export default function Readme() {
             <Card key={p.name}>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="text-white font-bold leading-tight break-words min-w-0">{p.name}</h3>
-                <span className={`shrink-0 mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${p.reality === 'on-chain' ? 'text-kaspa-green border-kaspa-green/40 bg-kaspa-green/10' : p.reality === 'oracle-attested' ? 'text-sky-300 border-sky-500/40 bg-sky-500/10' : 'text-amber-300 border-amber-500/40 bg-amber-500/10'}`}>{p.reality}</span>
+                <span className={`shrink-0 mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${REALITY_PILL[p.reality] || REALITY_PILL['on-chain']}`}>{p.reality}</span>
               </div>
               <Script>{p.script}</Script>
               <p className="text-xs text-gray-300 mt-2.5 leading-relaxed">{p.what}</p>

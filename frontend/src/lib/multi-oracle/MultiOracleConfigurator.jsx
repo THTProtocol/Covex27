@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Card } from '@/components/ui/Card';
 
 /**
  * Multi-Oracle Federation Configurator
@@ -57,36 +58,36 @@ export default function MultiOracleConfigurator({ value, onChange }) {
   };
 
   return (
-    <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 space-y-5">
+    <Card className="p-6 space-y-6" accent="#49EACB">
       <div>
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <h3 className="text-lg font-bold text-white light:text-slate-900 flex items-center gap-2">
           Multi-Oracle Federation
         </h3>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-gray-400 light:text-slate-500 mt-1">
           Require cryptographic signatures from multiple independent oracles. Dramatically reduces single-oracle trust risk.
         </p>
       </div>
 
       <div className="space-y-3">
         {oracles.map((oracle, index) => (
-          <div key={index} className="flex gap-3 items-center bg-black/40 p-3 rounded-xl">
+          <div key={index} className="flex gap-3 items-center bg-black/40 light:bg-slate-50 p-3 rounded-xl">
             <input
               value={oracle.name}
               onChange={(e) => updateOracle(index, 'name', e.target.value)}
-              className="flex-1 bg-black border border-white/10 rounded px-3 py-2 text-sm text-white"
+              className="cyber-input flex-1 px-3 py-2 text-sm"
               placeholder="Oracle Name"
             />
             <input
               value={oracle.publicKey}
               onChange={(e) => updateOracle(index, 'publicKey', e.target.value)}
-              className="flex-1 bg-black border border-white/10 rounded px-3 py-2 text-sm text-white font-mono text-xs"
+              className="cyber-input flex-1 px-3 py-2 font-mono text-xs"
               placeholder="Public Key (hex)"
             />
             <input
               type="number"
               value={oracle.weight}
               onChange={(e) => updateOracle(index, 'weight', parseInt(e.target.value) || 1)}
-              className="w-16 bg-black border border-white/10 rounded px-2 py-2 text-sm text-white text-center"
+              className="cyber-input w-16 px-2 py-2 text-sm text-center"
             />
             <button
               onClick={() => removeOracle(index)}
@@ -102,17 +103,17 @@ export default function MultiOracleConfigurator({ value, onChange }) {
       <div className="flex items-center gap-4">
         <button
           onClick={addOracle}
-          className="px-4 py-2 text-sm bg-white/5 hover:bg-white/10 rounded-xl border border-white/10"
+          className="px-4 py-2 text-sm bg-white/5 hover:bg-white/10 light:bg-slate-100 light:hover:bg-slate-200 light:text-slate-900 rounded-xl border border-white/10 light:border-slate-200"
         >
           + Add Oracle
         </button>
 
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-sm text-gray-400">Threshold:</span>
+          <span className="text-sm text-gray-400 light:text-slate-500">Threshold:</span>
           <select
             value={threshold}
             onChange={(e) => changeThreshold(parseInt(e.target.value))}
-            className="bg-black border border-white/10 rounded px-3 py-1.5 text-white text-sm"
+            className="cyber-input px-3 py-1.5 text-sm"
           >
             {oracles.map((_, i) => (
               <option key={i} value={i + 1}>{i + 1} of {oracles.length}</option>
@@ -122,10 +123,10 @@ export default function MultiOracleConfigurator({ value, onChange }) {
       </div>
 
       {/* Signature collection area for real multi-oracle submission */}
-      <div className="border-t border-white/10 pt-4">
-        <div className="text-sm font-medium text-white mb-2">Collected Signatures (for submission)</div>
+      <div className="border-t border-white/10 light:border-slate-200 pt-4">
+        <div className="text-sm font-medium text-white light:text-slate-900 mb-2">Collected Signatures (for submission)</div>
         <textarea
-          className="w-full h-24 bg-black border border-white/10 rounded p-2 text-xs font-mono"
+          className="cyber-input w-full h-24 p-2 text-xs font-mono"
           placeholder="Paste signatures here as JSON array: [{public_key: '...', signature: '...'}, ...]"
           onChange={(e) => {
             try {
@@ -134,14 +135,14 @@ export default function MultiOracleConfigurator({ value, onChange }) {
             } catch (_) {}
           }}
         />
-        <div className="text-[10px] text-gray-500 mt-1">
+        <div className="text-[10px] text-gray-500 light:text-slate-500 mt-1">
           Each oracle must sign the exact message produced by the main oracle after ZK verification.
         </div>
       </div>
 
-      <div className="text-[11px] text-emerald-400/70 pt-2 border-t border-white/10">
+      <div className="text-[11px] text-emerald-400/70 pt-2 border-t border-white/10 light:border-slate-200">
         Real cryptographic verification is now enforced in the backend using the same SHA256 scheme as single-oracle.
       </div>
-    </div>
+    </Card>
   );
 }

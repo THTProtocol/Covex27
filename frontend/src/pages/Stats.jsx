@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, Database, Coins, BadgeCheck, ArrowLeft } from 'lucide-react';
 import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
+import { Card } from '@/components/ui/Card';
 
 // Public platform statistics, all computed live from the covenants, payments,
 // and events tables (GET /api/stats). Real on-chain data only; the activity
@@ -44,18 +45,15 @@ const fmtNum = (n) => (Number(n) || 0).toLocaleString('en-US');
 
 function Kpi({ icon: Icon, label, value, sub, accent }) {
   return (
-    <div className="hover-lift relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] light:bg-white light:border-slate-200">
-      {/* Top accent bar - KPI identity hue */}
-      <div className="h-[3px] w-full shrink-0" aria-hidden="true"
-        style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: 0.8 }} />
+    <Card hover accent={accent} className="bg-white/[0.02] shadow-none backdrop-blur-none">
       <div className="p-4">
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-gray-400">
           <Icon size={14} style={{ color: accent }} /> {label}
         </div>
-        <div className="mt-1.5 text-3xl font-bold tabular-nums text-white light:text-slate-900">{value}</div>
-        {sub && <div className="text-[11px] text-gray-500 mt-0.5">{sub}</div>}
+        <div className="num mt-2 text-4xl font-black tracking-[-0.02em] leading-none text-white light:text-slate-900">{value}</div>
+        {sub && <div className="text-[11px] text-gray-500 mt-1.5">{sub}</div>}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -73,7 +71,7 @@ function BarList({ rows, max, colorFor, labelKey, valueKey, valueFmt }) {
             <div className="flex-1 h-5 rounded-md bg-white/[0.03] light:bg-slate-100 overflow-hidden">
               <div className="h-full rounded-md transition-all" style={{ width: `${pct}%`, background: colorFor(r) }} />
             </div>
-            <div className="w-24 shrink-0 text-right text-[11px] font-mono tabular-nums text-gray-300 light:text-slate-600">{valueFmt(v)}</div>
+            <div className="num w-24 shrink-0 text-right text-[11px] text-gray-300 light:text-slate-600">{valueFmt(v)}</div>
           </div>
         );
       })}
@@ -175,7 +173,7 @@ export default function Stats() {
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white light:text-slate-900">Platform Statistics</h1>
+          <h1 className="h-page text-3xl sm:text-4xl font-black tracking-[-0.02em] text-white light:text-slate-900">Platform Statistics</h1>
           <p className="text-sm text-gray-400 mt-1">Live aggregates from indexed covenants, confirmed treasury payments, and on-chain activity. Real data only.</p>
         </div>
         <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 self-start light:bg-white light:border-slate-200">

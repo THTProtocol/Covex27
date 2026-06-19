@@ -216,7 +216,7 @@ export default function PremiumBuilder() {
     if (!auth.token) { toast.error('No valid auth token. Pay first.'); return; }
     if (!address) { toast.error('Connect your wallet first.'); return; }
     if (isMainnet) {
-      setDeployResult({ success: false, error: 'Enforced on-chain deploy needs wallet-side funding from your connected Kaspa wallet (coming soon).' });
+      setDeployResult({ success: false, error: 'Enforced on-chain deploy on mainnet activates at the Toccata hard fork (30 June 2026). Until then this primitive is gated; you can deploy on testnet-12 to dry run the exact same script.' });
       return;
     }
     if (!canSign) {
@@ -455,7 +455,7 @@ ${featureTiles}
 
   return (
     <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-10">
-      <button onClick={() => navigate('/paid-builder')} className="flex items-center gap-2 text-gray-300 hover:text-white mb-6 text-sm font-medium">
+      <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-300 light:text-slate-600 hover:text-white light:hover:text-slate-900 mb-6 text-sm font-medium">
         <ArrowLeft size={16} /> Back to My Covenants
       </button>
 
@@ -467,19 +467,19 @@ ${featureTiles}
           {paidTier === 'PRO' && <Star size={16} style={{ color: tierAccent }} />}
           {paidTier === 'MAX' && <Crown size={16} style={{ color: tierAccent }} />}
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Sandbox <span className="text-xs align-super text-emerald-400">PAID</span></h1>
-            <p className="text-xs text-gray-400 font-mono">Full customization terminal - ZK circuits, oracles, Canva-like design tools, deploy to Kaspa</p>
+            <h1 className="text-3xl font-black tracking-tight light:text-slate-900">Sandbox <span className="text-xs align-super text-emerald-400 light:text-emerald-600">PAID</span></h1>
+            <p className="text-xs text-gray-400 light:text-slate-500 font-mono">Full customization terminal - ZK circuits, oracles, Canva-like design tools, deploy to Kaspa</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold border" style={{ color: tierAccent, borderColor: tierAccent + '40', background: tierAccent + '10' }}>{tierBadge}</span>
           <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold border" style={{ color: isMainnet ? '#EF4444' : '#49EACB', borderColor: (isMainnet ? '#EF4444' : '#49EACB') + '40', background: (isMainnet ? '#EF4444' : '#49EACB') + '10' }}>{isMainnet ? 'MAINNET' : net.toUpperCase()}</span>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">1 DEPLOY CREDIT</span>
+          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-200 font-mono">1 DEPLOY CREDIT</span>
         </div>
       </div>
 
       {/* Transparent disclosure banner (always shown for paid - this is what makes top-visibility covenants trusted) */}
-      <div className="mb-8 rounded-2xl border border-white/10 bg-black/40 p-5">
+      <div className="mb-8 rounded-2xl border border-white/10 bg-black/40 light:bg-white light:border-slate-200 p-5">
         <div className="flex items-center gap-2 mb-2 text-emerald-400 text-xs font-mono uppercase tracking-widest"><Eye size={14} /> ALL WALLETS DISCLOSED - TOP VISIBILITY</div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
           {disclosedWallets.map((w, i) => (
@@ -634,7 +634,7 @@ ${featureTiles}
           </div>
           {enforceKind === 'hashlock' && <p className="text-[11px] text-gray-400 mt-2">A random secret is generated at deploy and shown once. Save it - it is required to redeem and is never stored on the server.</p>}
           {isMainnet ? (
-            <p className="text-[11px] text-amber-300 mt-3">Enforced deploys need wallet-side funding from your connected Kaspa wallet (coming soon).</p>
+            <p className="text-[11px] text-amber-300 mt-3">Enforced on-chain deploy on mainnet activates at the Toccata hard fork (30 June 2026). Until then this primitive is gated; you can deploy on testnet-12 to dry run the exact same script.</p>
           ) : !canSign ? (
             <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
               <p className="text-sm text-gray-300 mb-3">Connect a signing key to sign the real on-chain deploy.</p>

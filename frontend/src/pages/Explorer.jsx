@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import {
   Database, Search, Sparkles, Play,
   Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
-  ShieldCheck, Zap,
+  ShieldCheck, Zap, ChevronDown,
   Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes
 } from 'lucide-react';
 
@@ -30,7 +30,7 @@ import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePrev
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
 import { Badge } from '../components/ui/Badge';
-import { TIER_PALETTE } from '../lib/tierPalette';
+import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
 
 const formatKaspa = (kas) => {
   if (kas == null) return 'N/A';
@@ -38,6 +38,19 @@ const formatKaspa = (kas) => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M KAS`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K KAS`;
   return `${num.toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS`;
+};
+
+// Compact count formatter for hero stat columns. At 375px the 3-up grid gives
+// each cell ~100px, so a raw ".toLocaleString()" on totals over 9,999 wraps or
+// clips. Abbreviate large counts (1.2k, 1.2M) to keep stat numbers on one line
+// while small counts still render in full.
+const formatCount = (n) => {
+  if (n == null) return '0';
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '0';
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return Math.round(num).toLocaleString();
 };
 
 const truncate = (s, n = 8) =>
@@ -85,8 +98,8 @@ const TIER_CONFIG = {
     label: 'FREE',
     gradient: 'from-white/5 to-transparent',
     border: 'border-white/8',
-    text: 'text-gray-400',
-    badge: 'bg-white/5 text-gray-500 border-white/10',
+    text: 'text-gray-300 light:text-slate-600',
+    badge: 'bg-white/5 text-gray-300 light:text-slate-600 border-white/10',
     glow: '',
     rank: 0,
     icon: TIER_PALETTE.FREE.icon,
@@ -177,8 +190,8 @@ function CountUpStat({ icon: Icon, label, value, fmt }) {
 // Lightweight load-time entrance: each card fades + rises 12px, staggered. Drop-in layer
 // around the grid only - it never touches card internals, so the CovenantCard hover-lift
 // still works. Disabled under prefers-reduced-motion.
-const GRID_STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
-const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] } } };
+const GRID_STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } };
+const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } } };
 
 export default function Explorer() {
   const { address } = useWallet();
@@ -390,18 +403,18 @@ export default function Explorer() {
   return (
     <>
       {/* HERO */}
-      <section className="relative z-10 flex flex-col items-center justify-center pt-16 sm:pt-20 pb-6 px-4 sm:px-6 text-center">
+      <section className="relative z-10 flex flex-col items-center justify-center pt-14 sm:pt-20 pb-10 px-4 sm:px-6 text-center">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
         <h1
-          className="relative font-black text-white light:text-slate-900 mb-5 max-w-3xl leading-[1.1] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
+          className="relative font-black text-white light:text-slate-900 mb-6 max-w-3xl leading-[1.1] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
           style={{ fontSize: 'clamp(2.25rem, 5.5vw, 4.5rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
         >
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
-        <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+        <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-10 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
           <Link
             to="/sandbox"
             className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
@@ -427,10 +440,10 @@ export default function Explorer() {
             How It Works
           </Link>
         </div>
-        <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
+        <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-6 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
-            { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: (n) => Math.round(n).toLocaleString() },
-            { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount, fmt: (n) => Math.round(n).toLocaleString() },
+            { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
+            { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount, fmt: formatCount },
             { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
           ].map((s, i) => (
             <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} />
@@ -447,12 +460,16 @@ export default function Explorer() {
           >
             <Layers size={16} className="text-kaspa-green" />
             {activeCategory === 'All' ? 'All Covenant Types' : activeCategory}
-            <span className="text-xs opacity-60">▼</span>
+            <ChevronDown
+              size={12}
+              className={`opacity-60 transition-transform duration-200 ${showCategoryPanel ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
           </button>
         </div>
 
         {showCategoryPanel && (
-          <div className="max-w-4xl mx-auto mb-6 p-4 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
+          <div className="max-w-4xl mx-auto mb-8 p-4 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
             <div className="text-[10px] uppercase tracking-widest text-white/40 light:text-slate-500 mb-3 text-center">Filter by Covenant Type, click any to apply</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 text-xs">
               {ALL_CATEGORIES.map(cat => (
@@ -472,7 +489,7 @@ export default function Explorer() {
         )}
       </section>
 
-      {/* CONTROLS - Explore / Search / Arena */}
+      {/* CONTROLS - Explore / Search / Arena, one segmented control with Arena as the amber-accent third tab */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
@@ -490,21 +507,21 @@ export default function Explorer() {
                 <tab.icon size={12} /><span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
+            <button
+              onClick={() => { setShowArena(!showArena); setActiveTab('explore'); setSearchResults(null); setSearchError(null); setSearchQuery(''); }}
+              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
+              }`}
+            >
+              <Gamepad2 size={12} />
+              <span className="hidden sm:inline">Arena</span>
+              {arenaWaiting.length > 0 && (
+                <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 text-amber-400'}`}>
+                  {arenaWaiting.length}
+                </span>
+              )}
+            </button>
           </div>
-          <button
-            onClick={() => { setShowArena(!showArena); setActiveTab('explore'); }}
-            className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
-            }`}
-          >
-            <Gamepad2 size={12} />
-            <span className="hidden sm:inline">Arena</span>
-            {arenaWaiting.length > 0 && (
-              <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 text-amber-400'}`}>
-                {arenaWaiting.length}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
@@ -624,12 +641,13 @@ export default function Explorer() {
                   const tierKey = (g.verified_tier || g.tier || 'FREE').toUpperCase();
                   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
                   const stakeAmt = g.amount_kaspa || 1;
+                  const tierAccent = TIER_COLOR[tierKey] || TIER_COLOR.FREE;
                   return (
                     <div key={g.tx_id || i} className={`hover-lift relative overflow-hidden glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
                       <div
                         aria-hidden="true"
                         className="absolute top-0 inset-x-0 h-[3px]"
-                        style={{ background: 'linear-gradient(90deg, transparent, #E8AF34, transparent)' }}
+                        style={{ background: `linear-gradient(90deg, transparent, ${tierAccent}, transparent)` }}
                       />
                       <div className="flex items-start justify-between mb-3">
                         <div>
@@ -639,7 +657,7 @@ export default function Explorer() {
                         <div className="text-right shrink-0 ml-2">
                           <div className={`text-xs ${cfg.text} font-mono`}>{g.participant_count || 1} / 2</div>
                           <div className="font-mono text-lg text-white font-bold">{formatKaspa(stakeAmt)}</div>
-                          {cfg.rank > 1 && <span className={`text-[9px] mt-1 px-1.5 py-0.5 rounded ${cfg.badge} inline-block font-mono`}>{cfg.label}</span>}
+                          {cfg.rank > 1 && <span className={`label-xs mt-1 px-1.5 py-0.5 rounded ${cfg.badge} inline-block font-mono`}>{cfg.label}</span>}
                         </div>
                       </div>
                       <div className="text-xs text-gray-300 mb-4 flex-1">Match the stake to join. On-chain covenant with transparent resolution.</div>
@@ -661,9 +679,11 @@ export default function Explorer() {
         {activeTab === 'explore' && !showArena && (
           <>
             {loading && (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3">
-                <div className="w-10 h-10 border-2 border-kaspa-green/20 border-t-kaspa-green rounded-full animate-spin" />
-                <p className="text-sm font-mono">Loading from the BlockDAG...</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7" aria-busy="true">
+                <span className="sr-only">Loading from the BlockDAG...</span>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="skeleton rounded-3xl min-h-[210px]" aria-hidden="true" />
+                ))}
               </div>
             )}
             {error && <p className="text-red-500 text-center py-10">{error}</p>}
@@ -823,12 +843,15 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         isPaid
           ? `${cfg.border} ${cfg.glow} holo-border hover:shadow-2xl`
           : 'border-white/[0.08] light:border-slate-200 hover:border-[color:var(--ca)] hover:shadow-[0_22px_55px_-22px_var(--cg)]'
-      } bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 min-h-[324px]`}
+      } bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 min-h-[340px]`}
       style={!isPaid ? { '--ca': accA(0.55), '--cg': accA(0.4) } : undefined}
     >
-      {/* Top accent bar - on-chain identity hue */}
+      {/* Top accent bar - paid cards project their tier identity (brand-consistent
+          with TIER_COLOR), FREE cards keep the per-card on-chain hue so the
+          unpaid wall still reads as a varied marketplace. Same render shape as
+          the Card primitive's accent prop. */}
       <div className="h-[3px] w-full shrink-0" aria-hidden="true"
-        style={{ background: `linear-gradient(90deg, transparent, ${cardAccent}, transparent)`, opacity: isPaid ? 0.4 : 0.8 }} />
+        style={{ background: `linear-gradient(90deg, transparent, ${isPaid ? (TIER_COLOR[tierKey] || cardAccent) : cardAccent}, transparent)`, opacity: isPaid ? 0.6 : 0.8 }} />
 
       {/* HEADER - category gradient + identity glow; badges left, category right, one clean row */}
       <div className="relative h-12 shrink-0 overflow-hidden">
@@ -845,19 +868,22 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         <div className="relative z-10 flex items-center justify-between h-full px-3.5 gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {c._isNew && (
-              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-kaspa-green/25 text-kaspa-green border border-kaspa-green/40 font-mono font-bold animate-pulse">NEW</span>
+              <span className="label-xs px-1.5 py-0.5 rounded-md bg-kaspa-green/25 text-kaspa-green border border-kaspa-green/40 font-mono animate-pulse">NEW</span>
             )}
             {isPaid && (
-              <span className={`text-[9px] px-2 py-0.5 rounded-md border ${cfg.badge} font-mono font-bold inline-flex items-center gap-1`}>
+              <span className={`label-xs px-2 py-0.5 rounded-md border ${cfg.badge} font-mono inline-flex items-center gap-1`}>
                 <IconComponent size={10} />{cfg.label}
               </span>
             )}
             {isPaidVerified && (
-              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 light:text-amber-700 border border-amber-500/30 font-mono font-bold">CURATED</span>
+              <span className="label-xs px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 light:text-amber-700 border border-amber-500/30 font-mono">CURATED</span>
             )}
             {/* Enforcement reality - the trust signal lives in the header row now, next to the
-                CURATED chip, so a glance at the card top tells you exactly what backs it. */}
-            <TrustBadge covenant={c} size="sm" />
+                CURATED chip, so a glance at the card top tells you exactly what backs it.
+                `compact` shortens the label (ON-CHAIN / HYBRID / ORACLE / FULL-ZK / METADATA)
+                so the full chip group still fits on one row at 375px. Click opens the same
+                Transparency modal with the full honest description. */}
+            <TrustBadge covenant={c} size="sm" compact />
           </div>
           <span className="inline-flex items-center gap-1 text-[10px] font-mono text-white/70 light:text-slate-500 truncate max-w-[44%]">
             {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80 shrink-0" />; })()}
@@ -866,27 +892,29 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         </div>
       </div>
 
-      <div className="p-5 sm:p-6 flex flex-col flex-1">
-        {/* Title + on-chain id */}
-        <h3 className={`font-bold text-[15px] sm:text-base leading-tight truncate ${isPaid ? cfg.text : 'text-white light:text-slate-900'}`}
-          style={isPaidVerified ? { color: themeAccent } : undefined}>
-          {covenantName}
-        </h3>
-        <div className="mt-0.5 text-[10px] font-mono text-gray-500 light:text-slate-400 truncate">{txShort}...</div>
+      <div className="p-5 sm:p-6 flex flex-col flex-1 space-y-4">
+        {/* Title + on-chain id - tight title/hash pair, then the rest of the column lifts on space-y-4 */}
+        <div>
+          <h3 className={`font-extrabold text-[17px] sm:text-[18px] leading-tight tracking-[-0.01em] truncate ${isPaid ? cfg.text : 'text-white light:text-slate-900'}`}
+            style={isPaidVerified ? { color: themeAccent } : undefined}>
+            {covenantName}
+          </h3>
+          <div className="mt-0.5 text-[10px] font-mono text-gray-500 light:text-slate-400 truncate opacity-60">{txShort}...</div>
+        </div>
 
         {/* Value-locked hero + live status (the pot - leads like a gambling card) */}
-        <div className="mt-3 flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[8.5px] uppercase tracking-[0.16em] text-gray-500 light:text-slate-400 font-bold mb-1">Value Locked</div>
+            <div className="label-xs text-gray-500 light:text-slate-400 mb-1">Value Locked</div>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-[22px] sm:text-2xl font-black leading-none tracking-tight text-white light:text-slate-900 tabular-nums"
+              <span className="font-mono text-[20px] sm:text-[22px] font-black leading-none tracking-tight text-white light:text-slate-900 tabular-nums"
                 style={!isPaid ? { textShadow: `0 0 22px ${accA(0.32)}` } : undefined}>
                 {formatKaspa(amount).replace(/\s*KAS$/i, '')}
               </span>
               <span className="text-[11px] font-bold text-gray-400 light:text-slate-500">KAS</span>
             </div>
           </div>
-          <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wide border ${isActive ? 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25' : 'bg-white/[0.04] text-gray-400 border-white/10'}`}>
+          <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full label-xs border ${isActive ? 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25' : 'bg-white/[0.04] text-gray-400 border-white/10'}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
             {statusLabel}
           </span>
@@ -896,7 +924,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             webkit-box clamp always wins over flex-1, which previously defeated line-clamp and let the
             text spill and cut mid-sentence). break-words stops a long hash/word from overflowing. */}
         <p
-          className="mt-3 text-xs text-gray-400 light:text-slate-500 leading-relaxed break-words"
+          className="text-xs text-gray-400 light:text-slate-500 leading-relaxed break-words"
           style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
         >
           {covenantDesc}
@@ -906,20 +934,20 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
         {/* Game preview + Custom UI + finality badges */}
         {(gameType || customUI || showFinalityChip) && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {gameType && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 label-xs rounded-full bg-kaspa-green/10 border border-kaspa-green/20 text-kaspa-green">
                 <Play size={9} />{gameType}
               </span>
             )}
             {customUI && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 label-xs rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
                 <Sparkles size={9} />Custom UI
               </span>
             )}
             {showFinalityChip && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 light:text-amber-600"
+                className="inline-flex items-center gap-1 px-2 py-0.5 label-xs rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 light:text-amber-600"
                 title={finality === 'pending'
                   ? 'Funding tx seen but not yet confirmed on-chain'
                   : 'On-chain and confirming. Not yet consensus-final (reversible until the finality depth).'}
@@ -935,11 +963,11 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
         {/* Disclosed wallets for verified */}
         {isPaidVerified && Array.isArray(disclosedWallets) && disclosedWallets.length > 0 && (
-          <div className="mt-3 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2">
-            <div className="text-[9px] text-emerald-400 font-mono uppercase tracking-wide mb-1">Wallets Disclosed</div>
+          <div className="rounded-lg bg-emerald-500/[0.03] border border-emerald-500/15 p-2">
+            <div className="label-xs text-emerald-400 font-mono mb-1">Wallets Disclosed</div>
             <div className="flex flex-wrap gap-1">
               {disclosedWallets.slice(0, 3).map((w, i) => (
-                <span key={i} className="text-[8px] text-gray-400 bg-white/5 px-1.5 py-0.5 rounded font-mono">{w.role}</span>
+                <span key={i} className="label-xs text-gray-400 bg-white/5 px-1.5 py-0.5 rounded font-mono">{w.role}</span>
               ))}
             </div>
           </div>

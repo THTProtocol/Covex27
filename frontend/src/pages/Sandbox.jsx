@@ -302,7 +302,18 @@ export default function Sandbox() {
                 variant="kaspa"
                 size="lg"
                 shimmer
-                onClick={() => setPhase('create')}
+                onClick={() => {
+                  setPhase('create');
+                  // Give visible feedback: bring the active create tabpanel into view
+                  // and focus it (the panel carries id create-tab-<createTab>).
+                  requestAnimationFrame(() => {
+                    const panel = document.getElementById(`create-tab-${createTab}`);
+                    if (panel) {
+                      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      panel.focus?.({ preventScroll: true });
+                    }
+                  });
+                }}
                 className="shrink-0 self-start sm:self-center light:shadow-md light:ring-1 light:ring-emerald-300"
               >
                 Start guided build
@@ -321,6 +332,9 @@ export default function Sandbox() {
               <ArrowRight size={12} className="opacity-60" />
             </button>
           </div>
+          <p className="mt-2 text-center sm:text-left text-[11px] text-gray-500 light:text-slate-500 max-w-xl">
+            Pro is a raw SilverScript terminal: no templates, no auto-fill, no step-by-step. You write the covenant yourself.
+          </p>
         </div>
       )}
 
@@ -414,7 +428,8 @@ export default function Sandbox() {
                 id={`create-tab-${createTab}`}
                 role="tabpanel"
                 aria-labelledby={`create-tab-btn-${createTab}`}
-                className="min-w-0 light:rounded-2xl light:bg-white/40"
+                tabIndex={-1}
+                className="min-w-0 light:rounded-2xl light:bg-white/40 focus:outline-none"
               >
                 {createTab === 'assistant' && (
                   <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />

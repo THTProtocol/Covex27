@@ -290,9 +290,20 @@ export default function Stats() {
                 </tbody>
               </table>
             </div>
-            <p className="text-[10px] text-gray-500 mt-3">
-              Mainnet covenants are intentionally empty until the Toccata hard fork activates them on-chain. See the <Link to="/whitepaper" className="text-kaspa-green hover:underline">whitepaper</Link>.
-            </p>
+            {(() => {
+              // Only show the "intentionally empty" note while the mainnet row is
+              // actually empty; once it is populated the note would contradict the table.
+              const mainnetRow = (data.by_network || []).find(
+                (n) => n.network === 'mainnet' || n.network === 'mainnet-1'
+              );
+              const mainnetEmpty = !mainnetRow || !mainnetRow.covenants;
+              if (!mainnetEmpty) return null;
+              return (
+                <p className="text-[10px] text-gray-500 mt-3">
+                  Mainnet covenants are intentionally empty until the Toccata hard fork activates them on-chain. See the <Link to="/whitepaper" className="text-kaspa-green hover:underline">whitepaper</Link>.
+                </p>
+              );
+            })()}
           </section>
         </div>
       )}

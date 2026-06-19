@@ -111,7 +111,7 @@ export default function AddressPortfolio() {
           <p className="text-sm text-gray-400 light:text-slate-600 mb-6 max-w-md mx-auto break-words">Start with a hashlock: 1 KAS, consensus-enforced by Kaspa, no oracle in the path.</p>
           <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center items-stretch sm:items-center max-w-sm sm:max-w-none mx-auto">
             <Link
-              to="/sandbox?circuit=hashlock&phase=logic"
+              to="/deploy/enforced?kind=hashlock"
               className="btn-shimmer inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:bg-kaspa-green/90 transition-colors min-w-0"
             >
               Build a hashlock

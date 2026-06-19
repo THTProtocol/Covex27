@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2 } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2, AlertTriangle } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
 import ShareEmbedModal from '../components/ShareEmbedModal';
@@ -653,6 +653,11 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
       {/* Param form */}
       <div className="relative z-10 glass-panel p-6 space-y-4">
         <div className="flex items-center gap-2 text-white light:text-slate-900 font-semibold"><KindIcon size={16} className="text-kaspa-green" /> Parameters</div>
+        {usesDevWallets && (
+          <p className="text-[11px] text-amber-300 light:text-amber-600 leading-snug border border-amber-500/30 bg-amber-500/[0.06] rounded-lg px-3 py-2">
+            Server-assisted demo: deploys with Covex dev wallets, not your key. It honestly demonstrates the on-chain mechanism; it is not a non-custodial deploy.
+          </p>
+        )}
         {kind !== 'market' && (
           <label className="block">
             <div className="flex items-center justify-between gap-2">
@@ -734,6 +739,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
             </span>
             <input value={lockBlocks} onChange={(e) => setLockBlocks(e.target.value)} inputMode="numeric"
               className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
+            <span className="mt-1 block text-[11px] text-gray-500 light:text-slate-500 leading-snug">
+              Funds are frozen and cannot move until then. Kaspa runs about 10 blocks per second, so {Math.max(1, parseInt(lockBlocks || '0', 10) || 0)} blocks is roughly {Math.round((parseInt(lockBlocks || '0', 10) || 0) / 10)} seconds (a test value; use a larger number for a real lock).
+            </span>
           </label>
         )}
         {kind === 'relative_timelock' && (
@@ -741,6 +749,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
             <span className="text-xs text-gray-300 light:text-slate-700">Relative age before spend (blocks, BIP68 / OpCheckSequenceVerify)</span>
             <input value={relSeq} onChange={(e) => setRelSeq(e.target.value)} inputMode="numeric"
               className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
+            <span className="mt-1 block text-[11px] text-gray-500 light:text-slate-500 leading-snug">
+              Counts from when the funds were received, not from now. The output must age this many blocks (about {Math.round((parseInt(relSeq || '0', 10) || 0) / 10)} seconds) before any spend is valid; the node rejects an earlier spend.
+            </span>
           </label>
         )}
         {kind === 'timedecay' && (
@@ -755,10 +766,21 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
               <input value={reqAfter} onChange={(e) => setReqAfter(e.target.value)} inputMode="numeric"
                 className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
             </label>
+            <p className="col-span-2 text-[11px] text-gray-500 light:text-slate-500 leading-snug">
+              Before the deadline this many of 2 keys must sign; after it the lower quorum unlocks (a recovery path if a key is lost). Set 'after' below 'now' for the decay to mean anything.
+            </p>
+            {(parseInt(reqAfter || '0', 10) || 0) > (parseInt(reqNow || '0', 10) || 0) && (
+              <p className="col-span-2 text-[11px] text-amber-300 light:text-amber-600 leading-snug">
+                After-deadline quorum is higher than now, so the deadline makes the funds harder to spend, not easier. Set 'after' below 'now' for a recovery path.
+              </p>
+            )}
           </div>
         )}
         {kind === 'hashlock' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A random secret is generated at deploy. Save it - it is required to redeem and is never stored on the server.</p>
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
+            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-200 light:text-amber-700 leading-snug">A random secret is generated at deploy. Save it: it is required to redeem and is never stored on the server. Lose it and you lose the funds.</p>
+          </div>
         )}
         {kind === 'multisig' && (
           <p className="text-[11px] text-gray-400 light:text-slate-600">This demo locks to a 2-of-2 of the server-assisted dev wallets and redeems with both. Custom member keys are supported via the API.</p>

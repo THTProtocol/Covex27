@@ -145,6 +145,15 @@ export default function WalletButton() {
   // subscription the badge would freeze at whatever network was active on mount.
   useEffect(() => onNetworkChange((n) => setNetwork(n)), []);
 
+  // Cross-component open signal: DevWalletModal (and others) dispatch
+  // 'covex:open-wallet-drawer' to ask the connect drawer to open. WalletButton
+  // owns the drawer state, so it listens here and opens it.
+  useEffect(() => {
+    const openDrawer = () => { setLeaving(false); setOpen(true); };
+    window.addEventListener('covex:open-wallet-drawer', openDrawer);
+    return () => window.removeEventListener('covex:open-wallet-drawer', openDrawer);
+  }, []);
+
   // Drawer dismiss: play the slide-out, then unmount on animationend. prefers-reduced-motion
   // skips the keyframes (covex-drawer-out becomes a no-op) so we still need the safety timeout.
   const closeDrawer = () => {
@@ -324,10 +333,10 @@ export default function WalletButton() {
               <p className="kicker px-3 pt-1 pb-1.5">Navigate</p>
               {[
                 { to: `/address/${encodeURIComponent(address)}`, icon: LayoutDashboard, label: 'My portfolio' },
-                { to: '/fix', icon: Palette, label: 'My covenants and looks' },
+                { to: `/address/${encodeURIComponent(address)}`, icon: Palette, label: 'My covenants and looks' },
                 { to: '/treasury', icon: Landmark, label: 'Treasury transparency' },
               ].map((i) => (
-                <Link key={i.to} to={i.to} onClick={() => setPanel(false)}
+                <Link key={i.label} to={i.to} onClick={() => setPanel(false)}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-gray-300 light:text-slate-700 hover:bg-[#49EACB]/[0.07] hover:text-white light:hover:text-slate-900 transition-colors">
                   <i.icon size={15} className="text-[#49EACB]" /> {i.label}
                 </Link>

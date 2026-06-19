@@ -2179,7 +2179,10 @@ ${gameMeta.outcomeBranches}
 
   // ── Save All Changes ──
   const handleSave = useCallback(async () => {
-    if (!covenantId) return;
+    if (!covenantId) {
+      toast.info('Deploy this covenant first - changes save against a live covenant id.');
+      return;
+    }
     setSaveStatus('saving');
 
     // Get key possession proof for ownership verification
@@ -2323,10 +2326,10 @@ ${gameMeta.outcomeBranches}
         </div>
         <div className="ml-auto flex items-center gap-3">
           <button
-            onClick={() => window.location.href = '/paid-builder'}
+            onClick={() => navigate(covenantId ? `/covenant/${covenantId}` : '/sandbox')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-300 hover:text-white text-xs font-mono transition-colors">
             <ArrowLeft size={12} />
-            Back to My Covenants
+            {covenantId ? 'Back to covenant' : 'Back to builder'}
           </button>
           <span className="h-2 w-2 rounded-full bg-kaspa-green animate-pulse shadow-[0_0_6px_#49EACB]" />
           <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Live</span>
@@ -3694,7 +3697,7 @@ ${gameMeta.outcomeBranches}
                   {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<div key={i} className="py-0.5 border-b border-white/5 last:border-none">{i + 1}. {m.trim()}</div>)) : <div className="text-gray-500 italic">No moves yet</div>}
                 </div>
                 <div className="mt-3 flex flex-col gap-2 w-full">
-                  {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button onClick={() => { toast.info('Draw offers are not wired into the on-chain result yet. You can resign or play on.'); }} className="w-full py-2 rounded-xl border border-white/20 text-xs">OFFER DRAW</button></>)}
+                  {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button type="button" disabled title="Draw offers are not wired into the on-chain result yet. You can resign or play on." className="w-full py-2 rounded-xl border border-white/20 text-xs opacity-40 cursor-not-allowed">OFFER DRAW (not wired)</button></>)}
                   {chessMatchState === 'finished' && !chessZkVerified && (<button onClick={submitChessResultToOracle} className="w-full py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_30px_rgba(73,234,203,0.35)]">SUBMIT RESULT TO ORACLE</button>)}
                   {chessZkVerified && (
                     <div className="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">

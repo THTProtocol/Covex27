@@ -409,10 +409,12 @@ export default function Explorer() {
       .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
   }, []);
 
-  const handleSearch = useCallback((e) => {
+  const handleSearch = useCallback((e, overrideTerm) => {
     if (e?.preventDefault) e.preventDefault();
     // Accept a pasted explorer URL or a bare 64-hex txid, not just clean queries.
-    const q = normalizeSearchTerm(searchQuery);
+    // overrideTerm lets the Try: chips submit their term directly, avoiding the
+    // stale-state race after setSearchQuery (which has not flushed yet).
+    const q = normalizeSearchTerm(typeof overrideTerm === 'string' ? overrideTerm : searchQuery);
     if (!q) return;
     setSearchLoading(true); setSearchError(null); setSearchResults(null); setResolvedChip(null);
 
@@ -714,9 +716,9 @@ export default function Explorer() {
             </form>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-200 light:text-slate-500">
               <span>Try:</span>
-              <button onClick={() => setSearchQuery('covenant.kas')} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
-              <button onClick={() => setSearchQuery('kaspa:')} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
-              <button onClick={() => setSearchQuery(':')} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
+              <button onClick={() => { setSearchQuery('covenant.kas'); handleSearch(null, 'covenant.kas'); }} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
+              <button onClick={() => { setSearchQuery('kaspa:'); handleSearch(null, 'kaspa:'); }} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
+              <button onClick={() => { setSearchQuery(':'); handleSearch(null, ':'); }} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
             </div>
             {/* Resolved chip: a .kas name that resolved to an owner address, with a copy
                 button. covenant.kas -> kaspa:qpz2...n4uk5a. Honest: KNS owner, not a claim. */}
@@ -884,10 +886,7 @@ export default function Explorer() {
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      try { window.localStorage.setItem('covex_tour_active', '1'); } catch { /* ignore quota */ }
-                      window.location.reload();
-                    }}
+                    onClick={startTour}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
                   >
                     Start the tour

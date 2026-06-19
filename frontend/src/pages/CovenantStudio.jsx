@@ -983,7 +983,7 @@ function TokenCheatSheetModal({ onClose }) {
 function MobileStudioInterstitial({ covenantId, data, liveData }) {
   const studioUrl = useMemo(() => {
     if (typeof window === 'undefined') return '';
-    return `${window.location.origin}/studio/${encodeURIComponent(covenantId)}`;
+    return `${window.location.origin}/covenant/${encodeURIComponent(covenantId)}/studio`;
   }, [covenantId]);
   const [copied, setCopied] = useState(false);
   const copyLink = useCallback(() => {

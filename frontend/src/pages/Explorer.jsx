@@ -614,25 +614,63 @@ export default function Explorer() {
       </section>
 
       {/* CONTROLS - Explore / Search / Arena, one segmented control with Arena as the amber-accent third tab */}
+      {/* a11y: tablist with arrow-key / Home / End wrap-around (matches CovenantInteractive). Arena is a separate boolean (showArena) so the "active" id is derived. */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
+          {(() => {
+            const visibleTabs = ['explore', 'search', 'arena'];
+            const activeId = showArena ? 'arena' : activeTab;
+            const selectTab = (id) => {
+              if (id === 'arena') {
+                setShowArena(true); setActiveTab('explore');
+              } else {
+                setShowArena(false); setActiveTab(id);
+              }
+              setSearchResults(null); setSearchError(null); setSearchQuery(''); setResolvedChip(null);
+            };
+            const onTabKeyDown = (e) => {
+              const idx = visibleTabs.indexOf(activeId);
+              if (idx === -1) return;
+              let nextIdx = null;
+              if (e.key === 'ArrowRight') nextIdx = (idx + 1) % visibleTabs.length;
+              else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + visibleTabs.length) % visibleTabs.length;
+              else if (e.key === 'Home') nextIdx = 0;
+              else if (e.key === 'End') nextIdx = visibleTabs.length - 1;
+              if (nextIdx === null) return;
+              e.preventDefault();
+              const nextId = visibleTabs[nextIdx];
+              selectTab(nextId);
+              const next = e.currentTarget.parentElement?.querySelector(`[data-tab-id="${nextId}"]`);
+              if (next) next.focus();
+            };
+            return (
+          <div role="tablist" aria-label="Explorer view" className="flex rounded-xl bg-white/[0.03] border border-white/5 p-0.5">
             {[
               { id: 'explore', icon: Database, label: 'All Covenants' },
               { id: 'search', icon: Search, label: 'Search' },
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setSearchResults(null); setSearchError(null); setSearchQuery(''); setResolvedChip(null); setShowArena(false); }}
+                role="tab"
+                data-tab-id={tab.id}
+                aria-selected={activeId === tab.id}
+                tabIndex={activeId === tab.id ? 0 : -1}
+                onKeyDown={onTabKeyDown}
+                onClick={() => selectTab(tab.id)}
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === tab.id && !showArena ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
+                  activeId === tab.id ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
               >
                 <tab.icon size={12} /><span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
             <button
-              onClick={() => { setShowArena(!showArena); setActiveTab('explore'); setSearchResults(null); setSearchError(null); setSearchQuery(''); setResolvedChip(null); }}
+              role="tab"
+              data-tab-id="arena"
+              aria-selected={activeId === 'arena'}
+              tabIndex={activeId === 'arena' ? 0 : -1}
+              onKeyDown={onTabKeyDown}
+              onClick={() => selectTab(showArena ? 'explore' : 'arena')}
               className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
               }`}
@@ -646,6 +684,8 @@ export default function Explorer() {
               )}
             </button>
           </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -839,7 +879,7 @@ export default function Explorer() {
             {!loading && covenants.length === 0 && (
               <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
                 <Layers size={40} className="mx-auto text-gray-200 light:text-slate-400 mb-3" />
-                <p className="text-lg font-semibold text-white light:text-slate-900 mb-5">No live arena games right now. Be the first.</p>
+                <p className="text-lg font-semibold text-white light:text-slate-900 mb-5">No covenants on this network yet. Be the first.</p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
                     type="button"

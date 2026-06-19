@@ -55,7 +55,7 @@ function CopyBtn({ text }) {
   return (
     <button
       onClick={onCopy}
-      className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-kaspa-green transition-colors"
+      className="inline-flex items-center gap-1 text-[11px] text-gray-400 light:text-slate-500 hover:text-kaspa-green transition-colors"
     >
       {done ? <Check size={12} /> : <Copy size={12} />} {done ? 'copied' : 'copy'}
     </button>
@@ -481,7 +481,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
           <span className="grid place-items-center h-11 w-11 rounded-xl border border-emerald-500/30 bg-emerald-500/10 shrink-0">
             <ShieldCheck className="text-emerald-400" size={24} />
           </span>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Deploy an Enforced Covenant</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white light:text-slate-900 tracking-tight">Deploy an Enforced Covenant</h1>
           {isHybridKind ? (
             <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/15 text-sky-300 text-[10px] font-bold uppercase tracking-wider">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden="true" /> Hybrid
@@ -492,13 +492,13 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
             </span>
           )}
           {templateName && (
-            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/15 bg-white/[0.04] text-gray-300 text-[10px] font-medium tracking-wide max-w-full">
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/15 bg-white/[0.04] text-gray-300 light:border-slate-200 light:bg-slate-100 light:text-slate-700 text-[10px] font-medium tracking-wide max-w-full">
               <Palette size={11} className="shrink-0 text-kaspa-green" aria-hidden="true" />
               <span className="truncate">From template: {templateName}</span>
             </span>
           )}
         </div>
-        <p className="text-sm sm:text-base text-gray-300 max-w-2xl leading-relaxed">
+        <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl leading-relaxed">
           {isHybridKind ? (
             <>Custody and payout settle on-chain: funds lock to a script hash and the chain pays the winning branch. The outcome
             is decided by the disclosed Covex oracle, which co-signs or reveals only a verified result, so this is hybrid, not
@@ -556,7 +556,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                     active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20'
                   }`}
                 >
-                  <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300'} />
+                  <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300 light:text-slate-700'} />
                 </span>
                 {isDevWalletKind ? (
                   <span
@@ -574,8 +574,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                   </span>
                 ) : null}
               </div>
-              <div className="mt-2.5 text-sm font-semibold text-white">{k.label}</div>
-              <div className="mt-1 text-[11px] text-gray-400 leading-snug">{k.blurb}</div>
+              <div className="mt-2.5 text-sm font-semibold text-white light:text-slate-900">{k.label}</div>
+              <div className="mt-1 text-[11px] text-gray-400 light:text-slate-600 leading-snug">{k.blurb}</div>
             </button>
           );
         })}
@@ -583,103 +583,103 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
 
       {/* Param form */}
       <div className="relative z-10 glass-panel p-6 space-y-4">
-        <div className="flex items-center gap-2 text-white font-semibold"><KindIcon size={16} className="text-kaspa-green" /> Parameters</div>
+        <div className="flex items-center gap-2 text-white light:text-slate-900 font-semibold"><KindIcon size={16} className="text-kaspa-green" /> Parameters</div>
         {kind !== 'market' && (
           <label className="block">
-            <span className="text-xs text-gray-300">Stake to lock (KAS)</span>
+            <span className="text-xs text-gray-300 light:text-slate-700">Stake to lock (KAS)</span>
             <input value={stake} onChange={(e) => setStake(e.target.value)} inputMode="decimal"
-              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
           </label>
         )}
         {kind === 'market' && (
           <div className="space-y-3">
             <label className="block">
-              <span className="text-xs text-gray-300">Question</span>
+              <span className="text-xs text-gray-300 light:text-slate-700">Question</span>
               <input value={mq} onChange={(e) => setMq(e.target.value)} placeholder='e.g. "Will Brazil beat Haiti?"'
-                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white light:bg-white light:border-slate-200 light:text-slate-900" />
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs text-gray-300">Outcome A (YES)</span>
+                <span className="text-xs text-gray-300 light:text-slate-700">Outcome A (YES)</span>
                 <input value={moa} onChange={(e) => setMoa(e.target.value)}
-                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white light:bg-white light:border-slate-200 light:text-slate-900" />
               </label>
               <label className="block">
-                <span className="text-xs text-gray-300">Outcome B (NO)</span>
+                <span className="text-xs text-gray-300 light:text-slate-700">Outcome B (NO)</span>
                 <input value={mob} onChange={(e) => setMob(e.target.value)}
-                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white light:bg-white light:border-slate-200 light:text-slate-900" />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs text-gray-300">House fee %</span>
+                <span className="text-xs text-gray-300 light:text-slate-700">House fee %</span>
                 <input value={mfee} onChange={(e) => setMfee(e.target.value)} inputMode="numeric"
-                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
               </label>
               <label className="block">
-                <span className="text-xs text-gray-300">Loser rebate %</span>
+                <span className="text-xs text-gray-300 light:text-slate-700">Loser rebate %</span>
                 <input value={mrebate} onChange={(e) => setMrebate(e.target.value)} inputMode="numeric"
-                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+                  className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
               </label>
             </div>
-            <p className="text-[11px] text-gray-400 leading-relaxed">
+            <p className="text-[11px] text-gray-400 light:text-slate-600 leading-relaxed">
               Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the disclosed oracle reveals one committed outcome secret; once it is revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
             </p>
           </div>
         )}
         {ABS_LOCK_KINDS.includes(kind) && (
           <label className="block">
-            <span className="text-xs text-gray-300">
+            <span className="text-xs text-gray-300 light:text-slate-700">
               {kind === 'timelock' ? 'Lock for (DAA blocks from now)'
                 : kind === 'timedecay' ? 'Lower quorum unlocks after (DAA blocks from now)'
                 : 'Refund / claim timelock (DAA blocks from now)'}
               {tipDaa ? ` - at DAA ${tipDaa + Math.max(1, parseInt(lockBlocks || '100', 10))}` : ''}
             </span>
             <input value={lockBlocks} onChange={(e) => setLockBlocks(e.target.value)} inputMode="numeric"
-              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
           </label>
         )}
         {kind === 'relative_timelock' && (
           <label className="block">
-            <span className="text-xs text-gray-300">Relative age before spend (blocks, BIP68 / OpCheckSequenceVerify)</span>
+            <span className="text-xs text-gray-300 light:text-slate-700">Relative age before spend (blocks, BIP68 / OpCheckSequenceVerify)</span>
             <input value={relSeq} onChange={(e) => setRelSeq(e.target.value)} inputMode="numeric"
-              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+              className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
           </label>
         )}
         {kind === 'timedecay' && (
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-gray-300">Quorum now (of 2)</span>
+              <span className="text-xs text-gray-300 light:text-slate-700">Quorum now (of 2)</span>
               <input value={reqNow} onChange={(e) => setReqNow(e.target.value)} inputMode="numeric"
-                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
             </label>
             <label className="block">
-              <span className="text-xs text-gray-300">Quorum after deadline (of 2)</span>
+              <span className="text-xs text-gray-300 light:text-slate-700">Quorum after deadline (of 2)</span>
               <input value={reqAfter} onChange={(e) => setReqAfter(e.target.value)} inputMode="numeric"
-                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono" />
+                className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
             </label>
           </div>
         )}
         {kind === 'hashlock' && (
-          <p className="text-[11px] text-gray-400">A random secret is generated at deploy. Save it - it is required to redeem and is never stored on the server.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A random secret is generated at deploy. Save it - it is required to redeem and is never stored on the server.</p>
         )}
         {kind === 'multisig' && (
-          <p className="text-[11px] text-gray-400">This demo locks to a 2-of-2 of the server-assisted dev wallets and redeems with both. Custom member keys are supported via the API.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">This demo locks to a 2-of-2 of the server-assisted dev wallets and redeems with both. Custom member keys are supported via the API.</p>
         )}
         {kind === 'htlc' && (
-          <p className="text-[11px] text-gray-400">Demo HTLC: the dev-wallet receiver claims by revealing a secret generated at deploy; the dev-wallet sender refunds after the timelock above. The cross-chain atomic-swap building block.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">Demo HTLC: the dev-wallet receiver claims by revealing a secret generated at deploy; the dev-wallet sender refunds after the timelock above. The cross-chain atomic-swap building block.</p>
         )}
         {kind === 'channel' && (
-          <p className="text-[11px] text-gray-400">Demo 2-of-2 state-channel pot of the dev wallets: cooperative close pays the agreed winner, or the funder reclaims after the timelock above. No oracle, Covex is never in the payout path.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">Demo 2-of-2 state-channel pot of the dev wallets: cooperative close pays the agreed winner, or the funder reclaims after the timelock above. No oracle, Covex is never in the payout path.</p>
         )}
         {kind === 'deadman' && (
-          <p className="text-[11px] text-gray-400">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
         )}
         {kind === 'oracle_enforced' && (
-          <p className="text-[11px] text-gray-400">A 2-of-2 of the Covex oracle and the winner (dev wallet 1). The chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. Server-assisted demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the Covex oracle and the winner (dev wallet 1). The chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. Server-assisted demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
         )}
         {kind === 'oracle_escrow' && (
-          <p className="text-[11px] text-gray-400">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Server-assisted demo; oracle covenants activate on mainnet at Toccata.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Server-assisted demo; oracle covenants activate on mainnet at Toccata.</p>
         )}
 
         <DeployDisclosure reality={isHybridKind ? 'hybrid' : 'on-chain'} />
@@ -690,8 +690,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
             {busy ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />} Create prediction market
           </button>
         ) : !usesDevWallets && !canSign ? (
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm text-gray-300 mb-3">
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4 light:border-slate-200 light:bg-slate-50/60">
+            <p className="text-sm text-gray-300 light:text-slate-700 mb-3">
               Connect the key that holds the funds to sign the deploy. It signs the funding transaction in your browser - the key is never sent to the server (non-custodial).
             </p>
             <DevConnectPanel compact />
@@ -709,9 +709,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
           post-deploy navigation (via onDeployed) and renders its own follow-up UI. */}
       {!effectiveEmbedded && mine.length > 0 && (
         <div className="relative z-10 glass-panel overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/5">
-            <div className="text-white font-semibold">Your enforced covenants (this session)</div>
-            <div className="text-xs text-gray-400 mt-0.5">Deployed and live on-chain.</div>
+          <div className="px-6 py-4 border-b border-white/5 light:border-slate-200">
+            <div className="text-white light:text-slate-900 font-semibold">Your enforced covenants (this session)</div>
+            <div className="text-xs text-gray-400 light:text-slate-600 mt-0.5">Deployed and live on-chain.</div>
           </div>
           <div className="divide-y divide-white/[0.04]">
             {mine.map((c) => (
@@ -720,18 +720,18 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase">on-chain</span>
                     {c.nonCustodialDeploy && <span className="px-2 py-0.5 rounded-md border border-kaspa-green/30 bg-kaspa-green/10 text-kaspa-green text-[10px] font-bold uppercase" title="Funded by a signature made in your browser; the key never reached the server">non-custodial</span>}
-                    <span className="text-sm font-semibold text-white">{c.kind}</span>
-                    <span className="text-xs text-gray-400">{c.kas} KAS locked</span>
+                    <span className="text-sm font-semibold text-white light:text-slate-900">{c.kind}</span>
+                    <span className="text-xs text-gray-400 light:text-slate-600">{c.kas} KAS locked</span>
                   </div>
                   {c.spent
                     ? <span className="text-xs text-emerald-400 font-mono break-words">redeemed {String(c.spent).slice(0, 12)}...{c.nonCustodial ? ' (non-custodial: signed in your browser, key never sent)' : ''}</span>
                     : <button onClick={() => redeem(c)} disabled={busy}
-                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60">Redeem</button>}
+                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60 light:bg-slate-100 light:border-slate-300 light:text-slate-800 light:hover:bg-slate-200">Redeem</button>}
                 </div>
-                <div className="text-[11px] text-gray-400 font-mono break-all">
+                <div className="text-[11px] text-gray-400 light:text-slate-600 font-mono break-all">
                   P2SH: {c.p2sh} <CopyBtn text={c.p2sh} />
                 </div>
-                <div className="text-[11px] text-gray-500 font-mono break-all">
+                <div className="text-[11px] text-gray-500 light:text-slate-500 font-mono break-all">
                   deploy tx: {String(c.tx).slice(0, 24)}...
                 </div>
                 {/* Build -> design -> publish handoff: a 3-button rail led by the Studio
@@ -771,7 +771,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                   <div className="text-[11px] text-amber-300 font-mono break-all">secret (save to redeem): {c.preimage} <CopyBtn text={c.preimage} /></div>
                 )}
                 {c.lock_daa && !c.spent && (
-                  <div className="text-[11px] text-gray-400">unlocks at DAA {c.lock_daa}{tipDaa ? (tipDaa >= c.lock_daa ? ' (elapsed - redeemable now)' : ` (~${c.lock_daa - tipDaa} blocks to go)`) : ''}</div>
+                  <div className="text-[11px] text-gray-400 light:text-slate-600">unlocks at DAA {c.lock_daa}{tipDaa ? (tipDaa >= c.lock_daa ? ' (elapsed - redeemable now)' : ` (~${c.lock_daa - tipDaa} blocks to go)`) : ''}</div>
                 )}
               </div>
             ))}
@@ -782,16 +782,16 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
       {/* Honest catalog */}
       {!effectiveEmbedded && onchainEntries.length > 0 && (
         <div className="relative z-10 glass-panel p-6">
-          <div className="text-white font-semibold mb-3">What "on-chain enforced" means here</div>
-          <p className="text-sm text-gray-300 mb-4">
+          <div className="text-white light:text-slate-900 font-semibold mb-3">What "on-chain enforced" means here</div>
+          <p className="text-sm text-gray-300 light:text-slate-700 mb-4">
             Unlike oracle-attested or metadata covenants, these resolve purely by Kaspa script. The platform labels every
             covenant honestly - on-chain, oracle-attested, or metadata only - so trust is shown, never implied.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             {onchainEntries.map((e) => (
-              <div key={e.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <div className="text-sm font-semibold text-white">{e.label}</div>
-                <div className="text-[11px] text-gray-400 mt-1">{e.summary}</div>
+              <div key={e.id} className="rounded-xl border border-white/10 bg-black/20 p-3 light:border-slate-200 light:bg-white">
+                <div className="text-sm font-semibold text-white light:text-slate-900">{e.label}</div>
+                <div className="text-[11px] text-gray-400 light:text-slate-600 mt-1">{e.summary}</div>
               </div>
             ))}
           </div>
@@ -805,12 +805,12 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
       {!effectiveEmbedded && (
       <div className="relative z-10 glass-panel p-5 opacity-70 hover:opacity-100 transition-opacity">
         <button onClick={() => setExtOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
-          <span className="text-xs font-medium text-gray-400">Interact with any covenant (including ones not created on Covex)</span>
-          <span className="text-gray-500 text-[11px]">{extOpen ? 'hide' : 'open'}</span>
+          <span className="text-xs font-medium text-gray-400 light:text-slate-700">Interact with any covenant (including ones not created on Covex)</span>
+          <span className="text-gray-500 light:text-slate-500 text-[11px]">{extOpen ? 'hide' : 'open'}</span>
         </button>
         {extOpen && (
           <div className="mt-4 space-y-2.5">
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-gray-500 light:text-slate-600">
               Any deterministic Kaspa P2SH covenant - single-signer (singlesig / hashlock / timelock) OR multi-party
               (multisig:N / htlc:DAA / channel:DAA) - is spendable here with ONLY the redeem script and the signers' keys.
               No Covex record needed. Each key signs in its own browser; only signatures are sent, never a key.
@@ -819,22 +819,22 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
               value={ext.redeem_script_hex}
               onChange={(e) => setExt((x) => ({ ...x, redeem_script_hex: e.target.value }))}
               placeholder="redeem script hex (the script that hashes to the on-chain P2SH)"
-              className="w-full h-16 font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white resize-y"
+              className="w-full h-16 font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white resize-y light:bg-white light:border-slate-200 light:text-slate-900"
             />
             <div className="grid sm:grid-cols-2 gap-2">
-              <input value={ext.tx} onChange={(e) => setExt((x) => ({ ...x, tx: e.target.value }))} placeholder="funding tx id" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
-              <input value={ext.outpoint} onChange={(e) => setExt((x) => ({ ...x, outpoint: e.target.value }))} placeholder="outpoint index (0)" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
-              <input value={ext.kind} onChange={(e) => setExt((x) => ({ ...x, kind: e.target.value }))} placeholder="kind: singlesig | hashlock | timelock:DAA | multisig:N | htlc:DAA | channel:DAA" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
-              <input value={ext.dest} onChange={(e) => setExt((x) => ({ ...x, dest: e.target.value }))} placeholder="destination address (default: you)" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
+              <input value={ext.tx} onChange={(e) => setExt((x) => ({ ...x, tx: e.target.value }))} placeholder="funding tx id" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white light:bg-white light:border-slate-200 light:text-slate-900" />
+              <input value={ext.outpoint} onChange={(e) => setExt((x) => ({ ...x, outpoint: e.target.value }))} placeholder="outpoint index (0)" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white light:bg-white light:border-slate-200 light:text-slate-900" />
+              <input value={ext.kind} onChange={(e) => setExt((x) => ({ ...x, kind: e.target.value }))} placeholder="kind: singlesig | hashlock | timelock:DAA | multisig:N | htlc:DAA | channel:DAA" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white light:bg-white light:border-slate-200 light:text-slate-900" />
+              <input value={ext.dest} onChange={(e) => setExt((x) => ({ ...x, dest: e.target.value }))} placeholder="destination address (default: you)" className="font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white light:bg-white light:border-slate-200 light:text-slate-900" />
             </div>
             {(ext.kind.trim().startsWith('hashlock') || (ext.kind.trim().startsWith('htlc') && ext.branch !== 'refund')) && (
-              <input value={ext.preimage} onChange={(e) => setExt((x) => ({ ...x, preimage: e.target.value }))} placeholder="preimage hex (required for hashlock / HTLC claim)" className="w-full font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white" />
+              <input value={ext.preimage} onChange={(e) => setExt((x) => ({ ...x, preimage: e.target.value }))} placeholder="preimage hex (required for hashlock / HTLC claim)" className="w-full font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white light:bg-white light:border-slate-200 light:text-slate-900" />
             )}
             {(ext.kind.trim().startsWith('htlc') || ext.kind.trim().startsWith('channel')) && (
-              <div className="flex items-center gap-2 text-[11px] text-gray-400">
+              <div className="flex items-center gap-2 text-[11px] text-gray-400 light:text-slate-600">
                 <span>branch:</span>
                 {(ext.kind.trim().startsWith('htlc') ? ['claim', 'refund'] : ['close', 'refund']).map((b) => (
-                  <button key={b} onClick={() => setExt((x) => ({ ...x, branch: b }))} className={`px-2.5 py-1 rounded-md border ${ext.branch === b || (!ext.branch && (b === 'claim' || b === 'close')) ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/10 text-gray-300'}`}>{b}</button>
+                  <button key={b} onClick={() => setExt((x) => ({ ...x, branch: b }))} className={`px-2.5 py-1 rounded-md border ${ext.branch === b || (!ext.branch && (b === 'claim' || b === 'close')) ? 'border-kaspa-green/50 bg-kaspa-green/[0.08] text-kaspa-green' : 'border-white/10 text-gray-300 light:border-slate-300 light:text-slate-700'}`}>{b}</button>
                 ))}
               </div>
             )}
@@ -843,10 +843,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                 value={ext.cosigs}
                 onChange={(e) => setExt((x) => ({ ...x, cosigs: e.target.value }))}
                 placeholder={'co-signer signatures (one per line: <signer_xonly>:<signature_hex>). Your in-browser key signs its own slot automatically; paste the OTHER members\' signatures here. Each signs the SAME sighash returned by prepare-spend.'}
-                className="w-full h-16 font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white resize-y"
+                className="w-full h-16 font-mono text-[11px] bg-black/40 border border-white/10 rounded-lg p-2 text-white resize-y light:bg-white light:border-slate-200 light:text-slate-900"
               />
             )}
-            <button onClick={interactExternal} disabled={busy} className="text-xs px-4 py-2 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60">
+            <button onClick={interactExternal} disabled={busy} className="text-xs px-4 py-2 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] disabled:opacity-60 light:bg-slate-100 light:border-slate-300 light:text-slate-800 light:hover:bg-slate-200">
               {busy ? 'Working...' : 'Spend this covenant (non-custodial)'}
             </button>
           </div>

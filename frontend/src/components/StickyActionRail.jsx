@@ -112,7 +112,7 @@ export default function StickyActionRail({
   const desktop = (
     <aside
       aria-label="Covenant actions"
-      className="hidden lg:block fixed top-24 right-6 w-[280px] z-30"
+      className="hidden xl:block fixed top-24 right-6 w-[280px] z-30"
     >
       <div className="sticky top-24 rounded-2xl border border-white/10 light:border-slate-200 bg-white/5 light:bg-white/80 backdrop-blur-xl p-4 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)] light:shadow-[0_8px_28px_-12px_rgba(15,23,42,0.18)]">
         <div className="flex flex-col gap-3">
@@ -136,7 +136,7 @@ export default function StickyActionRail({
     <div
       aria-label="Covenant actions"
       role="region"
-      className={`lg:hidden fixed inset-x-0 bottom-0 z-40 transform ${sheetTransform} ${
+      className={`xl:hidden fixed inset-x-0 bottom-0 z-40 transform ${sheetTransform} ${
         reduceMotion ? '' : 'transition-transform duration-300 ease-out'
       }`}
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}

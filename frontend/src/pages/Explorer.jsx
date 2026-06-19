@@ -309,8 +309,10 @@ export default function Explorer() {
     const q = searchQuery.trim();
     if (!q) return;
     setSearchLoading(true); setSearchError(null); setSearchResults(null);
-    const isTxId = q.includes(':');
-    const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:') || q.length >= 40;
+    // A Kaspa address carries a ':' in its prefix (kaspatest:/kaspa:), so detect the
+    // address FIRST; only a non-address string with a ':' is a covenant txid (hash:index).
+    const isWalletAddr = q.startsWith('kaspatest:') || q.startsWith('kaspa:');
+    const isTxId = !isWalletAddr && q.includes(':');
     if (isTxId) {
       fetch(`/api/covenants/${encodeURIComponent(q)}`)
         .then(r => (r.ok ? r.json() : {}))

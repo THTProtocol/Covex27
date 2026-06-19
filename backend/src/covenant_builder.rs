@@ -1151,6 +1151,77 @@ fn assemble_noncustodial_satisfier(
                 satisfier.push(OpTrue);
             }
         }
+        // ── Binary outcome selector (the parimutuel-bundle leg), winner-only NON-CUSTODIAL.
+        // No Covex key is ever in this path: the bettor signs the leg in their own browser and
+        // only the 64-byte signature is sent. members (checksig_only) = [winner_a, winner_b,
+        // refund]. The branch is carried in the existing bool params (mirroring oracle_escrow):
+        //   RevealA  = branch_refund=false, winner_is_a=true   -> <sig_a> <preimage> OP_TRUE
+        //   RevealB  = branch_refund=false, winner_is_a=false  -> <sig_b> <preimage> OP_TRUE OP_FALSE
+        //   Refund   = branch_refund=true                      -> <sig_refund> OP_FALSE OP_FALSE
+        // Byte layout is IDENTICAL to build_binary_oracle_select_signature_script (@731). The
+        // on-chain OpCheckSig in each branch is the real enforcer (a public secret cannot let the
+        // wrong key sweep), and we ALSO fail closed here: the signature must be supplied under the
+        // branch's NAMED member pubkey (or as solo for that same key), so a wrong claimer cannot
+        // assemble a script that reorders the branches. ──
+        "binary_oracle_select" => {
+            // Defense-in-depth: this redeem always exposes exactly [winner_a, winner_b, refund];
+            // reject any other count so a redeem-parse miscount can never route to a wrong key.
+            if members.len() != 3 {
+                return Err(format!(
+                    "binary_oracle_select redeem must expose exactly 3 keys, found {}",
+                    members.len()
+                ));
+            }
+            // The branch's named key index in members: RevealA -> 0 (winner_a), RevealB -> 1
+            // (winner_b), Refund -> 2 (refund). winner_is_a selects A vs B for the reveal arms.
+            let (named_idx, branch_label) = if branch_refund {
+                (2usize, "refund")
+            } else if winner_is_a {
+                (0usize, "outcome A")
+            } else {
+                (1usize, "outcome B")
+            };
+            let named_pk = members.get(named_idx).ok_or_else(|| {
+                format!("binary_oracle_select redeem missing the {branch_label} key")
+            })?;
+            // FAIL CLOSED: require the signature under the branch's NAMED pubkey. We accept a
+            // solo signature only when no per-member map is present (single-signer wallet flow);
+            // if a sigs map is present it MUST contain the named key (a wrong-key entry is
+            // rejected here, not silently dropped, so a loser cannot mis-route the claim).
+            let bsig = match sig_for(named_pk) {
+                Some(s) => s,
+                None => {
+                    if sigs.is_empty() {
+                        *solo.ok_or_else(|| {
+                            format!("binary_oracle_select {branch_label} needs the {branch_label} key signature (signature_hex)")
+                        })?
+                    } else {
+                        return Err(format!(
+                            "binary_oracle_select {branch_label} requires the {branch_label} key's signature; the supplied signatures do not include it"
+                        ));
+                    }
+                }
+            };
+            if branch_refund {
+                // Refund: <sig_refund> OP_FALSE (inner ELSE) OP_FALSE (outer ELSE, top of stack).
+                satisfier.extend(push65(&bsig));
+                satisfier.push(OpFalse);
+                satisfier.push(OpFalse);
+            } else {
+                // Reveal: <sig> <preimage> then the branch selector(s).
+                let p = preimage.ok_or_else(|| {
+                    format!("binary_oracle_select {branch_label} reveal requires preimage_hex (the revealed secret)")
+                })?;
+                satisfier.extend(push65(&bsig));
+                satisfier.extend(preimage_push(p)?);
+                // RevealA: OP_TRUE alone (outer IF taken). RevealB: OP_TRUE selects the inner IF,
+                // then OP_FALSE on top selects the outer ELSE. Mirrors the custodial builder.
+                satisfier.push(OpTrue);
+                if !winner_is_a {
+                    satisfier.push(OpFalse); // outer IF -> ELSE (top of stack)
+                }
+            }
+        }
         other => return Err(format!("non-custodial assembly does not support '{other}'")),
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
@@ -2964,13 +3035,19 @@ struct PendingWalletSpend {
     /// The redeem kind (singlesig | hashlock | timelock:<daa> | multisig:<n> | htlc:<daa>
     /// | channel:<daa>) so submit-signed assembles the correct satisfier.
     kind: String,
-    /// For HTLC/channel: which branch the prepared sighash committed to. true = the
-    /// timeout/refund branch (lock_time set), false = claim/cooperative close. Single-sig
-    /// kinds ignore this.
+    /// For HTLC/channel/binary_oracle_select: which branch the prepared sighash committed to.
+    /// true = the timeout/refund branch (CLTV lock_time or CSV sequence set), false =
+    /// claim/cooperative close / a reveal branch. Single-sig kinds ignore this.
     branch_refund: bool,
+    /// For binary_oracle_select reveal branches (and oracle_escrow kinds): true = outcome/player
+    /// A (the IF branch), false = outcome/player B. submit-signed must reproduce the EXACT
+    /// branch selector the sighash committed to, so this is fixed at prepare time. Ignored by
+    /// the other kinds (which carry no A/B branch). Defaults to true.
+    winner_is_a: bool,
     /// Member x-only pubkeys parsed from the redeem in script order (multisig: [pk1..pkn];
-    /// channel: [p1, p2, p1]; htlc: [receiver, sender]). Lets submit-signed order the
-    /// supplied signatures correctly without re-parsing.
+    /// channel: [p1, p2, p1]; htlc: [receiver, sender]; binary_oracle_select:
+    /// [winner_a, winner_b, refund]). Lets submit-signed order the supplied signatures
+    /// correctly without re-parsing.
     member_pubkeys: Vec<[u8; 32]>,
     created_at: i64,
 }
@@ -3047,7 +3124,7 @@ pub async fn prepare_spend_handler(
             "'{redeem_kind}' needs the Covex oracle co-signature; use /covenant/oracle-payout, not the non-custodial spend"
         ));
     }
-    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel" | "deadman" | "rcsv") {
+    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel" | "deadman" | "rcsv" | "binary_oracle_select") {
         return err(format!("non-custodial wallet signing does not support '{redeem_kind}'"));
     }
     let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
@@ -3055,13 +3132,34 @@ pub async fn prepare_spend_handler(
     let htlc_lock_daa: Option<u64> = redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
     let channel_lock_daa: Option<u64> = redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
     let deadman_lock_daa: Option<u64> = redeem_kind.strip_prefix("deadman:").and_then(|s| s.parse::<u64>().ok());
-    // Branch selection (committed in the sighash via lock_time): HTLC claim(default)/refund,
-    // channel close(default)/refund.
+    // binary_oracle_select:{min_sequence} - the refund (ELSE) branch is a CSV relative timelock,
+    // so the Refund spend's input sequence must be >= min_sequence (BIP68), NOT a CLTV lock_time.
+    let bos_min_seq: u64 = redeem_kind.strip_prefix("binary_oracle_select:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+    // Branch selection (committed in the sighash via lock_time / sequence): HTLC claim(default)/
+    // refund, channel close(default)/refund, deadman owner(default)/heir, binary_oracle_select
+    // reveal_a(default)/reveal_b/refund.
     let branch = req.branch.as_deref().unwrap_or("").to_lowercase();
-    // The "refund/ELSE" CLTV branch (needs lock_time = lock_daa): HTLC/channel refund, or
-    // the dead-man's heir branch (requested as "heir" or "refund").
+    // The "refund/ELSE" timeout branch: HTLC/channel refund, the dead-man's heir branch
+    // (requested as "heir" or "refund"), or the binary_oracle_select CSV refund. (The HTLC/
+    // channel/deadman variants are CLTV and set lock_time below; the bos variant is CSV and
+    // sets the input sequence instead.)
     let branch_refund = (matches!(kind_base.as_str(), "htlc" | "channel") && branch == "refund")
-        || (kind_base == "deadman" && (branch == "heir" || branch == "refund"));
+        || (kind_base == "deadman" && (branch == "heir" || branch == "refund"))
+        || (kind_base == "binary_oracle_select" && branch == "refund");
+    // For binary_oracle_select reveal branches: outcome A (the IF branch, default) vs outcome B.
+    // Carried into the session so submit-signed reproduces the exact branch selector. Refund
+    // ignores it. The default (reveal_a / true) matches the custodial select_mode default.
+    let bos_winner_is_a = !(kind_base == "binary_oracle_select" && branch == "reveal_b");
+    // Reject a typo'd binary_oracle_select branch rather than silently routing it to outcome A
+    // (which would only fail later at signing with a confusing error). Empty = the reveal_a default.
+    if kind_base == "binary_oracle_select"
+        && !branch.is_empty()
+        && !matches!(branch.as_str(), "reveal_a" | "reveal_b" | "refund")
+    {
+        return err(format!(
+            "unknown binary_oracle_select branch '{branch}' (expected reveal_a, reveal_b, or refund)"
+        ));
+    }
     let redeem = match hex::decode(&redeem_hex) {
         Ok(b) => b,
         Err(e) => return err(format!("corrupt redeem: {e}")),
@@ -3073,9 +3171,25 @@ pub async fn prepare_spend_handler(
     } else {
         parse_redeem_pubkeys(&redeem, true)
     };
+    // binary_oracle_select: the wallet that may sign is the branch's NAMED key, parsed from
+    // the redeem (members = [winner_a, winner_b, refund]). RevealA -> winner_a, RevealB ->
+    // winner_b, Refund -> refund. We surface THIS as signer_xonly so the bettor signs the
+    // correct leg; the trailing-pubkey heuristic below would always return the refund key
+    // (the script ends with the refund CheckSig), which is only right for the Refund branch.
+    let bos_named_xonly: Option<String> = if kind_base == "binary_oracle_select" {
+        let idx = if branch_refund { 2 } else if bos_winner_is_a { 0 } else { 1 };
+        match member_pubkeys.get(idx) {
+            Some(pk) => Some(hex::encode(pk)),
+            None => return err("binary_oracle_select redeem is missing the branch's named key".into()),
+        }
+    } else {
+        None
+    };
     // The single-signer kinds end with `<0x20><pubkey32> OpCheckSig`; surface that as the
     // signer the wallet must use (multi-party kinds report required_signers instead).
-    let signer_xonly = if redeem.len() >= 34
+    let signer_xonly = if let Some(x) = bos_named_xonly.clone() {
+        x
+    } else if redeem.len() >= 34
         && redeem[redeem.len() - 1] == 0xac
         && redeem[redeem.len() - 34] == 0x20
     {
@@ -3108,6 +3222,12 @@ pub async fn prepare_spend_handler(
             let idx = if branch_refund { 1 } else { 0 };
             let role = if branch_refund { "heir (after timelock)" } else { "owner" };
             member_pubkeys.get(idx).map(|pk| vec![serde_json::json!({ "role": role, "xonly": hex::encode(pk) })]).unwrap_or_default()
+        }
+        "binary_oracle_select" => {
+            // Exactly one named key spends the chosen leg (no co-signer): winner_a (RevealA),
+            // winner_b (RevealB), or the refund key (Refund). signer_xonly already carries it.
+            let role = if branch_refund { "refund (after timelock)" } else if bos_winner_is_a { "winner (outcome A)" } else { "winner (outcome B)" };
+            if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": role, "xonly": signer_xonly.clone() })] }
         }
         _ => if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": "signer", "xonly": signer_xonly.clone() })] },
     };
@@ -3143,20 +3263,30 @@ pub async fn prepare_spend_handler(
     // channel redeem has 3 (CheckSigVerify + CheckSig in IF, CheckSig in ELSE), others 1.
     // Mirrors the custodial /spend handler exactly so the same sighash is produced.
     let sig_op_count: u8 = SpendKind::parse(&redeem_kind).map_or(1, |k| k.sig_op_count());
+    // Relative-timelock (CSV) spends commit the aging requirement in the INPUT SEQUENCE (BIP68),
+    // not lock_time: an rcsv covenant always, and a binary_oracle_select REFUND only. Every other
+    // spend uses 0 (non-final). Mirrors the custodial /spend handler so the sighash matches.
+    let spend_sequence: u64 = if kind_base == "binary_oracle_select" && branch_refund {
+        bos_min_seq
+    } else {
+        rcsv_min_seq
+    };
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
             index: utxo.outpoint.index,
         },
         signature_script: vec![],
-        sequence: rcsv_min_seq, // rcsv: satisfies OpCheckSequenceVerify; all others 0 (non-final)
+        sequence: spend_sequence, // rcsv / bos-refund: satisfies OpCheckSequenceVerify; all others 0 (non-final)
         sig_op_count,
     }];
     let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
     // A spend that takes a CLTV branch MUST carry lock_time = lock_daa (with a non-final
     // input sequence, set above) so OpCheckLockTimeVerify passes, and the chain must have
     // reached that DAA. This applies to a timelock covenant, an HTLC refund, and a channel
-    // refund. Claims / cooperative closes / other single-signer kinds use 0.
+    // refund. Claims / cooperative closes / other single-signer kinds use 0. NOTE:
+    // binary_oracle_select uses CSV (relative timelock via the input sequence above), NOT
+    // CLTV, so its refund leaves lock_time at 0 - it is intentionally absent from this chain.
     let spend_lock_time = timelock_daa
         .or(if kind_base == "htlc" && branch_refund { htlc_lock_daa } else { None })
         .or(if kind_base == "channel" && branch_refund { channel_lock_daa } else { None })
@@ -3192,12 +3322,15 @@ pub async fn prepare_spend_handler(
             PendingWalletSpend {
                 network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
                 deploy_tx_id: src_tx_id.clone(), kind: redeem_kind.clone(),
-                branch_refund, member_pubkeys, created_at: now_ts,
+                branch_refund, winner_is_a: bos_winner_is_a, member_pubkeys, created_at: now_ts,
             },
         );
     }
-    // A hashlock spend, and an HTLC CLAIM, must also reveal the preimage in submit-signed.
-    let needs_preimage = kind_base == "hashlock" || (kind_base == "htlc" && !branch_refund);
+    // A hashlock spend, an HTLC CLAIM, and a binary_oracle_select REVEAL must also reveal the
+    // preimage (the winning outcome's secret) in submit-signed. The bos refund needs no preimage.
+    let needs_preimage = kind_base == "hashlock"
+        || (kind_base == "htlc" && !branch_refund)
+        || (kind_base == "binary_oracle_select" && !branch_refund);
     let is_multi = matches!(kind_base.as_str(), "multisig" | "channel") && !(kind_base == "channel" && branch_refund);
     Json(serde_json::json!({
         "success": true,
@@ -3206,7 +3339,7 @@ pub async fn prepare_spend_handler(
         "sign_scheme": "bip340-schnorr-secp256k1",
         "signer_xonly": signer_xonly,
         "required_signers": required_signers,
-        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else if kind_base == "deadman" { Some(if branch_refund { "heir" } else { "owner" }) } else { None },
+        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else if kind_base == "deadman" { Some(if branch_refund { "heir" } else { "owner" }) } else if kind_base == "binary_oracle_select" { Some(if branch_refund { "refund" } else if bos_winner_is_a { "reveal_a" } else { "reveal_b" }) } else { None },
         "p2sh_address": p2sh_address,
         "amount_sompi": amount,
         "destination": req.destination_addr,
@@ -3292,8 +3425,11 @@ pub async fn submit_signed_handler(
     let sig_script = match assemble_noncustodial_satisfier(
         &kind_base, pending.branch_refund, &pending.redeem, &pending.member_pubkeys,
         &sigs, solo.as_ref(), preimage.as_deref(),
-        // The 8 plain primitives carry no oracle signature; winner_is_a is unused here.
-        None, true,
+        // The plain primitives (incl. binary_oracle_select) carry NO oracle signature - no Covex
+        // key is ever in this path. winner_is_a was fixed at prepare time (the branch selector the
+        // sighash committed to) and is meaningful only for binary_oracle_select reveal branches;
+        // every other kind ignores it (and defaults to true).
+        None, pending.winner_is_a,
     ) {
         Ok(s) => s,
         Err(e) => return err(e),
@@ -4978,6 +5114,155 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, Refund, None).unwrap()),
             "refund branch requires the refund key"
+        );
+    }
+
+    /// The WINNER-ONLY NON-CUSTODIAL binary_oracle_select spend, proven against the REAL
+    /// kaspa-txscript interpreter. The bettor signs their own leg in their browser (here: an
+    /// external secp256k1 sig over the prepared sighash) and only the 64-byte signature is fed
+    /// in - NO Covex/oracle key is in this path (oracle_sig is always None). Proves:
+    ///  (a) the non-custodial satisfier has the SAME script layout as the custodial build_*
+    ///      satisfier (identical aside from the randomized-nonce signature value), so the
+    ///      on-chain behavior is unchanged and only the signature's provenance differs;
+    ///  (b) RevealA / RevealB / Refund each pass with the branch's named key + correct selectors;
+    ///  (c) the Refund branch needs the input aged >= min_sequence (CSV/BIP68) and fails below it;
+    ///  (d) FAIL CLOSED: a signer whose x-only pubkey does not match the branch's named key is
+    ///      rejected at assembly (a loser cannot reorder branches), AND the engine rejects a
+    ///      loser's sig supplied under the named key (anti-redirect via the on-chain OpCheckSig).
+    #[test]
+    fn noncustodial_binary_oracle_select_winner_only_claim() {
+        use BinarySelectBranch::*;
+        let winner_a = test_keypair(81);
+        let winner_b = test_keypair(82);
+        let refund = test_keypair(83);
+        let wa = winner_a.x_only_public_key().0.serialize();
+        let wb = winner_b.x_only_public_key().0.serialize();
+        let rf = refund.x_only_public_key().0.serialize();
+        let s_a = b"outcome-A-secret-v1".to_vec();
+        let s_b = b"outcome-B-secret-v1".to_vec();
+        let h_a = blake2b256(&s_a);
+        let h_b = blake2b256(&s_b);
+        let min_seq: u64 = 144;
+        let redeem = redeem_binary_oracle_select(&h_a, &wa, &h_b, &wb, min_seq, &rf).unwrap();
+        // checksig_only parse keeps the three pubkeys each directly followed by OpCheckSig
+        // (the h_a/h_b pushes are followed by OpEqualVerify and are excluded).
+        let members = parse_redeem_pubkeys(&redeem, true);
+        assert_eq!(members, vec![wa, wb, rf], "parse must yield [winner_a, winner_b, refund]");
+
+        // (a) STRUCTURAL parity with the custodial builder: aside from the (randomized-nonce)
+        // signature value, the non-custodial satisfier and build_binary_oracle_select_signature_
+        // script emit the SAME bytes. Each sig is pushed as OpData65 (0x41) + 65 payload bytes; the
+        // preimage push, branch selectors, and trailing redeem-script push are identical in both.
+        // BIP340 aux randomness makes the raw sig bytes differ between two signings, so we zero the
+        // 65 payload bytes of every OpData65 push in BOTH scripts and require the rest to be equal.
+        let strip_sig = |script: &[u8]| -> Vec<u8> {
+            // Zero out every 0x41 (OpData65) push's 65 payload bytes so only the selectors,
+            // preimage push, and redeem-script push remain for comparison.
+            let mut out = script.to_vec();
+            let mut i = 0usize;
+            while i < out.len() {
+                if out[i] == 0x41 && i + 1 + 65 <= out.len() {
+                    for b in out.iter_mut().skip(i + 1).take(65) { *b = 0; }
+                    i += 1 + 65;
+                } else {
+                    i += 1;
+                }
+            }
+            out
+        };
+        let parity = |branch: BinarySelectBranch, kp: &Keypair, winner_is_a: bool, preimage: Option<&[u8]>| {
+            let seq = if matches!(branch, Refund) { min_seq } else { 0 };
+            let equal = std::cell::Cell::new(false);
+            // Build both over the SAME signable; their layouts (sig push zeroed) must match.
+            run_spend_generic(&redeem, 0, seq, |s| {
+                let custodial = build_binary_oracle_select_signature_script(s, 0, kp, &redeem, branch, preimage).unwrap();
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(kp.x_only_public_key().0.serialize()), ext_solo(s, kp));
+                let noncustodial = assemble_noncustodial_satisfier(
+                    "binary_oracle_select", matches!(branch, Refund), &redeem, &members,
+                    &sigs, None, preimage, None, winner_is_a,
+                ).unwrap();
+                equal.set(strip_sig(&custodial) == strip_sig(&noncustodial));
+                custodial // run the custodial script through the engine to keep this a valid spend
+            });
+            assert!(equal.get(), "non-custodial satisfier layout must match the custodial one byte-for-byte (sig aside)");
+        };
+        parity(RevealA, &winner_a, true, Some(&s_a[..]));
+        parity(RevealB, &winner_b, false, Some(&s_b[..]));
+        parity(Refund, &refund, true, None);
+
+        // (b) RevealA: external winner_a sig (keyed by its xonly) + s_a + winner_is_a=true passes.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(wa), ext_solo(s, &winner_a));
+                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true).unwrap()
+            }),
+            "(b) winner_a's browser sig + revealed s_A must claim outcome A"
+        );
+        // RevealB: external winner_b sig + s_b + winner_is_a=false passes.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(wb), ext_solo(s, &winner_b));
+                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_b[..]), None, false).unwrap()
+            }),
+            "(b) winner_b's browser sig + revealed s_B must claim outcome B"
+        );
+        // RevealA via the SOLO signature path (single-signer wallet flow, no sigs map) also passes.
+        assert!(
+            run_spend_generic(&redeem, 0, 0, |s| {
+                let solo = ext_solo(s, &winner_a);
+                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(&s_a[..]), None, true).unwrap()
+            }),
+            "(b) the solo-signature wallet flow must also claim outcome A"
+        );
+
+        // (c) Refund: refund key (solo) + input aged >= min_seq passes via the CSV ELSE branch.
+        assert!(
+            run_spend_generic(&redeem, 0, min_seq, |s| {
+                let solo = ext_solo(s, &refund);
+                assemble_noncustodial_satisfier("binary_oracle_select", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+            }),
+            "(c) the refund key must reclaim once the UTXO has aged min_sequence (BIP68)"
+        );
+        // Refund BELOW min_seq fails - no early pull (the custodial path proves the same).
+        assert!(
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
+                let solo = ext_solo(s, &refund);
+                assemble_noncustodial_satisfier("binary_oracle_select", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+            }),
+            "(c) the refund must be rejected before the relative timelock matures"
+        );
+
+        // (d) FAIL CLOSED at assembly: a sigs map that does NOT contain the branch's named key is
+        // rejected (no silent fallthrough), so a loser cannot assemble a script reordering branches.
+        let wrong = {
+            let mut sigs = std::collections::HashMap::new();
+            // winner_b's sig offered for outcome A (named key = winner_a, which is absent).
+            sigs.insert(hex::encode(wb), [0u8; 64]);
+            assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true)
+        };
+        assert!(wrong.is_err(), "(d) a sigs map missing the branch's named key must be rejected at assembly");
+        // Anti-redirect via the on-chain OpCheckSig: even if the LOSER's signature is supplied
+        // UNDER the winner's named key (so it assembles), the engine rejects it - a public secret
+        // cannot let the wrong party sweep the winner's branch.
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(wa), ext_solo(s, &winner_b)); // winner_b signing, keyed as winner_a
+                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true).unwrap()
+            }),
+            "(d) the loser's sig cannot take the winner's branch even when keyed as the winner"
+        );
+        // The refund key cannot take a reveal branch (named key mismatch + on-chain OpCheckSig).
+        assert!(
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                let mut sigs = std::collections::HashMap::new();
+                sigs.insert(hex::encode(wa), ext_solo(s, &refund)); // refund signing, keyed as winner_a
+                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true).unwrap()
+            }),
+            "(d) the refund key cannot claim a reveal branch"
         );
     }
 

@@ -1168,3 +1168,200 @@ async fn make_move(
         Err(e) => Json(json!({"success": false, "error": e})),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Money-route auth and timeout-gate tests for the non-custodial games pot.
+    //!
+    //! Scope: these tests exercise the HANDLERS' validation gates (seat-token auth,
+    //! two-player precondition, replay protection, server-timed clock) end-to-end
+    //! against a real SQLite DB built from `db::open_db`. They DO NOT spin up a
+    //! kaspad RPC or covenant deployer; the downstream prepare_deploy /
+    //! submit_deploy / oracle-payout calls only fire AFTER the gates pass, so the
+    //! gates being tested here run to completion without touching the chain.
+    //!
+    //! Honesty note: this is auth + precondition coverage, not a money-path e2e.
+    //! The actual fund-flow ("a real pot leaves the script only to the verified
+    //! winner") is proven on testnet-12 with live oracle co-sign, not in these
+    //! unit tests.
+    use super::*;
+    use crate::db::Db;
+
+    /// Build a fresh, file-backed DB with the production schema. Each test gets
+    /// its own path so they can run in parallel without locking each other out
+    /// (WAL is configured by `open_db`).
+    fn fresh_db() -> Db {
+        let p = std::env::temp_dir().join(format!(
+            "covex-games-test-{}.sqlite",
+            uuid::Uuid::new_v4().simple()
+        ));
+        // Best-effort cleanup of any stale file at this path before opening.
+        let _ = std::fs::remove_file(&p);
+        crate::db::open_db(p.to_str().expect("temp path is utf-8"))
+            .expect("open_db on temp path")
+    }
+
+    /// Insert an active 2-player match with known per-seat tokens. Mirrors the
+    /// row shape `join_game` produces once both players have seated.
+    fn seed_two_player_active(
+        db: &Db,
+        covenant_id: &str,
+        p1: &str,
+        p2: &str,
+        p1_token: &str,
+        p2_token: &str,
+    ) {
+        let conn = db.lock().unwrap();
+        conn.execute(
+            "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms) \
+             VALUES (?1, 'chess', 0, ?2, ?3, 'active', ?4, ?5, unixepoch(), 300000, 300000)",
+            params![covenant_id, p1, p2, p1_token, p2_token],
+        )
+        .expect("seed two-player active row");
+    }
+
+    /// Insert a single-player WAITING match (player2 still empty). Mirrors the
+    /// row shape `join_game` produces after the first join, before the second.
+    fn seed_one_player_waiting(db: &Db, covenant_id: &str, p1: &str, p1_token: &str) {
+        let conn = db.lock().unwrap();
+        conn.execute(
+            "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token) \
+             VALUES (?1, 'chess', 0, ?2, '', 'waiting', ?3)",
+            params![covenant_id, p1, p1_token],
+        )
+        .expect("seed one-player waiting row");
+    }
+
+    /// Two BIP340-shaped 32-byte testnet addresses sourced from existing in-tree
+    /// tests (`kaspa_msg.rs`). Real schnorr x-only keys, so `xonly_hex_from_address`
+    /// would accept them; we only need them to be DISTINCT and well-formed.
+    const P1_ADDR: &str =
+        "kaspatest:qpkke2kzfzheda405lusfa2sy5aq70hn7k4zle5r322my9nfz35wyz3plwfst";
+    const P2_ADDR: &str =
+        "kaspatest:qprx6l72u437tjcf5rgcwza4sq6ysprp0pu6zj2feu3zshcm4cljwrzqrunpu";
+
+    /// (a) lock_pot fails CLOSED when the caller does not supply a valid seat
+    /// token. authorize_money_caller rejects an empty/missing token before any
+    /// row lookup, so the response is `{success:false, error:...}` and no
+    /// covenant_builder call is ever issued.
+    #[tokio::test]
+    async fn lock_pot_rejects_missing_seat_token() {
+        let db = fresh_db();
+        // Even with a seeded valid two-player match, calling lock_pot WITHOUT
+        // any token must be rejected on the auth gate.
+        seed_two_player_active(&db, "cov-a", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
+        let body = json!({ "stake_kas": 1.0, "network": "testnet-12" });
+        let resp = lock_pot(Extension(db), Path("cov-a".into()), Json(body)).await.0;
+        assert_eq!(resp["success"], json!(false), "auth gate must fail closed without a seat token");
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("seat token"),
+            "error must name the missing seat token, got: {err}"
+        );
+    }
+
+    /// (b) lock_pot rejects a 1-player match: oracle_escrow needs BOTH player
+    /// pubkeys to build the 3-of-N redeem [oracle, p1, p2], so we must refuse
+    /// before any prepare-deploy call. Auth passes (we supply a real token);
+    /// the precondition is what fails.
+    #[tokio::test]
+    async fn lock_pot_rejects_single_player_match() {
+        let db = fresh_db();
+        seed_one_player_waiting(&db, "cov-b", P1_ADDR, "tok-p1");
+        let body = json!({ "token": "tok-p1", "stake_kas": 1.0, "network": "testnet-12" });
+        let resp = lock_pot(Extension(db), Path("cov-b".into()), Json(body)).await.0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("two players"),
+            "error must explain the two-player precondition, got: {err}"
+        );
+    }
+
+    /// (c) submit_pot rejects a call that does not echo back a real prepare
+    /// session_id (+ signature_hex). Replay/forgery protection: without the
+    /// session_id minted by lock_pot, the handler cannot reconstruct the
+    /// PendingDeploy the funder is supposed to be signing, so it must refuse.
+    /// Auth passes (real token); the missing session_id is what fails.
+    #[tokio::test]
+    async fn submit_pot_rejects_empty_session_id() {
+        let db = fresh_db();
+        seed_two_player_active(&db, "cov-c", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
+        // Real token, but no session_id and no signature_hex - the gate that
+        // protects against replaying / forging a submit without a matching
+        // prepare must fail closed.
+        let body = json!({ "token": "tok-p1", "session_id": "", "signature_hex": "" });
+        let resp = submit_pot(Extension(db), Path("cov-c".into()), Json(body)).await.0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("session_id") && err.contains("signature_hex"),
+            "error must require session_id + signature_hex from lock-pot, got: {err}"
+        );
+    }
+
+    /// (d) settle_pot fails CLOSED on the same seat-token gate as lock_pot,
+    /// even on a finished match. A settle without a valid token cannot move
+    /// the pot regardless of what `winner` says in the DB.
+    #[tokio::test]
+    async fn settle_pot_rejects_missing_seat_token() {
+        let db = fresh_db();
+        seed_two_player_active(&db, "cov-d", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
+        // Mark the match finished with a winner so we are testing the auth gate
+        // specifically, not the "no winner yet" precondition.
+        {
+            let conn = db.lock().unwrap();
+            conn.execute(
+                "UPDATE skill_games SET status = 'finished', winner = 'white', end_reason = 'board' WHERE covenant_id = ?1",
+                params!["cov-d"],
+            ).unwrap();
+        }
+        // No `token` field at all -> AuthReq deserialises with token = None ->
+        // authorize_money_caller sees an empty supplied token and refuses.
+        let body = json!({});
+        let auth: AuthReq = serde_json::from_value(body).expect("AuthReq parses empty body");
+        let resp = settle_pot(Extension(db), Path("cov-d".into()), Json(auth)).await.0;
+        assert_eq!(resp["success"], json!(false), "settle must fail closed without a seat token");
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("seat token"),
+            "error must name the missing seat token, got: {err}"
+        );
+    }
+
+    /// (e) claim_timeout enforces the server-authoritative clock and does NOT
+    /// fire while the side-to-move still has budget left.
+    ///
+    /// Honesty note: skill-game claim_timeout is a CLOCK gate (turn_started_at
+    /// + p{1,2}_time_ms), not a DAA gate. The DAA-locked refund branch lives
+    /// on the channel pot's CLTV path (refund_channel) and is a separate test.
+    /// What we assert here is the analogous "do not fire before the threshold"
+    /// property: a freshly-started turn with a full 5-minute budget returns
+    /// timed_out=false and leaves the match active.
+    #[tokio::test]
+    async fn claim_timeout_does_not_fire_before_clock_expires() {
+        let db = fresh_db();
+        // seed_two_player_active sets turn_started_at = now and a full 300s
+        // budget on both clocks, so 0 ms have elapsed for the side to move.
+        seed_two_player_active(&db, "cov-e", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
+        let resp = claim_timeout(Extension(db.clone()), Path("cov-e".into())).await.0;
+        assert_eq!(resp["success"], json!(true));
+        assert_eq!(
+            resp["timed_out"],
+            json!(false),
+            "claim_timeout must not fire while the mover still has clock budget"
+        );
+        // The row is still active and still belongs to the same mover - the
+        // server did NOT flip status to 'finished' or pick a winner.
+        let conn = db.lock().unwrap();
+        let (status, winner): (String, Option<String>) = conn
+            .query_row(
+                "SELECT status, winner FROM skill_games WHERE covenant_id = ?1",
+                params!["cov-e"],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(status, "active");
+        assert!(winner.is_none(), "no winner may be written before the clock expires");
+    }
+}

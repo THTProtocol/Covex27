@@ -20,6 +20,11 @@ run "frontend: sandbox guard (gate)" bash -c 'cd frontend && node scripts/check-
 run "frontend: vitest (gate)" bash -c 'cd frontend && npx vitest run' || fail=1
 run "frontend: vite build (gate)" bash -c 'cd frontend && npm run build' || fail=1
 run "frontend: eslint (advisory)" bash -c 'cd frontend && npm run lint' || echo "(advisory: eslint reported issues, not blocking)"
+if command -v cargo >/dev/null 2>&1; then
+  run "backend: cargo test (advisory)" bash -c 'cd backend && cargo test --release -p covex27-backend --bin covex27-backend games:: signer:: main::' || echo "(advisory: cargo test reported issues, not blocking)"
+else
+  echo ""; echo "== backend: cargo test (advisory) =="; echo "(advisory: cargo not available locally, skipping; server gate runs the real build+test)"
+fi
 
 echo ""
 if [ "$fail" = 0 ]; then

@@ -53,6 +53,79 @@ mod ui_generator;
 /// The project targets Toccata Testnet-12 (TN12).
 const DEFAULT_KASPA_NETWORK: &str = "testnet-12";
 
+/// Mainnet pre-flight env validator (fail-closed).
+///
+/// Returns Ok for any non-mainnet network. On mainnet, refuses to start when the
+/// configured treasury address is empty, is a testnet address (`kaspatest:` prefix),
+/// or matches a known dev/placeholder pattern. This is a consensus-honest startup
+/// gate: it does not validate cryptographic well-formedness, only blocks obviously
+/// wrong addresses from being used as the mainnet treasury.
+fn validate_mainnet_env(network: &str, treasury_addr: &str) -> Result<(), String> {
+    if network != "mainnet" && network != "mainnet-1" {
+        return Ok(());
+    }
+    let addr = treasury_addr.trim();
+    if addr.is_empty() {
+        return Err("mainnet treasury address is empty".to_string());
+    }
+    if addr.starts_with("kaspatest:") {
+        return Err(format!(
+            "mainnet treasury address is a testnet address ({}); refusing to start",
+            addr
+        ));
+    }
+    // Known dev/placeholder patterns. The testnet treasury constants are the
+    // canonical dev-placeholder addresses for the project; reject anything that
+    // looks like one even if it slipped through under a non-`kaspatest:` prefix.
+    let lower = addr.to_ascii_lowercase();
+    let placeholder_substrings = [
+        "placeholder",
+        "example",
+        "dev_wallet",
+        "devwallet",
+        "your_address",
+        "youraddress",
+        "todo",
+        "xxxxxx",
+    ];
+    for needle in &placeholder_substrings {
+        if lower.contains(needle) {
+            return Err(format!(
+                "mainnet treasury address looks like a placeholder ({}); refusing to start",
+                addr
+            ));
+        }
+    }
+    // Cross-check against known testnet treasury constants from dev_wallets.rs
+    // (defense in depth, in case someone strips the `kaspatest:` prefix).
+    let known_dev_addrs = [
+        dev_wallets::TREASURY_ADDRESS_TN12,
+        dev_wallets::TREASURY_ADDRESS_TN10,
+        dev_wallets::DEV_WALLET_1_ADDRESS_TN12,
+        dev_wallets::DEV_WALLET_2_ADDRESS_TN12,
+        dev_wallets::DEV_WALLET_1_ADDRESS_TN10,
+        dev_wallets::DEV_WALLET_2_ADDRESS_TN10,
+    ];
+    for dev in &known_dev_addrs {
+        if addr == *dev {
+            return Err(format!(
+                "mainnet treasury address matches a known testnet/dev address ({}); refusing to start",
+                addr
+            ));
+        }
+        // Compare the bech32 body (post-colon) too, to catch prefix-stripping.
+        if let Some(body) = dev.split(':').nth(1) {
+            if !body.is_empty() && addr.ends_with(body) {
+                return Err(format!(
+                    "mainnet treasury address contains a known testnet/dev body ({}); refusing to start",
+                    addr
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     // --- Load .env ---
@@ -123,6 +196,18 @@ async fn main() {
             "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string()
         }
     });
+    // Mainnet pre-flight gate (fail-closed). Runs AFTER env read, BEFORE the
+    // HTTP server binds. No-op on testnet; on mainnet refuses to start if the
+    // treasury address is empty, a testnet address, or a dev placeholder.
+    if let Err(e) = validate_mainnet_env(&network, &treasury) {
+        eprintln!(
+            "FATAL: mainnet pre-flight env validation failed: {}. \
+             Set COVENANT_TREASURY_ADDRESS to a real kaspa:... mainnet address.",
+            e
+        );
+        std::process::exit(1);
+    }
+
     let seed_addrs: Vec<String> = env::var("COVENANT_SEED_ADDRESSES")
         .unwrap_or_default()
         .split(',')
@@ -2598,5 +2683,48 @@ async fn save_covenant_metadata_handler(
             Json(json!({ "success": true, "message": message }))
         }
         Err(e) => Json(json!({ "success": false, "error": e.to_string() }))
+    }
+}
+
+#[cfg(test)]
+mod mainnet_preflight_tests {
+    use super::validate_mainnet_env;
+
+    #[test]
+    fn testnet_always_passes() {
+        // Testnet network passes regardless of treasury format.
+        assert!(validate_mainnet_env("testnet-12", "kaspatest:foo").is_ok());
+        assert!(validate_mainnet_env("testnet-10", "kaspatest:foo").is_ok());
+        // Even an empty treasury is allowed on testnet (gate is mainnet-only).
+        assert!(validate_mainnet_env("testnet-12", "").is_ok());
+    }
+
+    #[test]
+    fn mainnet_rejects_testnet_address() {
+        assert!(validate_mainnet_env("mainnet", "kaspatest:foo").is_err());
+        assert!(validate_mainnet_env("mainnet-1", "kaspatest:foo").is_err());
+    }
+
+    #[test]
+    fn mainnet_rejects_empty_address() {
+        assert!(validate_mainnet_env("mainnet", "").is_err());
+        assert!(validate_mainnet_env("mainnet", "   ").is_err());
+    }
+
+    #[test]
+    fn mainnet_accepts_well_formed_mainnet_address() {
+        // A well-formed kaspa:... mainnet address passes the pre-flight gate.
+        // (This is a startup guard, not a bech32 validator.)
+        assert!(validate_mainnet_env(
+            "mainnet",
+            "kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn mainnet_rejects_placeholder() {
+        assert!(validate_mainnet_env("mainnet", "kaspa:placeholder").is_err());
+        assert!(validate_mainnet_env("mainnet", "kaspa:your_address_here").is_err());
     }
 }

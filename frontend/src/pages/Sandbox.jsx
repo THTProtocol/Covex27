@@ -120,7 +120,7 @@ const PANEL_FADE = {
 // sticky stepper rail and reused in the bottom action bar. Hoisted to module scope.
 function SelectionChip({ name, reality, className = '' }) {
   return (
-    <span className={`inline-flex items-center gap-2 min-w-0 max-w-full ${className}`}>
+    <span className={`inline-flex items-center gap-2 min-w-0 max-w-full rounded-full px-2.5 py-1 bg-white/[0.02] light:bg-white border border-white/5 light:border-slate-200 light:shadow-sm ${className}`}>
       <Boxes size={13} className="text-gray-400 light:text-slate-500 shrink-0" />
       <span className="text-[12px] font-semibold text-white light:text-slate-900 truncate">{name}</span>
       <Badge variant={reality.badgeVariant} dot className="hidden sm:inline shrink-0 text-[10px] py-0">{reality.label}</Badge>
@@ -132,10 +132,10 @@ function SelectionChip({ name, reality, className = '' }) {
 // "Create -> Add logic -> Add a website" sentence model. Hoisted to module scope.
 function PhaseHeader({ eyebrow, title, action }) {
   return (
-    <div>
-      <div className="label-xs text-kaspa-green mb-1">{eyebrow}</div>
+    <div className="light:bg-gradient-to-b light:from-white light:to-transparent light:rounded-xl light:px-1 light:py-1">
+      <div className="label-xs text-kaspa-green light:text-emerald-700 mb-1">{eyebrow}</div>
       <h2 className="text-2xl sm:text-[28px] font-extrabold tracking-[-0.015em] leading-tight text-white light:text-slate-900">{title}</h2>
-      <p className="text-[15px] text-gray-300 light:text-slate-600 mt-1.5 max-w-2xl">{action}</p>
+      <p className="text-[15px] text-gray-300 light:text-slate-700 mt-1.5 max-w-2xl">{action}</p>
     </div>
   );
 }
@@ -247,9 +247,9 @@ export default function Sandbox() {
 
   // Reusable empty state for phases reached without a selection (defensive; reachability gates it).
   const emptyState = (
-    <div className="relative z-10 text-center text-sm text-gray-400 light:text-slate-500 py-16">
+    <div className="relative z-10 text-center text-sm text-gray-400 light:text-slate-700 py-16 light:bg-white light:border light:border-slate-200 light:rounded-2xl light:shadow-sm">
       Pick a covenant first.{' '}
-      <button onClick={() => setPhase('create')} className="text-kaspa-green hover:underline font-semibold">
+      <button onClick={() => setPhase('create')} className="text-kaspa-green light:text-emerald-700 hover:underline font-semibold">
         Go to create
       </button>
     </div>
@@ -257,17 +257,17 @@ export default function Sandbox() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10 relative">
-      <div className="covex-aurora hidden sm:block" style={{ top: 48, left: -30, width: 420, height: 260 }} aria-hidden="true" />
+      <div className="covex-aurora hidden sm:block light:opacity-40" style={{ top: 48, left: -30, width: 420, height: 260 }} aria-hidden="true" />
 
       {/* HEADER */}
       <div className="relative z-10">
         <div className="flex flex-wrap items-center gap-3 mb-3">
-          <Terminal size={22} className="text-kaspa-green" />
+          <Terminal size={22} className="text-kaspa-green light:text-emerald-700" />
           <h1 className="h-page text-white light:text-slate-900">Covenant Sandbox</h1>
           <Badge variant="glass" dot>Free to explore, wallet only for deploy</Badge>
         </div>
-        <p className="text-sm sm:text-lg text-gray-300 light:text-slate-600 max-w-3xl mb-4 sm:mb-7">
-          Build a real Kaspa covenant.<span className="hidden sm:inline"> Exploring and simulating is free and needs no wallet; deploying and the advanced editor unlock with a tier.</span>
+        <p className="text-sm sm:text-lg text-gray-300 light:text-slate-700 max-w-3xl mb-4 sm:mb-7">
+          Build a real Kaspa covenant.<span className="hidden sm:inline light:text-slate-700"> Exploring and simulating is free and needs no wallet; deploying and the advanced editor unlock with a tier.</span>
         </p>
       </div>
 
@@ -276,25 +276,25 @@ export default function Sandbox() {
           covenant is. Selecting either path still mutates ?mode= so deep-links keep working. */}
       {mode === 'guided' && (
         <div className="relative z-10 mb-6">
-          <Card accent="#49EACB" className="overflow-hidden">
+          <Card accent="#49EACB" className="overflow-hidden light:bg-gradient-to-br light:from-white light:to-emerald-50/40 light:border-emerald-200 light:shadow-md">
             <span
               aria-hidden="true"
-              className="absolute -top-16 -right-12 w-72 h-48 rounded-full pointer-events-none"
+              className="absolute -top-16 -right-12 w-72 h-48 rounded-full pointer-events-none light:opacity-50"
               style={{ background: 'radial-gradient(closest-side, #49EACB40, transparent 70%)', filter: 'blur(10px)', opacity: 0.7 }}
             />
             <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
-              <span className="p-3 rounded-xl shrink-0 border self-start" style={{ background: '#49EACB1f', borderColor: '#49EACB4d' }}>
+              <span className="p-3 rounded-xl shrink-0 border self-start light:shadow-sm" style={{ background: '#49EACB1f', borderColor: '#49EACB4d' }}>
                 <Wand2 size={26} style={{ color: '#49EACB' }} />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
                   <Badge variant="builder" dot className="text-[10px] py-0">Recommended</Badge>
-                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border" style={{ color: '#49EACB', borderColor: '#49EACB66' }}>For everyone</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border light:bg-emerald-50" style={{ color: '#49EACB', borderColor: '#49EACB66' }}>For everyone</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-white light:text-slate-900 leading-tight">
                   Start a guided build
                 </h2>
-                <p className="text-sm text-gray-400 light:text-slate-500 leading-snug mt-1.5 max-w-xl">
+                <p className="text-sm text-gray-400 light:text-slate-700 leading-snug mt-1.5 max-w-xl">
                   Describe what you want or pick a template. Covex walks you through create, logic, and a website, step by step.
                 </p>
               </div>
@@ -303,10 +303,10 @@ export default function Sandbox() {
                 size="lg"
                 shimmer
                 onClick={() => setPhase('create')}
-                className="shrink-0 self-start sm:self-center"
+                className="shrink-0 self-start sm:self-center light:shadow-md light:ring-1 light:ring-emerald-300"
               >
                 Start guided build
-                <ArrowRight size={18} className="ml-1" />
+                <ArrowRight size={18} className="ml-1 light:drop-shadow-sm" />
               </Button>
             </div>
           </Card>
@@ -314,7 +314,7 @@ export default function Sandbox() {
             <button
               type="button"
               onClick={() => setMode('pro')}
-              className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
+              className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 light:bg-white light:border light:border-slate-200 light:rounded-full light:px-3 light:py-1.5 light:shadow-sm transition-colors"
             >
               <TerminalSquare size={14} />
               Prefer to write it yourself? Open the pro terminal
@@ -329,7 +329,7 @@ export default function Sandbox() {
           <button
             type="button"
             onClick={() => setMode('guided')}
-            className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
+            className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 light:bg-white light:border light:border-slate-200 light:rounded-full light:px-3 light:py-1.5 light:shadow-sm transition-colors"
           >
             <Wand2 size={14} />
             Back to guided build
@@ -347,8 +347,8 @@ export default function Sandbox() {
       {/* 5-step rail is rendered globally in App.jsx; no per-page mount here to
           avoid stacking two rails (the global one under the nav + an in-page copy). */}
       {circuit && reality && (
-        <div className="relative z-10 mb-4 flex items-center justify-end">
-          <SelectionChip name={name} reality={reality} />
+        <div className="relative z-10 mb-4 flex items-center justify-end light:bg-transparent">
+          <SelectionChip name={name} reality={reality} className="light:ring-1 light:ring-emerald-100" />
         </div>
       )}
 
@@ -375,8 +375,8 @@ export default function Sandbox() {
               />
               {/* Segmented tab control. role=tablist + role=tab keep this keyboard + screen-reader
                   honest. The active tab gets the kaspa-green underline + text-kaspa-green per brief. */}
-              <Card className="overflow-hidden">
-                <div role="tablist" aria-label="Create entry points" className="grid grid-cols-3">
+              <Card className="overflow-hidden light:shadow-sm light:border light:border-slate-200">
+                <div role="tablist" aria-label="Create entry points" className="grid grid-cols-3 light:bg-white light:divide-x light:divide-slate-200">
                   {CREATE_TABS.map((t) => {
                     const Icon = t.Icon;
                     const active = createTab === t.id;
@@ -391,8 +391,8 @@ export default function Sandbox() {
                         onClick={() => setCreateTab(t.id)}
                         className={`relative flex items-center justify-center gap-2 px-3 py-3 text-[13px] sm:text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
                           active
-                            ? 'text-kaspa-green bg-white/[0.02] light:bg-white'
-                            : 'text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900'
+                            ? 'text-kaspa-green light:text-emerald-700 bg-white/[0.02] light:bg-emerald-50/40'
+                            : 'text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 light:hover:bg-slate-50'
                         }`}
                       >
                         <Icon size={15} className="shrink-0" />
@@ -400,7 +400,7 @@ export default function Sandbox() {
                         <span
                           aria-hidden="true"
                           className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full transition-opacity ${
-                            active ? 'bg-kaspa-green opacity-100' : 'opacity-0'
+                            active ? 'bg-kaspa-green light:bg-emerald-600 opacity-100' : 'opacity-0'
                           }`}
                         />
                       </button>
@@ -414,7 +414,7 @@ export default function Sandbox() {
                 id={`create-tab-${createTab}`}
                 role="tabpanel"
                 aria-labelledby={`create-tab-btn-${createTab}`}
-                className="min-w-0"
+                className="min-w-0 light:rounded-2xl light:bg-white/40"
               >
                 {createTab === 'assistant' && (
                   <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
@@ -444,22 +444,22 @@ export default function Sandbox() {
                   </p>
                 )}
               />
-              <Card accent={reality.accent} className="overflow-hidden">
-                <div className="px-5 py-4 flex flex-wrap items-center gap-3">
-                  <Boxes size={18} className="text-kaspa-green" />
-                  <span className="text-xs uppercase tracking-widest text-gray-400 light:text-slate-500">Selected</span>
+              <Card accent={reality.accent} className="overflow-hidden light:shadow-sm light:border light:border-slate-200">
+                <div className="px-5 py-4 flex flex-wrap items-center gap-3 light:bg-slate-50/40 light:border-b light:border-slate-200">
+                  <Boxes size={18} className="text-kaspa-green light:text-emerald-700" />
+                  <span className="text-xs uppercase tracking-widest text-gray-400 light:text-slate-600 light:font-semibold">Selected</span>
                   <span className="text-white light:text-slate-900 font-semibold">{name}</span>
                   <Badge variant={reality.badgeVariant} dot className="ml-auto">{reality.label}</Badge>
                 </div>
-                <div className="px-5 pb-4 grid md:grid-cols-3 gap-4 text-sm">
+                <div className="px-5 pb-4 pt-4 grid md:grid-cols-3 gap-4 text-sm">
                   <div className="md:col-span-2 min-w-0">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-1">Circuit</div>
-                    <div className="text-white light:text-slate-900 font-mono text-xs mb-2 break-all">{circuit.id}</div>
-                    <p className="text-gray-300 light:text-slate-600 leading-relaxed">{circuit.description}</p>
+                    <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">Circuit</div>
+                    <div className="text-white light:text-slate-900 font-mono text-xs mb-2 break-all light:bg-slate-100 light:px-2 light:py-1 light:rounded-md light:inline-block">{circuit.id}</div>
+                    <p className="text-gray-300 light:text-slate-700 leading-relaxed">{circuit.description}</p>
                   </div>
-                  <div className="rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/5 light:border-slate-200 p-3">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-1">What enforcement means</div>
-                    <p className="text-gray-300 light:text-slate-600 text-xs leading-relaxed">{reality.note}</p>
+                  <div className="rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/5 light:border-slate-200 light:shadow-sm p-3">
+                    <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">What enforcement means</div>
+                    <p className="text-gray-300 light:text-slate-700 text-xs leading-relaxed">{reality.note}</p>
                   </div>
                 </div>
               </Card>
@@ -474,11 +474,11 @@ export default function Sandbox() {
               {/* Universal signing honesty banner. The single most important truth in the flow:
                   the user's wallet signs, Covex never holds the key. Always visible, never tucked
                   inside a collapsed details element. */}
-              <div className="rounded-xl border border-kaspa-green/30 bg-kaspa-green/[0.04] light:bg-emerald-50 px-4 py-3 flex items-start gap-2.5">
-                <ShieldCheck size={16} className="text-kaspa-green mt-0.5 shrink-0" />
+              <div className="rounded-xl border border-kaspa-green/30 light:border-emerald-300 bg-kaspa-green/[0.04] light:bg-emerald-50 light:shadow-sm px-4 py-3 flex items-start gap-2.5">
+                <ShieldCheck size={16} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
                 <div className="text-xs">
                   <div className="font-bold text-white light:text-slate-900">Your wallet signs this. Covex never holds your key.</div>
-                  <div className="text-gray-400 light:text-slate-600 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting P2SH address.</div>
+                  <div className="text-gray-400 light:text-slate-700 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting P2SH address.</div>
                 </div>
               </div>
               {/* THE REAL BUILDER. EnforcedDeploy owns the 12 primitive kinds end to end (signing,
@@ -496,19 +496,19 @@ export default function Sandbox() {
               )}
               {/* Post-deploy nudge. Moved BELOW the builder so it's a next-step pointer, not a
                   pre-deploy primer that buries the signing banner. */}
-              <Card hover accent="#49EACB" className="p-5">
+              <Card hover accent="#49EACB" className="p-5 light:bg-gradient-to-br light:from-white light:to-emerald-50/30 light:border-emerald-200 light:shadow-sm">
                 <div className="flex items-start gap-4">
-                  <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 shrink-0">
+                  <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 light:shadow-sm shrink-0">
                     <Rocket size={20} className="text-[#49EACB]" />
                   </span>
                   <div className="min-w-0">
                     <h3 className="text-sm font-bold text-white light:text-slate-900">After deploy: design the public page in Studio</h3>
-                    <p className="text-xs text-gray-400 light:text-slate-500 mt-1 leading-relaxed">
+                    <p className="text-xs text-gray-400 light:text-slate-700 mt-1 leading-relaxed">
                       The visual Studio (drag and drop, safe platform components only) binds to the new covenant id.
                       Once the funding tx confirms, Studio opens automatically; you can also reach it later from your
                       covenant page at /covenant/:id/studio or from the builder's Custom UI Integration section.
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2 light:[&_button]:shadow-sm">
                       <Button variant="glass" size="sm" onClick={() => navigate('/templates')}>Browse templates</Button>
                       <Button variant="ghost" size="sm" onClick={() => setPhase('logic')}>
                         <ArrowLeft size={14} /> Back to logic
@@ -526,7 +526,7 @@ export default function Sandbox() {
       {/* PERSISTENT BOTTOM ACTION BAR. Hidden on phase 'deploy' where CovexTerminal owns the deploy CTA. */}
       {phase !== 'deploy' && (
         <div
-          className="static sm:sticky z-20 mt-6 flex flex-wrap sm:flex-nowrap sm:items-center sm:justify-between gap-4 gap-y-2 rounded-2xl glass-panel border border-kaspa-green/30 px-5 py-3.5"
+          className="static sm:sticky z-20 mt-6 flex flex-wrap sm:flex-nowrap sm:items-center sm:justify-between gap-4 gap-y-2 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white light:shadow-md px-5 py-3.5"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
           <div className="min-w-0 flex items-center gap-2">
@@ -536,8 +536,8 @@ export default function Sandbox() {
               </Button>
             )}
             {circuit && (
-              <span className="text-sm text-gray-300 light:text-slate-600 truncate">
-                <span className="hidden sm:inline text-gray-500">Selected: </span>
+              <span className="text-sm text-gray-300 light:text-slate-700 truncate">
+                <span className="hidden sm:inline text-gray-500 light:text-slate-500 light:font-medium">Selected: </span>
                 <span className="font-semibold text-white light:text-slate-900">{name}</span>
               </span>
             )}
@@ -545,21 +545,21 @@ export default function Sandbox() {
           <Button
             variant="kaspa"
             shimmer
-            className="shrink-0 w-full sm:w-auto"
+            className="shrink-0 w-full sm:w-auto light:shadow-md"
             disabled={!circuit}
             onClick={goForward}
           >
             <span className="sm:hidden">Continue</span>
-            <span className="hidden sm:inline">
+            <span className="hidden sm:inline light:drop-shadow-sm">
               {phase === 'create' ? 'Continue to logic' : 'Continue to deploy'}
             </span>
-            <ArrowRight size={15} />
+            <ArrowRight size={15} className="light:drop-shadow-sm" />
           </Button>
         </div>
       )}
 
-      <div className="mt-8 text-center text-xs text-gray-500 light:text-slate-400">
-        Or browse ready-made starting points in the <Link to="/templates" className="text-kaspa-green hover:underline">template library</Link>.
+      <div className="mt-8 text-center text-xs text-gray-500 light:text-slate-600">
+        Or browse ready-made starting points in the <Link to="/templates" className="text-kaspa-green light:text-emerald-700 hover:underline">template library</Link>.
       </div>
       </>)}
     </div>

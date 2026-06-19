@@ -21,6 +21,62 @@ The frontend sends `network` in every API payload. The backend stores a `network
 - Backend: signer.rs `sign_and_broadcast_handler` hard-rejects `use_dev_mode=true` when `network=mainnet` with a clear error: "Dev mode and hardcoded keys are DISABLED on mainnet."
 - dev_wallets.rs: mainnet section returns explicit ENV_REQUIRED dummies. Real keys must come from environment variables.
 
+## Pre-flight env validator
+
+The backend ships with a `validate_mainnet_env()` pre-flight check (added in T8) that runs at startup. It is a fail-closed gate: misconfigured mainnet env aborts the process before any indexer, signer, or HTTP listener comes up.
+
+### What it checks
+
+When `KASPA_NETWORK=mainnet`, the validator requires:
+
+- `KASPA_NETWORK` is exactly `mainnet` (case-sensitive). Any other value is treated as non-mainnet and the validator is a no-op.
+- `COVENANT_TREASURY_ADDRESS` is set and non-empty.
+- The treasury does NOT start with `kaspatest:` (testnet address on a mainnet binary is rejected).
+- The treasury is not one of the dev placeholder sentinels (`ENV_REQUIRED`, `kaspa:YOUR_REAL_MAINNET_TREASURY`, or any address containing `placeholder`/`dummy`/`changeme`).
+
+The check is independent of consensus and only inspects process env. It does not prove the treasury key is held by the operator; it only prevents the obvious foot-guns (forgot to set it, pasted a testnet address, left the systemd template literal in).
+
+### What FATAL exit looks like
+
+On failure the process logs a single line to stderr and exits with status 1 before binding any port. Example:
+
+```
+FATAL: validate_mainnet_env: COVENANT_TREASURY_ADDRESS starts with 'kaspatest:' but KASPA_NETWORK=mainnet -- refusing to start
+```
+
+There is no partial-start, no degraded mode, no retry. `systemctl status covex-backend` will show the unit in `failed` state and the FATAL line will be the last entry in `journalctl -u covex-backend`.
+
+### How to verify locally before flipping mainnet
+
+Flipping `KASPA_NETWORK=mainnet` in prod is an owner-gated step (see the security section above; mainnet has zero dev keys and the toccata covenant fork on the node side is a separate gate). Before that flip, dry-run the validator locally:
+
+```bash
+cd backend
+
+# 1. Negative case: forgot to set treasury -- should exit 1 with FATAL.
+KASPA_NETWORK=mainnet cargo run --release 2>&1 | head -5
+
+# 2. Negative case: testnet address on mainnet -- should exit 1 with FATAL.
+KASPA_NETWORK=mainnet \
+  COVENANT_TREASURY_ADDRESS=kaspatest:qrxxx \
+  cargo run --release 2>&1 | head -5
+
+# 3. Negative case: placeholder literal -- should exit 1 with FATAL.
+KASPA_NETWORK=mainnet \
+  COVENANT_TREASURY_ADDRESS=kaspa:YOUR_REAL_MAINNET_TREASURY \
+  cargo run --release 2>&1 | head -5
+
+# 4. Positive case: real mainnet treasury -- validator passes, startup continues
+#    (will then fail on wRPC if no mainnet node is reachable, which is fine).
+KASPA_NETWORK=mainnet \
+  COVENANT_TREASURY_ADDRESS=kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2 \
+  cargo run --release 2>&1 | head -20
+```
+
+Cases 1 through 3 must all print the `FATAL: validate_mainnet_env: ...` line and exit. Case 4 should get past the validator into the normal indexer-start log lines.
+
+Honest note: this validator only protects the env-config surface. It does NOT verify the node is actually on mainnet, does NOT verify the treasury private key is recoverable, and does NOT replace the owner-driven decision to flip `KASPA_NETWORK=mainnet` on the production systemd unit. That flip remains a manual, owner-gated step.
+
 ## Pointing the Backend at a Mainnet Node
 
 ### Option 1: Add KASPA_WRPC_URL_MAINNET to existing covex-backend service

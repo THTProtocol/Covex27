@@ -215,7 +215,7 @@ const Pricing = () => {
     return (
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
         <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 'min(520px, 90vw)', height: 300 }} />
-        <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
+        <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 light:text-slate-600 hover:text-[#49EACB] light:hover:text-[#14B8A6] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
           <ArrowLeft size={16} /> Cancel
         </button>
         <div className="mb-8">
@@ -225,15 +225,15 @@ const Pricing = () => {
             {p.id === 'MAX' && <Crown size={48} style={{ color: p.accent }} />}
             {p.id === 'FREE' && <Eye size={48} style={{ color: p.accent }} />}
           </div>
-          <h1 className="text-3xl font-black text-white mb-3">Payment Required</h1>
-          <p className="text-lg text-gray-300 max-w-xl mx-auto">
+          <h1 className="text-3xl font-black text-white light:text-slate-900 mb-3">Payment Required</h1>
+          <p className="text-lg text-gray-300 light:text-slate-600 max-w-xl mx-auto">
             Send exactly {p.price.toLocaleString()} KAS to unlock {p.name} tier access.
           </p>
         </div>
         {needWallet && (
           <div className="mb-8 max-w-md mx-auto">
-            <div className="p-4 rounded-xl bg-amber-500/[0.04] border border-amber-500/20 text-center mb-4">
-              <p className="text-sm text-amber-400 font-semibold mb-1">Connect Your Wallet First</p>
+            <div className="p-4 rounded-xl bg-amber-500/[0.04] light:bg-amber-50 border border-amber-500/20 light:border-amber-300 text-center mb-4">
+              <p className="text-sm text-amber-400 light:text-amber-700 font-semibold mb-1">Connect Your Wallet First</p>
             </div>
             <DevConnectPanel compact />
           </div>
@@ -275,7 +275,7 @@ const Pricing = () => {
                 did. Framed on a white rounded chip; level H for damage resilience. */}
             <div className="flex flex-col items-center text-center">
               <div className="text-xs text-gray-400 light:text-slate-500 mb-4">Or scan to pay exactly {p.price.toLocaleString()} KAS from the wallet you will use to deploy</div>
-              <div className="rounded-2xl bg-white p-3 sm:p-4 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] ring-1 ring-black/5">
+              <div className="rounded-2xl bg-white p-3 sm:p-4 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] light:shadow-[0_8px_30px_-12px_rgba(15,23,42,0.18)] ring-1 ring-black/5 light:ring-slate-200">
                 <QRCodeSVG
                   value={`${TREASURY}?amount=${p.price}&message=COVEX-${p.id}`}
                   size={typeof window !== 'undefined' && window.innerWidth < 640 ? 160 : 180}
@@ -310,8 +310,8 @@ const Pricing = () => {
                   `Send ${p.price.toLocaleString()} KAS Now`
                 )}
               </Button>
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 light:text-slate-400">
-                <ShieldCheck size={13} className="text-[#49EACB]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 light:text-slate-500">
+                <ShieldCheck size={13} className="text-[#49EACB] light:text-[#14B8A6]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
               </p>
               <button
                 onClick={cancelPayment}
@@ -331,7 +331,7 @@ const Pricing = () => {
     <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-16">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 660, height: 300, maxWidth: '90vw' }} />
       {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('reason') === 'advanced' && (
-        <div className="max-w-2xl mx-auto mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm text-center">
+        <div className="max-w-2xl mx-auto mb-8 p-4 rounded-xl bg-amber-500/10 light:bg-amber-50 border border-amber-500/30 light:border-amber-300 text-amber-300 light:text-amber-800 text-sm text-center">
           The Advanced Composer is part of the paid Terminal. Pick a tier below to unlock it.
         </div>
       )}
@@ -341,9 +341,9 @@ const Pricing = () => {
           One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
         </p>
         <p className="mt-3 text-sm">
-          <Link to="/kaspa" className="text-kaspa-green underline">Learn about Kaspa</Link>
-          <span className="mx-2 text-gray-600">|</span>
-          <Link to="/treasury" className="text-kaspa-green underline">Treasury and ranking transparency</Link>
+          <Link to="/kaspa" className="text-kaspa-green light:text-[#14B8A6] underline">Learn about Kaspa</Link>
+          <span className="mx-2 text-gray-600 light:text-slate-400">|</span>
+          <Link to="/treasury" className="text-kaspa-green light:text-[#14B8A6] underline">Treasury and ranking transparency</Link>
         </p>
       </div>
 
@@ -356,7 +356,7 @@ const Pricing = () => {
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    {tier.id === 'FREE' && <Eye size={22} className="text-gray-400 shrink-0" />}
+                    {tier.id === 'FREE' && <Eye size={22} className="text-gray-400 light:text-slate-500 shrink-0" />}
                     {tier.id === 'BUILDER' && <Terminal size={22} className="shrink-0" style={{ color: tier.accent }} />}
                     {tier.id === 'PRO' && <Star size={22} className="shrink-0" style={{ color: tier.accent }} />}
                     {tier.id === 'MAX' && <Crown size={22} className="shrink-0" style={{ color: tier.accent }} />}
@@ -367,27 +367,27 @@ const Pricing = () => {
                 {/* Price as the bold hero of each card */}
                 <div className="mt-3 flex items-baseline gap-1.5">
                   {isFree ? (
-                    <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white tabular-nums">Free</span>
+                    <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">Free</span>
                   ) : (
                     <>
-                      <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white tabular-nums">{tier.price.toLocaleString()}</span>
+                      <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">{tier.price.toLocaleString()}</span>
                       <span className="text-sm font-semibold" style={{ color: tier.accent }}>KAS</span>
-                      <span className="text-xs text-gray-500 ml-1">one-time</span>
+                      <span className="text-xs text-gray-500 light:text-slate-500 ml-1">one-time</span>
                     </>
                   )}
                 </div>
-                <p className="text-sm text-gray-400 mt-2">{tier.desc}</p>
+                <p className="text-sm text-gray-400 light:text-slate-600 mt-2">{tier.desc}</p>
               </CardHeader>
               <CardContent className="flex-1">
                 <div className="space-y-2.5 mb-6">
                   {tier.features.map((feature, i) => (
-                    <div key={i} className="flex gap-2.5 text-sm text-gray-300">
-                      <Check size={16} className="shrink-0 mt-0.5 text-[#49EACB]" />
+                    <div key={i} className="flex gap-2.5 text-sm text-gray-300 light:text-slate-700">
+                      <Check size={16} className="shrink-0 mt-0.5 text-[#49EACB] light:text-[#14B8A6]" />
                       <span>{feature}</span>
                     </div>
                   ))}
                   {tier.missing.map((feature, i) => (
-                    <div key={i} className="flex gap-2.5 text-sm text-gray-300 opacity-60">
+                    <div key={i} className="flex gap-2.5 text-sm text-gray-300 light:text-slate-500 opacity-60">
                       <XIcon size={16} className="shrink-0 mt-0.5" />
                       <span>{feature}</span>
                     </div>
@@ -408,7 +408,7 @@ const Pricing = () => {
         })}
       </div>
 
-      <div className="text-center mt-10 text-sm text-gray-400 max-w-xl mx-auto">
+      <div className="text-center mt-10 text-sm text-gray-400 light:text-slate-600 max-w-xl mx-auto">
         All paid tiers unlock the full Covex Terminal for deploying custom interactive UIs, with higher tiers providing more custom selections, advanced options, and features for your covenants. Paid tiers also improve your covenant's visibility ranking on the Explorer.
       </div>
     </div>

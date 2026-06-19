@@ -5,7 +5,7 @@
   <br><br>
 
   <a href="https://hightable.pro"><img src="https://img.shields.io/website?url=https%3A%2F%2Fhightable.pro&label=hightable.pro&up_message=live&down_message=down&style=flat-square" alt="Live site"></a>
-  <img src="https://img.shields.io/badge/network-Kaspa%20mainnet%20·%20Toccata-1f6feb?style=flat-square" alt="Network">
+  <img src="https://img.shields.io/badge/network-Kaspa%20mainnet%20·%20Toccata%2030%20Jun%202026-1f6feb?style=flat-square" alt="Network: Kaspa mainnet, Toccata 30 Jun 2026">
   <img src="https://img.shields.io/badge/backend-Rust%20·%20Axum-b7410e?style=flat-square" alt="Backend">
   <img src="https://img.shields.io/badge/frontend-React%2019%20·%20Vite-61dafb?style=flat-square" alt="Frontend">
   <img src="https://img.shields.io/badge/data-100%25%20on--chain%2C%20zero%20placeholders-2da44e?style=flat-square" alt="Data policy">
@@ -92,7 +92,7 @@ Covex labels every covenant by **who actually enforces its outcome**. This vocab
 
 Each of these is engine-tested against the real `kaspa-txscript` interpreter before any value is locked. These pass the acid test: *if hightable.pro vanished tomorrow, every user could still recover or settle their funds using only their own wallet and the published script.*
 
-A small set of ZK circuits also verify a **real Groth16 proof** end-to-end and fail closed on a bad one: `merkle_membership`, `escrow_2party`, `age_verification`, and `range_proof`. These verify genuinely, but the proof is checked **off-chain** by the oracle, so the on-chain enforcement is still the oracle's Schnorr co-signature, and they are labeled accordingly. They are ready to migrate onto an on-chain verifier if and when a future KIP-16 ships one.
+Nineteen ZK circuits in the Covex registry verify a **real Groth16 proof** off-chain, fail-closed by the disclosed Covex oracle. Four of them (`merkle_membership`, `escrow_2party`, `age_verification`, `range_proof`) reduce to a hashlock the Kaspa chain itself enforces end-to-end, so the consensus check is the real predicate. The remaining fifteen (timelock, pot-split, VRF, nullifier set, solvency, and the rest) are oracle-cosigned: the proof is genuinely verified by the disclosed oracle, but the on-chain enforcement is only that oracle's Schnorr co-signature, and they are labeled accordingly. Every one of the nineteen is ready to migrate onto an on-chain verifier if and when a future KIP-16 ships one. The canonical set lives in `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK` and `CHAIN_ENFORCED_ZK`).
 
 **Oracle-attested (the Covex oracle key is consensus-required in the payout path until the trustless rebuild lands):**
 
@@ -118,7 +118,7 @@ The full step-by-step guide, with worked examples (chess and games arena, predic
 
 ## 4. The ZK and oracle model, honestly
 
-- **No on-chain ZK on Kaspa.** Kaspa has no pairing precompile, so Covex does **not** rely on any on-chain proof-checking opcode. The four circuits that verify a real Groth16 proof (`merkle_membership`, `escrow_2party`, `age_verification`, `range_proof`) are checked **off-chain** by the disclosed oracle, fail closed on a bad proof, and then the oracle co-signs the 2-of-2 the chain requires. The on-chain enforcement is the Schnorr co-signature, not the proof.
+- **No on-chain ZK on Kaspa.** Kaspa has no pairing precompile, so Covex does **not** rely on any on-chain proof-checking opcode. Nineteen circuits in the registry verify a real Groth16 proof **off-chain** by the disclosed oracle, fail closed on a bad proof, and then the oracle co-signs the 2-of-2 the chain requires. Four of them (`merkle_membership`, `escrow_2party`, `age_verification`, `range_proof`) additionally reduce to a hashlock the chain itself enforces end-to-end; the other fifteen are oracle-cosigned. On-chain enforcement is always the Schnorr co-signature, never the proof itself.
 - **In-browser proving where supported.** The verified circuits generate their proof client-side (snarkjs over served artifacts; `age_verification` computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser). The backend then verifies fail-closed before the oracle co-signs.
 - **Honest labeling of unproven circuits.** Every other catalog circuit is compiled but stays honestly **oracle-attested** until its proving key ships and a proof actually verifies. The platform never labels a circuit full-zk on the strength of a key that does not yet exist.
 - **The trusted setup is disclosed.** It is a single-contributor developer ceremony, not a production multi-party MPC ceremony. This is stated, not hidden.

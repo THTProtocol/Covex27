@@ -1446,7 +1446,7 @@ export const STARTER_TEMPLATES = [
     data: {
       root: ROOT({ backgroundPreset: 'midnight' }),
       content: [
-        blk('Hero', { title: '{{name}}', subtitle: 'A two-party escrow on Kaspa. {{total_locked}} held by the script until both sides are satisfied.', alignment: 'center', accent: '#49EACB' }),
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A two-party escrow on Kaspa. {{total_locked}} held by the script until both sides are satisfied.', ctaLabel: 'View escrow', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' }),
         blk('EnforcementBadge', { note: 'How this escrow is enforced' }),
         blk('StatRow', { stats: [{ label: 'In escrow', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Actions', value: '{{tx_count}}' }] }),
         blk('Timeline', { title: 'How it settles', steps: [{ label: 'Funded', detail: 'Buyer locks funds to the escrow script.', state: 'done' }, { label: 'Delivery', detail: 'Seller delivers; both parties confirm.', state: 'active' }, { label: 'Release', detail: 'Funds release to the seller, or refund on timeout.', state: 'upcoming' }] }),
@@ -1464,7 +1464,7 @@ export const STARTER_TEMPLATES = [
     data: {
       root: ROOT({ backgroundPreset: 'gold-prestige', accentColor: '#E8AF34' }),
       content: [
-        blk('Hero', { title: '{{name}}', subtitle: '{{total_locked}} locked on {{network}} until the timelock elapses.', alignment: 'center', accent: '#E8AF34' }),
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: '{{total_locked}} locked on {{network}} until the timelock elapses.', ctaLabel: 'View timelock', ctaAction: 'interact', accentColor: '#E8AF34', alignment: 'center' }),
         blk('EnforcementBadge', { note: 'How this timelock is enforced' }),
         blk('AnimatedCounter', { label: 'Locked', value: '{{amount_kaspa}}', suffix: 'KAS', decimals: '0', color: '#E8AF34' }),
         blk('Countdown', { title: 'Unlocks in', targetDate: '{{settle_at}}', endedText: 'The timelock has elapsed. Funds are spendable.', accentColor: '#E8AF34' }),
@@ -1482,7 +1482,7 @@ export const STARTER_TEMPLATES = [
     data: {
       root: ROOT({ backgroundPreset: 'kaspa-hero' }),
       content: [
-        blk('CTABanner', { headline: 'Back {{name}}', description: 'Pledge in your own wallet. Non-custodial, on-chain, transparent.', buttonLabel: 'Pledge now', buttonAction: 'spend', backgroundGradient: 'kaspa' }),
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: 'Back {{name}}', subtitle: 'Pledge in your own wallet. Non-custodial, on-chain, transparent. {{total_locked}} raised on {{network}}.', ctaLabel: 'Pledge now', ctaAction: 'spend', accentColor: '#49EACB', alignment: 'center' }),
         blk('EnforcementBadge', { note: 'How this pool is enforced' }),
         blk('PoolMeter', { label: 'Raised so far', value: '{{amount_kaspa}}', max: '10000', suffix: 'KAS', color: '#49EACB' }),
         blk('StatRow', { stats: [{ label: 'Raised', value: '{{total_locked}}' }, { label: 'Backers', value: '{{tx_count}}' }, { label: 'Status', value: '{{status}}' }] }),
@@ -1519,7 +1519,7 @@ export const STARTER_TEMPLATES = [
     data: {
       root: ROOT({ backgroundPreset: 'kaspa-hero' }),
       content: [
-        blk('Hero', { title: '{{name}}', subtitle: 'A live, on-chain Kaspa covenant. {{total_locked}} secured on {{network}}.', alignment: 'center', accent: '#49EACB' }),
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A live, on-chain Kaspa covenant. {{total_locked}} secured on {{network}}.', ctaLabel: 'Enter covenant', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' }),
         blk('EnforcementBadge', { note: 'How this covenant is enforced' }),
         blk('StatRow', { stats: [{ label: 'Locked', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Actions', value: '{{tx_count}}' }] }),
         blk('FeatureGrid', { columns: '3', features: [{ icon: 'Lock', headline: 'On-chain enforced', description: 'When script-enforced, funds move only by satisfying the script. (Oracle-resolved covenants are attested by the disclosed oracle.)' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }] }),

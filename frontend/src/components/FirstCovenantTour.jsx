@@ -41,8 +41,10 @@ const STORAGE_DEMO_REALITY = 'covex_tour_demo_reality';
 // Routing note: the Explorer is mounted at the root path in App.jsx (the
 // literal slash, NOT a /explorer prefix). All Explorer-targeted routes here
 // use the root path so the tour never navigates the user to the NotFound
-// catch-all. The /sandbox, /studio, and /covenant/:id routes are mounted
-// under their literal paths.
+// catch-all. /sandbox is a top-level route; the website builder lives at
+// /covenant/:id/studio (there is NO bare /studio route), so the studio-block
+// step resolves its route and the prior step's nextRoute at runtime from the
+// fetched demoId. /covenant/:id is the public covenant page.
 export const STEPS = [
   {
     id: 'explorer-hero',
@@ -87,12 +89,12 @@ export const STEPS = [
     title: 'Phase 3: Deploy',
     body: 'Review the script bytes, fees, and the honest enforcement summary. On mainnet, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting.',
     nextLabel: 'See the website builder',
-    nextRoute: '/studio',
+    nextRoute: null, // computed at runtime from demo id (/covenant/:id/studio)
   },
   {
     id: 'studio-block',
     anchor: 'studio-block',
-    route: '/studio',
+    route: null, // computed at runtime from demo id (/covenant/:id/studio)
     title: 'Optional: a public page',
     body: 'Every covenant can host a public page built from blocks (hero, video, rich text, enforcement badge). The page is metadata only. It does not affect how the covenant settles.',
     nextLabel: 'See a real example',
@@ -227,7 +229,15 @@ export default function FirstCovenantTour() {
     const raw = STEPS[stepIdx];
     if (!raw) return null;
     const out = { ...raw };
+    if (out.id === 'sandbox-deploy') {
+      // The next step (studio-block) is the per-covenant website builder
+      // mounted at /covenant/:id/studio. Without a demo id, demoMissing in
+      // handleNext will skip studio-block (and public-page) entirely, so the
+      // null fallback here is never navigated to.
+      out.nextRoute = demoId ? `/covenant/${demoId}/studio` : null;
+    }
     if (out.id === 'studio-block') {
+      out.route = demoId ? `/covenant/${demoId}/studio` : null;
       out.nextRoute = demoId ? `/covenant/${demoId}` : '/';
     }
     if (out.id === 'public-page') {

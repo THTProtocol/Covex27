@@ -4,28 +4,35 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STEPS } from '../FirstCovenantTour.jsx';
 
-// Regression guard for the tour-routing 404 (target 6 finding).
+// Regression guard for tour-routing 404s.
 //
-// Bug: STEPS used route '/explorer' and nextRoute '/explorer' for the
-// Explorer targets, plus a '/explorer' fallback in the demo-missing branch.
-// The Explorer is mounted at '/' in App.jsx (NOT '/explorer'). A first-time
-// visitor who started the tour (?tour=1 or covex_tour_active=1) saw the
-// first Next click navigate to '/explorer?tour=1', which fell through to
-// the '*' NotFound route. The tour broke the moment it advanced.
+// Original bug (target 6): STEPS used route '/explorer' and nextRoute
+// '/explorer' for the Explorer targets, plus a '/explorer' fallback in the
+// demo-missing branch. The Explorer is mounted at '/' in App.jsx (NOT
+// '/explorer'). A first-time visitor who started the tour (?tour=1 or
+// covex_tour_active=1) saw the first Next click navigate to '/explorer?tour=1',
+// which fell through to the '*' NotFound route.
 //
-// Fix: every Explorer-targeted route in this file uses '/'. This test asserts
-// the fix and adversarially guards against regressions:
-//   (a) The two Explorer-target STEPS entries (explorer-hero, build-cta) both
-//       resolve to a live App.jsx route, never the '*' catch-all.
-//   (b) The first two Next clicks of a brand-new visitor (the exact path the
-//       bug took) land on live routes.
-//   (c) The demoId-fallback branch resolves to a live route.
-//   (d) The file contains no quoted '/explorer' string literal usable as a
-//       navigation target.
+// Follow-up bug (this round): STEPS[id=studio-block].route was '/studio' and
+// STEPS[id=sandbox-deploy].nextRoute was '/studio'. App.jsx has NO '/studio'
+// route, only '/covenant/:id/studio'. The tour 404'd when advancing from
+// Phase 3 of the Sandbox into the website builder. Fix: both fields are now
+// computed at runtime in the useMemo block from demoId, mirroring the
+// existing public-page pattern.
 //
-// Scope note: this test is intentionally narrow to the '/explorer' fix. The
-// studio-block step's '/studio' route is a separate (pre-existing) issue
-// that has been flagged for its own task.
+// This test now covers ALL STEPS entries (no longer scoped only to the
+// Explorer targets) and adversarially guards against regressions:
+//   (a) Every STEPS entry resolves its route AND nextRoute to a live App.jsx
+//       route, never the '*' catch-all. Routes that are null at module load
+//       (computed at runtime from demoId) are resolved against a fake demo id
+//       so the runtime form is what gets matched.
+//   (b) The brand-new visitor's first two Next clicks (the exact path the
+//       original bug took) land on live routes.
+//   (c) The demoId-fallback branches resolve to live routes.
+//   (d) The file contains no quoted '/explorer' or '/studio' string literal
+//       usable as a navigation target (neither is a real Route).
+//   (e) The demoMissing path in handleNext skips studio-block and public-page
+//       so the tour never tries to navigate to a runtime route with no id.
 //
 // On the choice to read App.jsx text rather than import it: App.jsx pulls in
 // heavy children (kaspa-wasm, snarkjs, framer-motion) at module load that
@@ -60,8 +67,31 @@ function matchRoute(pathname, patterns) {
   return null;
 }
 
-describe('FirstCovenantTour: Explorer-targeted steps land on live routes (no 404 on Next)', () => {
+// Resolve a STEPS field that may be null at module load (route/nextRoute
+// for the runtime-computed steps) against a synthetic demo id. The runtime
+// useMemo computes these as /covenant/${demoId}[/studio]; the resolver
+// mirrors that contract so the test asserts the SHAPE that will actually
+// be navigated to.
+function resolveRuntime(stepId, field, demoId) {
+  if (stepId === 'sandbox-deploy' && field === 'nextRoute') {
+    return demoId ? `/covenant/${demoId}/studio` : null;
+  }
+  if (stepId === 'studio-block' && field === 'route') {
+    return demoId ? `/covenant/${demoId}/studio` : null;
+  }
+  if (stepId === 'studio-block' && field === 'nextRoute') {
+    return demoId ? `/covenant/${demoId}` : '/';
+  }
+  if (stepId === 'public-page' && field === 'route') {
+    return demoId ? `/covenant/${demoId}` : null;
+  }
+  // For all other (static) fields, the literal value is the navigation target.
+  return undefined;
+}
+
+describe('FirstCovenantTour: every step lands on a live App.jsx route (no 404 on Next)', () => {
   const patterns = liveRoutePatterns();
+  const DEMO_ID = 'a1b2c3d4'; // any non-empty id
 
   it('App.jsx exposes the routes this test depends on', () => {
     // Sanity: if someone renames '/' the rest of the assertions need to be
@@ -69,20 +99,39 @@ describe('FirstCovenantTour: Explorer-targeted steps land on live routes (no 404
     expect(patterns).toContain('/');
     expect(patterns).toContain('/sandbox');
     expect(patterns).toContain('/covenant/:id');
+    expect(patterns).toContain('/covenant/:id/studio');
     expect(patterns).toContain('*'); // catch-all must exist
   });
 
-  it('the two Explorer-target steps (explorer-hero, build-cta) both resolve to live routes', () => {
-    const explorerSteps = STEPS.filter((s) => s.id === 'explorer-hero' || s.id === 'build-cta');
-    expect(explorerSteps.length).toBe(2);
-    for (const s of explorerSteps) {
-      const r = matchRoute(s.route, patterns);
-      expect(r, `STEPS[id=${s.id}].route=${s.route} 404s`).not.toBeNull();
+  it('every STEPS entry resolves both route and nextRoute to a live route (covers Explorer, Sandbox, Studio, public-page)', () => {
+    for (const s of STEPS) {
+      const routeTarget = s.route ?? resolveRuntime(s.id, 'route', DEMO_ID);
+      const nextTarget = s.nextRoute ?? resolveRuntime(s.id, 'nextRoute', DEMO_ID);
+      expect(routeTarget, `STEPS[id=${s.id}].route is null with no runtime resolver`).toBeTruthy();
+      expect(nextTarget, `STEPS[id=${s.id}].nextRoute is null with no runtime resolver`).toBeTruthy();
+      const r = matchRoute(routeTarget, patterns);
+      expect(r, `STEPS[id=${s.id}].route=${routeTarget} 404s`).not.toBeNull();
       expect(r).not.toBe('*');
-      const nr = matchRoute(s.nextRoute, patterns);
-      expect(nr, `STEPS[id=${s.id}].nextRoute=${s.nextRoute} 404s`).not.toBeNull();
+      const nr = matchRoute(nextTarget, patterns);
+      expect(nr, `STEPS[id=${s.id}].nextRoute=${nextTarget} 404s`).not.toBeNull();
       expect(nr).not.toBe('*');
     }
+  });
+
+  it('studio-block specifically resolves to /covenant/:id/studio with a demo id (the bug this round)', () => {
+    const studio = STEPS.find((s) => s.id === 'studio-block');
+    expect(studio).toBeTruthy();
+    // The raw fields are null on purpose: routes are computed at runtime.
+    expect(studio.route).toBeNull();
+    const resolvedRoute = resolveRuntime('studio-block', 'route', DEMO_ID);
+    const resolvedNext = resolveRuntime('studio-block', 'nextRoute', DEMO_ID);
+    expect(matchRoute(resolvedRoute, patterns)).toBe('/covenant/:id/studio');
+    expect(matchRoute(resolvedNext, patterns)).toBe('/covenant/:id');
+    // And the prior step's nextRoute must point at the same /covenant/:id/studio.
+    const sandboxDeploy = STEPS.find((s) => s.id === 'sandbox-deploy');
+    expect(sandboxDeploy.nextRoute).toBeNull();
+    const resolvedPriorNext = resolveRuntime('sandbox-deploy', 'nextRoute', DEMO_ID);
+    expect(matchRoute(resolvedPriorNext, patterns)).toBe('/covenant/:id/studio');
   });
 
   it("a brand-new visitor's first two Next clicks land on live routes (the exact path the bug took)", () => {
@@ -117,26 +166,49 @@ describe('FirstCovenantTour: Explorer-targeted steps land on live routes (no 404
   });
 
   it('the demo-missing fallback resolves to a live route (the studio-block runtime branch in both useMemo and handleNext)', () => {
-    // The two runtime branches that derive nextRoute from demoId fall back
+    // The runtime branches that derive nextRoute from demoId fall back
     // to the Explorer when demoId is null. Both possibilities must hit a
     // real route.
-    const demoId = 'a1b2c3d4'; // any non-empty id
+    const demoId = 'a1b2c3d4';
     expect(matchRoute(`/covenant/${demoId}`, patterns)).toBe('/covenant/:id');
+    expect(matchRoute(`/covenant/${demoId}/studio`, patterns)).toBe('/covenant/:id/studio');
     expect(matchRoute('/', patterns)).toBe('/');
   });
 
-  it('FirstCovenantTour source contains no quoted "/explorer" navigation target (regression guard)', () => {
-    // The bug was 6 occurrences of '/explorer' in this file. The fix removes
-    // every one as a routing target. Keep this guard so a future refactor
-    // that re-introduces '/explorer' (a non-route) as a string literal
-    // fails loud here.
+  it('demoMissing skips studio-block and public-page so the tour never navigates to a runtime route with no id', () => {
+    // handleNext's loop walks past any studio-block / public-page entry when
+    // demoChecked && !demoId. This test guards the contract: those two ids
+    // are the ONLY runtime-id-dependent steps, and they must appear at the
+    // tail of STEPS so the skip loop reaches handleFinish (it can never land
+    // on a later non-id step because there isn't one).
+    const idDependent = STEPS.filter((s) => s.id === 'studio-block' || s.id === 'public-page');
+    expect(idDependent.length).toBe(2);
+    const idDependentIdxs = STEPS
+      .map((s, i) => (s.id === 'studio-block' || s.id === 'public-page' ? i : -1))
+      .filter((i) => i >= 0);
+    // They must be contiguous at the tail of STEPS for the skip loop to
+    // correctly fall through to handleFinish.
+    expect(idDependentIdxs[0]).toBe(STEPS.length - 2);
+    expect(idDependentIdxs[1]).toBe(STEPS.length - 1);
+  });
+
+  it('FirstCovenantTour source contains no quoted "/explorer" or "/studio" navigation target (regression guard)', () => {
+    // The original bug was 6 occurrences of '/explorer'. The follow-up bug was
+    // 2 occurrences of '/studio' (sandbox-deploy.nextRoute and
+    // studio-block.route). Neither is a real Route in App.jsx. This guard
+    // fails loud if either string is reintroduced as a quoted literal a
+    // navigate() call could pick up. The /covenant/:id/studio runtime form is
+    // a template string, not a quoted '/studio' literal, so it does not match.
     const src = fs.readFileSync(TOUR_JSX, 'utf8');
-    // We allow the EXPLANATORY comment text that mentions /explorer (no
-    // surrounding quotes); only quoted occurrences are navigation-capable.
-    const offenders = src.match(/['"`]\/explorer['"`]/g) || [];
+    const explorerOffenders = src.match(/['"`]\/explorer['"`]/g) || [];
     expect(
-      offenders,
+      explorerOffenders,
       'a quoted "/explorer" was reintroduced (it is not a real route - Explorer is at "/")'
+    ).toEqual([]);
+    const studioOffenders = src.match(/['"`]\/studio['"`]/g) || [];
+    expect(
+      studioOffenders,
+      'a quoted "/studio" was reintroduced (it is not a real route - the studio is at /covenant/:id/studio)'
     ).toEqual([]);
   });
 });

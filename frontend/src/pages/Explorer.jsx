@@ -30,6 +30,7 @@ import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePrev
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
 import { Badge } from '../components/ui/Badge';
+import { TIER_PALETTE } from '../lib/tierPalette';
 
 const formatKaspa = (kas) => {
   if (kas == null) return 'N/A';
@@ -42,26 +43,33 @@ const formatKaspa = (kas) => {
 const truncate = (s, n = 8) =>
   s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
 
+// Tier identity, aligned with the canonical lib/tierPalette.js. MAX previously
+// borrowed amber here, which collided with PRO across the rest of the app
+// (PRO = kaspa-gold/amber on Pricing/Stats); now MAX = purple, PRO = amber/gold,
+// BUILDER = blue, FREE = slate. Icons match the palette (FREE=Eye, BUILDER=
+// Terminal, PRO=Star, MAX=Crown) so a paying customer sees the same glyph
+// everywhere their purchase shows up. Tailwind class strings stay literal so
+// the JIT can detect every utility.
 const TIER_CONFIG = {
   MAX: {
     label: 'MAX',
+    gradient: 'from-purple-500/20 via-purple-600/10 to-transparent',
+    border: 'border-purple-500/30',
+    text: 'text-purple-400',
+    badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+    glow: 'shadow-[0_0_24px_rgba(168,85,247,0.12)]',
+    rank: 4,
+    icon: TIER_PALETTE.MAX.icon,
+  },
+  PRO: {
+    label: 'PRO',
     gradient: 'from-amber-500/20 via-amber-600/10 to-transparent',
     border: 'border-amber-500/30',
     text: 'text-amber-400',
     badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    glow: 'shadow-[0_0_24px_rgba(245,158,11,0.12)]',
-    rank: 4,
-    icon: Crown,
-  },
-  PRO: {
-    label: 'PRO',
-    gradient: 'from-emerald-500/20 via-emerald-600/10 to-transparent',
-    border: 'border-emerald-500/25',
-    text: 'text-emerald-400',
-    badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-    glow: 'shadow-[0_0_16px_rgba(16,185,129,0.10)]',
+    glow: 'shadow-[0_0_18px_rgba(232,175,52,0.14)]',
     rank: 3,
-    icon: Star,
+    icon: TIER_PALETTE.PRO.icon,
   },
   BUILDER: {
     label: 'BUILDER',
@@ -69,9 +77,9 @@ const TIER_CONFIG = {
     border: 'border-blue-500/20',
     text: 'text-blue-400',
     badge: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    glow: 'shadow-[0_0_8px_rgba(59,130,246,0.08)]',
+    glow: 'shadow-[0_0_10px_rgba(59,130,246,0.10)]',
     rank: 2,
-    icon: ShieldCheck,
+    icon: TIER_PALETTE.BUILDER.icon,
   },
   FREE: {
     label: 'FREE',
@@ -81,7 +89,7 @@ const TIER_CONFIG = {
     badge: 'bg-white/5 text-gray-500 border-white/10',
     glow: '',
     rank: 0,
-    icon: Layers,
+    icon: TIER_PALETTE.FREE.icon,
   },
 };
 
@@ -157,11 +165,11 @@ function useCountUp(target, duration = 950) {
 function CountUpStat({ icon: Icon, label, value, fmt }) {
   const n = useCountUp(value);
   return (
-    <div className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] transition-colors">
-      <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 font-mono uppercase tracking-[0.18em]">
+    <div className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] light:hover:bg-slate-50 transition-colors">
+      <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 light:text-slate-500 font-mono uppercase tracking-[0.18em]">
         <Icon size={11} className="text-kaspa-green/80" />{label}
       </p>
-      <p className="text-lg sm:text-xl font-black bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent tabular-nums">{fmt(n)}</p>
+      <p className="text-lg sm:text-xl font-black text-white light:text-slate-900 tabular-nums">{fmt(n)}</p>
     </div>
   );
 }
@@ -187,7 +195,7 @@ export default function Explorer() {
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
   // Default to showing ALL on-chain commitments (the full, thriving count). Covenants are honestly
-  // LABELED now (no fabricated types), so there's no reason to hide them — "Verified only" is an
+  // LABELED now (no fabricated types), so there's no reason to hide them - "Verified only" is an
   // opt-in filter for users who want just paid + real-description covenants.
   const [includeRaw, setIncludeRaw] = useState(true);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'mainnet');
@@ -384,10 +392,13 @@ export default function Explorer() {
       {/* HERO */}
       <section className="relative z-10 flex flex-col items-center justify-center pt-16 sm:pt-20 pb-6 px-4 sm:px-6 text-center">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
-        <h1 className="relative text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-5 max-w-3xl leading-[1.15] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]">
+        <h1
+          className="relative font-black text-white light:text-slate-900 mb-5 max-w-3xl leading-[1.1] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
+          style={{ fontSize: 'clamp(2.25rem, 5.5vw, 4.5rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
+        >
           Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
         </h1>
-        <p className="text-sm sm:text-base text-gray-200 max-w-xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+        <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-6 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
@@ -398,25 +409,25 @@ export default function Explorer() {
             <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
             Build a Covenant
           </Link>
-          {/* Secondary hero CTA: the consensus-enforced primitives (hashlock, timelocks, HTLC,
-              channel, dead-man, multisig) stay one click from home, but as a ghost button so
-              "Build a Covenant" is the single primary. The subtle emerald accent keeps the
-              on-chain enforcement reality legible without competing with the primary. */}
+          {/* Secondary CTA: consensus-enforced primitives (hashlock, timelocks, HTLC, channel,
+              dead-man, multisig) stay one click away as a single neutral ghost button so
+              "Build a Covenant" is the only primary action. */}
           <Link
             to="/deploy/enforced"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/[0.03] text-emerald-300/90 font-semibold text-sm hover:border-emerald-400/50 hover:bg-emerald-500/[0.08] hover:text-emerald-200 transition-all duration-300"
+            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
           >
-            <ShieldCheck size={16} className="text-emerald-400/90 transition-transform duration-300 group-hover:scale-110" />
+            <ShieldCheck size={16} className="text-white/70 light:text-slate-500 transition-transform duration-300 group-hover:scale-110" />
             Deploy on-chain enforced
           </Link>
+          {/* Quiet tertiary link: "How It Works" is informational, not an action. */}
           <Link
             to="/readme"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/[0.03] text-white/90 font-semibold text-sm hover:border-kaspa-green/40 hover:bg-white/[0.06] hover:text-white transition-all duration-300"
+            className="inline-flex items-center gap-2 px-2 py-3 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
           >
             How It Works
           </Link>
         </div>
-        <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] grid grid-cols-3 divide-x divide-white/[0.06] mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
+        <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-3 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: (n) => Math.round(n).toLocaleString() },
             { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount, fmt: (n) => Math.round(n).toLocaleString() },
@@ -432,7 +443,7 @@ export default function Explorer() {
         <div className="flex justify-center mb-4">
           <button
             onClick={() => setShowCategoryPanel(!showCategoryPanel)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm text-white/80 hover:text-white hover:border-white/20 transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 light:bg-white border border-white/10 light:border-slate-200 text-sm text-white/80 light:text-slate-700 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 transition-all"
           >
             <Layers size={16} className="text-kaspa-green" />
             {activeCategory === 'All' ? 'All Covenant Types' : activeCategory}
@@ -441,21 +452,21 @@ export default function Explorer() {
         </div>
 
         {showCategoryPanel && (
-          <div className="max-w-4xl mx-auto mb-6 p-4 rounded-2xl glass-panel border border-white/10">
-            <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3 text-center">Filter by Covenant Type - click any to apply</div>
+          <div className="max-w-4xl mx-auto mb-6 p-4 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
+            <div className="text-[10px] uppercase tracking-widest text-white/40 light:text-slate-500 mb-3 text-center">Filter by Covenant Type, click any to apply</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 text-xs">
               {ALL_CATEGORIES.map(cat => (
                 <button
                   key={cat}
                   onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
-                  className={`px-3 py-2 rounded-xl border text-left transition-all ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 bg-white/[0.015] text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5'}`}
+                  className={`px-3 py-2 rounded-xl border text-left transition-all ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50'}`}
                 >
                   {cat}
                 </button>
               ))}
             </div>
             <div className="text-center mt-3">
-              <button onClick={() => { setActiveCategory('All'); setShowCategoryPanel(false); }} className="text-[10px] text-white/50 hover:text-white underline">Clear / Show All Types</button>
+              <button onClick={() => { setActiveCategory('All'); setShowCategoryPanel(false); }} className="text-[10px] text-white/50 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline">Clear / Show All Types</button>
             </div>
           </div>
         )}
@@ -704,7 +715,7 @@ export default function Explorer() {
                   </div>
                 ) : (
                   <motion.div
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7"
                     variants={prefersReduced ? undefined : GRID_STAGGER}
                     initial={prefersReduced ? false : 'hidden'}
                     animate={prefersReduced ? false : 'show'}
@@ -808,11 +819,11 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-300 will-change-transform hover:-translate-y-1 ${
+      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform hover:-translate-y-1 ${
         isPaid
           ? `${cfg.border} ${cfg.glow} holo-border hover:shadow-2xl`
           : 'border-white/[0.08] light:border-slate-200 hover:border-[color:var(--ca)] hover:shadow-[0_22px_55px_-22px_var(--cg)]'
-      } bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 min-h-[296px]`}
+      } bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 min-h-[324px]`}
       style={!isPaid ? { '--ca': accA(0.55), '--cg': accA(0.4) } : undefined}
     >
       {/* Top accent bar - on-chain identity hue */}
@@ -842,17 +853,20 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
               </span>
             )}
             {isPaidVerified && (
-              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">VERIFIED</span>
+              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 light:text-amber-700 border border-amber-500/30 font-mono font-bold">CURATED</span>
             )}
+            {/* Enforcement reality - the trust signal lives in the header row now, next to the
+                CURATED chip, so a glance at the card top tells you exactly what backs it. */}
+            <TrustBadge covenant={c} size="sm" />
           </div>
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-white/70 light:text-slate-500 truncate max-w-[58%]">
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-white/70 light:text-slate-500 truncate max-w-[44%]">
             {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80 shrink-0" />; })()}
             <span className="truncate">{categoryLabel}</span>
           </span>
         </div>
       </div>
 
-      <div className="p-4 sm:p-[18px] flex flex-col flex-1">
+      <div className="p-5 sm:p-6 flex flex-col flex-1">
         {/* Title + on-chain id */}
         <h3 className={`font-bold text-[15px] sm:text-base leading-tight truncate ${isPaid ? cfg.text : 'text-white light:text-slate-900'}`}
           style={isPaidVerified ? { color: themeAccent } : undefined}>
@@ -865,7 +879,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           <div className="min-w-0">
             <div className="text-[8.5px] uppercase tracking-[0.16em] text-gray-500 light:text-slate-400 font-bold mb-1">Value Locked</div>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-[22px] sm:text-2xl font-black leading-none tracking-tight text-white light:text-slate-900"
+              <span className="font-mono text-[22px] sm:text-2xl font-black leading-none tracking-tight text-white light:text-slate-900 tabular-nums"
                 style={!isPaid ? { textShadow: `0 0 22px ${accA(0.32)}` } : undefined}>
                 {formatKaspa(amount).replace(/\s*KAS$/i, '')}
               </span>
@@ -888,10 +902,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           {covenantDesc}
         </p>
 
-        {/* Enforcement reality - the trust signal (moved out of the header into a clean row) */}
-        <div className="mt-3">
-          <TrustBadge covenant={c} size="sm" />
-        </div>
+        {/* TrustBadge now lives in the header row, next to CURATED. */}
 
         {/* Game preview + Custom UI + finality badges */}
         {(gameType || customUI || showFinalityChip) && (

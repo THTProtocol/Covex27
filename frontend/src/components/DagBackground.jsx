@@ -12,7 +12,7 @@ import { useTheme } from './ThemeProvider';
  * SELF-HEAL (connectivity fix): the external WebGL visualizer pauses its render
  * loop when the tab is backgrounded and can drop its feed / lose the GL context
  * after long runtime, leaving a blank frame that never recovers (onLoad is
- * one-shot). We remount the iframe — via a `reloadKey` on its React `key` — to
+ * one-shot). We remount the iframe (via a `reloadKey` on its React `key`) to
  * force a reconnect: (1) when the tab becomes visible again after being hidden
  * ("when waiting"), (2) periodically while visible ("prolonged use"), and (3) a
  * bounded watchdog if a (re)mount never paints. This keeps the DAG connected.
@@ -50,7 +50,7 @@ const DagBackground = () => {
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
-    // Only refresh while visible — a hidden refresh is throttled/wasted, and the
+    // Only refresh while visible: a hidden refresh is throttled/wasted, and the
     // visibility handler already covers the return-to-tab case.
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') reconnect();
@@ -62,7 +62,7 @@ const DagBackground = () => {
   }, [reconnect]);
 
   // Watchdog: if the active theme's frame hasn't painted shortly after a (re)mount,
-  // retry — bounded so a down service doesn't trigger an infinite fast reload loop.
+  // retry, bounded so a down service doesn't trigger an infinite fast reload loop.
   // The periodic/visibility reconnects above reset the budget for a fresh round.
   useEffect(() => {
     const loaded = isDark ? darkLoaded : lightLoaded;
@@ -108,7 +108,7 @@ const DagBackground = () => {
         sandbox="allow-scripts allow-same-origin"
       />
 
-      {/* Light DAG iframe — mix-blend-multiply lets the teal DAG strokes sit INTO the
+      {/* Light DAG iframe: mix-blend-multiply lets the teal DAG strokes sit INTO the
           white page (cohesion) instead of floating flat on top, mirroring how dark
           mode uses mix-blend-screen. */}
       <iframe

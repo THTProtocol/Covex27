@@ -287,7 +287,7 @@ export const puckConfig = {
         buttonAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Place a bet', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
         backgroundGradient: { type: 'select', options: [{ label: 'Kaspa', value: 'kaspa' }, { label: 'Gold', value: 'gold' }, { label: 'Purple', value: 'purple' }, { label: 'Blue', value: 'blue' }] },
       },
-      defaultProps: { headline: 'Ready to join?', description: 'Stake in your own wallet. Non-custodial, settled on-chain.', buttonLabel: 'Get started', buttonAction: 'interact', backgroundGradient: 'kaspa' },
+      defaultProps: { headline: 'Ready to join?', description: 'Stake in your own wallet. Non-custodial, settled on-chain. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).', buttonLabel: 'Get started', buttonAction: 'interact', backgroundGradient: 'kaspa' },
       render: ({ headline, description, buttonLabel, buttonAction, backgroundGradient, puck }) => {
         const live = puck?.metadata?.live || {};
         const cls = CTA_CLASS[backgroundGradient] || CTA_CLASS.kaspa;
@@ -376,9 +376,9 @@ export const puckConfig = {
         features: [
           // NOTE: the "no oracle, no trust" line is qualified to a script-enforced
           // covenant only, so an oracle-attested market can never ship it unqualified.
-          { icon: 'Lock', headline: 'On-chain enforced', description: 'When the covenant is script-enforced, funds move only by satisfying the script - no oracle, no trust in Covex. (Oracle-resolved markets and games are attested by the disclosed oracle.)' },
+          { icon: 'Lock', headline: 'On-chain enforced', description: 'When the covenant is script-enforced, funds move only by satisfying the script, no oracle, no trust in Covex. When it is oracle-resolved or oracle-attested instead, the disclosed oracle is the trust assumption. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).' },
           { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' },
-          { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' },
+          { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device. The enforcement badge on this page shows whether the script, the oracle, or a verified ZK proof gates payout.' },
         ],
       },
       render: ({ columns, features, puck }) => {
@@ -742,7 +742,7 @@ export const puckConfig = {
         title: 'Frequently asked',
         items: [
           { q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' },
-          { q: 'How do payouts work?', a: 'The disclosed rules release the pot. Custody and payout are on-chain and verifiable on the explorer.' },
+          { q: 'How is the outcome enforced?', a: 'See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified). Custody and payout are on-chain and verifiable on the explorer.' },
         ],
       },
       render: ({ title, items, puck }) => <AccordionBlock title={title} items={items} live={puck?.metadata?.live || {}} />,
@@ -1195,7 +1195,7 @@ export const puckConfig = {
         amount: { type: 'text', label: 'Suggested amount (KAS)' },
         variant: { type: 'select', label: 'Style', options: [{ label: 'Kaspa', value: 'kaspa' }, { label: 'Gold', value: 'gold' }, { label: 'Glass', value: 'glass' }] },
       },
-      defaultProps: { label: 'Stake and join', helper: 'Opens the interact panel. Non-custodial, signs in your wallet.', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' },
+      defaultProps: { label: 'Stake and join', helper: 'Opens the interact panel. Non-custodial, signs in your wallet. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' },
       render: ({ label, helper, action, outcome, amount, variant, puck }) => {
         const live = puck?.metadata?.live || {};
         return (
@@ -1415,7 +1415,7 @@ export const STARTER_TEMPLATES = [
         blk('Countdown', { title: 'Market closes in', targetDate: '{{kickoff}}', endedText: 'Betting is closed. Awaiting settlement.', accentColor: '#E8AF34' }),
         blk('FeeNotice', { feeText: 'House fee {{fee_pct}}%. Loser rebate {{rebate_pct}}%. Winners split the rest of the pool.' }),
         blk('Leaderboard', { title: 'Top stakers', rankBy: 'amount', maxRows: '5', emptyText: 'No stakes on-chain yet. The board fills as players join.', accentColor: '#E8AF34' }),
-        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'How is the outcome decided?', a: 'The disclosed Covex oracle attests the result. Custody and payout are on-chain and verifiable on the explorer.' }, { q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
+        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'How is the outcome decided?', a: 'The disclosed Covex oracle attests the result. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified). Custody and payout are on-chain and verifiable on the explorer.' }, { q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
         blk('Footer', { text: '{{name}} · Oracle-attested prediction market on Kaspa', showNetwork: 'yes' }),
       ],
     },
@@ -1431,9 +1431,9 @@ export const STARTER_TEMPLATES = [
         blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.6', title: '{{name}}', subtitle: 'Winner takes the pot. {{total_locked}} locked on {{network}}.', ctaLabel: 'Enter the arena', ctaAction: 'interact', accentColor: '#A855F7', alignment: 'center' }),
         blk('EnforcementBadge', { note: 'How this game is enforced' }),
         blk('StatRow', { stats: [{ label: 'Pot', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Games', value: '{{tx_count}}' }] }),
-        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Swords', headline: 'Skill, not luck', description: 'Play it out on the board. The winner is decided by the game.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }] }),
+        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Swords', headline: 'Skill, not luck', description: 'Play it out on the board. The winner is decided by the game. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }] }),
         blk('Leaderboard', { title: 'Top winners', rankBy: 'amount', maxRows: '5', emptyText: 'No games settled on-chain yet. Be the first to play.', accentColor: '#E8AF34' }),
-        blk('StakeCTA', { label: 'Stake and play', helper: 'Opens the arena. Non-custodial, signs in your wallet.', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' }),
+        blk('StakeCTA', { label: 'Stake and play', helper: 'Opens the arena. Non-custodial, signs in your wallet. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' }),
         blk('Footer', { text: '{{name}} · Oracle-attested game on Kaspa', showNetwork: 'yes' }),
       ],
     },
@@ -1451,7 +1451,7 @@ export const STARTER_TEMPLATES = [
         blk('StatRow', { stats: [{ label: 'In escrow', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Actions', value: '{{tx_count}}' }] }),
         blk('Timeline', { title: 'How it settles', steps: [{ label: 'Funded', detail: 'Buyer locks funds to the escrow script.', state: 'done' }, { label: 'Delivery', detail: 'Seller delivers; both parties confirm.', state: 'active' }, { label: 'Release', detail: 'Funds release to the seller, or refund on timeout.', state: 'upcoming' }] }),
         blk('RichText', { markdown: '**Terms.** Funds are locked to the escrow script and move only by satisfying it. Either the agreed release path or the timeout refund applies. Everything is on the [explorer](https://kaspa.org).' }),
-        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'Who holds the funds?', a: 'No one. The Kaspa script holds them; funds move only by satisfying it.' }, { q: 'What if there is a dispute?', a: 'The disclosed release and timeout paths govern. There is no off-chain custody.' }] }),
+        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'Who holds the funds?', a: 'No one. The Kaspa script holds them; funds move only by satisfying it. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).' }, { q: 'What if there is a dispute?', a: 'The disclosed release and timeout paths govern. There is no off-chain custody.' }] }),
         blk('Footer', { text: '{{name}} · On-chain escrow on Kaspa', showNetwork: 'yes' }),
       ],
     },
@@ -1488,7 +1488,7 @@ export const STARTER_TEMPLATES = [
         blk('StatRow', { stats: [{ label: 'Raised', value: '{{total_locked}}' }, { label: 'Backers', value: '{{tx_count}}' }, { label: 'Status', value: '{{status}}' }] }),
         blk('Leaderboard', { title: 'Top backers', rankBy: 'amount', maxRows: '5', emptyText: 'No pledges on-chain yet. Be the first to back this.', accentColor: '#E8AF34' }),
         blk('ActivityFeed', { title: 'Recent pledges', emptyText: 'No on-chain pledges yet. Be the first to contribute.', maxRows: '5', accentColor: '#49EACB' }),
-        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'Where do the funds go?', a: 'To the disclosed on-chain destination per the covenant rules. Everything is verifiable on the explorer.' }, { q: 'Is it non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
+        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'Where do the funds go?', a: 'To the disclosed on-chain destination per the covenant rules. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified). Everything is verifiable on the explorer.' }, { q: 'Is it non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
         blk('Footer', { text: '{{name}} · Community pool on Kaspa', showNetwork: 'yes' }),
       ],
     },
@@ -1522,9 +1522,9 @@ export const STARTER_TEMPLATES = [
         blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A live, on-chain Kaspa covenant. {{total_locked}} secured on {{network}}.', ctaLabel: 'Enter covenant', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' }),
         blk('EnforcementBadge', { note: 'How this covenant is enforced' }),
         blk('StatRow', { stats: [{ label: 'Locked', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Actions', value: '{{tx_count}}' }] }),
-        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Lock', headline: 'On-chain enforced', description: 'When script-enforced, funds move only by satisfying the script. (Oracle-resolved covenants are attested by the disclosed oracle.)' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }] }),
-        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }, { q: 'How is it enforced?', a: 'See the enforcement badge above. Everything is disclosed and verifiable on the explorer.' }] }),
-        blk('StakeCTA', { label: 'Interact', helper: 'Opens the interact panel. Non-custodial, signs in your wallet.', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' }),
+        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Lock', headline: 'On-chain enforced', description: 'When script-enforced, funds move only by satisfying the script. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }] }),
+        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }, { q: 'How is it enforced?', a: 'See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified). Everything is disclosed and verifiable on the explorer.' }] }),
+        blk('StakeCTA', { label: 'Interact', helper: 'Opens the interact panel. Non-custodial, signs in your wallet. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk oracle-verified).', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' }),
         blk('Footer', { text: '{{name}} · On-chain covenant on Kaspa', showNetwork: 'yes' }),
       ],
     },

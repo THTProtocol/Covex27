@@ -243,20 +243,27 @@ export default function CovenantStudio() {
 
   return (
     <div className="covex-studio relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
-        <Link to={`/covenant/${encodeURIComponent(id)}`} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap">
-          <ArrowLeft size={13} /> Back to covenant
+      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
+        <Link to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-10">
+          <ArrowLeft size={14} /> <span className="hidden sm:inline">Back to covenant</span>
         </Link>
         <p className="text-xs font-bold text-white truncate min-w-0 px-2">{covenant.name || 'Covenant'} · Page Studio</p>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
-            <Settings size={13} /> Page settings
+          <button onClick={() => setShowSettings(true)} aria-label="Page settings" className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+            <Settings size={14} /> <span className="hidden sm:inline">Page settings</span>
           </button>
-          <button onClick={() => setShowThemes(true)} className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
-            <Palette size={13} /> Theme
+          <button onClick={() => setShowThemes(true)} aria-label="Theme" className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+            <Palette size={14} /> <span className="hidden sm:inline">Theme</span>
           </button>
-          <button onClick={() => setShowPicker(true)} className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
-            <LayoutTemplate size={13} /> Templates
+          <button onClick={() => setShowPicker(true)} aria-label="Templates" className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
+            <LayoutTemplate size={14} /> <span className="hidden sm:inline">Templates</span>
+          </button>
+          <button
+            onClick={() => save(puckDataRef.current)}
+            disabled={saving}
+            className="btn-shimmer flex items-center gap-1.5 text-[11px] font-bold px-3 h-10 rounded-lg bg-kaspa-green text-black hover:brightness-110 disabled:opacity-60 transition-all"
+          >
+            <Save size={14} /> <span className="hidden sm:inline">{saving ? 'Publishing...' : 'Publish'}</span>
           </button>
         </div>
       </div>
@@ -354,12 +361,12 @@ function TemplatePickerModal({ defaultId, onPick, onBlank, onClose }) {
           </div>
           <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white"><X size={18} /></button>
         </div>
-        <div className="p-4 grid sm:grid-cols-2 gap-2.5">
+        <div className="p-4 grid sm:grid-cols-2 gap-3 sm:gap-4">
           {STARTER_TEMPLATES.map((t) => {
             const active = sel === t.id;
             return (
               <button key={t.id} onClick={() => setSel(t.id)}
-                className={`text-left rounded-xl border p-3.5 transition-all ${active ? 'border-kaspa-green bg-kaspa-green/[0.06]' : 'border-white/10 light:border-slate-200 hover:border-white/25 light:hover:border-slate-300'}`}>
+                className={`text-left rounded-xl border p-4 transition-all ${active ? 'border-kaspa-green bg-kaspa-green/[0.06]' : 'border-white/10 light:border-slate-200 hover:border-white/25 light:hover:border-slate-300'}`}>
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="text-sm font-bold text-white light:text-slate-900">{t.name}</span>
                   {active && <Check size={15} className="text-kaspa-green shrink-0" />}
@@ -393,11 +400,11 @@ function ThemePickerModal({ onApply, onClose }) {
           </div>
           <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white"><X size={18} /></button>
         </div>
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {presets.map((p) => (
             <button key={p.id} onClick={() => onApply(p)} className="rounded-xl overflow-hidden border border-white/10 light:border-slate-200 hover:border-white/30 transition-all text-left">
-              <div className="h-16" style={{ background: presetBackdrop(p) }} />
-              <div className="px-2.5 py-2 flex items-center gap-2">
+              <div className="h-20" style={{ background: presetBackdrop(p) }} />
+              <div className="px-3 py-2.5 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ background: p.palette.accent }} />
                 <span className="text-[11px] font-semibold text-white light:text-slate-800 truncate">{p.palette.name}</span>
               </div>
@@ -500,7 +507,7 @@ function TokenCheatSheet() {
     setTimeout(() => setCopied((c) => (c === tok ? '' : c)), 1200);
   };
   return (
-    <details className="cvx-cheatsheet fixed bottom-4 left-4 z-[90] w-72 rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/95 light:bg-white/95 backdrop-blur shadow-2xl">
+    <details className="cvx-cheatsheet fixed bottom-4 left-3 right-3 sm:left-4 sm:right-auto sm:w-72 z-[90] rounded-2xl border border-white/[0.1] light:border-slate-200 bg-[#0A0A0D]/95 light:bg-white/95 backdrop-blur shadow-2xl">
       <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer text-xs font-bold text-kaspa-green list-none">
         <Zap size={13} /> Live data tokens
       </summary>

@@ -1,4 +1,4 @@
-// ToastContext.jsx — one premium, app-wide notification system.
+// ToastContext.jsx - one premium, app-wide notification system.
 //
 // Replaces native alert() everywhere. alert() is a blocking, unstyled OS popup;
 // this is a non-blocking, branded, auto-dismissing toast stack. It exposes a

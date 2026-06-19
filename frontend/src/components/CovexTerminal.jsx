@@ -849,7 +849,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   const [paidStatus, setPaidStatus] = useState(null);
   const [checkingPaid, setCheckingPaid] = useState(false);
   // Tier access is decided ONLY by the backend (paidStatus from /api/paid-status), never by
-  // client-side localStorage — trusting localStorage let anyone self-grant a paid tier.
+  // client-side localStorage (trusting localStorage let anyone self-grant a paid tier).
   const currentTier = paidStatus?.highest_tier || 'FREE';
   const hasPaidAccess = currentTier !== 'FREE';
 
@@ -923,7 +923,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   // Live-sync the builder's selected circuit to an external selector (the unified Sandbox's
   // free circuit library). When the visitor picks a circuit up top, the builder below follows
-  // — one window, one selection. Runs whenever the prop changes (not just on mount).
+  // (one window, one selection). Runs whenever the prop changes (not just on mount).
   useEffect(() => {
     if (!externalCircuit) return;
     setShowAllZK(true);
@@ -1005,7 +1005,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       // The tx broadcast succeeded (the backend signer credited the payer's account synchronously
       // via insert_payment + upgrade_account). Show the confirmation card and let the BACKEND be
       // the source of truth for tier access: poll /api/paid-status, which sets paidStatus from the
-      // server. We do NOT write covex_paid_tier to localStorage — feature access must never trust
+      // server. We do NOT write covex_paid_tier to localStorage; feature access must never trust
       // client storage (that was a self-grant hole).
       setPayingTier(null);
       setPaymentSuccess({ tier: tier.id, txid });
@@ -1249,7 +1249,7 @@ contract VisualCovenant {
   }, null, 2);
 
   // ── Client-side ZK proof generation state ──
-  const [zkGenerating, setZkGenerating] = useState(false);
+  const [zkGeneratingId, setZkGeneratingId] = useState(null);
   const [zkGenError, setZkGenError] = useState('');
 
   // The in-browser provers themselves (MiMC7 / Poseidon / numeric input prep, served wasm/zkey
@@ -1261,7 +1261,7 @@ contract VisualCovenant {
 
   // Merkle: on failure, fall back to the bundled real proof (verifies fail-closed at the oracle).
   const generateMerkleProof = async () => {
-    setZkGenerating(true); setZkGenError('');
+    setZkGeneratingId('merkle_membership'); setZkGenError('');
     try {
       const { proof, publicSignals } = await PROVERS.merkle_membership.prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
@@ -1271,13 +1271,13 @@ contract VisualCovenant {
       setOracleProof(bundledMerkleProof);
       setOraclePublicInputs('1,20473339414381364284988912838485478706292217748325897174032535818078518775705');
     }
-    setZkGenerating(false);
+    setZkGeneratingId(null);
   };
 
   // Range: the in-browser prover works (verified accept + tamper-reject); on a rare environment
   // failure surface the real error and leave the proof empty - never fabricate.
   const generateRangeProof = async () => {
-    setZkGenerating(true); setZkGenError('');
+    setZkGeneratingId('range_proof'); setZkGenError('');
     try {
       const { proof, publicSignals } = await PROVERS.range_proof.prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
@@ -1288,12 +1288,12 @@ contract VisualCovenant {
       setOraclePublicInputs('');
       setZkGenError(`In-browser range proof generation failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
     }
-    setZkGenerating(false);
+    setZkGeneratingId(null);
   };
 
   // Escrow: on a rare in-browser failure, fall back to the bundled real proof (never fabricated).
   const generateEscrowProof = async () => {
-    setZkGenerating(true); setZkGenError('');
+    setZkGeneratingId('escrow_2party'); setZkGenError('');
     try {
       const { proof, publicSignals } = await PROVERS.escrow_2party.prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
@@ -1304,12 +1304,12 @@ contract VisualCovenant {
       setOracleProof(bundledEscrowProof);
       setOraclePublicInputs('1,1000000,100,1000150,0');
     }
-    setZkGenerating(false);
+    setZkGeneratingId(null);
   };
 
   // Age: on a rare in-browser failure, fall back to the bundled real proof (never fabricated).
   const generateAgeProof = async () => {
-    setZkGenerating(true); setZkGenError('');
+    setZkGeneratingId('age_verification'); setZkGenError('');
     try {
       const { proof, publicSignals } = await PROVERS.age_verification.prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
@@ -1320,13 +1320,13 @@ contract VisualCovenant {
       setOracleProof(bundledAgeProof);
       setOraclePublicInputs('1,9200635592700100900023685259419851615264527311517926356835164316867165626887,2026,18');
     }
-    setZkGenerating(false);
+    setZkGeneratingId(null);
   };
 
   // The remaining provers have no bundled fallback: on failure they surface the real error and
   // leave the proof empty (nothing fake is ever submitted). One shared helper drives them all.
   const runZkProver = async (circuitId, label) => {
-    setZkGenerating(true); setZkGenError('');
+    setZkGeneratingId(circuitId); setZkGenError('');
     try {
       const { proof, publicSignals } = await PROVERS[circuitId].prove(fullProveBound);
       setOracleProof(JSON.stringify({ proof, publicSignals }, null, 2));
@@ -1336,7 +1336,7 @@ contract VisualCovenant {
       setOracleProof(''); setOraclePublicInputs('');
       setZkGenError(`In-browser ${label} proof failed (${e.message || e}). No proof was produced; nothing fake is ever submitted.`);
     }
-    setZkGenerating(false);
+    setZkGeneratingId(null);
   };
 
   const generateVrfDiceRoll      = () => runZkProver('vrf_dice_roll', 'VRF dice');
@@ -4111,156 +4111,176 @@ ${gameMeta.outcomeBranches}
               {gameType === 'merkle_membership' ? (
                 <button
                   onClick={generateMerkleProof}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'merkle_membership'
                       ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6]'
                       : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Merkle Proof (snarkjs)'}
+                  <Cpu size={14} className={zkGeneratingId === 'merkle_membership' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'merkle_membership' ? 'Generating ZK Proof...' : 'Generate Real Merkle Proof (snarkjs)'}
                 </button>
               ) : gameType === 'range_proof' ? (
                 <button
                   onClick={generateRangeProof}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'range_proof'
                       ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
                       : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Range Proof...' : 'Generate Range Proof (snarkjs + mimc workaround)'}
+                  <Cpu size={14} className={zkGeneratingId === 'range_proof' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'range_proof' ? 'Generating Range Proof...' : 'Generate Range Proof (snarkjs + mimc workaround)'}
                 </button>
               ) : gameType === 'escrow_2party' ? (
                 <button
                   onClick={generateEscrowProof}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'escrow_2party'
                       ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6]'
                       : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Escrow Proof (snarkjs)'}
+                  <Cpu size={14} className={zkGeneratingId === 'escrow_2party' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'escrow_2party' ? 'Generating ZK Proof...' : 'Generate Real Escrow Proof (snarkjs)'}
                 </button>
               ) : gameType === 'age_verification' ? (
                 <button
                   onClick={generateAgeProof}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'age_verification'
                       ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6]'
                       : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating ZK Proof...' : 'Generate Real Age Proof (snarkjs + MiMC)'}
+                  <Cpu size={14} className={zkGeneratingId === 'age_verification' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'age_verification' ? 'Generating ZK Proof...' : 'Generate Real Age Proof (snarkjs + MiMC)'}
                 </button>
               ) : gameType === 'vrf_dice_roll' ? (
                 <button
                   onClick={generateVrfDiceRoll}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'vrf_dice_roll'
                       ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400'
                       : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating VRF Proof...' : 'Generate Real VRF Dice Proof (snarkjs + Poseidon)'}
+                  <Cpu size={14} className={zkGeneratingId === 'vrf_dice_roll' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'vrf_dice_roll' ? 'Generating VRF Proof...' : 'Generate Real VRF Dice Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'nullifier_set' ? (
                 <button
                   onClick={generateNullifierSet}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'nullifier_set'
                       ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-orange-500/15 border border-orange-500/30 text-orange-400'
                       : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Nullifier Proof...' : 'Generate Real Nullifier Proof (snarkjs + Poseidon)'}
+                  <Cpu size={14} className={zkGeneratingId === 'nullifier_set' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'nullifier_set' ? 'Generating Nullifier Proof...' : 'Generate Real Nullifier Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'utxo_ownership' ? (
                 <button
                   onClick={generateUtxoOwnership}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'utxo_ownership'
                       ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400'
                       : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating UTXO Proof...' : 'Generate Real UTXO Note Proof (snarkjs + Poseidon)'}
+                  <Cpu size={14} className={zkGeneratingId === 'utxo_ownership' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'utxo_ownership' ? 'Generating UTXO Proof...' : 'Generate Real UTXO Note Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'hash_preimage' ? (
                 <button
                   onClick={generateHashPreimage}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'hash_preimage'
                       ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400'
                       : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Preimage Proof...' : 'Generate Real Hash Preimage Proof (snarkjs + MiMC)'}
+                  <Cpu size={14} className={zkGeneratingId === 'hash_preimage' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'hash_preimage' ? 'Generating Preimage Proof...' : 'Generate Real Hash Preimage Proof (snarkjs + MiMC)'}
                 </button>
               ) : gameType === 'timelock_absolute' ? (
                 <button
                   onClick={generateTimelockAbsolute}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'timelock_absolute'
                       ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-orange-500/15 border border-orange-500/30 text-orange-400'
                       : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(249,115,22,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Timelock Proof...' : 'Generate Real Absolute Timelock Proof (snarkjs)'}
+                  <Cpu size={14} className={zkGeneratingId === 'timelock_absolute' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'timelock_absolute' ? 'Generating Timelock Proof...' : 'Generate Real Absolute Timelock Proof (snarkjs)'}
                 </button>
               ) : gameType === 'relative_timelock' ? (
                 <button
                   onClick={generateRelativeTimelock}
-                  disabled={zkGenerating}
+                  disabled={zkGeneratingId !== null}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    zkGenerating
+                    zkGeneratingId === 'relative_timelock'
                       ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60'
+                      : zkGeneratingId !== null
+                      ? 'opacity-45 cursor-not-allowed bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
                       : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                   }`}
                 >
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Timelock Proof...' : 'Generate Real Relative Timelock Proof (snarkjs)'}
+                  <Cpu size={14} className={zkGeneratingId === 'relative_timelock' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'relative_timelock' ? 'Generating Timelock Proof...' : 'Generate Real Relative Timelock Proof (snarkjs)'}
                 </button>
               ) : gameType === 'vrf_random' ? (
-                <button onClick={generateVrfRandom} disabled={zkGenerating}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGenerating ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60' : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating VRF Proof...' : 'Generate Real VRF Proof (snarkjs + Poseidon)'}
+                <button onClick={generateVrfRandom} disabled={zkGeneratingId !== null}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'vrf_random' ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400' : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
+                  <Cpu size={14} className={zkGeneratingId === 'vrf_random' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'vrf_random' ? 'Generating VRF Proof...' : 'Generate Real VRF Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'turn_timer' ? (
-                <button onClick={generateTurnTimer} disabled={zkGenerating}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGenerating ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60' : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Timer Proof...' : 'Generate Real Turn Timer Proof (snarkjs)'}
+                <button onClick={generateTurnTimer} disabled={zkGeneratingId !== null}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'turn_timer' ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400' : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
+                  <Cpu size={14} className={zkGeneratingId === 'turn_timer' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'turn_timer' ? 'Generating Timer Proof...' : 'Generate Real Turn Timer Proof (snarkjs)'}
                 </button>
               ) : gameType === 'script_constraint' ? (
-                <button onClick={generateScriptConstraint} disabled={zkGenerating}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGenerating ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'}`}>
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Constraint Proof...' : 'Generate Real Script Constraint Proof (snarkjs + Poseidon)'}
+                <button onClick={generateScriptConstraint} disabled={zkGeneratingId !== null}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'script_constraint' ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'}`}>
+                  <Cpu size={14} className={zkGeneratingId === 'script_constraint' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'script_constraint' ? 'Generating Constraint Proof...' : 'Generate Real Script Constraint Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'pot_split_math' ? (
-                <button onClick={generatePotSplitMath} disabled={zkGenerating}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGenerating ? 'opacity-40 cursor-not-allowed bg-red-600/30 text-red-400/60' : 'bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
-                  <Cpu size={14} className={zkGenerating ? 'animate-spin' : ''} />
-                  {zkGenerating ? 'Generating Split Proof...' : 'Generate Real Pot Split Proof (snarkjs)'}
+                <button onClick={generatePotSplitMath} disabled={zkGeneratingId !== null}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'pot_split_math' ? 'opacity-40 cursor-not-allowed bg-red-600/30 text-red-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-red-500/15 border border-red-500/30 text-red-400' : 'bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
+                  <Cpu size={14} className={zkGeneratingId === 'pot_split_math' ? 'animate-spin' : ''} />
+                  {zkGeneratingId === 'pot_split_math' ? 'Generating Split Proof...' : 'Generate Real Pot Split Proof (snarkjs)'}
                 </button>
               ) : (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
@@ -4288,7 +4308,7 @@ ${gameMeta.outcomeBranches}
             <button
               onClick={handleOracleSubmit}
               disabled={oracleSubmitting || !oracleProof}
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-[opacity,background-color] duration-150 ${
                 oracleSubmitting || !oracleProof
                   ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
                   : 'bg-[#3B82F6] text-white hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] active:scale-[0.97]'

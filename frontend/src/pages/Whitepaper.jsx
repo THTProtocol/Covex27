@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, ExternalLink } from 'lucide-react';
+import Card from '@/components/ui/Card';
 
 const SECTIONS = [
   {
@@ -39,7 +40,7 @@ const SECTIONS = [
     id: 'trust', n: '4 · Trust model',
     body: [
       "Covex is explicit about what is trustless and what is not.",
-      "Custody is fully trustless: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet.",
+      "Custody is non-custodial: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet. For oracle-resolved covenants the disclosed Covex oracle co-signs the winning branch, so the payout is on-chain enforced but not trustless. For the deterministic primitives the payout is trustless.",
       "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
       "Resolution is oracle-attested: fourteen circuits (including merkle_membership, escrow_2party, age_verification, range_proof, and others) verify a real Groth16 proof fail-closed OFF-CHAIN before the oracle co-signs; every other outcome is attested by the oracle without a proof. The proof is never verified on-chain (Kaspa has no on-chain pairing verifier); only the oracle's BIP340 co-signature is checked on-chain at unlock, and each covenant page states which mode applies via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.",
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
@@ -86,25 +87,25 @@ export default function Whitepaper() {
   return (
     <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-10">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 24, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 460, height: 240, maxWidth: '90vw' }} />
-      <Link to="/" className="relative z-10 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-kaspa-green mb-8">
+      <Link to="/" className="relative z-10 inline-flex items-center gap-2 text-sm text-gray-400 light:text-slate-500 hover:text-kaspa-green mb-8">
         <ArrowLeft size={14} /> Back to Explorer
       </Link>
 
-      <div className="relative z-10 glass-panel detail-hero-enhanced rounded-2xl p-5 mb-8 flex items-center gap-3">
+      <Card hero className="relative z-10 p-5 mb-8 flex items-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">
           <FileText size={22} className="text-kaspa-green" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Covex Whitepaper</h1>
-          <p className="text-sm text-gray-400 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-17</p>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white light:text-slate-900">Covex Whitepaper</h1>
+          <p className="text-sm text-gray-400 light:text-slate-500 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.1 · 2026-06-17</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl" style={{ position: 'sticky', top: '4rem' }}>
+      <div className="z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] light:border-slate-200 light:bg-white/90 mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl" style={{ position: 'sticky', top: '4rem' }}>
         <span className="kicker w-full mb-0.5">Contents</span>
         {SECTIONS.map((s) => (
           <a key={s.id} href={`#${s.id}`} onClick={() => setActiveId(s.id)}
-            className={`transition-colors ${activeId === s.id ? 'text-kaspa-green font-semibold' : 'text-gray-400 hover:text-kaspa-green'}`}>
+            className={`transition-colors ${activeId === s.id ? 'text-kaspa-green font-semibold' : 'text-gray-400 light:text-slate-500 hover:text-kaspa-green'}`}>
             {s.n}
           </a>
         ))}
@@ -113,20 +114,20 @@ export default function Whitepaper() {
       <article className="space-y-10">
         {SECTIONS.map((s) => (
           <section key={s.id} id={s.id} className="scroll-mt-24">
-            <h2 className="relative text-xl font-bold text-white mb-3 pb-2">
+            <h2 className="relative text-xl font-bold text-white light:text-slate-900 mb-3 pb-2">
               {s.n}
               <span className="absolute bottom-0 left-0 h-[2px] w-20 rounded-full" aria-hidden="true" style={{ background: 'linear-gradient(90deg, #49EACB, transparent)' }} />
             </h2>
             <div className="space-y-3">
               {s.body.map((p, i) => (
-                <p key={i} className="text-sm text-gray-300 leading-relaxed">{p}</p>
+                <p key={i} className="text-sm text-gray-300 light:text-slate-700 leading-relaxed">{p}</p>
               ))}
             </div>
           </section>
         ))}
       </article>
 
-      <div className="mt-12 glass-panel rounded-2xl p-5 border border-white/[0.06]">
+      <Card className="mt-12 p-5">
         <span className="kicker">Sources</span>
         <div className="mt-2 flex flex-col gap-1.5 text-xs">
           {[
@@ -138,14 +139,14 @@ export default function Whitepaper() {
             ['rusty-kaspa node & SDK', 'https://github.com/kaspanet/rusty-kaspa'],
           ].map(([label, url]) => (
             <a key={url} href={url} target="_blank" rel="noreferrer"
-              className="inline-flex items-start gap-1.5 text-gray-300 hover:text-kaspa-green rounded-lg px-2 py-1 -mx-2 border border-transparent hover:border-kaspa-green/30 hover:bg-kaspa-green/[0.05] hover:-translate-y-px transition-all">
+              className="inline-flex items-start gap-1.5 text-gray-300 light:text-slate-700 hover:text-kaspa-green rounded-lg px-2 py-1 -mx-2 border border-transparent hover:border-kaspa-green/30 hover:bg-kaspa-green/[0.05] hover:-translate-y-px transition-all">
               <ExternalLink size={11} className="text-kaspa-green shrink-0 mt-0.5" /> <span className="break-words min-w-0">{label}</span>
             </a>
           ))}
         </div>
-      </div>
+      </Card>
 
-      <p className="text-center text-[11px] text-gray-600 mt-8">
+      <p className="text-center text-[11px] text-gray-600 light:text-slate-500 mt-8">
         Non-custodial. Keys stay in your wallet. Every listed covenant is a real on-chain object.
       </p>
     </div>

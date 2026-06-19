@@ -8,7 +8,7 @@ import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 /**
- * TransparencyModal — press any ZK / oracle / enforcement badge to see, in plain terms:
+ * TransparencyModal - press any ZK / oracle / enforcement badge to see, in plain terms:
  *   what it is · where verification actually happens · the source you can inspect · a live check.
  *
  * Honest by construction: every claim is grounded in a real endpoint or served artifact, and the

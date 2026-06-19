@@ -17,6 +17,31 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   GLOBAL TYPE FEATURES
+   Inter OpenType features (ss01 single-storey a, cv11 curved-tail l,
+   calt contextual alts) + tabular numerals so every numeral across
+   the app (footer status, ticker, tooltip readouts, prices) keeps
+   constant width and does not jitter. Balanced headlines prevent
+   widows on the larger explorer/hero h1 clamps.
+   ═══════════════════════════════════════════════════════════════ */
+html {
+  font-feature-settings: 'ss01', 'cv11', 'calt', 'tnum';
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body {
+  line-height: 1.55;
+}
+h1, h2 {
+  text-wrap: balance;
+  line-height: 1.1;
+}
+h3, h4 {
+  text-wrap: pretty;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    CSS VARIABLE THEME ROOTS
    ═══════════════════════════════════════════════════════════════ */
 :root {
@@ -91,14 +116,21 @@ body {
 .light p, .light span, .light div, .light li, .light label {
   color: #0f172a;
 }
+/* Three-bucket hierarchy ramp in light mode: primary ink, secondary body, tertiary meta.
+   Without this split, every muted text class collapses to one weight and the visual
+   hierarchy the JSX assumes (heading -> body -> caption) disappears on bright screens. */
 .light .text-white,
 .light .text-gray-100,
-.light .text-gray-200,
+.light .text-gray-200 {
+  color: #0f172a !important; /* primary ink */
+}
 .light .text-gray-300,
-.light .text-gray-400,
+.light .text-gray-400 {
+  color: #334155 !important; /* secondary body */
+}
 .light .text-gray-500,
 .light .text-gray-600 {
-  color: #0f172a !important;
+  color: #64748b !important; /* tertiary meta */
 }
 .light .text-gray-700 { color: #334155 !important; }
 .light .text-gray-800 { color: #1e293b !important; }
@@ -135,7 +167,7 @@ body {
 .light [class*="bg-black/"] {
   /* Translucent so the body's radial gradient reads softly through the panel
      (togetherness), teal-tinted border for brand connection, and a layered
-     shadow + inset highlight for real depth — mirroring dark's glass instead of
+     shadow + inset highlight for real depth, mirroring dark's glass instead of
      a flat opaque white. Still ~72% white, so text contrast stays excellent. */
   background: rgba(255, 255, 255, 0.72) !important;
   border: 1px solid rgba(13, 148, 136, 0.12) !important;
@@ -199,9 +231,18 @@ body {
 }
 
 /* Opacity-modified white text (text-white/60, /70 ...) is not caught by the .text-white
-   rule above; in light mode it should read as muted DARK, not invisible light. */
-.light [class*="text-white/"] {
-  color: #475569 !important;
+   rule above; in light mode it should read as muted DARK, not invisible light.
+   Split by alpha so the hierarchy survives: heavier alphas read as secondary body,
+   lighter alphas as tertiary meta (matches the gray-300/400 vs gray-500/600 ramp). */
+.light [class*="text-white/6"],
+.light [class*="text-white/7"],
+.light [class*="text-white/8"] {
+  color: #475569 !important; /* secondary body */
+}
+.light [class*="text-white/3"],
+.light [class*="text-white/4"],
+.light [class*="text-white/5"] {
+  color: #94a3b8 !important; /* tertiary meta */
 }
 
 /* Clean borders */
@@ -498,11 +539,7 @@ body {
   /* Cards and grids stack */
   .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr !important; }
   
-  /* Text scaling for mobile */
-  h1 { font-size: 1.75rem !important; line-height: 1.1 !important; }
-  h2 { font-size: 1.35rem !important; }
-  .text-sm { font-size: 0.875rem !important; }
-  .text-xs { font-size: 0.75rem !important; }
+  /* Text scaling for mobile - JSX declares per-component sm: floors; only lift truly tiny labels */
   .text-\[9px\], .text-\[8px\], .text-\[10px\] { font-size: 0.75rem !important; } /* lift tiny witness/pot labels */
   
   /* Touch friendly */
@@ -558,17 +595,6 @@ body {
 .light [class*="border-white\/20"] {
   border-color: #cbd5e1 !important;
 }
-.light .text-white,
-.light .text-white\/80,
-.light .text-white\/40,
-.light .text-white\/20,
-.light .text-gray-200,
-.light .text-gray-300,
-.light .text-gray-500 {
-  color: #0f172a !important;
-}
-.light .text-gray-400 { color: #475569 !important; }
-
 /* Game boards / grids in light */
 .light [class*="bg-\[#0a1628\]"],
 .light [class*="bg-\[#111\]"],
@@ -720,7 +746,7 @@ body {
    PRICING PAGE - Premium treatment for BOTH modes
    ═══════════════════════════════════════════════════════════════ */
 
-/* Pricing tier cards: light mode — translucent brand glass + teal hover border +
+/* Pricing tier cards: light mode, translucent brand glass + teal hover border +
    lift, mirroring the dark .pricing-tier-card treatment (depth over the gradient
    body, brand-teal connection on hover) instead of a flat opaque card. */
 .light .pricing-tier-card {
@@ -1005,10 +1031,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Section kicker: consistent small-caps section labels */
 .kicker {
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
   color: #6b7280;
 }
 
@@ -1314,7 +1340,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .light svg .fill-gray-600 { fill: #1e293b !important; }
 
 @media (max-width: 640px) {
-  /* The payout-simulator range thumbs were 15px — below the ~44px touch-target guideline. */
+  /* The payout-simulator range thumbs were 15px, below the ~44px touch-target guideline. */
   .payout-range::-webkit-slider-thumb { width: 20px !important; height: 20px !important; }
   .payout-range::-moz-range-thumb { width: 20px !important; height: 20px !important; }
   /* Vertical divider grids (e.g. the explorer hero stats) read as dead space when stacked. */
@@ -1401,6 +1427,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion: reduce) {
   .covex-toast-in, .covex-toast-out { animation: none; }
   .covex-toast-bar { animation: none; width: 0; }
+}
+
+/* Wallet drawer slide in / out. Matched easing so the leave mirrors the enter. */
+@keyframes covex-drawer-in  { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes covex-drawer-out { from { transform: translateX(0); }   to { transform: translateX(100%); } }
+@keyframes covex-scrim-in   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes covex-scrim-out  { from { opacity: 1; } to { opacity: 0; } }
+.covex-drawer-in  { animation: covex-drawer-in  0.2s cubic-bezier(0.16,1,0.3,1) both; }
+.covex-drawer-out { animation: covex-drawer-out 0.18s ease-in both; }
+.covex-scrim-in   { animation: covex-scrim-in   0.18s ease-out both; }
+.covex-scrim-out  { animation: covex-scrim-out  0.18s ease-in  both; }
+@media (prefers-reduced-motion: reduce) {
+  .covex-drawer-in, .covex-drawer-out, .covex-scrim-in, .covex-scrim-out { animation: none; }
 }
 
 /* ── Premium range sliders ──────────────────────────────────────────────────

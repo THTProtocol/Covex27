@@ -11,7 +11,7 @@ import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#49EACB]/50 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-[transform,box-shadow,background-color,border-color,color] duration-[160ms] ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49EACB] focus-visible:ring-offset-2 focus-visible:ring-offset-[#05050A] light:focus-visible:ring-offset-white disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
@@ -50,16 +50,31 @@ export const buttonVariants = cva(
 );
 
 const Button = React.forwardRef(function Button(
-  { className, variant, size, shimmer = false, type = 'button', ...props },
+  { className, variant, size, shimmer = false, asChild = false, type, children, ...props },
   ref
 ) {
+  const classes = cn(buttonVariants({ variant, size }), shimmer && 'btn-shimmer', className);
+
+  if (asChild) {
+    // Radix-style slot: clone the single child so consumers can wrap a Link/anchor
+    // without losing focus-visible, active:scale, and press semantics.
+    const child = React.Children.only(children);
+    return React.cloneElement(child, {
+      ref,
+      ...props,
+      className: cn(child.props.className, classes),
+    });
+  }
+
   return (
     <button
       ref={ref}
-      type={type}
-      className={cn(buttonVariants({ variant, size }), shimmer && 'btn-shimmer', className)}
+      type={type ?? 'button'}
+      className={classes}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
 });
 

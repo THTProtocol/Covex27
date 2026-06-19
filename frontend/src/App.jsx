@@ -169,11 +169,13 @@ function LiveStatus() {
           const git = (d.git_commit || 'dev').slice(0, 7);
           const total = (list && typeof list.total === 'number') ? list.total : (d.total_covenants || 0);
           const totalStr = total > 1000 ? `${(total / 1000).toFixed(1)}k` : total.toString();
-          // Honest mainnet signal: "live" only when the covenant gate is actually open,
-          // "wRPC configured" when only the node URL is set (not yet indexing covenants).
+          // Honest mainnet signal: "live" only when wRPC is connected AND the covenant
+          // gate (Toccata) is active (that is what mainnet_ready encodes server-side);
+          // otherwise show "mainnet node connected" when the node URL is set but the
+          // covenant gate is not yet open.
           const ready = d.mainnet_ready
             ? ' • mainnet live'
-            : (d.mainnet_wrpc_configured ? ' • mainnet wRPC configured' : '');
+            : (d.mainnet_wrpc_configured ? ' • mainnet node connected' : '');
           setInfo(`${git} • ${totalStr} covenants${ready}`);
         })
         .catch(() => { /* silent, keep footer clean */ });
@@ -432,7 +434,7 @@ export default function App() {
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center space-y-2.5">
-              <p>Non-custodial. Keys stay in your wallet.</p>
+              <p>Non-custodial custody. Your wallet signs every payment, and Covex holds no user keys. Some covenants (games, prediction markets, full-zk circuits) are oracle-cosigned; see the enforcement badge on each page.</p>
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
                 {[
                   ['How it Works', '/readme'],

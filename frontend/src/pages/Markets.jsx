@@ -4,10 +4,15 @@ import { useWallet } from '../components/WalletContext';
 import { signMarketResolve } from '../lib/ownership';
 import HonestLimits from '../components/HonestLimits';
 import TrustBadge from '../components/TrustBadge';
+import Button from '../components/ui/Button';
 import {
   ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
-  ExternalLink, Layers, Check, Loader2, Coins,
+  ExternalLink, Layers, Check, Loader2, Coins, ChevronDown,
 } from 'lucide-react';
+
+// Tabular-numeric mono utility - applied to every money/odds figure so columns
+// align across light/dark and small/large screens.
+const num = 'font-mono tabular-nums';
 
 // Conjoined-covenant parimutuel markets. Each market commits two outcome secrets (H_A/H_B);
 // bettors place YES/NO orders that the matcher pairs into mini-pools, each funded by a bundle
@@ -43,7 +48,7 @@ function OddsCard({ label, mult, accent }) {
   const profit = mult >= 1;
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${accent ? 'border-kaspa-green/50 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover:border-white/20'}`}
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${accent ? 'border-kaspa-green/50 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift hover:border-white/20'}`}
       style={accent ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 26px rgba(73,234,203,0.22), inset 0 1px 0 rgba(255,255,255,0.05)' } : undefined}
     >
       {accent && <span className="covex-aurora" aria-hidden="true" style={{ top: -28, right: -18, width: 120, height: 96 }} />}
@@ -51,8 +56,8 @@ function OddsCard({ label, mult, accent }) {
         <span className="kicker">If "{label}" wins</span>
         {accent && <Trophy size={15} className="text-kaspa-green shrink-0" />}
       </div>
-      <div className={`relative text-3xl sm:text-4xl font-black leading-none ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-xl">×</span></div>
-      <div className="relative text-[10px] text-gray-500 mt-1">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
+      <div className={`relative text-3xl sm:text-4xl font-black leading-none ${num} ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-xl">×</span></div>
+      <div className="relative text-[10px] text-gray-500 light:text-slate-500 mt-1">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
     </div>
   );
 }
@@ -68,6 +73,7 @@ function MarketDetail({ id }) {
   const [msg, setMsg] = useState(null);
   const [settleRes, setSettleRes] = useState(null);
   const [oraclePk, setOraclePk] = useState(null);
+  const [payoutsOpen, setPayoutsOpen] = useState(false);
 
   useEffect(() => { if (address && !addr) setAddr(address); }, [address]); // eslint-disable-line
 
@@ -115,7 +121,7 @@ function MarketDetail({ id }) {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-gray-400 light:text-slate-500 hover:text-kaspa-green mb-4"><ArrowLeft size={15} /> Explorer</Link>
 
-      <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] p-6 sm:p-8 mb-5" style={{ background: 'linear-gradient(135deg, rgba(73,234,203,0.08) 0%, rgba(10,10,15,0.35) 62%)' }}>
+      <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] p-6 sm:p-8 mb-6" style={{ background: 'linear-gradient(135deg, rgba(73,234,203,0.08) 0%, rgba(10,10,15,0.35) 62%)' }}>
         <span className="covex-aurora" aria-hidden="true" style={{ top: -44, right: -34, width: 260, height: 170 }} />
         <div className="relative flex items-start justify-between gap-3 mb-3">
           <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight min-w-0 break-words">{book.question}</h1>
@@ -130,62 +136,22 @@ function MarketDetail({ id }) {
         </div>
       </div>
 
-      {/* Live odds */}
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <OddsCard label={book.outcome_a} mult={odds.if_a_wins_multiplier} accent={resolved && book.revealed_outcome === 0} />
-        <OddsCard label={book.outcome_b} mult={odds.if_b_wins_multiplier} accent={resolved && book.revealed_outcome === 1} />
-      </div>
-      <div className="text-[11px] text-gray-500 mb-5">
-        Funded pools: <span className="text-white light:text-slate-900">{book.funded_pool_a_kas} KAS</span> {book.outcome_a} · <span className="text-white light:text-slate-900">{book.funded_pool_b_kas} KAS</span> {book.outcome_b}
-        {(book.open_pool_a_kas + book.open_pool_b_kas) > 0 && <> · open: {book.open_pool_a_kas}/{book.open_pool_b_kas} KAS</>}
-      </div>
-
-      {/* Pools - reward / hedge-rebate / fee split of the matched pool */}
-      <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
-        <div className="text-white light:text-slate-900 font-semibold mb-3 flex items-center gap-2"><Coins size={16} className="text-kaspa-green" /> Pools</div>
-        {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
-          <div className="text-[12px] text-gray-500">No matched liquidity yet - the reward and hedge pools fill as bets get matched.</div>
-        ) : (
-          <>
-            <div className="flex items-end justify-between gap-3 mb-1"><span className="kicker">Total matched</span><span className="text-2xl font-black leading-none text-right" style={{ background: 'linear-gradient(90deg,#49EACB,#E8AF34)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm">KAS</span></span></div>
-            <div className="flex items-center justify-between gap-3 text-[12px] mb-3"><span className="text-gray-400 light:text-slate-500">{feePct > 0 ? `House fee pool (${feePct}%)` : 'House fee'}</span><span className="text-amber-300 light:text-amber-600 shrink-0">{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => (
-                <div key={oc} className={`rounded-xl border p-3.5 text-[12px] hover-lift-premium transition-all ${resolved && book.revealed_outcome === oc ? 'border-kaspa-green/50' : 'border-white/10 bg-white/[0.02]'}`}
-                  style={resolved && book.revealed_outcome === oc ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 20px rgba(73,234,203,0.20)' } : undefined}>
-                  <div className="flex items-center justify-between gap-2 mb-1.5"><span className="kicker truncate">If "{lbl}" wins</span>{resolved && book.revealed_outcome === oc && <Trophy size={13} className="text-kaspa-green shrink-0" />}</div>
-                  <div className="flex items-center justify-between gap-2"><span className="text-kaspa-green">Reward pool</span><span className="text-white light:text-slate-900 shrink-0">{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
-                  <div className="flex items-center justify-between gap-2"><span className="text-sky-300 light:text-sky-600">Hedge / rebate pool</span><span className="text-white light:text-slate-900 shrink-0">{(r * opp).toFixed(2)} KAS</span></div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        <div className="mt-3 pt-3 border-t border-white/[0.06] text-[11px] text-gray-500 leading-relaxed break-words">
-          <span className="text-gray-300 light:text-slate-700 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret - no Covex key sits in the money path.
-          {oraclePk && <> Disclosed oracle x-only key <span className="font-mono text-gray-400">{String(oraclePk).slice(0, 12)}…</span>.</>}
-          {market.h_a && <> Commitments <span className="font-mono text-gray-400">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
-        </div>
-      </div>
-
-      {/* The honest economics warning */}
-      <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3.5 mb-6">
-        <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-[12px] text-amber-200/90 leading-relaxed">
-          <span className="font-semibold text-amber-300">You can be right and still lose.</span> The winner multiplier is
-          {' '}{(1 - f).toFixed(2)} + {(1 - f - r).toFixed(2)}×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
-          {' '}<span className="font-semibold">{breakeven.toFixed(2)}×</span> your side - the house takes {feePct}% and losers get {rebatePct}% back.
-        </p>
-      </div>
-
-      {/* Always-visible honest limits for the prediction-market covenant kind (no click).
-          Reality is hybrid: on-chain custody + payout, oracle-resolved outcome - never bare 'on-chain'. */}
-      <HonestLimits covenant={{ enforcement_reality: 'hybrid', covenant_type: 'prediction-market' }} kind="market" />
-
-      {/* Place a bet */}
+      {/* Place an order - action-first, with live OddsCards inlined side-by-side
+          so a bettor sees price + stake + back-button in one card without scrolling. */}
       {!resolved && (
-        <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
+        <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-6">
           <div className="text-white light:text-slate-900 font-semibold mb-3 flex items-center gap-2"><Layers size={16} className="text-kaspa-green" /> Place an order</div>
+
+          {/* Inlined live odds */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <OddsCard label={book.outcome_a} mult={odds.if_a_wins_multiplier} accent={resolved && book.revealed_outcome === 0} />
+            <OddsCard label={book.outcome_b} mult={odds.if_b_wins_multiplier} accent={resolved && book.revealed_outcome === 1} />
+          </div>
+          <div className={`text-[11px] text-gray-500 light:text-slate-500 mb-4 ${num}`}>
+            Funded pools: <span className="text-white light:text-slate-900">{book.funded_pool_a_kas} KAS</span> {book.outcome_a} · <span className="text-white light:text-slate-900">{book.funded_pool_b_kas} KAS</span> {book.outcome_b}
+            {(book.open_pool_a_kas + book.open_pool_b_kas) > 0 && <> · open: {book.open_pool_a_kas}/{book.open_pool_b_kas} KAS</>}
+          </div>
+
           <div className="grid grid-cols-2 gap-2 mb-3">
             {[book.outcome_a, book.outcome_b].map((label, i) => (
               <button key={i} onClick={() => setSide(i)}
@@ -196,12 +162,14 @@ function MarketDetail({ id }) {
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mb-3">
             <input value={stake} onChange={(e) => setStake(e.target.value)} type="number" min="1" step="0.5"
-              className="w-full sm:w-28 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm" placeholder="KAS" />
+              className={`w-full sm:w-28 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm ${num}`} placeholder="KAS" />
             <input value={addr} onChange={(e) => setAddr(e.target.value)}
               className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm font-mono text-[11px]" placeholder="your kaspatest:q... address" />
           </div>
           <div className="flex gap-2">
-            <button disabled={!!busy || !addr || !(parseFloat(stake) > 0)}
+            <Button
+              variant="kaspa" size="lg" shimmer
+              disabled={!!busy || !addr || !(parseFloat(stake) > 0)}
               onClick={() => act('Bet placed', async () => {
                 const o = await api('/covenant/market/order', { market_id: id, side, stake_kas: parseFloat(stake), bettor_addr: addr.trim() });
                 if (o && o.success === false) return o;
@@ -209,31 +177,109 @@ function MarketDetail({ id }) {
                 // conjoined bundle (several covenants) right now.
                 return await api('/covenant/market/match', { market_id: id });
               })}
-              className="btn-shimmer flex-1 min-w-0 truncate py-3 rounded-xl font-extrabold text-sm bg-kaspa-green text-black disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)] transition-shadow">
+              className="flex-1 min-w-0 truncate font-extrabold"
+            >
               {busy === 'Bet placed' ? <Loader2 className="animate-spin inline" size={15} /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
-            </button>
+            </Button>
             <button disabled={!!busy} title="Match any open orders into conjoined bundles"
               onClick={() => act('Matched', () => api('/covenant/market/match', { market_id: id }))}
               className="px-4 py-2.5 rounded-xl font-semibold text-sm border border-white/15 light:border-slate-200 text-gray-200 light:text-slate-700 hover:border-kaspa-green/40 disabled:opacity-40 shrink-0">
               {busy === 'Matched' ? <Loader2 className="animate-spin inline" size={15} /> : 'Match'}
             </button>
           </div>
-          <p className="text-[11px] text-gray-500 mt-2">A bet is an order on one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
+          <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">A bet is an order on one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
         </div>
       )}
 
+      {/* When resolved, still show the live odds card row + funded summary above
+          the (collapsed by default) economics, so the winning leg is visible. */}
+      {resolved && (
+        <div className="mb-6">
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <OddsCard label={book.outcome_a} mult={odds.if_a_wins_multiplier} accent={book.revealed_outcome === 0} />
+            <OddsCard label={book.outcome_b} mult={odds.if_b_wins_multiplier} accent={book.revealed_outcome === 1} />
+          </div>
+          <div className={`text-[11px] text-gray-500 light:text-slate-500 ${num}`}>
+            Funded pools: <span className="text-white light:text-slate-900">{book.funded_pool_a_kas} KAS</span> {book.outcome_a} · <span className="text-white light:text-slate-900">{book.funded_pool_b_kas} KAS</span> {book.outcome_b}
+          </div>
+        </div>
+      )}
+
+      {/* Collapsible "How payouts work": pools panel + economics warning + honest
+          limits, hidden by default so the action card stays above the fold. */}
+      <div className="rounded-2xl border border-white/[0.06] light:border-slate-200 mb-6 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setPayoutsOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left bg-white/[0.02] light:bg-slate-50 hover:bg-white/[0.04] light:hover:bg-slate-100 transition-colors"
+          aria-expanded={payoutsOpen}
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-white light:text-slate-900">
+            <Coins size={15} className="text-kaspa-green" /> How payouts work
+          </span>
+          <ChevronDown size={16} className={`text-gray-400 light:text-slate-500 transition-transform ${payoutsOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {payoutsOpen && (
+          <div className="p-5 border-t border-white/[0.06] light:border-slate-200 space-y-4">
+            {/* Pools - reward / hedge-rebate / fee split of the matched pool */}
+            <div>
+              {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
+                <div className="text-[12px] text-gray-500 light:text-slate-500">No matched liquidity yet, the reward and hedge pools fill as bets get matched.</div>
+              ) : (
+                <>
+                  <div className="flex items-end justify-between gap-3 mb-1"><span className="kicker">Total matched</span><span className={`text-2xl font-black leading-none text-right text-white light:text-slate-900 ${num}`}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm text-gray-400 light:text-slate-500">KAS</span></span></div>
+                  <div className="flex items-center justify-between gap-3 text-[12px] mb-3"><span className="text-gray-400 light:text-slate-500">{feePct > 0 ? `House fee pool (${feePct}%)` : 'House fee'}</span><span className={`text-amber-300 light:text-amber-600 shrink-0 ${num}`}>{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => {
+                      const isWinner = resolved && book.revealed_outcome === oc;
+                      return (
+                        <div key={oc} className={`rounded-xl border p-3.5 text-[12px] transition-all ${isWinner ? 'border-kaspa-green/50 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift'}`}
+                          style={isWinner ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 20px rgba(73,234,203,0.20)' } : undefined}>
+                          <div className="flex items-center justify-between gap-2 mb-1.5"><span className="kicker truncate">If "{lbl}" wins</span>{isWinner && <Trophy size={13} className="text-kaspa-green shrink-0" />}</div>
+                          <div className="flex items-center justify-between gap-2"><span className="text-kaspa-green">Reward pool</span><span className={`text-white light:text-slate-900 shrink-0 ${num}`}>{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
+                          <div className="flex items-center justify-between gap-2"><span className="text-sky-300 light:text-sky-600">Hedge / rebate pool</span><span className={`text-white light:text-slate-900 shrink-0 ${num}`}>{(r * opp).toFixed(2)} KAS</span></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              <div className="mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200 text-[11px] text-gray-500 light:text-slate-500 leading-relaxed break-words">
+                <span className="text-gray-300 light:text-slate-700 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret, no Covex key sits in the money path.
+                {oraclePk && <> Disclosed oracle x-only key <span className="font-mono text-gray-400 light:text-slate-500">{String(oraclePk).slice(0, 12)}…</span>.</>}
+                {market.h_a && <> Commitments <span className="font-mono text-gray-400 light:text-slate-500">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
+              </div>
+            </div>
+
+            {/* The honest economics warning */}
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3.5">
+              <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-[12px] text-amber-200/90 light:text-amber-800 leading-relaxed">
+                <span className="font-semibold text-amber-300 light:text-amber-700">You can be right and still lose.</span> The winner multiplier is
+                {' '}<span className={num}>{(1 - f).toFixed(2)}</span> + <span className={num}>{(1 - f - r).toFixed(2)}</span>×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
+                {' '}<span className={`font-semibold ${num}`}>{breakeven.toFixed(2)}×</span> your side, the house takes {feePct}% and losers get {rebatePct}% back.
+              </p>
+            </div>
+
+            {/* Always-visible honest limits for the prediction-market covenant kind (no click).
+                Reality is hybrid: on-chain custody + payout, oracle-resolved outcome, never bare 'on-chain'. */}
+            <HonestLimits covenant={{ enforcement_reality: 'hybrid', covenant_type: 'prediction-market' }} kind="market" />
+          </div>
+        )}
+      </div>
+
       {/* Order book */}
-      <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
+      <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-6">
         <div className="text-white light:text-slate-900 font-semibold mb-3">Order book</div>
         {(!book.orders || book.orders.length === 0) ? (
-          <div className="text-sm text-gray-500">No orders yet - be the first.</div>
+          <div className="text-sm text-gray-500 light:text-slate-500">No orders yet, be the first.</div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="divide-y divide-white/[0.05] light:divide-slate-200">
             {book.orders.map((o) => (
-              <div key={o.order_id} className="flex items-center gap-2 text-[12px] py-1.5 px-3 rounded-lg bg-white/[0.02] light:bg-slate-50 border border-white/[0.05] light:border-slate-200">
+              <div key={o.order_id} className="flex items-center gap-2 text-[12px] py-2.5">
                 <span className={`truncate min-w-0 flex-1 ${o.side === 0 ? 'text-kaspa-green' : 'text-sky-300 light:text-sky-600'}`}>{o.side === 0 ? book.outcome_a : book.outcome_b}</span>
-                <span className="text-white light:text-slate-900 shrink-0">{o.stake_kas} KAS</span>
-                <span className={`inline-flex items-center gap-1 shrink-0 ${o.status === 'funded' ? 'text-emerald-300 light:text-emerald-600' : 'text-gray-500'}`}>
+                <span className={`text-white light:text-slate-900 shrink-0 ${num}`}>{o.stake_kas} KAS</span>
+                <span className={`inline-flex items-center gap-1 shrink-0 ${o.status === 'funded' ? 'text-emerald-300 light:text-emerald-600' : 'text-gray-500 light:text-slate-500'}`}>
                   {o.status === 'funded' ? <><Check size={11} /> funded</> : 'open'}
                 </span>
               </div>
@@ -244,7 +290,7 @@ function MarketDetail({ id }) {
 
       {/* Resolve + pay out: one click reveals the winning secret AND settles every funded leg */}
       {!resolved && (
-        <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-5">
+        <div className="glass-panel rounded-2xl border border-white/[0.06] p-5 mb-6">
           <div className="text-white light:text-slate-900 font-semibold mb-1">Resolve &amp; pay out</div>
           <p className="text-[11px] text-gray-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
           <p className="text-[11px] text-amber-200/80 light:text-amber-700 mb-3 flex items-start gap-1.5">
@@ -276,10 +322,10 @@ function MarketDetail({ id }) {
       )}
 
       {resolved && (
-        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-5 mb-5">
-          <div className="flex items-center gap-2 text-emerald-300 font-semibold mb-1.5"><Trophy size={16} /> Resolved - {wonLabel} won</div>
-          <p className="text-[12px] text-gray-300 leading-relaxed mb-3">
-            The winning secret is revealed. Every funded leg can be claimed on-chain with the secret + the winner's key -
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-5 mb-6">
+          <div className="flex items-center gap-2 text-emerald-300 light:text-emerald-700 font-semibold mb-1.5"><Trophy size={16} /> Resolved, {wonLabel} won</div>
+          <p className="text-[12px] text-gray-300 light:text-slate-600 leading-relaxed mb-3">
+            The winning secret is revealed. Every funded leg can be claimed on-chain with the secret + the winner's key,
             through any Kaspa node, no Covex required. Winners take the pool (minus {feePct}% fee); losers reclaim {rebatePct}%.
           </p>
           <button disabled={!!busy} onClick={doSettle}
@@ -287,14 +333,14 @@ function MarketDetail({ id }) {
             {busy === 'Settle' ? <Loader2 className="animate-spin inline" size={15} /> : 'Settle / claim all legs'}
           </button>
           {settleRes && settleRes.success && (
-            <div className="mt-3 text-[12px] text-gray-300">
-              Settled <span className="text-white font-semibold">{settleRes.legs_settled}/{settleRes.legs_total}</span> legs on-chain.
+            <div className="mt-3 text-[12px] text-gray-300 light:text-slate-700">
+              Settled <span className={`text-white light:text-slate-900 font-semibold ${num}`}>{settleRes.legs_settled}/{settleRes.legs_total}</span> legs on-chain.
               <div className="mt-1.5 space-y-1">
                 {(settleRes.settled || []).map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 font-mono text-[11px]">
-                    <span className={s.ok ? 'text-emerald-300' : 'text-red-300'}>{s.ok ? '✓' : '×'}</span>
-                    <span className="text-gray-400 w-20">{s.role}</span>
-                    {s.spend_tx ? <span className="text-gray-500 truncate">{String(s.spend_tx).slice(0, 20)}…</span> : <span className="text-red-300/70 truncate">{String(s.error || '')}</span>}
+                  <div key={i} className={`flex items-center gap-2 text-[11px] ${num}`}>
+                    <span className={s.ok ? 'text-emerald-300 light:text-emerald-600' : 'text-red-300 light:text-red-600'}>{s.ok ? '✓' : '×'}</span>
+                    <span className="text-gray-400 light:text-slate-500 w-20">{s.role}</span>
+                    {s.spend_tx ? <span className="text-gray-500 light:text-slate-500 truncate">{String(s.spend_tx).slice(0, 20)}…</span> : <span className="text-red-300/70 light:text-red-600/80 truncate">{String(s.error || '')}</span>}
                   </div>
                 ))}
               </div>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ZK_CIRCUIT_TYPES } from '../components/CovexTerminal';
 import { CircuitGlyph } from '../lib/circuitIcon';
+import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 
 // Dynamic icon fallback
 const getIcon = (id) => {
@@ -39,7 +40,7 @@ export default function PremiumBuilder() {
 
   const paidTier = auth.tier || 'FREE';
   const hasValidToken = !!auth.token && paidTier !== 'FREE';
-  const tierAccent = { BUILDER: '#3B82F6', PRO: '#E8AF34', MAX: '#A855F7' }[paidTier] || '#6B7280';
+  const tierAccent = TIER_PALETTE_COLOR[paidTier] || TIER_PALETTE_COLOR.FREE;
   const tierBadge = { BUILDER: 'BUILDER', PRO: 'PRO', MAX: 'MAX' }[paidTier] || 'PAID';
 
   // Fresh payment from Pricing

@@ -99,27 +99,42 @@ function PhaseHeader({ eyebrow, title, action }) {
 }
 
 // The bold entry choice: Guided (Covex helps you build) vs Pro (you write the covenant
-// yourself in the terminal, no auto-fill). Hoisted to module scope.
-function ModeCard({ active, onClick, Icon, accent, tag, title, desc }) {
+// yourself in the terminal, no auto-fill). Hoisted to module scope. Guided is the
+// recommended primary, marked with a kaspa Badge chip and a brighter aurora wash; Pro is
+// a calmer secondary with reduced surface emphasis.
+function ModeCard({ active, onClick, Icon, accent, tag, title, desc, recommended = false, auroraBright = false, secondary = false }) {
+  const bgIdle = secondary
+    ? 'bg-white/[0.01] light:bg-white/60'
+    : 'bg-white/[0.015] light:bg-white/70';
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`hover-lift group relative text-left rounded-2xl border p-5 transition-all overflow-hidden ${
+      className={`hover-lift group relative text-left rounded-2xl border p-5 sm:p-6 transition-all overflow-hidden ${
         active
           ? 'border-white/0 bg-white/[0.04] light:bg-white shadow-[0_20px_60px_-28px_var(--glow)]'
-          : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white/70 hover:border-white/25 light:hover:border-slate-300'
+          : `border-white/10 light:border-slate-200 ${bgIdle} hover:border-white/25 light:hover:border-slate-300`
       }`}
       style={{ '--glow': `${accent}66`, ...(active ? { boxShadow: `0 0 0 1.5px ${accent}, 0 20px 60px -28px ${accent}88` } : {}) }}
     >
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: active ? 1 : 0.5 }} />
-      <div className="flex items-center gap-3">
+      {auroraBright && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-12 -right-10 w-56 h-40 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(closest-side, ${accent}40, transparent 70%)`, filter: 'blur(8px)', opacity: active ? 0.9 : 0.55 }}
+        />
+      )}
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: active ? 1 : (secondary ? 0.3 : 0.5) }} />
+      <div className="relative flex items-center gap-3">
         <span className="p-2.5 rounded-xl shrink-0 border" style={{ background: `${accent}1f`, borderColor: `${accent}4d` }}>
           <Icon size={22} style={{ color: accent }} />
         </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-extrabold text-white light:text-slate-900">{title}</span>
+            {recommended && (
+              <Badge variant="builder" dot className="text-[10px] py-0">Recommended</Badge>
+            )}
             <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border" style={{ color: accent, borderColor: `${accent}66` }}>{tag}</span>
           </div>
           <p className="text-[12.5px] text-gray-400 light:text-slate-500 leading-snug mt-1">{desc}</p>
@@ -220,29 +235,32 @@ export default function Sandbox() {
 
       {/* HEADER */}
       <div className="relative z-10">
-        <div className="flex flex-wrap items-center gap-3 mb-2">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
           <Terminal size={22} className="text-kaspa-green" />
-          <h1 className="text-2xl font-bold text-white light:text-slate-900">Covenant Sandbox</h1>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white light:text-slate-900">Covenant Sandbox</h1>
           <Badge variant="gold" dot>FREE TO EXPLORE</Badge>
         </div>
-        <p className="text-sm text-gray-300 light:text-slate-600 max-w-3xl mb-5">
+        <p className="text-base sm:text-lg text-gray-300 light:text-slate-600 max-w-3xl mb-7">
           Build a real Kaspa covenant. Choose your path: let Covex guide you, or write it yourself in the pro
           terminal. Exploring and simulating is free and needs no wallet; deploy and the advanced editor unlock with a
           tier. Nothing here overstates what the chain enforces.
         </p>
       </div>
 
-      {/* MODE SELECTOR: the bold entry choice. Guided build vs the raw pro terminal. */}
-      <div className="relative z-10 grid sm:grid-cols-2 gap-3 mb-7">
+      {/* MODE SELECTOR: Guided is the recommended primary; Pro stays a calmer secondary. */}
+      <div className="relative z-10 grid sm:grid-cols-[6fr_4fr] gap-4 sm:gap-5 mb-10">
         <ModeCard
           active={mode === 'guided'} onClick={() => setMode('guided')} Icon={Wand2} accent="#49EACB" tag="For everyone"
           title="Guided build"
           desc="Describe what you want or pick a template. Covex helps you build it step by step: create, then logic, then a website."
+          recommended
+          auroraBright
         />
         <ModeCard
-          active={mode === 'pro'} onClick={() => setMode('pro')} Icon={TerminalSquare} accent="#E8AF34" tag="For experienced builders"
+          active={mode === 'pro'} onClick={() => setMode('pro')} Icon={TerminalSquare} accent="#94a3b8" tag="For experienced builders"
           title="Pro terminal"
           desc="Write the covenant yourself and compile it. No templates, no assistant, no auto-fill. Just you and the terminal."
+          secondary
         />
       </div>
 
@@ -339,10 +357,10 @@ export default function Sandbox() {
             <div className="space-y-5 min-w-0">
               <PhaseHeader eyebrow="Step 3" title="Build the page" action="Build it, deploy non-custodially, then design its public page." />
               {/* Honest Studio explainer. No fake reward, no fake deployed id, no decoder pre-deploy. */}
-              <Card hover accent="#E8AF34" className="p-5">
+              <Card hover accent="#49EACB" className="p-5">
                 <div className="flex items-start gap-4">
-                  <span className="p-2.5 rounded-xl bg-[#E8AF34]/15 border border-[#E8AF34]/30 shrink-0">
-                    <Palette size={20} className="text-[#E8AF34]" />
+                  <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 shrink-0">
+                    <Palette size={20} className="text-[#49EACB]" />
                   </span>
                   <div className="min-w-0">
                     <h3 className="text-sm font-bold text-white light:text-slate-900">Design your covenant's public website</h3>
@@ -371,7 +389,7 @@ export default function Sandbox() {
 
       {/* PERSISTENT BOTTOM ACTION BAR. Hidden on phase 'ui' where CovexTerminal owns the deploy CTA. */}
       {phase !== 'ui' && (
-        <div className="static sm:sticky sm:bottom-4 z-20 mt-6 flex items-center justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 px-4 py-3">
+        <div className="static sm:sticky sm:bottom-4 z-20 mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 px-4 py-3">
           <div className="min-w-0 flex items-center gap-2">
             {phase !== 'create' && (
               <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">
@@ -380,7 +398,7 @@ export default function Sandbox() {
             )}
             {circuit && (
               <span className="text-sm text-gray-300 light:text-slate-600 truncate">
-                <span className="text-gray-500">Selected:</span>{' '}
+                <span className="hidden sm:inline text-gray-500">Selected: </span>
                 <span className="font-semibold text-white light:text-slate-900">{name}</span>
               </span>
             )}
@@ -388,11 +406,15 @@ export default function Sandbox() {
           <Button
             variant="kaspa"
             shimmer
-            className="shrink-0"
+            className="shrink-0 w-full sm:w-auto"
             disabled={!circuit && phase !== 'create'}
             onClick={goForward}
           >
-            {phase === 'create' ? 'Continue: choose how it resolves' : 'Continue: build the page'} <ArrowRight size={15} />
+            <span className="sm:hidden">Continue</span>
+            <span className="hidden sm:inline">
+              {phase === 'create' ? 'Continue: choose how it resolves' : 'Continue: build the page'}
+            </span>
+            <ArrowRight size={15} />
           </Button>
         </div>
       )}

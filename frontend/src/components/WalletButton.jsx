@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { explorerAddressUrl } from '../lib/explorer';
 import { Link } from 'react-router-dom';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, walletPrimaryAction } from './WalletContext';
-import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download } from 'lucide-react';
+import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2 } from 'lucide-react';
+import { toast } from './ToastContext';
 
 // Wallet icon tile with graceful fallback to a letter avatar if the CDN logo fails.
 function WalletLogo({ wallet }) {
@@ -30,12 +31,33 @@ function WalletLogo({ wallet }) {
 export default function WalletButton() {
   const { address, balance, balanceLoading, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect, refreshBalance } = useWallet();
   const [open, setOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [panel, setPanel] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showAllWallets, setShowAllWallets] = useState(false);
   const [, bumpDetect] = useState(0); // forces re-detect re-render for late-injecting extensions
   const panelRef = useRef(null);
   const netLabel = NETWORK_LABELS[getCurrentNetwork()] || 'MAINNET';
+
+  // Drawer dismiss: play the slide-out, then unmount on animationend. prefers-reduced-motion
+  // skips the keyframes (covex-drawer-out becomes a no-op) so we still need the safety timeout.
+  const closeDrawer = () => {
+    if (leaving) return;
+    setLeaving(true);
+  };
+  useEffect(() => {
+    if (!leaving) return undefined;
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      setOpen(false);
+      setLeaving(false);
+      return undefined;
+    }
+    // Belt-and-suspenders timeout in case animationend is missed (tab backgrounded, etc).
+    const t = setTimeout(() => { setOpen(false); setLeaving(false); }, 260);
+    return () => clearTimeout(t);
+  }, [leaving]);
 
   useEffect(() => {
     const onDoc = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) setPanel(false); };
@@ -45,7 +67,7 @@ export default function WalletButton() {
 
   // Close the connect drawer the moment a wallet actually connects (covers the deep-link return
   // case: the in-app browser injects a provider, auto-connect fires, address appears).
-  useEffect(() => { if (address && open) setOpen(false); }, [address, open]);
+  useEffect(() => { if (address && open && !leaving) closeDrawer(); }, [address, open, leaving]);
 
   // Some wallet extensions inject their provider a beat after page load. While the drawer is
   // open, re-check detection a few times so a freshly-installed wallet surfaces as "Installed"
@@ -68,7 +90,7 @@ export default function WalletButton() {
       await connect(wallet.id);
       // Close only if we actually connected (provider path). Deep-link / install paths keep the
       // drawer open so the surfaced message is visible and the user can retry after returning.
-      if (action.kind === 'connect') setOpen(false);
+      if (action.kind === 'connect') closeDrawer();
     } catch (_) {
       // connect surfaces the reason via the context `error` state shown in the drawer; keep the
       // drawer open on failure so the user sees what went wrong instead of a silent dead-end.
@@ -76,9 +98,16 @@ export default function WalletButton() {
   };
 
   const copyAddr = () => {
-    navigator.clipboard?.writeText(address).then(() => {
+    const p = navigator.clipboard?.writeText(address);
+    if (!p || !p.then) {
+      toast.error('Copy failed, select and copy manually');
+      return;
+    }
+    p.then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      toast.error('Copy failed, select and copy manually');
     });
   };
 
@@ -90,7 +119,7 @@ export default function WalletButton() {
       <div className="relative" ref={panelRef}>
         <button
           onClick={() => setPanel((p) => !p)}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium transition-all text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)] whitespace-nowrap"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#111111] light:bg-white border border-[#49EACB]/30 hover:border-[#49EACB]/70 text-[#49EACB] rounded-xl font-medium transition-[border-color,box-shadow] duration-150 ease-out text-sm hover:shadow-[0_0_18px_rgba(73,234,203,0.2)] whitespace-nowrap"
           title="Account"
         >
           {meta?.logo
@@ -170,7 +199,7 @@ export default function WalletButton() {
   return (
     <>
       <button
-        onClick={() => { clearError(); setOpen(true); }}
+        onClick={() => { clearError(); setLeaving(false); setOpen(true); }}
         className="flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium transition-all hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
       >
         <Wallet size={16} className="text-[#49EACB] shrink-0" />
@@ -178,14 +207,20 @@ export default function WalletButton() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm" onClick={() => setOpen(false)}>
+        <div className={`fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm ${leaving ? 'covex-scrim-out' : 'covex-scrim-in'}`} onClick={closeDrawer}>
           <div
-            className="absolute top-0 right-0 h-[100dvh] max-h-[100dvh] w-full sm:w-[420px] bg-[#0a0a0a] light:bg-white border-l border-[#1f1f1f] light:border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right-5 duration-200"
+            className={`absolute top-0 right-0 h-[100dvh] max-h-[100dvh] w-full sm:w-[420px] bg-[#0a0a0a] light:bg-white border-l border-[#1f1f1f] light:border-slate-200 shadow-2xl flex flex-col ${leaving ? 'covex-drawer-out' : 'covex-drawer-in'}`}
             onClick={(e) => e.stopPropagation()}
+            onAnimationEnd={(e) => {
+              if (leaving && (e.animationName === 'covex-drawer-out' || e.animationName === 'covex-scrim-out')) {
+                setOpen(false);
+                setLeaving(false);
+              }
+            }}
           >
             <div className="flex justify-between items-center px-4 sm:px-6 py-4 sm:py-5 border-b border-[#1f1f1f] light:border-slate-200 shrink-0">
               <h2 className="text-lg sm:text-xl font-semibold text-white light:text-slate-900">Connect Wallet</h2>
-              <button onClick={() => setOpen(false)} className="p-1.5 -mr-1.5 rounded-lg text-gray-200 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 transition-colors" aria-label="Close">
+              <button onClick={closeDrawer} className="p-1.5 -mr-1.5 rounded-lg text-gray-200 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 transition-colors" aria-label="Close">
                 <X size={22} />
               </button>
             </div>
@@ -205,11 +240,14 @@ export default function WalletButton() {
 
               {connecting && (
                 <div className="mb-4 p-3 rounded-lg bg-[#49EACB]/[0.06] border border-[#49EACB]/20 text-center">
-                  <p className="text-sm text-[#49EACB] animate-pulse">Connecting to wallet...</p>
+                  <p className="text-sm text-[#49EACB] flex items-center justify-center gap-2">
+                    <Loader2 size={14} className="animate-spin shrink-0" />
+                    <span>Approve the connection in your wallet popup</span>
+                  </p>
                 </div>
               )}
 
-              {/* Installed wallets — one-click connect, surfaced first and visually prominent */}
+              {/* Installed wallets: one-click connect, surfaced first and visually prominent */}
               {detected.length > 0 && (
                 <div className="mb-5">
                   <div className="text-[10px] uppercase tracking-widest text-[#49EACB]/80 font-bold flex items-center gap-1.5 mb-2">
@@ -238,7 +276,7 @@ export default function WalletButton() {
                 </div>
               )}
 
-              {/* Other wallets — install links, recommended first, collapsed for calm */}
+              {/* Other wallets: install links, recommended first, collapsed for calm */}
               <div>
                 <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">
                   {detected.length ? 'Other wallets' : 'Choose a wallet'}

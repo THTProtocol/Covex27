@@ -4,10 +4,10 @@
 // circuit or overclaim ZK / trustlessness. Pure, deterministic, zero-dependency.
 
 const REALITY_EXPLAIN = {
-  'on-chain': 'The Kaspa chain enforces this directly. Fully trustless: your own wallet redeems with the published script, and Covex is not in the path.',
+  'on-chain': 'Kaspa consensus enforces the spend directly. Your own wallet redeems by satisfying the published script, and no Covex key sits in the payout path. Trustless for custody and payout; metadata and labels are still computed by Covex.',
   'full-zk': 'A real Groth16 proof is required and verified fail-closed by the disclosed Covex oracle, which gates the release. The proof cannot be faked; the oracle is the trusted verifier (Kaspa has no on-chain pairing verifier yet).',
   hybrid: 'A zero-knowledge property proof plus an oracle attestation resolve it.',
-  'oracle-attested': 'Resolved by the named Covex oracle\'s signed attestation of the outcome, then paid out on-chain. The oracle is the one trusted component, and it is always disclosed (these are frozen for value on mainnet until trustless).',
+  'oracle-attested': 'Resolved by the named Covex oracle\'s signed attestation of the outcome, then paid out on-chain. The oracle is the one trusted component, and it is always disclosed (these stay disabled for real value on mainnet until they can be made trustless).',
   decorative: 'A metadata marker. It carries information but does not itself gate a spend.',
 };
 

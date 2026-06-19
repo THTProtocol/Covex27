@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { toast } from '../components/ToastContext';
+import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 
 // Copyable address pill - same honest clipboard pattern as EnforcedDeploy's CopyBtn:
 // only reports "copied" on a real successful write, surfaces a toast on failure.
@@ -53,7 +54,7 @@ const TIERS = [
     ],
     cta: 'Explore Covenants',
     ctaAction: 'explore',
-    accent: '#6B7280',
+    accent: TIER_PALETTE_COLOR.FREE,
     variant: 'outline',
   },
   {
@@ -70,7 +71,7 @@ const TIERS = [
     missing: [],
     cta: 'Pay 100 KAS',
     ctaAction: 'pay',
-    accent: '#3B82F6',
+    accent: TIER_PALETTE_COLOR.BUILDER,
     variant: 'builder',
   },
   {
@@ -86,7 +87,7 @@ const TIERS = [
     missing: [],
     cta: 'Pay 500 KAS',
     ctaAction: 'pay',
-    accent: '#E8AF34',
+    accent: TIER_PALETTE_COLOR.PRO,
     variant: 'pro',
   },
   {
@@ -102,7 +103,7 @@ const TIERS = [
     missing: [],
     cta: 'Pay 1,000 KAS',
     ctaAction: 'pay',
-    accent: '#A855F7',
+    accent: TIER_PALETTE_COLOR.MAX,
     variant: 'max',
   },
 ];
@@ -214,7 +215,7 @@ const Pricing = () => {
     const needWallet = p.needWallet && !address;
     return (
       <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 520, height: 300, maxWidth: '90vw' }} />
+        <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 'min(520px, 90vw)', height: 300 }} />
         <button onClick={cancelPayment} className="flex items-center gap-2 text-gray-300 hover:text-[#49EACB] transition-colors mb-8 text-sm font-medium mx-auto w-fit">
           <ArrowLeft size={16} /> Cancel
         </button>
@@ -252,7 +253,7 @@ const Pricing = () => {
               </div>
               <div className="flex justify-between items-baseline gap-3">
                 <span className="text-sm text-gray-300 light:text-slate-500">Send exactly</span>
-                <span className="font-mono text-lg font-black text-white light:text-slate-900">{p.price.toLocaleString()} KAS</span>
+                <span className="text-lg font-black text-white tabular-nums light:text-slate-900">{p.price.toLocaleString()} KAS</span>
               </div>
             </div>
 
@@ -275,10 +276,10 @@ const Pricing = () => {
                 did. Framed on a white rounded chip; level H for damage resilience. */}
             <div className="flex flex-col items-center text-center">
               <div className="text-xs text-gray-400 light:text-slate-500 mb-4">Or scan to pay exactly {p.price.toLocaleString()} KAS from the wallet you will use to deploy</div>
-              <div className="rounded-2xl bg-white p-4 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] ring-1 ring-black/5">
+              <div className="rounded-2xl bg-white p-3 sm:p-4 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] ring-1 ring-black/5">
                 <QRCodeSVG
                   value={`${TREASURY}?amount=${p.price}&message=COVEX-${p.id}`}
-                  size={180}
+                  size={typeof window !== 'undefined' && window.innerWidth < 640 ? 160 : 180}
                   level="H"
                   bgColor="#ffffff"
                   fgColor="#000000"
@@ -313,13 +314,15 @@ const Pricing = () => {
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 light:text-slate-400">
                 <ShieldCheck size={13} className="text-[#49EACB]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
               </p>
-              <button
+              <Button
                 onClick={cancelPayment}
                 disabled={paymentStatus?.type === 'sending'}
-                className="w-full py-2.5 text-sm font-medium text-gray-400 hover:text-white transition disabled:opacity-40 light:text-slate-500 light:hover:text-slate-900"
+                variant="ghost"
+                size="sm"
+                className="w-full"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -368,11 +371,11 @@ const Pricing = () => {
                 {/* Price as the bold hero of each card */}
                 <div className="mt-3 flex items-baseline gap-1.5">
                   {isFree ? (
-                    <span className="text-4xl font-black tracking-tight text-white leading-none">Free</span>
+                    <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white tabular-nums">Free</span>
                   ) : (
                     <>
-                      <span className="text-4xl font-black tracking-tight text-white leading-none">{tier.price.toLocaleString()}</span>
-                      <span className="text-base font-bold" style={{ color: tier.accent }}>KAS</span>
+                      <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white tabular-nums">{tier.price.toLocaleString()}</span>
+                      <span className="text-sm font-semibold" style={{ color: tier.accent }}>KAS</span>
                       <span className="text-xs text-gray-500 ml-1">one-time</span>
                     </>
                   )}

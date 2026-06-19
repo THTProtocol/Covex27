@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import TrustBadge from '../components/TrustBadge';
+import TrustBadge, { trustInfo } from '../components/TrustBadge';
 import { motion } from 'framer-motion';
 import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
@@ -32,7 +32,7 @@ const GAME_REGISTRY = {
 };
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock, Link2, Radio, ShieldQuestion } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import { LifeBuoy } from 'lucide-react';
@@ -42,6 +42,7 @@ import OnChainLockSection from '../components/OnChainLockSection';
 import ZkClaimPanel from '../components/ZkClaimPanel';
 import HonestLimits from '../components/HonestLimits';
 import { MarketView } from './Markets';
+import { Button, buttonVariants } from '../components/ui/Button';
 
 const DEPLOYER = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
 const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s.slice(-4)}` : s);
@@ -600,15 +601,14 @@ export default function CovenantInteractive() {
     // must NOT read as if the result were verified on-chain. Custody and payout ARE script-locked
     // on-chain and verifiable on the explorer; only the outcome is oracle-attested, not on-chain.
     // Pure consensus-enforced primitives keep the fully-on-chain-verifiable wording.
-    const ctype = String(cov.covenant_type || '').toLowerCase();
-    const gtype = String(cov.game_type || (cov.custom_ui_config && cov.custom_ui_config.game_type) || '').toLowerCase();
-    const hayKind = (ctype + ' ' + gtype + ' ' + String(cov.category || '') + ' ' + String(cov.name || '') + ' ' + String(cov.description || '') + ' ' + String(cov.full_logic_summary || '')).toLowerCase();
-    const isOracleResolved =
-      cov.enforcement_reality === 'hybrid' ||
-      String(cov.enforcement_reality || '').includes('oracle') ||
-      /binary_oracle_select|oracle_escrow|oracle_enforced|prediction.?market/.test(ctype) ||
-      !!gtype ||
-      /\bpoker\b|blackjack|\bchess\b|checkers|draughts|connect.?4|connect.?four|reversi|othello|tic.?tac.?toe|rock.?paper|\brps\b|prediction.?market|\bmarket\b|\boracle\b/.test(hayKind);
+    //
+    // Gate strictly on the server-derived enforcement_reality string the backend stamps
+    // onto every covenant. The label is the source of truth (on-chain / hybrid / oracle /
+    // full-zk / decorative); keyword sniffing risked mis-labeling a primitive whose name
+    // happened to contain "oracle". Anything that is NOT 'on-chain' falls back to the
+    // oracle-attested copy, which is the honest worst case for unknown enforcement.
+    const reality = String(cov.enforcement_reality || '').toLowerCase();
+    const isOracleResolved = reality !== '' && reality !== 'on-chain';
     // Custody/payout is always on-chain; only the trust BAR and the default copy differ.
     const honestDescDefault = isOracleResolved
       ? 'Custody and every payout are script-locked on-chain on the Kaspa BlockDAG and verifiable on the explorer. The outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
@@ -880,6 +880,12 @@ export default function CovenantInteractive() {
         <ArrowLeft size={16} /> Return to Registry
       </Link>
 
+      {/* Enforcement reality leads the page so the honesty label is the first paint,
+          before the title block. One full-width TrustBadge, sized md with description. */}
+      <div className="mb-6">
+        <TrustBadge covenant={covenant} size="md" showDesc />
+      </div>
+
       {/* Creator-designed page (Puck blocks, platform components only): a full-width
           hero section that LEADS the page, so the covenant reads like a real website.
           Live on-chain figures flow in via metadata.live and blocks resolve {{tokens}}
@@ -892,28 +898,10 @@ export default function CovenantInteractive() {
         </div>
       )}
 
-      {/* The single, persistent creator entry point to the builder. It shows for the
-          creator whether or not a page has been published yet (so the capability never
-          disappears after the first publish), and is the one green "Build / edit this
-          site" CTA that routes to Page Studio. The copy adapts to whether a page exists.
-          Visitors with no published page see a subtle honest note instead. */}
-      {isCreator ? (
-        <Link
-          to={`/covenant/${encodeURIComponent(id)}/studio`}
-          className="mb-10 flex items-center gap-3 rounded-2xl border border-kaspa-green/40 bg-kaspa-green/[0.06] hover:bg-kaspa-green/[0.12] hover:border-kaspa-green/60 light:border-emerald-500/50 light:bg-emerald-500/[0.07] px-4 sm:px-5 py-4 transition-all group"
-        >
-          <span className="shrink-0 w-9 h-9 rounded-xl bg-kaspa-green/15 flex items-center justify-center"><Layers size={17} className="text-kaspa-green" /></span>
-          <span className="min-w-0">
-            <span className="block text-sm font-bold text-white light:text-slate-900">Build / edit this site</span>
-            <span className="block text-[12px] text-gray-400 light:text-slate-600">
-              {covenant?.custom_ui_config?.puck_data?.content?.length > 0
-                ? 'Open Page Studio to keep editing this covenant public website. Visitors see your design, and stake or interact buttons run the same non-custodial flow.'
-                : 'Open Page Studio to build a custom website for this covenant. Visitors will see it, and stake or interact buttons run the same non-custodial flow.'}
-            </span>
-          </span>
-          <ArrowRight size={16} className="ml-auto shrink-0 text-kaspa-green group-hover:translate-x-0.5 transition-transform" />
-        </Link>
-      ) : !(covenant?.custom_ui_config?.puck_data?.content?.length > 0) ? (
+      {/* The full-width "Build / edit this site" banner was removed: the single creator
+          entry point now lives next to the title row (Button variant='kaspa'). Visitors with
+          no published page see a subtle honest note inviting them to interact directly. */}
+      {!isCreator && !(covenant?.custom_ui_config?.puck_data?.content?.length > 0) ? (
         <div className="mb-10 flex items-center gap-2.5 rounded-2xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-4 py-3 text-[12px] text-gray-400 light:text-slate-500">
           <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-400" />
           <span>The creator can design a full interactive page for this covenant in Covex Page Studio. Until then, you can interact with it directly below.</span>
@@ -925,55 +913,59 @@ export default function CovenantInteractive() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass-panel detail-hero-enhanced p-8 sm:p-10 rounded-3xl flex flex-col"
+          className="glass-panel detail-hero-enhanced p-8 sm:p-10 rounded-3xl flex flex-col light:bg-white light:border light:border-slate-200 light:shadow-sm"
         >
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
             <div className="relative shrink-0">
               <div className="covex-aurora" aria-hidden="true" style={{ top: -28, left: -28, width: 132, height: 116 }} />
-              <div className="relative z-10 p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green">
+              <div className="relative z-10 p-3 bg-kaspa-green/10 rounded-2xl border border-kaspa-green/30 text-kaspa-green light:bg-emerald-500/10 light:border-emerald-500/30 light:text-emerald-700">
                 <Cpu size={32} />
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight break-words">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-[1.1] break-words light:text-slate-900">
                 {covenant.name || TRUNC(covenant.tx_id)}
               </h1>
               <div className="flex flex-wrap items-center gap-3 mt-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest ${({ MAX: 'tier-glow-max', PRO: 'tier-glow-pro', BUILDER: 'tier-glow-builder' }[(covenant.tier || covenant.verified_tier || '').toUpperCase()]) || ''}`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold bg-kaspa-gold/10 text-kaspa-gold border border-kaspa-gold/20 uppercase tracking-widest light:bg-amber-500/15 light:text-amber-700 light:border-amber-500/40 ${({ MAX: 'tier-glow-max', PRO: 'tier-glow-pro', BUILDER: 'tier-glow-builder' }[(covenant.tier || covenant.verified_tier || '').toUpperCase()]) || ''}`}>
                   {covenant.tier || covenant.verified_tier || 'FREE'} TIER
                 </span>
-                <span className="text-sm text-gray-300 font-mono">{covenant.category || 'General'}</span>
+                <span className="text-sm text-gray-300 font-mono light:text-slate-600">{covenant.category || 'General'}</span>
               </div>
             </div>
 
-            {/* Share + embed - available to everyone, so any covenant can be shared or
-                dropped into an external website (people interact via Covex). Grouped so the
-                buttons stay together, push right on desktop, and wrap cleanly on mobile. */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 sm:ml-auto w-full sm:w-auto">
-              <button
-                onClick={() => setRecoveryOpen(true)}
-                title="Recover this covenant without Covex (self-custody)"
-                className="px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
-              >
-                <LifeBuoy size={16} className="text-kaspa-green" /> Recover
-              </button>
-              <button
-                onClick={() => setShareOpen(true)}
-                className="px-4 sm:px-5 py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 hover:border-kaspa-green/40 text-white font-bold text-sm flex items-center gap-2 active:scale-[0.985] transition-all"
-              >
-                <Share2 size={16} className="text-kaspa-green" /> Share
-              </button>
-
-              {/* Single creator CTA next to the title: the one green Build / edit this
-                  site button that opens Page Studio. */}
+            {/* Header actions, re-ordered: Build / edit primary (kaspa shimmer), Share
+                secondary, Recover demoted to icon-only ghost. Two-row layout on mobile
+                (the action group takes full width and wraps under the title block;
+                auto-width on desktop so the row balances). */}
+            <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Single creator CTA next to the title: the one Build / edit this site
+                  button that opens Page Studio. Primary action takes the kaspa variant
+                  with the shimmer sweep so it reads as the page's main verb. */}
               {isCreator && (
                 <Link
                   to={`/covenant/${encodeURIComponent(id)}/studio`}
-                  className="px-5 sm:px-6 py-2.5 rounded-2xl bg-kaspa-green/90 hover:bg-kaspa-green text-black font-bold text-sm flex items-center gap-2 shadow-lg active:scale-[0.985] transition-all whitespace-nowrap"
+                  className={`${buttonVariants({ variant: 'kaspa' })} btn-shimmer whitespace-nowrap`}
                 >
                   <Layers size={16} /> Build / edit this site
                 </Link>
               )}
+              <Button
+                variant="glass"
+                onClick={() => setShareOpen(true)}
+                className="whitespace-nowrap"
+              >
+                <Share2 size={16} className="text-kaspa-green light:text-emerald-700" /> Share
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setRecoveryOpen(true)}
+                title="Recover this covenant without Covex (self-custody)"
+                aria-label="Recover this covenant"
+              >
+                <LifeBuoy size={16} className="text-kaspa-green light:text-emerald-700" />
+              </Button>
             </div>
           </div>
 
@@ -1045,7 +1037,24 @@ export default function CovenantInteractive() {
                       <Clock size={11} />Pending
                     </span>
                   )}
-                  <TrustBadge covenant={covenant} size="md" />
+                  {/* Non-pressable enforcement-reality cue. The full pressable TrustBadge
+                      lives once at the top of the page (with description), so this title
+                      row chip is a passive visual echo, not a second modal trigger. */}
+                  {(() => {
+                    const t = trustInfo(covenant);
+                    const chip = {
+                      onchain:    'bg-emerald-500/10 border-emerald-500/25 text-emerald-300 light:text-emerald-600',
+                      hybrid:     'bg-sky-500/10 border-sky-500/25 text-sky-300 light:text-sky-600',
+                      oracle:     'bg-amber-500/10 border-amber-500/25 text-amber-300 light:text-amber-600',
+                      decorative: 'bg-white/[0.05] border-white/15 text-gray-300 light:text-slate-500',
+                    }[t.kind];
+                    const Dot = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, decorative: ShieldQuestion }[t.kind];
+                    return (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${chip}`} title={t.desc}>
+                        <Dot size={11} />{t.label}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               {/* All four stages flex to fit at any width: no horizontal slider. Stages are
@@ -1182,11 +1191,11 @@ export default function CovenantInteractive() {
               prediction-market path renders its own HonestLimits in MarketDetail. */}
           {covenant && <HonestLimits covenant={covenant} kind={gameType ? 'game' : isMarketLeg ? 'market' : undefined} />}
 
-          <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6">
-            <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest">
+          <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6 light:bg-slate-50 light:border-slate-200">
+            <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest light:text-slate-600">
               {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Covenant Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
             </h3>
-            <p className="text-gray-300 leading-relaxed">
+            <p className="text-gray-300 leading-relaxed light:text-slate-700">
               {isChess 
                 ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. The experience is fully non custodial. The game runs on a server authoritative engine and the outcome is attested by the disclosed Covex oracle using a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
                 : (verified
@@ -1197,25 +1206,25 @@ export default function CovenantInteractive() {
 
           {/* Always-visible full transparency: receiving addresses + logic (public on default) */}
           <div className="mb-6">
-            <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest">Receiving Addresses (all flows public)</div>
+            <div className="text-xs font-mono text-gray-300 mb-2 uppercase tracking-widest light:text-slate-600">Receiving Addresses (all flows public)</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <div className="text-gray-400">Covenant / Pot Address</div>
-                <div className="font-mono text-white break-all mt-0.5">{covenant.address || covenant.receiving_addresses || 'On-chain covenant address'}</div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+                <div className="text-gray-400 light:text-slate-500">Covenant / Pot Address</div>
+                <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.address || covenant.receiving_addresses || 'On-chain covenant address'}</div>
               </div>
               {covenant.fee_recipient ? (
-                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                  <div className="text-gray-400">Fee Recipient</div>
-                  <div className="font-mono text-white break-all mt-0.5">{covenant.fee_recipient}</div>
+                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+                  <div className="text-gray-400 light:text-slate-500">Fee Recipient</div>
+                  <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.fee_recipient}</div>
                 </div>
               ) : null}
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <div className="text-gray-400">Creator Address (fee cut / sustain)</div>
-                <div className="font-mono text-white break-all mt-0.5">{covenant.creator_addr || 'See covenant deployer'}</div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+                <div className="text-gray-400 light:text-slate-500">Creator Address (fee cut / sustain)</div>
+                <div className="font-mono text-white break-all mt-0.5 light:text-slate-900">{covenant.creator_addr || 'See covenant deployer'}</div>
               </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <div className="text-gray-400">TX / Script</div>
-                <div className="font-mono text-white break-all mt-0.5 text-[10px]">{covenant.tx_id} / {covenant.script_hash || 'on-chain'}</div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
+                <div className="text-gray-400 light:text-slate-500">TX / Script</div>
+                <div className="font-mono text-white break-all mt-0.5 text-[10px] light:text-slate-900">{covenant.tx_id} / {covenant.script_hash || 'on-chain'}</div>
               </div>
             </div>
           </div>
@@ -1229,8 +1238,8 @@ export default function CovenantInteractive() {
                   <strong>Stake:</strong> Any equal amount (min/max per config). Second player matches or auto-refund in 5 min.<br/>
                   <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends game.<br/>
                   <strong>Payout:</strong> Winner takes full pot minus 2% fee (fee to creator address to sustain future games).<br/>
-                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions); the final outcome is attested by the disclosed Covex oracle with a BIP340 Schnorr signature. No zero-knowledge proof of moves.<br/>
-                  <strong>Non-custodial:</strong> All stakes and payouts direct to covenant addresses on Kaspa. Fully on-chain and verifiable.
+                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions); the final outcome is oracle co-signed (BIP340 Schnorr) by the disclosed Covex oracle, not trustless. No zero-knowledge proof of moves.<br/>
+                  <strong>Non-custodial:</strong> All stakes and payouts go directly to covenant addresses on Kaspa. Custody and payout are script-locked on-chain and verifiable on the explorer; the outcome is oracle co-signed, not trustless.
                 </>
               ) : (
                 covenant.full_logic_summary || covenant.description || 'All parameters, fees, resolution method, circuits, oracles, and payout rules are fully disclosed on-chain and in the published view.'
@@ -1265,15 +1274,15 @@ export default function CovenantInteractive() {
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass-panel rounded-3xl overflow-hidden flex flex-col"
+          className="glass-panel rounded-3xl overflow-hidden flex flex-col light:bg-white light:border light:border-slate-200 light:shadow-sm"
         >
-          <div className="flex items-center border-b border-white/5">
+          <div className="flex items-center border-b border-white/5 light:border-slate-200">
             <button
               onClick={() => setActiveTab('interact')}
               className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                 activeTab === 'interact'
-                  ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                  : 'text-gray-300 hover:text-gray-300'
+                  ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green light:text-emerald-700 light:bg-emerald-500/[0.06] light:border-emerald-600'
+                  : 'text-gray-300 hover:text-gray-300 light:text-slate-500 light:hover:text-slate-700'
               }`}
             >
               <Terminal size={14} />
@@ -1285,8 +1294,8 @@ export default function CovenantInteractive() {
                 onClick={() => setActiveTab('fix')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'fix'
-                    ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green'
-                    : 'text-gray-300 hover:text-gray-300'
+                    ? 'text-kaspa-green bg-kaspa-green/[0.04] border-b-2 border-kaspa-green light:text-emerald-700 light:bg-emerald-500/[0.06] light:border-emerald-600'
+                    : 'text-gray-300 hover:text-gray-300 light:text-slate-500 light:hover:text-slate-700'
                 }`}
               >
                 <Palette size={14} />
@@ -1299,8 +1308,8 @@ export default function CovenantInteractive() {
                 onClick={() => setActiveTab('terminal')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'terminal'
-                    ? 'text-kaspa-green bg-kaspa-green/[0.06] border-b-2 border-kaspa-green'
-                    : 'text-gray-300 hover:text-gray-300'
+                    ? 'text-kaspa-green bg-kaspa-green/[0.06] border-b-2 border-kaspa-green light:text-emerald-700 light:bg-emerald-500/[0.06] light:border-emerald-600'
+                    : 'text-gray-300 hover:text-gray-300 light:text-slate-500 light:hover:text-slate-700'
                 }`}
               >
                 <Code2 size={14} />
@@ -1368,20 +1377,23 @@ export default function CovenantInteractive() {
 
                     {/* Single stake input at bottom, straightforward */}
                     <div className="w-full max-w-md mt-6">
-                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
-                      <input 
-                        type="number" 
-                        value={chessStake} 
-                        onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))} 
-                        className="w-full text-center text-5xl font-mono p-4 rounded-3xl bg-black/60 border-2 border-emerald-500/40 focus:border-emerald-500 mb-3" 
+                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest light:text-slate-500">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
+                      <input
+                        type="number"
+                        value={chessStake}
+                        onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full text-center text-5xl font-mono p-4 rounded-2xl bg-black/60 border-2 border-kaspa-green/40 focus:border-kaspa-green mb-3 light:bg-white light:border-emerald-500/40 light:text-slate-900"
                       />
-                      <button 
-                        onClick={() => setShowChessArena(true)} 
-                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xl rounded-3xl active:scale-[0.985] shadow-lg"
+                      <Button
+                        variant="kaspa"
+                        shimmer
+                        size="xl"
+                        onClick={() => setShowChessArena(true)}
+                        className="w-full rounded-2xl font-extrabold uppercase tracking-wide"
                       >
-                        STAKE AND PLAY
-                      </button>
-                      <div className="text-center text-xs text-gray-500 mt-2">Launches the full interactive pro arena with real timers, moves, resign and oracle.</div>
+                        Stake and play
+                      </Button>
+                      <div className="text-center text-xs text-gray-500 mt-2 light:text-slate-500">Launches the full interactive pro arena with real timers, moves, resign, oracle co-signed (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1390,27 +1402,30 @@ export default function CovenantInteractive() {
                 {isOtherGame && (
                   <div className="flex flex-col items-center justify-center py-6">
                     <div className="text-center mb-5">
-                      <div className="text-emerald-400 text-sm tracking-[3px] font-bold">WINNER TAKES POT • {GAME_REGISTRY[gameType].label.toUpperCase()} ARENA</div>
-                      <div className="text-3xl font-semibold text-white mt-1">{GAME_REGISTRY[gameType].label}</div>
-                      <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed">
-                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine, oracle-attested result, winner takes the pot minus the creator fee. Non-custodial, direct to the covenant on Kaspa.
+                      <div className="text-kaspa-green text-sm tracking-[3px] font-bold light:text-emerald-700">WINNER TAKES POT, {GAME_REGISTRY[gameType].label.toUpperCase()} ARENA</div>
+                      <div className="text-3xl font-semibold text-white mt-1 light:text-slate-900">{GAME_REGISTRY[gameType].label}</div>
+                      <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed light:text-slate-600">
+                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine, oracle co-signed result (not trustless), winner takes the pot minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
                       </p>
                     </div>
                     <div className="w-full max-w-md">
-                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
+                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest light:text-slate-500">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
                       <input
                         type="number"
                         value={chessStake}
                         onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full text-center text-5xl font-mono p-4 rounded-3xl bg-black/60 border-2 border-emerald-500/40 focus:border-emerald-500 mb-3"
+                        className="w-full text-center text-5xl font-mono p-4 rounded-2xl bg-black/60 border-2 border-kaspa-green/40 focus:border-kaspa-green mb-3 light:bg-white light:border-emerald-500/40 light:text-slate-900"
                       />
-                      <button
+                      <Button
+                        variant="kaspa"
+                        shimmer
+                        size="xl"
                         onClick={() => setShowGameArena(true)}
-                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xl rounded-3xl active:scale-[0.985] shadow-lg"
+                        className="w-full rounded-2xl font-extrabold uppercase tracking-wide"
                       >
-                        STAKE AND PLAY
-                      </button>
-                      <div className="text-center text-xs text-gray-500 mt-2">Launches the full interactive arena with real moves and oracle resolution.</div>
+                        Stake and play
+                      </Button>
+                      <div className="text-center text-xs text-gray-500 mt-2 light:text-slate-500">Launches the full interactive arena with real moves, oracle co-signed resolution (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1682,7 +1697,7 @@ export default function CovenantInteractive() {
                     type="number"
                     value={chessStake}
                     onChange={e => setChessStake(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                    className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-4 bg-transparent border border-white/10 rounded-3xl focus:outline-none focus:border-kaspa-green/40 mb-1"
+                    className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-4 bg-transparent border border-white/10 rounded-2xl focus:outline-none focus:border-kaspa-green/40 mb-1"
                   />
                   <div className="text-center text-xs text-gray-500 mb-6">per player for this chess arena</div>
 

@@ -9,6 +9,19 @@ import TransparencyModal from './TransparencyModal';
  * (oracle-attested), or it is a metadata-only marker (decorative). We never imply
  * enforcement that is not there - a plain self-pay covenant reads "Metadata only",
  * not "On-chain script".
+ *
+ * CANONICAL ENFORCEMENT-REALITY PALETTE (must stay in sync with ui/Badge.jsx,
+ * see that file's header for rationale). Honesty palette is load-bearing brand,
+ * and these two primitives are the source of truth all other surfaces import
+ * from (puckConfig's EnforcementBadge, Explorer cards, Sandbox panels).
+ *   on-chain   = emerald  (Kaspa consensus enforces - strongest signal)
+ *   hybrid     = sky      (script + oracle input)
+ *   oracle     = amber    (Covex oracle signature, not chain-gated)
+ *   full-zk    = violet   (real proof, oracle-verified fail-closed)
+ *   decorative = slate    (metadata only, no enforcement)
+ * The classes below already match this palette - TrustBadge has always used
+ * amber for oracle, so no visual change is required after the Badge.jsx
+ * alignment, only this pin to prevent future drift.
  */
 // A single binary_oracle_select covenant is one LEG of a parimutuel market, not a
 // bare on-chain primitive: its custody is script-locked but WHICH side wins is set by

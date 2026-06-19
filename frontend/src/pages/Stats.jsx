@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, Database, Coins, BadgeCheck, ArrowLeft } from 'lucide-react';
+import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 
 // Public platform statistics, all computed live from the covenants, payments,
 // and events tables (GET /api/stats). Real on-chain data only; the activity
@@ -17,7 +18,10 @@ const EVENT_META = {
 };
 const eventMeta = (t) => EVENT_META[t] || { label: t.replace(/_/g, ' '), color: '#6B7280' };
 
-const TIER_COLOR = { FREE: '#6B7280', EXPLORER: '#6B7280', BUILDER: '#49EACB', PRO: '#F59E0B', MAX: '#EF4444' };
+// Tier identity sourced from the shared palette so BUILDER/PRO/MAX match Pricing,
+// Explorer, and PremiumBuilder exactly. EXPLORER is a server-side legacy alias
+// for FREE, kept here so historic event payloads still color correctly.
+const TIER_COLOR = { ...TIER_PALETTE_COLOR, EXPLORER: TIER_PALETTE_COLOR.FREE };
 
 const fmtKas = (n) => {
   const v = Number(n) || 0;

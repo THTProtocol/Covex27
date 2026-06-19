@@ -575,6 +575,7 @@ dependencies = [
  "r2d2_sqlite",
  "rand 0.8.6",
  "regex",
+ "reqwest",
  "rusqlite",
  "secp256k1",
  "serde",

@@ -51,6 +51,11 @@ pub type BResult<T> = Result<T, String>;
 /// Minimum tx fee (0.0001 KAS), same as signer.rs.
 const TX_FEE: u64 = 10_000;
 
+/// Change outputs at or below this are folded into the fee instead of being emitted: a
+/// change smaller than the fee it would later cost to spend is not worth a UTXO (and could
+/// trip the node's dust relay rule). Aligned to the flat TX_FEE.
+const DUST_THRESHOLD: u64 = TX_FEE;
+
 /// The covenant kinds this builder can lock funds into. Each maps to a redeem
 /// script that is genuinely enforced by Kaspa consensus (no oracle, no silverc).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -871,6 +876,91 @@ pub fn build_channel_signature_script(
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("channel signature script: {e}"))
+}
+
+/// Greedy coin selection for a funding tx. Sorts the deployer's UTXOs descending by
+/// amount and accumulates them until the running sum reaches `target_sompi`, returning
+/// the MINIMAL set that covers the target (largest-first, so the fewest inputs / least
+/// mass). This removes the old single-largest-UTXO cap: a deploy/market is now bounded
+/// only by the deployer's TOTAL balance, not their biggest coin.
+///
+/// `amount_of` reads the sompi amount from each entry (so the selector stays decoupled
+/// from the concrete RPC UTXO struct and is trivially unit-testable). The returned
+/// references are in selection (descending-amount) order; every selected UTXO belongs to
+/// the same deployer address, so the same key signs every resulting input.
+///
+/// Errors ONLY when the SUM OF ALL UTXOs is still short of the target (genuinely
+/// insufficient balance) - never because a single coin was too small.
+pub fn select_utxos_for<T>(
+    utxos: &[T],
+    target_sompi: u64,
+    amount_of: impl Fn(&T) -> u64,
+) -> Result<Vec<&T>, String> {
+    let mut sorted: Vec<&T> = utxos.iter().collect();
+    sorted.sort_by(|a, b| amount_of(b).cmp(&amount_of(a)));
+    let mut selected: Vec<&T> = Vec::new();
+    let mut sum: u64 = 0;
+    for u in sorted {
+        if sum >= target_sompi {
+            break;
+        }
+        sum = sum.saturating_add(amount_of(u));
+        selected.push(u);
+    }
+    if sum < target_sompi {
+        return Err(format!(
+            "insufficient total balance: have {sum} sompi, need {target_sompi}. Fund the address with more KAS."
+        ));
+    }
+    Ok(selected)
+}
+
+/// Fee for a funding tx, scaled by input + output count. A multi-input tx has higher
+/// storage mass than the old 1-input tx, so the flat `TX_FEE` could be rejected by the
+/// node (fail-safe). Scaling per input keeps it comfortably above the consensus minimum;
+/// erring slightly HIGH is safe (it just becomes a smaller change output), too LOW fails
+/// at the node. The output count is folded in so a many-leg market bundle also pays its
+/// way. Bounded below by `TX_FEE` so the single-input case is unchanged.
+fn scaled_fee(num_inputs: usize, num_outputs: usize) -> u64 {
+    let units = num_inputs.max(1).saturating_add(num_outputs.saturating_sub(1));
+    TX_FEE.saturating_mul(units.max(1) as u64)
+}
+
+/// Fee-aware coin selection for a funding tx. The fee depends on the input count, but the
+/// input count depends on the fee (a larger fee may pull in one more UTXO), so this
+/// converges the two: select against `locked + fee`, recompute the fee from the chosen
+/// input count, and repeat until the selection stops growing (at most a few rounds, since
+/// the fee only ever increases and each round can only add inputs).
+///
+/// `locked_sompi` is the total value being LOCKED (single stake, or the sum of all market
+/// legs). `non_change_outputs` is the number of locked outputs (1 for a plain deploy, N
+/// for a market bundle); the change output is added on top inside the fee scaling. Returns
+/// the selected UTXOs (descending-amount order) and the final fee. Errors only when the
+/// total balance cannot cover `locked + fee`.
+pub fn select_utxos_with_fee<T>(
+    utxos: &[T],
+    locked_sompi: u64,
+    non_change_outputs: usize,
+    amount_of: impl Fn(&T) -> u64,
+) -> Result<(Vec<&T>, u64), String> {
+    // Start from the floor fee (1 input, locked outputs + change).
+    let mut fee = scaled_fee(1, non_change_outputs + 1);
+    let mut selected = select_utxos_for(utxos, locked_sompi.saturating_add(fee), &amount_of)?;
+    loop {
+        let next_fee = scaled_fee(selected.len(), non_change_outputs + 1);
+        if next_fee <= fee {
+            break;
+        }
+        fee = next_fee;
+        let next = select_utxos_for(utxos, locked_sompi.saturating_add(fee), &amount_of)?;
+        if next.len() == selected.len() {
+            // Fee grew but no extra input was needed: selection is stable.
+            selected = next;
+            break;
+        }
+        selected = next;
+    }
+    Ok((selected, fee))
 }
 
 /// blake2b-256 of a preimage, matching the hash OpBlake2b computes on-chain. Used
@@ -1772,34 +1862,41 @@ pub async fn p2sh_deploy_handler(
         return err("no UTXOs for deployer address".into());
     }
 
-    // Single largest UTXO funds the lock (keeps mass small).
-    let best = utxos.iter().max_by_key(|u| u.utxo_entry.amount).unwrap();
-    let total_input = best.utxo_entry.amount;
-    let total_cost = stake_sompi + TX_FEE;
-    if total_input < total_cost {
-        return err(format!(
-            "insufficient balance: have {} sompi, need {} sompi",
-            total_input, total_cost
-        ));
+    // Select as many of the deployer's UTXOs as the stake + (mass-scaled) fee needs,
+    // largest-first. The lockable amount is now bounded only by the deployer's TOTAL
+    // balance, not their single biggest coin. All selected UTXOs are the deployer's own
+    // P2PK, so the one deployer key signs every input (sign_with_multiple_v2 below).
+    let (selected, fee) = match select_utxos_with_fee(&utxos, stake_sompi, 1, |u| u.utxo_entry.amount) {
+        Ok(v) => v,
+        Err(e) => return err(e),
+    };
+    let total_input: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+    let deployer_script = selected[0].utxo_entry.script_public_key.clone();
+    let mut change = total_input - stake_sompi - fee;
+    // Fold a dust-sized change back into the fee rather than emitting an unspendable output.
+    if change > 0 && change < DUST_THRESHOLD {
+        change = 0;
     }
-    let deployer_script = best.utxo_entry.script_public_key.clone();
-    let change = total_input - total_cost;
 
-    // Output 0 = stake LOCKED to the P2SH script. Output 1 = change to deployer.
+    // Output 0 = stake LOCKED to the P2SH script. Output 1 (optional) = change to deployer.
     let mut outputs = vec![TransactionOutput { value: stake_sompi, script_public_key: p2sh_spk }];
     if change > 0 {
         outputs.push(TransactionOutput { value: change, script_public_key: deployer_script });
     }
 
-    let inputs = vec![TransactionInput {
-        previous_outpoint: TransactionOutpoint {
-            transaction_id: best.outpoint.transaction_id,
-            index: best.outpoint.index,
-        },
-        signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
-    }];
+    // One input per selected UTXO; each is the deployer's P2PK so sig_op_count = 1.
+    let inputs: Vec<TransactionInput> = selected
+        .iter()
+        .map(|u| TransactionInput {
+            previous_outpoint: TransactionOutpoint {
+                transaction_id: u.outpoint.transaction_id,
+                index: u.outpoint.index,
+            },
+            signature_script: vec![],
+            sequence: 0,
+            sig_op_count: 1,
+        })
+        .collect();
 
     // A non-empty payload is REQUIRED: the TN12 node hashes the payload into each
     // input's sighash, so an empty payload yields a "false stack entry" signature
@@ -1828,13 +1925,19 @@ pub async fn p2sh_deploy_handler(
         0,
         deploy_payload,
     );
-    let entries = vec![UtxoEntry {
-        amount: best.utxo_entry.amount,
-        script_public_key: best.utxo_entry.script_public_key.clone(),
-        block_daa_score: best.utxo_entry.block_daa_score,
-        is_coinbase: best.utxo_entry.is_coinbase,
-    }];
+    // One entry per input, in the SAME order as `inputs` (both derive from `selected`).
+    let entries: Vec<UtxoEntry> = selected
+        .iter()
+        .map(|u| UtxoEntry {
+            amount: u.utxo_entry.amount,
+            script_public_key: u.utxo_entry.script_public_key.clone(),
+            block_daa_score: u.utxo_entry.block_daa_score,
+            is_coinbase: u.utxo_entry.is_coinbase,
+        })
+        .collect();
     let signable = SignableTransaction::with_entries(unsigned, entries);
+    // The same deployer key signs EVERY input (all selected UTXOs are the deployer's own
+    // P2PK); sign_with_multiple_v2 signs each input whose script matches the supplied key.
     let signed = match sign_with_multiple_v2(signable, &[seckey]).fully_signed() {
         Ok(tx) => tx,
         Err(e) => return err(format!("signing failed: {e:?}")),
@@ -3809,7 +3912,9 @@ pub struct PrepareDeployRequest {
 struct PendingDeploy {
     network: String,
     unsigned_tx: Transaction,
-    entry: UtxoEntry,
+    /// One entry per input, in input order. Multi-UTXO funding stores all of them so the
+    /// browser can sign each input's sighash and submit assembles every signature_script.
+    entries: Vec<UtxoEntry>,
     redeem: Vec<u8>,
     redeem_kind: String,
     p2sh_address: String,
@@ -3870,24 +3975,33 @@ pub async fn prepare_deploy_handler(
     if utxos.is_empty() {
         return err("no UTXOs for the deployer address (fund it first)".into());
     }
-    let best = utxos.iter().max_by_key(|u| u.utxo_entry.amount).unwrap();
-    let total_input = best.utxo_entry.amount;
-    let total_cost = stake_sompi + TX_FEE;
-    if total_input < total_cost {
-        return err(format!("insufficient balance in the largest UTXO: have {total_input} sompi, need {total_cost}. Consolidate UTXOs or lower the stake."));
+    // Select as many of the deployer's UTXOs as the stake + mass-scaled fee needs, largest
+    // first. The lockable amount is bounded only by the deployer's TOTAL balance. Every
+    // selected UTXO is the deployer's own P2PK, so the browser signs each input with the
+    // same key (one signature per input).
+    let (selected, fee) = match select_utxos_with_fee(&utxos, stake_sompi, 1, |u| u.utxo_entry.amount) {
+        Ok(v) => v,
+        Err(e) => return err(e),
+    };
+    let total_input: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+    let deployer_script = selected[0].utxo_entry.script_public_key.clone();
+    let mut change = total_input - stake_sompi - fee;
+    if change > 0 && change < DUST_THRESHOLD {
+        change = 0;
     }
-    let deployer_script = best.utxo_entry.script_public_key.clone();
-    let change = total_input - total_cost;
     let mut outputs = vec![TransactionOutput { value: stake_sompi, script_public_key: p2sh_spk }];
     if change > 0 {
         outputs.push(TransactionOutput { value: change, script_public_key: deployer_script });
     }
-    let inputs = vec![TransactionInput {
-        previous_outpoint: TransactionOutpoint { transaction_id: best.outpoint.transaction_id, index: best.outpoint.index },
-        signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
-    }];
+    let inputs: Vec<TransactionInput> = selected
+        .iter()
+        .map(|u| TransactionInput {
+            previous_outpoint: TransactionOutpoint { transaction_id: u.outpoint.transaction_id, index: u.outpoint.index },
+            signature_script: vec![],
+            sequence: 0,
+            sig_op_count: 1,
+        })
+        .collect();
     // Same aa20 + blake2b(redeem) + full-redeem payload as the custodial deploy (required
     // for the sighash, crawler-discoverable, and trustless on-chain recovery).
     let mut deploy_payload = vec![0xaa, 0x20];
@@ -3896,16 +4010,38 @@ pub async fn prepare_deploy_handler(
     let unsigned = Transaction::new_non_finalized(
         0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, deploy_payload,
     );
-    let entry = UtxoEntry {
-        amount: best.utxo_entry.amount,
-        script_public_key: best.utxo_entry.script_public_key.clone(),
-        block_daa_score: best.utxo_entry.block_daa_score,
-        is_coinbase: best.utxo_entry.is_coinbase,
-    };
-    let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+    // One entry per input, in input order.
+    let entries: Vec<UtxoEntry> = selected
+        .iter()
+        .map(|u| UtxoEntry {
+            amount: u.utxo_entry.amount,
+            script_public_key: u.utxo_entry.script_public_key.clone(),
+            block_daa_score: u.utxo_entry.block_daa_score,
+            is_coinbase: u.utxo_entry.is_coinbase,
+        })
+        .collect();
+    let signable = SignableTransaction::with_entries(unsigned.clone(), entries.clone());
+    // Compute the sighash for EVERY input. Each input commits the SAME outputs (SIG_HASH_ALL)
+    // but its own outpoint, so the per-input sighashes differ; the browser signs each.
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
-    let sighash_hex = hex::encode(sig_hash.as_bytes());
+    let mut inputs_json = Vec::with_capacity(selected.len());
+    for (i, u) in selected.iter().enumerate() {
+        let sh = calc_schnorr_signature_hash(&signable.as_verifiable(), i, SIG_HASH_ALL, &mut reused);
+        inputs_json.push(serde_json::json!({
+            "index": i,
+            "outpoint_tx": u.outpoint.transaction_id.to_string(),
+            "outpoint_index": u.outpoint.index,
+            "sighash": hex::encode(sh.as_bytes()),
+            "amount_sompi": u.utxo_entry.amount,
+        }));
+    }
+    // Back-compat: a single-input deploy still exposes a top-level `sighash` (== inputs[0]).
+    let sighash_hex = inputs_json
+        .first()
+        .and_then(|v| v.get("sighash"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     let session_id = uuid::Uuid::new_v4().to_string();
     let now_ts = chrono::Utc::now().timestamp();
@@ -3913,7 +4049,7 @@ pub async fn prepare_deploy_handler(
         let mut s = deploy_sessions().lock().unwrap();
         s.retain(|_, v| v.created_at > now_ts - 600);
         s.insert(session_id.clone(), PendingDeploy {
-            network: req.network.clone(), unsigned_tx: unsigned, entry, redeem: redeem.clone(),
+            network: req.network.clone(), unsigned_tx: unsigned, entries, redeem: redeem.clone(),
             redeem_kind: redeem_kind.clone(), p2sh_address: p2sh_addr.clone(),
             deployer_addr: req.deployer_addr.clone(), stake_sompi, created_at: now_ts,
         });
@@ -3922,6 +4058,7 @@ pub async fn prepare_deploy_handler(
         "success": true,
         "session_id": session_id,
         "sighash": sighash_hex,
+        "inputs": inputs_json,
         "sign_scheme": "bip340-schnorr-secp256k1",
         "signer_xonly": hex::encode(owner_xonly),
         "p2sh_address": p2sh_addr,
@@ -3929,15 +4066,28 @@ pub async fn prepare_deploy_handler(
         "redeem_kind": redeem_kind,
         "stake_sompi": stake_sompi,
         "locked_kas": stake_sompi as f64 / 100_000_000.0,
-        "note": "Sign this sighash (BIP340 Schnorr) with your wallet key, then POST {session_id, signature_hex} to /covenant/p2sh/submit-deploy. Your key never leaves your device."
+        "note": "Sign EACH input's sighash in `inputs` (BIP340 Schnorr) with your wallet key, then POST {session_id, signatures:[{index, signature_hex}]} to /covenant/p2sh/submit-deploy. A single-input deploy may still POST {session_id, signature_hex}. Your key never leaves your device."
     }))
+}
+
+#[derive(Deserialize)]
+pub struct SubmitDeploySignature {
+    /// Input index this signature is for (matches the `inputs[].index` from prepare-deploy).
+    pub index: usize,
+    /// 64-byte BIP340 Schnorr signature (hex) over that input's sighash.
+    pub signature_hex: String,
 }
 
 #[derive(Deserialize)]
 pub struct SubmitDeployRequest {
     pub session_id: String,
-    /// 64-byte BIP340 Schnorr signature (hex) over the prepared funding sighash.
-    pub signature_hex: String,
+    /// Multi-input: one signature per funding input. The browser signs each input's sighash.
+    #[serde(default)]
+    pub signatures: Option<Vec<SubmitDeploySignature>>,
+    /// Back-compat single-input path: a lone 64-byte BIP340 Schnorr signature (hex) over the
+    /// single input's sighash. Used only when `signatures` is absent.
+    #[serde(default)]
+    pub signature_hex: Option<String>,
 }
 
 /// POST /covenant/p2sh/submit-deploy - assemble the deployer's signature into the funding
@@ -3954,14 +4104,47 @@ pub async fn submit_deploy_handler(
             None => return err("unknown or expired session_id (call prepare-deploy first; sessions last 10 minutes)".into()),
         }
     };
-    let sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
-        Some(b) => b,
-        None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
+    let num_inputs = pending.unsigned_tx.inputs.len();
+    // Normalize both submit forms into index -> 64-byte signature. The multi-input form is
+    // {signatures:[{index, signature_hex}]}; the back-compat single-input form is a lone
+    // {signature_hex} (only valid when the funding tx has exactly one input).
+    let parse_sig = |hexs: &str| -> Result<[u8; 64], String> {
+        hex::decode(hexs.trim().trim_start_matches("0x"))
+            .ok()
+            .and_then(|b| b.try_into().ok())
+            .ok_or_else(|| "each signature must be a 64-byte BIP340 Schnorr signature".to_string())
     };
-    // The funding input spends a 32-byte schnorr P2PK output; its signature_script is just
-    // the 65-byte (sig||sighashtype) push.
-    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
-    signable.tx.inputs[0].signature_script = push65(&sig);
+    let mut sigs: Vec<Option<[u8; 64]>> = vec![None; num_inputs];
+    if let Some(list) = &req.signatures {
+        for s in list {
+            if s.index >= num_inputs {
+                return err(format!("signature index {} out of range (tx has {num_inputs} inputs)", s.index));
+            }
+            match parse_sig(&s.signature_hex) {
+                Ok(b) => sigs[s.index] = Some(b),
+                Err(e) => return err(e),
+            }
+        }
+    } else if let Some(one) = &req.signature_hex {
+        if num_inputs != 1 {
+            return err(format!("this deploy has {num_inputs} inputs; send signatures:[{{index, signature_hex}}] for each (the lone signature_hex form is single-input only)"));
+        }
+        match parse_sig(one) {
+            Ok(b) => sigs[0] = Some(b),
+            Err(e) => return err(e),
+        }
+    } else {
+        return err("provide signatures:[{index, signature_hex}] (or signature_hex for a single-input deploy)".into());
+    }
+    if let Some(missing) = sigs.iter().position(|s| s.is_none()) {
+        return err(format!("missing signature for input index {missing} (every funding input must be signed)"));
+    }
+    // Each funding input spends a 32-byte schnorr P2PK output; its signature_script is just
+    // the 65-byte (sig||sighashtype) push. Assemble each input's script from its signature.
+    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), pending.entries.clone());
+    for (i, sig) in sigs.iter().enumerate() {
+        signable.tx.inputs[i].signature_script = push65(&sig.unwrap());
+    }
     signable.tx.finalize();
     let client = match client_for_network(&pending.network).await {
         Ok(c) => c,
@@ -4256,17 +4439,20 @@ pub async fn bundle_deploy_handler(
     if utxos.is_empty() {
         return err("no UTXOs for funder address".into());
     }
-    let best = utxos.iter().max_by_key(|u| u.utxo_entry.amount).unwrap();
-    let total_input = best.utxo_entry.amount;
+    // Select enough of the funder's UTXOs (largest-first) to cover ALL bundle legs plus
+    // the mass-scaled fee; the pool size is now bounded only by the funder's TOTAL balance.
+    // Every selected UTXO is the funder's own P2PK, so the one funder key signs each input.
     let total_locked: u64 = built.iter().map(|(a, _, _, _)| *a).sum();
-    let total_cost = total_locked + TX_FEE;
-    if total_input < total_cost {
-        return err(format!(
-            "insufficient balance: have {total_input} sompi, need {total_cost} sompi (pool T={t})"
-        ));
+    let (selected, fee) = match select_utxos_with_fee(&utxos, total_locked, built.len(), |u| u.utxo_entry.amount) {
+        Ok(v) => v,
+        Err(e) => return err(format!("{e} (pool T={t})")),
+    };
+    let total_input: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+    let funder_script = selected[0].utxo_entry.script_public_key.clone();
+    let mut change = total_input - total_locked - fee;
+    if change > 0 && change < DUST_THRESHOLD {
+        change = 0;
     }
-    let funder_script = best.utxo_entry.script_public_key.clone();
-    let change = total_input - total_cost;
     let mut outputs: Vec<TransactionOutput> = built
         .iter()
         .map(|(amt, redeem, _, _)| TransactionOutput {
@@ -4277,15 +4463,19 @@ pub async fn bundle_deploy_handler(
     if change > 0 {
         outputs.push(TransactionOutput { value: change, script_public_key: funder_script });
     }
-    let inputs = vec![TransactionInput {
-        previous_outpoint: TransactionOutpoint {
-            transaction_id: best.outpoint.transaction_id,
-            index: best.outpoint.index,
-        },
-        signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
-    }];
+    // One input per selected UTXO; each is the funder's P2PK so sig_op_count = 1.
+    let inputs: Vec<TransactionInput> = selected
+        .iter()
+        .map(|u| TransactionInput {
+            previous_outpoint: TransactionOutpoint {
+                transaction_id: u.outpoint.transaction_id,
+                index: u.outpoint.index,
+            },
+            signature_script: vec![],
+            sequence: 0,
+            sig_op_count: 1,
+        })
+        .collect();
     // Non-empty payload (sighash) + aa20 discovery marker for the first leg.
     let mut payload = vec![0xaa, 0x20];
     payload.extend_from_slice(&blake2b256(&built[0].1));
@@ -4298,13 +4488,18 @@ pub async fn bundle_deploy_handler(
         0,
         payload,
     );
-    let entries = vec![UtxoEntry {
-        amount: total_input,
-        script_public_key: best.utxo_entry.script_public_key.clone(),
-        block_daa_score: best.utxo_entry.block_daa_score,
-        is_coinbase: best.utxo_entry.is_coinbase,
-    }];
+    // One entry per input, same order as `inputs` (both derive from `selected`).
+    let entries: Vec<UtxoEntry> = selected
+        .iter()
+        .map(|u| UtxoEntry {
+            amount: u.utxo_entry.amount,
+            script_public_key: u.utxo_entry.script_public_key.clone(),
+            block_daa_score: u.utxo_entry.block_daa_score,
+            is_coinbase: u.utxo_entry.is_coinbase,
+        })
+        .collect();
     let signable = SignableTransaction::with_entries(unsigned, entries);
+    // The one funder key signs EVERY input (all selected UTXOs share the funder's P2PK).
     let mut signed = match sign_with_multiple_v2(signable, &[seckey]).fully_signed() {
         Ok(tx) => tx,
         Err(e) => return err(format!("signing failed: {e:?}")),
@@ -4958,6 +5153,77 @@ mod tests {
     fn test_keypair(seed: u8) -> Keypair {
         let sk = [seed.max(1); 32];
         Keypair::from_seckey_slice(secp256k1::SECP256K1, &sk).unwrap()
+    }
+
+    /// Multi-UTXO coin selection: bounded only by TOTAL balance (no single-UTXO cap).
+    #[test]
+    fn select_utxos_for_accumulates_minimally_and_errors_only_on_total() {
+        let amt = |u: &u64| *u;
+
+        // Accumulates ACROSS multiple UTXOs when no single one covers the target. The old
+        // single-largest logic would have rejected this; now it succeeds.
+        let utxos = vec![100u64, 50, 50, 30];
+        let sel = select_utxos_for(&utxos, 160, amt).unwrap();
+        let sum: u64 = sel.iter().map(|u| **u).sum();
+        assert!(sum >= 160, "selected sum {sum} must cover target");
+        // Largest-first greedy: 100 + 50 = 150 (<160) then +50 = 200. Minimal = 3 inputs.
+        assert_eq!(sel.len(), 3, "picks the fewest inputs (largest-first)");
+        assert_eq!(sel.iter().map(|u| **u).collect::<Vec<_>>(), vec![100, 50, 50]);
+
+        // Never picks more inputs than needed: a single UTXO that already covers target.
+        let one = select_utxos_for(&utxos, 90, amt).unwrap();
+        assert_eq!(one.len(), 1);
+        assert_eq!(*one[0], 100);
+
+        // Exact-fit on the boundary: target == running sum stops immediately.
+        let exact = select_utxos_for(&utxos, 150, amt).unwrap();
+        assert_eq!(exact.iter().map(|u| **u).collect::<Vec<_>>(), vec![100, 50]);
+
+        // Needs the WHOLE balance: 100+50+50+30 = 230.
+        let all = select_utxos_for(&utxos, 230, amt).unwrap();
+        assert_eq!(all.len(), 4);
+
+        // Errors ONLY when the SUM of all UTXOs is short of the target.
+        let e = select_utxos_for(&utxos, 231, amt).unwrap_err();
+        assert!(e.contains("insufficient total balance"), "got: {e}");
+        assert!(e.contains("have 230 sompi"), "reports total, got: {e}");
+        assert!(e.contains("need 231"), "reports target, got: {e}");
+
+        // Empty set is insufficient for any positive target.
+        let empty: Vec<u64> = vec![];
+        assert!(select_utxos_for(&empty, 1, amt).is_err());
+        // Zero target trivially succeeds with no inputs.
+        assert!(select_utxos_for(&empty, 0, amt).unwrap().is_empty());
+    }
+
+    /// Fee scales with input + output count so a multi-input tx pays enough mass.
+    #[test]
+    fn scaled_fee_grows_with_inputs_and_outputs() {
+        // Exact contract: units = max(1,inputs) + (outputs-1).
+        assert_eq!(scaled_fee(1, 1), TX_FEE); // 1 + 0 = 1 unit
+        assert_eq!(scaled_fee(1, 2), TX_FEE * 2); // 1 input + 1 extra output
+        assert_eq!(scaled_fee(3, 2), TX_FEE * 4); // 3 inputs + 1 extra output
+        assert_eq!(scaled_fee(5, 6), TX_FEE * 10); // 5 inputs + 5 extra outputs
+        // Never below the flat fee.
+        assert!(scaled_fee(0, 0) >= TX_FEE);
+    }
+
+    /// Fee-aware selection converges fee<->input-count and errors only on total shortfall.
+    #[test]
+    fn select_utxos_with_fee_converges_and_covers_locked_plus_fee() {
+        let amt = |u: &u64| *u;
+        let utxos = vec![100_000u64, 100_000, 100_000, 100_000];
+
+        // Lock 250_000 with 1 output: needs >= 250_000 + fee. Greedy pulls 3 UTXOs
+        // (300_000), fee = scaled_fee(3, 2) = TX_FEE*4 = 40_000; 300_000 >= 290_000. Stable.
+        let (sel, fee) = select_utxos_with_fee(&utxos, 250_000, 1, amt).unwrap();
+        let sum: u64 = sel.iter().map(|u| **u).sum();
+        assert!(sum >= 250_000 + fee, "sum {sum} must cover locked+fee {}", 250_000 + fee);
+        assert_eq!(fee, scaled_fee(sel.len(), 2));
+
+        // Total shortfall errors with the total-balance message.
+        let e = select_utxos_with_fee(&utxos, 400_000, 1, amt).unwrap_err();
+        assert!(e.contains("insufficient total balance"), "got: {e}");
     }
 
     /// Phase 1: `RedeemKind` is the single source of truth. Its `redeem_script()` must be

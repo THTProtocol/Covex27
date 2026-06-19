@@ -513,7 +513,7 @@ export default function Explorer() {
   return (
     <>
       {/* HERO */}
-      <section className="relative z-10 flex flex-col items-center justify-center pt-14 sm:pt-20 pb-10 px-4 sm:px-6 text-center">
+      <section data-tour="explorer-hero" className="relative z-10 flex flex-col items-center justify-center pt-14 sm:pt-20 pb-10 px-4 sm:px-6 text-center">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
         <h1
           className="relative font-black text-white light:text-slate-900 mb-6 max-w-3xl leading-[1.1] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
@@ -526,6 +526,7 @@ export default function Explorer() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 mb-10 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
           <Link
+            data-tour="build-cta"
             to="/sandbox"
             className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
           >
@@ -836,21 +837,27 @@ export default function Explorer() {
             )}
             {error && <p className="text-red-500 text-center py-10">{error}</p>}
             {!loading && covenants.length === 0 && (
-              <div className="glass-panel rounded-2xl p-10 text-center">
-                <Layers size={40} className="mx-auto text-gray-200 mb-3" />
-                {kaspaNetwork === 'mainnet' ? (
-                  <>
-                    <p className="text-lg font-semibold text-white mb-1">No covenants on mainnet yet</p>
-                    <p className="text-sm text-gray-300 max-w-md mx-auto">
-                      SilverScript covenants activate on Kaspa mainnet with the Toccata hard fork on 30 June 2026. Covex has its mainnet indexer armed behind the honesty gate, with a mainnet node being synced ahead of launch; the first real covenant appears here the moment it lands, with no placeholder data before then.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-lg font-semibold text-white mb-1">No covenants detected yet</p>
-                    <p className="text-sm text-gray-300">The Kaspa node is still syncing. Covenants will appear automatically.</p>
-                  </>
-                )}
+              <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
+                <Layers size={40} className="mx-auto text-gray-200 light:text-slate-400 mb-3" />
+                <p className="text-lg font-semibold text-white light:text-slate-900 mb-5">No live arena games right now. Be the first.</p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try { window.localStorage.setItem('covex_tour_active', '1'); } catch { /* ignore quota */ }
+                      window.location.reload();
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                  >
+                    Start the tour
+                  </button>
+                  <Link
+                    to="/sandbox"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+                  >
+                    Build directly
+                  </Link>
+                </div>
               </div>
             )}
             {!loading && covenants.length > 0 && (

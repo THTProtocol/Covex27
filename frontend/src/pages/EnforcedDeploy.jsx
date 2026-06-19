@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2 } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
+import ShareEmbedModal from '../components/ShareEmbedModal';
 import { toast } from '../components/ToastContext';
+import { enforcementSummary } from '../lib/enforcement-copy';
 
 // The on-chain-enforced covenant primitives (covenant_builder), plus the parimutuel
 // prediction market, which is itself settled on-chain by conjoined oracle covenants.
@@ -106,6 +108,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
   // created on Covex) with only your key + its redeem script. Kept subtle at the bottom.
   const [extOpen, setExtOpen] = useState(false);
   const [ext, setExt] = useState({ redeem_script_hex: '', tx: '', outpoint: '0', kind: 'singlesig', dest: '', preimage: '', branch: '', cosigs: '' });
+  // Tracks which deployed covenant id ("<tx>:0") is currently being shared.
+  // null = modal closed; opening preselects the covenant whose row was clicked.
+  const [shareForId, setShareForId] = useState(null);
 
   useEffect(() => {
     fetch('/api/covenant/catalog').then((r) => r.json()).then((j) => setCatalog(j.catalog || [])).catch(() => {});
@@ -226,7 +231,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
 
     setBusy(true);
     try {
-      // NON-CUSTODIAL DEPLOY (the trustless path, works on mainnet too): for a single-signer
+      // NON-CUSTODIAL DEPLOY (the non-custodial path, works on mainnet too): for a single-signer
       // covenant whose key we hold in this browser, fund it by signing the funding tx's
       // sighash HERE - the private key never leaves the device. prepare-deploy builds the
       // unsigned funding tx and returns the sighash; we sign it; submit-deploy broadcasts.
@@ -252,6 +257,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
           tx: sub.deploy_tx_id, p2sh: sub.p2sh_address, kind: sub.redeem_kind, kas: sub.locked_kas,
           redeem_script_hex: sub.redeem_script_hex || prep.redeem_script_hex || null,
           preimage, dev: false, nonCustodialDeploy: true, lock_daa: redeem.lock_daa || null, spent: null,
+          reality: isHybridKind ? 'hybrid' : 'on-chain',
         }, ...m]);
         if (onDeployed && sub.deploy_tx_id) onDeployed(`${sub.deploy_tx_id}:0`);
         return;
@@ -269,6 +275,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
         tx: j.deploy_tx_id, p2sh: j.p2sh_address, kind: j.redeem_kind, kas: j.locked_kas,
         redeem_script_hex: j.redeem_script_hex || null,
         preimage, dev: usesDevWallets, lock_daa: redeem.lock_daa || null, spent: null,
+        reality: isHybridKind ? 'hybrid' : 'on-chain',
       }, ...m]);
       if (onDeployed && j.deploy_tx_id) onDeployed(`${j.deploy_tx_id}:0`);
     } catch (e) {
@@ -295,7 +302,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
       const external = c.redeem_script_hex
         ? { redeem_script_hex: c.redeem_script_hex, outpoint_index: c.outpoint_index || 0, redeem_kind: c.kind }
         : {};
-      // NON-CUSTODIAL redeem (the trustless path): fetch the unsigned sighash, sign it HERE
+      // NON-CUSTODIAL redeem (the non-custodial path): fetch the unsigned sighash, sign it HERE
       // with a BIP340 Schnorr signature for every required signer whose key we hold (and
       // graft in any pasted co-signer signatures), then send ONLY the 64-byte signatures
       // (plus a preimage for hashlock / HTLC claim). No private key ever leaves the device,
@@ -704,7 +711,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
         <div className="relative z-10 glass-panel overflow-hidden">
           <div className="px-6 py-4 border-b border-white/5">
             <div className="text-white font-semibold">Your enforced covenants (this session)</div>
-            <div className="text-xs text-gray-400 mt-0.5">Deployed and live on-chain. Next, give each one a beautiful public page in the Page Studio, then share it.</div>
+            <div className="text-xs text-gray-400 mt-0.5">Deployed and live on-chain.</div>
           </div>
           <div className="divide-y divide-white/[0.04]">
             {mine.map((c) => (
@@ -727,12 +734,27 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                 <div className="text-[11px] text-gray-500 font-mono break-all">
                   deploy tx: {String(c.tx).slice(0, 24)}...
                 </div>
-                {/* Build -> design -> publish handoff: jump straight into the Page Studio to
-                    compose this covenant's public website, or open the live page. */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <a href={`/covenant/${encodeURIComponent(`${c.tx}:0`)}`} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] transition-colors"><ExternalLink size={12} /> View public page</a>
-                  <a href={`/covenant/${encodeURIComponent(`${c.tx}:0`)}/studio`} className="btn-shimmer inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-kaspa-green text-black font-bold hover:brightness-110 transition-all"><Palette size={12} /> Design its page</a>
-                </div>
+                {/* Build -> design -> publish handoff: a 3-button rail led by the Studio
+                    (the next step), with share and the live public page right beside it.
+                    Above the rail, the enforcement summary tells the truth about WHAT the
+                    chain actually does with this covenant (consensus vs oracle co-sign). */}
+                {(() => {
+                  const sum = enforcementSummary(c.reality || 'on-chain');
+                  const cid = `${c.tx}:0`;
+                  return (
+                    <div className="pt-2 space-y-2">
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 light:border-slate-200 light:bg-slate-50/60">
+                        <div className="text-[12px] font-semibold text-white light:text-slate-900">{sum.headline}</div>
+                        <div className="text-[11px] text-gray-400 light:text-slate-600 leading-snug mt-0.5">{sum.body}</div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a href={`/covenant/${encodeURIComponent(cid)}/studio`} className="btn-shimmer inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-kaspa-green text-black font-bold hover:brightness-110 transition-all"><Palette size={12} /> Open in Studio</a>
+                        <button onClick={() => setShareForId(cid)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] transition-colors light:bg-slate-100 light:border-slate-300 light:text-slate-800 light:hover:bg-slate-200"><Share2 size={12} /> Share link</button>
+                        <a href={`/covenant/${encodeURIComponent(cid)}`} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white hover:bg-white/[0.1] transition-colors light:bg-slate-100 light:border-slate-300 light:text-slate-800 light:hover:bg-slate-200"><ExternalLink size={12} /> View public page</a>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {c.redeem_script_hex && !c.spent && (
                   <div className="text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2 mt-1">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -831,6 +853,23 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
         )}
       </div>
       )}
+
+      {/* Share + embed modal for any deployed covenant in this session. Opens when the
+          per-row "Share link" button sets shareForId; reality is preselected from the
+          covenant entry so the OG preview never overclaims. */}
+      {shareForId && (() => {
+        const c = mine.find((x) => `${x.tx}:0` === shareForId);
+        return (
+          <ShareEmbedModal
+            open={!!shareForId}
+            onClose={() => setShareForId(null)}
+            id={shareForId}
+            network={net}
+            name={c ? `${c.kind} covenant` : 'Covenant'}
+            reality={(c && c.reality) || 'on-chain'}
+          />
+        );
+      })()}
     </div>
   );
 }

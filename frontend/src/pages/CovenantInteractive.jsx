@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment, lazy, Suspense } from 'react';
 import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
@@ -8,7 +8,10 @@ import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import { explorerTxUrl } from '../lib/explorer';
-import CovexTerminal from '../components/CovexTerminal';
+// CovexTerminal is the 445kB creator-only deploy/ZK panel. It only mounts inside the
+// activeTab === 'terminal' branch below (gated by isCreator), so we lazy-load its chunk
+// to keep the initial covenant page load lean for regular viewers.
+const CovexTerminal = lazy(() => import('../components/CovexTerminal'));
 import FullScreenChess from '../components/FullScreenChess';
 import FullScreenPoker from '../components/FullScreenPoker';
 import FullScreenReversi from '../components/FullScreenReversi';
@@ -36,6 +39,7 @@ import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, Extern
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
+import StickyActionRail from '../components/StickyActionRail';
 import { LifeBuoy } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
@@ -248,7 +252,7 @@ export default function CovenantInteractive() {
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [showGameArena, setShowGameArena] = useState(false);
   // Claim & Activate: provide an elsewhere-created covenant's redeem script (+ metadata) to make it
-  // fully interactable. Verified trustlessly by the backend (the script must hash to the commitment).
+  // fully interactable. Verified by the backend against the on-chain commitment (the script must hash-match).
   const [claimOpen, setClaimOpen] = useState(false);
   const [claimForm, setClaimForm] = useState({ redeem_script_hex: '', kind: 'singlesig', name: '', description: '' });
   const [claimBusy, setClaimBusy] = useState(false);
@@ -908,9 +912,22 @@ export default function CovenantInteractive() {
       </Link>
 
       {/* Enforcement reality leads the page so the honesty label is the first paint,
-          before the title block. One full-width TrustBadge, sized md with description. */}
-      <div className="mb-6">
-        <TrustBadge covenant={covenant} size="md" showDesc />
+          before the title block. One full-width TrustBadge, sized md with description.
+          A small primary Share pill sits inline beside it so visitors get an obvious
+          share affordance without having to scroll to the buried header button. */}
+      <div className="mb-6 flex flex-wrap items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <TrustBadge covenant={covenant} size="md" showDesc />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          aria-label="Share this covenant"
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-kaspa-green/30 bg-kaspa-green/[0.08] text-kaspa-green text-xs font-semibold hover:bg-kaspa-green/[0.14] hover:border-kaspa-green/50 transition-colors light:bg-emerald-500/[0.10] light:border-emerald-500/40 light:text-emerald-700 light:hover:bg-emerald-500/[0.18]"
+        >
+          <Share2 size={13} aria-hidden="true" />
+          <span>Share</span>
+        </button>
       </div>
 
       {/* Creator-designed page (Puck blocks, platform components only): a full-width
@@ -1002,7 +1019,7 @@ export default function CovenantInteractive() {
             </div>
           </div>
 
-          <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} />
+          <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} reality={covenant?.enforcement_reality} />
           <RecoveryKitModal open={recoveryOpen} onClose={() => setRecoveryOpen(false)} covenant={covenant} />
 
           {/* Page-level branding: the creator's chosen background preset (from the Puck
@@ -1327,8 +1344,32 @@ export default function CovenantInteractive() {
           animate={{ opacity: 1, x: 0 }}
           className="glass-panel rounded-3xl overflow-hidden flex flex-col light:bg-white light:border light:border-slate-200 light:shadow-sm"
         >
-          <div className="flex items-center border-b border-white/5 light:border-slate-200">
+          {/* a11y: tablist with arrow-key / Home / End navigation + wrap-around. Visible tabs depend on isCreator. */}
+          {(() => {
+            const visibleTabs = ['interact', ...(isCreator ? ['fix', 'terminal'] : [])];
+            const onTabKeyDown = (e) => {
+              const idx = visibleTabs.indexOf(activeTab);
+              if (idx === -1) return;
+              let nextIdx = null;
+              if (e.key === 'ArrowRight') nextIdx = (idx + 1) % visibleTabs.length;
+              else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + visibleTabs.length) % visibleTabs.length;
+              else if (e.key === 'Home') nextIdx = 0;
+              else if (e.key === 'End') nextIdx = visibleTabs.length - 1;
+              if (nextIdx === null) return;
+              e.preventDefault();
+              const nextId = visibleTabs[nextIdx];
+              setActiveTab(nextId);
+              const next = e.currentTarget.parentElement?.querySelector(`[data-tab-id="${nextId}"]`);
+              if (next) next.focus();
+            };
+            return (
+          <div role="tablist" aria-label="Covenant tabs" className="flex items-center border-b border-white/5 light:border-slate-200">
             <button
+              role="tab"
+              data-tab-id="interact"
+              aria-selected={activeTab === 'interact'}
+              tabIndex={activeTab === 'interact' ? 0 : -1}
+              onKeyDown={onTabKeyDown}
               onClick={() => setActiveTab('interact')}
               className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                 activeTab === 'interact'
@@ -1342,6 +1383,11 @@ export default function CovenantInteractive() {
             {/* Fix tab visible to creator only. Renders full clean Customization Garage + exactly 1 section for stake amount + rules + Publish. No paid nags. */}
             {isCreator && (
               <button
+                role="tab"
+                data-tab-id="fix"
+                aria-selected={activeTab === 'fix'}
+                tabIndex={activeTab === 'fix' ? 0 : -1}
+                onKeyDown={onTabKeyDown}
                 onClick={() => setActiveTab('fix')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'fix'
@@ -1356,6 +1402,11 @@ export default function CovenantInteractive() {
             {/* Terminal ONLY for creator. Regular users never see terminal or settings. */}
             {isCreator && (
               <button
+                role="tab"
+                data-tab-id="terminal"
+                aria-selected={activeTab === 'terminal'}
+                tabIndex={activeTab === 'terminal' ? 0 : -1}
+                onKeyDown={onTabKeyDown}
                 onClick={() => setActiveTab('terminal')}
                 className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                   activeTab === 'terminal'
@@ -1368,6 +1419,8 @@ export default function CovenantInteractive() {
               </button>
             )}
           </div>
+            );
+          })()}
 
           <div className="p-6 sm:p-7 flex-1">
             {activeTab === 'interact' ? (
@@ -1803,7 +1856,13 @@ export default function CovenantInteractive() {
               /* ── Terminal Tab: ONLY the creator sees this (to deploy custom nice UI, ZK, oracles, etc). Regular users never see terminal or settings. ── */
               isCreator ? (
                 <div className="-m-6 sm:-m-7">
-                  <CovexTerminal covenant={covenant} />
+                  <Suspense fallback={(
+                    <div className="p-8 text-center text-sm text-gray-400 light:text-slate-500">
+                      Loading creator terminal...
+                    </div>
+                  )}>
+                    <CovexTerminal covenant={covenant} />
+                  </Suspense>
                 </div>
               ) : (
                 <div className="p-8 text-center border border-white/10 rounded-2xl bg-black/30">
@@ -1830,6 +1889,21 @@ export default function CovenantInteractive() {
           </div>
         </motion.div>
       </div>
+
+      {/* Sticky right-rail (desktop) / slide-up bottom sheet (mobile) for the
+          covenant's primary action set. Hidden during the creator's Fix tab so it
+          does not crowd the publish flow. The rail routes through the same
+          routeCovenantIntent path the inline CTAs already use, so signing /
+          stake / spend logic stays in one place. Share opens the same modal as
+          the hero pill and the buried header button. */}
+      {!(isCreator && activeTab === 'fix') && (
+        <StickyActionRail
+          covenant={covenant}
+          onStake={() => routeCovenantIntent('interact', null)}
+          onShare={() => setShareOpen(true)}
+          primaryLabel={gameType ? 'Stake and play' : (covenant?.spent_tx_id ? 'View spend' : (address ? 'Sign and execute' : 'Interact'))}
+        />
+      )}
 
       {/* Custom UI Rendering: creator published transparent view (via Fix page).
           Reserved for genuine creator UIs - auto-generated blobs are never framed

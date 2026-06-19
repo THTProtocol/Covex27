@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Route-level boundary: catches a single page's render/chunk-load error (e.g. a stale
@@ -50,6 +50,7 @@ const Readme = lazy(() => import('./pages/Readme'));
 const About = lazy(() => import('./pages/About'));
 const Recover = lazy(() => import('./pages/Recover'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const FirstCovenantTour = lazy(() => import('./components/FirstCovenantTour'));
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastContext';
 import ThemeToggle from './components/ThemeToggle';
@@ -84,6 +85,49 @@ function LearnMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+// Quiet "Start the tour" affordance. Visible only for visitors who have never
+// started or skipped the FirstCovenantTour (both localStorage flags null). One
+// click flips covex_tour_active=1 and routes to '/', where the tour mounts and
+// self-activates. Re-renders on storage events so it disappears in real time
+// once the tour starts (and in other tabs).
+function StartTourButton() {
+  const navigate = useNavigate();
+  const read = () => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return (
+        window.localStorage.getItem('covex_tour_active') == null &&
+        window.localStorage.getItem('covex_tour_skipped') == null
+      );
+    } catch { return false; }
+  };
+  const [show, setShow] = useState(read);
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e.key || e.key === 'covex_tour_active' || e.key === 'covex_tour_skipped') {
+        setShow(read());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+  if (!show) return null;
+  const start = () => {
+    try { window.localStorage.setItem('covex_tour_active', '1'); } catch { /* private mode */ }
+    setShow(false);
+    navigate('/');
+  };
+  return (
+    <button
+      type="button"
+      onClick={start}
+      className="text-xs text-gray-300 hover:text-white hover:underline underline-offset-4 transition-colors light:text-slate-500 light:hover:text-slate-900"
+    >
+      Start the tour
+    </button>
   );
 }
 
@@ -386,6 +430,7 @@ export default function App() {
                 <NavLink to="/sandbox" className={NL}>Build</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
+                <StartTourButton />
                 <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
@@ -482,6 +527,13 @@ export default function App() {
             </Suspense>
             </RouteErrorBoundary>
           </div>
+
+          {/* Global first-covenant tour overlay. Self-activates from ?tour=1 or
+              localStorage covex_tour_active, so just mounting it is enough; it
+              renders nothing when inactive. */}
+          <Suspense fallback={null}>
+            <FirstCovenantTour />
+          </Suspense>
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center space-y-2.5">

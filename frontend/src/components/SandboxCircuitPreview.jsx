@@ -1,8 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check, Info } from 'lucide-react';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
-import { generateSilverScriptForConfig } from './CovexTerminal';
 import TransparencyModal from './TransparencyModal';
+
+// generateSilverScriptForConfig lives in the 445kB CovexTerminal module. This component is
+// the Sandbox Phase 2 (logic) explore-only preview, which should not pull the creator-terminal
+// chunk on initial render. We dynamic-import the helper so the chunk only loads while the
+// visitor is actually inspecting a circuit; the script panel renders a frame later.
 
 // SandboxCircuitPreview: a FREE, no-wallet, read-only deep-dive for the circuit a visitor
 // picked in the sandbox. It explains, honestly, how the covenant resolves (keyed to its real
@@ -78,23 +82,32 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
   // The declared, human-readable covenant logic (SilverScript) for this circuit. Updates
   // live as you pick a circuit. This is the DECLARED logic - the real enforcement is the
   // "how it resolves" flow above (SilverScript opcode enforcement is still maturing; custody
-  // is what the chain enforces today).
-  const exampleScript = useMemo(() => {
-    if (!circuit) return null;
-    try {
-      return generateSilverScriptForConfig({
-        gameType: circuit.id,
-        zkCircuit: circuit.id,
-        feePercent: 2,
-        potReturnPercent: 2,
-        resolutionMode: circuit.reality === 'full-zk' ? 'zk' : (circuit.reality === 'hybrid' ? 'hybrid' : 'oracle'),
-        reusable: true,
-        allowTopups: false,
-        hasPaidAccess: true,
-      });
-    } catch (_) {
-      return null;
-    }
+  // is what the chain enforces today). Generated via a dynamic import so the terminal chunk
+  // is not pulled until Phase 2 is actually being explored.
+  const [exampleScript, setExampleScript] = useState(null);
+  useEffect(() => {
+    if (!circuit) { setExampleScript(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const mod = await import('./CovexTerminal');
+        if (cancelled) return;
+        const text = mod.generateSilverScriptForConfig({
+          gameType: circuit.id,
+          zkCircuit: circuit.id,
+          feePercent: 2,
+          potReturnPercent: 2,
+          resolutionMode: circuit.reality === 'full-zk' ? 'zk' : (circuit.reality === 'hybrid' ? 'hybrid' : 'oracle'),
+          reusable: true,
+          allowTopups: false,
+          hasPaidAccess: true,
+        });
+        if (!cancelled) setExampleScript(text);
+      } catch (_) {
+        if (!cancelled) setExampleScript(null);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [circuit]);
 
   const [copied, setCopied] = useState(false);

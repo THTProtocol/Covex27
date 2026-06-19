@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useWallet } from '../components/WalletContext';
 import { signMarketResolve } from '../lib/ownership';
+import { enforcementSummary } from '../lib/enforcement-copy';
 import HonestLimits from '../components/HonestLimits';
 import TrustBadge from '../components/TrustBadge';
 import Button from '../components/ui/Button';
@@ -289,7 +290,7 @@ function MarketDetail({ id }) {
                 </>
               )}
               <div className="mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200 text-[11px] text-gray-500 light:text-slate-500 leading-relaxed break-words">
-                <span className="text-gray-300 light:text-slate-700 font-semibold">Oracle:</span> the outcome is resolved by revealing one committed secret, no Covex key sits in the money path.
+                <span className="text-gray-300 light:text-slate-700 font-semibold">Oracle:</span> {enforcementSummary('oracle-attested').oracleNote} The outcome is resolved by revealing one committed secret, no Covex key sits in the money path.
                 {oraclePk && <> Disclosed oracle x-only key <span className="font-mono text-gray-400 light:text-slate-500">{String(oraclePk).slice(0, 12)}…</span>.</>}
                 {market.h_a && <> Commitments <span className="font-mono text-gray-400 light:text-slate-500">H_A {market.h_a.slice(0, 8)}… · H_B {market.h_b.slice(0, 8)}…</span>.</>}
               </div>

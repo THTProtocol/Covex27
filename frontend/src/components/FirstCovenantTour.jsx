@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { X, ArrowRight, Compass } from 'lucide-react';
+import { enforcementSummary } from '../lib/enforcement-copy';
 
 /*
  * FirstCovenantTour
@@ -31,6 +32,7 @@ import { X, ArrowRight, Compass } from 'lucide-react';
 const STORAGE_ACTIVE = 'covex_tour_active';
 const STORAGE_SKIPPED = 'covex_tour_skipped';
 const STORAGE_DEMO_ID = 'covex_tour_demo_id';
+const STORAGE_DEMO_REALITY = 'covex_tour_demo_reality';
 
 // Step definitions. route is the path the step expects the user to be on; the
 // "Next" button navigates to nextRoute (with tour=1 preserved) before
@@ -141,6 +143,7 @@ export default function FirstCovenantTour() {
   const [stepIdx, setStepIdx] = useState(0);
   const [active, setActive] = useState(false);
   const [demoId, setDemoId] = useState(null);
+  const [demoReality, setDemoReality] = useState(null);
   const [demoChecked, setDemoChecked] = useState(false);
   const [anchorRect, setAnchorRect] = useState(null);
   const [visibleFade, setVisibleFade] = useState(false);
@@ -171,13 +174,16 @@ export default function FirstCovenantTour() {
     if (!active || fetchedRef.current) return;
     fetchedRef.current = true;
     let cached = null;
+    let cachedReality = null;
     try {
       cached = window.localStorage.getItem(STORAGE_DEMO_ID);
+      cachedReality = window.localStorage.getItem(STORAGE_DEMO_REALITY);
     } catch {
       /* ignore */
     }
     if (cached) {
       setDemoId(cached);
+      if (cachedReality) setDemoReality(cachedReality);
       setDemoChecked(true);
       return;
     }
@@ -190,9 +196,15 @@ export default function FirstCovenantTour() {
         const first = list[0];
         const id =
           (first && (first.covenant_id || first.id || first.txid)) || null;
+        const reality =
+          (first && String(first.enforcement_reality || '').toLowerCase()) || null;
         if (id) {
           setDemoId(id);
           writeFlag(STORAGE_DEMO_ID, id);
+        }
+        if (reality) {
+          setDemoReality(reality);
+          writeFlag(STORAGE_DEMO_REALITY, reality);
         }
         setDemoChecked(true);
       })
@@ -202,7 +214,9 @@ export default function FirstCovenantTour() {
     return () => controller.abort();
   }, [active]);
 
-  // Compute the resolved step (substituting demoId-dependent routes).
+  // Compute the resolved step (substituting demoId-dependent routes and
+  // wiring honesty copy through enforcementSummary so the language stays
+  // consistent with the rest of the app).
   const step = useMemo(() => {
     const raw = STEPS[stepIdx];
     if (!raw) return null;
@@ -213,8 +227,38 @@ export default function FirstCovenantTour() {
     if (out.id === 'public-page') {
       out.route = demoId ? `/covenant/${demoId}` : null;
     }
+
+    // Sandbox steps describe a generic build flow before any reality is
+    // chosen, so fall back to the on-chain baseline (the most honest default).
+    // The public-page step uses the actual demo covenant's reality.
+    const sandboxReality = 'on-chain';
+    const publicReality = demoReality || 'on-chain';
+
+    if (out.id === 'sandbox-create') {
+      const s = enforcementSummary(sandboxReality);
+      out.body = `Pick a template. Each template discloses its enforcement reality so nothing is hidden: ${s.badge.toLowerCase()} (${s.headline.toLowerCase()}) is the baseline, and oracle-attested or full-zk templates make the disclosed Covex oracle's role explicit.`;
+    }
+    if (out.id === 'sandbox-logic') {
+      const s = enforcementSummary(sandboxReality);
+      out.body = `Set the parameters: amounts, thresholds, deadlines, the oracle outcome to watch. The Sandbox shows the exact enforcement label for each field. ${s.headline}: ${s.body}`;
+    }
+    if (out.id === 'sandbox-deploy') {
+      const s = enforcementSummary(sandboxReality);
+      out.body = `Review the script bytes, fees, and the honest enforcement summary. On mainnet, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting. ${s.headline}.`;
+    }
+    if (out.id === 'studio-block') {
+      out.body = 'Every covenant can host a public page built from blocks (hero, video, rich text, enforcement badge). The page is metadata only. It does not change how the covenant settles, the redeem script and the disclosed enforcement reality are the source of truth.';
+    }
+    if (out.id === 'public-page') {
+      const s = enforcementSummary(publicReality);
+      const notTrustless =
+        publicReality === 'full-zk' || publicReality === 'oracle-attested'
+          ? ' This is not trustless: the disclosed Covex oracle contributes the consensus-required co-signature, and that is the honest disclosure shown on every covenant page.'
+          : '';
+      out.body = `This is a real on-chain covenant. The badge shows the disclosed enforcement reality. ${s.headline}: ${s.body}${notTrustless} From here, anyone can participate by signing in their own wallet. The tour ends here.`;
+    }
     return out;
-  }, [stepIdx, demoId]);
+  }, [stepIdx, demoId, demoReality]);
 
   // Anchor measurement. Re-measures on resize / scroll / step change.
   useEffect(() => {

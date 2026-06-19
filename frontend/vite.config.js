@@ -11,8 +11,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            if (id.includes('lucide-react')) return 'vendor-lucide';
+            if (id.includes('poseidon-lite') || id.includes('snarkjs') || id.includes('circomlib')) return 'vendor-zk';
             if (id.includes('three') || id.includes('@react-three')) return 'vendor-three';
-            if (id.includes('snarkjs')) return 'vendor-snarkjs';
             if (id.includes('chess.js') || id.includes('react-chessboard')) return 'vendor-chess';
             if (id.includes('kaspa-wasm') || id.includes('@onekeyfe')) return 'vendor-kaspa-wasm';
             if (id.includes('framer-motion')) return 'vendor-motion';

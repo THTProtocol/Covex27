@@ -19,6 +19,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  style:
+    name: Style (no new em/en dashes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the parent/base commit so the forward gate can diff only the
+          # lines this push/PR introduced.
+          fetch-depth: 0
+
+      # GATE: block any change that ADDS an em dash (U+2014) or en dash (U+2013).
+      # Legacy occurrences are grandfathered; only new ones fail. See the script.
+      - name: No new em/en dashes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}" || true
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          bash scripts/check-no-emdash.sh "$BASE"
+
   backend:
     name: Backend (build + test + lint)
     runs-on: ubuntu-latest
@@ -61,6 +83,14 @@ jobs:
         run: cargo clippy --release
         continue-on-error: true
 
+      # Advisory: known-vulnerable Rust dependencies (RustSec advisory DB). Surfaces
+      # supply-chain risk on a money-handling backend without blocking the build.
+      - name: cargo audit
+        continue-on-error: true
+        run: |
+          cargo install cargo-audit --locked || true
+          cargo audit || true
+
   frontend:
     name: Frontend (sandbox guard + build)
     runs-on: ubuntu-latest
@@ -93,6 +123,11 @@ jobs:
       # Advisory: eslint (does not block a mature tree yet).
       - name: eslint
         run: npm run lint
+        continue-on-error: true
+
+      # Advisory: known-vulnerable npm dependencies (high severity and up).
+      - name: npm audit
+        run: npm audit --audit-level=high
         continue-on-error: true
 
       # GATE: the production build must succeed (its prebuild hook re-runs the

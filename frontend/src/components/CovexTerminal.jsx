@@ -22,6 +22,7 @@ import { Chessboard } from 'react-chessboard';
 import ChessPreviewConfig, { defaultTimeControlFor } from './ChessPreviewConfig';
 import { DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';
 import { useWallet } from './WalletContext';
+import Skeleton from './ui/Skeleton';
 import FullScreenPoker from './FullScreenPoker';
 import FullScreenBlackjack from './FullScreenBlackjack';
 import FullScreenCheckers from './FullScreenCheckers';
@@ -2284,23 +2285,23 @@ ${gameMeta.outcomeBranches}
       >
         {/* Header skeleton mirrors the real Terminal header row */}
         <div className="flex items-center gap-4 mb-2">
-          <div className="h-11 w-11 rounded-xl bg-white/[0.06] border border-white/10 animate-pulse" />
+          <Skeleton className="h-11 w-11 rounded-xl border border-white/10" />
           <div className="space-y-2">
-            <div className="h-4 w-44 rounded bg-white/[0.08] animate-pulse" />
-            <div className="h-2.5 w-56 rounded bg-white/[0.05] animate-pulse" />
+            <Skeleton className="h-4 w-44" />
+            <Skeleton className="h-2.5 w-56" />
           </div>
         </div>
         {/* Three form-row skeletons matching the section/label/input rhythm */}
         {[0, 1, 2].map((i) => (
           <div key={i} className={SECTION_BASE}>
-            <div className="h-3 w-40 rounded bg-white/[0.07] animate-pulse" />
+            <Skeleton className="h-3 w-40" />
             <div className="space-y-2">
-              <div className="h-2.5 w-24 rounded bg-white/[0.06] animate-pulse" />
-              <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/10 animate-pulse" />
+              <Skeleton className="h-2.5 w-24" />
+              <Skeleton className="h-10 w-full rounded-xl border border-white/10" />
             </div>
             <div className="space-y-2">
-              <div className="h-2.5 w-32 rounded bg-white/[0.06] animate-pulse" />
-              <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/10 animate-pulse" />
+              <Skeleton className="h-2.5 w-32" />
+              <Skeleton className="h-10 w-full rounded-xl border border-white/10" />
             </div>
           </div>
         ))}

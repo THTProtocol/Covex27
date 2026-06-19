@@ -37,20 +37,26 @@ const STORAGE_DEMO_REALITY = 'covex_tour_demo_reality';
 // Step definitions. route is the path the step expects the user to be on; the
 // "Next" button navigates to nextRoute (with tour=1 preserved) before
 // advancing. anchor is the data-tour attribute value the coachmark points at.
-const STEPS = [
+//
+// Routing note: the Explorer is mounted at the root path in App.jsx (the
+// literal slash, NOT a /explorer prefix). All Explorer-targeted routes here
+// use the root path so the tour never navigates the user to the NotFound
+// catch-all. The /sandbox, /studio, and /covenant/:id routes are mounted
+// under their literal paths.
+export const STEPS = [
   {
     id: 'explorer-hero',
     anchor: 'explorer-hero',
-    route: '/explorer',
+    route: '/',
     title: 'Welcome to Covex',
     body: 'This is the public Explorer. Every covenant on Kaspa with a known template shows up here, indexed from real blocks. Nothing in this tour will sign or broadcast anything.',
     nextLabel: 'Show me how to build one',
-    nextRoute: '/explorer',
+    nextRoute: '/',
   },
   {
     id: 'build-cta',
     anchor: 'build-cta',
-    route: '/explorer',
+    route: '/',
     title: 'Start from the Sandbox',
     body: 'Click "Build a covenant" to open the Sandbox. The Sandbox is a 3-phase guided builder: create, logic, deploy. You can step through it without spending any KAS.',
     nextLabel: 'Open the Sandbox',
@@ -99,7 +105,7 @@ const STEPS = [
     title: 'A real covenant page',
     body: 'This is a real on-chain covenant. The badge shows the disclosed enforcement reality. From here, anyone can participate by signing in their own wallet. The tour ends here.',
     nextLabel: 'Finish',
-    nextRoute: '/explorer',
+    nextRoute: '/',
   },
 ];
 
@@ -222,7 +228,7 @@ export default function FirstCovenantTour() {
     if (!raw) return null;
     const out = { ...raw };
     if (out.id === 'studio-block') {
-      out.nextRoute = demoId ? `/covenant/${demoId}` : '/explorer';
+      out.nextRoute = demoId ? `/covenant/${demoId}` : '/';
     }
     if (out.id === 'public-page') {
       out.route = demoId ? `/covenant/${demoId}` : null;
@@ -339,7 +345,7 @@ export default function FirstCovenantTour() {
     const target = STEPS[nextIdx];
     let targetPath = step.nextRoute;
     if (step.id === 'studio-block') {
-      targetPath = demoId ? `/covenant/${demoId}` : '/explorer';
+      targetPath = demoId ? `/covenant/${demoId}` : '/';
     }
     setStepIdx(nextIdx);
     if (targetPath && targetPath !== location.pathname) {

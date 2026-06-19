@@ -27,10 +27,10 @@ The backend ships with a `validate_mainnet_env()` pre-flight check (added in T8)
 
 ### What it checks
 
-When `KASPA_NETWORK=mainnet`, the validator requires:
+When `KASPA_NETWORK` is `mainnet` or `mainnet-1`, the validator requires:
 
-- `KASPA_NETWORK` is exactly `mainnet` (case-sensitive). Any other value is treated as non-mainnet and the validator is a no-op.
-- `COVENANT_TREASURY_ADDRESS` is set and non-empty.
+- `KASPA_NETWORK` is exactly `mainnet` or `mainnet-1` (case-sensitive). Any other value is treated as non-mainnet and the validator is a no-op (returns Ok immediately).
+- `COVENANT_TREASURY_ADDRESS` is set and non-empty (whitespace-only is also rejected; the address is trimmed before the empty check).
 - The treasury does NOT start with `kaspatest:` (testnet address on a mainnet binary is rejected).
 - The treasury (lowercased) does NOT contain any of the following placeholder substrings: `placeholder`, `example`, `dev_wallet`, `devwallet`, `your_address`, `youraddress`, `todo`, `xxxxxx`. This list is the exact set enforced by `validate_mainnet_env` in `backend/src/main.rs` (lines 81-90); update this doc and the code together if it ever changes.
 - The treasury does NOT exact-match, and does NOT end with the bech32 body of, any of the known testnet/dev addresses pulled from `dev_wallets.rs`: `TREASURY_ADDRESS_TN12`, `TREASURY_ADDRESS_TN10`, `DEV_WALLET_1_ADDRESS_TN12`, `DEV_WALLET_2_ADDRESS_TN12`, `DEV_WALLET_1_ADDRESS_TN10`, `DEV_WALLET_2_ADDRESS_TN10`. The body-suffix check catches the case where someone strips the `kaspatest:` prefix and re-prefixes with `kaspa:`.
@@ -80,6 +80,12 @@ Cases 1 through 3 must all print the `FATAL: validate_mainnet_env: ...` line and
 
 Honest note: this validator only protects the env-config surface. It does NOT verify the node is actually on mainnet, does NOT verify the treasury private key is recoverable, and does NOT replace the owner-driven decision to flip `KASPA_NETWORK=mainnet` on the production systemd unit. That flip remains a manual, owner-gated step.
 
+### Owner sign-off
+
+The pre-flight validator is a code-side fail-closed gate, not a policy gate. The mainnet flip ALSO requires a human owner sign-off against the launch checklist before any `KASPA_NETWORK=mainnet` env change is made in prod.
+
+Sign-off checklist lives in [LAUNCH_CHECKLIST.md](./LAUNCH_CHECKLIST.md). Do not flip the prod systemd unit to mainnet until every item there is checked off in writing by the owner. If `LAUNCH_CHECKLIST.md` does not exist yet at the time you read this, the launch is not ready: the validator passing is necessary but not sufficient.
+
 ## Pointing the Backend at a Mainnet Node
 
 ### Option 1: Add KASPA_WRPC_URL_MAINNET to existing covex-backend service
@@ -98,9 +104,17 @@ systemctl restart covex-backend
 
 The backend will log: "Mainnet indexer ready -- will index when a mainnet wRPC is available..."
 
-### Option 2: Run a dedicated mainnet-only backend instance
+### Option 2: Run a dedicated mainnet-only backend instance (historical example)
 
-Create `/etc/systemd/system/covex-mainnet.service`:
+The path layout below (`/root/Covex27/...`) is a HISTORICAL example from an
+earlier server layout. The live server today uses
+`/mnt/HC_Volume_105579109/Covex27` for the repo and
+`/opt/covex-target/release/covex27-backend` for the binary the systemd unit
+actually loads (see `docs/RUNBOOK.md` for the canonical paths). If you are
+authoring a real second unit today, mirror those paths instead of the example
+below. The example is kept for shape only.
+
+Create `/etc/systemd/system/covex-mainnet.service` (historical example):
 
 ```ini
 [Unit]
@@ -110,14 +124,14 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/Covex27
+WorkingDirectory=/mnt/HC_Volume_105579109/Covex27
 Environment=BIND_ADDR=0.0.0.0:3006
-Environment=DB_PATH=/root/Covex27/covex.db
+Environment=DB_PATH=/mnt/HC_Volume_105579109/Covex27/covex.db
 Environment=KASPA_NETWORK=mainnet
 Environment=KASPA_WRPC_URL=ws://OPERATOR-PC-IP:17110
 Environment=COVENANT_TREASURY_ADDRESS=kaspa:YOUR_REAL_MAINNET_TREASURY
 Environment=COVENANT_SEED_ADDRESSES=kaspa:SEED1,kaspa:SEED2
-ExecStart=/root/Covex27/backend/target/release/covex27-backend
+ExecStart=/opt/covex-target/release/covex27-backend
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
@@ -178,8 +192,8 @@ curl -s -X POST https://hightable.pro/api/sign-and-broadcast \
   -H "Content-Type: application/json" \
   -d '{"use_dev_mode":true,"deployer_addr":"kaspa:test","script_hex":"00","tier":"FREE","network":"mainnet"}' | jq .
 
-# DB network distribution
-ssh root@hightable.pro (historical) "sqlite3 /root/Covex27/covex.db 'SELECT network, COUNT(*) FROM covenants GROUP BY network;'"
+# DB network distribution (live server path; see docs/RUNBOOK.md for the canonical layout)
+ssh root@hightable.pro "sqlite3 /mnt/HC_Volume_105579109/Covex27/covex.db 'SELECT network, COUNT(*) FROM covenants GROUP BY network;'"
 ```
 
 ## Honest Remaining Items

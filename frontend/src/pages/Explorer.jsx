@@ -7,6 +7,7 @@ import {
   ShieldCheck, Zap, ChevronDown,
   Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes
 } from 'lucide-react';
+import Spinner from '../components/ui/Spinner';
 
 // Distinct icon per covenant category so cards are scannable at a glance (not all the same glyph).
 const CATEGORY_ICON = {
@@ -707,7 +708,7 @@ export default function Explorer() {
                 <button type="submit" disabled={searchLoading || !searchQuery.trim()}
                   className="btn-shimmer px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
                 >
-                  {searchLoading ? <span className="inline-block w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><Search size={12} /> Search</>}
+                  {searchLoading ? <Spinner variant="inverse" size="xs" label="Searching" /> : <><Search size={12} /> Search</>}
                 </button>
               </div>
             </form>
@@ -736,8 +737,8 @@ export default function Explorer() {
               </div>
             )}
             {searchLoading && (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
-                <div className="w-8 h-8 border-2 border-kaspa-green/30 border-t-kaspa-green rounded-full animate-spin" />
+              <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3" role="status" aria-busy="true">
+                <Spinner size="lg" label="Querying BlockDAG" />
                 <p className="text-sm font-mono">Querying BlockDAG...</p>
               </div>
             )}

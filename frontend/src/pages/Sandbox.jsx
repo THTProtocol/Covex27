@@ -284,12 +284,12 @@ export default function Sandbox() {
             />
             <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
               <span className="p-3 rounded-xl shrink-0 border self-start light:shadow-sm" style={{ background: '#49EACB1f', borderColor: '#49EACB4d' }}>
-                <Wand2 size={26} style={{ color: '#49EACB' }} />
+                <Wand2 size={26} className="text-[#49EACB]" />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
                   <Badge variant="builder" dot className="text-[10px] py-0">Recommended</Badge>
-                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border light:bg-emerald-50" style={{ color: '#49EACB', borderColor: '#49EACB66' }}>For everyone</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border light:bg-emerald-50 text-[#49EACB]" style={{ borderColor: '#49EACB66' }}>For everyone</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-white light:text-slate-900 leading-tight">
                   Start a guided build

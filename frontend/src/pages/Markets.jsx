@@ -6,9 +6,11 @@ import { enforcementSummary } from '../lib/enforcement-copy';
 import HonestLimits from '../components/HonestLimits';
 import TrustBadge from '../components/TrustBadge';
 import Button from '../components/ui/Button';
+import Skeleton from '../components/ui/Skeleton';
+import Spinner from '../components/ui/Spinner';
 import {
   ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
-  ExternalLink, Layers, Check, Loader2, Coins, ChevronDown, ArrowRight,
+  ExternalLink, Layers, Check, Coins, ChevronDown, ArrowRight,
 } from 'lucide-react';
 
 // Tabular-numeric mono utility - shared .num class from index.css so columns
@@ -76,10 +78,10 @@ function OddsCard({ label, mult, accent }) {
 // settled state speaks with one voice (was amber/orange, reconciled to emerald).
 function MarketHero({ book, market, resolved, wonLabel }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] p-6 sm:p-8 mb-6" style={{ background: 'linear-gradient(135deg, rgba(73,234,203,0.08) 0%, rgba(10,10,15,0.35) 62%)' }}>
+    <div className="glass-panel relative overflow-hidden rounded-3xl p-6 sm:p-8 mb-6">
       <span className="covex-aurora" aria-hidden="true" style={{ top: -44, right: -34, width: 260, height: 170 }} />
       <div className="relative flex items-start justify-between gap-3 mb-3">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-[-0.02em] leading-[1.08] min-w-0 break-words" style={{ textWrap: 'balance' }}>{book.question}</h1>
+        <h1 className="h-display text-white light:text-slate-900 min-w-0 break-words" style={{ textWrap: 'balance' }}>{book.question}</h1>
         {resolved
           ? <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 light:text-emerald-700"><Trophy size={12} /> {wonLabel}</span>
           : <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green"><span className="w-1.5 h-1.5 rounded-full bg-kaspa-green zk-live-glow" /> Open</span>}
@@ -152,7 +154,7 @@ function PlaceOrderCard({
           onClick={onPlaceBet}
           className="flex-1 min-w-0 truncate font-extrabold"
         >
-          {busy === 'Bet placed' ? <Loader2 className="animate-spin inline" size={15} /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
+          {busy === 'Bet placed' ? <Spinner variant="inverse" size="xs" /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
         </Button>
         <Button
           variant="glass" size="lg"
@@ -161,7 +163,7 @@ function PlaceOrderCard({
           onClick={onMatch}
           className="shrink-0"
         >
-          {busy === 'Matched' ? <Loader2 className="animate-spin inline" size={15} /> : 'Match'}
+          {busy === 'Matched' ? <Spinner variant="mono" size="xs" /> : 'Match'}
         </Button>
       </div>
       <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">A bet is an order on one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
@@ -187,7 +189,7 @@ function ResolvePayout({ book, busy, onResolve }) {
           <Button key={i} variant="glass" size="lg" disabled={!!busy}
             onClick={() => onResolve(i, label)}
             className="!border-emerald-500/30 hover:!border-emerald-400 hover:!bg-emerald-500/10 light:!border-emerald-500/40 light:hover:!border-emerald-600 light:hover:!bg-emerald-500/10 light:!text-slate-900 !font-bold truncate">
-            {busy === `Resolving ${label}` ? <Loader2 className="animate-spin inline" size={15} /> : `"${label}" won, pay out`}
+            {busy === `Resolving ${label}` ? <Spinner variant="mono" size="xs" /> : `"${label}" won, pay out`}
           </Button>
         ))}
       </div>
@@ -206,7 +208,7 @@ function Settled({ wonLabel, feePct, rebatePct, busy, settleRes, onSettle }) {
         through any Kaspa node, no Covex required. Winners take the pool (minus {feePct}% fee); losers reclaim {rebatePct}%.
       </p>
       <Button variant="kaspa" size="lg" shimmer disabled={!!busy} onClick={onSettle}>
-        {busy === 'Settle' ? <Loader2 className="animate-spin inline" size={15} /> : 'Settle / claim all legs'}
+        {busy === 'Settle' ? <Spinner variant="inverse" size="xs" /> : 'Settle / claim all legs'}
       </Button>
       {settleRes && settleRes.success && (
         <div className="mt-3 text-[12px] text-gray-300 light:text-slate-700">
@@ -279,7 +281,7 @@ function MobileBetRail({
               className="flex-1 min-w-0 truncate font-extrabold"
             >
               {busy === 'Bet placed'
-                ? <Loader2 className="animate-spin inline" size={15} />
+                ? <Spinner variant="inverse" size="xs" />
                 : <span className="inline-flex items-center gap-1.5 truncate">Back "{sideLabel}" <ArrowRight size={14} aria-hidden="true" /></span>}
             </Button>
           </div>
@@ -335,26 +337,27 @@ function MarketDetail({ id }) {
 
   if (!book || !market) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8" aria-busy="true" aria-label="Loading market">
+      <div className="max-w-3xl mx-auto px-4 py-8" role="status" aria-busy="true" aria-label="Loading market">
         {/* Header skeleton mirroring the resolved layout: title bar + meta row. */}
         <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] light:border-slate-200 p-6 sm:p-8 mb-6 bg-white/[0.02] light:bg-slate-50">
-          <div className="h-9 sm:h-12 w-3/4 rounded-lg bg-white/[0.06] light:bg-slate-200 animate-pulse mb-3" />
-          <div className="h-9 sm:h-12 w-1/2 rounded-lg bg-white/[0.06] light:bg-slate-200 animate-pulse mb-4" />
+          <Skeleton className="h-9 sm:h-12 w-3/4 mb-3" />
+          <Skeleton className="h-9 sm:h-12 w-1/2 mb-4" />
           <div className="flex gap-3">
-            <div className="h-5 w-32 rounded-full bg-white/[0.06] light:bg-slate-200 animate-pulse" />
-            <div className="h-5 w-40 rounded-full bg-white/[0.06] light:bg-slate-200 animate-pulse" />
+            <Skeleton className="h-5 w-32 rounded-full" />
+            <Skeleton className="h-5 w-40 rounded-full" />
           </div>
         </div>
         {/* Odds-card skeleton pair. */}
         <div className="grid grid-cols-2 gap-3">
           {[0, 1].map((i) => (
             <div key={i} className="rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-slate-50 p-5">
-              <div className="h-3 w-20 rounded bg-white/[0.06] light:bg-slate-200 animate-pulse mb-3" />
-              <div className="h-10 w-24 rounded bg-white/[0.06] light:bg-slate-200 animate-pulse mb-2" />
-              <div className="h-2.5 w-28 rounded bg-white/[0.06] light:bg-slate-200 animate-pulse" />
+              <Skeleton className="h-3 w-20 mb-3" />
+              <Skeleton className="h-10 w-24 mb-2" />
+              <Skeleton className="h-2.5 w-28" />
             </div>
           ))}
         </div>
+        <span className="sr-only">Loading market</span>
       </div>
     );
   }

@@ -9,6 +9,7 @@ import { signCovenantOwnership } from '../lib/ownership';
 import puckConfig, { LIVE_TOKENS, STARTER_TEMPLATES, matchTemplate, SAFE_COLOR } from '../lib/puckConfig';
 import { getPresets, presetBackdrop } from '../lib/designPresets';
 import ToolsPalette from '../components/ToolsPalette.jsx';
+import Spinner from '../components/ui/Spinner';
 
 // Random-id helper matching the convention puckConfig.blk() uses so blocks added
 // from the ToolsPalette are uniquely keyed inside the Puck content tree.
@@ -366,7 +367,7 @@ export default function CovenantStudio() {
   }, [postConfig, covenant, closeDrawer]);
 
   if (loading) {
-    return <div className="flex justify-center py-32"><div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" /></div>;
+    return <div className="flex justify-center py-32" role="status" aria-busy="true" aria-label="Loading studio"><Spinner size="lg" label="Loading studio" /></div>;
   }
   if (!covenant) {
     return (

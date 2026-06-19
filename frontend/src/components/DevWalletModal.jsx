@@ -508,7 +508,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
       >
         <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-black/40 light:bg-white border border-white/[0.06] light:border-slate-200">
           {wallet.logo ? (
-            <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md" onError={(e) => { e.target.style.display = 'none'; }} />
+            <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md" loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
           ) : (
             <Wallet size={18} className="text-gray-400 light:text-slate-400" />
           )}

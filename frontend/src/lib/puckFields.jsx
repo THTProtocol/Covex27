@@ -286,7 +286,7 @@ export function ImageUploadField({ onChange, value, field }) {
       </div>
       {hasPreview && (
         <div className="cvx-img-preview">
-          <img src={value} alt="" className="cvx-img-thumb" />
+          <img src={value} alt="" className="cvx-img-thumb" loading="lazy" decoding="async" />
           <span className="cvx-img-meta">{isData ? 'Uploaded image (stored in this page)' : 'Linked image'}</span>
           <button type="button" className="cvx-img-clear" onClick={() => { setErr(''); onChange(''); }} aria-label="Remove image">
             <Lucide.X size={13} />

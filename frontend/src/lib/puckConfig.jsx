@@ -559,7 +559,7 @@ export const puckConfig = {
           <div className={`grid grid-cols-2 ${COL_CLASS[columns] || COL_CLASS['3']} gap-3 px-2 md:px-4 mb-5`}>
             {imgs.map((im, i) => (
               <a key={i} href={im.url} target="_blank" rel="noopener noreferrer nofollow" className="group relative block aspect-video rounded-xl overflow-hidden border border-white/[0.08] light:border-slate-200">
-                <img src={im.url} alt={im.caption || 'gallery image'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img src={im.url} alt={im.caption || 'gallery image'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" decoding="async" />
                 {im.caption && <span className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-[11px] text-gray-200 px-2 py-1.5">{im.caption}</span>}
               </a>
             ))}
@@ -592,7 +592,7 @@ export const puckConfig = {
               <div className="flex flex-wrap items-center justify-center gap-4">
                 {ls.map((l, i) => (
                   <div key={i} className="cvx-panel-soft h-16 px-4 flex items-center justify-center rounded-xl transition-all">
-                    <img src={l.url} alt="partner logo" className="max-h-10 max-w-[120px] object-contain opacity-80 hover:opacity-100 transition-opacity" />
+                    <img src={l.url} alt="partner logo" className="max-h-10 max-w-[120px] object-contain opacity-80 hover:opacity-100 transition-opacity" loading="lazy" decoding="async" />
                   </div>
                 ))}
               </div>
@@ -1268,7 +1268,7 @@ function CarouselBlock({ images, autoplay }) {
         <div className="flex">
           {imgs.map((im, i) => (
             <div key={i} className="relative min-w-0 flex-[0_0_100%]">
-              <img src={im.url} alt={im.caption || 'carousel image'} className="w-full aspect-video object-cover" />
+              <img src={im.url} alt={im.caption || 'carousel image'} className="w-full aspect-video object-cover" loading="lazy" decoding="async" />
               {im.caption && <span className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-xs text-gray-200 px-3 py-2">{im.caption}</span>}
             </div>
           ))}

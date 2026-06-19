@@ -3,6 +3,7 @@ import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
+import Spinner from '../components/ui/Spinner';
 import { motion } from 'framer-motion';
 import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
@@ -834,7 +835,7 @@ export default function CovenantInteractive() {
       <div className="max-w-3xl mx-auto px-4 py-24">
         <div className="relative glass-panel rounded-3xl p-12 sm:p-16 flex flex-col items-center justify-center gap-5 text-center overflow-hidden">
           <div className="covex-aurora" aria-hidden="true" style={{ top: -40, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 220, maxWidth: '90vw' }} />
-          <div className="relative z-10 w-10 h-10 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" />
+          <Spinner size="xl" className="relative z-10" label="Initializing protocol sequence" />
           <p className="relative z-10 text-sm font-mono tracking-widest text-kaspa-green/90 uppercase">
             Initializing protocol sequence
           </p>

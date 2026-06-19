@@ -37,6 +37,19 @@ function randomSecretHex() {
   return Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+// Build the per-input signature array for a multi-UTXO non-custodial deploy. EVERY funding
+// UTXO belongs to the deployer, so the SAME in-browser key signs each input's own sighash
+// (each commits the same outputs but a different outpoint, so the sighashes differ). The
+// returned shape is exactly what submit-deploy expects: [{ index, signature_hex }]. Pure and
+// dependency-injected (the signer) so the signing logic is unit-checkable without a key.
+// Exported for tests; the private key never leaves the device either way.
+export function buildDeploySignatures(inputs, sign) {
+  return (inputs || []).map((inp) => ({
+    index: inp.index,
+    signature_hex: bytesToHex(sign(inp.sighash)),
+  }));
+}
+
 function CopyBtn({ text }) {
   const [done, setDone] = useState(false);
   async function onCopy() {
@@ -61,6 +74,11 @@ function CopyBtn({ text }) {
     </button>
   );
 }
+
+// Fee headroom (KAS) left unspent when locking the whole balance, so the funding tx can pay
+// its mass-based fee. Generous vs the few-thousand-sompi real fee, but small enough to feel
+// like "lock everything"; the backend rejects an underfunded tx rather than overspending.
+const MAX_LOCK_FEE_HEADROOM_KAS = 0.001;
 
 export default function EnforcedDeploy({ embedded = false, onDeployed = null }) {
   const { address, isDevMode, devMode, DevConnectPanel } = useWallet();
@@ -88,6 +106,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
   const navigate = useNavigate();
   const [kind, setKind] = useState(initialKind);
   const [stake, setStake] = useState('1.0');
+  // Deployer's spendable balance (KAS), for the "Max" convenience + the available-balance hint.
+  // null = not yet read / unavailable; reading is best-effort and never blocks manual entry.
+  const [availKas, setAvailKas] = useState(null);
+  const [balLoading, setBalLoading] = useState(false);
   const [lockBlocks, setLockBlocks] = useState('100');
   const [tipDaa, setTipDaa] = useState(null);
   // Extra params for the advanced primitives.
@@ -140,6 +162,45 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
       setExtOpen(true);
     } catch { /* ignore malformed hand-off */ }
   }, []);
+
+  // Read the deployer address's spendable balance from the backend (sums its UTXOs at the
+  // node) for the available-balance hint + the "Max" convenience. Best-effort: on any failure
+  // it leaves availKas unchanged and never blocks manual stake entry. Returns the KAS number
+  // (or null) so the Max handler can act on a fresh read instead of polled state.
+  async function fetchDeployerBalanceKas() {
+    if (!address) return null;
+    setBalLoading(true);
+    try {
+      const r = await fetch(`/api/balance/${encodeURIComponent(address)}?network=${encodeURIComponent(net)}`);
+      const d = await r.json();
+      const sompi = (d && typeof d.balance === 'number') ? d.balance
+        : (d && typeof d.balance_sompi === 'number') ? d.balance_sompi : null;
+      if (sompi == null) return null;
+      const kas = sompi / 100_000_000;
+      setAvailKas(kas);
+      return kas;
+    } catch {
+      return null; // node briefly unreachable; keep the last known value, allow manual entry
+    } finally {
+      setBalLoading(false);
+    }
+  }
+
+  // Refresh the available-balance hint whenever the connected address or network changes.
+  useEffect(() => { setAvailKas(null); if (address) fetchDeployerBalanceKas(); /* eslint-disable-next-line */ }, [address, net]);
+
+  // "Lock max balance": read the freshest balance, then set the stake to (balance - fee headroom)
+  // so the user can one-tap lock everything. If the read fails or the balance is below the
+  // headroom, leave the field unchanged (and surface why), never zeroing a manual entry.
+  async function setStakeToMax() {
+    const kas = await fetchDeployerBalanceKas();
+    if (kas == null) { setError('Could not read your balance to compute Max. Enter an amount manually.'); return; }
+    const max = kas - MAX_LOCK_FEE_HEADROOM_KAS;
+    if (!(max > 0)) { setError('Balance is too low to lock after leaving fee headroom.'); return; }
+    setError(null);
+    // Trim to 8 decimals (sompi precision) and drop trailing zeros for a clean field value.
+    setStake(String(Number(max.toFixed(8))));
+  }
 
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
   // Multi-party / oracle primitives deploy via server-assisted dev wallets,
@@ -247,10 +308,18 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
           setError('The connected key does not match the funding address. Reconnect the wallet that owns the funds.');
           return;
         }
-        const signatureHex = bytesToHex(schnorr.sign(prep.sighash, myKey)); // BIP340 over the funding sighash
+        // Sign EVERY funding input. A "lock any amount" deploy may pull together N of the
+        // deployer's UTXOs, so prep.inputs carries one entry per input, each with its OWN
+        // sighash (same outputs, different outpoint). The SAME in-browser key signs them all
+        // (every funding UTXO is the deployer's) and we POST signatures:[{index, signature_hex}].
+        // The lone signature_hex path stays as a back-compat fallback only if inputs is absent.
+        const inputs = Array.isArray(prep.inputs) ? prep.inputs : [];
+        const submitBody = inputs.length
+          ? { session_id: prep.session_id, signatures: buildDeploySignatures(inputs, (sh) => schnorr.sign(sh, myKey)) }
+          : { session_id: prep.session_id, signature_hex: bytesToHex(schnorr.sign(prep.sighash, myKey)) }; // BIP340 over the funding sighash
         const sub = await fetch('/api/covenant/p2sh/submit-deploy', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: prep.session_id, signature_hex: signatureHex }),
+          body: JSON.stringify(submitBody),
         }).then((r) => r.json());
         if (!sub.success) { setError(sub.error || 'Deploy broadcast failed.'); return; }
         setMine((m) => [{
@@ -586,9 +655,37 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
         <div className="flex items-center gap-2 text-white light:text-slate-900 font-semibold"><KindIcon size={16} className="text-kaspa-green" /> Parameters</div>
         {kind !== 'market' && (
           <label className="block">
-            <span className="text-xs text-gray-300 light:text-slate-700">Stake to lock (KAS)</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-300 light:text-slate-700">Stake to lock (KAS)</span>
+              {/* Lock-any-amount: the funding tx can pull together as many of your UTXOs as it
+                  needs, so the lockable amount is bounded only by your total balance, not by a
+                  single UTXO. "Max" leaves a tiny fee headroom. Only for your-own-funds kinds. */}
+              {!usesDevWallets && address && (
+                <span className="flex items-center gap-2">
+                  {availKas != null && (
+                    <span className="text-[11px] text-gray-400 light:text-slate-600 font-mono">
+                      avail {Number(availKas.toFixed(4))} KAS
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={setStakeToMax}
+                    disabled={balLoading}
+                    title="Lock your whole balance (less a tiny fee headroom). The funding tx combines as many of your UTXOs as needed."
+                    className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold px-2 py-0.5 rounded-md border border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green hover:bg-kaspa-green/20 transition-colors disabled:opacity-60 light:border-emerald-500/40 light:bg-emerald-500/10 light:text-emerald-600"
+                  >
+                    {balLoading ? <Loader2 size={11} className="animate-spin" /> : null} Max
+                  </button>
+                </span>
+              )}
+            </div>
             <input value={stake} onChange={(e) => setStake(e.target.value)} inputMode="decimal"
               className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
+            {!usesDevWallets && (
+              <span className="mt-1 block text-[11px] text-gray-500 light:text-slate-500">
+                Lockable up to your total balance: the funding transaction combines multiple UTXOs as needed.
+              </span>
+            )}
           </label>
         )}
         {kind === 'market' && (

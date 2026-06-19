@@ -39,8 +39,9 @@ const TIERS = [
     id: 'FREE',
     name: 'Free',
     price: 0,
-    desc: 'Browse and discover covenants on the Kaspa BlockDAG.',
+    desc: 'Deploy and bet any amount on the Kaspa BlockDAG. No cap, ever.',
     features: [
+      'Lock or bet any amount, no maximum',
       'Browse all indexed covenants',
       'Public read-only contract view',
       'Script display and parameters',
@@ -48,9 +49,8 @@ const TIERS = [
       'Search and filter capabilities',
     ],
     missing: [
-      'No custom interactive UI',
-      'No Terminal access',
-      'No featured placement',
+      'No custom website / interactive UI',
+      'No priority placement on the Explorer',
     ],
     cta: 'Explore Covenants',
     ctaAction: 'explore',
@@ -61,10 +61,10 @@ const TIERS = [
     id: 'BUILDER',
     name: 'Builder',
     price: 100,
-    desc: 'Unlock the full Covex Terminal. Deploy custom interactive covenants with your own UIs, fees, and resolution logic.',
+    desc: 'Give your covenant its own custom website on Covex. Build interactive UIs, fees, and resolution logic in the Covenant Studio.',
     features: [
-      'Full access to Covex Terminal',
-      'Deploy custom UIs from Covenant Studio',
+      'Custom website / interactive UI builder',
+      'Publish custom UIs from Covenant Studio',
       'Configure fees, reusability & top-ups',
       'Standard Explorer placement',
     ],
@@ -335,15 +335,28 @@ const Pricing = () => {
           The Advanced Composer is part of the paid Terminal. Pick a tier below to unlock it.
         </div>
       )}
-      <div className="relative z-10 text-center max-w-2xl mx-auto mb-12">
-        <h1 className="h-display text-white light:text-slate-900 mb-4">Deploy Interactive Covenants</h1>
+      <div className="relative z-10 text-center max-w-2xl mx-auto mb-8">
+        <h1 className="h-display text-white light:text-slate-900 mb-4">Priority Placement and the Website Builder</h1>
         <p className="text-lg md:text-xl text-gray-300 light:text-slate-600 leading-relaxed">
-          One-time payment. Full Terminal access on all paid tiers. Higher tiers = better visibility on the Explorer.
+          One-time payment. Paid tiers buy priority placement on Covex and the custom-UI website builder. Higher tiers = better visibility on the Explorer.
         </p>
         <p className="mt-3 text-sm">
           <Link to="/kaspa" className="text-kaspa-green light:text-[#14B8A6] underline">Learn about Kaspa</Link>
           <span className="mx-2 text-gray-600 light:text-slate-400">|</span>
           <Link to="/treasury" className="text-kaspa-green light:text-[#14B8A6] underline">Treasury and ranking transparency</Link>
+        </p>
+      </div>
+
+      {/* No-cap honesty banner: the single most important framing on this page. Tiers
+          are about visibility and the website builder, never about how much you can
+          lock or bet. Any covenant, on any tier including free, can lock or bet any
+          amount. This is enforced in the backend (tier comes from a treasury payment,
+          not from the covenant's stake), and stated here so no one is misled. */}
+      <div className="relative z-10 max-w-3xl mx-auto mb-12 flex items-start gap-3 p-4 rounded-2xl border border-kaspa-green/30 bg-kaspa-green/[0.06] light:border-emerald-400 light:bg-emerald-50">
+        <ShieldCheck size={20} className="shrink-0 mt-0.5 text-kaspa-green light:text-[#14B8A6]" aria-hidden="true" />
+        <p className="text-sm leading-relaxed text-gray-200 light:text-slate-700">
+          <span className="font-semibold text-white light:text-slate-900">Every covenant can lock or bet any amount on the free tier.</span>{' '}
+          Paid tiers buy priority placement on Covex and the website builder, never a higher limit. There is no maximum bet or lock size on any tier.
         </p>
       </div>
 
@@ -409,7 +422,7 @@ const Pricing = () => {
       </div>
 
       <div className="text-center mt-10 text-sm text-gray-400 light:text-slate-600 max-w-xl mx-auto">
-        All paid tiers unlock the full Covex Terminal for deploying custom interactive UIs, with higher tiers providing more custom selections, advanced options, and features for your covenants. Paid tiers also improve your covenant's visibility ranking on the Explorer.
+        Paid tiers unlock the custom-UI website builder in the Covex Terminal, with higher tiers providing more custom selections, advanced options, and features for your covenant's website. Paid tiers also improve your covenant's visibility ranking on the Explorer. They never change how much you can lock or bet: any covenant, on any tier including free, can lock or bet any amount with no maximum.
       </div>
     </div>
   );

@@ -49,15 +49,15 @@ function OddsCard({ label, mult, accent }) {
   const profit = mult >= 1;
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${accent ? 'border-kaspa-green/50 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift hover:border-white/20'}`}
-      style={accent ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 26px rgba(73,234,203,0.22), inset 0 1px 0 rgba(255,255,255,0.05)' } : undefined}
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${accent ? 'border-emerald-500/40 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift hover:border-white/20'}`}
+      style={accent ? { background: 'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 26px rgba(16,185,129,0.22), inset 0 1px 0 rgba(255,255,255,0.05)' } : undefined}
     >
       {accent && <span className="covex-aurora" aria-hidden="true" style={{ top: -28, right: -18, width: 120, height: 96 }} />}
       <div className="relative flex items-center justify-between mb-1">
         <span className="kicker">If "{label}" wins</span>
-        {accent && <Trophy size={15} className="text-kaspa-green shrink-0" />}
+        {accent && <Trophy size={15} className="text-emerald-300 light:text-emerald-600 shrink-0" />}
       </div>
-      <div className={`relative text-3xl sm:text-4xl font-extrabold leading-none ${num} ${profit ? 'text-kaspa-green' : 'text-amber-300'}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-xl">×</span></div>
+      <div className={`relative text-3xl sm:text-4xl font-extrabold leading-none ${num} ${accent ? 'text-emerald-300 light:text-emerald-600' : (profit ? 'text-kaspa-green' : 'text-amber-300')}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-xl">×</span></div>
       <div className="relative text-[10px] text-gray-500 light:text-slate-500 mt-1">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
     </div>
   );
@@ -84,7 +84,7 @@ function MarketHero({ book, market, resolved, wonLabel }) {
           ? <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 light:text-emerald-700"><Trophy size={12} /> {wonLabel}</span>
           : <span className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-kaspa-green/10 border border-kaspa-green/25 text-kaspa-green"><span className="w-1.5 h-1.5 rounded-full bg-kaspa-green zk-live-glow" /> Open</span>}
       </div>
-      <div className="relative flex flex-wrap items-center gap-3 text-[12px] text-gray-300">
+      <div className="relative flex flex-wrap items-center gap-3 text-[12px] text-gray-300 light:text-slate-600">
         <EnforcementBadge covenant={{ name: book.question, network: market.network }} />
         {market.kickoff_utc && <span className="inline-flex items-center gap-1"><Clock size={12} className="text-kaspa-green" /> {fmtKickoff(market.kickoff_utc)}</span>}
         {market.source_url && <a href={market.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-kaspa-green">Source <ExternalLink size={11} /></a>}
@@ -128,7 +128,10 @@ function PlaceOrderCard({
         <OddsRow book={book} odds={odds} resolved={resolved} showOpen />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      {/* On <sm the sticky MobileBetRail owns the side toggle, stake, and Back/Match buttons.
+          We hide the duplicate inline action set here so phones get one clean order surface;
+          the payout-address input stays visible because the rail doesn't include it. */}
+      <div className="hidden sm:grid grid-cols-2 gap-2 mb-3">
         {[book.outcome_a, book.outcome_b].map((label, i) => (
           <button key={i} onClick={() => setSide(i)}
             className={`py-2.5 px-2 rounded-xl text-sm font-semibold border transition-all truncate ${side === i ? 'bg-kaspa-green text-black border-kaspa-green' : 'bg-white/[0.03] light:bg-white text-gray-200 light:text-slate-700 border-white/10 light:border-slate-200 hover:border-white/25'}`}>
@@ -138,11 +141,11 @@ function PlaceOrderCard({
       </div>
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <input value={stake} onChange={(e) => setStake(e.target.value)} type="number" min="1" step="0.5"
-          className={`w-full sm:w-28 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm ${num}`} placeholder="KAS" />
+          className={`hidden sm:block w-full sm:w-28 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm ${num}`} placeholder="KAS" />
         <input value={addr} onChange={(e) => setAddr(e.target.value)}
           className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm font-mono text-[11px]" placeholder="your kaspatest:q... address" />
       </div>
-      <div className="flex gap-2">
+      <div className="hidden sm:flex gap-2">
         <Button
           variant="kaspa" size="lg" shimmer
           disabled={!!busy || !addr || !(parseFloat(stake) > 0)}
@@ -174,7 +177,7 @@ function ResolvePayout({ book, busy, onResolve }) {
   return (
     <div className="glass-panel rounded-2xl border border-emerald-500/25 p-6 mb-6">
       <div className="text-white light:text-slate-900 font-semibold mb-1">Resolve &amp; pay out</div>
-      <p className="text-[11px] text-gray-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
+      <p className="text-[11px] text-gray-500 light:text-slate-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
       <p className="text-[11px] text-emerald-200/90 light:text-emerald-700 mb-3 flex items-start gap-1.5">
         <ShieldCheck size={13} className="text-emerald-400 light:text-emerald-600 shrink-0 mt-0.5" />
         Only the wallet that created this market can resolve it. You'll be prompted to sign a one-time message proving ownership before the outcome is revealed.
@@ -356,7 +359,7 @@ function MarketDetail({ id }) {
     );
   }
   if (book.success === false) {
-    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-gray-400">Market not found. <Link to="/" className="text-kaspa-green">Back to markets</Link></div>;
+    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-gray-400 light:text-slate-500">Market not found. <Link to="/" className="text-kaspa-green">Back to markets</Link></div>;
   }
 
   const odds = book.odds || {};
@@ -464,9 +467,9 @@ function MarketDetail({ id }) {
                     {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => {
                       const isWinner = resolved && book.revealed_outcome === oc;
                       return (
-                        <div key={oc} className={`rounded-xl border p-3.5 text-[12px] transition-all ${isWinner ? 'border-kaspa-green/50 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift'}`}
-                          style={isWinner ? { background: 'linear-gradient(135deg, rgba(73,234,203,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 20px rgba(73,234,203,0.20)' } : undefined}>
-                          <div className="flex items-center justify-between gap-2 mb-1.5"><span className="kicker truncate">If "{lbl}" wins</span>{isWinner && <Trophy size={13} className="text-kaspa-green shrink-0" />}</div>
+                        <div key={oc} className={`rounded-xl border p-3.5 text-[12px] transition-all ${isWinner ? 'border-emerald-500/40 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift'}`}
+                          style={isWinner ? { background: 'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 20px rgba(16,185,129,0.22)' } : undefined}>
+                          <div className="flex items-center justify-between gap-2 mb-1.5"><span className="kicker truncate">If "{lbl}" wins</span>{isWinner && <Trophy size={13} className="text-emerald-300 light:text-emerald-600 shrink-0" />}</div>
                           <div className="flex items-center justify-between gap-2"><span className="text-kaspa-green">Reward pool</span><span className={`text-white light:text-slate-900 shrink-0 ${num}`}>{((1 - f) * mine + (1 - f - r) * opp).toFixed(2)} KAS</span></div>
                           <div className="flex items-center justify-between gap-2"><span className="text-sky-300 light:text-sky-600">Hedge / rebate pool</span><span className={`text-white light:text-slate-900 shrink-0 ${num}`}>{(r * opp).toFixed(2)} KAS</span></div>
                         </div>

@@ -122,6 +122,13 @@ export default function CovenantStudio() {
   const [activeDrawer, setActiveDrawer] = useState(null);
   const openDrawer = useCallback((drawerId) => setActiveDrawer(drawerId), []);
   const closeDrawer = useCallback(() => setActiveDrawer(null), []);
+  // Toolbar trigger refs for focus restore. The modal drawers (picker / themes /
+  // settings / help) restore focus via useFocusTrap, but the inline 'tools' panel
+  // and the 'more' overflow menu do not use the trap, so Escape / X close drops
+  // focus to <body>. These refs let a small effect put focus back where it came
+  // from, mirroring WalletButton's drawerWasOpen pattern.
+  const toolsBtnRef = useRef(null);
+  const moreBtnRef = useRef(null);
   // Bump this to force the Puck tree to re-mount with fresh data (template / theme apply).
   const [dataKey, setDataKey] = useState(0);
   const puckDataRef = useRef(EMPTY_PAGE);
@@ -137,6 +144,23 @@ export default function CovenantStudio() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [activeDrawer, closeDrawer]);
+
+  // Restore focus to the originating toolbar button when the 'tools' or 'more'
+  // drawer transitions from open to closed. Mirrors WalletButton's drawerWasOpen
+  // ref + focus call. Other drawers (picker / themes / settings / help) get this
+  // via useFocusTrap so they need no extra handling here.
+  const toolsWasOpen = useRef(false);
+  useEffect(() => {
+    if (activeDrawer === 'tools') { toolsWasOpen.current = true; return; }
+    if (toolsWasOpen.current && toolsBtnRef.current) toolsBtnRef.current.focus();
+    toolsWasOpen.current = false;
+  }, [activeDrawer]);
+  const moreWasOpen = useRef(false);
+  useEffect(() => {
+    if (activeDrawer === 'more') { moreWasOpen.current = true; return; }
+    if (moreWasOpen.current && moreBtnRef.current) moreBtnRef.current.focus();
+    moreWasOpen.current = false;
+  }, [activeDrawer]);
 
   useEffect(() => {
     setLoading(true);
@@ -417,6 +441,7 @@ export default function CovenantStudio() {
             <LayoutTemplate size={14} /> <span className="hidden sm:inline">Templates</span>
           </button>
           <button
+            ref={toolsBtnRef}
             data-tour="studio-block"
             onClick={() => setActiveDrawer((cur) => (cur === 'tools' ? null : 'tools'))}
             aria-label="Add block panel"
@@ -427,6 +452,7 @@ export default function CovenantStudio() {
           </button>
           {/* Mobile-only overflow trigger (44px touch target). */}
           <button
+            ref={moreBtnRef}
             onClick={() => setActiveDrawer((cur) => (cur === 'more' ? null : 'more'))}
             aria-label="More page tools"
             aria-expanded={activeDrawer === 'more'}

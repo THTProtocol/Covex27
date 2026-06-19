@@ -63,7 +63,7 @@ const WALLET_INSTALL_URLS = {
   KaspaCom: 'https://wallet.kaspa.com',
   Tangem:   'https://tangem.com/kaspa',
   OneKey:   'https://chromewebstore.google.com/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
-  KSPR:     'https://kspr.app',
+  KSPR:     'https://t.me/kspr_wallet_bot',
 };
 
 // ── Per-wallet mobile deep links (open the INSTALLED app, ideally into its in-app dApp
@@ -86,7 +86,7 @@ const WALLET_DEEP_LINKS = {
   // Tangem is card+app; deep link opens the app. No injected provider in mobile browser.
   Tangem:   'https://app.tangem.com/',
   // KSPR has a mobile app with an in-app browser.
-  KSPR:     `https://kspr.app/`,
+  KSPR:     `https://t.me/kspr_wallet_bot`,
 };
 
 // Wallets that, in a NORMAL mobile browser, do NOT inject a Kaspa provider and have NO real

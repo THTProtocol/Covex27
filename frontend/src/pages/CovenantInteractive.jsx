@@ -209,7 +209,14 @@ export default function CovenantInteractive() {
 
   // Transparency: always show full details for viewers (no hidden settings for regular users)
   const showTransparency = true; // Always for the "everything there is to know - fully transparent" requirement.
-  const TREASURY = 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+  const TREASURY = (() => {
+    // Pay the upgrade fee to the treasury on the covenant's own network (a kaspatest:
+    // address is invalid on mainnet, so a hardcoded testnet treasury breaks mainnet pay).
+    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
+    return (net === 'mainnet' || net === 'mainnet-1')
+      ? 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2'
+      : 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
+  })();
   const TIER_OPTIONS = [
     { id: 'BUILDER', price: 100, label: 'Builder', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
     { id: 'PRO', price: 500, label: 'PRO', color: '#E8AF34', desc: 'Featured placement, advanced UI tools, covenant images.' },

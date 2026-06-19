@@ -272,7 +272,7 @@ export default function WhatIsKaspaPage() {
               { title: "Kaspa Documentation Hub", desc: "Protocol spec, REST/WebSocket APIs, SilverScript reference, node setup", href: "https://github.com/kaspanet/docs" },
               { title: "Covenant Design Document (KIP-17)", desc: "The single most important document for Covex developers", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
               { title: "Official Web Wallet", desc: "kaspa.org wallet: send, receive, and interact with covenants", href: "https://wallet.kaspa.org" },
-              { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://kaspa.org/community" },
+              { title: "Community (Discord / X / Reddit)", desc: "High-signal technical discussion happens here", href: "https://discord.gg/kaspa" },
               { title: "Kaspa Improvement Proposals (KIPs)", desc: "Formal process for protocol changes", href: "https://github.com/kaspanet/kips" },
               { title: "Core Team & Research Blog", desc: "Updates from the researchers and protocol engineers", href: "https://research.kas.pa" },
             ].map((r, i) => (

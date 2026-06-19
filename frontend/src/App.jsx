@@ -142,14 +142,46 @@ function SmartTerminalLink() {
   return <NavLink to="/premium" className={NL}>Terminal</NavLink>;
 }
 
-// Covex is mainnet-only. Pin the stored network to mainnet once on mount so any code that
-// still reads localStorage('kaspaNetwork') resolves to mainnet, and notify listeners.
-function ensureMainnetNetwork() {
-  if (typeof window === 'undefined') return;
-  if (localStorage.getItem('kaspaNetwork') !== 'mainnet') {
-    localStorage.setItem('kaspaNetwork', 'mainnet');
-    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: 'mainnet' }));
-  }
+// User-selectable network. Mainnet is the default and primary network; Testnet-10 and Testnet-12
+// are available for testing. The choice persists in localStorage('kaspaNetwork') and dispatches the
+// 'kaspa-network-change' CustomEvent so WalletContext, Stats and the live status sync immediately.
+function NetworkSwitcher() {
+  const [network, setNetwork] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('kaspaNetwork') || 'mainnet';
+    return 'mainnet';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('kaspaNetwork', network);
+    // Dispatch event so WalletContext, Stats and other components sync.
+    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: network }));
+  }, [network]);
+
+  const networks = [
+    { value: 'mainnet', label: 'MAIN', color: '#49EACB', title: 'Kaspa Mainnet - real funds' },
+    { value: 'testnet-10', label: 'TN10', color: '#F59E0B', title: 'Testnet 10 - test funds' },
+    { value: 'testnet-12', label: 'TN12', color: '#A78BFA', title: 'Toccata Testnet 12 - test funds' },
+  ];
+
+  return (
+    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 light:bg-white light:border-slate-200" title={networks.find(n => n.value === network)?.title}>
+      {networks.map(n => (
+        <button
+          key={n.value}
+          onClick={() => setNetwork(n.value)}
+          title={n.title}
+          className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
+            network === n.value
+              ? 'text-black shadow-sm'
+              : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
+          }`}
+          style={network === n.value ? { backgroundColor: n.color } : {}}
+        >
+          {n.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function LiveStatus() {
@@ -176,7 +208,7 @@ function LiveStatus() {
           const ready = d.mainnet_ready
             ? ' • mainnet live'
             : (d.mainnet_wrpc_configured ? ' • mainnet node connected' : '');
-          setInfo(`${git} • ${totalStr} covenants${ready}`);
+          setInfo(`${git} • ${selectedNet} • ${totalStr} covenants${ready}`);
         })
         .catch(() => { /* silent, keep footer clean */ });
     };
@@ -305,9 +337,6 @@ function InstallAppButton({ variant = 'menu', onInstalled }) {
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Covex is mainnet-only: pin the stored network to mainnet on first paint.
-  useEffect(() => { ensureMainnetNetwork(); }, []);
-
   // Close mobile menu on route change or escape
   useEffect(() => {
     const close = () => setMobileMenuOpen(false);
@@ -339,6 +368,7 @@ export default function App() {
                 <NavLink to="/sandbox" className={NL}>Build</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
+                <NetworkSwitcher />
                 <WalletButton />
                 <ThemeToggle />
               </div>
@@ -369,6 +399,8 @@ export default function App() {
                   <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
                   <NavLink to="/docs" className={NL} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
                   <NavLink to="/whitepaper" className={NL} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
+                  <div className="mt-1 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Network</div>
+                  <NetworkSwitcher />
                   {/* Add Covex to your home screen (only shown when installable) */}
                   <InstallAppButton variant="menu" onInstalled={() => setMobileMenuOpen(false)} />
                 </div>

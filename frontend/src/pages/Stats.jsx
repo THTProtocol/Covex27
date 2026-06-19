@@ -8,8 +8,19 @@ import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 // timeline reflects the rolling event window the backend retains.
 
 const NETWORKS = [
+  { value: 'all', label: 'All networks', color: '#9CA3AF' },
   { value: 'mainnet', label: 'Mainnet', color: '#49EACB' },
+  { value: 'testnet-10', label: 'TN10', color: '#F59E0B' },
+  { value: 'testnet-12', label: 'TN12', color: '#A78BFA' },
 ];
+
+const NETWORK_LABEL = (slug) => {
+  if (slug === 'mainnet' || slug === 'mainnet-1') return 'Mainnet';
+  if (slug === 'testnet-10') return 'TN10';
+  if (slug === 'testnet-12') return 'TN12';
+  return slug;
+};
+const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) || '#9CA3AF';
 
 const EVENT_META = {
   covenant_discovered: { label: 'Discovered', color: '#49EACB' },
@@ -112,8 +123,8 @@ function ActivityChart({ days, types }) {
 }
 
 export default function Stats() {
-  // Covex is mainnet-only: stats always reflect mainnet covenants.
-  const [network] = useState('mainnet');
+  // User-selectable: default to the network the rest of the app is on, falling back to 'all'.
+  const [network, setNetwork] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('kaspaNetwork') : null) || 'all');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -167,9 +178,14 @@ export default function Stats() {
           <h1 className="text-2xl font-bold text-white light:text-slate-900">Platform Statistics</h1>
           <p className="text-sm text-gray-400 mt-1">Live aggregates from indexed covenants, confirmed treasury payments, and on-chain activity. Real data only.</p>
         </div>
-        <div className="self-start inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1 light:bg-white light:border-slate-200">
-          <span className="w-2 h-2 rounded-full" style={{ background: NETWORKS[0].color }} />
-          <span className="text-[11px] font-semibold text-gray-300 light:text-slate-600">{NETWORKS[0].label}</span>
+        <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 self-start light:bg-white light:border-slate-200">
+          {NETWORKS.map((n) => (
+            <button key={n.value} onClick={() => setNetwork(n.value)}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-sm transition-all ${network === n.value ? 'text-black' : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'}`}
+              style={network === n.value ? { backgroundColor: n.color } : {}}>
+              {n.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -236,19 +252,17 @@ export default function Stats() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data.by_network || [])
-                    .filter((n) => n.network === 'mainnet' || n.network === 'mainnet-1')
-                    .map((n) => (
-                      <tr key={n.network} className="border-t border-white/5 light:border-slate-100 hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
-                        <td className="py-2 font-mono text-gray-200 light:text-slate-700">
-                          <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: '#49EACB' }} />
-                          Mainnet
-                        </td>
-                        <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtNum(n.covenants)}</td>
-                        <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtNum(n.paid)}</td>
-                        <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtKas(n.tvl_kas)}</td>
-                      </tr>
-                    ))}
+                  {(data.by_network || []).map((n) => (
+                    <tr key={n.network} className="border-t border-white/5 light:border-slate-100 hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
+                      <td className="py-2 font-mono text-gray-200 light:text-slate-700">
+                        <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: NETWORK_COLOR(n.network) }} />
+                        {NETWORK_LABEL(n.network)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtNum(n.covenants)}</td>
+                      <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtNum(n.paid)}</td>
+                      <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtKas(n.tvl_kas)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

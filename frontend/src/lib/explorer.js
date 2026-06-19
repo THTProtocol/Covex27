@@ -1,8 +1,12 @@
-// Kaspa block-explorer URLs. Covex standardizes on the kaspa.stream explorer for mainnet,
-// the only user-visible network. Every covenant / wallet link routes to mainnet at kaspa.stream.
+// Network-accurate Kaspa block-explorer URLs. We standardize on the kaspa.stream explorer
+// for every network: mainnet at kaspa.stream, testnet-10 at tn10.kaspa.stream, testnet-12 at
+// tn12.kaspa.stream. Pointing a testnet address/tx at the mainnet explorer renders a "page not
+// found" (it does not exist on mainnet), so always route by the covenant's / wallet's network.
 const BASE = {
   mainnet: 'https://kaspa.stream',
   'mainnet-1': 'https://kaspa.stream',
+  'testnet-10': 'https://tn10.kaspa.stream',
+  'testnet-12': 'https://tn12.kaspa.stream',
 };
 
 function resolveNet(network) {

@@ -62,16 +62,21 @@ export const badgeVariants = cva(
   }
 );
 
+// Light-mode 600-shade overrides on every honesty dot: the dark 400-shades sit
+// at ~1.7:1 against the light 50 chip backgrounds, which inverts the honesty
+// hierarchy (on-chain reads weakest). The 600-shade hits ~4.5:1 so on-chain
+// stays the strongest signal in BOTH themes. Dot size stays 1.5px (set on the
+// span) so light-mode weight matches dark.
 const DOT = {
-  'on-chain': 'bg-emerald-400',
-  hybrid:     'bg-sky-400',
-  oracle:     'bg-amber-400',
-  'full-zk':  'bg-violet-400',
-  metadata:   'bg-slate-400',
-  decorative: 'bg-slate-400',
+  'on-chain': 'bg-emerald-400 light:bg-emerald-600',
+  hybrid:     'bg-sky-400 light:bg-sky-600',
+  oracle:     'bg-amber-400 light:bg-amber-600',
+  'full-zk':  'bg-violet-400 light:bg-violet-600',
+  metadata:   'bg-slate-400 light:bg-slate-500',
+  decorative: 'bg-slate-400 light:bg-slate-500',
   gold:       'bg-[#E8AF34]',
   pro:        'bg-[#E8AF34]',
-  max:        'bg-purple-400',
+  max:        'bg-purple-400 light:bg-purple-600',
   builder:    'bg-[#49EACB]',
 };
 

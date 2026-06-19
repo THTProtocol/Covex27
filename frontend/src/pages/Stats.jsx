@@ -23,9 +23,13 @@ const NETWORK_LABEL = (slug) => {
 };
 const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) || '#9CA3AF';
 
+// tier_upgraded sources its color from tierPalette so the Stats event chart and
+// the Pricing/Explorer PRO surfaces share one hex (#E8AF34, Kaspa-gold). The old
+// '#F59E0B' generic amber drifted from PRO's real brand color and read as a
+// different event family on the same screen.
 const EVENT_META = {
   covenant_discovered: { label: 'Discovered', color: '#49EACB' },
-  tier_upgraded: { label: 'Tier upgrades', color: '#F59E0B' },
+  tier_upgraded: { label: 'Tier upgrades', color: TIER_PALETTE_COLOR.PRO },
   resolution_signed: { label: 'Resolutions', color: '#A78BFA' },
 };
 const eventMeta = (t) => EVENT_META[t] || { label: t.replace(/_/g, ' '), color: '#6B7280' };

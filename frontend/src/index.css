@@ -89,6 +89,42 @@ h3, h4 {
   line-height: 1.2;
 }
 
+/* CANONICAL TYPE TOKENS (single source of truth).
+   .num-display is the big-number readout used by Explorer hero stats, Stats
+   KPIs, and Markets pot/odds figures. It enforces mono + tnum so digits never
+   reflow during live updates, weight 900 so the number outranks its label,
+   zero letter-spacing because tight tracking on big numerals reads as a typo,
+   and a fluid clamp that lands between .h-page and .h-display.
+   .label-sm fills the gap between .label-xs (10px, chip eyebrow) and .kicker
+   (11px, section eyebrow): 12px uppercase for in-card labels that need a
+   stronger presence than .label-xs without growing to .h-section.
+   .body-sm / .body-xs spec the dense tabular meta lines in Markets order
+   rows and Stats footnotes so we stop hand-rolling text-[11px] leading-relaxed. */
+.num-display {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv11';
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.label-sm {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+}
+.body-sm {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.body-xs {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    MOTION TOKENS
    Reusable durations for premium micro-interactions. 160ms for the
@@ -464,12 +500,16 @@ body {
   border: 1px solid #99f6e4;
 }
 
-/* Tier glows - use brand colors but softer for light */
+/* Tier glows - use brand colors but softer for light.
+   PRO uses canonical Kaspa-gold (#E8AF34, same hex as lib/tierPalette.js + the
+   dark .tier-glow-pro), so a paying PRO customer sees the same gold border on
+   Pricing, Stats, and Explorer. The previous #d97706 made PRO read as a darker
+   "amber-700", which collided with the honesty `oracle` chip in light mode. */
 .light .tier-glow-max {
   box-shadow: 0 0 0 1px #7c3aed, 0 10px 15px -3px rgba(124, 58, 237, 0.1) !important;
 }
 .light .tier-glow-pro {
-  box-shadow: 0 0 0 1px #d97706, 0 10px 15px -3px rgba(217, 119, 6, 0.1) !important;
+  box-shadow: 0 0 0 1px #E8AF34, 0 10px 15px -3px rgba(232, 175, 52, 0.12) !important;
 }
 .light .tier-glow-builder {
   box-shadow: 0 0 0 1px #2563eb, 0 10px 15px -3px rgba(37, 99, 235, 0.1) !important;
@@ -541,16 +581,14 @@ body {
   border-color: #49EACB !important;
 }
 
-/* Game fullscreens chrome in light - light UI, keep boards dark for play */
+/* Game fullscreens chrome in light - light UI, keep boards dark for play.
+   The bg-black/* family is INTENTIONALLY scoped: a bare `.light [class*="bg-black/"]`
+   used to flatten EVERY dark-alpha surface, including the full-viewport modal/wallet
+   scrims (which then read as a flat slate panel instead of a real darkening veil).
+   See the consolidated catch-all + explicit scrim rule lower in this file. */
 .light .fixed.inset-0.z-\[100\].bg-black\/95,
 .light .fixed.inset-0.z-\[100\].bg-black\/80 {
   background: rgba(248, 250, 252, 0.96) !important;
-}
-.light [class*="bg-black\/60"],
-.light [class*="bg-black\/50"],
-.light [class*="bg-black\/40"] {
-  background: rgba(241, 245, 249, 0.85) !important;
-  border-color: #e2e8f0 !important;
 }
 .light .text-white,
 .light .text-white\/80,
@@ -659,12 +697,23 @@ body {
 .light .fixed.inset-0.z-\[100\].bg-black\/80 {
   background: rgba(248, 250, 252, 0.96) !important;
 }
-.light [class*="bg-black\/60"],
-.light [class*="bg-black\/50"],
-.light [class*="bg-black\/40"],
-.light [class*="bg-black\/70"] {
+/* SINGLE SOURCE OF TRUTH for dark-alpha panel surfaces in light mode.
+   The catch-all is intentionally NARROW: only PANEL classes (rounded/border/
+   glass-panel) get flattened to slate-100. Fixed full-viewport scrims keep
+   their darkening alpha so modal + wallet focus survives in light mode. */
+.light [class*="bg-black\/40"]:where(.rounded-xl, .rounded-2xl, .rounded-3xl, [class*="border"], .glass-panel),
+.light [class*="bg-black\/50"]:where(.rounded-xl, .rounded-2xl, .rounded-3xl, [class*="border"], .glass-panel),
+.light [class*="bg-black\/60"]:where(.rounded-xl, .rounded-2xl, .rounded-3xl, [class*="border"], .glass-panel),
+.light [class*="bg-black\/70"]:where(.rounded-xl, .rounded-2xl, .rounded-3xl, [class*="border"], .glass-panel) {
   background: rgba(241, 245, 249, 0.9) !important;
   border-color: #cbd5e1 !important;
+}
+/* Explicit: full-viewport scrims keep a real darkening alpha so modals + wallet
+   sheets still focus on the foreground panel in light mode. Without this, the
+   panel-narrowed catch-all above leaves the scrim transparent and the wallet
+   drawer floats over un-dimmed page content. */
+.light .fixed.inset-0[class*="bg-black\/"] {
+  background: rgba(15, 23, 42, 0.35) !important;
 }
 .light [class*="border-white\/10"],
 .light [class*="border-white\/20"] {
@@ -805,9 +854,12 @@ body {
   border-color: rgba(255, 255, 255, 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
+/* Hover: keep the lift + a generic depth shadow, but DO NOT recolor the border
+   to brand teal. The tier accent border (gold/blue/purple from .tier-glow-*) is
+   the visual proof of purchase; recoloring it on hover collapsed every tier
+   into the same teal at the moment of strongest purchase intent. */
 .dark .pricing-tier-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(73, 234, 203, 0.3);
   box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
 }
 
@@ -832,10 +884,10 @@ body {
   -webkit-backdrop-filter: blur(14px) saturate(1.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
+/* See dark hover note: tier accent must survive the hover. */
 .light .pricing-tier-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(13, 148, 136, 0.32);
-  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(13, 148, 136, 0.18);
+  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.18);
 }
 
 /* Pricing tier cards: dark enhancements */

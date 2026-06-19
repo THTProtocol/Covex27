@@ -70,17 +70,25 @@ const TIER_CONFIG = {
     border: 'border-purple-500/30',
     text: 'text-purple-400',
     badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-    glow: 'shadow-[0_0_24px_rgba(168,85,247,0.12)]',
+    // Canonical .tier-glow-max utility (defined in index.css), so every PRO/MAX/
+    // BUILDER card on every surface shares one glow recipe instead of three
+    // hand-rolled box-shadow strings that drifted apart.
+    glow: 'tier-glow-max',
     rank: 4,
     icon: TIER_PALETTE.MAX.icon,
   },
   PRO: {
     label: 'PRO',
-    gradient: 'from-amber-500/20 via-amber-600/10 to-transparent',
-    border: 'border-amber-500/30',
-    text: 'text-amber-400',
-    badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    glow: 'shadow-[0_0_18px_rgba(232,175,52,0.14)]',
+    // PRO accent is sourced from tierPalette (#E8AF34, Kaspa-gold). Previously the
+    // gradient/border/text used Tailwind's amber-400/500 utilities, which render
+    // a generic orange-amber, NOT brand gold; the same PRO user then saw gold on
+    // Pricing and orange on Explorer. Literal hex tokens via arbitrary values keep
+    // Tailwind JIT happy and lock the surface to the canonical gold.
+    gradient: 'from-[#E8AF34]/20 via-[#E8AF34]/10 to-transparent',
+    border: 'border-[#E8AF34]/30',
+    text: 'text-[#E8AF34]',
+    badge: 'bg-[#E8AF34]/15 text-[#E8AF34] border-[#E8AF34]/30',
+    glow: 'tier-glow-pro',
     rank: 3,
     icon: TIER_PALETTE.PRO.icon,
   },
@@ -90,7 +98,7 @@ const TIER_CONFIG = {
     border: 'border-blue-500/20',
     text: 'text-blue-400',
     badge: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    glow: 'shadow-[0_0_10px_rgba(59,130,246,0.10)]',
+    glow: 'tier-glow-builder',
     rank: 2,
     icon: TIER_PALETTE.BUILDER.icon,
   },

@@ -144,6 +144,105 @@ Covex is a Rust indexing and oracle backend, a React explorer and studio fronten
 - **ZK / Oracle:** circom + circomlib circuits, `snarkjs` verification via a Node child process under a timeout and concurrency cap, a pluggable oracle registry (full-zk Groth16 / hybrid / oracle-attested per circuit), fail-closed signing.
 - **Infra:** Hetzner + systemd + nginx; the mainnet node provisioned on the data volume and synced ahead of launch; nightly verified database backups with a weekly restore drill; triple-synced deploys (GitHub = server = hightable.pro). Graceful shutdown drains in-flight HTTP and WebSocket connections on restart.
 
+### How it all works (Kaspa mainnet, Toccata active)
+
+These diagrams assume Kaspa mainnet with the Toccata covenant hard fork live (the launch state). The throughline: Covex never holds your keys or your funds. It indexes the chain, attests outcomes, and helps you build and sign, while Kaspa consensus enforces every payout.
+
+**System map.** Your keys stay in your browser. Covex reads the chain and attests; consensus enforces.
+
+```mermaid
+flowchart LR
+  subgraph BR["Your browser - keys never leave the device"]
+    WAL["Kaspa wallet / in-browser signer"]
+    EXP["Covex Explorer + Studio"]
+    RDM["Claim + Recover redeemer"]
+  end
+  subgraph CX["Covex backend (Rust, Axum) - read + attest only, no custody"]
+    CRW["Crawler + indexer, reorg-safe"]
+    ZKV["ZK verifier, fail-closed"]
+    ORC["Oracle co-signer, fail-closed"]
+    API["Read API"]
+  end
+  MAIN["Kaspa mainnet - covenant P2SH UTXOs"]
+  PUB["Public Kaspa nodes - kaspa.stream, wRPC"]
+
+  WAL -->|signs and broadcasts locally| MAIN
+  EXP -->|reads| API
+  API --> CRW
+  CRW -->|wRPC, indexes covenants| MAIN
+  EXP -->|proof or outcome| ZKV
+  ZKV -->|valid| ORC
+  ORC -->|partial co-signature, never a key| WAL
+  RDM -->|build, sign, broadcast| PUB
+  PUB --> MAIN
+```
+
+**Covenant lifecycle.** Create, design its website, deploy on-chain, others interact, it resolves, the winner claims.
+
+```mermaid
+flowchart TD
+  A["Create: pick a covenant type in Sandbox or Studio"] --> B["Design its interactive website with the block builder"]
+  B --> C["Deploy: your wallet signs the P2SH deploy, broadcast to mainnet"]
+  C --> D["Live: anyone opens the covenant page and interacts"]
+  D --> E{"How does it resolve?"}
+  E -->|script-enforced| F["On-chain condition: signature, hashlock, timelock, multisig, HTLC"]
+  E -->|oracle-resolved| G["The disclosed oracle verifies the outcome, then co-signs"]
+  F --> H["Winner claims: build, sign, broadcast the spend"]
+  G --> H
+  H --> I["Funds release on mainnet to the rightful winner"]
+```
+
+**Enforcement-reality model.** Every covenant is labeled by what actually backs the payout, never overclaimed.
+
+```mermaid
+flowchart TD
+  Q["What actually enforces the payout?"]
+  Q --> ON["on-chain"]
+  Q --> OA["oracle-attested"]
+  Q --> FZ["full-zk"]
+  Q --> MD["metadata"]
+  ON --> ONx["Kaspa consensus enforces the script. Trustless. singlesig, hashlock, CLTV, CSV, multisig, HTLC, and a revealed-secret binary oracle select"]
+  OA --> OAx["The chain enforces a 2-of-2; the disclosed oracle co-signs only a verified outcome. Custody is on-chain, the outcome is attested, not trustless. Oracle escrow, markets, game pots"]
+  FZ --> FZx["A Groth16 proof is verified OFF-CHAIN by the oracle, because Kaspa has no pairing verifier, which then co-signs. Oracle-verified, not on-chain-verified"]
+  MD --> MDx["A descriptive label only; the chain does not enforce it"]
+```
+
+**Claiming what you won, even if Covex is down.** Script-enforced and revealed-secret covenants are fully self-claimable with just your key and public data. Oracle-resolved covenants depend on the oracle's liveness, with an on-chain timeout refund as the backstop.
+
+```mermaid
+flowchart TD
+  W["You won. Time to claim."] --> T{"Covenant type?"}
+  T -->|script-enforced or revealed-secret| S1["Self-claimable WITHOUT Covex"]
+  T -->|oracle-enforced or escrow| O1["Needs the disclosed oracle co-signature"]
+
+  S1 --> S2["Open the in-app redeemer, or the downloadable standalone tool saved on your device"]
+  S2 --> S3["Provide: redeem script, your key, and the revealed secret from your Recovery Kit"]
+  S3 --> S4["The tool builds and signs the spend entirely in your browser"]
+  S4 --> S5["Broadcast through a PUBLIC Kaspa node, kaspa.stream or any wRPC"]
+  S5 --> DONE["Funds release to you on mainnet. Covex never touched your keys."]
+
+  O1 --> O2{"Is the oracle reachable?"}
+  O2 -->|yes| O3["Oracle co-signs the verified outcome, you sign your half, you broadcast"]
+  O2 -->|no, or Covex is down| O4["Wait out the on-chain timeout, then the funder reclaims via the refund branch"]
+  O3 --> DONE
+```
+
+**ZK and oracle co-sign, step by step.** Verification is off-chain and fail-closed; the chain enforces the 2-of-2. The oracle contributes a partial signature, never a key.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser, your wallet
+  participant O as Covex oracle, fail-closed
+  participant K as Kaspa mainnet
+  B->>B: Generate the Groth16 proof, bound to this covenant id
+  B->>O: Submit the proof and public inputs
+  O->>O: Verify off-chain with snarkjs. If invalid, refuse and emit no signature
+  O-->>B: Partial co-signature over the exact winner-output sighash, only if valid
+  B->>B: Add your signature for the 2-of-2, re-validate the funding UTXO
+  B->>K: Broadcast the spend
+  K-->>B: Consensus checks both signatures and releases the funds
+```
+
 ---
 
 ## 7. Public API

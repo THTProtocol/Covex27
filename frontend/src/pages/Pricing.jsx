@@ -287,7 +287,7 @@ const Pricing = () => {
               <div className="text-xs text-gray-400 light:text-slate-500 mb-4">Or scan to pay exactly {p.price.toLocaleString()} KAS from the wallet you will use to deploy</div>
               <div className="rounded-2xl bg-white p-4 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] ring-1 ring-black/5">
                 <QRCodeSVG
-                  value={`kaspa:${TREASURY.replace(/^kaspa:|^kaspatest:/i, '')}?amount=${p.price}&message=COVEX-${p.id}`}
+                  value={`${TREASURY}?amount=${p.price}&message=COVEX-${p.id}`}
                   size={180}
                   level="H"
                   bgColor="#ffffff"

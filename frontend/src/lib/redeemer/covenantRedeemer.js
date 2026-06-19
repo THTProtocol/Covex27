@@ -467,6 +467,248 @@ export function buildSatisfier(args) {
   return concatBytes(...parts.map((p) => (p instanceof Uint8Array ? p : Uint8Array.from(p))));
 }
 
+/**
+ * Per-(kind, branch) map of WHICH parsed-pubkey index the chain will OpCheckSig for the
+ * signer of that branch, plus how to parse the redeem (checksigOnly) to get that key.
+ *
+ * The index is into `parseRedeemPubkeys(redeem, checksigOnly)`'s SCRIPT-ORDER output, NOT
+ * into the buildSatisfier push order. (For oracle kinds those differ: the satisfier pushes
+ * oracle-first, but the parse returns oracle-first too here because the redeem lists oracle
+ * first - see parseRedeemPubkeys doc.) Derived from this module's own parseRedeemPubkeys
+ * comments and the Rust redeem builders.
+ *
+ *   parse order per kind (checksigOnly=true unless noted):
+ *     singlesig/timelock/rcsv/hashlock -> [key]
+ *     htlc                             -> [receiver, sender]
+ *     deadman                          -> [owner, heir]
+ *     channel                          -> [p1, p2, p1]   (close needs BOTH p1 and p2)
+ *     binary_oracle_select             -> [winner_a, winner_b, refund]
+ *     oracle_escrow                    -> [oracle, a, b]
+ *     oracle_escrow_refundable         -> [oracle, a, b, refund]
+ *     oracle_enforced (checksigOnly=false) -> [oracle, winner]
+ *     oracle_enforced_refundable (checksigOnly=false) -> [oracle, winner, refund]
+ *
+ * A value is either a single number (the index the named signer's key sits at) or, for a
+ * cooperative-close branch with two required signers, an array of indices (both expected).
+ */
+const SIGNER_INDEX_MAP = Object.freeze({
+  singlesig: { checksigOnly: true, branches: { claim: 0 } },
+  timelock: { checksigOnly: true, branches: { claim: 0 } },
+  rcsv: { checksigOnly: true, branches: { claim: 0 } },
+  hashlock: { checksigOnly: true, branches: { claim: 0 } },
+  htlc: { checksigOnly: true, branches: { claim: 0, refund: 1 } },
+  deadman: { checksigOnly: true, branches: { claim: 0, refund: 1 } },
+  // channel: refund is p1 (index 0); a cooperative close requires BOTH p1 and p2 sigs.
+  channel: { checksigOnly: true, branches: { refund: 0, close: [1, 0], closeA: [1, 0], closeB: [1, 0] } },
+  binary_oracle_select: { checksigOnly: true, branches: { revealA: 0, revealB: 1, refund: 2 } },
+  oracle_escrow: { checksigOnly: true, branches: { revealA: 1, revealB: 2, closeA: 1, closeB: 2 } },
+  oracle_escrow_refundable: { checksigOnly: true, branches: { revealA: 1, revealB: 2, closeA: 1, closeB: 2, refund: 3 } },
+  // oracle_enforced / oracle: the [oracle, winner] keys live inside an N-of-M multisig, so the
+  // winner pubkey is NOT directly followed by a checksig op -> parse with checksigOnly=false.
+  oracle: { checksigOnly: false, branches: { claim: 1 } },
+  oracle_enforced: { checksigOnly: false, branches: { claim: 1 } },
+  oracle_enforced_refundable: { checksigOnly: false, branches: { claim: 1, refund: 2 } },
+});
+
+// Aliases so a caller can pass the same branch labels buildSatisfier accepts. 'close' /
+// 'reveal' default to the A side; an explicit A/B label is preferred for the branchy kinds.
+function normalizeBranchLabel(kind, branch) {
+  const b = branch || 'claim';
+  const entry = SIGNER_INDEX_MAP[kind];
+  if (!entry) return b;
+  if (entry.branches[b] !== undefined) return b;
+  // Map convenience synonyms to the canonical keys present in the map.
+  if (b === 'reveal' || b === 'revealA') return entry.branches.revealA !== undefined ? 'revealA' : (entry.branches.claim !== undefined ? 'claim' : b);
+  if (b === 'revealB') return entry.branches.revealB !== undefined ? 'revealB' : b;
+  if (b === 'close' || b === 'closeA') return entry.branches.closeA !== undefined ? 'closeA' : (entry.branches.close !== undefined ? 'close' : b);
+  if (b === 'closeB') return entry.branches.closeB !== undefined ? 'closeB' : b;
+  if (b === 'refundA' || b === 'refundB') return entry.branches.refund !== undefined ? 'refund' : b;
+  // 'claim' is the generic single-signer label; fall back to the first non-refund branch.
+  if (b === 'claim') {
+    if (entry.branches.claim !== undefined) return 'claim';
+    if (entry.branches.revealA !== undefined) return 'revealA';
+  }
+  return b;
+}
+
+/**
+ * FAIL-CLOSED named-key binding (security-audit request). Before signing, prove that the
+ * x-only pubkey the user is about to sign with is the EXACT key the chain will OpCheckSig on
+ * the chosen (kind, branch). This catches "right covenant, wrong key/branch" up front, instead
+ * of letting it fail late at the node (or, worse, letting a holder waste a fee on a doomed tx).
+ *
+ * Pure: parses the redeem with parseRedeemPubkeys and compares bytes. No wasm, no network.
+ *
+ * @param {string} redeemHex          - hex of the covenant redeem script
+ * @param {string} kind               - base kind string (e.g. 'htlc', 'binary_oracle_select')
+ * @param {string} branch             - branch label ('claim'|'refund'|'revealA'|'revealB'|'closeA'|'closeB'|'close')
+ * @param {string} signerXonlyHex     - the signer's 32-byte x-only pubkey, hex (64 chars)
+ * @returns {{ index: number, namedKeyHex: string }} the matched index + the named key it bound to.
+ *          For a cooperative close (two required signers) `index` is the index the signer matched
+ *          and `namedKeyHex` that key; pass each co-signer's pubkey to bind both.
+ * @throws if the kind/branch is unknown, the redeem has too few keys, or the signer's pubkey is
+ *         not the named key (or, for a close, not EITHER required co-signer key).
+ */
+export function assertSignerForBranch(redeemHex, kind, branch, signerXonlyHex) {
+  const entry = SIGNER_INDEX_MAP[kind];
+  if (!entry) {
+    throw new Error(`assertSignerForBranch: unsupported kind '${kind}'`);
+  }
+  const label = normalizeBranchLabel(kind, branch);
+  const idxSpec = entry.branches[label];
+  if (idxSpec === undefined) {
+    throw new Error(`assertSignerForBranch: kind '${kind}' has no branch '${branch}'`);
+  }
+
+  let signer;
+  try {
+    signer = hexToBytes(signerXonlyHex);
+  } catch (e) {
+    throw new Error(`assertSignerForBranch: signer pubkey is not valid hex (${e.message})`);
+  }
+  if (signer.length !== 32) {
+    throw new Error(`assertSignerForBranch: signer x-only pubkey must be 32 bytes, got ${signer.length}`);
+  }
+
+  const redeem = hexToBytes(redeemHex);
+  const keys = parseRedeemPubkeys(redeem, entry.checksigOnly);
+
+  const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const signerArr = Array.from(signer);
+  const wantIndices = Array.isArray(idxSpec) ? idxSpec : [idxSpec];
+  const maxIdx = Math.max(...wantIndices);
+  if (keys.length <= maxIdx) {
+    throw new Error(
+      `assertSignerForBranch: redeem for '${kind}' parsed ${keys.length} key(s), need index ${maxIdx} (wrong kind, wrong checksigOnly, or truncated redeem)`,
+    );
+  }
+
+  for (const i of wantIndices) {
+    if (eq(Array.from(keys[i]), signerArr)) {
+      return { index: i, namedKeyHex: bytesToHex(keys[i]) };
+    }
+  }
+
+  // Not the named key. Report WHICH key the chain expects so the holder sees they have the
+  // wrong key/branch, without leaking anything secret (these pubkeys are public on-chain).
+  const expected = wantIndices.map((i) => `#${i}=${bytesToHex(keys[i])}`).join(' or ');
+  throw new Error(
+    `assertSignerForBranch: your key ${bytesToHex(signer)} is NOT the ${kind} ${label} signer. The chain checks ${expected} on this branch. Use the correct key, or the correct branch.`,
+  );
+}
+
+/**
+ * Honest per-kind offline-claimability matrix (single source of truth shared by the recovery
+ * UI and the recovery-kit export). "Offline-claimable" means a holder can satisfy the branch
+ * end-to-end with ONLY a revealed-on-chain secret and/or the named key's signature - no Covex
+ * oracle co-signature required. Mirrors the module-header honesty note and the memory matrix.
+ *
+ * Each entry: { offlineClaimable, branches: { <branch>: { offline: bool, role, note } }, liveness }
+ *   - branches[].offline: is THAT branch claimable with no Covex involvement?
+ *   - branches[].role:    which named key/secret the holder must provide
+ *   - liveness:           a plain-language note about what (if anything) still needs the oracle
+ */
+export const KIND_CLAIM_MATRIX = Object.freeze({
+  singlesig: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key' } }, liveness: 'Fully script-enforced. Claim any time with your key. No oracle.' },
+  timelock: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key (after locktime)' } }, liveness: 'Fully script-enforced. Claim with your key once the locktime / DAA threshold passes. No oracle.' },
+  rcsv: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key (after relative delay)' } }, liveness: 'Fully script-enforced (BIP68 relative locktime). Claim with your key after the relative delay. No oracle.' },
+  hashlock: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key + the revealed preimage' } }, liveness: 'Fully script-enforced. Reveal the preimage and sign with your key. No oracle.' },
+  htlc: {
+    offlineClaimable: true,
+    branches: {
+      claim: { offline: true, role: 'receiver key + the revealed preimage' },
+      refund: { offline: true, role: 'sender key (after timeout)' },
+    },
+    liveness: 'Fully script-enforced. Claim by revealing the preimage, or refund after the timeout. No oracle.',
+  },
+  multisig: { offlineClaimable: true, branches: { claim: { offline: true, role: 'the threshold of committed keys' } }, liveness: 'Fully script-enforced. Collect the required signatures and spend. No oracle.' },
+  channel: {
+    offlineClaimable: true,
+    branches: {
+      close: { offline: true, role: 'both participant keys (cooperative close)' },
+      refund: { offline: true, role: 'funder (player1) key (after timeout)' },
+    },
+    liveness: 'Fully script-enforced. Close cooperatively with both keys, or the funder refunds after the timeout. No oracle.',
+  },
+  deadman: {
+    offlineClaimable: true,
+    branches: {
+      claim: { offline: true, role: 'owner key' },
+      refund: { offline: true, role: 'heir key (after the dead-man delay)' },
+    },
+    liveness: 'Fully script-enforced. Owner spends any time; the heir takes over after the delay. No oracle.',
+  },
+  binary_oracle_select: {
+    offlineClaimable: true,
+    branches: {
+      revealA: { offline: true, role: 'winner-A key + the revealed secret' },
+      revealB: { offline: true, role: 'winner-B key + the revealed secret' },
+      refund: { offline: true, role: 'refund key (after the CSV delay)' },
+    },
+    // The leg becomes self-claimable the moment the secret is public; before that, only the
+    // oracle knows it. Honest: the secret-reveal is the oracle liveness dependency.
+    liveness: 'Offline-claimable ONCE the outcome secret is revealed on-chain (the disclosed Covex oracle reveals it for the true result). Before reveal, only the oracle can produce the secret. The refund branch is always offline-claimable after the CSV delay.',
+  },
+  oracle_escrow: {
+    offlineClaimable: false,
+    branches: {
+      revealA: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
+      revealB: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
+    },
+    liveness: 'NOT offline-claimable: the winning payout requires the disclosed Covex oracle co-signature. There is no refund branch on this kind, so it depends on oracle liveness. Prefer the *_refundable variant for a self-claimable fallback.',
+  },
+  oracle_enforced: {
+    offlineClaimable: false,
+    branches: {
+      claim: { offline: false, role: 'winner key + the Covex oracle co-signature' },
+    },
+    liveness: 'NOT offline-claimable: the winning payout is a 2-of-2 that requires the disclosed Covex oracle co-signature. No refund branch, so it depends on oracle liveness.',
+  },
+  oracle_enforced_refundable: {
+    offlineClaimable: false,
+    branches: {
+      claim: { offline: false, role: 'winner key + the Covex oracle co-signature' },
+      refund: { offline: true, role: 'funder/refund key (after lock_daa)' },
+    },
+    liveness: 'The WIN path needs the disclosed Covex oracle co-signature (not offline-claimable). The REFUND branch is fully offline-claimable with your refund key after lock_daa.',
+  },
+  oracle_escrow_refundable: {
+    offlineClaimable: false,
+    branches: {
+      revealA: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
+      revealB: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
+      refund: { offline: true, role: 'funder/refund key (after lock_daa)' },
+    },
+    liveness: 'The WIN path needs the disclosed Covex oracle co-signature (not offline-claimable). The REFUND branch is fully offline-claimable with your refund key after lock_daa.',
+  },
+});
+
+/**
+ * Resolve the honest claimability of a (kind, branch). Convenience over KIND_CLAIM_MATRIX
+ * that normalizes branch synonyms the same way assertSignerForBranch does. Returns null for
+ * an unknown kind so a caller can fall back to a conservative "needs the redeem script" message.
+ *
+ * @param {string} kind
+ * @param {string} [branch]
+ * @returns {{ offline: boolean, role: string, liveness: string, kindOfflineClaimable: boolean } | null}
+ */
+export function claimability(kind, branch) {
+  const entry = KIND_CLAIM_MATRIX[kind];
+  if (!entry) return null;
+  const label = normalizeBranchLabel(kind, branch);
+  const b = entry.branches[label]
+    || entry.branches.claim
+    || entry.branches.revealA
+    || Object.values(entry.branches)[0]
+    || { offline: !!entry.offlineClaimable, role: 'the required key(s)' };
+  return {
+    offline: !!b.offline,
+    role: b.role,
+    liveness: entry.liveness,
+    kindOfflineClaimable: !!entry.offlineClaimable,
+  };
+}
+
 // ===========================================================================
 // (B) WASM-BACKED WRAPPERS - lazy `import('@onekeyfe/kaspa-wasm')` inside each fn so
 //     importing the pure core (section A) never pulls the ~15MB wasm. Browser/e2e

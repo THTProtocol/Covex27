@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight } from 'lucide-react';
+import { KIND_CLAIM_MATRIX } from '../lib/redeemer/covenantRedeemer';
 
 // Self-custody recovery kit. Every covenant Covex deploys is a script-enforced P2SH covenant:
 // the KASPA CHAIN enforces the spend rules, not Covex. On mainnet, oracle-dependent covenants are
@@ -19,8 +20,21 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
   if (!open || !covenant) return null;
 
   const kind = String(covenant.redeem_kind || '').split(':')[0] || 'p2sh';
+  const matrix = KIND_CLAIM_MATRIX[kind] || null;
+  const isOracleKind = /^oracle/.test(kind);
+
+  // Best-effort enrichment, all from the covenant the page already has. The PRIVATE KEY is
+  // never included - only public data the chain (or a revealed-on-chain secret) already exposes.
+  const revealedSecret = covenant.revealed_secret || covenant.preimage || covenant.outcome_secret || null;
+  const branchRoles = covenant.branch_roles
+    || (matrix ? Object.fromEntries(Object.entries(matrix.branches).map(([b, v]) => [b, v.role])) : null);
+  // The disclosed oracle pubkey is only meaningful for oracle kinds; keep it out otherwise.
+  const oraclePubkey = isOracleKind
+    ? (covenant.oracle_pubkey || covenant.oracle_xonly_pubkey || covenant.xonly_pubkey || null)
+    : null;
+
   const kit = {
-    covex_recovery_kit_version: 1,
+    covex_recovery_kit_version: 2,
     note: 'Self-custody recovery data. This covenant is enforced by the Kaspa chain, not by Covex. With the redeem script below and the required key(s), the owner can build and broadcast the redeem transaction using ANY Kaspa node, independently of Covex. Contains no private keys.',
     covenant: {
       tx_id: covenant.tx_id || null,
@@ -30,6 +44,18 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
       redeem_script_hex: covenant.redeem_script_hex || null,
       script_hash: covenant.script_hash || null,
       receiving_addresses: covenant.receiving_addresses || null,
+      lock_daa: covenant.lock_daa ?? null,
+      // Honest claimability of this kind, so an offline holder knows what is self-claimable.
+      offline_claimable: matrix ? matrix.offlineClaimable : null,
+      liveness_note: matrix ? matrix.liveness : 'Unknown kind: obtain the redeem script and verify which branch you can satisfy.',
+      // Which named key (or secret) plays which role on each branch.
+      branch_roles: branchRoles,
+      // The revealed outcome secret / preimage, ONLY when already public (e.g. a resolved
+      // market leg). Null until revealed. Never a private key.
+      revealed_secret: revealedSecret,
+      // The disclosed Covex oracle x-only pubkey for oracle kinds (public; needed to verify the
+      // oracle co-signature). Null for non-oracle kinds.
+      oracle_pubkey: oraclePubkey,
     },
   };
 

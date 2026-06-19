@@ -616,6 +616,21 @@ pub fn compile_dsl(source: &str) -> Result<CompiledOutput> {
 mod tests {
     use super::*;
 
+    /// The integration tests below shell out to the external `silverc` binary, which
+    /// is installed on the dev box and the server but NOT on the GitHub CI runner.
+    /// Skip them gracefully (rather than panic) when it is unavailable, mirroring the
+    /// merkle-fixture skip in oracle.rs. The server gated deploy still runs them for real.
+    fn silverc_available() -> bool {
+        let p = silverc_path();
+        if p != "silverc" {
+            return std::path::Path::new(p).exists();
+        }
+        std::process::Command::new("silverc")
+            .arg("--version")
+            .output()
+            .is_ok()
+    }
+
     /// The exact Dice SilverScript output from generateSilverScriptForConfig()
     /// with gameType='dice', feePercent=2, resolutionMode='oracle'.
     /// Includes the ;; header comments needed by parse_dsl().
@@ -702,6 +717,10 @@ Covenant DiceRollCovenant {
     /// Requires silverc to be installed.
     #[test]
     fn test_compile_dice_through_silverc() {
+        if !silverc_available() {
+            eprintln!("Skipping test_compile_dice_through_silverc: silverc not installed");
+            return;
+        }
         let unit = parse_dsl(DICE_DSL).expect("Failed to parse Dice DSL");
         let output = compile(&unit).expect("silverc compilation failed");
         assert!(!output.bytecode.is_empty(), "Bytecode must not be empty");
@@ -922,6 +941,10 @@ Covenant BlackjackCovenant {
     /// Requires silverc to be installed.
     #[test]
     fn test_compile_blackjack_through_silverc() {
+        if !silverc_available() {
+            eprintln!("Skipping test_compile_blackjack_through_silverc: silverc not installed");
+            return;
+        }
         let unit = parse_dsl(BLACKJACK_DSL).expect("Failed to parse Blackjack DSL");
         let output = compile(&unit).expect("silverc compilation failed");
         assert!(!output.bytecode.is_empty(), "Bytecode must not be empty");

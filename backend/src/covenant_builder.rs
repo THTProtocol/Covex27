@@ -3775,6 +3775,22 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
             let lock = spec.lock_daa.ok_or("deadman requires lock_daa")?;
             Ok((redeem_deadman(owner_xonly, &decode_xonly_hex(heir)?, lock)?, format!("deadman:{lock}")))
         }
+        "oracle_escrow" => {
+            // 2-player game pot [oracle, player_a, player_b]: consensus requires BOTH the
+            // disclosed Covex oracle's co-signature AND the winning player's signature. The
+            // oracle co-signs only the server-verified winner (game-pot gate). The funding key
+            // (the funder's wallet) is signed in the browser and NEVER reaches the server - this
+            // is the non-custodial twin of the use_dev_mode escrow deploy. pubkeys_hex=[a, b].
+            let pks = spec.pubkeys_hex.as_ref().ok_or("oracle_escrow requires pubkeys_hex=[player_a, player_b]")?;
+            if pks.len() < 2 {
+                return Err("oracle_escrow needs pubkeys_hex=[player_a, player_b]".into());
+            }
+            let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
+            Ok((
+                redeem_oracle_escrow(&oracle_xonly, &decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?)?,
+                "oracle_escrow".to_string(),
+            ))
+        }
         other => Err(format!("non-custodial deploy does not support kind '{other}' (oracle covenants use the server oracle path)")),
     }
 }

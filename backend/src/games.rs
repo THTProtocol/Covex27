@@ -25,7 +25,9 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/resign", post(resign_game))
         .route("/games/:covenant_id/claim-timeout", post(claim_timeout))
         .route("/games/:covenant_id/lock-pot", post(lock_pot))
+        .route("/games/:covenant_id/submit-pot", post(submit_pot))
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
+        .route("/games/:covenant_id/submit-settle", post(submit_settle))
         .route("/games/:covenant_id/lock-channel", post(lock_channel))
         .route("/games/:covenant_id/bind-channel-pot", post(bind_channel_pot))
         .route("/games/:covenant_id/settle-channel", post(settle_channel))
@@ -246,10 +248,12 @@ fn xonly_hex_from_address(addr: &str) -> Result<String, String> {
     Ok(hex::encode(p))
 }
 
-/// POST /games/:id/lock-pot {stake_kas, network?} : lock a real on-chain pot for this
-/// match into an oracle_escrow covenant [oracle, player1, player2]. The chain will then
-/// release the pot ONLY to the oracle-declared winner (settle-pot). Funded by player1
-/// via the testnet dev wallet, so both players must be dev wallets for this demo flow.
+/// POST /games/:id/lock-pot {token, stake_kas, network?} : PREPARE a real on-chain pot for
+/// this match in an oracle_escrow covenant [oracle, player1, player2]. The chain releases the
+/// pot ONLY to the oracle-declared winner (settle-pot). NON-CUSTODIAL: this returns the
+/// UNSIGNED funding tx + sighash for player1's browser wallet to sign (no use_dev_mode, the
+/// server never holds player1's key). player1 signs and POSTs {session_id, signature_hex,
+/// token} to /games/:id/submit-pot, which broadcasts and links the pot to this match.
 async fn lock_pot(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -277,30 +281,73 @@ async fn lock_pot(
     let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
     let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
 
-    let dreq: crate::covenant_builder::P2shDeployRequest = match serde_json::from_value(json!({
-        "network": net, "deployer_addr": p1, "use_dev_mode": true, "stake_kas": stake,
+    // NON-CUSTODIAL: build the UNSIGNED oracle_escrow funding tx and return its sighash for
+    // player1's browser wallet to sign. No use_dev_mode, so the server never holds player1's
+    // key. The funder signs `sighash` and POSTs {session_id, signature_hex, token} to
+    // /games/:id/submit-pot, which broadcasts and links pot_tx to this match for the gate.
+    let preq: crate::covenant_builder::PrepareDeployRequest = match serde_json::from_value(json!({
+        "network": net, "deployer_addr": p1, "stake_kas": stake,
         "redeem": { "kind": "oracle_escrow", "pubkeys_hex": [p1x, p2x] }
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build deploy request: {e}") })),
+        Err(e) => return Json(json!({ "success": false, "error": format!("build prepare-deploy request: {e}") })),
     };
-    let v = crate::covenant_builder::p2sh_deploy_handler(Extension(db.clone()), Json(dreq)).await.0;
+    let mut v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(preq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        v["next"] = json!(format!(
+            "Sign `sighash` (BIP340 Schnorr) with player1's wallet, then POST {{session_id, signature_hex, token}} to /games/{covenant_id}/submit-pot to broadcast and link the pot."
+        ));
+    }
+    Json(v)
+}
+
+/// POST /games/:id/submit-pot {token, session_id, signature_hex} : broadcast the player1-signed
+/// oracle_escrow funding tx (non-custodial; the server never held player1's key) and LINK the
+/// resulting pot to this match so settle-pot's money gate (game_pot_outcome) can resolve it.
+async fn submit_pot(
+    Extension(db): Extension<crate::db::Db>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may move funds.
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
+        return Json(json!({ "success": false, "error": e }));
+    }
+    let session_id = req.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let signature_hex = req.get("signature_hex").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if session_id.is_empty() || signature_hex.is_empty() {
+        return Json(json!({ "success": false, "error": "submit-pot requires session_id and signature_hex from lock-pot" }));
+    }
+    let sreq: crate::covenant_builder::SubmitDeployRequest = match serde_json::from_value(json!({
+        "session_id": session_id, "signature_hex": signature_hex
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build submit-deploy request: {e}") })),
+    };
+    let v = crate::covenant_builder::submit_deploy_handler(Extension(db.clone()), Json(sreq)).await.0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         if let Some(tx) = v.get("deploy_tx_id").and_then(|t| t.as_str()) {
+            // Persist the LOCKED amount the node accepted (from the broadcast result), not a
+            // client-claimed stake, so the recorded pot matches what is actually on-chain.
+            let kas = v.get("locked_kas").and_then(|k| k.as_f64()).unwrap_or(0.0);
             let conn = db.lock().unwrap();
             let _ = conn.execute(
                 "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, updated_at = unixepoch() WHERE covenant_id = ?3",
-                params![tx, stake, covenant_id],
+                params![tx, kas, covenant_id],
             );
         }
     }
     Json(v)
 }
 
-/// POST /games/:id/settle-pot : release the locked pot to the game's winner. The winner
-/// is read from the finished match, mapped to outcome 0 (player1) / 1 (player2), and the
-/// oracle co-signs the payout ONLY because the outcome verifies - so the chain itself
-/// paid the winner.
+/// POST /games/:id/settle-pot {token} : PREPARE the winner payout for the locked pot.
+/// NON-CUSTODIAL: the winner is re-derived server-side (MONEY GATE below), then the oracle
+/// verifies the outcome and contributes ONLY its half of the 2-of-2 over a sighash that
+/// commits the single output paying that winner. This returns that sighash + the oracle
+/// partial-signature so the WINNER signs their half in their browser (no use_dev_mode, no
+/// winner key ever reaches the server); the winner then POSTs {session_id, signature_hex,
+/// token} to /games/:id/submit-settle to broadcast.
 async fn settle_pot(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -367,14 +414,55 @@ async fn settle_pot(
     };
     let dest = if outcome == 0 { &p1 } else { &p2 };
 
-    let preq: crate::covenant_builder::OraclePayoutRequest = match serde_json::from_value(json!({
-        "network": net, "deploy_tx_id": pot_tx, "use_dev_mode": true, "destination_addr": dest,
+    // NON-CUSTODIAL oracle co-sign: run the SAME outcome gate as the custodial handler
+    // (it re-derives the game pot via game_pot_outcome and cross-checks requested_outcome),
+    // but produce ONLY the oracle's partial signature over the winner-payout sighash. No
+    // use_dev_mode: the winner signs their half in the browser. The destination is the
+    // re-derived `dest` above, so the oracle commits to paying exactly the verified winner.
+    let preq: crate::covenant_builder::PrepareOraclePayoutRequest = match serde_json::from_value(json!({
+        "network": net, "deploy_tx_id": pot_tx, "destination_addr": dest,
         "circuit_type": format!("{}_v1", gt), "proof": {}, "public_inputs": [], "requested_outcome": outcome
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build payout request: {e}") })),
+        Err(e) => return Json(json!({ "success": false, "error": format!("build oracle-payout prepare request: {e}") })),
     };
-    let v = crate::covenant_builder::oracle_payout_handler(Extension(db.clone()), Json(preq)).await.0;
+    let mut v = crate::covenant_builder::prepare_oracle_payout_handler(Extension(db.clone()), Json(preq)).await.0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        v["next"] = json!(format!(
+            "Sign `sighash` (BIP340 Schnorr) with the winner's wallet, then POST {{session_id, signature_hex, token}} to /games/{covenant_id}/submit-settle to broadcast. The server contributed only the oracle half."
+        ));
+    }
+    Json(v)
+}
+
+/// POST /games/:id/submit-settle {token, session_id, signature_hex} : combine the winner's
+/// browser signature with the oracle co-signature minted by settle-pot and broadcast the
+/// payout. The server contributed only the oracle half; the winner key never reaches it.
+/// Records pot_payout_tx on success.
+async fn submit_settle(
+    Extension(db): Extension<crate::db::Db>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may move funds. The oracle
+    // session itself is single-use and bound to the verified winner output, so the actual
+    // payout destination cannot be redirected here regardless of which seat submits.
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
+        return Json(json!({ "success": false, "error": e }));
+    }
+    let session_id = req.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let signature_hex = req.get("signature_hex").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if session_id.is_empty() || signature_hex.is_empty() {
+        return Json(json!({ "success": false, "error": "submit-settle requires session_id and signature_hex from settle-pot" }));
+    }
+    let sreq: crate::covenant_builder::SubmitOraclePayoutRequest = match serde_json::from_value(json!({
+        "session_id": session_id, "signature_hex": signature_hex
+    })) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("build oracle-payout submit request: {e}") })),
+    };
+    let v = crate::covenant_builder::submit_oracle_payout_handler(Extension(db.clone()), Json(sreq)).await.0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         if let Some(tx) = v.get("payout_tx_id").and_then(|t| t.as_str()) {
             let conn = db.lock().unwrap();

@@ -460,6 +460,7 @@ export default function Sandbox() {
   const pName = params.get('name') || '';
   const pMode = params.get('mode');
   const pTab = params.get('tab');
+  const pCategory = (params.get('category') || '').toLowerCase();
   useEffect(() => {
     // phase
     const wantPhase = pPhase && PHASES.some((x) => x.id === pPhase) ? pPhase : 'create';
@@ -476,11 +477,12 @@ export default function Sandbox() {
     // mode
     const wantMode = pMode === 'pro' ? 'pro' : 'guided';
     if (wantMode !== mode) setModeState(wantMode);
-    // create tab
-    const wantTab = CREATE_TABS.some((x) => x.id === pTab) ? pTab : 'assistant';
+    // create tab: an explicit ?tab= wins; otherwise a ?category= deep-link (the Arena
+    // "Create a game" CTA) lands on the catalog so the filtered list is visible.
+    const wantTab = CREATE_TABS.some((x) => x.id === pTab) ? pTab : (pCategory ? 'catalog' : 'assistant');
     if (wantTab !== createTab) setCreateTabState(wantTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pPhase, pCircuit, pKind, pName, pMode, pTab]);
+  }, [pPhase, pCircuit, pKind, pName, pMode, pTab, pCategory]);
 
   // Launch the global FirstCovenantTour overlay. Same mechanism as the Explorer
   // hero launcher: set the active flag, clear any prior skip, and dispatch a

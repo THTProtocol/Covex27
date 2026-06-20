@@ -19,27 +19,47 @@ self-claimable offline, and some still need the Covex oracle's signature and are
   UI. It has two placeholders for the wasm injection and shows "not ready" until built.
 - `build-cold-tool.mjs` - the build script. Reads `@onekeyfe/kaspa-wasm`'s wasm binary +
   ESM glue from `node_modules`, base64-inlines both into the template, writes the final
-  `covex-cold-recovery.html`, and prints its SHA-256.
-- `covex-cold-recovery.html` - the BUILT artifact (produced by the build script). This is
-  the file you save and run offline. Not committed pre-built; build it yourself and verify
-  the hash.
+  `covex-cold-recovery.html` into the frontend's `public/` tree, and prints its SHA-256.
+- `frontend/public/tools/cold-recovery/index.html` - a small committed landing page. It is
+  what `/tools/cold-recovery/` resolves to; it links to the built tool and explains, honestly,
+  which spend paths are offline-claimable.
+- `frontend/public/tools/cold-recovery/covex-cold-recovery.html` - the BUILT artifact
+  (produced by the build script, ~15-20 MB with the wasm inlined). This is the file you save
+  and run offline. It is **gitignored and never committed**; build it yourself and verify the
+  hash.
 
-## Building the tool
+## How it gets built and served
 
-This worktree intentionally has no `node_modules`, so the build runs where the frontend's
-dependencies are installed:
+The build is wired into the frontend's `prebuild` step, so it runs automatically on every
+`npm run build`:
+
+```jsonc
+// frontend/package.json
+"prebuild": "node scripts/check-sandbox.mjs && node tools/cold-recovery/build-cold-tool.mjs",
+```
+
+The script emits the artifact into `frontend/public/tools/cold-recovery/`, and Vite copies
+everything under `public/` into `dist/`, so the production build serves it at:
+
+```
+/tools/cold-recovery/                              -> index.html (landing page)
+/tools/cold-recovery/covex-cold-recovery.html      -> the tool itself
+```
+
+Those are the exact URLs the in-app links (Recover page, recovery-kit modal, mobile-connect
+help) point at. To build only the tool (without a full Vite build):
 
 ```sh
 cd frontend
 npm install                                  # if not already installed
-node tools/cold-recovery/build-cold-tool.mjs
+node tools/cold-recovery/build-cold-tool.mjs # or: npm run build:cold-tool
 ```
 
 It prints something like:
 
 ```
 Cold-recovery tool built.
-  output: .../covex-cold-recovery.html (NNNN KB)
+  output: .../frontend/public/tools/cold-recovery/covex-cold-recovery.html (NNNN KB)
   SHA-256: <hex>
 ```
 

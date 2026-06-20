@@ -185,14 +185,16 @@ const DagBackground = () => {
         );
       })}
 
-      {/* Vignette: feather the DAG into the page at the edges so it reads as one
-          cohesive surface. Dark fades to black; light fades to the page bg. */}
+      {/* Vignette: the focal frame that gives the backdrop depth + atmosphere.
+          Dark sinks the edges into pure black. Light must DARKEN (not just fade to
+          the canvas) to translate that same tunnel-of-focus feeling faithfully -
+          a clear focal center sinking into a deep cool slate at the corners. */}
       <div
         className="absolute inset-0"
         style={{
           background: isDark
             ? 'radial-gradient(circle at center, transparent 0%, #000000 80%)'
-            : 'radial-gradient(circle at center, transparent 0%, rgba(238,242,247,0.92) 82%)',
+            : 'radial-gradient(ellipse 112% 108% at 50% 38%, transparent 0%, transparent 22%, rgba(100,116,139,0.24) 48%, rgba(51,65,85,0.52) 76%, rgba(23,32,48,0.74) 100%)',
         }}
       />
     </div>

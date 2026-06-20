@@ -1,0 +1,21 @@
+{
+  "_comment": "GROUND-TRUTH redeem-script bytes emitted by the REAL Rust ScriptBuilder (captured from the live /api/covenant/p2sh/prepare-deploy on testnet-12). The composable builder's JS buildComposedRedeem (frontend/src/lib/composer/redeem.js) is pinned to these: composing atomic leaves must reproduce the existing singlesig/hashlock/timelock/rcsv leaves and the htlc (OR) + channel (OR-of-AND) scripts byte-for-byte, which proves add_lock_time + the AND/OR combinators. Any drift fails composer.redeem.test.js. xonly = the deployer key the backend derived; p1/p2 = supplied member keys.",
+  "fixed_inputs": {
+    "xonly": "48913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9",
+    "hash_of_ab32": "c6a23ec291940df33ef948bce1df0fc42b8108661529a4e4cd6e084d3bd944c3",
+    "p1": "1111111111111111111111111111111111111111111111111111111111111111",
+    "p2": "2222222222222222222222222222222222222222222222222222222222222222",
+    "lock_daa": 5000000,
+    "rcsv_seq": 4320
+  },
+  "leaves": {
+    "singlesig": "2048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac",
+    "hashlock": "aa20c6a23ec291940df33ef948bce1df0fc42b8108661529a4e4cd6e084d3bd944c3882048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac",
+    "timelock": "03404b4cb02048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac",
+    "rcsv": "02e010b12048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac"
+  },
+  "composites": {
+    "htlc_OR_hashlock_timelock": "63aa20c6a23ec291940df33ef948bce1df0fc42b8108661529a4e4cd6e084d3bd944c3882048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac6703404b4cb02048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac68",
+    "channel_OR_AND_p1p2_timelock_p1": "63201111111111111111111111111111111111111111111111111111111111111111ad202222222222222222222222222222222222222222222222222222222222222222ac6703404b4cb0201111111111111111111111111111111111111111111111111111111111111111ac68"
+  }
+}

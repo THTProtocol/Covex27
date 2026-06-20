@@ -2,15 +2,23 @@
 
 ## Owner pre-flight (June 29, in order)
 
-1. BLOCKER (external, owner-action): Toccata covenant kaspad fork
-   hard-disables mainnet in args.rs:204 (per project memory
-   `covex-kaspad-mainnet-disabled-covpp-2026-06-18`). A covenant-enabled
-   kaspad with mainnet ENABLED must be built and run before
-   `KASPA_WRPC_URL_MAINNET` can point at anything covenant-aware. Until
-   then no mainnet wRPC endpoint exists for the backend to read,
-   regardless of how the gates flip. Affects every path that needs a
-   mainnet node (indexer, payment_verifier, crawler, resolver_failover
-   supervised entry).
+1. RESOLVED (verified 2026-06-20, binary evidence): the deployed mainnet node IS a
+   covenant-aware Toccata build, so the earlier "args.rs:204 hard-disables mainnet /
+   a covenant-enabled kaspad must be built and run" note is superseded.
+   `/usr/local/bin/kaspad-2.0.0` (running as covex-kaspad-mainnet, connected to the
+   real mainnet via the kaspanet.org DNS seeders, at tip) contains the
+   `toccata_activation` fork parameter (alongside the live `crescendo_activation`) and
+   the full covenant validation path: CovenantsError, InvalidCovInIndex /
+   InvalidCovOutIndex / InvalidAuthCovOutIndex, CovenantBindingInV0, "gas is only allowed
+   for Toccata-or-newer tx versions", and covenant-authorizing-input handling. A stock
+   pre-Toccata node has none of these. Covenants are NOT flag-gated (no `--covenant` CLI
+   option); activation is by fork DAA, so NO binary swap is needed. (The TN12 preview
+   runs the older `kaspad-covenant` 1.1.1-toc.1 build, which named the same fork
+   `covenants_activation`.)
+   OPERATOR 1-LINE CONFIRM before launch: verify the configured mainnet toccata
+   activation DAA == 474165565 against the rusty-kaspa 2.0.0 release notes. (The runtime
+   fork config is not dumpable over the borsh wRPC from a shell, so the DAA value itself
+   was not machine-verified here; the covenant-AWARENESS of the binary is verified.)
 
 2. BLOCKER (owner-decision flag): `COVEX_MAINNET_COVENANTS_ENABLED=true`
    is OFF in production. While off,

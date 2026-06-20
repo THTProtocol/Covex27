@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="referrer" content="no-referrer" />
+<title>Covex cold recovery</title>
+<meta name="description" content="Claim covenant funds with no Covex frontend and no Covex backend in the loop. Your private key stays in your browser and is never transmitted." />
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #131825;
+    --panel2: #0e1320;
+    --border: #243049;
+    --text: #e6ebf5;
+    --muted: #93a0bd;
+    --accent: #5b8cff;
+    --accent2: #7af0c0;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 18px 80px; }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: 0.2px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 26px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin: 16px 0; }
+  .card h2 { font-size: 16px; margin: 0 0 8px; }
+  .card p { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(180deg, #6f9bff, #4f7af0);
+    color: #061018; font-weight: 700; font-size: 14px;
+    text-decoration: none; padding: 11px 18px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .cta.secondary { background: var(--panel2); color: var(--text); border-color: var(--border); font-weight: 600; }
+  .note { color: var(--accent2); font-size: 12.5px; }
+  .muted { color: var(--muted); font-size: 12.5px; }
+  code { font-family: var(--mono); background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+  ul { margin: 8px 0 0; padding-left: 18px; }
+  li { color: var(--muted); font-size: 13px; margin: 4px 0; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Covex cold recovery</h1>
+    <p class="sub">
+      Claim covenant funds with no Covex frontend and no Covex backend in the loop. Your
+      private key stays in your browser, is never transmitted, and is cleared after signing.
+    </p>
+
+    <div class="card">
+      <h2>Open the tool</h2>
+      <p>
+        A single self-contained HTML page with the Kaspa signing library inlined. It assembles,
+        signs and broadcasts (or exports) the redeem transaction that releases your funds. Once
+        loaded you can save it and run it from <code>file://</code> on an air-gapped machine.
+      </p>
+      <a class="cta" href="covex-cold-recovery.html">Open cold recovery tool</a>
+    </div>
+
+    <div class="card">
+      <h2>What it actually claims (honest)</h2>
+      <p>
+        The chain (or a revealed public secret plus a key's signature check) enforces only some
+        spend paths end to end. The tool is explicit about which:
+      </p>
+      <ul>
+        <li>Script-enforced primitives and revealed-secret branches are offline-claimable with your own key.</li>
+        <li>The non-refundable WIN path of the oracle kinds still needs the Covex oracle's half-signature, so it is not offline-claimable here.</li>
+        <li>The refundable kinds' refund branch is offline-claimable by the refund key after the on-chain lock elapses.</li>
+      </ul>
+      <p class="note" style="margin-top:14px">No Covex involvement is required for the offline-claimable paths.</p>
+    </div>
+
+    <div class="card">
+      <h2>Verify before you trust it</h2>
+      <p class="muted">
+        A tool that signs with your private key should be verified, not trusted on faith. After
+        loading, save the page and compare its SHA-256 against the value published in the build
+        output and the guide. The signing logic is byte-identical to the audited in-app redeemer.
+      </p>
+      <a class="cta secondary" href="../../recover">Back to the in-app recovery page</a>
+    </div>
+  </div>
+</body>
+</html>

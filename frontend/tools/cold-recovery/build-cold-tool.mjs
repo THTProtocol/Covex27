@@ -43,7 +43,7 @@
 // wasm-bindgen versions. A blob: module URL runs the glue UNMODIFIED as a module and
 // gives us its exact export namespace. This is the most version-robust option.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -53,7 +53,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const TEMPLATE = join(__dirname, 'covex-cold-recovery.template.html');
-const OUT = join(__dirname, 'covex-cold-recovery.html');
+// The built artifact is emitted into the frontend's public/ tree so Vite copies it into
+// dist/ and it is SERVED at /tools/cold-recovery/covex-cold-recovery.html (reachable from the
+// in-app links). It is ~15-20 MB (wasm base64-inlined) and is generated at build time, so it is
+// gitignored and never committed. The committed index.html sibling makes /tools/cold-recovery/
+// resolve and links to this file + the guide.
+const PUBLIC_DIR = resolve(__dirname, '..', '..', 'public', 'tools', 'cold-recovery');
+const OUT = join(PUBLIC_DIR, 'covex-cold-recovery.html');
 
 // Resolve the kaspa-wasm package dir. Prefer node's resolver (handles workspaces /
 // hoisted node_modules); fall back to a couple of known relative locations.
@@ -139,6 +145,14 @@ function main() {
     '<script type="module">\n' + glueModule + '\n</script>',
   );
 
+  // Final guard: the two INJECTION SLOTS must be filled. We check the slot strings, not the
+  // bare placeholder tokens - the template's doc comment legitimately names the tokens while
+  // explaining the build, and those mentions must survive untouched.
+  if (html.includes(B64_SLOT) || html.includes(GLUE_SLOT)) {
+    throw new Error('build left an unfilled injection slot in the output; refusing to emit a broken tool');
+  }
+
+  mkdirSync(PUBLIC_DIR, { recursive: true });
   writeFileSync(OUT, html, 'utf8');
 
   const sha = createHash('sha256').update(readFileSync(OUT)).digest('hex');

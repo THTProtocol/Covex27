@@ -3,6 +3,13 @@ backend/target/
 frontend/dist/
 frontend/node_modules/
 
+# Cold-recovery tool: the wasm-inlined artifact (~15-20 MB) is generated at build time
+# (prebuild -> tools/cold-recovery/build-cold-tool.mjs) and served from public/. Never commit it;
+# rebuild and verify its SHA-256 instead. The index.html landing page IS committed.
+frontend/public/tools/cold-recovery/covex-cold-recovery.html
+# Legacy in-folder output location (older build script revisions wrote here).
+frontend/tools/cold-recovery/covex-cold-recovery.html
+
 # Environment files (never commit real secrets)
 .env
 .env.*

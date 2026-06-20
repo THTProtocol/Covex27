@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight } from 'lucide-react';
+import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight, Snowflake } from 'lucide-react';
 import { KIND_CLAIM_MATRIX } from '../lib/redeemer/covenantRedeemer';
 
 // Focus-trap selector parity with CovenantStudio's drawer trap: keep Tab cycling
@@ -172,6 +172,9 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
         <Link to={covenant.tx_id ? `/recover?id=${encodeURIComponent(String(covenant.tx_id).split(':')[0])}` : '/recover'} onClick={onClose} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-kaspa-green/25 bg-kaspa-green/[0.05] text-kaspa-green text-[12px] font-semibold hover:bg-kaspa-green/[0.1] hover:border-kaspa-green/40 transition-colors">
           Open the recovery page <ArrowRight size={13} />
         </Link>
+        <a href="/tools/cold-recovery/" target="_blank" rel="noreferrer" className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-gray-300 text-[12px] font-semibold hover:border-kaspa-green/30 hover:text-kaspa-green transition-colors">
+          <Snowflake size={13} /> Fully offline? Use the standalone cold-recovery tool
+        </a>
         <p className="mt-2 text-center text-[10px] text-gray-500">The in-browser redeemer is live on the Recover page: paste the kit, sign with your wallet, broadcast through any Kaspa node. No Covex involvement required.</p>
       </div>
     </div>

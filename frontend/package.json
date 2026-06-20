@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "check:sandbox": "node scripts/check-sandbox.mjs",
-    "prebuild": "node scripts/check-sandbox.mjs",
+    "build:cold-tool": "node tools/cold-recovery/build-cold-tool.mjs",
+    "prebuild": "node scripts/check-sandbox.mjs && node tools/cold-recovery/build-cold-tool.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

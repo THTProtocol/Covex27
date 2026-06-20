@@ -1407,6 +1407,16 @@ const blk = (type, props) => ({ type, props: { id: `${type}-${Math.random().toSt
 
 const ROOT = (over) => ({ props: { pageLogo: '', accentColor: '#49EACB', backgroundPreset: 'kaspa-hero', fontFamily: 'inter', ...over } });
 
+// UI website-template tiering.
+// ─────────────────────────────
+// Owner model: a FREE creator can open the Studio and build a full custom website,
+// and the BASE subset of these starter layouts is free to apply. The rest are
+// PREMIUM (the full template library), unlocked by any paid tier. `premium: true`
+// marks a layout as part of the paid library; absence (or false) means it is in the
+// free base set. This flag drives ONLY the picker's lock badge + upgrade prompt; it
+// never gates the Studio itself, building from scratch, or any technical capability.
+// The free base set is deliberately the broadest starters (incl. the generic default
+// matchTemplate() falls back to), so a free creator always has a working layout.
 export const STARTER_TEMPLATES = [
   {
     id: 'prediction-market',
@@ -1431,6 +1441,7 @@ export const STARTER_TEMPLATES = [
   {
     id: 'chess-arena',
     name: 'Chess Arena / Games',
+    premium: true,
     match: ['chess', 'game', 'arena', 'poker', 'blackjack'],
     desc: 'Game-first hero, live pot, leaderboard, and an oracle-attested badge.',
     data: {
@@ -1467,6 +1478,7 @@ export const STARTER_TEMPLATES = [
   {
     id: 'vesting-timelock',
     name: 'Vesting / Timelock',
+    premium: true,
     match: ['timelock', 'vesting', 'lock', 'rcsv', 'csv'],
     desc: 'Timelock countdown, locked-amount meter, and on-chain enforcement badge.',
     data: {
@@ -1485,6 +1497,7 @@ export const STARTER_TEMPLATES = [
   {
     id: 'fundraiser',
     name: 'Fundraiser / Community Pool',
+    premium: true,
     match: ['fundraiser', 'pool', 'community', 'donation', 'crowdfund'],
     desc: 'Goal meter, contributor leaderboard, live activity, and a pledge CTA.',
     data: {
@@ -1504,6 +1517,7 @@ export const STARTER_TEMPLATES = [
   {
     id: 'tournament',
     name: 'Tournament',
+    premium: true,
     match: ['tournament', 'bracket', 'league', 'cup'],
     desc: 'Prize-pool hero, entry tiers, bracket timeline, and a leaderboard.',
     data: {

@@ -7,9 +7,11 @@ import { Check, Sparkles, ShieldCheck, ArrowUpRight } from 'lucide-react';
 // all the time) and on the Pricing page so the message can never drift between
 // the two surfaces.
 //
-// Honesty rule (absolute): paid = priority PLACEMENT only, never capability.
-// Every line below must reflect that. If you edit the copy, edit it here once;
-// both surfaces re-render from this component.
+// Honesty rule (absolute): almost everything is free. Paid adds only PRIORITY
+// PLACEMENT (a better display spot) and the FULL premium UI website template
+// library; it never unlocks a technical capability. Every line below must reflect
+// that. If you edit the copy, edit it here once; both surfaces re-render from this
+// component.
 //
 // Renders correctly in BOTH dark (default) and light (`light:` variants) mode.
 // No em dashes anywhere (strict byte gate) - hyphens only.
@@ -18,9 +20,15 @@ const INCLUDED = [
   'Build and deploy any covenant - every ZK circuit, every game, every primitive',
   'Pick any resolution - oracle-attested or a real in-browser ZK proof (Groth16)',
   'Lock any amount of KAS - no cap on stakes, pots, or bets',
-  'Ship a full custom website for your covenant in Covenant Studio',
+  'Build a full custom website in Covenant Studio, with the base template set',
   'Deploy non-custodially - your wallet signs; Covex never holds your keys',
   'Claim your funds even if Covex is down (offline recovery tool)',
+];
+
+// What a paid tier adds. Two things only, both add-ons, never a capability gate.
+const PAID_ADDS = [
+  'Priority placement - the best display spot for your covenant and its website, higher in the Explorer and Markets',
+  'The full premium UI website template library - the layouts beyond the free base set',
 ];
 
 export default function TierTransparency({ currentTier = 'FREE' }) {
@@ -64,21 +72,23 @@ export default function TierTransparency({ currentTier = 'FREE' }) {
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-white light:text-slate-900 tracking-tight">
-              What a paid tier adds - priority placement only
+              What a paid tier adds - placement and premium templates
             </h3>
             <p className="text-xs text-gray-300 light:text-slate-600 mt-0.5">
-              Paid tiers do not unlock any feature.
+              Paid tiers do not unlock any technical capability.
             </p>
           </div>
         </div>
         <ul className="mt-3.5 space-y-2.5">
-          <li className="flex items-start gap-2.5 text-sm text-gray-200 light:text-slate-700 leading-snug">
-            <ArrowUpRight size={15} className="shrink-0 mt-0.5 text-amber-400 light:text-amber-600" aria-hidden="true" />
-            <span>Priority placement and featured listing of your covenant and its website (higher in the Explorer and Markets)</span>
-          </li>
+          {PAID_ADDS.map((line) => (
+            <li key={line} className="flex items-start gap-2.5 text-sm text-gray-200 light:text-slate-700 leading-snug">
+              <ArrowUpRight size={15} className="shrink-0 mt-0.5 text-amber-400 light:text-amber-600" aria-hidden="true" />
+              <span>{line}</span>
+            </li>
+          ))}
         </ul>
         <p className="mt-3 text-xs text-gray-300 light:text-slate-600 leading-relaxed">
-          Your covenant deploys and works identically on Free. Paid only changes where it appears on Covex.
+          Your covenant deploys and works identically on Free. Paid changes where it appears on Covex and which website templates you can apply, never what you can build.
         </p>
       </div>
 
@@ -89,12 +99,12 @@ export default function TierTransparency({ currentTier = 'FREE' }) {
           {isFree ? (
             <>
               <span className="font-semibold text-white light:text-slate-900">Your tier: FREE</span>
-              {' - everything above is active. The only thing not active is priority placement, the paid add-on.'}
+              {' - everything above is active. The only things not active are priority placement and the premium template library, the paid add-ons.'}
             </>
           ) : (
             <>
               <span className="font-semibold text-white light:text-slate-900">Your tier: {tier}</span>
-              {' - priority placement is active.'}
+              {' - priority placement and the premium template library are active.'}
             </>
           )}
         </p>

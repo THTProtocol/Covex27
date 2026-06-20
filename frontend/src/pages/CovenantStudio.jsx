@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Puck, Render as PuckRender } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, ArrowRight, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench, Info, Lock } from 'lucide-react';
 import { useWallet } from '../components/WalletContext';
 import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';
@@ -148,9 +148,17 @@ const VIEWPORTS = [
  */
 export default function CovenantStudio() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isFresh = searchParams.get('fresh') === '1';
   const { address, signMessage } = useWallet();
+  // Creator's paid tier, the SAME backend source the Terminal / Sandbox use
+  // (/api/paid-status). It gates ONLY which UI website templates can be applied:
+  // the free base set is always usable, premium layouts prompt an upgrade. It never
+  // gates the Studio itself, building from scratch, or any technical capability.
+  // Defaults to FREE (fail-closed: a creator only sees premium unlocked once the
+  // backend confirms a paid tier).
+  const [isPaid, setIsPaid] = useState(false);
   const [covenant, setCovenant] = useState(null);
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -228,6 +236,20 @@ export default function CovenantStudio() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Resolve the creator's paid tier from the backend (same source as the Terminal
+  // and Sandbox). FREE creators can still build; this only flips premium UI website
+  // templates from locked to applicable. Fails closed to FREE on any error.
+  useEffect(() => {
+    if (!address) { setIsPaid(false); return undefined; }
+    let cancelled = false;
+    const net = (typeof localStorage !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
+    fetch(`/api/paid-status?address=${encodeURIComponent(address)}&network=${encodeURIComponent(net)}`)
+      .then((r) => (r.ok ? r.json() : { highest_tier: 'FREE' }))
+      .then((d) => { if (!cancelled) setIsPaid(!!(d && d.highest_tier && String(d.highest_tier).toUpperCase() !== 'FREE')); })
+      .catch(() => { if (!cancelled) setIsPaid(false); });
+    return () => { cancelled = true; };
+  }, [address]);
+
   // Live refresh: keep the studio preview's on-chain figures current while the
   // creator designs. Merges ONLY volatile fields, never the canvas.
   useEffect(() => {
@@ -292,17 +314,25 @@ export default function CovenantStudio() {
     };
   }, [covenant]);
 
-  // Load a starter template into the canvas (replaces current content).
+  // Load a starter template into the canvas (replaces current content). Premium
+  // layouts are part of the paid template library: for a FREE creator, selecting one
+  // routes to /pricing instead of applying, so building from scratch and the free base
+  // set stay fully usable while the premium library is the paid add-on.
   const applyTemplate = useCallback((tplId) => {
     const tpl = STARTER_TEMPLATES.find((t) => t.id === tplId);
     if (!tpl) return;
+    if (tpl.premium && !isPaid) {
+      toast.info('That layout is part of the premium template library. Free includes the base starters and building from scratch.');
+      navigate('/pricing');
+      return;
+    }
     const data = JSON.parse(JSON.stringify(tpl.data));
     setInitialData(data);
     puckDataRef.current = data;
     setDataKey((k) => k + 1);
     closeDrawer();
     toast.success(`Loaded the "${tpl.name}" starter.`);
-  }, [closeDrawer]);
+  }, [closeDrawer, isPaid, navigate]);
 
   const startBlank = useCallback(() => {
     setInitialData(EMPTY_PAGE);
@@ -604,6 +634,7 @@ export default function CovenantStudio() {
       {activeDrawer === 'picker' && (
         <TemplatePickerModal
           defaultId={defaultTemplateId}
+          isPaid={isPaid}
           liveData={liveData}
           onPick={applyTemplate}
           onBlank={startBlank}
@@ -806,35 +837,67 @@ function BlockSearch({ children, paletteOpen = false, onClosePalette, onAddBlock
 }
 
 // ── First-run starter-template picker. Defaults the selection by covenant type. ──
-function TemplatePickerModal({ defaultId, liveData, onPick, onBlank, onClose }) {
-  const [sel, setSel] = useState(defaultId);
+// Premium UI website templates (premium: true) are part of the paid library. A FREE
+// creator still gets the full picker and can apply any base layout or start blank;
+// premium cards wear a "Paid" lock badge and, when selected, the primary action
+// becomes "Unlock in Pricing" (routes to /pricing via the parent's applyTemplate
+// guard) instead of applying. This gates ONLY premium layouts, never the Studio,
+// building from scratch, or the base set.
+function TemplatePickerModal({ defaultId, isPaid = false, liveData, onPick, onBlank, onClose }) {
+  // Never auto-select a locked premium layout for a free creator: if the suggested
+  // default is premium and they cannot use it, fall back to the first free layout so
+  // the primary CTA is immediately usable.
+  const initialSel = useMemo(() => {
+    const def = STARTER_TEMPLATES.find((t) => t.id === defaultId);
+    if (def && (!def.premium || isPaid)) return defaultId;
+    const firstFree = STARTER_TEMPLATES.find((t) => !t.premium);
+    return firstFree ? firstFree.id : defaultId;
+  }, [defaultId, isPaid]);
+  const [sel, setSel] = useState(initialSel);
   const trapRef = useRef(null);
   useFocusTrap(trapRef, true);
+  const selTpl = STARTER_TEMPLATES.find((t) => t.id === sel);
+  const selLocked = !!(selTpl && selTpl.premium && !isPaid);
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 light:bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Start from a template" className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-[#0c0c12] light:bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] light:border-slate-200">
           <div>
             <p className="text-sm font-black text-white light:text-slate-900">Start from a template</p>
-            <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5">Premium, honest layouts. Tweak everything after.</p>
+            <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5">
+              {isPaid
+                ? 'Honest layouts, the full library unlocked. Tweak everything after.'
+                : 'Base layouts are free. Premium layouts and building from scratch keep the canvas yours.'}
+            </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900"><X size={18} /></button>
         </div>
         <div className="p-4 grid sm:grid-cols-2 gap-3 sm:gap-4">
           {STARTER_TEMPLATES.map((t) => {
             const active = sel === t.id;
+            const locked = !!(t.premium && !isPaid);
             const blocks = pageBlockNames(t.data);
             return (
               <button key={t.id} onClick={() => setSel(t.id)}
-                className={`text-left rounded-xl border overflow-hidden transition-all ${active ? 'border-kaspa-green bg-kaspa-green/[0.06]' : 'border-white/10 light:border-slate-200 hover:border-white/25 light:hover:border-slate-300'}`}>
+                aria-label={locked ? `${t.name} (paid template)` : t.name}
+                className={`relative text-left rounded-xl border overflow-hidden transition-all ${active ? 'border-kaspa-green bg-kaspa-green/[0.06]' : 'border-white/10 light:border-slate-200 hover:border-white/25 light:hover:border-slate-300'}`}>
                 {/* Real, scaled read-only render of the starter layout so the user
-                    sees it before applying. Pointer-events disabled inside. */}
-                <PuckPageThumb data={t.data} liveData={liveData} height={130} scale={0.135} className="border-b border-white/[0.06] light:border-slate-200" />
+                    sees it before applying. Pointer-events disabled inside. Locked
+                    premium layouts are dimmed so the lock reads at a glance. */}
+                <div className={locked ? 'opacity-55' : ''}>
+                  <PuckPageThumb data={t.data} liveData={liveData} height={130} scale={0.135} className="border-b border-white/[0.06] light:border-slate-200" />
+                </div>
+                {/* Paid lock badge: only on premium layouts a free creator cannot apply. */}
+                {locked && (
+                  <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/40 light:bg-amber-100 light:text-amber-800 light:border-amber-300">
+                    <Lock size={9} aria-hidden="true" /> Paid
+                  </span>
+                )}
                 <div className="p-4">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-sm font-bold text-white light:text-slate-900">{t.name}</span>
                     {active && <Check size={15} className="text-kaspa-green shrink-0" />}
-                    {!active && t.id === defaultId && <span className="text-[9px] font-bold uppercase tracking-wider text-kaspa-green shrink-0">Suggested</span>}
+                    {!active && t.id === defaultId && (!t.premium || isPaid) && <span className="text-[9px] font-bold uppercase tracking-wider text-kaspa-green shrink-0">Suggested</span>}
                   </div>
                   <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed">{t.desc}</p>
                   {/* T4 transparency: name every block this layout drops in. */}
@@ -852,7 +915,13 @@ function TemplatePickerModal({ defaultId, liveData, onPick, onBlank, onClose }) 
         </div>
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-white/[0.08] light:border-slate-200">
           <button onClick={onBlank} className="text-xs font-semibold text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900">Start blank</button>
-          <button onClick={() => onPick(sel)} className="px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 transition-all">Use this template</button>
+          {selLocked ? (
+            <button onClick={() => onPick(sel)} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm hover:brightness-110 transition-all">
+              <Lock size={14} aria-hidden="true" /> Unlock in Pricing
+            </button>
+          ) : (
+            <button onClick={() => onPick(sel)} className="px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 transition-all">Use this template</button>
+          )}
         </div>
       </div>
     </div>

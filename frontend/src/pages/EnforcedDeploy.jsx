@@ -726,7 +726,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
             {!usesDevWallets && (
               <span className="mt-1 block text-[11px] text-gray-500 light:text-slate-500">
-                Lockable up to your total balance: the funding transaction combines multiple UTXOs as needed. Any amount is allowed with no maximum, on any tier including free. All building is free. Paid tiers buy priority placement only.
+                Lockable up to your total balance: the funding transaction combines multiple UTXOs as needed. Any amount is allowed with no maximum, on any tier including free. All building is free. Paid tiers add priority placement and the premium website templates.
               </span>
             )}
           </label>
@@ -786,7 +786,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the disclosed oracle reveals one committed outcome secret; once it is revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
             </p>
             <p className="text-[11px] text-gray-500 light:text-slate-500 leading-relaxed">
-              Bets can be any amount with no maximum, on any tier including free. All building is free. Paid tiers buy priority placement only.
+              Bets can be any amount with no maximum, on any tier including free. All building is free. Paid tiers add priority placement and the premium website templates.
             </p>
           </div>
         )}

@@ -2437,7 +2437,8 @@ ${gameMeta.outcomeBranches}
 
       {/* ─── Tier transparency: ALWAYS visible, every tier, all the time. Same component
             and copy as the Pricing page so the message can never drift. Honesty rule:
-            paid = priority placement only, never capability. ─── */}
+            almost everything is free; paid adds only priority placement and the premium
+            UI website template library, never a technical capability. ─── */}
       <TierTransparency currentTier={currentTier} />
 
       {/* Inline note pinned next to the tier / payment control. */}

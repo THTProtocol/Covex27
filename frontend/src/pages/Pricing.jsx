@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Check, X as XIcon, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { useWallet } from '../components/WalletContext';
+import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -116,17 +116,13 @@ const getTreasuryAddress = () => MAINNET_TREASURY;
 const Pricing = () => {
   const navigate = useNavigate();
   const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
-  const [currentNetwork, setCurrentNetwork] = useState(() => {
-    if (typeof window === 'undefined') return 'mainnet';
-    return localStorage.getItem('kaspaNetwork') || 'mainnet';
-  });
+  const [currentNetwork, setCurrentNetwork] = useState(() => getCurrentNetwork());
   const isMainnet = currentNetwork === 'mainnet' || currentNetwork === 'mainnet-1';
   const TREASURY = getTreasuryAddress();
 
   useEffect(() => {
     const handler = () => {
-      const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
-      setCurrentNetwork(net);
+      setCurrentNetwork(getCurrentNetwork());
     };
     window.addEventListener('kaspa-network-change', handler);
     return () => window.removeEventListener('kaspa-network-change', handler);

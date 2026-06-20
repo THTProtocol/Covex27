@@ -10,23 +10,34 @@ const WalletContext = createContext(null);
 
 // ── Network-aware helpers ──
 // The user picks the active network (Mainnet / Testnet-10 / Testnet-12) from the nav switcher,
-// which writes localStorage('kaspaNetwork') and dispatches 'kaspa-network-change'. Mainnet is the
-// default for any unset / unknown value, so links, derivation and balances target the real chain
-// unless the user explicitly selects a testnet for testing.
+// which writes localStorage('kaspaNetwork') and dispatches 'kaspa-network-change'.
+//
+// DEFAULT_NETWORK is the network a BRAND-NEW visitor (no stored choice) lands on. Mainnet does not
+// index any covenants or events until the Toccata launch, so defaulting a first-time visitor to
+// 'mainnet' shows a dead-looking, all-zero view. Testnet-12 has 14,000+ live covenants right now,
+// so a newcomer immediately sees real, thriving activity. Mainnet stays fully selectable and remains
+// the brand / identity network - this only changes the unset default, never hides mainnet.
+export const DEFAULT_NETWORK = 'testnet-12';
+
 export function getCurrentNetwork() {
-  if (typeof window === 'undefined') return 'mainnet';
-  return localStorage.getItem('kaspaNetwork') || 'mainnet';
+  if (typeof window === 'undefined') return DEFAULT_NETWORK;
+  const stored = localStorage.getItem('kaspaNetwork');
+  if (stored) return stored;
+  // Seed the default on first read so every consumer (Explorer, ticker, stats, Pricing, wallet)
+  // agrees on the same network for the rest of the session. Tolerate private-mode write failures.
+  try { localStorage.setItem('kaspaNetwork', DEFAULT_NETWORK); } catch { /* private mode */ }
+  return DEFAULT_NETWORK;
 }
 
 export function onNetworkChange(fn) {
   const handler = (e) => {
-    const net = e?.detail || localStorage.getItem('kaspaNetwork') || 'mainnet';
+    const net = e?.detail || getCurrentNetwork();
     fn(net);
   };
   window.addEventListener('kaspa-network-change', handler);
   // Also listen to regular storage changes (for other tabs)
   const storageHandler = () => {
-    const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
+    const net = getCurrentNetwork();
     fn(net);
   };
   window.addEventListener('storage', storageHandler);

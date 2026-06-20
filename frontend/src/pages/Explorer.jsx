@@ -5,7 +5,7 @@ import {
   Database, Search, Sparkles, Play,
   Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
   ShieldCheck, Zap, ChevronDown, Compass,
-  Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes
+  Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight
 } from 'lucide-react';
 import Spinner from '../components/ui/Spinner';
 import { Button } from '../components/ui/Button';
@@ -27,7 +27,7 @@ const CATEGORY_ICON = {
   multisig: KeyRound,
   general: Boxes,
 };
-import { useWallet } from '../components/WalletContext';
+import { useWallet, getCurrentNetwork, DEFAULT_NETWORK } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
@@ -270,7 +270,7 @@ export default function Explorer() {
   // LABELED now (no fabricated types), so there's no reason to hide them - "Verified only" is an
   // opt-in filter for users who want just paid + real-description covenants.
   const [includeRaw, setIncludeRaw] = useState(true);
-  const [kaspaNetwork, setKaspaNetwork] = useState(() => localStorage.getItem('kaspaNetwork') || 'mainnet');
+  const [kaspaNetwork, setKaspaNetwork] = useState(() => getCurrentNetwork());
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
   const [liveMatches, setLiveMatches] = useState([]);
@@ -320,7 +320,7 @@ export default function Explorer() {
 
   useEffect(() => {
     const handler = (e) => {
-      setKaspaNetwork(typeof e.detail === 'string' ? e.detail : localStorage.getItem('kaspaNetwork') || 'mainnet');
+      setKaspaNetwork(typeof e.detail === 'string' ? e.detail : getCurrentNetwork());
     };
     window.addEventListener('kaspa-network-change', handler);
     return () => window.removeEventListener('kaspa-network-change', handler);
@@ -551,7 +551,12 @@ export default function Explorer() {
     return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
 
-  const netLabel = 'MAINNET';
+  // Label MUST agree with the data: the covenant count below renders the SELECTED network's total,
+  // so a hardcoded 'MAINNET' reads "MAINNET Covenants 14,093" while on testnet-12 (label/data lie).
+  // Derive the label from the active network so the number and the word always match.
+  const NET_LABELS = { 'mainnet': 'MAINNET', 'mainnet-1': 'MAINNET', 'testnet-12': 'TN12', 'testnet-10': 'TN10' };
+  const netLabel = NET_LABELS[kaspaNetwork] || kaspaNetwork.toUpperCase();
+  const isEmptyMainnet = (kaspaNetwork === 'mainnet' || kaspaNetwork === 'mainnet-1') && !loading && covenants.length === 0;
 
   return (
     <>
@@ -1007,7 +1012,33 @@ export default function Explorer() {
               </div>
             )}
             {error && <p className="text-red-500 text-center py-10">{error}</p>}
-            {!loading && covenants.length === 0 && (
+            {/* Mainnet is genuinely pre-launch: it indexes ZERO covenants until the Toccata launch.
+                Show an HONEST banner that says so and offers a one-tap switch to the live testnet,
+                instead of a generic "Be the first" that implies the network is simply new. We never
+                imply mainnet has activity it does not. */}
+            {isEmptyMainnet && (
+              <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
+                <Layers size={40} className="mx-auto text-gray-200 light:text-slate-400 mb-3" />
+                <p className="text-lg font-semibold text-white light:text-slate-900 mb-1.5">Mainnet covenants go live at the Toccata launch.</p>
+                <p className="text-sm text-gray-300 light:text-slate-600 mb-5">There are 14,000+ live covenants you can browse right now on Testnet-12.</p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => switchNetwork(DEFAULT_NETWORK)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                  >
+                    Browse 14,000+ live covenants <ArrowRight size={16} />
+                  </button>
+                  <Link
+                    to="/sandbox"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+                  >
+                    Build a covenant
+                  </Link>
+                </div>
+              </div>
+            )}
+            {!loading && covenants.length === 0 && !isEmptyMainnet && (
               <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
                 <Layers size={40} className="mx-auto text-gray-200 light:text-slate-400 mb-3" />
                 <p className="text-lg font-semibold text-white light:text-slate-900 mb-5">No covenants on this network yet. Be the first.</p>

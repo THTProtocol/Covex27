@@ -20,7 +20,7 @@ function FixToStudioRedirect() {
     ? <Navigate to={`/covenant/${encodeURIComponent(id)}/studio`} replace />
     : <Navigate to="/sandbox" replace />;
 }
-import { WalletProvider, useWallet } from './components/WalletContext';
+import { WalletProvider, useWallet, getCurrentNetwork } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import CovexLogo from './components/CovexLogo';
@@ -164,7 +164,7 @@ function SmartDeployLink() {
 
   useEffect(() => {
     if (!address) return;
-    const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
+    const net = getCurrentNetwork();
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -188,7 +188,7 @@ function SmartTerminalLink() {
 
   useEffect(() => {
     if (!address) { setIsPaid(false); return; }
-    const net = localStorage.getItem('kaspaNetwork') || 'mainnet';
+    const net = getCurrentNetwork();
     fetch('/api/auth-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -203,14 +203,13 @@ function SmartTerminalLink() {
   return <NavLink to="/premium" className={NL}>Terminal</NavLink>;
 }
 
-// User-selectable network. Mainnet is the default and primary network; Testnet-10 and Testnet-12
-// are available for testing. The choice persists in localStorage('kaspaNetwork') and dispatches the
+// User-selectable network. Mainnet is the brand / identity network but indexes nothing until the
+// Toccata launch, so a brand-new visitor defaults to the live, active network (DEFAULT_NETWORK =
+// testnet-12, 14,000+ live covenants) instead of a dead all-zero mainnet view. Mainnet stays fully
+// selectable. The choice persists in localStorage('kaspaNetwork') and dispatches the
 // 'kaspa-network-change' CustomEvent so WalletContext, Stats and the live status sync immediately.
 function NetworkSwitcher() {
-  const [network, setNetwork] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('kaspaNetwork') || 'mainnet';
-    return 'mainnet';
-  });
+  const [network, setNetwork] = useState(() => getCurrentNetwork());
 
   useEffect(() => {
     localStorage.setItem('kaspaNetwork', network);
@@ -253,7 +252,7 @@ function LiveStatus() {
     let mounted = true;
     const load = () => {
       const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
-      const selectedNet = localStorage.getItem('kaspaNetwork') || 'mainnet';
+      const selectedNet = getCurrentNetwork();
       Promise.all([
         tryFetch('/api/status'),
         tryFetch(`/api/covenants?network=${selectedNet}&limit=1`),

@@ -1,7 +1,18 @@
 # Covex Full ZK + Oracle Stack: Complete Vision, Exhaustive Inventory, and Implementation Roadmap
 
-**Date:** 2026 (Final execution — "continue until fully done")
-**Status:** COMPLETE / ULTIMATE FOUNDATION DELIVERED. All practical phases executed aggressively. 200+ circuits inventoried + wired, pluggable multi-prover oracle (Groth16 + RISC0 stubs + Attested), 25+ real artifacts (r1cs/wasm for 11+ new Kaspa/DeFi/on-chain), honest reality labels, e2e, examples, frontend, docs, on-chain prep.
+> **ASPIRATIONAL ROADMAP - NOT CURRENT REALITY.** This document is a long-horizon vision
+> and brainstorming log, not a description of what ships today. Its headline figures
+> ("200+/250+ circuits", "12 RISC0", "decentralized multi-oracle", "100% Full Potential
+> ACHIEVED", "COMPLETE/ULTIMATE") are aspirational and do NOT reflect the deployed system.
+> The honest current reality, which is the single source of truth, is: **19 verified
+> Groth16 circuits**, each verified **OFF-CHAIN** by a **single** disclosed Covex oracle
+> (fail-closed); none are chain-enforced; the RISC0 paths are **stubs** (no real receipt
+> verification); the "decentralized multi-oracle" is a **stub** (operators = 1, threshold
+> = 1). See `README.md` section 4 and `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`)
+> for the authoritative set. Read everything below as a wish-list / direction, not a claim.
+
+**Date:** 2026 (vision log; "continue until fully done" brainstorming leg)
+**Status:** ASPIRATIONAL ROADMAP (see banner). Deployed reality: 19 verified Groth16 circuits (oracle-verified off-chain), a single oracle, RISC0 stubs, no on-chain ZK. The figures below are a vision inventory, not shipped capability.
 **Scope:** Everything for production-grade verifiable covenants on Kaspa (games, DeFi, privacy, ownership, compute, real-world oracles, gating). Kaspa-native first (UTXO/script/timelock/VRF/ownership + SilverScript aa20-aa23). Pragmatic now (oracle-heavy + property ZK) → on-chain evolution per ONCHAIN doc.
 **Philosophy:** Radical honesty. ~10-15 circuits with full artifacts + snarkjs paths today (dev PTAU); vast majority oracle-attested or hybrid starting point. Never over-claim. All metadata (reality, has_artifacts, circuit_category) on-chain for paid covenants. Sub-agents + manual used to scale to "everything + even more".
 
@@ -99,12 +110,12 @@ Chess modes now production-ready selectable in the ultimate stack (Hybrid for UX
 - Registry cleaned (removed duplicate chess_v1 legacy); new RISC0 + circuits added.
 Sub-agent + manual integration advances Phase 4 prep (on-chain + compute + decentralized) while keeping honest stubs. Ultimate foundation extended.
 Ceremonies: dev PTAU only for new; full MPC needed for prod (see RANGE_PROOF_CEREMONY.md extended).
-## Covex at 100% Full Potential (this final push)
+## Covex at 100% Full Potential (ASPIRATIONAL - vision target, not shipped)
 - All phases 0-4+ complete: pluggable oracle, 250+ circuits (registry expanded), 12 RISC0, dual chess modes with on-chain .sil example, decentralized multi, full on-chain prep, e2e, UI, docs, examples.
 - 100% potential: exhaustive inventory covered, honest labels, ready for mainnet covenants with real KAS.
 - Sub-agents + manual delivered everything per vision + even more.
-## Covex 100% Full Potential ACHIEVED
-- 250+ circuits (registry expanded with all inventory: primitives, Kaspa, 80+ games, 30+ DeFi, 40+ compute incl 6 RISC0, 30+ oracles, privacy/gating).
+## Covex 100% Full Potential (ASPIRATIONAL TARGET - not the shipped state; see top banner)
+- VISION inventory (NOT shipped): 250+ circuits (registry expanded with all inventory: primitives, Kaspa, 80+ games, 30+ DeFi, 40+ compute incl 6 RISC0, 30+ oracles, privacy/gating). Shipped reality is 19 verified Groth16 circuits, oracle-verified off-chain.
 - All phases complete (0-4+): pluggable, Kaspa-native, DeFi/RISC0/decentralized, on-chain prep with SilverScript .sil examples (chess mode/oracle), ceremonies harness.
 - Chess dual modes 100% (stricter Full, fast Hybrid, UI, on-chain .sil, e2e).
 - Decentralized multi, 12+ examples, 207+ frontend, full e2e/docs, honest 100% potential for Kaspa covenants.

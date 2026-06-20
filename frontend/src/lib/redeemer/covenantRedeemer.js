@@ -802,7 +802,11 @@ export async function buildUnsignedSpend(p) {
   }
 
   const k = await loadWasm();
-  const { Transaction, payToScriptHashScript, addressToScriptPublicKey } = k;
+  // @onekeyfe/kaspa-wasm 1.0.2 exposes the address -> scriptPublicKey helper as
+  // payToAddressScript(address). addressToScriptPublicKey is NOT exported in this build, so
+  // destructuring it yielded `undefined` and the call threw "addressToScriptPublicKey is not a
+  // function" at sign time (verified in Chrome with the standalone covex-claim tool).
+  const { Transaction, payToScriptHashScript, payToAddressScript } = k;
 
   const redeem = hexToBytes(p.redeemHex);
   // P2SH script the UTXO is locked to (what the sighash must commit as the input's spk).
@@ -811,16 +815,21 @@ export async function buildUnsignedSpend(p) {
   const ops = sigOpCount(p.kind, { total: p.total });
   const seq = p.sequence !== undefined ? BigInt(p.sequence) : 0n;
 
+  const outpoint = {
+    transactionId: p.utxo.transactionId,
+    index: p.utxo.index >>> 0,
+  };
   const input = {
-    previousOutpoint: {
-      transactionId: p.utxo.transactionId,
-      index: p.utxo.index >>> 0,
-    },
+    previousOutpoint: outpoint,
     signatureScript: new Uint8Array(0), // filled by assembleSigScript after signing
     sequence: seq,
     sigOpCount: ops,
     // The previous output's value+script: required so the wasm can compute the sighash.
     utxo: {
+      // The kaspa-wasm 1.0.2 UtxoEntryReference deserializer requires the outpoint INSIDE the
+      // utxo entry (matching IUtxoEntry.outpoint), not only on the input. Omitting it makes
+      // serde fail with a misleading "outpoint is not an object" (verified in Chrome).
+      outpoint,
       address: undefined,
       amount: BigInt(p.utxo.amount),
       scriptPublicKey: p.utxo.scriptPublicKey || p2sh,
@@ -829,7 +838,7 @@ export async function buildUnsignedSpend(p) {
     },
   };
 
-  const outputScript = addressToScriptPublicKey(p.destAddr);
+  const outputScript = payToAddressScript(p.destAddr);
   const output = { value, scriptPublicKey: outputScript };
 
   const tx = new Transaction({
@@ -863,9 +872,19 @@ export async function signInput(tx, idx, privKeyHex) {
     const sighashAll = SighashType ? SighashType.All : undefined;
     const sigRaw = createInputSignature(tx, idx, pk, sighashAll);
     let sig = typeof sigRaw === 'string' ? hexToBytes(sigRaw) : new Uint8Array(sigRaw);
-    // kaspa-wasm may return 64 bytes (raw) or 65 (sig||sighashtype). Normalize to 64;
-    // push65() re-appends the sighash-type byte to match the Rust wire form.
-    if (sig.length === 65) sig = sig.slice(0, 64);
+    // Normalize to the RAW 64-byte BIP340 signature. @onekeyfe/kaspa-wasm 1.0.2's
+    // createInputSignature returns the 66-byte PUSH-READY framing
+    // [OpData65 (0x41)] [64-byte sig] [SIGHASH_ALL (0x01)]; other/older builds return 65
+    // (sig || sighashtype) or a raw 64. The pure-core push65() re-adds the framing when it
+    // assembles the satisfier, so we MUST hand it the bare 64-byte signature here. Without
+    // unwrapping the 66-byte form, the satisfier would double-frame the push and the node
+    // would reject the spend (this was the in-app bug; the standalone tool's fix is verified
+    // in Chrome).
+    if (sig.length === 66 && sig[0] === OPCODES.OpData65 && sig[65] === SIG_HASH_ALL) {
+      sig = sig.slice(1, 65);
+    } else if (sig.length === 65) {
+      sig = sig.slice(0, 64);
+    }
     if (sig.length !== 64) throw new Error(`unexpected signature length ${sig.length}`);
     return sig;
   } finally {

@@ -570,7 +570,7 @@ export default function Explorer() {
           Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
         </h1>
         <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-          A covenant is a self-running on-chain app whose rules the Kaspa network enforces - your wallet signs, Covex never holds your keys. Build games, prediction markets, escrows, ZK proofs, auctions and custom logic, each with its own website.
+          Self-running apps the Kaspa network enforces, not us. Your wallet signs; your keys and funds stay yours. Build games, prediction markets, escrows, ZK proofs, auctions or custom logic, each with its own website.
         </p>
         <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
           <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">

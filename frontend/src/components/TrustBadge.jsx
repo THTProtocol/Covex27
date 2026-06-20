@@ -87,8 +87,8 @@ export function trustInfo(covenant, opts) {
   }
   // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN by
   // the disclosed oracle (fail-closed). No circuit reduces to a chain-checked hashlock,
-  // so the legacy 'full-zk-chain' reality collapses to the same full-zk pill.
-  if (reality === 'full-zk-chain' || reality === 'full-zk') {
+  // so there is no chain-enforced ZK reality - full-zk is the strongest ZK pill.
+  if (reality === 'full-zk') {
     return fullZkInfo();
   }
   if (reality === 'oracle-attested') {

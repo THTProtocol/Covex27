@@ -13,27 +13,25 @@ import { describe, it, expect, vi } from 'vitest';
 //   Adversarial finding from the security pass.
 //
 // HONESTY DOWNGRADE: the "Chain-enforced ZK" / 'full-zk-chain' tier has been
-// removed. No deployed circuit's ZK proof is bound to a chain-checked hashlock
-// (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is blake2b256,
-// escrow_2party has no hash at all, and covenant_builder.rs has no
+// RETIRED ENTIRELY. No deployed circuit's ZK proof is bound to a chain-checked
+// hashlock (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is
+// blake2b256, escrow_2party has no hash at all, and covenant_builder.rs has no
 // circuit-output -> hashlock binding). All 19 verified circuits are oracle-
 // verified OFF-CHAIN (fail-closed); the only on-chain check is the oracle's
-// BIP340 Schnorr co-signature. CHAIN_ENFORCED_ZK is therefore empty.
+// BIP340 Schnorr co-signature. There is no CHAIN_ENFORCED_ZK set anymore (it was
+// removed outright, not just emptied); the cross-language resurrection guard lives
+// in zk-set-backend-parity.test.js.
 //
 // What this file pins, against the REAL ZK_CIRCUIT_TYPES from CovexTerminal:
-//   1. CHAIN_ENFORCED_ZK is EMPTY: there are no chain-enforced ZK circuits, and
-//      no surviving catalog entry carries reality === 'full-zk-chain'.
-//   2. The chain-enforced set in the catalog matches CHAIN_ENFORCED_ZK in
-//      lib/zk/circuits.js EXACTLY (both empty; no drift either direction). A
-//      resurrected full-zk-chain entry without a matching CHAIN_ENFORCED_ZK
-//      bump would silently overclaim; the reverse would silently underclaim.
-//   3. The post-processor invariant: NO surviving catalog entry has reality
+//   1. NO surviving catalog entry carries reality === 'full-zk-chain' (the tier
+//      is retired) and the four ex-"chain-enforced" circuits are oracle-attested.
+//   2. The post-processor invariant: NO surviving catalog entry has reality
 //      'full-zk' or 'hybrid'. Both must collapse to 'oracle-attested' (the
 //      single source of truth for the oracle-cosigned-only badge). This is
 //      the honesty floor: a regression that lets a 'full-zk' label through
 //      to the UI would render a green ZK-on-chain badge on a circuit that is
 //      only oracle-cosigned.
-//   4. Every surviving reality is one of the labels the Sandbox REALITY map
+//   3. Every surviving reality is one of the labels the Sandbox REALITY map
 //      (pages/Sandbox.jsx) knows how to render honestly: on-chain,
 //      oracle-attested, decorative. Anything else falls through to the
 //      oracle-attested default, which is silently lossy. Markets and oracle
@@ -81,7 +79,7 @@ vi.mock('../../advanced-primitives/AdvancedPrimitivesComposer', () => ({ default
 vi.mock('../../multi-oracle/MultiOracleConfigurator', () => ({ default: () => null }));
 
 const { ZK_CIRCUIT_TYPES } = await import('../../../components/CovexTerminal.jsx');
-const { CHAIN_ENFORCED_ZK } = await import('../circuits.js');
+const circuitsModule = await import('../circuits.js');
 
 // The Sandbox REALITY map (pages/Sandbox.jsx) recognizes exactly these keys. Any
 // reality outside this set falls through to the oracle-attested default, which
@@ -126,12 +124,13 @@ describe('ZK_CIRCUIT_TYPES catalog honesty (pinned against the real export)', ()
     ).toEqual([]);
   });
 
-  it('CHAIN_ENFORCED_ZK is empty: there are no chain-enforced ZK circuits', () => {
-    // The "Chain-enforced ZK" tier was an overclaim and has been removed. No
-    // deployed circuit's ZK proof is bound to a chain-checked hashlock, so the
-    // canonical set in lib/zk/circuits.js is empty.
-    expect(Array.from(CHAIN_ENFORCED_ZK)).toEqual([]);
-    expect(CHAIN_ENFORCED_ZK.size).toBe(0);
+  it('the chain-enforced ZK carve-out is retired (no CHAIN_ENFORCED_ZK export)', () => {
+    // The "Chain-enforced ZK" tier was an overclaim and has been removed OUTRIGHT.
+    // No deployed circuit's ZK proof is bound to a chain-checked hashlock, so the
+    // canonical module exports neither the set nor its helper. (Emptying it was the
+    // earlier, incomplete fix; this guards against the symbols reappearing at all.)
+    expect(circuitsModule.CHAIN_ENFORCED_ZK).toBeUndefined();
+    expect(circuitsModule.isChainEnforcedZk).toBeUndefined();
   });
 
   it('no surviving catalog entry carries the removed reality "full-zk-chain"', () => {
@@ -162,18 +161,17 @@ describe('ZK_CIRCUIT_TYPES catalog honesty (pinned against the real export)', ()
     }
   });
 
-  it('catalog full-zk-chain set matches CHAIN_ENFORCED_ZK exactly (both empty; no drift)', () => {
-    // With the tier removed, both sides are empty. A resurrected full-zk-chain
-    // catalog entry without a matching (re-added) CHAIN_ENFORCED_ZK id would be a
-    // silent overclaim; the reverse would be a silent underclaim. Either way this
-    // catches it.
-    const catalogChainEnforced = new Set(
-      ZK_CIRCUIT_TYPES.filter((c) => c.reality === 'full-zk-chain').map((c) => c.id),
-    );
+  it('no catalog entry carries a chain-enforced reality (the tier is fully retired)', () => {
+    // With the tier removed there is no chain-enforced reality at all. A resurrected
+    // full-zk-chain catalog entry would be a silent overclaim. Belt-and-suspenders with
+    // the dedicated full-zk-chain test above: assert the catalog produces zero such ids.
+    const catalogChainEnforced = ZK_CIRCUIT_TYPES
+      .filter((c) => c.reality === 'full-zk-chain')
+      .map((c) => c.id);
     expect(
-      Array.from(catalogChainEnforced).sort(),
-      'full-zk-chain id set in the catalog drifted from CHAIN_ENFORCED_ZK in lib/zk/circuits.js',
-    ).toEqual(Array.from(CHAIN_ENFORCED_ZK).sort());
+      catalogChainEnforced.sort(),
+      'catalog resurrected a chain-enforced (full-zk-chain) reality; the tier was retired',
+    ).toEqual([]);
   });
 
   it('prediction markets and oracle escrow are oracle-attested, never "on-chain"', () => {

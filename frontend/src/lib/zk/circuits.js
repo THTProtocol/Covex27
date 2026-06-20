@@ -88,20 +88,13 @@ export function isVerifiedFullZk(circuitId) {
   return !!circuitId && VERIFIED_FULL_ZK.has(circuitId) && IN_BROWSER_PROVERS.has(circuitId);
 }
 
-// HONESTY ABSOLUTE: this set is EMPTY. No deployed circuit's ZK proof is enforced
-// end-to-end on-chain. The chain-enforcement claim would require the redeem script's
-// blake2b256 hashlock to correspond to the circuit's public output, but the circuits use
-// MiMC7/range/timelock math (Kaspa's hashlock is blake2b256, and escrow_2party has no hash
-// at all), and covenant_builder.rs contains no circuit-output -> hashlock binding. All 19
-// VERIFIED_FULL_ZK circuits are therefore Groth16-verified OFF-CHAIN by the disclosed Covex
-// oracle (fail-closed); the only on-chain check is the oracle's BIP340 Schnorr co-signature.
-// Do NOT add to this set until covenant_builder.rs actually binds a circuit's public output
-// to a consensus-checked hashlock and a tampered proof is provably rejected.
-export const CHAIN_ENFORCED_ZK = new Set([]);
-
-// True iff the circuit's ZK guarantee is enforced end-to-end on Kaspa via a hashlock the
-// chain itself checks. Currently FALSE for every circuit (no such binding is implemented);
-// kept as the single gate so the day a real binding ships, only this set changes.
-export function isChainEnforcedZk(circuitId) {
-  return !!circuitId && CHAIN_ENFORCED_ZK.has(circuitId);
-}
+// HONESTY ABSOLUTE: there is NO "chain-enforced ZK" tier and no such set in this codebase.
+// No deployed circuit's ZK proof is enforced end-to-end on-chain. A chain-enforcement claim
+// would require the redeem script's blake2b256 hashlock to correspond to the circuit's public
+// output, but the circuits use MiMC7/range/timelock math (Kaspa's hashlock is blake2b256, and
+// escrow_2party has no hash at all), and covenant_builder.rs contains no circuit-output ->
+// hashlock binding. Every VERIFIED_FULL_ZK circuit is Groth16-verified OFF-CHAIN by the
+// disclosed Covex oracle (fail-closed); the only on-chain check is the oracle's BIP340 Schnorr
+// co-signature. Do NOT reintroduce a chain-enforced set until covenant_builder.rs actually binds
+// a circuit's public output to a consensus-checked hashlock and a tampered proof is provably
+// rejected on-chain. Until then the honest ZK tier is full-zk (oracle-verified off-chain).

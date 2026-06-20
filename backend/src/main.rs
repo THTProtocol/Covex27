@@ -1019,14 +1019,18 @@ fn covenant_summary_json(
         // Honest enforcement label derived from the on-chain script (roadmap B4):
         // on-chain (script-enforced) | full-zk | hybrid | oracle-attested
         // | decorative. A prediction-market anchor holds no script itself but its funds live
-        // in on-chain binary_oracle_select bundles, so it is honestly labeled on-chain (the
-        // outcome bit is oracle-attested).
+        // in on-chain binary_oracle_select bundles whose custody and every payout leg are
+        // script-locked, while WHICH branch wins is set by the secret the disclosed oracle
+        // reveals - that is the hybrid reality, not bare oracle-attested.
         //
         // A binary_oracle_select leg is stored with the exact 35-byte aa20<hash>87 P2SH
         // wrapper, so reality_for_script() classifies it OnChain - but custody is on-chain
         // while WHICH branch wins is set by the secret the disclosed oracle reveals. The
         // catalog already classifies p2sh_binary_oracle_select as Hybrid, so override the raw
-        // script label here to match the catalog and tell the truth at the JSON boundary.
+        // script label here to "hybrid" to match the catalog, the
+        // binary_oracle_select_type_override_is_hybrid_despite_exact_p2sh test, and
+        // TrustBadge.trustInfo (which also reads a market leg as hybrid). Tell the truth at
+        // the JSON boundary.
         //
         // The ZK label: every real ZK covenant is also a 35-byte aa20<hash>87 P2SH wrapper,
         // so reality_for_script() flattens it to "on-chain" and TrustBadge.jsx never reaches
@@ -1034,13 +1038,13 @@ fn covenant_summary_json(
         // VERIFIED_FULL_ZK_CIRCUITS, upgrade the wire label so the violet "Full ZK" pill
         // (oracle-verified OFF-CHAIN; never chain-enforced - no proof->hashlock binding exists)
         // actually paints. HONESTY: a prediction market's custody is on-chain but WHICH outcome
-        // wins is set by the secret the disclosed oracle reveals, so it is oracle-attested for
+        // wins is set by the secret the disclosed oracle reveals, so it is hybrid for
         // resolution - never "on-chain" (the exact word README s2 forbids for oracle-resolved
         // outcomes).
         "enforcement_reality": if c.covenant_type == "prediction-market"
             || c.covenant_type.contains("binary_oracle_select")
         {
-            "oracle-attested"
+            "hybrid"
         } else {
             let circuit = ui_config
                 .as_object()

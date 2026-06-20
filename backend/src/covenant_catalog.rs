@@ -69,14 +69,14 @@ impl EnforcementReality {
     }
 }
 
-/// Server-side mirror of frontend lib/zk/circuits.js `CHAIN_ENFORCED_ZK`: now EMPTY.
-/// No deployed circuit's ZK proof is enforced end-to-end on-chain - that would require
-/// the redeem script's blake2b256 hashlock to correspond to the circuit's public output,
-/// but the circuits use MiMC7/range/timelock math and covenant_builder.rs has no
-/// circuit-output -> hashlock binding. So every verified circuit is FullZk (off-chain
-/// oracle verification), never chain-enforced. Must stay byte-for-byte identical with the
-/// frontend set (also empty); the drift-guard test below enforces this list literally.
-pub const CHAIN_ENFORCED_ZK_CIRCUITS: &[&str] = &[];
+// HONESTY ABSOLUTE: there is no CHAIN_ENFORCED_ZK_CIRCUITS const and no chain-enforced ZK
+// tier. No deployed circuit's ZK proof is enforced end-to-end on-chain - that would require
+// the redeem script's blake2b256 hashlock to correspond to the circuit's public output, but
+// the circuits use MiMC7/range/timelock math and covenant_builder.rs has no circuit-output ->
+// hashlock binding. So every verified circuit is FullZk (off-chain oracle verification), never
+// chain-enforced. Do NOT reintroduce a chain-enforced set until covenant_builder.rs actually
+// binds a circuit's public output to a consensus-checked hashlock and a tampered proof is
+// provably rejected on-chain.
 
 /// Server-side mirror of frontend lib/zk/circuits.js `VERIFIED_FULL_ZK`: the 19
 /// circuits whose Groth16 proof is end-to-end verified (real accept + tamper-reject)
@@ -467,26 +467,13 @@ mod tests {
         assert_eq!(zk_reality_for_circuit("not_a_circuit"), None);
     }
 
-    /// CHAIN_ENFORCED_ZK_CIRCUITS is empty (there is no chain-enforced ZK tier). This
-    /// guards the invariant for the future: if any id is ever re-added to it, that id
-    /// MUST also be in VERIFIED_FULL_ZK_CIRCUITS so we never surface an uncertified one.
-    #[test]
-    fn chain_enforced_set_is_subset_of_verified_set() {
-        for id in CHAIN_ENFORCED_ZK_CIRCUITS {
-            assert!(
-                VERIFIED_FULL_ZK_CIRCUITS.contains(id),
-                "chain-enforced id '{id}' missing from VERIFIED_FULL_ZK_CIRCUITS"
-            );
-        }
-    }
-
     /// All 19 verified circuits are FullZk (oracle-verified off-chain); ZERO are
-    /// chain-enforced, because no circuit-output -> hashlock binding is implemented.
-    /// CHAIN_ENFORCED_ZK_CIRCUITS must stay EMPTY and byte-for-byte equal to the
-    /// frontend lib/zk/circuits.js CHAIN_ENFORCED_ZK set (also empty).
+    /// chain-enforced, because no circuit-output -> hashlock binding is implemented and
+    /// the chain-enforced ZK tier has been retired entirely (no const exists for it). The
+    /// cross-language parity test (frontend zk-set-backend-parity.test.js) guards against the
+    /// retired const being reintroduced on either side of the language boundary.
     #[test]
-    fn zk_reality_counts_19_verified_zero_chain_enforced() {
-        assert_eq!(CHAIN_ENFORCED_ZK_CIRCUITS.len(), 0);
+    fn zk_reality_counts_19_verified() {
         assert_eq!(VERIFIED_FULL_ZK_CIRCUITS.len(), 19);
     }
 

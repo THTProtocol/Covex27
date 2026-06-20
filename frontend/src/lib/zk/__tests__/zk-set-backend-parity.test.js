@@ -2,31 +2,44 @@
 //
 // CROSS-LANGUAGE ZK-SET PARITY (honesty gate).
 //
-// The reality-badge honesty split depends on two id sets being IDENTICAL across the
-// language boundary:
+// The reality-badge honesty split depends on the verified-circuit id set being IDENTICAL
+// across the language boundary:
 //
-//   frontend  lib/zk/circuits.js          VERIFIED_FULL_ZK   /  CHAIN_ENFORCED_ZK
-//   backend   src/covenant_catalog.rs     VERIFIED_FULL_ZK_CIRCUITS / CHAIN_ENFORCED_ZK_CIRCUITS
+//   frontend  lib/zk/circuits.js          VERIFIED_FULL_ZK
+//   backend   src/covenant_catalog.rs     VERIFIED_FULL_ZK_CIRCUITS
 //
 // Today they agree only via a hand-written comment ("Server-side mirror of frontend ...")
-// and a same-file COUNT assertion in each language (len == 19 / len == 4). A future edit
-// could add an id to one side, keep the counts equal by removing a different id, and ship a
-// covenant whose reality badge says one thing on the wire and another in the UI - exactly the
-// silent mislabel this test exists to catch. We read BOTH sources and DIFF the actual id sets.
+// and a same-file COUNT assertion in each language (len == 19). A future edit could add an
+// id to one side, keep the counts equal by removing a different id, and ship a covenant whose
+// reality badge says one thing on the wire and another in the UI - exactly the silent mislabel
+// this test exists to catch. We read BOTH sources and DIFF the actual id sets.
 //
-// We parse the backend Rust file textually (the two consts are simple `&[&str]` literals); the
-// frontend sets are imported as the real JS Sets. A mismatch in EITHER direction fails.
+// RETIRED MODEL: the "chain-enforced ZK" / 'full-zk-chain' tier was a documented overclaim
+// (no builder binds a hashlock to a circuit's ZK public output; covenant_builder.rs hashlock
+// is blake2b256 of an arbitrary preimage; all ZK circuits share the same oracle-cosign path).
+// It has been retired ENTIRELY: there is no CHAIN_ENFORCED_ZK set in circuits.js and no
+// CHAIN_ENFORCED_ZK_CIRCUITS const in covenant_catalog.rs. This test now (a) keeps the
+// verified-set parity, and (b) guards against the carve-out being resurrected on EITHER side.
+//
+// We parse the backend Rust file textually (the const is a simple `&[&str]` literal); the
+// frontend set is imported as the real JS Set. A mismatch in EITHER direction fails.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { VERIFIED_FULL_ZK, CHAIN_ENFORCED_ZK } from '../circuits.js';
+import * as circuitsModule from '../circuits.js';
+import { VERIFIED_FULL_ZK } from '../circuits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // frontend/src/lib/zk/__tests__ -> repo root is six levels up; then backend/src/...
 const CATALOG_RS = resolve(HERE, '..', '..', '..', '..', '..', 'backend', 'src', 'covenant_catalog.rs');
 const rust = readFileSync(CATALOG_RS, 'utf8');
+
+// The frontend circuits.js source, read textually so we can assert the retired symbols are
+// genuinely gone from the module surface (not merely emptied).
+const CIRCUITS_JS = resolve(HERE, '..', 'circuits.js');
+const circuitsSrc = readFileSync(CIRCUITS_JS, 'utf8');
 
 // Extract the string ids from a `pub const NAME: &[&str] = &[ ... ];` literal. Tolerant of
 // line wrapping and trailing commas; the ids are simple double-quoted identifiers.
@@ -35,47 +48,45 @@ function extractRustConst(source, name) {
   const m = source.match(re);
   if (!m) throw new Error(`could not find Rust const ${name} in covenant_catalog.rs`);
   const ids = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
-  // An empty `&[]` is a VALID state (CHAIN_ENFORCED_ZK_CIRCUITS is empty: the
-  // "chain-enforced ZK" tier was an overclaim and was removed). The `!m` guard above
-  // already catches a genuinely-missing const, so zero ids here means a real empty set.
   return ids;
 }
 
 const rustVerified = extractRustConst(rust, 'VERIFIED_FULL_ZK_CIRCUITS');
-const rustChainEnforced = extractRustConst(rust, 'CHAIN_ENFORCED_ZK_CIRCUITS');
 
 const sortedUnique = (arr) => Array.from(new Set(arr)).sort();
 
 describe('backend <-> frontend ZK-set parity', () => {
-  it('parsed the backend VERIFIED set non-trivially; chain-enforced is intentionally empty', () => {
+  it('parsed the backend VERIFIED set non-trivially', () => {
     expect(rustVerified.length).toBeGreaterThan(0);
-    // The "chain-enforced ZK" tier was a documented overclaim (no circuit-output to
-    // blake2b256 hashlock binding exists), so it was removed. Both sides MUST stay empty
-    // in sync; a future re-add to either side fails the exact-match test below.
-    expect(rustChainEnforced.length).toBe(0);
-    expect(CHAIN_ENFORCED_ZK.size).toBe(0);
   });
 
-  it('neither Rust const has duplicate ids', () => {
+  it('the backend VERIFIED const has no duplicate ids', () => {
     expect(rustVerified.length).toBe(new Set(rustVerified).size);
-    expect(rustChainEnforced.length).toBe(new Set(rustChainEnforced).size);
   });
 
   it('VERIFIED_FULL_ZK id set matches backend VERIFIED_FULL_ZK_CIRCUITS exactly', () => {
     expect(sortedUnique(rustVerified)).toEqual(sortedUnique([...VERIFIED_FULL_ZK]));
   });
+});
 
-  it('CHAIN_ENFORCED_ZK id set matches backend CHAIN_ENFORCED_ZK_CIRCUITS exactly', () => {
-    expect(sortedUnique(rustChainEnforced)).toEqual(sortedUnique([...CHAIN_ENFORCED_ZK]));
+describe('chain-enforced ZK tier is retired (resurrection guard)', () => {
+  // The frontend module must NOT export a CHAIN_ENFORCED_ZK set or an isChainEnforcedZk
+  // helper anymore. Emptying the set was the previous (incomplete) fix; the carve-out is now
+  // removed outright so it cannot silently drift back to a populated state.
+  it('frontend circuits.js exports no CHAIN_ENFORCED_ZK and no isChainEnforcedZk', () => {
+    expect(circuitsModule.CHAIN_ENFORCED_ZK).toBeUndefined();
+    expect(circuitsModule.isChainEnforcedZk).toBeUndefined();
   });
 
-  it('the chain-enforced set is a strict subset of the verified set (both sides)', () => {
-    for (const id of CHAIN_ENFORCED_ZK) {
-      expect(VERIFIED_FULL_ZK.has(id)).toBe(true);
-    }
-    const rv = new Set(rustVerified);
-    for (const id of rustChainEnforced) {
-      expect(rv.has(id)).toBe(true);
-    }
+  it('frontend circuits.js source defines no chain-enforced export', () => {
+    // No `export const CHAIN_ENFORCED_ZK` / `export function isChainEnforcedZk` definitions.
+    expect(/export\s+const\s+CHAIN_ENFORCED_ZK\b/.test(circuitsSrc)).toBe(false);
+    expect(/export\s+function\s+isChainEnforcedZk\b/.test(circuitsSrc)).toBe(false);
+  });
+
+  it('backend covenant_catalog.rs declares no CHAIN_ENFORCED_ZK_CIRCUITS const', () => {
+    // The Rust mirror const is retired too. A `pub const CHAIN_ENFORCED_ZK_CIRCUITS` would
+    // reintroduce the carve-out on the backend side; the prose mention in comments is fine.
+    expect(/pub const\s+CHAIN_ENFORCED_ZK_CIRCUITS\b/.test(rust)).toBe(false);
   });
 });

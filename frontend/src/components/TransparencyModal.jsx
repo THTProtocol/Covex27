@@ -47,9 +47,8 @@ function realityFromCovenant(covenant) {
   const circuit = (typeof cfg === 'object' && cfg?.circuit) || null;
   const r = covenant?.enforcement_reality;
   // All verified ZK circuits are full-zk (a real Groth16 proof verified OFF-CHAIN by the
-  // disclosed oracle, fail-closed). The legacy 'full-zk-chain' reality is gone, so collapse
-  // it back to 'full-zk'. Mirrors TrustBadge.trustInfo so the badge and modal never disagree.
-  if (r === 'full-zk-chain') return 'full-zk';
+  // disclosed oracle, fail-closed). There is no chain-enforced ZK reality. Mirrors
+  // TrustBadge.trustInfo so the badge and modal never disagree.
   if (r && REALITY_UI[r]) return r;
   // honest fallback matching TrustBadge.trustInfo
   const cat = `${covenant?.category || ''} ${covenant?.covenant_type || ''}`.toLowerCase();

@@ -1650,9 +1650,15 @@ async fn client_for_network(network: &str) -> BResult<Arc<KaspaRpcClient>> {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
     } else if network == "mainnet" || network == "mainnet-1" {
         std::env::var("KASPA_WRPC_URL_MAINNET")
-            .unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+            .unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string())
     } else {
-        std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
+        // testnet-12 (default): prefer the per-net var, then the global KASPA_WRPC_URL the
+        // crawler uses, then a sane local default. Root cause of /balance and /utxos
+        // hanging: KASPA_WRPC_URL_TN12 is unset and the old 17217 default is dead (the live
+        // TN12 node is on 17219, reached by the crawler via KASPA_WRPC_URL).
+        std::env::var("KASPA_WRPC_URL_TN12")
+            .or_else(|_| std::env::var("KASPA_WRPC_URL"))
+            .unwrap_or_else(|_| "ws://127.0.0.1:17219".to_string())
     };
     let c = KaspaRpcClient::new(
         kaspa_wrpc_client::WrpcEncoding::Borsh,

@@ -302,9 +302,13 @@ body {
 .light .text-gray-800 { color: #1e293b !important; }
 
 /* Brand colors match dark mode exactly - #49EACB pops on light */
-.light .text-kaspa-green,
+/* Brand teal TEXT on white uses --lm-brand-ink (#0f766e, AA >= 4.5:1 for small text);
+   --lm-brand (#0d9488) is the icon/border tone and only reaches ~3.7:1 on white, so
+   accent links/badges were below AA. [class*=] also catches the opacity-suffixed
+   text-kaspa-green/90 (doc code chips) the exact-class rule missed. */
+.light [class*="text-kaspa-green"],
 .light .text-\[\#49EACB\] {
-  color: var(--lm-brand) !important; /* deep teal: brand-true but readable on white */
+  color: var(--lm-brand-ink) !important;
 }
 /* SOLID (slashless) brand utilities. #49EACB neon vibrates/reads pale on white,
    so retone the whole brand-utility family to the deep teal here at the root.
@@ -1314,6 +1318,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .light .text-sky-300, .light .text-sky-400 { color: #0369a1 !important; }
 .light .text-emerald-300, .light .text-emerald-400 { color: var(--lm-success) !important; }
 .light .text-red-300, .light .text-red-400 { color: #b91c1c !important; }
+/* Bare 200/100-shade accents + blue-300 / yellow-400: no .light remap existed, so these
+   hand-rolled pale accents fell through to their dark-mode hue on near-white, below AA. */
+.light .text-amber-200 { color: var(--lm-amber) !important; }
+.light .text-emerald-200, .light .text-emerald-100 { color: var(--lm-success) !important; }
+.light .text-blue-300 { color: var(--lm-blue) !important; }
+.light .text-yellow-400 { color: #a16207 !important; }
 
 /* OPACITY-SUFFIXED accent coverage (honesty/safety critical). Tailwind's slash
    opacity makes text-amber-300/90, text-emerald-300/70 etc. DISTINCT classes the
@@ -1690,6 +1700,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   background: radial-gradient(closest-side, rgba(73,234,203,0.40), rgba(73,234,203,0.10) 60%, transparent 80%);
   animation: covex-aurora 15s ease-in-out infinite;
   z-index: 0;
+}
+/* Light mode: blend the teal radial smudge INTO white instead of sitting as a washed
+   disc on top of it. multiply keeps the brand glow but lets the page read through. */
+.light .covex-aurora {
+  mix-blend-mode: multiply;
+  opacity: 0.35;
 }
 
 @keyframes covex-zk-pulse {

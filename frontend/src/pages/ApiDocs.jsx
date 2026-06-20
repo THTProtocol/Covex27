@@ -208,7 +208,7 @@ export default function ApiDocs() {
                             value={params.query || ''}
                             onChange={(e) => setTryParams((p) => ({ ...p, [key]: { ...p[key], query: e.target.value } }))}
                             placeholder="network=mainnet&limit=10"
-                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-gray-600 focus:outline-none focus:border-kaspa-green/50"
+                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-slate-500 focus:outline-none focus:border-kaspa-green/50"
                             spellCheck={false}
                           />
                         </label>
@@ -221,7 +221,7 @@ export default function ApiDocs() {
                             value={params.covenant_id || ''}
                             onChange={(e) => setTryParams((p) => ({ ...p, [key]: { ...p[key], covenant_id: e.target.value } }))}
                             placeholder="covenant txid"
-                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-gray-600 focus:outline-none focus:border-kaspa-green/50"
+                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-slate-500 focus:outline-none focus:border-kaspa-green/50"
                             spellCheck={false}
                           />
                         </label>

@@ -147,15 +147,15 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
 
         <div className="space-y-3 text-[12px] text-gray-300">
           <div className="flex items-start gap-2.5">
-            <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">1</span>
+            <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-white light:bg-slate-200 light:text-slate-700 text-[10px] font-bold flex items-center justify-center mt-0.5">1</span>
             <div><span className="text-white font-semibold">Save this recovery kit</span> somewhere safe (it has the P2SH address and the exact redeem script). It contains <span className="text-white">no private keys</span>.</div>
           </div>
           <div className="flex items-start gap-2.5">
-            <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">2</span>
+            <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-white light:bg-slate-200 light:text-slate-700 text-[10px] font-bold flex items-center justify-center mt-0.5">2</span>
             <div>When the spend condition is met, query the covenant's UTXOs at its <span className="text-white">P2SH address</span> from any Kaspa node or explorer.</div>
           </div>
           <div className="flex items-start gap-2.5">
-            <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">3</span>
+            <span className="shrink-0 w-5 h-5 rounded-full bg-white/10 text-white light:bg-slate-200 light:text-slate-700 text-[10px] font-bold flex items-center justify-center mt-0.5">3</span>
             <div>Build a spend that provides the <span className="text-white font-mono">redeem_script_hex</span> in the input and sign it with your own key (<KeyRound size={11} className="inline text-kaspa-green" /> never shared with anyone), then broadcast it. The chain accepts it because the script hashes to this covenant's commitment.</div>
           </div>
         </div>

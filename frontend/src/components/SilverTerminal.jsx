@@ -227,7 +227,7 @@ export default function SilverTerminal() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-3.5 flex items-start gap-2.5">
+        <div className="rounded-xl border border-amber-500/30 light:border-amber-300 bg-amber-500/[0.07] light:bg-amber-50 p-3.5 flex items-start gap-2.5">
           <AlertTriangle size={15} className="text-amber-300 shrink-0 mt-0.5" />
           <div className="min-w-0">
             <div className="text-[12px] font-bold text-amber-200">Compile error</div>

@@ -49,7 +49,7 @@ export default function NotFound() {
 
       <div className="relative z-10 flex flex-col items-center text-center">
         <div
-          className="text-7xl sm:text-8xl font-black tracking-tight bg-gradient-to-b from-kaspa-green to-kaspa-green/40 bg-clip-text text-transparent select-none"
+          className="text-7xl sm:text-8xl font-black tracking-tight bg-gradient-to-b from-kaspa-green to-kaspa-green/40 light:from-teal-600 light:to-emerald-600 bg-clip-text text-transparent select-none"
           aria-hidden="true"
         >
           404

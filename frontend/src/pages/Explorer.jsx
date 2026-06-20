@@ -817,11 +817,11 @@ export default function Explorer() {
                 </button>
               </div>
             </form>
-            <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-200 light:text-slate-500">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-gray-200 light:text-slate-500">
               <span>Try:</span>
-              <button onClick={() => { setSearchQuery('covenant.kas'); handleSearch(null, 'covenant.kas'); }} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
-              <button onClick={() => { setSearchQuery('kaspa:'); handleSearch(null, 'kaspa:'); }} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
-              <button onClick={() => { setSearchQuery(':'); handleSearch(null, ':'); }} className="px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
+              <button onClick={() => { setSearchQuery('covenant.kas'); handleSearch(null, 'covenant.kas'); }} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
+              <button onClick={() => { setSearchQuery('kaspa:'); handleSearch(null, 'kaspa:'); }} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
+              <button onClick={() => { setSearchQuery(':'); handleSearch(null, ':'); }} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
             </div>
             {/* Resolved chip: a .kas name that resolved to an owner address, with a copy
                 button. covenant.kas -> kaspa:qpz2...n4uk5a. Honest: KNS owner, not a claim. */}
@@ -1239,8 +1239,8 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
       <div className="p-5 sm:p-6 flex flex-col flex-1 space-y-4">
         {/* Title + on-chain id - tight title/hash pair, then the rest of the column lifts on space-y-4 */}
         <div>
-          <h3 className={`font-extrabold text-[17px] sm:text-[18px] leading-tight tracking-[-0.01em] truncate ${isPaid ? cfg.text : 'text-white light:text-slate-900'}`}
-            style={isPaidVerified ? { color: themeAccent } : undefined}>
+          <h3 className={`font-extrabold text-[17px] sm:text-[18px] leading-tight tracking-[-0.01em] truncate ${isPaidVerified ? 'text-[color:var(--title-accent)] light:!text-slate-900' : (isPaid ? cfg.text : 'text-white light:text-slate-900')}`}
+            style={isPaidVerified ? { '--title-accent': themeAccent } : undefined}>
             {covenantName}
           </h3>
           <div className="mt-0.5 flex items-center gap-1 text-[10px] font-mono text-gray-500 light:text-slate-400 opacity-60">

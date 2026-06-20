@@ -430,7 +430,7 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
           <span className="text-[10px] uppercase tracking-wider text-gray-400 light:text-slate-500">Recovery phrase (24 words)</span>
           <button onClick={() => copy(phrase, 'phrase')} className="text-[10px] text-kaspa-green light:text-[#0d9488] hover:underline">{copied === 'phrase' ? 'Copied' : 'Copy'}</button>
         </div>
-        <div className="grid grid-cols-3 gap-1 text-[11px] font-mono">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 text-[11px] font-mono">
           {phrase.split(' ').map((w, i) => (
             <div key={i} className="px-1.5 py-1 rounded bg-white/[0.03] light:bg-white border border-white/10 light:border-slate-200 text-gray-200 light:text-slate-800"><span className="text-gray-500 light:text-slate-400 mr-1">{i + 1}</span>{w}</div>
           ))}

@@ -51,15 +51,15 @@ function OddsCard({ label, mult, accent }) {
   const profit = mult >= 1;
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${accent ? 'border-emerald-500/40 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift hover:border-white/20'}`}
+      className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition-all ${accent ? 'border-emerald-500/40 hover-lift-premium' : 'border-white/10 bg-white/[0.02] hover-lift hover:border-white/20'}`}
       style={accent ? { background: 'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(255,255,255,0.02))', boxShadow: '0 0 26px rgba(16,185,129,0.22), inset 0 1px 0 rgba(255,255,255,0.05)' } : undefined}
     >
       {accent && <span className="covex-aurora" aria-hidden="true" style={{ top: -28, right: -18, width: 120, height: 96 }} />}
-      <div className="relative flex items-center justify-between mb-1">
-        <span className="kicker">If "{label}" wins</span>
+      <div className="relative flex items-center justify-between gap-1 mb-1">
+        <span className="kicker min-w-0 truncate">If "{label}" wins</span>
         {accent && <Trophy size={15} className="text-emerald-300 light:text-emerald-600 shrink-0" />}
       </div>
-      <div className={`relative text-3xl sm:text-4xl font-extrabold leading-none ${num} ${accent ? 'text-emerald-300 light:text-emerald-600' : (profit ? 'text-kaspa-green' : 'text-amber-300')}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-xl">×</span></div>
+      <div className={`relative flex items-baseline flex-wrap text-[26px] sm:text-4xl font-extrabold leading-none ${num} ${accent ? 'text-emerald-300 light:text-emerald-600' : (profit ? 'text-kaspa-green' : 'text-amber-300')}`}>{mult ? mult.toFixed(2) : '-'}<span className="text-lg sm:text-xl">×</span></div>
       <div className="relative text-[10px] text-gray-500 light:text-slate-500 mt-1">{mult ? (profit ? 'winner profits' : 'winner still loses') : 'no funded pool yet'}</div>
     </div>
   );

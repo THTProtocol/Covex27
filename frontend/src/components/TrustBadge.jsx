@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { ShieldCheck, Radio, ShieldQuestion, Link2, Info, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Radio, ShieldQuestion, Link2, Info } from 'lucide-react';
 import TransparencyModal from './TransparencyModal';
-import { isChainEnforcedZk } from '../lib/zk/circuits';
-import { REALITY_BADGE_LABEL, REALITY_BODY } from '../lib/enforcement-copy';
 
 /**
  * Honest resolution-trust indicator. Driven by the covenant's server-computed
@@ -19,7 +17,7 @@ import { REALITY_BADGE_LABEL, REALITY_BODY } from '../lib/enforcement-copy';
  *   on-chain   = emerald  (Kaspa consensus enforces - strongest signal)
  *   hybrid     = sky      (script + oracle input)
  *   oracle     = amber    (Covex oracle signature, not chain-gated)
- *   full-zk    = violet   (real proof, oracle-verified fail-closed)
+ *   full-zk    = violet   (real Groth16 proof, oracle-verified OFF-CHAIN, fail-closed)
  *   decorative = slate    (metadata only, no enforcement)
  * The classes below already match this palette - TrustBadge has always used
  * amber for oracle, so no visual change is required after the Badge.jsx
@@ -41,18 +39,10 @@ function circuitIdOf(covenant) {
   return null;
 }
 
-// Build the chain-enforced-ZK trust info from enforcement-copy so the label + body
-// (and therefore the aria-label / tooltip / TransparencyModal copy on the way down)
-// stay byte-identical with the rest of the honesty surface. NEVER soften: this is the
-// 4-of-19 carve-out where the Groth16 proof reduces to a hashlock Kaspa actually checks.
-function fullZkChainInfo() {
-  return {
-    kind: 'fullzkchain',
-    label: REALITY_BADGE_LABEL['full-zk-chain'], // "Chain-enforced ZK"
-    desc: REALITY_BODY['full-zk-chain'],
-  };
-}
-
+// All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN by
+// the disclosed Covex oracle (fail-closed). No deployed circuit's proof is bound to a
+// chain-checked hashlock, so there is no "chain-enforced ZK" tier - the only on-chain
+// check is the oracle's BIP340 Schnorr co-signature.
 function fullZkInfo() {
   return {
     kind: 'fullzk',
@@ -62,10 +52,9 @@ function fullZkInfo() {
 }
 
 // Accepts EITHER (covenant) for back-compat, OR (covenant, { reality, circuitId })
-// where the explicit props override what we would derive. circuitId is what lets us
-// branch full-zk into the chain-enforced 4 vs the oracle-cosigned 15: callers that
-// already know the circuit (sandbox, terminal) can pass it directly; Explorer/Markets
-// pass only the covenant and we read it off custom_ui_config.
+// where the explicit props override what we would derive. All verified ZK circuits
+// collapse to a single full-zk tier (oracle-verified off-chain); circuitId is still
+// read so the TransparencyModal can name the circuit, but it no longer changes the tier.
 export function trustInfo(covenant, opts) {
   const explicitReality = opts && opts.reality;
   const explicitCircuit = opts && opts.circuitId;
@@ -96,14 +85,11 @@ export function trustInfo(covenant, opts) {
       desc: 'An on-chain script gates release but checks an oracle-supplied input.',
     };
   }
-  // Explicit chain-enforced-ZK reality OR a full-zk circuit that is in the 4-of-19 set
-  // whose proof reduces to a hashlock the chain itself checks. THIS is the honesty pivot:
-  // collapsing all 19 to one violet pill hid the fact that only 4 are end-to-end.
-  if (reality === 'full-zk-chain') {
-    return fullZkChainInfo();
-  }
-  if (reality === 'full-zk') {
-    return isChainEnforcedZk(circuitId) ? fullZkChainInfo() : fullZkInfo();
+  // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN by
+  // the disclosed oracle (fail-closed). No circuit reduces to a chain-checked hashlock,
+  // so the legacy 'full-zk-chain' reality collapses to the same full-zk pill.
+  if (reality === 'full-zk-chain' || reality === 'full-zk') {
+    return fullZkInfo();
   }
   if (reality === 'oracle-attested') {
     return {
@@ -121,11 +107,11 @@ export function trustInfo(covenant, opts) {
   }
   // Fallback for older API responses that predate enforcement_reality. A
   // covenant declaring a non-none ZK circuit means a real proof is verified
-  // fail-closed: tag it full-zk (chain-enforced if in the 4-set) so the
-  // 4-tier hierarchy survives even when the reality field is missing.
+  // fail-closed off-chain by the oracle: tag it full-zk so the honesty
+  // hierarchy survives even when the reality field is missing.
   const cat = `${covenant?.category || ''} ${covenant?.covenant_type || ''}`.toLowerCase();
   if (circuitId && circuitId !== 'none') {
-    return isChainEnforcedZk(circuitId) ? fullZkChainInfo() : fullZkInfo();
+    return fullZkInfo();
   }
   if (/zk|oracle|chess|turn_timer|range|merkle|game|predict/.test(cat)) {
     return {
@@ -150,10 +136,6 @@ const COMPACT_LABEL = {
   hybrid: 'HYBRID',
   oracle: 'ORACLE',
   fullzk: 'FULL-ZK',
-  // Chain-enforced ZK reads as a stronger claim than plain full-zk and must NOT
-  // be aliased back to 'FULL-ZK' even at 375px. The emerald edge does the heavy
-  // lifting visually; the compact text just shortens "Chain-enforced ZK".
-  fullzkchain: 'ZK ON-CHAIN',
   decorative: 'METADATA',
 };
 
@@ -166,38 +148,23 @@ export default function TrustBadge({ covenant, size = 'sm', showDesc = false, in
     onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-600/60',
     hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300 light:bg-sky-50 light:text-sky-700 light:border-sky-600/60',
     oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300 light:bg-amber-50 light:text-amber-700 light:border-amber-600/60',
-    // full-zk gets its own violet styling so the 4-tier honesty hierarchy
+    // full-zk gets its own violet styling so the honesty hierarchy
     // (on-chain > full-zk > oracle > decorative) reads at a glance. Aliasing
     // it to oracle would visually equate a Groth16 proof with a bare signature.
     fullzk: 'bg-violet-500/10 border-violet-500/30 text-violet-300 light:bg-violet-50 light:text-violet-700 light:border-violet-600/60',
-    // Chain-enforced ZK = same violet base (still a ZK proof) PLUS an emerald
-    // left edge and chevron, signalling the carve-out that this 4-of-19 circuit
-    // reduces to a hashlock Kaspa itself checks. The emerald shadow + ring works
-    // in both light and dark so we don't fork the rule.
-    fullzkchain: 'bg-violet-500/10 border-violet-500/30 text-violet-300 light:bg-violet-50 light:text-violet-700 light:border-violet-600/60 border-l-2 border-l-emerald-400 light:border-l-emerald-600 shadow-[inset_2px_0_0_0_rgba(16,185,129,0.35)]',
     decorative: 'bg-white/[0.04] border-white/10 text-gray-300 light:bg-slate-100 light:border-slate-300 light:text-slate-600',
   }[t.kind];
-  const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, fullzk: ShieldCheck, fullzkchain: ShieldCheck, decorative: ShieldQuestion }[t.kind];
+  const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, fullzk: ShieldCheck, decorative: ShieldQuestion }[t.kind];
   const pad = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs';
   const label = compact ? COMPACT_LABEL[t.kind] : t.label;
   // Honest aria-label: screen readers get the full reality phrase (not "FULL-ZK"
-  // compacted text), so the chain-enforced carve-out reads correctly even when
-  // the badge is the compact 375px variant where the chevron is the only visual hint.
+  // compacted text), so the meaning reads correctly even in the compact 375px variant.
   const aria = `${t.label}. ${t.desc}`;
   const inner = (
     <span className={`inline-flex items-center gap-1.5 rounded-md border font-bold uppercase tracking-wider ${pad} ${styles} ${inspect ? 'cursor-pointer hover:brightness-110 transition' : ''}`}
       title={compact ? t.label : undefined}
       aria-label={aria}>
       <Icon size={size === 'sm' ? 11 : 14} /> {label}
-      {/* Emerald chevron for the chain-enforced ZK carve-out: same colour as the
-          left edge so the "stronger than plain full-zk" signal is consistent. */}
-      {t.kind === 'fullzkchain' && (
-        <ChevronRight
-          size={size === 'sm' ? 11 : 14}
-          className="text-emerald-400 light:text-emerald-600 -ml-0.5"
-          aria-hidden="true"
-        />
-      )}
       {inspect && !compact && <Info size={size === 'sm' ? 10 : 12} className="opacity-50" />}
     </span>
   );

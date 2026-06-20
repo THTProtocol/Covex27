@@ -42,7 +42,7 @@ vi.mock('../../components/CovexTerminal', () => ({
   // heavy wasm / snarkjs deps.
   ZK_CIRCUIT_TYPES: [
     { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Stub.', circuit: 'relative_timelock', category: 'kaspa', reality: 'full-zk' },
-    { id: 'merkle_membership', name: 'Merkle Membership', description: 'Stub.', circuit: 'merkle_generic', category: 'crypto', reality: 'full-zk-chain' },
+    { id: 'merkle_membership', name: 'Merkle Membership', description: 'Stub.', circuit: 'merkle_generic', category: 'crypto', reality: 'full-zk' },
   ],
   resolveCircuit: (raw) => raw || null,
 }));

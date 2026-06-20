@@ -88,22 +88,20 @@ export function isVerifiedFullZk(circuitId) {
   return !!circuitId && VERIFIED_FULL_ZK.has(circuitId) && IN_BROWSER_PROVERS.has(circuitId);
 }
 
-// HONESTY ABSOLUTE: of the 19 VERIFIED_FULL_ZK circuits, only these 4 reduce to a hashlock the
-// Kaspa chain itself checks end-to-end. For them the ZK proof is verified off-chain by the
-// disclosed Covex oracle AND payout enforcement is on-chain via a real hashlock (the oracle
-// co-signature is not the only on-chain gate). The OTHER 15 are oracle-cosigned only: their
-// payout depends on the oracle's BIP340 co-signature and is NOT end-to-end chain-enforced.
-// Do not add to this set without proving a tampered proof is rejected AND that the redeem
-// script's hashlock corresponds to the circuit's public output (consensus-checked).
-export const CHAIN_ENFORCED_ZK = new Set([
-  'merkle_membership',
-  'age_verification',
-  'escrow_2party',
-  'range_proof',
-]);
+// HONESTY ABSOLUTE: this set is EMPTY. No deployed circuit's ZK proof is enforced
+// end-to-end on-chain. The chain-enforcement claim would require the redeem script's
+// blake2b256 hashlock to correspond to the circuit's public output, but the circuits use
+// MiMC7/range/timelock math (Kaspa's hashlock is blake2b256, and escrow_2party has no hash
+// at all), and covenant_builder.rs contains no circuit-output -> hashlock binding. All 19
+// VERIFIED_FULL_ZK circuits are therefore Groth16-verified OFF-CHAIN by the disclosed Covex
+// oracle (fail-closed); the only on-chain check is the oracle's BIP340 Schnorr co-signature.
+// Do NOT add to this set until covenant_builder.rs actually binds a circuit's public output
+// to a consensus-checked hashlock and a tampered proof is provably rejected.
+export const CHAIN_ENFORCED_ZK = new Set([]);
 
 // True iff the circuit's ZK guarantee is enforced end-to-end on Kaspa via a hashlock the
-// chain itself checks (in addition to off-chain oracle verification of the Groth16 proof).
+// chain itself checks. Currently FALSE for every circuit (no such binding is implemented);
+// kept as the single gate so the day a real binding ships, only this set changes.
 export function isChainEnforcedZk(circuitId) {
   return !!circuitId && CHAIN_ENFORCED_ZK.has(circuitId);
 }

@@ -1017,7 +1017,7 @@ fn covenant_summary_json(
         "finality_eta_secs": c.finality_eta_secs,
         "reorged": c.reorged,
         // Honest enforcement label derived from the on-chain script (roadmap B4):
-        // on-chain (script-enforced) | full-zk-chain | full-zk | hybrid | oracle-attested
+        // on-chain (script-enforced) | full-zk | hybrid | oracle-attested
         // | decorative. A prediction-market anchor holds no script itself but its funds live
         // in on-chain binary_oracle_select bundles, so it is honestly labeled on-chain (the
         // outcome bit is oracle-attested).
@@ -1028,17 +1028,19 @@ fn covenant_summary_json(
         // catalog already classifies p2sh_binary_oracle_select as Hybrid, so override the raw
         // script label here to match the catalog and tell the truth at the JSON boundary.
         //
-        // The ZK upgrade (4-vs-15 honesty split): every real ZK covenant is also a 35-byte
-        // aa20<hash>87 P2SH wrapper, so reality_for_script() flattens it to "on-chain" and
-        // TrustBadge.jsx never reaches the full-zk-chain (4) / full-zk (15) branches. When the
-        // disclosed custom_ui_config declares a circuit in VERIFIED_FULL_ZK_CIRCUITS, upgrade
-        // the wire label so the violet ("Full ZK") / violet+emerald ("Chain-enforced ZK") pill
-        // actually paints. This is the one-call honesty fix the 4-vs-15 split was already
-        // shipping on the frontend but never reaching the badge through.
-        "enforcement_reality": if c.covenant_type == "prediction-market" {
-            "on-chain"
-        } else if c.covenant_type.contains("binary_oracle_select") {
-            "hybrid"
+        // The ZK label: every real ZK covenant is also a 35-byte aa20<hash>87 P2SH wrapper,
+        // so reality_for_script() flattens it to "on-chain" and TrustBadge.jsx never reaches
+        // the full-zk branch. When the disclosed custom_ui_config declares a circuit in
+        // VERIFIED_FULL_ZK_CIRCUITS, upgrade the wire label so the violet "Full ZK" pill
+        // (oracle-verified OFF-CHAIN; never chain-enforced - no proof->hashlock binding exists)
+        // actually paints. HONESTY: a prediction market's custody is on-chain but WHICH outcome
+        // wins is set by the secret the disclosed oracle reveals, so it is oracle-attested for
+        // resolution - never "on-chain" (the exact word README s2 forbids for oracle-resolved
+        // outcomes).
+        "enforcement_reality": if c.covenant_type == "prediction-market"
+            || c.covenant_type.contains("binary_oracle_select")
+        {
+            "oracle-attested"
         } else {
             let circuit = ui_config
                 .as_object()

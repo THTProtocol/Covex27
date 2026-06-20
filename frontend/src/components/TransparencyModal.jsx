@@ -5,7 +5,7 @@ import {
   FileKey, Cpu, AlertTriangle, Activity, BadgeCheck,
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
-import { vkeyPathFor, IN_BROWSER_PROVERS, CHAIN_ENFORCED_ZK } from '../lib/zk/circuits';
+import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 /**
  * TransparencyModal - press any ZK / oracle / enforcement badge to see, in plain terms:
@@ -24,8 +24,6 @@ import { vkeyPathFor, IN_BROWSER_PROVERS, CHAIN_ENFORCED_ZK } from '../lib/zk/ci
 const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,
     what: 'Kaspa consensus enforces the spend condition. The funds are locked to a P2SH script and only a redeem script that hashes to the on-chain commitment can move them. No oracle, no trust in Covex.' },
-  'full-zk-chain': { name: 'Chain-enforced ZK', accent: '#34d399', Icon: ShieldCheck,
-    what: 'A real Groth16 proof is verified OFF-CHAIN by the disclosed Covex oracle (fail-closed) AND payout is enforced end-to-end on Kaspa via a hashlock the chain itself checks. The circuit reduces to a hashlock that corresponds to the proof\'s public output, so consensus runs the redeem script and only releases the money when the hashlock is satisfied. This is the strongest of the ZK realities: only 4 of the 19 verified circuits qualify (merkle_membership, age_verification, escrow_2party, range_proof).' },
   'full-zk': { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,
     what: 'A real Groth16 proof: you prove a statement is true without revealing the secret behind it. The proof is verified OFF-CHAIN by the disclosed Covex oracle (fail-closed), and a valid proof gates the oracle co-signature. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the oracle\'s BIP340 co-signature is verified on-chain (Schnorr). The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. The oracle is the trust boundary, not the chain itself.' },
   hybrid: { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,
@@ -48,14 +46,14 @@ function realityFromCovenant(covenant) {
   const cfg = covenant?.custom_ui_config;
   const circuit = (typeof cfg === 'object' && cfg?.circuit) || null;
   const r = covenant?.enforcement_reality;
-  // Promote 'full-zk' to 'full-zk-chain' when the circuit reduces to a hashlock the chain checks
-  // end-to-end (4 of the 19 verified-ZK circuits). Mirrors TrustBadge.trustInfo so the badge that
-  // opened this modal and the modal itself never disagree.
-  if (r === 'full-zk' && circuit && CHAIN_ENFORCED_ZK.has(circuit)) return 'full-zk-chain';
+  // All verified ZK circuits are full-zk (a real Groth16 proof verified OFF-CHAIN by the
+  // disclosed oracle, fail-closed). The legacy 'full-zk-chain' reality is gone, so collapse
+  // it back to 'full-zk'. Mirrors TrustBadge.trustInfo so the badge and modal never disagree.
+  if (r === 'full-zk-chain') return 'full-zk';
   if (r && REALITY_UI[r]) return r;
   // honest fallback matching TrustBadge.trustInfo
   const cat = `${covenant?.category || ''} ${covenant?.covenant_type || ''}`.toLowerCase();
-  if (circuit && circuit !== 'none') return CHAIN_ENFORCED_ZK.has(circuit) ? 'full-zk-chain' : 'oracle-attested';
+  if (circuit && circuit !== 'none') return 'oracle-attested';
   if (/zk|oracle|chess|turn_timer|range|merkle|game|predict/.test(cat)) return 'oracle-attested';
   return 'decorative';
 }
@@ -93,8 +91,8 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
   const circuitId = circuit?.id || (typeof covenant?.custom_ui_config === 'object' ? covenant?.custom_ui_config?.circuit : null) || null;
   const title = circuit?.name || covenant?.name || covenant?.covenant_type || 'Covenant';
 
-  const involvesOracle = reality === 'oracle-attested' || reality === 'hybrid' || reality === 'full-zk' || reality === 'full-zk-chain' || reality === 'market';
-  const hasZk = reality === 'full-zk' || reality === 'full-zk-chain' || reality === 'hybrid';
+  const involvesOracle = reality === 'oracle-attested' || reality === 'hybrid' || reality === 'full-zk' || reality === 'market';
+  const hasZk = reality === 'full-zk' || reality === 'hybrid';
   const inBrowser = circuitId && IN_BROWSER_PROVERS.has(circuitId);
   const vkeyPath = hasZk && circuitId ? vkeyPathFor(circuitId) : null;
 
@@ -162,11 +160,6 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
           {/* Where it is verified */}
           <Section icon={Cpu} title="Where verification happens" accent={ui.accent}>
             {reality === 'on-chain' && <p>At spend time, Kaspa nodes run the redeem script against this covenant&apos;s P2SH lock. If it does not satisfy the script, the network rejects the transaction. Covex is never in the spend path.</p>}
-            {reality === 'full-zk-chain' && (
-              <p>
-                Two enforcement layers stacked. First, the Groth16 proof is verified off-chain by the disclosed Covex oracle (fail-closed: an invalid or missing proof is rejected). Second, because this circuit reduces to a hashlock the chain itself checks, Kaspa consensus runs the redeem script at spend and only releases the funds when the hashlock is satisfied. Payout is enforced end-to-end on-chain, not gated solely by the oracle co-signature.
-              </p>
-            )}
             {reality === 'full-zk' && (
               <p>
                 {inBrowser

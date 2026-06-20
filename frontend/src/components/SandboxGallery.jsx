@@ -19,15 +19,12 @@ const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, tra
 // to reveal the rest, so the page reads cleanly at first glance instead of a long flat list.
 // Selecting a card drives the whole sandbox live (banner + preview + builder follow).
 
-// ZK realities: unupgraded 'full-zk' / 'hybrid' circuits are presented as oracle-attested (Kaspa
-// has no on-chain pairing verifier, so the proof is never checked on-chain). The 4 chain-enforced
-// circuits (merkle_membership, age_verification, escrow_2party, range_proof) are tagged
-// 'full-zk-chain' in the catalog and paint as the stronger violet chip so the Sandbox card matches
-// the honest TrustBadge the live covenant will show. No standalone green "ZK" badge is ever rendered
-// for an oracle-cosigned-only circuit.
+// ZK realities: 'full-zk' / 'hybrid' circuits are presented as oracle-attested (Kaspa has no
+// on-chain pairing verifier, so the proof is never checked on-chain). No circuit's proof is bound
+// to a chain-checked hashlock, so none paint a stronger-than-oracle ZK chip. No standalone green
+// "ZK" badge is ever rendered for an oracle-cosigned-only circuit.
 const REALITY_META = {
   'full-zk': { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
-  'full-zk-chain': { short: 'ZK + chain', accent: '#a78bfa', text: 'text-violet-300 light:text-violet-700', bg: 'bg-violet-500/12 light:bg-violet-50', border: 'border-violet-500/35 light:border-violet-600/50' },
   'on-chain': { short: 'On-chain', accent: '#34d399', text: 'text-emerald-300', bg: 'bg-emerald-500/12', border: 'border-emerald-500/35' },
   hybrid: { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'oracle-attested': { short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
@@ -38,7 +35,7 @@ const rm = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
 // Curated category groups. Each circuit lands in exactly ONE group (first match wins); the final
 // catch-all group sweeps up anything uncategorised so nothing is ever hidden.
 const GROUPS = [
-  { key: 'zk', title: 'Zero-knowledge', icon: ShieldCheck, match: (c) => c.reality === 'full-zk' || c.reality === 'full-zk-chain' || c.category === 'crypto' || c.category === 'privacy' },
+  { key: 'zk', title: 'Zero-knowledge', icon: ShieldCheck, match: (c) => c.reality === 'full-zk' || c.category === 'crypto' || c.category === 'privacy' },
   { key: 'oracle', title: 'Oracle & prediction markets', icon: Radio, match: (c) => c.category === 'oracle' },
   { key: 'defi', title: 'DeFi & lending', icon: Coins, match: (c) => c.category === 'defi' },
   { key: 'game', title: 'Games', icon: Gamepad2, match: (c) => c.category === 'game' },
@@ -156,9 +153,9 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
       const grp = GROUPS.find((x) => x.match(c)) || GROUPS[GROUPS.length - 1];
       g[grp.key].push(c);
     }
-    // Strongest honest signals first within each group: chain-enforced ZK > full-zk > everything
-    // else. Stable comparator (returns 0 for ties) keeps original catalog order otherwise.
-    const rank = (r) => (r === 'full-zk-chain' ? 2 : r === 'full-zk' ? 1 : 0);
+    // Strongest honest signals first within each group: full-zk > everything else. Stable
+    // comparator (returns 0 for ties) keeps original catalog order otherwise.
+    const rank = (r) => (r === 'full-zk' ? 1 : 0);
     for (const k in g) g[k].sort((a, b) => rank(b.reality) - rank(a.reality));
     return g;
   }, [circuits]);

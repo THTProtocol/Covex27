@@ -35,7 +35,9 @@ function extractRustConst(source, name) {
   const m = source.match(re);
   if (!m) throw new Error(`could not find Rust const ${name} in covenant_catalog.rs`);
   const ids = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
-  if (ids.length === 0) throw new Error(`Rust const ${name} parsed to zero ids`);
+  // An empty `&[]` is a VALID state (CHAIN_ENFORCED_ZK_CIRCUITS is empty: the
+  // "chain-enforced ZK" tier was an overclaim and was removed). The `!m` guard above
+  // already catches a genuinely-missing const, so zero ids here means a real empty set.
   return ids;
 }
 
@@ -45,9 +47,13 @@ const rustChainEnforced = extractRustConst(rust, 'CHAIN_ENFORCED_ZK_CIRCUITS');
 const sortedUnique = (arr) => Array.from(new Set(arr)).sort();
 
 describe('backend <-> frontend ZK-set parity', () => {
-  it('parsed the backend Rust consts non-trivially', () => {
+  it('parsed the backend VERIFIED set non-trivially; chain-enforced is intentionally empty', () => {
     expect(rustVerified.length).toBeGreaterThan(0);
-    expect(rustChainEnforced.length).toBeGreaterThan(0);
+    // The "chain-enforced ZK" tier was a documented overclaim (no circuit-output to
+    // blake2b256 hashlock binding exists), so it was removed. Both sides MUST stay empty
+    // in sync; a future re-add to either side fails the exact-match test below.
+    expect(rustChainEnforced.length).toBe(0);
+    expect(CHAIN_ENFORCED_ZK.size).toBe(0);
   });
 
   it('neither Rust const has duplicate ids', () => {

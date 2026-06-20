@@ -25,28 +25,21 @@ import { Badge } from '../components/ui/Badge';
 // deep-links (?circuit=&kind=&name=&desc=) keep working and can land directly in Phase 2.
 
 // Honest enforcement realities. Kaspa has no on-chain pairing verifier, so a raw Groth16 proof is
-// never checked on-chain; an unupgraded full-zk / hybrid circuit therefore renders as oracle-attested
-// (off-chain verify + on-chain Schnorr co-signature). The four circuits that DO reduce to a hashlock
-// the chain itself checks (merkle_membership, age_verification, escrow_2party, range_proof) are
-// tagged 'full-zk-chain' in the catalog and paint as the stronger chain-enforced badge so the
-// Sandbox preview does not downgrade what the live covenant will honestly show. on-chain means
-// Kaspa P2SH consensus only. accent drives the Card identity bar; badgeVariant drives the Badge.
+// never checked on-chain; every full-zk / hybrid circuit therefore renders as oracle-attested
+// (off-chain verify + on-chain Schnorr co-signature). All 19 verified ZK circuits are Groth16
+// verified OFF-CHAIN by the disclosed Covex oracle; the only on-chain check is the oracle's
+// Schnorr co-signature. on-chain means Kaspa P2SH consensus only. accent drives the Card
+// identity bar; badgeVariant drives the Badge.
 // We never render a green "ZK on-chain" badge for an oracle-cosigned-only circuit.
 const REALITY = {
   'on-chain': {
     label: 'On-chain enforced', accent: '#34d399', badgeVariant: 'on-chain', Icon: ShieldCheck,
     note: 'Consensus-enforced by the Kaspa P2SH commitment. The chain itself guarantees the rules.',
   },
-  // The 4 chain-enforced ZK circuits: a real Groth16 proof verified off-chain by the disclosed
-  // Covex oracle AND payout enforced end-to-end on Kaspa via a hashlock the chain itself checks.
-  // Honesty-strongest of the ZK realities. Mirrors REALITY_BODY['full-zk-chain'] in enforcement-copy.js.
-  'full-zk-chain': {
-    label: 'Chain-enforced ZK', accent: '#a78bfa', badgeVariant: 'full-zk-chain', Icon: ShieldCheck,
-    note: 'A real Groth16 proof verified off-chain by the disclosed Covex oracle; because this circuit reduces to a hashlock the chain checks (one of merkle_membership, age_verification, escrow_2party, range_proof), payout is enforced end-to-end on Kaspa. Consensus runs the redeem script and only releases the money when the hashlock is satisfied.',
-  },
-  // These two are defensive: even if a raw full-zk / hybrid reality reaches this page (i.e. a
-  // non-chain-enforced circuit that the catalog post-processor would normally collapse), it
-  // renders honestly as oracle-attested (off-chain oracle verify), never as a green ZK on-chain badge.
+  // Every verified ZK circuit maps here: a real Groth16 proof verified fail-closed OFF-CHAIN by
+  // the disclosed Covex oracle. Kaspa has no on-chain pairing verifier, so the proof is never
+  // checked on-chain; the only on-chain check is the oracle's Schnorr co-signature. full-zk and
+  // hybrid both render honestly as oracle-attested, never as a green ZK on-chain badge.
   'full-zk': {
     label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
     note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by the disclosed Covex oracle, which gates the consensus-required co-signature. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the oracle Schnorr co-signature is.',

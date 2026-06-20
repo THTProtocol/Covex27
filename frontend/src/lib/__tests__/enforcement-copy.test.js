@@ -88,12 +88,21 @@ describe('enforcementSummary', () => {
   });
 });
 
-describe('full-zk-chain honesty', () => {
-  it('canonical key set matches KNOWN_REALITIES and includes full-zk-chain', () => {
-    // REALITY_KEYS is derived from the exported KNOWN_REALITIES, so this guards against
-    // the dictionaries and the gating set drifting apart (and against full-zk-chain being
-    // silently dropped from the canonical list).
-    expect(REALITY_KEYS).toContain('full-zk-chain');
+describe('full-zk-chain removal honesty', () => {
+  it('KNOWN_REALITIES does NOT contain the removed full-zk-chain tier', () => {
+    // The "Chain-enforced ZK" / full-zk-chain tier was a documented overclaim: no deployed
+    // circuit's ZK proof is bound to a chain-checked hashlock, so it was removed. This guards
+    // against it being reintroduced into the canonical gating set.
+    expect(REALITY_KEYS).not.toContain('full-zk-chain');
+    expect(KNOWN_REALITIES.has('full-zk-chain')).toBe(false);
+  });
+
+  it('the canonical reality set is exactly on-chain / hybrid / oracle-attested / full-zk', () => {
+    // The four (and only four) honest tiers after the downgrade. full-zk is the strongest ZK
+    // label and it is oracle-verified OFF-CHAIN, never chain-enforced.
+    expect(REALITY_KEYS.slice().sort()).toEqual(
+      ['full-zk', 'hybrid', 'on-chain', 'oracle-attested'],
+    );
     for (const key of REALITY_KEYS) {
       expect(typeof REALITY_HEADLINE[key], `REALITY_HEADLINE missing ${key}`).toBe('string');
       expect(typeof REALITY_BODY[key], `REALITY_BODY missing ${key}`).toBe('string');
@@ -102,47 +111,28 @@ describe('full-zk-chain honesty', () => {
     }
   });
 
-  it('exists in all four reality dictionaries (headline, body, badge, verb)', () => {
-    expect(typeof REALITY_HEADLINE['full-zk-chain']).toBe('string');
-    expect(REALITY_HEADLINE['full-zk-chain'].length).toBeGreaterThan(0);
-    expect(typeof REALITY_BODY['full-zk-chain']).toBe('string');
-    expect(REALITY_BODY['full-zk-chain'].length).toBeGreaterThan(0);
-    expect(typeof REALITY_BADGE_LABEL['full-zk-chain']).toBe('string');
-    expect(REALITY_BADGE_LABEL['full-zk-chain'].length).toBeGreaterThan(0);
-    expect(typeof REALITY_VERB['full-zk-chain']).toBe('string');
-    expect(REALITY_VERB['full-zk-chain'].length).toBeGreaterThan(0);
+  it('full-zk-chain has no entry in any reality dictionary (no resurrected dead tier)', () => {
+    expect(REALITY_HEADLINE['full-zk-chain']).toBeUndefined();
+    expect(REALITY_BODY['full-zk-chain']).toBeUndefined();
+    expect(REALITY_BADGE_LABEL['full-zk-chain']).toBeUndefined();
+    expect(REALITY_VERB['full-zk-chain']).toBeUndefined();
   });
 
-  it('enforcementSummary("full-zk-chain") returns the chain-enforced summary, not the on-chain fallback', () => {
-    // The function gates on KNOWN_REALITIES and falls back to "on-chain" for unknown keys.
-    // If full-zk-chain ever falls out of that set, this asserts we catch it: the summary
-    // must match the full-zk-chain dictionary entries, not on-chain's.
+  it('enforcementSummary("full-zk-chain") collapses to the on-chain fallback (unknown key)', () => {
+    // full-zk-chain is no longer a known reality, so the gating function falls back to its
+    // on-chain default. It must NOT resurrect a distinct chain-enforced ZK summary.
     const s = enforcementSummary('full-zk-chain');
     expect(s).toBeTruthy();
-    expect(s.headline).toBe(REALITY_HEADLINE['full-zk-chain']);
-    expect(s.body).toBe(REALITY_BODY['full-zk-chain']);
-    expect(s.badge).toBe(REALITY_BADGE_LABEL['full-zk-chain']);
-    expect(s.headline).not.toBe(REALITY_HEADLINE['on-chain']);
-    expect(s.oracleNote).toMatch(/chain hashlock/i);
+    expect(s.headline).toBe(REALITY_HEADLINE['on-chain']);
+    expect(s.body).toBe(REALITY_BODY['on-chain']);
+    expect(s.badge).toBe(REALITY_BADGE_LABEL['on-chain']);
   });
 
-  it('full-zk-chain badge label is distinct from full-zk (so they cannot be regressed to the same string)', () => {
-    expect(REALITY_BADGE_LABEL['full-zk-chain']).not.toBe(REALITY_BADGE_LABEL['full-zk']);
-    expect(REALITY_HEADLINE['full-zk-chain']).not.toBe(REALITY_HEADLINE['full-zk']);
-    expect(REALITY_VERB['full-zk-chain']).not.toBe(REALITY_VERB['full-zk']);
-  });
-
-  it('full-zk-chain body must NOT claim oracle-cosigned payout (it is chain-enforced)', () => {
-    const body = REALITY_BODY['full-zk-chain'];
-    expect(body).toBeTruthy();
-    expect(
-      /oracle-cosigned/i.test(body),
-      'REALITY_BODY["full-zk-chain"] must not say "oracle-cosigned" (the chain enforces it)',
-    ).toBe(false);
-    expect(
-      /oracle co-signature/i.test(body),
-      'REALITY_BODY["full-zk-chain"] must not say "oracle co-signature" (the chain enforces it)',
-    ).toBe(false);
+  it('full-zk badge collapses the path: the strongest ZK label is "Full ZK", oracle-verified off-chain', () => {
+    // With full-zk-chain removed, full-zk is the terminal ZK tier. Its badge is "Full ZK" and
+    // its body must keep the explicit off-chain / not-chain-enforced carve-out (asserted below).
+    expect(REALITY_BADGE_LABEL['full-zk']).toBe('Full ZK');
+    expect(REALITY_VERB['full-zk']).toMatch(/off-chain/i);
   });
 
   it('full-zk body must explicitly say "Not chain-enforced end-to-end"', () => {

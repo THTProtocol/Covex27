@@ -3,13 +3,14 @@ import {
   ShieldCheck, Lock, Cpu, Radio, KeyRound, Boxes, Zap, CheckCircle2,
   FileCode2, Layers, ArrowRight, Sparkles, Network, Eye, Workflow, Hash, Gavel, Coins,
 } from 'lucide-react';
-import { VERIFIED_FULL_ZK, CHAIN_ENFORCED_ZK } from '../lib/zk/circuits.js';
+import { VERIFIED_FULL_ZK } from '../lib/zk/circuits.js';
 
-// Honest counts pulled from the single source of truth (lib/zk/circuits.js).
-// Do NOT hard-code these; the registry is the only place they may diverge.
+// Honest count pulled from the single source of truth (lib/zk/circuits.js).
+// Do NOT hard-code this; the registry is the only place it may diverge.
+// All VERIFIED_FULL_ZK circuits are Groth16-verified OFF-CHAIN by the disclosed
+// Covex oracle (fail-closed); the only on-chain check is the oracle's Schnorr
+// co-signature. There is no chain-enforced ZK tier.
 const ZK_TOTAL = VERIFIED_FULL_ZK.size;
-const ZK_CHAIN_ENFORCED = CHAIN_ENFORCED_ZK.size;
-const ZK_ORACLE_COSIGNED = ZK_TOTAL - ZK_CHAIN_ENFORCED;
 
 /*
   /readme - the definitive, factual "how Covex works" page, framed around Kaspa mainnet.
@@ -50,7 +51,7 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
-    trust: 'Proof, oracle-verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for the ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Of those, ${ZK_CHAIN_ENFORCED} (merkle_membership, age_verification, escrow_2party, range_proof) reduce to a hashlock Kaspa itself enforces end-to-end; the other ${ZK_ORACLE_COSIGNED} are oracle-cosigned. Kaspa has no on-chain pairing verifier yet, so the Groth16 check is off-chain and its result gates the consensus-required co-signature.` },
+    trust: 'Proof, oracle-verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for all ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Kaspa has no on-chain pairing verifier, so the Groth16 check is always off-chain: all ${ZK_TOTAL} are oracle-verified off-chain, and the only on-chain check is the oracle's BIP340 Schnorr co-signature that the proof result gates.` },
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
@@ -273,13 +274,12 @@ export default function Readme() {
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
               These {ZK_TOTAL} circuits have real Groth16 proofs that the disclosed Covex oracle verifies fail-closed before it
-              co-signs. {ZK_CHAIN_ENFORCED} of them (merkle_membership, age_verification, escrow_2party, range_proof) verify
-              end-to-end to consensus enforcement; the other {ZK_ORACLE_COSIGNED} are oracle-cosigned. The Groth16 verification
-              itself is always off-chain (Kaspa has no on-chain pairing verifier), so it is oracle-verified, not
-              on-chain-trustless: a bad proof is rejected, but for the oracle-cosigned set the named oracle’s co-signature is
-              still what the chain checks. More circuits are compiled and graduate as their proving keys ship and each proof is
-              verified. Honest caveat: the current trusted setup is a single-contributor dev ceremony. High-value mainnet
-              covenants warrant an independent multi-party ceremony first.
+              co-signs. All {ZK_TOTAL} are oracle-verified off-chain: Kaspa has no on-chain pairing verifier, so the Groth16
+              verification itself is always off-chain, and the only on-chain check is the disclosed oracle’s BIP340 Schnorr
+              co-signature. A bad proof is rejected (fail-closed), but the named oracle’s co-signature is what the chain checks;
+              this is oracle-verified, not on-chain-trustless. More circuits are compiled and graduate as their proving keys
+              ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev ceremony.
+              High-value mainnet covenants warrant an independent multi-party ceremony first.
             </p>
           </div>
           <Card className="!p-6">

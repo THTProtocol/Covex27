@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 //   said "don't fabricate transitions" and to anchor on the real component.
 //
 //   We mock the three module boundaries the panel reaches over:
-//     - ../../lib/zk/circuits   (isVerifiedFullZk / isChainEnforcedZk render guards)
+//     - ../../lib/zk/circuits   (isVerifiedFullZk render guard)
 //     - ../../lib/zk/provers    (PROVERS table, circuitTypeFor, proveInBrowser)
 //     - ../../lib/enforcement-copy (REALITY_HEADLINE / REALITY_BODY honesty copy)
 //   plus globalThis.fetch for the /api/oracle/verify-and-sign call.
@@ -51,7 +51,6 @@ vi.mock('react', async () => {
 
 vi.mock('../../lib/zk/circuits', () => ({
   isVerifiedFullZk: (id) => id === 'merkle_membership',
-  isChainEnforcedZk: (id) => id === 'merkle_membership',
 }));
 
 // Real proveInBrowser is async; the fake { proof, publicSignals } below is what
@@ -83,12 +82,10 @@ vi.mock('../../lib/zk/provers', () => ({
 
 vi.mock('../../lib/enforcement-copy', () => ({
   REALITY_HEADLINE: {
-    'full-zk':       'Zero-knowledge proof, oracle-verified off-chain',
-    'full-zk-chain': 'ZK proof, chain-enforced via hashlock',
+    'full-zk': 'Zero-knowledge proof, oracle-verified off-chain',
   },
   REALITY_BODY: {
-    'full-zk':       'Verified fail-closed off-chain by the disclosed Covex oracle.',
-    'full-zk-chain': 'Verified fail-closed off-chain; payout enforced by chain hashlock.',
+    'full-zk': 'Verified fail-closed off-chain by the disclosed Covex oracle.',
   },
 }));
 
@@ -138,10 +135,10 @@ function renderWith(Panel, overrides) {
 // Source: ZkClaimPanel.jsx line ~110 + the success block ~250. These are the
 // honesty-absolute labels the panel renders ONLY in the matching state. If any
 // of these strings drift, the panel is overclaiming or underclaiming.
-const HEADER_LABEL_CHAIN_ENFORCED = 'Chain-enforced ZK claim';
-// merkle_membership is one of the 4 chain-enforced circuits, so the panel
-// renders REALITY_BODY['full-zk-chain'] here, not REALITY_BODY['full-zk'].
-const VERIFIED_FAIL_CLOSED_BODY   = 'Verified fail-closed off-chain; payout enforced by chain hashlock.';
+const HEADER_LABEL_ORACLE_VERIFIED = 'Oracle-verified ZK claim';
+// No circuit is chain-enforced: every ZK circuit renders the full-zk
+// (oracle-verified off-chain) reality, so the panel renders REALITY_BODY['full-zk'].
+const VERIFIED_FAIL_CLOSED_BODY   = 'Verified fail-closed off-chain by the disclosed Covex oracle.';
 const SUCCESS_LABEL               = 'Proof verified and co-signed by the oracle';
 const REFUSED_LABEL               = 'Oracle refused to co-sign';
 const PROVING_BUTTON_TEXT         = 'Proving in your browser...';
@@ -168,9 +165,11 @@ describe('ZkClaimPanel', () => {
     // Idle: the "Generate proof" CTA is visible.
     expect(html).toContain(GENERATE_BUTTON_TEXT);
 
-    // The chain-enforced reality headline is present (this is the honest framing,
-    // not "on-chain trustless").
-    expect(html).toContain(HEADER_LABEL_CHAIN_ENFORCED);
+    // The oracle-verified reality headline is present (this is the honest framing,
+    // not "on-chain trustless" and not "chain-enforced").
+    expect(html).toContain(HEADER_LABEL_ORACLE_VERIFIED);
+    // The retired chain-enforced overclaim must never render.
+    expect(html).not.toContain('Chain-enforced ZK claim');
 
     // The fail-closed verification body is rendered at idle (it is part of the
     // permanent honesty surface, NOT the success-only label).

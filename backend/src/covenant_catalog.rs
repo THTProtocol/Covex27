@@ -9,11 +9,6 @@
 //!   OnChain        - Kaspa consensus enforces the spend condition (a P2SH script).
 //!                    No oracle, no trust. The four covenant_builder primitives
 //!                    (singlesig / hashlock / timelock / multisig) are all OnChain.
-//!   FullZkChain    - the 4-of-19 carve-out where a real Groth16 proof reduces to a
-//!                    hashlock the Kaspa chain itself checks end-to-end (in addition to
-//!                    off-chain oracle verification of the proof). Stronger than full-zk
-//!                    because payout is on-chain-enforced via the hashlock, not solely
-//!                    by the oracle co-signature.
 //!   FullZk         - a real Groth16 proof verified fail-closed by the disclosed Covex
 //!                    oracle (off-chain), with the oracle co-signature verified on-chain
 //!                    (Schnorr). NOT trustless and NOT on-chain ZK; stronger than a bare
@@ -35,7 +30,6 @@ use crate::covenant_types::CovenantCategory;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EnforcementReality {
     OnChain,
-    FullZkChain,
     FullZk,
     Hybrid,
     OracleAttested,
@@ -46,7 +40,6 @@ impl EnforcementReality {
     pub fn as_str(&self) -> &'static str {
         match self {
             EnforcementReality::OnChain => "on-chain",
-            EnforcementReality::FullZkChain => "full-zk-chain",
             EnforcementReality::FullZk => "full-zk",
             EnforcementReality::Hybrid => "hybrid",
             EnforcementReality::OracleAttested => "oracle-attested",
@@ -59,9 +52,6 @@ impl EnforcementReality {
         match self {
             EnforcementReality::OnChain => {
                 "Kaspa consensus enforces the spend condition (script-locked). No oracle, no trust."
-            }
-            EnforcementReality::FullZkChain => {
-                "A real Groth16 proof verified off-chain by the disclosed oracle, AND payout is on-chain-enforced via a hashlock the chain checks end-to-end."
             }
             EnforcementReality::FullZk => {
                 "A real Groth16 proof verified fail-closed by the disclosed Covex oracle (off-chain). The oracle co-signature is verified on-chain. Not trustless."
@@ -79,24 +69,20 @@ impl EnforcementReality {
     }
 }
 
-/// Server-side mirror of frontend lib/zk/circuits.js `CHAIN_ENFORCED_ZK`: the 4-of-19
-/// carve-out whose Groth16 proof reduces to a hashlock the Kaspa chain itself checks
-/// end-to-end. Used at the JSON boundary to override an exact-P2SH script reality
-/// (which reads OnChain in isolation) to FullZkChain when the covenant declares one
-/// of these circuits. Must stay byte-for-byte identical with the frontend set; the
-/// drift-guard test below enforces this list literally.
-pub const CHAIN_ENFORCED_ZK_CIRCUITS: &[&str] = &[
-    "merkle_membership",
-    "age_verification",
-    "escrow_2party",
-    "range_proof",
-];
+/// Server-side mirror of frontend lib/zk/circuits.js `CHAIN_ENFORCED_ZK`: now EMPTY.
+/// No deployed circuit's ZK proof is enforced end-to-end on-chain - that would require
+/// the redeem script's blake2b256 hashlock to correspond to the circuit's public output,
+/// but the circuits use MiMC7/range/timelock math and covenant_builder.rs has no
+/// circuit-output -> hashlock binding. So every verified circuit is FullZk (off-chain
+/// oracle verification), never chain-enforced. Must stay byte-for-byte identical with the
+/// frontend set (also empty); the drift-guard test below enforces this list literally.
+pub const CHAIN_ENFORCED_ZK_CIRCUITS: &[&str] = &[];
 
 /// Server-side mirror of frontend lib/zk/circuits.js `VERIFIED_FULL_ZK`: the 19
-/// circuits whose Groth16 proof is end-to-end verified (real accept + tamper-reject).
-/// Used at the JSON boundary to upgrade their script reality to FullZk (or FullZkChain
-/// for the 4 in CHAIN_ENFORCED_ZK_CIRCUITS), so the 4-vs-15 honesty split actually
-/// reaches the badge instead of being flattened to "on-chain" by the exact-P2SH wrapper.
+/// circuits whose Groth16 proof is end-to-end verified (real accept + tamper-reject)
+/// OFF-CHAIN by the disclosed oracle. Used at the JSON boundary to upgrade their script
+/// reality to FullZk, so the violet "Full ZK" pill reaches the badge instead of being
+/// flattened to "on-chain" by the exact-P2SH wrapper. None are chain-enforced.
 pub const VERIFIED_FULL_ZK_CIRCUITS: &[&str] = &[
     "merkle_membership",
     "age_verification",
@@ -119,17 +105,14 @@ pub const VERIFIED_FULL_ZK_CIRCUITS: &[&str] = &[
     "anon_membership_nullifier",
 ];
 
-/// Returns the chain-enforced-ZK or full-zk reality for `circuit_id` if it is in one
-/// of the verified sets, else None. Caller (covenant_summary_json at the JSON boundary)
-/// uses this to override the raw-script "on-chain" label so the 4-vs-15 honesty split
-/// reaches the wire. THIS is the one-call fix that makes TrustBadge.jsx paint violet
-/// (+emerald for the chain-enforced 4) on Explorer cards and CovenantInteractive headers.
+/// Returns the full-zk reality for `circuit_id` if it is a verified circuit, else None.
+/// Caller (covenant_summary_json at the JSON boundary) uses this to override the
+/// raw-script "on-chain" label so a verified ZK covenant reaches the wire as full-zk
+/// (oracle-verified OFF-CHAIN) instead of being flattened to "on-chain" by the
+/// exact-P2SH wrapper. No circuit is chain-enforced (no proof->hashlock binding exists).
 pub fn zk_reality_for_circuit(circuit_id: &str) -> Option<EnforcementReality> {
     if circuit_id.is_empty() || circuit_id == "none" {
         return None;
-    }
-    if CHAIN_ENFORCED_ZK_CIRCUITS.iter().any(|&c| c == circuit_id) {
-        return Some(EnforcementReality::FullZkChain);
     }
     if VERIFIED_FULL_ZK_CIRCUITS.iter().any(|&c| c == circuit_id) {
         return Some(EnforcementReality::FullZk);
@@ -349,7 +332,6 @@ async fn catalog_handler() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "realities": [
             { "id": "on-chain", "description": EnforcementReality::OnChain.description() },
-            { "id": "full-zk-chain", "description": EnforcementReality::FullZkChain.description() },
             { "id": "full-zk", "description": EnforcementReality::FullZk.description() },
             { "id": "hybrid", "description": EnforcementReality::Hybrid.description() },
             { "id": "oracle-attested", "description": EnforcementReality::OracleAttested.description() },
@@ -439,14 +421,14 @@ mod tests {
         assert_eq!(reality_for_script(""), EnforcementReality::Decorative);
     }
 
-    /// The 4-of-19 honesty carve-out. zk_reality_for_circuit must promote a circuit in
-    /// CHAIN_ENFORCED_ZK_CIRCUITS to FullZkChain (violet+emerald "Chain-enforced ZK"),
-    /// and a circuit in VERIFIED_FULL_ZK_CIRCUITS but not chain-enforced to FullZk
-    /// (plain violet "Full ZK"). This is the override the JSON boundary uses so the
-    /// 4-vs-15 honesty split actually reaches TrustBadge instead of being flattened to
-    /// "on-chain" by the exact-P2SH wrapper. Do not soften.
+    /// HONESTY: the 4 circuits that previously claimed "chain-enforced ZK" now return
+    /// FullZk. There is NO circuit-output -> blake2b256 hashlock binding in
+    /// covenant_builder.rs (the circuits use MiMC7/range/timelock math, escrow_2party
+    /// has no hash at all), so none are enforced on-chain - they are Groth16-verified
+    /// OFF-CHAIN by the disclosed oracle, exactly like the other 15. zk_reality_for_circuit
+    /// must NEVER mark them chain-enforced (there is no such reality).
     #[test]
-    fn chain_enforced_zk_circuits_promote_to_full_zk_chain() {
+    fn verified_zk_circuits_are_full_zk_not_chain_enforced() {
         for id in [
             "merkle_membership",
             "age_verification",
@@ -455,8 +437,8 @@ mod tests {
         ] {
             assert_eq!(
                 zk_reality_for_circuit(id),
-                Some(EnforcementReality::FullZkChain),
-                "{id} must be FullZkChain"
+                Some(EnforcementReality::FullZk),
+                "{id} must be FullZk (oracle-verified off-chain), never chain-enforced"
             );
         }
     }
@@ -485,9 +467,9 @@ mod tests {
         assert_eq!(zk_reality_for_circuit("not_a_circuit"), None);
     }
 
-    /// The 4-set is a strict subset of the 19-set: every chain-enforced id MUST also
-    /// be in VERIFIED_FULL_ZK_CIRCUITS, else zk_reality_for_circuit could surface
-    /// FullZkChain for a circuit we haven't even certified as verified end-to-end.
+    /// CHAIN_ENFORCED_ZK_CIRCUITS is empty (there is no chain-enforced ZK tier). This
+    /// guards the invariant for the future: if any id is ever re-added to it, that id
+    /// MUST also be in VERIFIED_FULL_ZK_CIRCUITS so we never surface an uncertified one.
     #[test]
     fn chain_enforced_set_is_subset_of_verified_set() {
         for id in CHAIN_ENFORCED_ZK_CIRCUITS {
@@ -498,13 +480,13 @@ mod tests {
         }
     }
 
-    /// The 4-vs-15 honesty split: there are exactly 19 verified circuits, of which
-    /// exactly 4 are chain-enforced (leaving 15 oracle-cosigned only). If these counts
-    /// drift, the badge math + lib/zk/circuits.js no longer agree byte-for-byte and a
-    /// real new circuit's honesty label will be wrong on the wire.
+    /// All 19 verified circuits are FullZk (oracle-verified off-chain); ZERO are
+    /// chain-enforced, because no circuit-output -> hashlock binding is implemented.
+    /// CHAIN_ENFORCED_ZK_CIRCUITS must stay EMPTY and byte-for-byte equal to the
+    /// frontend lib/zk/circuits.js CHAIN_ENFORCED_ZK set (also empty).
     #[test]
-    fn zk_reality_counts_are_4_and_15() {
-        assert_eq!(CHAIN_ENFORCED_ZK_CIRCUITS.len(), 4);
+    fn zk_reality_counts_19_verified_zero_chain_enforced() {
+        assert_eq!(CHAIN_ENFORCED_ZK_CIRCUITS.len(), 0);
         assert_eq!(VERIFIED_FULL_ZK_CIRCUITS.len(), 19);
     }
 
@@ -514,7 +496,6 @@ mod tests {
     #[test]
     fn full_zk_wire_labels_are_hyphenated() {
         assert_eq!(EnforcementReality::FullZk.as_str(), "full-zk");
-        assert_eq!(EnforcementReality::FullZkChain.as_str(), "full-zk-chain");
     }
 
     #[test]

@@ -55,7 +55,7 @@ const detectGameType = (covenant) => {
 // on an oracle-attested game covenant.
 const isZkCircuitCovenant = (covenant) => {
   const reality = String(covenant.enforcement_reality || '').toLowerCase();
-  if (reality === 'full-zk' || reality === 'full-zk-chain' || reality === 'hybrid') return true;
+  if (reality === 'full-zk' || reality === 'hybrid') return true;
   try {
     const cfg = typeof covenant.custom_ui_config === 'string'
       ? JSON.parse(covenant.custom_ui_config)

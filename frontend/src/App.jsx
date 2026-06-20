@@ -579,6 +579,18 @@ export default function App() {
                   </span>
                 ))}
               </div>
+              {/* Open-source claim tool, hosted OUTSIDE Covex infrastructure (GitHub + Pages),
+                  so it keeps working even if this site is permanently down. */}
+              <p>
+                <a
+                  href="https://github.com/THTProtocol/covex-claim"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-kaspa-green hover:underline"
+                >
+                  Claim your funds even if Covex is down - open-source tool on GitHub (save it now so you always have it)
+                </a>
+              </p>
               <LiveStatus />
             </div>
           </footer>

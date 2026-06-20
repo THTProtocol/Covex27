@@ -420,6 +420,17 @@ function ClaimFlow({ kit, utxos }) {
       <a href="/tools/cold-recovery/" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-slate-50 text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-kaspa-green/30 hover:text-kaspa-green transition-colors">
         <Snowflake size={13} /> Fully offline? Use the standalone cold-recovery tool
       </a>
+
+      {/* Open-source claim tool, published OUTSIDE Covex infrastructure (GitHub + GitHub
+          Pages) so it keeps working even if this site is permanently down. Honest copy. */}
+      <a
+        href="https://github.com/THTProtocol/covex-claim"
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-kaspa-green/30 light:border-kaspa-green/40 bg-kaspa-green/[0.06] text-[12px] font-semibold text-kaspa-green hover:bg-kaspa-green/[0.12] transition-colors"
+      >
+        <ExternalLink size={13} /> Claim your funds even if Covex is down - open-source tool on GitHub (save it now so you always have it)
+      </a>
     </div>
   );
 }

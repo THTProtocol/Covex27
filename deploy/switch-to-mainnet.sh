@@ -20,6 +20,30 @@
 
 set -euo pipefail
 
+# ============================================================================
+# DEPRECATED - DO NOT USE FOR THE TOCCATA CUTOVER.
+# The canonical go-live is the systemd drop-in in docs/RUNBOOK.md: keep
+# KASPA_NETWORK=testnet-12 on the live box, set COVEX_MAINNET_COVENANTS_ENABLED=true
+# and CRAWL_START_DAA=474165565 (the Toccata mainnet fork DAA) in a
+# covex-backend.service drop-in, then `systemctl restart covex-backend`. The live
+# backend runs under systemd; this script's nohup start would create a DUPLICATE
+# process, and its wholesale KASPA_NETWORK=mainnet flip + CRAWL_START_DAA=1 are the
+# wrong model. This guard refuses to run unless you explicitly opt in.
+# ============================================================================
+if [ "${COVEX_ALLOW_DEPRECATED_SWITCH:-}" != "1" ]; then
+    echo "REFUSING TO RUN: deploy/switch-to-mainnet.sh is DEPRECATED."
+    echo "Use the systemd drop-in cutover in docs/RUNBOOK.md instead."
+    echo "(If you truly must run this legacy script, set COVEX_ALLOW_DEPRECATED_SWITCH=1.)"
+    exit 1
+fi
+
+# Defense in depth for the opt-in case: never write an empty oracle key (the
+# backend fails closed on mainnet without it) and never crawl mainnet from DAA 1.
+if [ -z "${COVEX_ORACLE_KEY:-}" ]; then
+    echo "REFUSING: COVEX_ORACLE_KEY is unset/empty; mainnet signing fails closed without it."
+    exit 1
+fi
+
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║   COVEX PHASE 4 — POST-TOCCATA MAINNET MIGRATION SCRIPT    ║"
 echo "╚════════════════════════════════════════════════════════════╝"
@@ -64,7 +88,7 @@ BIND_ADDR=$MAINNET_BIND_ADDR
 DB_PATH=$APP_DIR/covex.db
 COVENANT_TREASURY_ADDRESS=$MAINNET_TREASURY
 COVENANT_SEED_ADDRESSES=
-CRAWL_START_DAA=1
+CRAWL_START_DAA=474165565
 RUST_LOG=covex27_backend=info,kaspa_wrpc=warn
 # Oracle signing key: override for mainnet (REQUIRED before mainnet launch)
 COVEX_ORACLE_KEY=${COVEX_ORACLE_KEY:-}

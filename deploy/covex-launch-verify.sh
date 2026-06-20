@@ -172,12 +172,12 @@ done
 
 # Key docs
 key_docs=(
-    "PHASE9_COMPLETION.md"
-    "PHASE10_COMPLETION.md"
-    "docs/FINAL_STATE_OF_COVEX.md"
-    "docs/LAUNCH_ANNOUNCEMENT_TEMPLATE.md"
+    "README.md"
+    "MAINNET.md"
+    "LAUNCH_CHECKLIST.md"
     "docs/UNLOCK_WITH_ORACLE_SIGNATURE.md"
     "docs/BUILDING_ON_COVEX.md"
+    "docs/OPERATIONS_RUNBOOK.md"
 )
 
 for doc in "${key_docs[@]}"; do
@@ -190,10 +190,11 @@ done
 
 # 6. ZK Artifacts (Merkle is production, Range is foundation)
 section "6. ZK Circuit State"
-if [ -f "$REPO_ROOT/zk/merkle_membership_final.zkey" ] || [ -f "/root/Covex27/zk/merkle_membership_final.zkey" ]; then
-    pass "Merkle Membership final zkey present (production circuit)"
+MERKLE_ZKEY="frontend/public/zk/merkle_membership/merkle_membership_final.zkey"
+if [ -f "$REPO_ROOT/$MERKLE_ZKEY" ] || [ -f "/root/Covex27/$MERKLE_ZKEY" ]; then
+    pass "Merkle Membership final zkey present (served at $MERKLE_ZKEY)"
 else
-    warn "Merkle final zkey not found in this tree (may be deployed elsewhere)"
+    fail "Merkle final zkey missing at $MERKLE_ZKEY (served ZK artifact required by the in-browser prover)"
 fi
 
 if [ -f "$REPO_ROOT/zk/range_proof/range_proof.circom" ] || [ -f "/root/Covex27/zk/range_proof/range_proof.circom" ]; then

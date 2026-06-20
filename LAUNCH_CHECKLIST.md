@@ -14,19 +14,22 @@
 
 2. BLOCKER (owner-decision flag): `COVEX_MAINNET_COVENANTS_ENABLED=true`
    is OFF in production. While off,
-   `crawler::covenant_indexing_gated("mainnet", false)` returns true at
-   `backend/src/crawler.rs:204` and the mainnet crawler short-circuits
-   every 60s without indexing. The `mainnet_ready` field on /health, /,
-   /status is therefore false even if a mainnet wRPC is connected
-   (`main.rs:778, 811, 852`).
+   `crawler::covenant_indexing_gated("mainnet", false)` returns true (see
+   that function in `backend/src/crawler.rs`) and the mainnet crawler
+   short-circuits every 60s without indexing. The `mainnet_ready` field on
+   /health, /, /status is therefore false even if a mainnet wRPC is
+   connected (the `mainnet_ready` computation in `backend/src/main.rs`).
+   (Code references here are function names, not line numbers, which drift.)
 
 3. BLOCKER (owner-action): `COVEX_ORACLE_KEY` MUST be set in the
-   mainnet-indexer process environment. `main.rs:64-72` hard-exits at
-   boot if `KASPA_WRPC_URL_MAINNET` is set but `COVEX_ORACLE_KEY` is not.
-   Without it the process refuses to start.
+   mainnet-indexer process environment. The `COVEX_ORACLE_KEY` boot gate
+   (`validate_mainnet_env` / the oracle-key check in `backend/src/main.rs`)
+   hard-exits at boot if `KASPA_WRPC_URL_MAINNET` is set but
+   `COVEX_ORACLE_KEY` is not. Without it the process refuses to start.
 
-4. BLOCKER (code, intentional freeze for value): GATE 2 in
-   `covenant_builder.rs:1424-1436` (p2sh_deploy_handler) refuses ANY
+4. BLOCKER (code, intentional freeze for value): GATE 2 (the
+   `p2sh_deploy_handler` mainnet oracle-kind freeze in
+   `backend/src/covenant_builder.rs`) refuses ANY
    `oracle*` redeem kind on mainnet ("oracle-enforced covenants are
    frozen on mainnet ... funds are not yet trustless"). Until the
    non-custodial rebuild (player 2-of-2 state channels / k-of-n oracle)
@@ -52,7 +55,7 @@
 
 - Singlesig, hashlock, timelock, multisig, htlc primitives: consensus-enforced, fully live
 - All 19 ZK circuits: Full ZK pill, Groth16-verified off-chain by the disclosed oracle, "Verified off-chain, oracle co-signs payout" (none chain-enforced; Kaspa has no on-chain pairing verifier and there is no proof-to-hashlock binding)
-- Markets / oracle_escrow / oracle covenants: GATED off until owner explicitly enables per covenant_builder.rs:1424 GATE 2
+- Markets / oracle_escrow / oracle covenants: GATED off until owner explicitly enables (GATE 2, the `p2sh_deploy_handler` mainnet freeze in covenant_builder.rs)
 
 ## Rollback
 

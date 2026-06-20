@@ -351,6 +351,21 @@ const REALITY_META = {
   'decorative':      { label: 'Metadata',       short: 'Meta',   accent: '#9ca3af', text: 'text-gray-300 light:text-slate-600',    bg: 'bg-white/[0.06]',   border: 'border-white/15' },
 };
 const realityMeta = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
+
+// ── READINESS TIER (production vs roadmap), derived from the registry, not the prose ──────────
+// HONESTY: a circuit is "production" ONLY if it has a real wired Groth16 path that is verified
+// end-to-end today: a working in-browser prover (IN_BROWSER_PROVERS) and/or a fail-closed backend
+// Groth16 verify (STRICT_GROTH16). That is exactly the `zkVerifiedOffChain` flag the post-processor
+// computes below from the canonical registry sets, so this tier CANNOT drift from what really
+// verifies. Everything else is "roadmap": fully buildable, but resolved by the disclosed oracle
+// attesting the outcome, with no dedicated prover wired yet. The badge is distinct from the
+// enforcement-reality (Oracle-attested) badge: enforcement says HOW the outcome is checked on-chain
+// (always the oracle co-signature), readiness says WHETHER a real proof exists for it yet.
+const READINESS_META = {
+  production: { label: 'Production', short: 'Production', text: 'text-emerald-300 light:text-emerald-700', bg: 'bg-emerald-500/12 light:bg-emerald-50', border: 'border-emerald-500/35 light:border-emerald-300' },
+  roadmap:    { label: 'Roadmap',    short: 'Roadmap',    text: 'text-violet-300 light:text-violet-700',   bg: 'bg-violet-500/12 light:bg-violet-50',   border: 'border-violet-500/35 light:border-violet-300' },
+};
+const readinessMeta = (tier) => READINESS_META[tier] || READINESS_META.roadmap;
 // Rewrite legacy "Full ZK" / "Hybrid" prose to the honest mainnet framing: the proof is verified
 // OFF-CHAIN by the disclosed Covex oracle (fail-closed), the trusted setup is a single-contributor
 // dev ceremony (not a production MPC), and there is no on-chain proof verification. We never use the
@@ -365,6 +380,65 @@ const scrubZkProse = (d) =>
     .replace(/\bfull-zk\b/gi, 'oracle-attested')
     .replace(/\bFull ZK\b/g, 'Oracle-attested')
     .replace(/Real artifacts/gi, 'Artifacts');
+
+// Strip the INTERNAL roadmap-doc references + the not-built prose from any user-facing description.
+// These are honest-but-internal notes ("(vision §4.6)", "no artifacts yet", "planned", "Deferred")
+// that belong on the readiness badge, not bleaking into the catalog copy as if they were product
+// detail. The Roadmap badge now carries that signal; the one-liner stays. We do NOT invent any
+// capability here: this only removes citations + downgrades aspirational phrasing, it never adds
+// claims. Applied to EVERY entry (not just the ex-full-zk ones), so the 100+ pure oracle-attested
+// roadmap circuits no longer show "(vision §X)" or "no artifacts yet" in their card text.
+const scrubRoadmapProse = (d, isRoadmap = true) => {
+  let s = (d || '')
+    // internal doc citations: "(vision §4.6)", "(vision sec 4.3)", "(vision §4.1, §4.7)", "(vision sections 4 plus 5)"
+    .replace(/\s*\(vision[^)]*\)/gi, '')
+    // not-built prose that the Roadmap badge now conveys
+    .replace(/Oracle-path \(no artifacts yet\):\s*/gi, '')
+    .replace(/\s*Artifacts:\s*none yet[^.]*\.?/gi, '')
+    .replace(/\s*Artifacts planned\.?/gi, '')
+    .replace(/\s*Artifacts:\s*planned[^.]*\.?/gi, '')
+    .replace(/\s*Artifacts:\s*partial[^.]*\.?/gi, '')
+    .replace(/\s*Requires ceremony \+ zkey for production use\.?/gi, '')
+    .replace(/\s*Requires WASM ZK backend\.?/gi, '')
+    .replace(/\s*Low priority - not primary for [^.]*\.?\s*Deferred\.?/gi, '')
+    // Drop the not-built readiness qualifier inside "Reality: oracle-attested (...)": the parenthetical
+    // (e.g. "(planned)", "(circom planned)", "(starts; full compute planned)", "(future full)",
+    // "(folding future)", "(multi-source planned)") is exactly the signal the Roadmap badge now
+    // carries. We only strip the qualifier when it is aspirational/not-built, never an honest scope
+    // note. Leaves a clean "Reality: oracle-attested.".
+    .replace(/(Reality:\s*oracle-attested)\s*\([^)]*\b(?:planned|future|stub|partial|wip|todo|tbd|soon|starts)\b[^)]*\)/gi, '$1')
+    // Same not-built qualifier, but in the LEADING "Oracle-attested (ZK compute planned):" prefix
+    // form. Strip the parenthetical, keep the honest "Oracle-attested:" lead.
+    .replace(/(\bOracle-attested)\s*\([^)]*\b(?:planned|future|stub|partial|wip|todo|tbd|soon|starts)\b[^)]*\)(\s*:)/gi, '$1$2')
+    // Neutralize standalone "stub" / "solver stub" / "stub -> production" phrasing so no card implies
+    // a half-built solver is a finished feature. The Roadmap badge conveys the readiness.
+    .replace(/\bor solver stub\b/gi, '')
+    .replace(/\bsolver stub\b/gi, 'solver')
+    .replace(/\s*\(stub\s*(?:→|->|to)\s*production\)/gi, '')
+    // Drop aspirational "<feature> planned." sentences (e.g. "BLS aggregation planned.",
+    // "ZK for calculation accuracy planned.", "ZK planned.") - these promise an unbuilt capability
+    // that the Roadmap badge already covers. Matches a sentence-ending clause that culminates in the
+    // word "planned"; bounded by the prior sentence boundary so it never eats neighboring copy.
+    .replace(/(?:^|(?<=\.\s))[^.]*\bplanned\.(?=\s|$)/gi, '')
+    // Neutralize any residual "full-zk planned" / "full-zk" phrasing so no card claims a
+    // verification tier it does not have. The Roadmap badge already conveys "planned".
+    .replace(/\(full-zk planned\)/gi, '(planned)')
+    .replace(/\bfull-zk\b/gi, 'oracle-attested');
+  if (isRoadmap) {
+    // A ROADMAP circuit must NOT advertise served Groth16 artifacts: the ones that really ship them
+    // are in the registry and are PRODUCTION. Strip the "Artifacts in zk/..." claim + the
+    // "Falls back to oracle attestation" qualifier so the copy matches the registry-derived tier.
+    // (PRODUCTION entries keep their genuine "Artifacts in zk/..." note.)
+    s = s
+      .replace(/\s*Artifacts in [^.]*\.?/gi, '')
+      .replace(/\s*Falls back to oracle attestation\.?/gi, '');
+  }
+  return s
+    // tidy doubled spaces / stray leading punctuation left behind
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,])/g, '$1')
+    .trim();
+};
 // HONEST REALITY for a mainnet-live world (no on-chain pairing verifier on Kaspa): NO circuit is
 // on-chain ZK. Every 'full-zk' and 'hybrid' label is collapsed to 'oracle-attested' here, so no card
 // ever renders a Zero-knowledge / trustless / on-chain badge. The verification that actually happens
@@ -387,18 +461,31 @@ export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.filter((c) => {
   // fail-closed oracle verify end-to-end (the in-browser-prover set) so the UI can still note that
   // honest capability without ever claiming on-chain ZK. overclaimers (no prover/verifier)
   // additionally lose their artifacts flag.
+  // Registry-derived readiness: PRODUCTION iff the circuit really verifies end-to-end today
+  // (a working in-browser prover and/or a fail-closed backend Groth16 verify). This is the SAME
+  // signal as zkVerifiedOffChain, so the tier cannot drift from what actually proves. Everything
+  // else is ROADMAP (buildable, oracle-attested outcome, no dedicated prover yet).
+  const verifiedOffChain = VERIFIED_FULL_ZK.has(c.id) || STRICT_GROTH16.has(c.id);
+  const catalogTier = verifiedOffChain ? 'production' : 'roadmap';
   if (c.reality === 'full-zk' || c.reality === 'hybrid') {
-    const verifiedOffChain = VERIFIED_FULL_ZK.has(c.id) || STRICT_GROTH16.has(c.id);
     return {
       ...c,
       reality: 'oracle-attested',
       zkVerifiedOffChain: verifiedOffChain,
       artifacts: verifiedOffChain ? c.artifacts : false,
       zkPending: !verifiedOffChain,
-      description: scrubZkProse(c.description),
+      catalogTier,
+      description: scrubRoadmapProse(scrubZkProse(c.description), !verifiedOffChain),
     };
   }
-  return c;
+  // Pure oracle-attested (and decorative) entries also get the readiness tier + the roadmap-prose
+  // scrub so their "(vision §X)" citations + "no artifacts yet" notes move to the badge.
+  return {
+    ...c,
+    zkVerifiedOffChain: verifiedOffChain,
+    catalogTier,
+    description: scrubRoadmapProse(c.description, !verifiedOffChain),
+  };
 });
 
 // Backward-compat alias
@@ -877,6 +964,9 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   // For hiding the huge ZK list by default: press to reveal all
   const [showAllZK, setShowAllZK] = useState(false);
+  // When the full list is shown, the production-ready circuits lead and the roadmap/experimental
+  // ones stay collapsed behind this expander so newcomers are not dropped into unbuilt options.
+  const [showRoadmapZK, setShowRoadmapZK] = useState(false);
   // Separate state for the multi-select circuit-toggle list (so revealing it as organized
   // categories doesn't also expand the single-select card grid below).
   const [showAllToggles, setShowAllToggles] = useState(false);
@@ -2629,11 +2719,15 @@ ${gameMeta.outcomeBranches}
                 // One toggle pill, reused for the collapsed picks and the organized full list.
                 const Pill = (c) => {
                   const active = visualConfig.selectedCircuits.includes(c.id);
+                  const isProd = c.catalogTier === 'production';
                   return (
                     <button key={c.id} onClick={() => {
                       const next = active ? visualConfig.selectedCircuits.filter(x => x !== c.id) : [...visualConfig.selectedCircuits, c.id];
                       updateVisual({ selectedCircuits: next.length ? next : ['chess_v1'] });
-                    }} className={`text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white light:text-slate-900 light:bg-[#49EACB]/15' : 'border-white/10 hover:bg-white/5 text-gray-300 light:border-slate-300 light:text-slate-600 light:hover:bg-slate-100'}`}>{c.name}</button>
+                    }} title={isProd ? 'Production: real prover/verifier wired' : 'Roadmap: oracle-attested, no dedicated prover yet'} className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white light:text-slate-900 light:bg-[#49EACB]/15' : 'border-white/10 hover:bg-white/5 text-gray-300 light:border-slate-300 light:text-slate-600 light:hover:bg-slate-100'}`}>
+                      <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${isProd ? 'bg-emerald-400' : 'bg-violet-400'}`} />
+                      {c.name}
+                    </button>
                   );
                 };
                 const POPULAR = ['chess_v1', 'chess_blitz', 'poker_v1', 'merkle_membership', 'range_proof'];
@@ -2641,6 +2735,10 @@ ${gameMeta.outcomeBranches}
                 const TITLE = { crypto: 'Zero-knowledge & crypto', oracle: 'Oracle & prediction', defi: 'DeFi & lending', game: 'Games', identity: 'Identity & gating', gating: 'Identity & gating', compute: 'Verifiable compute', general: 'Primitives & timelocks' };
                 const groups = {};
                 for (const c of ZK_CIRCUIT_TYPES) { const k = c.category || 'other'; (groups[k] = groups[k] || []).push(c); }
+                // Within each category lead with production-ready circuits, then roadmap ones.
+                for (const k of Object.keys(groups)) {
+                  groups[k].sort((a, b) => (a.catalogTier === 'production' ? 0 : 1) - (b.catalogTier === 'production' ? 0 : 1));
+                }
                 const order = ['crypto', 'oracle', 'defi', 'game', 'identity', 'gating', 'compute', 'general'];
                 const keys = [...new Set([...order.filter(k => groups[k]), ...Object.keys(groups)])];
                 return (
@@ -2747,117 +2845,178 @@ ${gameMeta.outcomeBranches}
             Each circuit proves a specific verifiable statement. The covenant lock script contains the verifier key for the selected circuit. Only the proof output (or oracle signature) is submitted on-chain.
           </p>
 
-          {/* Circuit Grid - hidden by default to keep the UI clean.
-              User presses "Show all ZK circuits" to reveal the full list. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {(() => {
-              const popular = [
-                // Games (oracle-attested, live)
-                'chess_v1', 'chess_blitz', 'poker_v1', 'blackjack_v1', 'checkers_v1', 'connect4_v1', 'tictactoe_v1', 'reversi_v1',
-                // Real ZK / crypto primitives (Groth16-backed)
-                'merkle_membership', 'range_proof', 'hash_preimage', 'age_verification', 'escrow_2party', 'timelock_absolute',
-                // DeFi / oracle covenants
-                'prediction_market', 'pot_distribution', 'auction_dutch', 'parametric_insurance', 'anti_sybil',
-              ];
-              const list = showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => popular.includes(c.id));
-              return list.map((gt) => {
-                // The outcome resolves via the live oracle-attested path (a real BIP340 oracle
-                // signature), which is honest. Circuit selection is FREE for everyone: every card
-                // is fully selectable and the in-browser ZK proving experience is never payment
-                // gated. Paid tiers buy only priority placement / featured listing, not capability.
-                const disabled = false;
-                const selected = gameType === gt.id;
-                const circuitDescriptions = {
-                  chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
-                  merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
-                  range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
-                  age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
-                  verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
-                  custom: 'Supply any audited circuit definition and its corresponding verifier key.',
-                };
-                const rm = realityMeta(gt.reality);
-                // Genuine capability (real in-browser Groth16 prover, oracle-verified off-chain). Drives
-                // the live-glow dot + the "in-browser prover" chip. NOT an on-chain-ZK claim.
-                const isVerifiedZk = IN_BROWSER_PROVERS.has(gt.id);
-                const hasBrowserProver = IN_BROWSER_PROVERS.has(gt.id);
-                return (
-                  <div
-                    key={gt.id}
-                    role="button"
-                    tabIndex={disabled ? -1 : 0}
-                    aria-disabled={disabled}
-                    onClick={() => !disabled && handleGameTypeChange(gt.id)}
-                    onKeyDown={(e) => { if (!disabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleGameTypeChange(gt.id); } }}
-                    title={`${gt.name} - ${rm.label}`}
-                    className={`group relative overflow-hidden text-left p-3 rounded-xl border transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
-                      selected
-                        ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_24px_rgba(73,234,203,0.18)] light:bg-emerald-50 light:border-emerald-400'
-                        : 'border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.14] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.65)] light:border-slate-200 light:from-slate-50 light:to-slate-50 light:hover:border-slate-300'
-                    } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    {/* reality accent top-edge + soft corner glow */}
-                    <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${selected ? '#49EACB' : rm.accent}, transparent)` }} />
-                    <span aria-hidden="true" className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl opacity-20 group-hover:opacity-35 transition-opacity pointer-events-none" style={{ background: selected ? '#49EACB' : rm.accent }} />
+          {/* Circuit Grid - hidden by default to keep the UI clean. User presses "Show all ZK
+              circuits" to reveal the full list, which leads with PRODUCTION-ready circuits and
+              keeps the ROADMAP / experimental ones behind a second expander. */}
+          {(() => {
+            const popular = [
+              // Games (oracle-attested, live)
+              'chess_v1', 'chess_blitz', 'poker_v1', 'blackjack_v1', 'checkers_v1', 'connect4_v1', 'tictactoe_v1', 'reversi_v1',
+              // Real ZK / crypto primitives (Groth16-backed)
+              'merkle_membership', 'range_proof', 'hash_preimage', 'age_verification', 'escrow_2party', 'timelock_absolute',
+              // DeFi / oracle covenants
+              'prediction_market', 'pot_distribution', 'auction_dutch', 'parametric_insurance', 'anti_sybil',
+            ];
+            const circuitDescriptions = {
+              chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
+              merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
+              range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
+              age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
+              verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
+              custom: 'Supply any audited circuit definition and its corresponding verifier key.',
+            };
+            // One card, reused by every group. The readiness pill (Production / Roadmap) is derived
+            // from the registry (gt.catalogTier), distinct from the enforcement-reality badge.
+            const renderCard = (gt) => {
+              // Circuit selection is FREE for everyone; every card is fully selectable and the
+              // in-browser ZK proving experience is never payment gated.
+              const disabled = false;
+              const selected = gameType === gt.id;
+              const rm = realityMeta(gt.reality);
+              const tier = readinessMeta(gt.catalogTier);
+              const isRoadmap = gt.catalogTier !== 'production';
+              // Genuine capability (real in-browser Groth16 prover, oracle-verified off-chain). Drives
+              // the live-glow dot + the "in-browser prover" chip. NOT an on-chain-ZK claim.
+              const isVerifiedZk = IN_BROWSER_PROVERS.has(gt.id);
+              const hasBrowserProver = IN_BROWSER_PROVERS.has(gt.id);
+              return (
+                <div
+                  key={gt.id}
+                  role="button"
+                  tabIndex={disabled ? -1 : 0}
+                  aria-disabled={disabled}
+                  onClick={() => !disabled && handleGameTypeChange(gt.id)}
+                  onKeyDown={(e) => { if (!disabled && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleGameTypeChange(gt.id); } }}
+                  title={`${gt.name} - ${tier.label}, ${rm.label}`}
+                  className={`group relative overflow-hidden text-left p-3 rounded-xl border transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
+                    selected
+                      ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_24px_rgba(73,234,203,0.18)] light:bg-emerald-50 light:border-emerald-400'
+                      : 'border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.14] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.65)] light:border-slate-200 light:from-slate-50 light:to-slate-50 light:hover:border-slate-300'
+                  } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  {/* reality accent top-edge + soft corner glow */}
+                  <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${selected ? '#49EACB' : rm.accent}, transparent)` }} />
+                  <span aria-hidden="true" className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl opacity-20 group-hover:opacity-35 transition-opacity pointer-events-none" style={{ background: selected ? '#49EACB' : rm.accent }} />
 
-                    <div className="relative flex items-start justify-between gap-2 mb-1">
-                      <span className={`text-xs font-bold leading-tight ${selected ? 'text-kaspa-green' : 'text-white light:text-slate-900'}`}>
-                        {gt.name}
-                      </span>
-                      {/* The reality badge is itself the inspect trigger: press to see how it is verified + the source. */}
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setInfoCircuit(gt); }}
-                        title="How is this verified? Press to inspect the source"
-                        className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border transition hover:brightness-125 ${rm.bg} ${rm.text} ${rm.border}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${isVerifiedZk ? 'zk-live-glow' : ''}`} style={{ background: rm.accent }} />
-                        {rm.short}
-                        <Info size={9} className="opacity-60" />
-                      </button>
-                    </div>
-
-                    <p className="relative text-[10px] text-gray-300 leading-snug line-clamp-3 light:text-slate-600">
-                      {circuitDescriptions[gt.id] || gt.description}
-                    </p>
-
-                    <div className="relative mt-2 flex items-center gap-2">
-                      <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border truncate max-w-[55%] ${
-                        selected
-                          ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
-                          : 'border-white/[0.08] bg-white/[0.03] text-gray-300 light:border-slate-200 light:bg-slate-100 light:text-slate-600'
-                      }`}>
-                        {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
-                      </code>
-                      {hasBrowserProver && (
-                        <span className="inline-flex items-center gap-1 text-[8px] font-semibold text-emerald-300/90" title="Real Groth16 proof generated in your browser">
-                          <span className="w-1 h-1 rounded-full bg-emerald-400 zk-live-glow" /> in-browser prover
-                        </span>
-                      )}
-                      {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0 ml-auto" />}
-                    </div>
+                  <div className="relative flex items-start justify-between gap-2 mb-1">
+                    <span className={`text-xs font-bold leading-tight ${selected ? 'text-kaspa-green' : 'text-white light:text-slate-900'}`}>
+                      {gt.name}
+                    </span>
+                    {/* The reality badge is itself the inspect trigger: press to see how it is verified + the source. */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setInfoCircuit(gt); }}
+                      title="How is this verified? Press to inspect the source"
+                      className={`shrink-0 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border transition hover:brightness-125 ${rm.bg} ${rm.text} ${rm.border}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isVerifiedZk ? 'zk-live-glow' : ''}`} style={{ background: rm.accent }} />
+                      {rm.short}
+                      <Info size={9} className="opacity-60" />
+                    </button>
                   </div>
-                );
-              });
-            })()}
-            {infoCircuit && <TransparencyModal circuit={infoCircuit} onClose={() => setInfoCircuit(null)} />}
-          </div>
 
-          {!showAllZK && (
-            <button
-              onClick={() => setShowAllZK(true)}
-              className="mt-2 w-full text-center text-xs py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-kaspa-green light:border-slate-200 light:bg-slate-50 light:hover:bg-slate-100 light:text-[#14B8A6]"
-            >
-              Press to see all {ZK_CIRCUIT_TYPES.length} ZK circuits (showing popular ones now)
-            </button>
-          )}
-          {showAllZK && (
-            <button
-              onClick={() => setShowAllZK(false)}
-              className="mt-1 w-full text-center text-xs py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-400 light:border-slate-200 light:hover:bg-slate-100 light:text-slate-500"
-            >
-              Collapse full list
-            </button>
-          )}
+                  {/* Readiness pill (registry-derived, distinct from the enforcement-reality badge). */}
+                  <div className="relative mb-1">
+                    <span
+                      title={isRoadmap
+                        ? 'Roadmap circuit: buildable today and resolved by the disclosed Covex oracle, with no dedicated proof generator wired yet.'
+                        : 'Production circuit: ships a real Groth16 prover and/or fail-closed verifier, verified end-to-end (valid accepted, tampered rejected).'}
+                      className={`inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${tier.bg} ${tier.text} ${tier.border}`}
+                    >
+                      {isRoadmap ? <Clock size={8} className="opacity-70" /> : <BadgeCheck size={8} className="opacity-80" />}
+                      {tier.short}
+                    </span>
+                  </div>
+
+                  <p className="relative text-[10px] text-gray-300 leading-snug line-clamp-3 light:text-slate-600">
+                    {circuitDescriptions[gt.id] || gt.description}
+                  </p>
+
+                  <div className="relative mt-2 flex items-center gap-2">
+                    <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border truncate max-w-[55%] ${
+                      selected
+                        ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
+                        : 'border-white/[0.08] bg-white/[0.03] text-gray-300 light:border-slate-200 light:bg-slate-100 light:text-slate-600'
+                    }`}>
+                      {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
+                    </code>
+                    {hasBrowserProver && (
+                      <span className="inline-flex items-center gap-1 text-[8px] font-semibold text-emerald-300/90 light:text-emerald-700" title="Real Groth16 proof generated in your browser">
+                        <span className="w-1 h-1 rounded-full bg-emerald-400 zk-live-glow" /> in-browser prover
+                      </span>
+                    )}
+                    {selected && <CheckCircle2 size={12} className="text-kaspa-green shrink-0 ml-auto" />}
+                  </div>
+                </div>
+              );
+            };
+
+            // Collapsed (default) view: the curated popular set, rendered flat.
+            if (!showAllZK) {
+              const list = ZK_CIRCUIT_TYPES.filter(c => popular.includes(c.id));
+              return (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {list.map(renderCard)}
+                  </div>
+                  <button
+                    onClick={() => setShowAllZK(true)}
+                    className="mt-2 w-full text-center text-xs py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-kaspa-green light:border-slate-200 light:bg-slate-50 light:hover:bg-slate-100 light:text-[#14B8A6]"
+                  >
+                    Press to see all {ZK_CIRCUIT_TYPES.length} ZK circuits (showing popular ones now)
+                  </button>
+                </>
+              );
+            }
+
+            // Full view: PRODUCTION-ready circuits lead; ROADMAP / experimental ones collapse behind
+            // an expander so newcomers are not dropped into unbuilt options as if they were ready.
+            const production = ZK_CIRCUIT_TYPES.filter(c => c.catalogTier === 'production');
+            const roadmap = ZK_CIRCUIT_TYPES.filter(c => c.catalogTier !== 'production');
+            return (
+              <>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <BadgeCheck size={13} className="text-emerald-400 light:text-emerald-600" />
+                  <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider light:text-emerald-700">Production circuits</span>
+                  <span className="text-[10px] text-gray-500 light:text-slate-400">{production.length}</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mb-2 light:text-slate-500">
+                  Ship a real Groth16 prover and/or fail-closed verifier, proven end-to-end (valid accepted, tampered rejected). Verified off-chain by the disclosed Covex oracle.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {production.map(renderCard)}
+                </div>
+
+                <button
+                  onClick={() => setShowRoadmapZK(s => !s)}
+                  aria-expanded={showRoadmapZK}
+                  className="mt-3 w-full flex items-center justify-center gap-2 text-xs py-2 rounded-lg border border-violet-500/25 bg-violet-500/[0.06] hover:bg-violet-500/10 text-violet-300 light:border-violet-300 light:bg-violet-50 light:hover:bg-violet-100 light:text-violet-700"
+                >
+                  <Clock size={12} />
+                  {showRoadmapZK ? 'Hide' : 'Show'} roadmap / experimental circuits
+                  <span className="text-[10px] opacity-70">{roadmap.length}</span>
+                </button>
+                {showRoadmapZK && (
+                  <>
+                    <p className="text-[10px] text-gray-400 mt-2 mb-2 light:text-slate-500">
+                      Buildable today and resolved by the disclosed Covex oracle, but with no dedicated proof generator wired yet. They are honest previews, not finished ZK features.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {roadmap.map(renderCard)}
+                    </div>
+                  </>
+                )}
+
+                <button
+                  onClick={() => { setShowAllZK(false); setShowRoadmapZK(false); }}
+                  className="mt-1 w-full text-center text-xs py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-400 light:border-slate-200 light:hover:bg-slate-100 light:text-slate-500"
+                >
+                  Collapse full list
+                </button>
+              </>
+            );
+          })()}
+          {infoCircuit && <TransparencyModal circuit={infoCircuit} onClose={() => setInfoCircuit(null)} />}
 
           {/* Auto-suggested Verifier Key */}
           {(() => {

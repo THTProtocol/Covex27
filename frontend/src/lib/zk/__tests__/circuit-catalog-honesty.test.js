@@ -190,6 +190,137 @@ describe('ZK_CIRCUIT_TYPES catalog honesty (pinned against the real export)', ()
     }
   });
 
+  // ── READINESS TIER (production vs roadmap) ──────────────────────────────────
+  // Pins gap #8: the catalog must be honest about which circuits really verify
+  // end-to-end today (a wired Groth16 prover/verifier = PRODUCTION) vs which are
+  // buildable-but-oracle-attested previews (ROADMAP). The tier is derived from the
+  // registry sets (zkVerifiedOffChain), so it cannot drift from what actually proves.
+  const circuitsLib = circuitsModule;
+  const isProductionId = (id) =>
+    circuitsLib.VERIFIED_FULL_ZK.has(id) || circuitsLib.STRICT_GROTH16.has(id);
+
+  it('every catalog entry carries a derived catalogTier of production or roadmap', () => {
+    const bad = ZK_CIRCUIT_TYPES.filter((c) => c.catalogTier !== 'production' && c.catalogTier !== 'roadmap');
+    expect(
+      bad,
+      `entries with a missing/invalid catalogTier: ` + bad.map((c) => `${c.id}=${c.catalogTier}`).join(', '),
+    ).toEqual([]);
+  });
+
+  it('catalogTier matches the registry exactly (cannot drift from what verifies)', () => {
+    // PRODUCTION iff the id is in VERIFIED_FULL_ZK or STRICT_GROTH16; ROADMAP otherwise.
+    const mislabeledProd = ZK_CIRCUIT_TYPES.filter((c) => c.catalogTier === 'production' && !isProductionId(c.id));
+    const mislabeledRoad = ZK_CIRCUIT_TYPES.filter((c) => c.catalogTier === 'roadmap' && isProductionId(c.id));
+    expect(
+      mislabeledProd,
+      `circuit(s) tagged PRODUCTION but absent from the registry (overclaim): ` +
+        mislabeledProd.map((c) => c.id).join(', '),
+    ).toEqual([]);
+    expect(
+      mislabeledRoad,
+      `production circuit(s) mislabeled ROADMAP (underclaim): ` +
+        mislabeledRoad.map((c) => c.id).join(', '),
+    ).toEqual([]);
+  });
+
+  it('the production set is exactly the registry-verified circuits (22 today, all 19 in-browser provers included)', () => {
+    const production = ZK_CIRCUIT_TYPES.filter((c) => c.catalogTier === 'production');
+    const roadmap = ZK_CIRCUIT_TYPES.filter((c) => c.catalogTier === 'roadmap');
+    // Production must be the minority, and roadmap the large majority: a regression
+    // that flipped most of the 200-entry catalog to "production" would be a mass overclaim.
+    expect(production.length).toBeGreaterThan(0);
+    expect(production.length).toBeLessThan(roadmap.length);
+    expect(production.length + roadmap.length).toBe(ZK_CIRCUIT_TYPES.length);
+    // Every in-browser prover must be production (real prove path runs in the browser).
+    for (const id of circuitsLib.IN_BROWSER_PROVERS) {
+      const c = ZK_CIRCUIT_TYPES.find((x) => x.id === id);
+      if (!c) continue;
+      expect(c.catalogTier, `in-browser prover "${id}" must be production`).toBe('production');
+    }
+    // zkVerifiedOffChain and catalog==='production' are the SAME signal.
+    const mismatch = ZK_CIRCUIT_TYPES.filter((c) => (c.catalogTier === 'production') !== (c.zkVerifiedOffChain === true));
+    expect(mismatch.map((c) => c.id)).toEqual([]);
+  });
+
+  it('the worst overclaimers (reality:full-zk in prose but no wired prover) are downgraded to roadmap', () => {
+    // These claimed 'full-zk' in the raw prose but are NOT in the registry, so they
+    // must end up oracle-attested AND roadmap, never production.
+    const exFakeFullZk = ['connect4_v1', 'tictactoe_v1', 'timelock_daa_public', 'private_airdrop', 'acl_zk_proof'];
+    for (const id of exFakeFullZk) {
+      const c = ZK_CIRCUIT_TYPES.find((x) => x.id === id);
+      expect(c, `catalog missing "${id}"`).toBeTruthy();
+      expect(c.catalogTier, `"${id}" overclaims (must be roadmap)`).toBe('roadmap');
+      expect(c.reality, `"${id}" must be oracle-attested`).toBe('oracle-attested');
+      expect(c.artifacts, `"${id}" must not keep an artifacts flag`).not.toBe(true);
+    }
+  });
+
+  it('roadmap circuit descriptions are scrubbed of internal citations + not-built prose', () => {
+    // The Roadmap badge now carries readiness; the user-facing copy must not leak the
+    // internal "(vision §X)" citations or "no artifacts yet" / "Artifacts planned" prose.
+    const leaks = ZK_CIRCUIT_TYPES.filter((c) =>
+      /\(vision\b/i.test(c.description) ||
+      /§/.test(c.description) ||
+      /no artifacts yet/i.test(c.description) ||
+      /Artifacts planned/i.test(c.description) ||
+      /Artifacts: none yet/i.test(c.description),
+    );
+    expect(
+      leaks,
+      `descriptions still carry internal roadmap markers: ` +
+        leaks.map((c) => c.id).join(', '),
+    ).toEqual([]);
+  });
+
+  it('descriptions never leak aspirational not-built phrasing (planned / stub / partial artifacts)', () => {
+    // The honesty bar: a roadmap circuit must never present an unbuilt capability as product
+    // detail. The Roadmap badge already conveys readiness, so these markers are stripped at
+    // export time. Patterns covered by scrubRoadmapProse in CovexTerminal.jsx:
+    //   "...planned." sentences, "Reality: oracle-attested (planned/future/stub/...)",
+    //   "Oracle-attested (... planned):", "solver stub", "Artifacts: partial",
+    //   "(stub -> production)".
+    const checks = [
+      [/\bplanned\b/i, 'planned'],
+      [/\bsolver stub\b/i, 'solver stub'],
+      [/\bstub\s*(?:→|->|to)\s*production\b/i, 'stub -> production'],
+      [/Artifacts:\s*partial/i, 'Artifacts: partial'],
+      // not-built qualifier surviving inside a Reality:/Oracle-attested parenthetical
+      [/oracle-attested\s*\([^)]*\b(?:planned|stub|partial|wip|todo|tbd)\b/i, 'not-built reality parenthetical'],
+    ];
+    const failures = [];
+    for (const [re, label] of checks) {
+      for (const c of ZK_CIRCUIT_TYPES) {
+        if (re.test(c.description || '')) failures.push(`${c.id} [${label}]: ${c.description}`);
+      }
+    }
+    expect(failures, `descriptions still leak not-built phrasing:\n` + failures.join('\n')).toEqual([]);
+  });
+
+  it('no roadmap circuit advertises served Groth16 artifacts or the word full-zk', () => {
+    // Roadmap circuits are oracle-attested with no dedicated prover; they must not claim
+    // "Artifacts in zk/..." (production-only) nor leak the forbidden on-chain-ZK word.
+    const overclaim = ZK_CIRCUIT_TYPES.filter(
+      (c) => c.catalogTier === 'roadmap' && /Artifacts in zk\//i.test(c.description),
+    );
+    expect(
+      overclaim,
+      `roadmap circuit(s) still advertise served artifacts: ` + overclaim.map((c) => c.id).join(', '),
+    ).toEqual([]);
+    const leakFullZk = ZK_CIRCUIT_TYPES.filter((c) => /full-zk/i.test(c.description));
+    expect(
+      leakFullZk,
+      `description(s) still leak "full-zk": ` + leakFullZk.map((c) => c.id).join(', '),
+    ).toEqual([]);
+  });
+
+  it('production circuits keep their genuine artifact note (the strip is roadmap-only)', () => {
+    // hash_preimage / timelock_absolute really ship served artifacts; the scrub must not
+    // remove that honest note from PRODUCTION entries.
+    const hp = ZK_CIRCUIT_TYPES.find((c) => c.id === 'hash_preimage');
+    expect(hp.catalogTier).toBe('production');
+    expect(/Artifacts in zk\//i.test(hp.description)).toBe(true);
+  });
+
   it('no circuit claims artifacts: true without a matching genuine reality', () => {
     // Honesty floor on the "Artifacts" chip: only oracle-attested (post-collapse
     // from real-Groth16-prover circuits) or on-chain (consensus primitives) can

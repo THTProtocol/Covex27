@@ -34,8 +34,8 @@ use kaspa_consensus_core::tx::{
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
 use kaspa_txscript::opcodes::codes::{
-    OpBlake2b, OpCheckLockTimeVerify, OpCheckSequenceVerify, OpCheckSig, OpCheckSigVerify, OpElse, OpEndIf,
-    OpEqualVerify, OpFalse, OpIf, OpTrue,
+    OpBlake2b, OpCheckLockTimeVerify, OpCheckSequenceVerify, OpCheckSig, OpCheckSigVerify, OpElse,
+    OpEndIf, OpEqualVerify, OpFalse, OpIf, OpTrue,
 };
 use kaspa_txscript::script_builder::ScriptBuilder;
 use kaspa_wrpc_client::KaspaRpcClient;
@@ -66,43 +66,77 @@ pub enum RedeemKind {
     /// `OpBlake2b <hash> OpEqualVerify <xonly_pubkey> OpCheckSig` - conditional
     /// release: spend requires revealing a preimage P with blake2b256(P)==hash
     /// AND a valid signature. The building block for HTLC / commit-reveal escrow.
-    HashLock { hash: [u8; 32], xonly_pubkey: [u8; 32] },
+    HashLock {
+        hash: [u8; 32],
+        xonly_pubkey: [u8; 32],
+    },
     /// `<lock_daa> OpCheckLockTimeVerify <xonly_pubkey> OpCheckSig` - an absolute
     /// timelock (vesting cliff / dispute window): spendable only once the chain DAA
     /// score reaches `lock_daa`, then by the key holder. (No OpDrop: Kaspa's CLTV pops
     /// its operand, unlike Bitcoin's.)
-    Timelock { lock_daa: u64, xonly_pubkey: [u8; 32] },
+    Timelock {
+        lock_daa: u64,
+        xonly_pubkey: [u8; 32],
+    },
     /// N-of-M multisig (`OP_required <pk..> OP_total OpCheckMultiSig`): spend
     /// requires `required` of the listed keys. DAO treasuries, 2-of-3 escrow.
-    Multisig { pubkeys: Vec<[u8; 32]>, required: usize },
+    Multisig {
+        pubkeys: Vec<[u8; 32]>,
+        required: usize,
+    },
     /// HTLC (atomic swap): either the RECEIVER claims by revealing a preimage +
     /// signing, OR the SENDER refunds after `lock_daa` by signing. The two halves of
     /// a cross-chain or cross-party atomic swap.
-    Htlc { hash: [u8; 32], receiver_pubkey: [u8; 32], lock_daa: u64, sender_pubkey: [u8; 32] },
+    Htlc {
+        hash: [u8; 32],
+        receiver_pubkey: [u8; 32],
+        lock_daa: u64,
+        sender_pubkey: [u8; 32],
+    },
     /// Trustless 2-player state-channel pot (no oracle key): `OP_IF <p1> OpCheckSigVerify
     /// <p2> OpCheckSig OP_ELSE <lock_daa> OpCheckLockTimeVerify <p1> OpCheckSig OP_ENDIF`.
     /// IF = cooperative 2-of-2 close (pays the agreed winner); ELSE = funder refund after
     /// `lock_daa`. Covex is never in the payout path.
-    Channel { p1: [u8; 32], p2: [u8; 32], lock_daa: u64 },
+    Channel {
+        p1: [u8; 32],
+        p2: [u8; 32],
+        lock_daa: u64,
+    },
     /// Oracle-enforced payout (D1): a 2-of-2 multisig of `[oracle, winner]`, so the chain
     /// itself requires the disclosed oracle's co-signature on the winner's claim.
     OracleEnforced { oracle: [u8; 32], winner: [u8; 32] },
     /// Oracle-enforced 2-player escrow / game pot: `<oracle> OpCheckSigVerify OP_IF
     /// <player_a> OpCheckSig OP_ELSE <player_b> OpCheckSig OP_ENDIF`. The chain requires
     /// the oracle's co-signature AND the winning player's signature on their branch.
-    OracleEscrow { oracle: [u8; 32], player_a: [u8; 32], player_b: [u8; 32] },
+    OracleEscrow {
+        oracle: [u8; 32],
+        player_a: [u8; 32],
+        player_b: [u8; 32],
+    },
     /// Dead-man's-switch / inheritance: `OP_IF <owner> OpCheckSig OP_ELSE <lock_daa>
     /// OpCheckLockTimeVerify <heir> OpCheckSig OP_ENDIF`. The owner spends/refreshes at any
     /// time; the heir can claim only once the chain reaches `lock_daa`. No oracle.
-    Deadman { owner: [u8; 32], heir: [u8; 32], lock_daa: u64 },
+    Deadman {
+        owner: [u8; 32],
+        heir: [u8; 32],
+        lock_daa: u64,
+    },
     /// Relative timelock (CSV): `<min_sequence> OpCheckSequenceVerify <xonly> OpCheckSig`.
     /// Node-enforced (BIP68): a live TN12 spend of a fresh UTXO is rejected with
     /// "one of the transaction sequence locks conditions was not met".
-    RelativeTimelock { min_sequence: u64, xonly_pubkey: [u8; 32] },
+    RelativeTimelock {
+        min_sequence: u64,
+        xonly_pubkey: [u8; 32],
+    },
     /// Time-decaying multisig: `req_now`-of-n now, `req_after`-of-n after `lock_daa`
     /// (req_after < req_now). Treasury recovery / inheritance. Built via
     /// redeem_timedecay_multisig (two real multisigs spliced into an IF/ELSE).
-    TimeDecay { pubkeys: Vec<[u8; 32]>, req_now: usize, req_after: usize, lock_daa: u64 },
+    TimeDecay {
+        pubkeys: Vec<[u8; 32]>,
+        req_now: usize,
+        req_after: usize,
+        lock_daa: u64,
+    },
     /// Binary outcome selector - the per-match unit of a parimutuel bundle. Two hashlock
     /// branches gate the two outcomes, with a relative-timelock refund tail:
     /// `OP_IF OpBlake2b <h_a> OpEqualVerify <winner_a> OpCheckSig OP_ELSE OP_IF OpBlake2b
@@ -125,7 +159,12 @@ pub enum RedeemKind {
     /// funder can reclaim if the oracle ever goes silent. Fixes the frozen-funds risk of the
     /// non-refundable form (a mandatory oracle co-signature with no timeout). Additive: existing
     /// `OracleEnforced` covenants are untouched.
-    OracleEnforcedRefundable { oracle: [u8; 32], winner: [u8; 32], min_sequence: u64, refund: [u8; 32] },
+    OracleEnforcedRefundable {
+        oracle: [u8; 32],
+        winner: [u8; 32],
+        min_sequence: u64,
+        refund: [u8; 32],
+    },
     /// Refundable oracle-enforced 2-player escrow / game pot: the existing `OracleEscrow`
     /// (`<oracle> CheckSigVerify IF <a> CheckSig ELSE <b> CheckSig ENDIF`) wrapped in an outer
     /// OP_IF, plus an OP_ELSE relative-timelock (CSV) refund branch so the funder can reclaim if
@@ -147,32 +186,62 @@ impl RedeemKind {
         match self {
             RedeemKind::SingleSig { xonly_pubkey } => redeem_singlesig(xonly_pubkey),
             RedeemKind::HashLock { hash, xonly_pubkey } => redeem_hashlock(hash, xonly_pubkey),
-            RedeemKind::Timelock { lock_daa, xonly_pubkey } => redeem_timelock(*lock_daa, xonly_pubkey),
+            RedeemKind::Timelock {
+                lock_daa,
+                xonly_pubkey,
+            } => redeem_timelock(*lock_daa, xonly_pubkey),
             RedeemKind::Multisig { pubkeys, required } => redeem_multisig(pubkeys, *required),
-            RedeemKind::Htlc { hash, receiver_pubkey, lock_daa, sender_pubkey } => {
-                redeem_htlc(hash, receiver_pubkey, *lock_daa, sender_pubkey)
-            }
+            RedeemKind::Htlc {
+                hash,
+                receiver_pubkey,
+                lock_daa,
+                sender_pubkey,
+            } => redeem_htlc(hash, receiver_pubkey, *lock_daa, sender_pubkey),
             RedeemKind::Channel { p1, p2, lock_daa } => redeem_channel(p1, p2, *lock_daa),
-            RedeemKind::OracleEnforced { oracle, winner } => redeem_multisig(&[*oracle, *winner], 2),
-            RedeemKind::OracleEscrow { oracle, player_a, player_b } => {
-                redeem_oracle_escrow(oracle, player_a, player_b)
+            RedeemKind::OracleEnforced { oracle, winner } => {
+                redeem_multisig(&[*oracle, *winner], 2)
             }
-            RedeemKind::Deadman { owner, heir, lock_daa } => redeem_deadman(owner, heir, *lock_daa),
-            RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey } => {
-                redeem_relative_timelock(*min_sequence, xonly_pubkey)
-            }
-            RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
-                redeem_timedecay_multisig(pubkeys, *req_now, *req_after, *lock_daa)
-            }
-            RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund } => {
-                redeem_binary_oracle_select(h_a, winner_a, h_b, winner_b, *min_sequence, refund)
-            }
-            RedeemKind::OracleEnforcedRefundable { oracle, winner, min_sequence, refund } => {
-                redeem_oracle_enforced_refundable(oracle, winner, *min_sequence, refund)
-            }
-            RedeemKind::OracleEscrowRefundable { oracle, player_a, player_b, min_sequence, refund } => {
-                redeem_oracle_escrow_refundable(oracle, player_a, player_b, *min_sequence, refund)
-            }
+            RedeemKind::OracleEscrow {
+                oracle,
+                player_a,
+                player_b,
+            } => redeem_oracle_escrow(oracle, player_a, player_b),
+            RedeemKind::Deadman {
+                owner,
+                heir,
+                lock_daa,
+            } => redeem_deadman(owner, heir, *lock_daa),
+            RedeemKind::RelativeTimelock {
+                min_sequence,
+                xonly_pubkey,
+            } => redeem_relative_timelock(*min_sequence, xonly_pubkey),
+            RedeemKind::TimeDecay {
+                pubkeys,
+                req_now,
+                req_after,
+                lock_daa,
+            } => redeem_timedecay_multisig(pubkeys, *req_now, *req_after, *lock_daa),
+            RedeemKind::BinaryOracleSelect {
+                h_a,
+                winner_a,
+                h_b,
+                winner_b,
+                min_sequence,
+                refund,
+            } => redeem_binary_oracle_select(h_a, winner_a, h_b, winner_b, *min_sequence, refund),
+            RedeemKind::OracleEnforcedRefundable {
+                oracle,
+                winner,
+                min_sequence,
+                refund,
+            } => redeem_oracle_enforced_refundable(oracle, winner, *min_sequence, refund),
+            RedeemKind::OracleEscrowRefundable {
+                oracle,
+                player_a,
+                player_b,
+                min_sequence,
+                refund,
+            } => redeem_oracle_escrow_refundable(oracle, player_a, player_b, *min_sequence, refund),
         }
     }
 
@@ -192,8 +261,16 @@ impl RedeemKind {
             RedeemKind::OracleEscrow { .. } => "oracle_escrow".to_string(),
             RedeemKind::Deadman { lock_daa, .. } => format!("deadman:{lock_daa}"),
             RedeemKind::RelativeTimelock { min_sequence, .. } => format!("rcsv:{min_sequence}"),
-            RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
-                format!("timedecay:{}:{req_now}:{req_after}:{lock_daa}", pubkeys.len())
+            RedeemKind::TimeDecay {
+                pubkeys,
+                req_now,
+                req_after,
+                lock_daa,
+            } => {
+                format!(
+                    "timedecay:{}:{req_now}:{req_after}:{lock_daa}",
+                    pubkeys.len()
+                )
             }
             RedeemKind::BinaryOracleSelect { min_sequence, .. } => {
                 format!("binary_oracle_select:{min_sequence}")
@@ -240,31 +317,53 @@ impl RedeemKind {
 pub enum SpendKind {
     SingleSig,
     HashLock,
-    Timelock { lock_daa: u64 },
-    Multisig { total: u8 },
-    Htlc { lock_daa: u64 },
-    Channel { lock_daa: u64 },
+    Timelock {
+        lock_daa: u64,
+    },
+    Multisig {
+        total: u8,
+    },
+    Htlc {
+        lock_daa: u64,
+    },
+    Channel {
+        lock_daa: u64,
+    },
     /// `oracle:N` - the oracle-enforced N-of-N multisig (the oracle is one of the N).
-    OracleEnforced { total: u8 },
+    OracleEnforced {
+        total: u8,
+    },
     OracleEscrow,
     /// `deadman:N` - dead-man's-switch (owner IF branch; heir ELSE branch after lock_daa N).
-    Deadman { lock_daa: u64 },
+    Deadman {
+        lock_daa: u64,
+    },
     /// `rcsv:N` - relative timelock; the spend input's sequence must be >= N.
-    RelativeTimelock { min_sequence: u64 },
+    RelativeTimelock {
+        min_sequence: u64,
+    },
     /// `timedecay:{n}:{req_now}:{req_after}:{lock_daa}` - n members; sig_op_count = 2*n
     /// (two multisigs). The spend handler reads req_now/req_after/lock_daa directly.
-    TimeDecay { n: u8 },
+    TimeDecay {
+        n: u8,
+    },
     /// `binary_oracle_select:N` - two hashlock branches + a CSV refund. sig_op_count = 3
     /// (one CheckSig per branch); the refund branch needs the spend input's sequence >= N.
-    BinaryOracleSelect { min_sequence: u64 },
+    BinaryOracleSelect {
+        min_sequence: u64,
+    },
     /// `oracle_enforced_refundable:N` - the oracle_enforced 2-of-2 wrapped in OP_IF with a CSV
     /// refund ELSE. sig_op_count = 3 (CheckMultiSig counts 2 for [oracle, winner], + 1 refund
     /// CheckSig); the refund branch needs the spend input's sequence >= N.
-    OracleEnforcedRefundable { min_sequence: u64 },
+    OracleEnforcedRefundable {
+        min_sequence: u64,
+    },
     /// `oracle_escrow_refundable:N` - the oracle_escrow logic wrapped in OP_IF with a CSV refund
     /// ELSE. sig_op_count = 4 (oracle CheckSigVerify + player_a CheckSig + player_b CheckSig +
     /// refund CheckSig); the refund branch needs the spend input's sequence >= N.
-    OracleEscrowRefundable { min_sequence: u64 },
+    OracleEscrowRefundable {
+        min_sequence: u64,
+    },
 }
 
 impl SpendKind {
@@ -278,26 +377,40 @@ impl SpendKind {
         match base {
             "singlesig" => Some(SpendKind::SingleSig),
             "hashlock" => Some(SpendKind::HashLock),
-            "timelock" => Some(SpendKind::Timelock { lock_daa: param?.parse().ok()? }),
-            "multisig" => Some(SpendKind::Multisig { total: param?.parse().ok()? }),
-            "htlc" => Some(SpendKind::Htlc { lock_daa: param?.parse().ok()? }),
-            "channel" => Some(SpendKind::Channel { lock_daa: param?.parse().ok()? }),
+            "timelock" => Some(SpendKind::Timelock {
+                lock_daa: param?.parse().ok()?,
+            }),
+            "multisig" => Some(SpendKind::Multisig {
+                total: param?.parse().ok()?,
+            }),
+            "htlc" => Some(SpendKind::Htlc {
+                lock_daa: param?.parse().ok()?,
+            }),
+            "channel" => Some(SpendKind::Channel {
+                lock_daa: param?.parse().ok()?,
+            }),
             "oracle" => Some(SpendKind::OracleEnforced {
                 total: param.and_then(|s| s.parse().ok()).unwrap_or(2),
             }),
             "oracle_escrow" => Some(SpendKind::OracleEscrow),
-            "deadman" => Some(SpendKind::Deadman { lock_daa: param?.parse().ok()? }),
-            "rcsv" => Some(SpendKind::RelativeTimelock { min_sequence: param?.parse().ok()? }),
-            "timedecay" => Some(SpendKind::TimeDecay { n: param?.split(':').next()?.parse().ok()? }),
-            "binary_oracle_select" => {
-                Some(SpendKind::BinaryOracleSelect { min_sequence: param?.parse().ok()? })
-            }
-            "oracle_enforced_refundable" => {
-                Some(SpendKind::OracleEnforcedRefundable { min_sequence: param?.parse().ok()? })
-            }
-            "oracle_escrow_refundable" => {
-                Some(SpendKind::OracleEscrowRefundable { min_sequence: param?.parse().ok()? })
-            }
+            "deadman" => Some(SpendKind::Deadman {
+                lock_daa: param?.parse().ok()?,
+            }),
+            "rcsv" => Some(SpendKind::RelativeTimelock {
+                min_sequence: param?.parse().ok()?,
+            }),
+            "timedecay" => Some(SpendKind::TimeDecay {
+                n: param?.split(':').next()?.parse().ok()?,
+            }),
+            "binary_oracle_select" => Some(SpendKind::BinaryOracleSelect {
+                min_sequence: param?.parse().ok()?,
+            }),
+            "oracle_enforced_refundable" => Some(SpendKind::OracleEnforcedRefundable {
+                min_sequence: param?.parse().ok()?,
+            }),
+            "oracle_escrow_refundable" => Some(SpendKind::OracleEscrowRefundable {
+                min_sequence: param?.parse().ok()?,
+            }),
             _ => None,
         }
     }
@@ -333,8 +446,10 @@ impl SpendKind {
 /// Redeem script for a single-signature P2SH covenant: `<xonly_pubkey> OpCheckSig`.
 pub fn redeem_singlesig(xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
-    b.add_data(xonly_pubkey).map_err(|e| format!("redeem singlesig add_data: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("redeem singlesig add_op: {e}"))?;
+    b.add_data(xonly_pubkey)
+        .map_err(|e| format!("redeem singlesig add_data: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("redeem singlesig add_op: {e}"))?;
     Ok(b.drain())
 }
 
@@ -344,11 +459,16 @@ pub fn redeem_singlesig(xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
 /// top, so OpBlake2b consumes it first), then the redeem script.
 pub fn redeem_hashlock(hash32: &[u8; 32], xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
-    b.add_op(OpBlake2b).map_err(|e| format!("redeem hashlock OpBlake2b: {e}"))?;
-    b.add_data(hash32).map_err(|e| format!("redeem hashlock hash: {e}"))?;
-    b.add_op(OpEqualVerify).map_err(|e| format!("redeem hashlock OpEqualVerify: {e}"))?;
-    b.add_data(xonly_pubkey).map_err(|e| format!("redeem hashlock pubkey: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("redeem hashlock OpCheckSig: {e}"))?;
+    b.add_op(OpBlake2b)
+        .map_err(|e| format!("redeem hashlock OpBlake2b: {e}"))?;
+    b.add_data(hash32)
+        .map_err(|e| format!("redeem hashlock hash: {e}"))?;
+    b.add_op(OpEqualVerify)
+        .map_err(|e| format!("redeem hashlock OpEqualVerify: {e}"))?;
+    b.add_data(xonly_pubkey)
+        .map_err(|e| format!("redeem hashlock pubkey: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("redeem hashlock OpCheckSig: {e}"))?;
     Ok(b.drain())
 }
 
@@ -362,10 +482,14 @@ pub fn redeem_hashlock(hash32: &[u8; 32], xonly_pubkey: &[u8; 32]) -> BResult<Ve
 /// must have reached lock_daa (else the node treats the tx as non-final).
 pub fn redeem_timelock(lock_daa: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
-    b.add_lock_time(lock_daa).map_err(|e| format!("redeem timelock add_lock_time: {e}"))?;
-    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("redeem timelock CLTV: {e}"))?;
-    b.add_data(xonly_pubkey).map_err(|e| format!("redeem timelock pubkey: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("redeem timelock OpCheckSig: {e}"))?;
+    b.add_lock_time(lock_daa)
+        .map_err(|e| format!("redeem timelock add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify)
+        .map_err(|e| format!("redeem timelock CLTV: {e}"))?;
+    b.add_data(xonly_pubkey)
+        .map_err(|e| format!("redeem timelock pubkey: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("redeem timelock OpCheckSig: {e}"))?;
     Ok(b.drain())
 }
 
@@ -377,10 +501,14 @@ pub fn redeem_timelock(lock_daa: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8
 /// is rejected with "one of the transaction sequence locks conditions was not met".
 pub fn redeem_relative_timelock(min_sequence: u64, xonly_pubkey: &[u8; 32]) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
-    b.add_lock_time(min_sequence).map_err(|e| format!("rel-timelock add seq: {e}"))?;
-    b.add_op(OpCheckSequenceVerify).map_err(|e| format!("rel-timelock CSV: {e}"))?;
-    b.add_data(xonly_pubkey).map_err(|e| format!("rel-timelock pubkey: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("rel-timelock OpCheckSig: {e}"))?;
+    b.add_lock_time(min_sequence)
+        .map_err(|e| format!("rel-timelock add seq: {e}"))?;
+    b.add_op(OpCheckSequenceVerify)
+        .map_err(|e| format!("rel-timelock CSV: {e}"))?;
+    b.add_data(xonly_pubkey)
+        .map_err(|e| format!("rel-timelock pubkey: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("rel-timelock OpCheckSig: {e}"))?;
     Ok(b.drain())
 }
 
@@ -407,28 +535,45 @@ pub fn redeem_binary_oracle_select(
 ) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
     // Branch A (outer IF): reveal preimage of H_A, signed by winner_a.
-    b.add_op(OpIf).map_err(|e| format!("bos OpIf(outer): {e}"))?;
-    b.add_op(OpBlake2b).map_err(|e| format!("bos OpBlake2b(a): {e}"))?;
+    b.add_op(OpIf)
+        .map_err(|e| format!("bos OpIf(outer): {e}"))?;
+    b.add_op(OpBlake2b)
+        .map_err(|e| format!("bos OpBlake2b(a): {e}"))?;
     b.add_data(h_a).map_err(|e| format!("bos h_a: {e}"))?;
-    b.add_op(OpEqualVerify).map_err(|e| format!("bos OpEqualVerify(a): {e}"))?;
-    b.add_data(winner_a).map_err(|e| format!("bos winner_a: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("bos OpCheckSig(a): {e}"))?;
-    b.add_op(OpElse).map_err(|e| format!("bos OpElse(outer): {e}"))?;
+    b.add_op(OpEqualVerify)
+        .map_err(|e| format!("bos OpEqualVerify(a): {e}"))?;
+    b.add_data(winner_a)
+        .map_err(|e| format!("bos winner_a: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("bos OpCheckSig(a): {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("bos OpElse(outer): {e}"))?;
     // Branch B (inner IF): reveal preimage of H_B, signed by winner_b.
-    b.add_op(OpIf).map_err(|e| format!("bos OpIf(inner): {e}"))?;
-    b.add_op(OpBlake2b).map_err(|e| format!("bos OpBlake2b(b): {e}"))?;
+    b.add_op(OpIf)
+        .map_err(|e| format!("bos OpIf(inner): {e}"))?;
+    b.add_op(OpBlake2b)
+        .map_err(|e| format!("bos OpBlake2b(b): {e}"))?;
     b.add_data(h_b).map_err(|e| format!("bos h_b: {e}"))?;
-    b.add_op(OpEqualVerify).map_err(|e| format!("bos OpEqualVerify(b): {e}"))?;
-    b.add_data(winner_b).map_err(|e| format!("bos winner_b: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("bos OpCheckSig(b): {e}"))?;
-    b.add_op(OpElse).map_err(|e| format!("bos OpElse(inner): {e}"))?;
+    b.add_op(OpEqualVerify)
+        .map_err(|e| format!("bos OpEqualVerify(b): {e}"))?;
+    b.add_data(winner_b)
+        .map_err(|e| format!("bos winner_b: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("bos OpCheckSig(b): {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("bos OpElse(inner): {e}"))?;
     // Refund (inner ELSE): relative timelock to the refund key.
-    b.add_lock_time(min_sequence).map_err(|e| format!("bos add seq: {e}"))?;
-    b.add_op(OpCheckSequenceVerify).map_err(|e| format!("bos CSV: {e}"))?;
+    b.add_lock_time(min_sequence)
+        .map_err(|e| format!("bos add seq: {e}"))?;
+    b.add_op(OpCheckSequenceVerify)
+        .map_err(|e| format!("bos CSV: {e}"))?;
     b.add_data(refund).map_err(|e| format!("bos refund: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("bos OpCheckSig(refund): {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("bos OpEndIf(inner): {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("bos OpEndIf(outer): {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("bos OpCheckSig(refund): {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("bos OpEndIf(inner): {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("bos OpEndIf(outer): {e}"))?;
     Ok(b.drain())
 }
 
@@ -450,13 +595,18 @@ pub fn build_p2sh_multisig_signature_script(
     redeem: &[u8],
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let mut satisfier: Vec<u8> = Vec::new();
     for kp in keypairs {
         let sig: [u8; 64] = *kp.sign_schnorr(msg).as_ref();
-        satisfier.extend(std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]));
+        satisfier.extend(
+            std::iter::once(65u8)
+                .chain(sig)
+                .chain([SIG_HASH_ALL.to_u8()]),
+        );
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("p2sh multisig signature script: {e}"))
@@ -480,7 +630,8 @@ pub fn redeem_timedecay_multisig(
     // Encode the CLTV lock value exactly as redeem_timelock does (a sub-builder), then
     // splice everything into the IF/ELSE around the two multisig sub-scripts.
     let mut ltb = ScriptBuilder::new();
-    ltb.add_lock_time(lock_daa).map_err(|e| format!("timedecay add_lock_time: {e}"))?;
+    ltb.add_lock_time(lock_daa)
+        .map_err(|e| format!("timedecay add_lock_time: {e}"))?;
     let lt_bytes = ltb.drain();
     let mut r: Vec<u8> = Vec::new();
     r.push(OpIf);
@@ -506,7 +657,8 @@ pub fn build_timedecay_signature_script(
     after_timeout: bool,
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let mut satisfier: Vec<u8> = Vec::new();
@@ -532,17 +684,26 @@ pub fn redeem_htlc(
 ) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
     b.add_op(OpIf).map_err(|e| format!("htlc OpIf: {e}"))?;
-    b.add_op(OpBlake2b).map_err(|e| format!("htlc OpBlake2b: {e}"))?;
+    b.add_op(OpBlake2b)
+        .map_err(|e| format!("htlc OpBlake2b: {e}"))?;
     b.add_data(hash32).map_err(|e| format!("htlc hash: {e}"))?;
-    b.add_op(OpEqualVerify).map_err(|e| format!("htlc OpEqualVerify: {e}"))?;
-    b.add_data(receiver_pubkey).map_err(|e| format!("htlc receiver: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("htlc claim OpCheckSig: {e}"))?;
+    b.add_op(OpEqualVerify)
+        .map_err(|e| format!("htlc OpEqualVerify: {e}"))?;
+    b.add_data(receiver_pubkey)
+        .map_err(|e| format!("htlc receiver: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("htlc claim OpCheckSig: {e}"))?;
     b.add_op(OpElse).map_err(|e| format!("htlc OpElse: {e}"))?;
-    b.add_lock_time(lock_daa).map_err(|e| format!("htlc add_lock_time: {e}"))?;
-    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("htlc CLTV: {e}"))?;
-    b.add_data(sender_pubkey).map_err(|e| format!("htlc sender: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("htlc refund OpCheckSig: {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("htlc OpEndIf: {e}"))?;
+    b.add_lock_time(lock_daa)
+        .map_err(|e| format!("htlc add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify)
+        .map_err(|e| format!("htlc CLTV: {e}"))?;
+    b.add_data(sender_pubkey)
+        .map_err(|e| format!("htlc sender: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("htlc refund OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("htlc OpEndIf: {e}"))?;
     Ok(b.drain())
 }
 
@@ -558,15 +719,23 @@ pub fn redeem_oracle_escrow(
     player_b: &[u8; 32],
 ) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
-    b.add_data(oracle).map_err(|e| format!("escrow oracle: {e}"))?;
-    b.add_op(OpCheckSigVerify).map_err(|e| format!("escrow OpCheckSigVerify: {e}"))?;
+    b.add_data(oracle)
+        .map_err(|e| format!("escrow oracle: {e}"))?;
+    b.add_op(OpCheckSigVerify)
+        .map_err(|e| format!("escrow OpCheckSigVerify: {e}"))?;
     b.add_op(OpIf).map_err(|e| format!("escrow OpIf: {e}"))?;
-    b.add_data(player_a).map_err(|e| format!("escrow player_a: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("escrow a OpCheckSig: {e}"))?;
-    b.add_op(OpElse).map_err(|e| format!("escrow OpElse: {e}"))?;
-    b.add_data(player_b).map_err(|e| format!("escrow player_b: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("escrow b OpCheckSig: {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("escrow OpEndIf: {e}"))?;
+    b.add_data(player_a)
+        .map_err(|e| format!("escrow player_a: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("escrow a OpCheckSig: {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("escrow OpElse: {e}"))?;
+    b.add_data(player_b)
+        .map_err(|e| format!("escrow player_b: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("escrow b OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("escrow OpEndIf: {e}"))?;
     Ok(b.drain())
 }
 
@@ -591,23 +760,39 @@ pub fn redeem_oracle_escrow_refundable(
 ) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
     // Outer IF (true) = the existing oracle-cosigned 2-of-2, identical to redeem_oracle_escrow.
-    b.add_op(OpIf).map_err(|e| format!("escrow_refundable OpIf(outer): {e}"))?;
-    b.add_data(oracle).map_err(|e| format!("escrow_refundable oracle: {e}"))?;
-    b.add_op(OpCheckSigVerify).map_err(|e| format!("escrow_refundable OpCheckSigVerify: {e}"))?;
-    b.add_op(OpIf).map_err(|e| format!("escrow_refundable OpIf(inner): {e}"))?;
-    b.add_data(player_a).map_err(|e| format!("escrow_refundable player_a: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("escrow_refundable a OpCheckSig: {e}"))?;
-    b.add_op(OpElse).map_err(|e| format!("escrow_refundable OpElse(inner): {e}"))?;
-    b.add_data(player_b).map_err(|e| format!("escrow_refundable player_b: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("escrow_refundable b OpCheckSig: {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("escrow_refundable OpEndIf(inner): {e}"))?;
+    b.add_op(OpIf)
+        .map_err(|e| format!("escrow_refundable OpIf(outer): {e}"))?;
+    b.add_data(oracle)
+        .map_err(|e| format!("escrow_refundable oracle: {e}"))?;
+    b.add_op(OpCheckSigVerify)
+        .map_err(|e| format!("escrow_refundable OpCheckSigVerify: {e}"))?;
+    b.add_op(OpIf)
+        .map_err(|e| format!("escrow_refundable OpIf(inner): {e}"))?;
+    b.add_data(player_a)
+        .map_err(|e| format!("escrow_refundable player_a: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("escrow_refundable a OpCheckSig: {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("escrow_refundable OpElse(inner): {e}"))?;
+    b.add_data(player_b)
+        .map_err(|e| format!("escrow_refundable player_b: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("escrow_refundable b OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("escrow_refundable OpEndIf(inner): {e}"))?;
     // Outer ELSE = relative-timelock refund to the funder.
-    b.add_op(OpElse).map_err(|e| format!("escrow_refundable OpElse(outer): {e}"))?;
-    b.add_lock_time(min_sequence).map_err(|e| format!("escrow_refundable add seq: {e}"))?;
-    b.add_op(OpCheckSequenceVerify).map_err(|e| format!("escrow_refundable CSV: {e}"))?;
-    b.add_data(refund).map_err(|e| format!("escrow_refundable refund: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("escrow_refundable refund OpCheckSig: {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("escrow_refundable OpEndIf(outer): {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("escrow_refundable OpElse(outer): {e}"))?;
+    b.add_lock_time(min_sequence)
+        .map_err(|e| format!("escrow_refundable add seq: {e}"))?;
+    b.add_op(OpCheckSequenceVerify)
+        .map_err(|e| format!("escrow_refundable CSV: {e}"))?;
+    b.add_data(refund)
+        .map_err(|e| format!("escrow_refundable refund: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("escrow_refundable refund OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("escrow_refundable OpEndIf(outer): {e}"))?;
     Ok(b.drain())
 }
 
@@ -633,7 +818,8 @@ pub fn redeem_oracle_enforced_refundable(
     // Encode the CSV operand exactly as the other CSV builders do (a sub-builder), then splice
     // everything into the IF/ELSE around the multisig sub-script.
     let mut sb = ScriptBuilder::new();
-    sb.add_lock_time(min_sequence).map_err(|e| format!("enforced_refundable add seq: {e}"))?;
+    sb.add_lock_time(min_sequence)
+        .map_err(|e| format!("enforced_refundable add seq: {e}"))?;
     let seq_bytes = sb.drain();
     let mut r: Vec<u8> = Vec::new();
     r.push(OpIf);
@@ -643,7 +829,8 @@ pub fn redeem_oracle_enforced_refundable(
     r.push(OpCheckSequenceVerify);
     // refund key push (0x20 <32 bytes>) + OpCheckSig.
     let mut rb = ScriptBuilder::new();
-    rb.add_data(refund).map_err(|e| format!("enforced_refundable refund: {e}"))?;
+    rb.add_data(refund)
+        .map_err(|e| format!("enforced_refundable refund: {e}"))?;
     r.extend_from_slice(&rb.drain());
     r.push(OpCheckSig);
     r.push(OpEndIf);
@@ -664,7 +851,8 @@ pub fn build_oracle_escrow_signature_script(
     redeem: &[u8],
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let player_sig: [u8; 64] = *player_kp.sign_schnorr(msg).as_ref();
@@ -672,11 +860,19 @@ pub fn build_oracle_escrow_signature_script(
 
     let mut satisfier: Vec<u8> = Vec::new();
     // 1. winning player's signature (bottom of the stack; consumed by the branch).
-    satisfier.extend(std::iter::once(65u8).chain(player_sig).chain([SIG_HASH_ALL.to_u8()]));
+    satisfier.extend(
+        std::iter::once(65u8)
+            .chain(player_sig)
+            .chain([SIG_HASH_ALL.to_u8()]),
+    );
     // 2. branch selector.
     satisfier.push(if winner_is_a { OpTrue } else { OpFalse });
     // 3. oracle signature (top; consumed by the leading OpCheckSigVerify).
-    satisfier.extend(std::iter::once(65u8).chain(oracle_sig).chain([SIG_HASH_ALL.to_u8()]));
+    satisfier.extend(
+        std::iter::once(65u8)
+            .chain(oracle_sig)
+            .chain([SIG_HASH_ALL.to_u8()]),
+    );
 
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("oracle escrow signature script: {e}"))
@@ -696,15 +892,20 @@ pub fn build_htlc_signature_script(
     preimage: Option<&[u8]>,
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
-    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8)
+        .chain(sig)
+        .chain([SIG_HASH_ALL.to_u8()])
+        .collect();
     if claim {
         let p = preimage.ok_or_else(|| "HTLC claim requires a preimage".to_string())?;
         let mut b = ScriptBuilder::new();
-        b.add_data(p).map_err(|e| format!("htlc preimage push: {e}"))?;
+        b.add_data(p)
+            .map_err(|e| format!("htlc preimage push: {e}"))?;
         satisfier.extend_from_slice(&b.drain());
         satisfier.push(OpTrue); // select the IF (claim) branch
     } else {
@@ -742,15 +943,20 @@ pub fn build_binary_oracle_select_signature_script(
     preimage: Option<&[u8]>,
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
-    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8)
+        .chain(sig)
+        .chain([SIG_HASH_ALL.to_u8()])
+        .collect();
     let push_preimage = |s: &mut Vec<u8>, label: &str| -> BResult<()> {
         let p = preimage.ok_or_else(|| format!("{label} requires a preimage"))?;
         let mut b = ScriptBuilder::new();
-        b.add_data(p).map_err(|e| format!("bos preimage push: {e}"))?;
+        b.add_data(p)
+            .map_err(|e| format!("bos preimage push: {e}"))?;
         s.extend_from_slice(&b.drain());
         Ok(())
     };
@@ -781,14 +987,21 @@ pub fn build_binary_oracle_select_signature_script(
 pub fn redeem_deadman(owner: &[u8; 32], heir: &[u8; 32], lock_daa: u64) -> BResult<Vec<u8>> {
     let mut b = ScriptBuilder::new();
     b.add_op(OpIf).map_err(|e| format!("deadman OpIf: {e}"))?;
-    b.add_data(owner).map_err(|e| format!("deadman owner: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("deadman owner OpCheckSig: {e}"))?;
-    b.add_op(OpElse).map_err(|e| format!("deadman OpElse: {e}"))?;
-    b.add_lock_time(lock_daa).map_err(|e| format!("deadman add_lock_time: {e}"))?;
-    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("deadman CLTV: {e}"))?;
+    b.add_data(owner)
+        .map_err(|e| format!("deadman owner: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("deadman owner OpCheckSig: {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("deadman OpElse: {e}"))?;
+    b.add_lock_time(lock_daa)
+        .map_err(|e| format!("deadman add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify)
+        .map_err(|e| format!("deadman CLTV: {e}"))?;
     b.add_data(heir).map_err(|e| format!("deadman heir: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("deadman heir OpCheckSig: {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("deadman OpEndIf: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("deadman heir OpCheckSig: {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("deadman OpEndIf: {e}"))?;
     Ok(b.drain())
 }
 
@@ -805,11 +1018,15 @@ pub fn build_deadman_signature_script(
     owner_branch: bool,
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
-    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8)
+        .chain(sig)
+        .chain([SIG_HASH_ALL.to_u8()])
+        .collect();
     satisfier.push(if owner_branch { OpTrue } else { OpFalse });
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("deadman signature script: {e}"))
@@ -826,15 +1043,23 @@ pub fn redeem_channel(p1: &[u8; 32], p2: &[u8; 32], lock_daa: u64) -> BResult<Ve
     let mut b = ScriptBuilder::new();
     b.add_op(OpIf).map_err(|e| format!("channel OpIf: {e}"))?;
     b.add_data(p1).map_err(|e| format!("channel p1: {e}"))?;
-    b.add_op(OpCheckSigVerify).map_err(|e| format!("channel p1 CheckSigVerify: {e}"))?;
+    b.add_op(OpCheckSigVerify)
+        .map_err(|e| format!("channel p1 CheckSigVerify: {e}"))?;
     b.add_data(p2).map_err(|e| format!("channel p2: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("channel p2 CheckSig: {e}"))?;
-    b.add_op(OpElse).map_err(|e| format!("channel OpElse: {e}"))?;
-    b.add_lock_time(lock_daa).map_err(|e| format!("channel add_lock_time: {e}"))?;
-    b.add_op(OpCheckLockTimeVerify).map_err(|e| format!("channel CLTV: {e}"))?;
-    b.add_data(p1).map_err(|e| format!("channel refund p1: {e}"))?;
-    b.add_op(OpCheckSig).map_err(|e| format!("channel refund CheckSig: {e}"))?;
-    b.add_op(OpEndIf).map_err(|e| format!("channel OpEndIf: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("channel p2 CheckSig: {e}"))?;
+    b.add_op(OpElse)
+        .map_err(|e| format!("channel OpElse: {e}"))?;
+    b.add_lock_time(lock_daa)
+        .map_err(|e| format!("channel add_lock_time: {e}"))?;
+    b.add_op(OpCheckLockTimeVerify)
+        .map_err(|e| format!("channel CLTV: {e}"))?;
+    b.add_data(p1)
+        .map_err(|e| format!("channel refund p1: {e}"))?;
+    b.add_op(OpCheckSig)
+        .map_err(|e| format!("channel refund CheckSig: {e}"))?;
+    b.add_op(OpEndIf)
+        .map_err(|e| format!("channel OpEndIf: {e}"))?;
     Ok(b.drain())
 }
 
@@ -853,16 +1078,21 @@ pub fn build_channel_signature_script(
     redeem: &[u8],
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let push65 = |sig: [u8; 64]| -> Vec<u8> {
-        std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect()
+        std::iter::once(65u8)
+            .chain(sig)
+            .chain([SIG_HASH_ALL.to_u8()])
+            .collect()
     };
     let sig1: [u8; 64] = *kp1.sign_schnorr(msg).as_ref();
     let mut satisfier: Vec<u8> = Vec::new();
     if cooperative {
-        let kp2 = kp2.ok_or_else(|| "cooperative channel close needs both player keys".to_string())?;
+        let kp2 =
+            kp2.ok_or_else(|| "cooperative channel close needs both player keys".to_string())?;
         let sig2: [u8; 64] = *kp2.sign_schnorr(msg).as_ref();
         // bottom->top: sig_p2 (consumed by p2 OpCheckSig), sig_p1 (consumed by p1
         // OpCheckSigVerify), then OP_TRUE to select the IF branch.
@@ -922,7 +1152,9 @@ pub fn select_utxos_for<T>(
 /// at the node. The output count is folded in so a many-leg market bundle also pays its
 /// way. Bounded below by `TX_FEE` so the single-input case is unchanged.
 fn scaled_fee(num_inputs: usize, num_outputs: usize) -> u64 {
-    let units = num_inputs.max(1).saturating_add(num_outputs.saturating_sub(1));
+    let units = num_inputs
+        .max(1)
+        .saturating_add(num_outputs.saturating_sub(1));
     TX_FEE.saturating_mul(units.max(1) as u64)
 }
 
@@ -966,7 +1198,11 @@ pub fn select_utxos_with_fee<T>(
 /// blake2b-256 of a preimage, matching the hash OpBlake2b computes on-chain. Used
 /// to build a hashlock's `hash` from a chosen secret.
 pub fn blake2b256(data: &[u8]) -> [u8; 32] {
-    let digest = blake2b_simd::Params::new().hash_length(32).to_state().update(data).finalize();
+    let digest = blake2b_simd::Params::new()
+        .hash_length(32)
+        .to_state()
+        .update(data)
+        .finalize();
     let mut out = [0u8; 32];
     out.copy_from_slice(digest.as_bytes());
     out
@@ -1009,15 +1245,20 @@ pub fn build_p2sh_signature_script(
     extra_after_sig: &[Vec<u8>],
 ) -> BResult<Vec<u8>> {
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
         .map_err(|e| format!("sighash->msg: {e}"))?;
     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
     // OpData65 (== 65) pushes the 65-byte (64 sig + 1 sighashtype) signature value.
-    let mut satisfier: Vec<u8> = std::iter::once(65u8).chain(sig).chain([SIG_HASH_ALL.to_u8()]).collect();
+    let mut satisfier: Vec<u8> = std::iter::once(65u8)
+        .chain(sig)
+        .chain([SIG_HASH_ALL.to_u8()])
+        .collect();
     for extra in extra_after_sig {
         let mut b = ScriptBuilder::new();
-        b.add_data(extra).map_err(|e| format!("satisfier extra push: {e}"))?;
+        b.add_data(extra)
+            .map_err(|e| format!("satisfier extra push: {e}"))?;
         satisfier.extend_from_slice(&b.drain());
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
@@ -1056,7 +1297,10 @@ fn parse_redeem_pubkeys(redeem: &[u8], checksig_only: bool) -> Vec<[u8; 32]> {
 }
 
 fn push65(sig: &[u8; 64]) -> Vec<u8> {
-    std::iter::once(65u8).chain(sig.iter().copied()).chain([SIG_HASH_ALL.to_u8()]).collect()
+    std::iter::once(65u8)
+        .chain(sig.iter().copied())
+        .chain([SIG_HASH_ALL.to_u8()])
+        .collect()
 }
 
 /// Assemble the input signature_script for a multi-party P2SH spend from EXTERNALLY
@@ -1087,7 +1331,8 @@ fn assemble_noncustodial_satisfier(
     // (a flat 2-of-2 with no branch) and the 8 plain primitives.
     winner_is_a: bool,
 ) -> BResult<Vec<u8>> {
-    let need_solo = || solo.ok_or_else(|| "this spend needs one signature (signature_hex)".to_string());
+    let need_solo =
+        || solo.ok_or_else(|| "this spend needs one signature (signature_hex)".to_string());
     let sig_for = |pk: &[u8; 32]| -> Option<[u8; 64]> { sigs.get(&hex::encode(pk)).copied() };
     let preimage_push = |p: &[u8]| -> BResult<Vec<u8>> {
         let mut b = ScriptBuilder::new();
@@ -1133,16 +1378,27 @@ fn assemble_noncustodial_satisfier(
         "channel" => {
             if branch_refund {
                 // refund: p1 (members[0]) sig then OP_FALSE.
-                let s = members.first().and_then(|p| sig_for(p)).or_else(|| solo.copied())
-                    .ok_or_else(|| "channel refund needs the funder (player1) signature".to_string())?;
+                let s = members
+                    .first()
+                    .and_then(|p| sig_for(p))
+                    .or_else(|| solo.copied())
+                    .ok_or_else(|| {
+                        "channel refund needs the funder (player1) signature".to_string()
+                    })?;
                 satisfier.extend(push65(&s));
                 satisfier.push(OpFalse);
             } else {
                 // cooperative close: bottom->top sig_p2, sig_p1, OP_TRUE.
-                let p1 = members.first().ok_or_else(|| "channel redeem missing player1".to_string())?;
-                let p2 = members.get(1).ok_or_else(|| "channel redeem missing player2".to_string())?;
-                let s2 = sig_for(p2).ok_or_else(|| "channel close needs player2's signature".to_string())?;
-                let s1 = sig_for(p1).ok_or_else(|| "channel close needs player1's signature".to_string())?;
+                let p1 = members
+                    .first()
+                    .ok_or_else(|| "channel redeem missing player1".to_string())?;
+                let p2 = members
+                    .get(1)
+                    .ok_or_else(|| "channel redeem missing player2".to_string())?;
+                let s2 = sig_for(p2)
+                    .ok_or_else(|| "channel close needs player2's signature".to_string())?;
+                let s1 = sig_for(p1)
+                    .ok_or_else(|| "channel close needs player1's signature".to_string())?;
                 satisfier.extend(push65(&s2));
                 satisfier.extend(push65(&s1));
                 satisfier.push(OpTrue);
@@ -1160,12 +1416,16 @@ fn assemble_noncustodial_satisfier(
         "oracle" | "oracle_enforced" => {
             // redeem = multisig([oracle, winner], 2). OpCheckMultiSig pops sigs in pubkey
             // (script) order, so push oracle first then winner. members = [oracle, winner].
-            let osig = oracle_sig.ok_or_else(|| "oracle payout needs the server oracle signature".to_string())?;
+            let osig = oracle_sig
+                .ok_or_else(|| "oracle payout needs the server oracle signature".to_string())?;
             satisfier.extend(push65(osig));
             // The winner's browser signature, keyed by the second member's x-only pubkey,
             // or supplied as the solo signature.
-            let winner_pk = members.get(1).ok_or_else(|| "oracle redeem missing the winner pubkey".to_string())?;
-            let wsig = sig_for(winner_pk).or_else(|| solo.copied())
+            let winner_pk = members
+                .get(1)
+                .ok_or_else(|| "oracle redeem missing the winner pubkey".to_string())?;
+            let wsig = sig_for(winner_pk)
+                .or_else(|| solo.copied())
                 .ok_or_else(|| "oracle payout needs the winner's browser signature".to_string())?;
             satisfier.extend(push65(&wsig));
         }
@@ -1174,11 +1434,19 @@ fn assemble_noncustodial_satisfier(
             // members (checksig_only) = [oracle, player_a, player_b]; the leading oracle push
             // is followed by OpCheckSigVerify so it IS included, hence the player keys are at
             // indices 1 and 2.
-            let osig = oracle_sig.ok_or_else(|| "oracle_escrow payout needs the server oracle signature".to_string())?;
-            let winner_pk = members.get(if winner_is_a { 1 } else { 2 })
-                .ok_or_else(|| "oracle_escrow redeem missing the winning player's pubkey".to_string())?;
-            let wsig = sig_for(winner_pk).or_else(|| solo.copied())
-                .ok_or_else(|| "oracle_escrow payout needs the winning player's browser signature".to_string())?;
+            let osig = oracle_sig.ok_or_else(|| {
+                "oracle_escrow payout needs the server oracle signature".to_string()
+            })?;
+            let winner_pk = members
+                .get(if winner_is_a { 1 } else { 2 })
+                .ok_or_else(|| {
+                    "oracle_escrow redeem missing the winning player's pubkey".to_string()
+                })?;
+            let wsig = sig_for(winner_pk)
+                .or_else(|| solo.copied())
+                .ok_or_else(|| {
+                    "oracle_escrow payout needs the winning player's browser signature".to_string()
+                })?;
             satisfier.extend(push65(&wsig));
             satisfier.push(if winner_is_a { OpTrue } else { OpFalse });
             satisfier.extend(push65(osig));
@@ -1192,24 +1460,33 @@ fn assemble_noncustodial_satisfier(
             if branch_refund {
                 // Outer ELSE: <refund_sig> OP_FALSE. members[2] is the refund key (after the
                 // 2-of-2 multisig's [oracle, winner]); accept solo for the funder's wallet sig.
-                let rsig = members.get(2).and_then(|p| sig_for(p)).or_else(|| solo.copied()).ok_or_else(|| {
-                    "oracle_enforced_refundable refund needs the funder/refund key signature".to_string()
-                })?;
+                let rsig = members
+                    .get(2)
+                    .and_then(|p| sig_for(p))
+                    .or_else(|| solo.copied())
+                    .ok_or_else(|| {
+                        "oracle_enforced_refundable refund needs the funder/refund key signature"
+                            .to_string()
+                    })?;
                 satisfier.extend(push65(&rsig));
                 satisfier.push(OpFalse);
             } else {
                 // Outer IF: the existing oracle_enforced 2-of-2 [oracle, winner], then OP_TRUE.
                 // OpCheckMultiSig pops sigs in pubkey (script) order: oracle first, then winner.
                 let osig = oracle_sig.ok_or_else(|| {
-                    "oracle_enforced_refundable payout needs the server oracle signature".to_string()
+                    "oracle_enforced_refundable payout needs the server oracle signature"
+                        .to_string()
                 })?;
                 satisfier.extend(push65(osig));
                 let winner_pk = members.get(1).ok_or_else(|| {
                     "oracle_enforced_refundable redeem missing the winner pubkey".to_string()
                 })?;
-                let wsig = sig_for(winner_pk).or_else(|| solo.copied()).ok_or_else(|| {
-                    "oracle_enforced_refundable payout needs the winner's browser signature".to_string()
-                })?;
+                let wsig = sig_for(winner_pk)
+                    .or_else(|| solo.copied())
+                    .ok_or_else(|| {
+                        "oracle_enforced_refundable payout needs the winner's browser signature"
+                            .to_string()
+                    })?;
                 satisfier.extend(push65(&wsig));
                 satisfier.push(OpTrue);
             }
@@ -1218,9 +1495,14 @@ fn assemble_noncustodial_satisfier(
             if branch_refund {
                 // Outer ELSE: <refund_sig> OP_FALSE. members (checksig_only) =
                 // [oracle, player_a, player_b, refund]; members[3] is the refund key. Accept solo.
-                let rsig = members.get(3).and_then(|p| sig_for(p)).or_else(|| solo.copied()).ok_or_else(|| {
-                    "oracle_escrow_refundable refund needs the funder/refund key signature".to_string()
-                })?;
+                let rsig = members
+                    .get(3)
+                    .and_then(|p| sig_for(p))
+                    .or_else(|| solo.copied())
+                    .ok_or_else(|| {
+                        "oracle_escrow_refundable refund needs the funder/refund key signature"
+                            .to_string()
+                    })?;
                 satisfier.extend(push65(&rsig));
                 satisfier.push(OpFalse);
             } else {
@@ -1229,9 +1511,12 @@ fn assemble_noncustodial_satisfier(
                 let osig = oracle_sig.ok_or_else(|| {
                     "oracle_escrow_refundable payout needs the server oracle signature".to_string()
                 })?;
-                let winner_pk = members.get(if winner_is_a { 1 } else { 2 }).ok_or_else(|| {
-                    "oracle_escrow_refundable redeem missing the winning player's pubkey".to_string()
-                })?;
+                let winner_pk = members
+                    .get(if winner_is_a { 1 } else { 2 })
+                    .ok_or_else(|| {
+                        "oracle_escrow_refundable redeem missing the winning player's pubkey"
+                            .to_string()
+                    })?;
                 let wsig = sig_for(winner_pk).or_else(|| solo.copied()).ok_or_else(|| {
                     "oracle_escrow_refundable payout needs the winning player's browser signature".to_string()
                 })?;
@@ -1334,7 +1619,8 @@ fn default_network() -> String {
 /// Parse a kaspa address into its ScriptPublicKey (P2PK schnorr=32 / P2PK ecdsa=33
 /// not handled here / P2SH=via address). Mirrors signer.rs for the 32-byte case.
 fn script_pub_key_from_address(addr_str: &str) -> BResult<ScriptPublicKey> {
-    let addr = Address::try_from(addr_str).map_err(|e| format!("invalid address '{addr_str}': {e}"))?;
+    let addr =
+        Address::try_from(addr_str).map_err(|e| format!("invalid address '{addr_str}': {e}"))?;
     let payload = addr.payload.as_slice();
     let script_vec: Vec<u8> = match payload.len() {
         32 => {
@@ -1363,12 +1649,19 @@ async fn client_for_network(network: &str) -> BResult<Arc<KaspaRpcClient>> {
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
     } else if network == "mainnet" || network == "mainnet-1" {
-        std::env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+        std::env::var("KASPA_WRPC_URL_MAINNET")
+            .unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
     } else {
         std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
     };
-    let c = KaspaRpcClient::new(kaspa_wrpc_client::WrpcEncoding::Borsh, Some(&wrpc), None, None, None)
-        .map_err(|e| format!("wRPC client create failed for {network}: {e}"))?;
+    let c = KaspaRpcClient::new(
+        kaspa_wrpc_client::WrpcEncoding::Borsh,
+        Some(&wrpc),
+        None,
+        None,
+        None,
+    )
+    .map_err(|e| format!("wRPC client create failed for {network}: {e}"))?;
     // BOUND the connect: the default ConnectOptions block-and-retry would hang FOREVER
     // if the node is down (this exact hang took out prepare-spend during a node outage).
     // Cap it so the handler returns a clear error instead of blocking the request.
@@ -1399,7 +1692,10 @@ fn resolve_signing_key(
     // prepare/submit flow. Accepting a raw mainnet key here would be the backend half of a custody
     // breach (the advertised "your key never leaves your device" guarantee). Refuse it; testnet
     // dev/demo flows are unaffected.
-    if (network == "mainnet" || network == "mainnet-1") && !use_dev_mode && !private_key_hex.trim().is_empty() {
+    if (network == "mainnet" || network == "mainnet-1")
+        && !use_dev_mode
+        && !private_key_hex.trim().is_empty()
+    {
         return Err(
             "mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into(),
         );
@@ -1407,7 +1703,9 @@ fn resolve_signing_key(
     let (hexkey, address) = if use_dev_mode {
         // Dev-deployer keys come from the environment (never source); `?` surfaces a
         // clear error if the env var is missing.
-        if addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12 || addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10 {
+        if addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN12
+            || addr == dev_wallets::DEV_WALLET_2_ADDRESS_TN10
+        {
             let a = if network == "testnet-10" {
                 dev_wallets::DEV_WALLET_2_ADDRESS_TN10
             } else {
@@ -1478,7 +1776,10 @@ fn dev_keys(network: &str) -> BResult<Vec<[u8; 32]>> {
     let k1 = dev_wallets::dev_private_key(1, network)?;
     let k2 = dev_wallets::dev_private_key(2, network)?;
     let dec = |h: &str| -> BResult<[u8; 32]> {
-        hex::decode(h.trim()).ok().and_then(|b| b.try_into().ok()).ok_or_else(|| "bad dev key".to_string())
+        hex::decode(h.trim())
+            .ok()
+            .and_then(|b| b.try_into().ok())
+            .ok_or_else(|| "bad dev key".to_string())
     };
     Ok(vec![dec(k1.as_str())?, dec(k2.as_str())?])
 }
@@ -1525,11 +1826,15 @@ pub async fn p2sh_deploy_handler(
         ));
     }
 
-    let (seckey, deployer_addr_str) =
-        match resolve_signing_key(&req.network, &req.deployer_addr, &req.private_key_hex, req.use_dev_mode) {
-            Ok(v) => v,
-            Err(e) => return err(e),
-        };
+    let (seckey, deployer_addr_str) = match resolve_signing_key(
+        &req.network,
+        &req.deployer_addr,
+        &req.private_key_hex,
+        req.use_dev_mode,
+    ) {
+        Ok(v) => v,
+        Err(e) => return err(e),
+    };
 
     // Redeem pubkey = the deployer's own key (so the deployer can redeem).
     let xonly = match xonly_from_seckey(&seckey) {
@@ -1854,7 +2159,10 @@ pub async fn p2sh_deploy_handler(
         Ok(a) => a,
         Err(e) => return err(format!("invalid deployer address: {e}")),
     };
-    let utxos = match client.get_utxos_by_addresses(vec![deployer_addr.clone()]).await {
+    let utxos = match client
+        .get_utxos_by_addresses(vec![deployer_addr.clone()])
+        .await
+    {
         Ok(u) => u,
         Err(e) => return err(format!("UTXO fetch failed: {e}")),
     };
@@ -1866,10 +2174,11 @@ pub async fn p2sh_deploy_handler(
     // largest-first. The lockable amount is now bounded only by the deployer's TOTAL
     // balance, not their single biggest coin. All selected UTXOs are the deployer's own
     // P2PK, so the one deployer key signs every input (sign_with_multiple_v2 below).
-    let (selected, fee) = match select_utxos_with_fee(&utxos, stake_sompi, 1, |u| u.utxo_entry.amount) {
-        Ok(v) => v,
-        Err(e) => return err(e),
-    };
+    let (selected, fee) =
+        match select_utxos_with_fee(&utxos, stake_sompi, 1, |u| u.utxo_entry.amount) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
     let total_input: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
     let deployer_script = selected[0].utxo_entry.script_public_key.clone();
     let mut change = total_input - stake_sompi - fee;
@@ -1879,9 +2188,15 @@ pub async fn p2sh_deploy_handler(
     }
 
     // Output 0 = stake LOCKED to the P2SH script. Output 1 (optional) = change to deployer.
-    let mut outputs = vec![TransactionOutput { value: stake_sompi, script_public_key: p2sh_spk }];
+    let mut outputs = vec![TransactionOutput {
+        value: stake_sompi,
+        script_public_key: p2sh_spk,
+    }];
     if change > 0 {
-        outputs.push(TransactionOutput { value: change, script_public_key: deployer_script });
+        outputs.push(TransactionOutput {
+            value: change,
+            script_public_key: deployer_script,
+        });
     }
 
     // One input per selected UTXO; each is the deployer's P2PK so sig_op_count = 1.
@@ -1951,7 +2266,14 @@ pub async fn p2sh_deploy_handler(
             let tx_id_str = tx_id.to_string();
             let redeem_hex = hex::encode(&redeem);
             let _ = db::insert_p2sh_covenant(
-                &db, &tx_id_str, &req.network, &p2sh_addr, &redeem_hex, &redeem_kind, stake_sompi, 0,
+                &db,
+                &tx_id_str,
+                &req.network,
+                &p2sh_addr,
+                &redeem_hex,
+                &redeem_kind,
+                stake_sompi,
+                0,
                 &deployer_addr_str,
             );
 
@@ -1978,12 +2300,28 @@ pub async fn p2sh_deploy_handler(
                     stake_sompi as f64 / 1e8
                 )
             } else {
-                format!("Script-enforced {} covenant, {} KAS locked", req.redeem.kind, stake_sompi as f64 / 1e8)
+                format!(
+                    "Script-enforced {} covenant, {} KAS locked",
+                    req.redeem.kind,
+                    stake_sompi as f64 / 1e8
+                )
             };
             let _ = db::insert_covenant(
-                &db, &cid, &p2sh_addr, stake_sompi, &crate::compute_script_hash(&p2sh_script_hex),
-                &p2sh_script_hex, &ctype, "P2SH Commitments", &deployer_addr_str, &summary, 0,
-                "EXPLORER", &summary, &recv, &req.network,
+                &db,
+                &cid,
+                &p2sh_addr,
+                stake_sompi,
+                &crate::compute_script_hash(&p2sh_script_hex),
+                &p2sh_script_hex,
+                &ctype,
+                "P2SH Commitments",
+                &deployer_addr_str,
+                &summary,
+                0,
+                "EXPLORER",
+                &summary,
+                &recv,
+                &req.network,
             );
             info!(
                 "P2SH covenant deployed: tx={} kind={} addr={} locked={} sompi",
@@ -2106,7 +2444,10 @@ pub async fn p2sh_spend_handler(
                 network: req.network.clone(),
                 p2sh_address: addr,
                 redeem_script_hex: rh,
-                redeem_kind: req.redeem_kind.clone().unwrap_or_else(|| "singlesig".to_string()),
+                redeem_kind: req
+                    .redeem_kind
+                    .clone()
+                    .unwrap_or_else(|| "singlesig".to_string()),
                 amount_sompi: 0,
                 outpoint_index: req.outpoint_index.unwrap_or(0),
                 owner_addr: req.destination_addr.clone(),
@@ -2121,15 +2462,21 @@ pub async fn p2sh_spend_handler(
     // Redeem-kind dispatch: multisig (N keys), timelock (single owner key + lock_time),
     // singlesig/hashlock (single owner key).
     let is_multisig = cov.redeem_kind.starts_with("multisig");
-    let lock_daa: Option<u64> =
-        cov.redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
+    let lock_daa: Option<u64> = cov
+        .redeem_kind
+        .strip_prefix("timelock:")
+        .and_then(|s| s.parse::<u64>().ok());
     let is_htlc = cov.redeem_kind.starts_with("htlc:");
-    let htlc_lock_daa: Option<u64> =
-        cov.redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
+    let htlc_lock_daa: Option<u64> = cov
+        .redeem_kind
+        .strip_prefix("htlc:")
+        .and_then(|s| s.parse::<u64>().ok());
     let htlc_claim = req.htlc_mode.as_deref() != Some("refund");
     let is_channel = cov.redeem_kind.starts_with("channel");
-    let channel_lock_daa: Option<u64> =
-        cov.redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
+    let channel_lock_daa: Option<u64> = cov
+        .redeem_kind
+        .strip_prefix("channel:")
+        .and_then(|s| s.parse::<u64>().ok());
     // Channel close mode: "cooperative" (both players co-sign the IF branch, the default)
     // or "refund" (the funder p1 reclaims via the ELSE timeout branch after lock_daa).
     let channel_cooperative = req.channel_mode.as_deref() != Some("refund");
@@ -2181,7 +2528,10 @@ pub async fn p2sh_spend_handler(
         let seckeys: Vec<[u8; 32]> = if let Some(keys) = &req.signer_keys_hex {
             let mut v = Vec::new();
             for k in keys {
-                match hex::decode(k.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                match hex::decode(k.trim().trim_start_matches("0x"))
+                    .ok()
+                    .and_then(|b| b.try_into().ok())
+                {
                     Some(b) => v.push(b),
                     None => return err("bad signer key hex (need 64 hex chars)".into()),
                 }
@@ -2210,7 +2560,10 @@ pub async fn p2sh_spend_handler(
         let seckeys: Vec<[u8; 32]> = if let Some(keys) = &req.signer_keys_hex {
             let mut v = Vec::new();
             for k in keys {
-                match hex::decode(k.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                match hex::decode(k.trim().trim_start_matches("0x"))
+                    .ok()
+                    .and_then(|b| b.try_into().ok())
+                {
                     Some(b) => v.push(b),
                     None => return err("bad signer key hex (need 64 hex chars)".into()),
                 }
@@ -2241,12 +2594,23 @@ pub async fn p2sh_spend_handler(
             .and_then(|v| v.first())
             .cloned()
             .filter(|s| !s.trim().is_empty())
-            .or_else(|| if req.private_key_hex.trim().is_empty() { None } else { Some(req.private_key_hex.clone()) });
+            .or_else(|| {
+                if req.private_key_hex.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.private_key_hex.clone())
+                }
+            });
         let sk_hex = match sk_hex {
             Some(s) => s,
-            None => return err("HTLC spend requires the claimer/refunder key (private_key_hex)".into()),
+            None => {
+                return err("HTLC spend requires the claimer/refunder key (private_key_hex)".into())
+            }
         };
-        let bytes: [u8; 32] = match hex::decode(sk_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+        let bytes: [u8; 32] = match hex::decode(sk_hex.trim().trim_start_matches("0x"))
+            .ok()
+            .and_then(|b| b.try_into().ok())
+        {
             Some(b) => b,
             None => return err("bad HTLC signer key (need 64 hex chars)".into()),
         };
@@ -2260,7 +2624,10 @@ pub async fn p2sh_spend_handler(
         let seckeys: Vec<[u8; 32]> = if let Some(keys) = &req.signer_keys_hex {
             let mut v = Vec::new();
             for k in keys {
-                match hex::decode(k.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+                match hex::decode(k.trim().trim_start_matches("0x"))
+                    .ok()
+                    .and_then(|b| b.try_into().ok())
+                {
                     Some(b) => v.push(b),
                     None => return err("bad channel signer key hex (need 64 hex chars)".into()),
                 }
@@ -2278,7 +2645,9 @@ pub async fn p2sh_spend_handler(
             return err("channel spend needs the funder (player1) key".into());
         }
         if channel_cooperative && seckeys.len() < 2 {
-            return err("cooperative channel close needs BOTH player keys [player1, player2]".into());
+            return err(
+                "cooperative channel close needs BOTH player keys [player1, player2]".into(),
+            );
         }
         let mut kps = Vec::new();
         for sk in &seckeys {
@@ -2298,11 +2667,22 @@ pub async fn p2sh_spend_handler(
             .and_then(|v| v.first())
             .cloned()
             .filter(|s| !s.trim().is_empty())
-            .or_else(|| if req.private_key_hex.trim().is_empty() { None } else { Some(req.private_key_hex.clone()) });
+            .or_else(|| {
+                if req.private_key_hex.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.private_key_hex.clone())
+                }
+            });
         let bytes: [u8; 32] = if let Some(s) = explicit {
-            match hex::decode(s.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+            match hex::decode(s.trim().trim_start_matches("0x"))
+                .ok()
+                .and_then(|b| b.try_into().ok())
+            {
                 Some(b) => b,
-                None => return err("bad binary_oracle_select signer key (need 64 hex chars)".into()),
+                None => {
+                    return err("bad binary_oracle_select signer key (need 64 hex chars)".into())
+                }
             }
         } else if req.use_dev_mode {
             match dev_keys(&req.network) {
@@ -2311,12 +2691,20 @@ pub async fn p2sh_spend_handler(
                     // so a bundle leg won by either dev wallet settles in dev mode. The redeem
                     // layout is fixed: winner_a = redeem[37..69], winner_b = redeem[108..140].
                     let want: Option<[u8; 32]> = match bos_branch {
-                        BinarySelectBranch::RevealA => redeem.get(37..69).and_then(|s| s.try_into().ok()),
-                        BinarySelectBranch::RevealB => redeem.get(108..140).and_then(|s| s.try_into().ok()),
+                        BinarySelectBranch::RevealA => {
+                            redeem.get(37..69).and_then(|s| s.try_into().ok())
+                        }
+                        BinarySelectBranch::RevealB => {
+                            redeem.get(108..140).and_then(|s| s.try_into().ok())
+                        }
                         BinarySelectBranch::Refund => None,
                     };
-                    want.and_then(|w| ks.iter().copied().find(|k| xonly_from_seckey(k).map(|x| x == w).unwrap_or(false)))
-                        .unwrap_or(ks[0])
+                    want.and_then(|w| {
+                        ks.iter()
+                            .copied()
+                            .find(|k| xonly_from_seckey(k).map(|x| x == w).unwrap_or(false))
+                    })
+                    .unwrap_or(ks[0])
                 }
                 Err(e) => return err(e),
             }
@@ -2328,11 +2716,15 @@ pub async fn p2sh_spend_handler(
             Err(e) => return err(format!("bad key: {e}")),
         }
     } else {
-        let (seckey, _addr) =
-            match resolve_signing_key(&req.network, &cov.owner_addr, &req.private_key_hex, req.use_dev_mode) {
-                Ok(v) => v,
-                Err(e) => return err(e),
-            };
+        let (seckey, _addr) = match resolve_signing_key(
+            &req.network,
+            &cov.owner_addr,
+            &req.private_key_hex,
+            req.use_dev_mode,
+        ) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
         match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &seckey) {
             Ok(k) => vec![k],
             Err(e) => return err(format!("bad key: {e}")),
@@ -2357,7 +2749,12 @@ pub async fn p2sh_spend_handler(
     });
     let utxo = match utxo {
         Some(u) => u,
-        None => return err("P2SH UTXO not found on-chain (unconfirmed, already spent, or wrong network)".into()),
+        None => {
+            return err(
+                "P2SH UTXO not found on-chain (unconfirmed, already spent, or wrong network)"
+                    .into(),
+            )
+        }
     };
     let amount = utxo.utxo_entry.amount;
     if amount <= TX_FEE {
@@ -2371,11 +2768,15 @@ pub async fn p2sh_spend_handler(
 
     // For a relative timelock (rcsv:N), the spend input's sequence must satisfy
     // OpCheckSequenceVerify (input.sequence >= N). Every other kind uses 0 (non-final).
-    let spend_sequence: u64 = if is_binary_select && matches!(bos_branch, BinarySelectBranch::Refund) {
-        bos_min_seq // CSV refund branch: input.sequence must satisfy OpCheckSequenceVerify
-    } else {
-        cov.redeem_kind.strip_prefix("rcsv:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0)
-    };
+    let spend_sequence: u64 =
+        if is_binary_select && matches!(bos_branch, BinarySelectBranch::Refund) {
+            bos_min_seq // CSV refund branch: input.sequence must satisfy OpCheckSequenceVerify
+        } else {
+            cov.redeem_kind
+                .strip_prefix("rcsv:")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0)
+        };
     let inputs = vec![TransactionInput {
         previous_outpoint: TransactionOutpoint {
             transaction_id: utxo.outpoint.transaction_id,
@@ -2389,7 +2790,10 @@ pub async fn p2sh_spend_handler(
         // (CheckSigVerify + CheckSig in IF, CheckSig in ELSE). Single-key redeems use 1.
         sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(1, |k| k.sig_op_count()),
     }];
-    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let outputs = vec![TransactionOutput {
+        value: amount - TX_FEE,
+        script_public_key: dest_script,
+    }];
     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
     // so the crawler does not misread a redeem spend as a new covenant.
     let spend_payload = b"covex-p2sh-spend".to_vec();
@@ -2397,9 +2801,21 @@ pub async fn p2sh_spend_handler(
     // must have reached it, else the node rejects the tx as non-final). HTLC CLAIMS do
     // not touch the timelock branch, so they keep lock_time 0.
     let spend_lock_time = lock_daa
-        .or(if is_htlc && !htlc_claim { htlc_lock_daa } else { None })
-        .or(if is_channel && !channel_cooperative { channel_lock_daa } else { None })
-        .or(if is_timedecay && td_after { Some(td_lock_daa) } else { None })
+        .or(if is_htlc && !htlc_claim {
+            htlc_lock_daa
+        } else {
+            None
+        })
+        .or(if is_channel && !channel_cooperative {
+            channel_lock_daa
+        } else {
+            None
+        })
+        .or(if is_timedecay && td_after {
+            Some(td_lock_daa)
+        } else {
+            None
+        })
         .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
@@ -2434,13 +2850,24 @@ pub async fn p2sh_spend_handler(
         } else {
             None
         };
-        match build_htlc_signature_script(&signable, 0, &keypairs[0], &redeem, htlc_claim, preimage.as_deref()) {
+        match build_htlc_signature_script(
+            &signable,
+            0,
+            &keypairs[0],
+            &redeem,
+            htlc_claim,
+            preimage.as_deref(),
+        ) {
             Ok(s) => s,
             Err(e) => return err(format!("build htlc spend script: {e}")),
         }
     } else if is_channel {
         let kp1 = &keypairs[0];
-        let kp2 = if channel_cooperative { keypairs.get(1) } else { None };
+        let kp2 = if channel_cooperative {
+            keypairs.get(1)
+        } else {
+            None
+        };
         match build_channel_signature_script(&signable, 0, kp1, kp2, channel_cooperative, &redeem) {
             Ok(s) => s,
             Err(e) => return err(format!("build channel spend script: {e}")),
@@ -2460,17 +2887,28 @@ pub async fn p2sh_spend_handler(
             Err(e) => return err(format!("build timedecay spend script: {e}")),
         }
     } else if is_binary_select {
-        let preimage: Option<Vec<u8>> = match bos_branch {
-            BinarySelectBranch::Refund => None,
-            _ => match &req.preimage_hex {
-                Some(p) => match hex::decode(p.trim()) {
-                    Ok(b) => Some(b),
-                    Err(e) => return err(format!("bad preimage_hex: {e}")),
+        let preimage: Option<Vec<u8>> =
+            match bos_branch {
+                BinarySelectBranch::Refund => None,
+                _ => match &req.preimage_hex {
+                    Some(p) => match hex::decode(p.trim()) {
+                        Ok(b) => Some(b),
+                        Err(e) => return err(format!("bad preimage_hex: {e}")),
+                    },
+                    None => return err(
+                        "binary_oracle_select reveal requires preimage_hex (the revealed secret)"
+                            .into(),
+                    ),
                 },
-                None => return err("binary_oracle_select reveal requires preimage_hex (the revealed secret)".into()),
-            },
-        };
-        match build_binary_oracle_select_signature_script(&signable, 0, &keypairs[0], &redeem, bos_branch, preimage.as_deref()) {
+            };
+        match build_binary_oracle_select_signature_script(
+            &signable,
+            0,
+            &keypairs[0],
+            &redeem,
+            bos_branch,
+            preimage.as_deref(),
+        ) {
             Ok(s) => s,
             Err(e) => return err(format!("build binary_oracle_select spend script: {e}")),
         }
@@ -2686,7 +3124,10 @@ pub async fn oracle_payout_handler(
     // (A) or 2 (B) in dev mode, else the explicit private_key_hex.
     let winner_seckey: [u8; 32] = if is_escrow {
         if !req.private_key_hex.trim().is_empty() {
-            match hex::decode(req.private_key_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+            match hex::decode(req.private_key_hex.trim().trim_start_matches("0x"))
+                .ok()
+                .and_then(|b| b.try_into().ok())
+            {
                 Some(b) => b,
                 None => return err("bad winning-player key (need 64 hex chars)".into()),
             }
@@ -2699,15 +3140,21 @@ pub async fn oracle_payout_handler(
             return err("oracle_escrow payout requires the winning player's private_key_hex (or use_dev_mode)".into());
         }
     } else {
-        match resolve_signing_key(&req.network, &req.destination_addr, &req.private_key_hex, req.use_dev_mode) {
+        match resolve_signing_key(
+            &req.network,
+            &req.destination_addr,
+            &req.private_key_hex,
+            req.use_dev_mode,
+        ) {
             Ok((sk, _)) => sk,
             Err(e) => return err(e),
         }
     };
-    let winner_kp = match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &winner_seckey) {
-        Ok(k) => k,
-        Err(e) => return err(format!("bad winner key: {e}")),
-    };
+    let winner_kp =
+        match secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &winner_seckey) {
+            Ok(k) => k,
+            Err(e) => return err(format!("bad winner key: {e}")),
+        };
 
     let client = match client_for_network(&req.network).await {
         Ok(c) => c,
@@ -2721,12 +3168,13 @@ pub async fn oracle_payout_handler(
         Ok(u) => u,
         Err(e) => return err(format!("UTXO fetch failed: {e}")),
     };
-    let utxo = match utxos
-        .iter()
-        .find(|u| u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index)
-    {
+    let utxo = match utxos.iter().find(|u| {
+        u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index
+    }) {
         Some(u) => u,
-        None => return err("covenant UTXO not found on-chain (unconfirmed or already spent)".into()),
+        None => {
+            return err("covenant UTXO not found on-chain (unconfirmed or already spent)".into())
+        }
     };
     let amount = utxo.utxo_entry.amount;
     if amount <= TX_FEE {
@@ -2749,7 +3197,10 @@ pub async fn oracle_payout_handler(
         // in the redeem (OpCheckSigVerify + both branches' OpCheckSig = 3).
         sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(2, |k| k.sig_op_count()),
     }];
-    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let outputs = vec![TransactionOutput {
+        value: amount - TX_FEE,
+        script_public_key: dest_script,
+    }];
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
@@ -2768,7 +3219,14 @@ pub async fn oracle_payout_handler(
     let mut signable = SignableTransaction::with_entries(unsigned, entries);
     let oracle_kp = crate::oracle::oracle_keypair();
     let sig_script = if is_escrow {
-        match build_oracle_escrow_signature_script(&signable, 0, &oracle_kp, &winner_kp, winner_is_a, &redeem) {
+        match build_oracle_escrow_signature_script(
+            &signable,
+            0,
+            &oracle_kp,
+            &winner_kp,
+            winner_is_a,
+            &redeem,
+        ) {
             Ok(s) => s,
             Err(e) => return err(format!("build oracle escrow payout script: {e}")),
         }
@@ -2787,7 +3245,10 @@ pub async fn oracle_payout_handler(
         Ok(tx_id) => {
             let spent = tx_id.to_string();
             let _ = db::mark_p2sh_spent(&db, &cov.tx_id, &spent);
-            info!("Oracle-enforced payout: covenant {} released in {}", cov.tx_id, spent);
+            info!(
+                "Oracle-enforced payout: covenant {} released in {}",
+                cov.tx_id, spent
+            );
             Json(serde_json::json!({
                 "success": true,
                 "payout_tx_id": spent,
@@ -2918,7 +3379,8 @@ struct PendingOraclePayout {
     created_at: i64,
 }
 
-fn oracle_payout_sessions() -> &'static Mutex<std::collections::HashMap<String, PendingOraclePayout>> {
+fn oracle_payout_sessions() -> &'static Mutex<std::collections::HashMap<String, PendingOraclePayout>>
+{
     static S: std::sync::OnceLock<Mutex<std::collections::HashMap<String, PendingOraclePayout>>> =
         std::sync::OnceLock::new();
     S.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
@@ -2947,10 +3409,10 @@ fn persisted_from_pending(
     session_id: &str,
     p: &PendingOraclePayout,
 ) -> Result<db::PersistedOraclePayout, String> {
-    let unsigned_tx_json = serde_json::to_string(&p.unsigned_tx)
-        .map_err(|e| format!("serialize unsigned tx: {e}"))?;
-    let entry_json = serde_json::to_string(&p.entry)
-        .map_err(|e| format!("serialize utxo entry: {e}"))?;
+    let unsigned_tx_json =
+        serde_json::to_string(&p.unsigned_tx).map_err(|e| format!("serialize unsigned tx: {e}"))?;
+    let entry_json =
+        serde_json::to_string(&p.entry).map_err(|e| format!("serialize utxo entry: {e}"))?;
     let member_pubkeys_hex: Vec<String> = p.member_pubkeys.iter().map(hex::encode).collect();
     let member_pubkeys_json = serde_json::to_string(&member_pubkeys_hex)
         .map_err(|e| format!("serialize member pubkeys: {e}"))?;
@@ -2981,8 +3443,8 @@ fn persisted_from_pending(
 fn pending_from_persisted(s: db::PersistedOraclePayout) -> Result<PendingOraclePayout, String> {
     let unsigned_tx: Transaction = serde_json::from_str(&s.unsigned_tx_json)
         .map_err(|e| format!("deserialize unsigned tx: {e}"))?;
-    let entry: UtxoEntry = serde_json::from_str(&s.entry_json)
-        .map_err(|e| format!("deserialize utxo entry: {e}"))?;
+    let entry: UtxoEntry =
+        serde_json::from_str(&s.entry_json).map_err(|e| format!("deserialize utxo entry: {e}"))?;
     let redeem = hex::decode(&s.redeem_hex).map_err(|e| format!("decode redeem: {e}"))?;
     let committed_p2sh_script =
         hex::decode(&s.committed_p2sh_hex).map_err(|e| format!("decode committed p2sh: {e}"))?;
@@ -3123,7 +3585,15 @@ pub async fn prepare_oracle_payout_handler(
     let member_pubkeys: Vec<[u8; 32]> = parse_redeem_pubkeys(&redeem, is_escrow);
     // The winner member: oracle_enforced -> index 1 (after oracle); oracle_escrow -> player A
     // at index 1 or player B at index 2.
-    let winner_idx = if is_escrow { if winner_is_a { 1 } else { 2 } } else { 1 };
+    let winner_idx = if is_escrow {
+        if winner_is_a {
+            1
+        } else {
+            2
+        }
+    } else {
+        1
+    };
     let winner_xonly = match member_pubkeys.get(winner_idx) {
         Some(pk) => *pk,
         None => return err("could not locate the winner pubkey in the stored redeem".into()),
@@ -3141,12 +3611,13 @@ pub async fn prepare_oracle_payout_handler(
         Ok(u) => u,
         Err(e) => return err(format!("UTXO fetch failed: {e}")),
     };
-    let utxo = match utxos
-        .iter()
-        .find(|u| u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index)
-    {
+    let utxo = match utxos.iter().find(|u| {
+        u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index
+    }) {
         Some(u) => u,
-        None => return err("covenant UTXO not found on-chain (unconfirmed or already spent)".into()),
+        None => {
+            return err("covenant UTXO not found on-chain (unconfirmed or already spent)".into())
+        }
     };
     let amount = utxo.utxo_entry.amount;
     if amount <= TX_FEE {
@@ -3169,12 +3640,16 @@ pub async fn prepare_oracle_payout_handler(
         },
         signature_script: vec![],
         sequence: 0,
-        sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(if is_escrow { 3 } else { 2 }, |k| k.sig_op_count()),
+        sig_op_count: SpendKind::parse(&cov.redeem_kind)
+            .map_or(if is_escrow { 3 } else { 2 }, |k| k.sig_op_count()),
     }];
     // The SOLE output pays the verified winner. The oracle signs the sighash over THIS exact
     // output set, so a winner who later tries to redirect funds changes the sighash and voids
     // the oracle signature - the chain then rejects the spend.
-    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let outputs = vec![TransactionOutput {
+        value: amount - TX_FEE,
+        script_public_key: dest_script,
+    }];
     let unsigned = Transaction::new_non_finalized(
         0,
         inputs,
@@ -3192,7 +3667,8 @@ pub async fn prepare_oracle_payout_handler(
     };
     let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
     let sighash_hex = hex::encode(sig_hash.as_bytes());
 
     // Produce ONLY the oracle's partial signature over the sighash. The winner's half is
@@ -3205,15 +3681,29 @@ pub async fn prepare_oracle_payout_handler(
     };
     let oracle_sig: [u8; 64] = *oracle_kp.sign_schnorr(msg).as_ref();
 
-    let kind_base = if is_escrow { "oracle_escrow".to_string() } else { "oracle_enforced".to_string() };
+    let kind_base = if is_escrow {
+        "oracle_escrow".to_string()
+    } else {
+        "oracle_enforced".to_string()
+    };
     let session_id = uuid::Uuid::new_v4().to_string();
     let now_ts = chrono::Utc::now().timestamp();
     let pending = PendingOraclePayout {
-        network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
-        deploy_tx_id: cov.tx_id.clone(), kind_base, oracle_sig, member_pubkeys,
-        winner_is_a, winner_xonly,
-        committed_txid, committed_index, committed_amount: amount,
-        committed_p2sh_script, p2sh_address: cov.p2sh_address.clone(),
+        network: req.network.clone(),
+        unsigned_tx: unsigned,
+        entry,
+        redeem,
+        deploy_tx_id: cov.tx_id.clone(),
+        kind_base,
+        oracle_sig,
+        member_pubkeys,
+        winner_is_a,
+        winner_xonly,
+        committed_txid,
+        committed_index,
+        committed_amount: amount,
+        committed_p2sh_script,
+        p2sh_address: cov.p2sh_address.clone(),
         created_at: now_ts,
     };
 
@@ -3224,12 +3714,18 @@ pub async fn prepare_oracle_payout_handler(
     // because a winner who received it but whose session was never persisted could be orphaned.
     let persisted = match persisted_from_pending(&session_id, &pending) {
         Ok(p) => p,
-        Err(e) => return err(format!("could not persist payout session, refusing to co-sign: {e}")),
+        Err(e) => {
+            return err(format!(
+                "could not persist payout session, refusing to co-sign: {e}"
+            ))
+        }
     };
     // TTL cleanup of expired rows piggybacks on this write (matches the in-memory 10-min retain).
     let _ = db::cleanup_oracle_payout_sessions(&db, now_ts - 600);
     if let Err(e) = db::insert_oracle_payout_session(&db, &persisted) {
-        return err(format!("could not persist payout session, refusing to co-sign: {e}"));
+        return err(format!(
+            "could not persist payout session, refusing to co-sign: {e}"
+        ));
     }
 
     {
@@ -3300,11 +3796,18 @@ pub async fn submit_oracle_payout_handler(
             }
             match pending_from_persisted(persisted) {
                 Ok(p) => p,
-                Err(e) => return err(format!("could not reconstruct payout session; refusing to broadcast: {e}")),
+                Err(e) => {
+                    return err(format!(
+                        "could not reconstruct payout session; refusing to broadcast: {e}"
+                    ))
+                }
             }
         }
     };
-    let winner_sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok()) {
+    let winner_sig: [u8; 64] = match hex::decode(req.signature_hex.trim().trim_start_matches("0x"))
+        .ok()
+        .and_then(|b| b.try_into().ok())
+    {
         Some(s) => s,
         None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
     };
@@ -3353,14 +3856,21 @@ pub async fn submit_oracle_payout_handler(
     }
 
     let sig_script = match assemble_noncustodial_satisfier(
-        &pending.kind_base, false, &pending.redeem, &pending.member_pubkeys,
-        &sigs, Some(&winner_sig), None,
-        Some(&pending.oracle_sig), pending.winner_is_a,
+        &pending.kind_base,
+        false,
+        &pending.redeem,
+        &pending.member_pubkeys,
+        &sigs,
+        Some(&winner_sig),
+        None,
+        Some(&pending.oracle_sig),
+        pending.winner_is_a,
     ) {
         Ok(s) => s,
         Err(e) => return err(e),
     };
-    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
+    let mut signable =
+        SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
     signable.tx.inputs[0].signature_script = sig_script;
     signable.tx.finalize();
     let rpc_tx = RpcTransaction::from(&signable.tx);
@@ -3368,7 +3878,10 @@ pub async fn submit_oracle_payout_handler(
         Ok(tx_id) => {
             let spent = tx_id.to_string();
             let _ = db::mark_p2sh_spent(&db, &pending.deploy_tx_id, &spent);
-            info!("Non-custodial oracle payout: covenant {} released in {}", pending.deploy_tx_id, spent);
+            info!(
+                "Non-custodial oracle payout: covenant {} released in {}",
+                pending.deploy_tx_id, spent
+            );
             Json(serde_json::json!({
                 "success": true,
                 "payout_tx_id": spent,
@@ -3376,7 +3889,10 @@ pub async fn submit_oracle_payout_handler(
             }))
         }
         Err(e) => {
-            warn!("Non-custodial oracle payout broadcast rejected for {}: {}", pending.deploy_tx_id, e);
+            warn!(
+                "Non-custodial oracle payout broadcast rejected for {}: {}",
+                pending.deploy_tx_id, e
+            );
             err(format!("broadcast rejected: {e} (a wrong winner signature, or the wallet signing a different sighash, fails the 2-of-2 script)"))
         }
     }
@@ -3456,7 +3972,13 @@ pub async fn prepare_spend_handler(
                 if let Some(s) = &c.spent_tx_id {
                     return err(format!("covenant already spent in tx {s}"));
                 }
-                (c.redeem_script_hex, c.redeem_kind, c.tx_id, c.outpoint_index, c.p2sh_address)
+                (
+                    c.redeem_script_hex,
+                    c.redeem_kind,
+                    c.tx_id,
+                    c.outpoint_index,
+                    c.p2sh_address,
+                )
             }
             None => {
                 let rh = match req.redeem_script_hex.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
@@ -3471,8 +3993,18 @@ pub async fn prepare_spend_handler(
                     Ok(a) => a.to_string(),
                     Err(e) => return err(e),
                 };
-                let extkind = req.redeem_kind.clone().filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "singlesig".to_string());
-                (rh, extkind, req.deploy_tx_id.clone(), req.outpoint_index.unwrap_or(0), addr)
+                let extkind = req
+                    .redeem_kind
+                    .clone()
+                    .filter(|s| !s.trim().is_empty())
+                    .unwrap_or_else(|| "singlesig".to_string());
+                (
+                    rh,
+                    extkind,
+                    req.deploy_tx_id.clone(),
+                    req.outpoint_index.unwrap_or(0),
+                    addr,
+                )
             }
         };
     // Non-custodial wallet signing now covers EVERY deterministic primitive: the
@@ -3481,23 +4013,54 @@ pub async fn prepare_spend_handler(
     // prepared sighash in their own wallet and only the SIGNATURES are sent - no key ever
     // touches the server. (oracle_enforced / oracle_escrow still co-sign with the Covex
     // oracle key server-side by design and use /covenant/oracle-payout.)
-    let kind_base = redeem_kind.split(':').next().unwrap_or(&redeem_kind).to_string();
+    let kind_base = redeem_kind
+        .split(':')
+        .next()
+        .unwrap_or(&redeem_kind)
+        .to_string();
     if kind_base.starts_with("oracle") {
         return err(format!(
             "'{redeem_kind}' needs the Covex oracle co-signature; use /covenant/oracle-payout, not the non-custodial spend"
         ));
     }
-    if !matches!(kind_base.as_str(), "singlesig" | "hashlock" | "timelock" | "multisig" | "htlc" | "channel" | "deadman" | "rcsv" | "binary_oracle_select") {
-        return err(format!("non-custodial wallet signing does not support '{redeem_kind}'"));
+    if !matches!(
+        kind_base.as_str(),
+        "singlesig"
+            | "hashlock"
+            | "timelock"
+            | "multisig"
+            | "htlc"
+            | "channel"
+            | "deadman"
+            | "rcsv"
+            | "binary_oracle_select"
+    ) {
+        return err(format!(
+            "non-custodial wallet signing does not support '{redeem_kind}'"
+        ));
     }
-    let timelock_daa: Option<u64> = redeem_kind.strip_prefix("timelock:").and_then(|s| s.parse::<u64>().ok());
-    let rcsv_min_seq: u64 = redeem_kind.strip_prefix("rcsv:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
-    let htlc_lock_daa: Option<u64> = redeem_kind.strip_prefix("htlc:").and_then(|s| s.parse::<u64>().ok());
-    let channel_lock_daa: Option<u64> = redeem_kind.strip_prefix("channel:").and_then(|s| s.parse::<u64>().ok());
-    let deadman_lock_daa: Option<u64> = redeem_kind.strip_prefix("deadman:").and_then(|s| s.parse::<u64>().ok());
+    let timelock_daa: Option<u64> = redeem_kind
+        .strip_prefix("timelock:")
+        .and_then(|s| s.parse::<u64>().ok());
+    let rcsv_min_seq: u64 = redeem_kind
+        .strip_prefix("rcsv:")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+    let htlc_lock_daa: Option<u64> = redeem_kind
+        .strip_prefix("htlc:")
+        .and_then(|s| s.parse::<u64>().ok());
+    let channel_lock_daa: Option<u64> = redeem_kind
+        .strip_prefix("channel:")
+        .and_then(|s| s.parse::<u64>().ok());
+    let deadman_lock_daa: Option<u64> = redeem_kind
+        .strip_prefix("deadman:")
+        .and_then(|s| s.parse::<u64>().ok());
     // binary_oracle_select:{min_sequence} - the refund (ELSE) branch is a CSV relative timelock,
     // so the Refund spend's input sequence must be >= min_sequence (BIP68), NOT a CLTV lock_time.
-    let bos_min_seq: u64 = redeem_kind.strip_prefix("binary_oracle_select:").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+    let bos_min_seq: u64 = redeem_kind
+        .strip_prefix("binary_oracle_select:")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
     // Branch selection (committed in the sighash via lock_time / sequence): HTLC claim(default)/
     // refund, channel close(default)/refund, deadman owner(default)/heir, binary_oracle_select
     // reveal_a(default)/reveal_b/refund.
@@ -3540,10 +4103,18 @@ pub async fn prepare_spend_handler(
     // correct leg; the trailing-pubkey heuristic below would always return the refund key
     // (the script ends with the refund CheckSig), which is only right for the Refund branch.
     let bos_named_xonly: Option<String> = if kind_base == "binary_oracle_select" {
-        let idx = if branch_refund { 2 } else if bos_winner_is_a { 0 } else { 1 };
+        let idx = if branch_refund {
+            2
+        } else if bos_winner_is_a {
+            0
+        } else {
+            1
+        };
         match member_pubkeys.get(idx) {
             Some(pk) => Some(hex::encode(pk)),
-            None => return err("binary_oracle_select redeem is missing the branch's named key".into()),
+            None => {
+                return err("binary_oracle_select redeem is missing the branch's named key".into())
+            }
         }
     } else {
         None
@@ -3611,7 +4182,11 @@ pub async fn prepare_spend_handler(
         u.outpoint.transaction_id.to_string() == src_tx_id && u.outpoint.index == outpoint_index
     }) {
         Some(u) => u,
-        None => return err("P2SH UTXO not found on-chain (unconfirmed, spent, or wrong network)".into()),
+        None => {
+            return err(
+                "P2SH UTXO not found on-chain (unconfirmed, spent, or wrong network)".into(),
+            )
+        }
     };
     let amount = utxo.utxo_entry.amount;
     if amount <= TX_FEE {
@@ -3643,7 +4218,10 @@ pub async fn prepare_spend_handler(
         sequence: spend_sequence, // rcsv / bos-refund: satisfies OpCheckSequenceVerify; all others 0 (non-final)
         sig_op_count,
     }];
-    let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: dest_script }];
+    let outputs = vec![TransactionOutput {
+        value: amount - TX_FEE,
+        script_public_key: dest_script,
+    }];
     // A spend that takes a CLTV branch MUST carry lock_time = lock_daa (with a non-final
     // input sequence, set above) so OpCheckLockTimeVerify passes, and the chain must have
     // reached that DAA. This applies to a timelock covenant, an HTLC refund, and a channel
@@ -3651,9 +4229,21 @@ pub async fn prepare_spend_handler(
     // binary_oracle_select uses CSV (relative timelock via the input sequence above), NOT
     // CLTV, so its refund leaves lock_time at 0 - it is intentionally absent from this chain.
     let spend_lock_time = timelock_daa
-        .or(if kind_base == "htlc" && branch_refund { htlc_lock_daa } else { None })
-        .or(if kind_base == "channel" && branch_refund { channel_lock_daa } else { None })
-        .or(if kind_base == "deadman" && branch_refund { deadman_lock_daa } else { None })
+        .or(if kind_base == "htlc" && branch_refund {
+            htlc_lock_daa
+        } else {
+            None
+        })
+        .or(if kind_base == "channel" && branch_refund {
+            channel_lock_daa
+        } else {
+            None
+        })
+        .or(if kind_base == "deadman" && branch_refund {
+            deadman_lock_daa
+        } else {
+            None
+        })
         .unwrap_or(0);
     let unsigned = Transaction::new_non_finalized(
         0,
@@ -3672,7 +4262,8 @@ pub async fn prepare_spend_handler(
     };
     let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
     let mut reused = SigHashReusedValues::new();
-    let sig_hash = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+    let sig_hash =
+        calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
     let sighash_hex = hex::encode(sig_hash.as_bytes());
 
     let session_id = uuid::Uuid::new_v4().to_string();
@@ -3683,9 +4274,16 @@ pub async fn prepare_spend_handler(
         s.insert(
             session_id.clone(),
             PendingWalletSpend {
-                network: req.network.clone(), unsigned_tx: unsigned, entry, redeem,
-                deploy_tx_id: src_tx_id.clone(), kind: redeem_kind.clone(),
-                branch_refund, winner_is_a: bos_winner_is_a, member_pubkeys, created_at: now_ts,
+                network: req.network.clone(),
+                unsigned_tx: unsigned,
+                entry,
+                redeem,
+                deploy_tx_id: src_tx_id.clone(),
+                kind: redeem_kind.clone(),
+                branch_refund,
+                winner_is_a: bos_winner_is_a,
+                member_pubkeys,
+                created_at: now_ts,
             },
         );
     }
@@ -3694,7 +4292,8 @@ pub async fn prepare_spend_handler(
     let needs_preimage = kind_base == "hashlock"
         || (kind_base == "htlc" && !branch_refund)
         || (kind_base == "binary_oracle_select" && !branch_refund);
-    let is_multi = matches!(kind_base.as_str(), "multisig" | "channel") && !(kind_base == "channel" && branch_refund);
+    let is_multi = matches!(kind_base.as_str(), "multisig" | "channel")
+        && !(kind_base == "channel" && branch_refund);
     Json(serde_json::json!({
         "success": true,
         "session_id": session_id,
@@ -3758,10 +4357,16 @@ pub async fn submit_signed_handler(
         }
     };
     let parse_sig = |h: &str| -> Option<[u8; 64]> {
-        hex::decode(h.trim().trim_start_matches("0x")).ok().and_then(|b| b.try_into().ok())
+        hex::decode(h.trim().trim_start_matches("0x"))
+            .ok()
+            .and_then(|b| b.try_into().ok())
     };
     // The single signature (single-signer kinds) and/or the per-member map (multi-party).
-    let solo: Option<[u8; 64]> = match req.signature_hex.as_deref().filter(|s| !s.trim().is_empty()) {
+    let solo: Option<[u8; 64]> = match req
+        .signature_hex
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
         Some(h) => match parse_sig(h) {
             Some(s) => Some(s),
             None => return err("signature_hex must be a 64-byte BIP340 Schnorr signature".into()),
@@ -3772,13 +4377,30 @@ pub async fn submit_signed_handler(
     if let Some(list) = &req.signatures {
         for e in list {
             match parse_sig(&e.signature_hex) {
-                Some(s) => { sigs.insert(e.signer_xonly.trim().trim_start_matches("0x").to_lowercase(), s); }
+                Some(s) => {
+                    sigs.insert(
+                        e.signer_xonly
+                            .trim()
+                            .trim_start_matches("0x")
+                            .to_lowercase(),
+                        s,
+                    );
+                }
                 None => return err(format!("bad signature_hex for signer {}", e.signer_xonly)),
             }
         }
     }
-    let kind_base = pending.kind.split(':').next().unwrap_or(&pending.kind).to_string();
-    let preimage: Option<Vec<u8>> = match req.preimage_hex.as_ref().and_then(|p| hex::decode(p.trim()).ok()) {
+    let kind_base = pending
+        .kind
+        .split(':')
+        .next()
+        .unwrap_or(&pending.kind)
+        .to_string();
+    let preimage: Option<Vec<u8>> = match req
+        .preimage_hex
+        .as_ref()
+        .and_then(|p| hex::decode(p.trim()).ok())
+    {
         Some(b) => Some(b),
         None => None,
     };
@@ -3786,18 +4408,25 @@ pub async fn submit_signed_handler(
     // the custodial build_* satisfiers; only the signatures' provenance differs (wallet,
     // not server).
     let sig_script = match assemble_noncustodial_satisfier(
-        &kind_base, pending.branch_refund, &pending.redeem, &pending.member_pubkeys,
-        &sigs, solo.as_ref(), preimage.as_deref(),
+        &kind_base,
+        pending.branch_refund,
+        &pending.redeem,
+        &pending.member_pubkeys,
+        &sigs,
+        solo.as_ref(),
+        preimage.as_deref(),
         // The plain primitives (incl. binary_oracle_select) carry NO oracle signature - no Covex
         // key is ever in this path. winner_is_a was fixed at prepare time (the branch selector the
         // sighash committed to) and is meaningful only for binary_oracle_select reveal branches;
         // every other kind ignores it (and defaults to true).
-        None, pending.winner_is_a,
+        None,
+        pending.winner_is_a,
     ) {
         Ok(s) => s,
         Err(e) => return err(e),
     };
-    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
+    let mut signable =
+        SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
     signable.tx.inputs[0].signature_script = sig_script;
     signable.tx.finalize();
     let client = match client_for_network(&pending.network).await {
@@ -3949,7 +4578,12 @@ pub async fn prepare_deploy_handler(
     };
     let owner_xonly: [u8; 32] = match owner_addr.payload.as_slice().try_into() {
         Ok(x) => x,
-        Err(_) => return err("deployer must be a 32-byte schnorr P2PK address (kaspa:q.../kaspatest:q...)".into()),
+        Err(_) => {
+            return err(
+                "deployer must be a 32-byte schnorr P2PK address (kaspa:q.../kaspatest:q...)"
+                    .into(),
+            )
+        }
     };
     let (redeem, redeem_kind) = match build_redeem_from_spec(&req.redeem, &owner_xonly) {
         Ok(v) => v,
@@ -3968,7 +4602,10 @@ pub async fn prepare_deploy_handler(
         Ok(c) => c,
         Err(e) => return err(e),
     };
-    let utxos = match client.get_utxos_by_addresses(vec![owner_addr.clone()]).await {
+    let utxos = match client
+        .get_utxos_by_addresses(vec![owner_addr.clone()])
+        .await
+    {
         Ok(u) => u,
         Err(e) => return err(format!("UTXO fetch failed: {e}")),
     };
@@ -3979,24 +4616,34 @@ pub async fn prepare_deploy_handler(
     // first. The lockable amount is bounded only by the deployer's TOTAL balance. Every
     // selected UTXO is the deployer's own P2PK, so the browser signs each input with the
     // same key (one signature per input).
-    let (selected, fee) = match select_utxos_with_fee(&utxos, stake_sompi, 1, |u| u.utxo_entry.amount) {
-        Ok(v) => v,
-        Err(e) => return err(e),
-    };
+    let (selected, fee) =
+        match select_utxos_with_fee(&utxos, stake_sompi, 1, |u| u.utxo_entry.amount) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
     let total_input: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
     let deployer_script = selected[0].utxo_entry.script_public_key.clone();
     let mut change = total_input - stake_sompi - fee;
     if change > 0 && change < DUST_THRESHOLD {
         change = 0;
     }
-    let mut outputs = vec![TransactionOutput { value: stake_sompi, script_public_key: p2sh_spk }];
+    let mut outputs = vec![TransactionOutput {
+        value: stake_sompi,
+        script_public_key: p2sh_spk,
+    }];
     if change > 0 {
-        outputs.push(TransactionOutput { value: change, script_public_key: deployer_script });
+        outputs.push(TransactionOutput {
+            value: change,
+            script_public_key: deployer_script,
+        });
     }
     let inputs: Vec<TransactionInput> = selected
         .iter()
         .map(|u| TransactionInput {
-            previous_outpoint: TransactionOutpoint { transaction_id: u.outpoint.transaction_id, index: u.outpoint.index },
+            previous_outpoint: TransactionOutpoint {
+                transaction_id: u.outpoint.transaction_id,
+                index: u.outpoint.index,
+            },
             signature_script: vec![],
             sequence: 0,
             sig_op_count: 1,
@@ -4008,7 +4655,13 @@ pub async fn prepare_deploy_handler(
     deploy_payload.extend_from_slice(&blake2b256(&redeem));
     deploy_payload.extend_from_slice(&redeem);
     let unsigned = Transaction::new_non_finalized(
-        0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, deploy_payload,
+        0,
+        inputs,
+        outputs,
+        0,
+        SubnetworkId::from_bytes([0u8; 20]),
+        0,
+        deploy_payload,
     );
     // One entry per input, in input order.
     let entries: Vec<UtxoEntry> = selected
@@ -4026,7 +4679,8 @@ pub async fn prepare_deploy_handler(
     let mut reused = SigHashReusedValues::new();
     let mut inputs_json = Vec::with_capacity(selected.len());
     for (i, u) in selected.iter().enumerate() {
-        let sh = calc_schnorr_signature_hash(&signable.as_verifiable(), i, SIG_HASH_ALL, &mut reused);
+        let sh =
+            calc_schnorr_signature_hash(&signable.as_verifiable(), i, SIG_HASH_ALL, &mut reused);
         inputs_json.push(serde_json::json!({
             "index": i,
             "outpoint_tx": u.outpoint.transaction_id.to_string(),
@@ -4048,11 +4702,20 @@ pub async fn prepare_deploy_handler(
     {
         let mut s = deploy_sessions().lock().unwrap();
         s.retain(|_, v| v.created_at > now_ts - 600);
-        s.insert(session_id.clone(), PendingDeploy {
-            network: req.network.clone(), unsigned_tx: unsigned, entries, redeem: redeem.clone(),
-            redeem_kind: redeem_kind.clone(), p2sh_address: p2sh_addr.clone(),
-            deployer_addr: req.deployer_addr.clone(), stake_sompi, created_at: now_ts,
-        });
+        s.insert(
+            session_id.clone(),
+            PendingDeploy {
+                network: req.network.clone(),
+                unsigned_tx: unsigned,
+                entries,
+                redeem: redeem.clone(),
+                redeem_kind: redeem_kind.clone(),
+                p2sh_address: p2sh_addr.clone(),
+                deployer_addr: req.deployer_addr.clone(),
+                stake_sompi,
+                created_at: now_ts,
+            },
+        );
     }
     Json(serde_json::json!({
         "success": true,
@@ -4118,7 +4781,10 @@ pub async fn submit_deploy_handler(
     if let Some(list) = &req.signatures {
         for s in list {
             if s.index >= num_inputs {
-                return err(format!("signature index {} out of range (tx has {num_inputs} inputs)", s.index));
+                return err(format!(
+                    "signature index {} out of range (tx has {num_inputs} inputs)",
+                    s.index
+                ));
             }
             match parse_sig(&s.signature_hex) {
                 Ok(b) => sigs[s.index] = Some(b),
@@ -4137,11 +4803,14 @@ pub async fn submit_deploy_handler(
         return err("provide signatures:[{index, signature_hex}] (or signature_hex for a single-input deploy)".into());
     }
     if let Some(missing) = sigs.iter().position(|s| s.is_none()) {
-        return err(format!("missing signature for input index {missing} (every funding input must be signed)"));
+        return err(format!(
+            "missing signature for input index {missing} (every funding input must be signed)"
+        ));
     }
     // Each funding input spends a 32-byte schnorr P2PK output; its signature_script is just
     // the 65-byte (sig||sighashtype) push. Assemble each input's script from its signature.
-    let mut signable = SignableTransaction::with_entries(pending.unsigned_tx.clone(), pending.entries.clone());
+    let mut signable =
+        SignableTransaction::with_entries(pending.unsigned_tx.clone(), pending.entries.clone());
     for (i, sig) in sigs.iter().enumerate() {
         signable.tx.inputs[i].signature_script = push65(&sig.unwrap());
     }
@@ -4234,20 +4903,58 @@ pub async fn claim_covenant_handler(
         ));
     }
     // Verified. Persist the redeem script + metadata so the covenant is fully interactable.
-    let txid = input.covenant_id.split(':').next().unwrap_or(&input.covenant_id).to_string();
-    let outpoint: u32 = input.covenant_id.split(':').nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-    let kind = input.kind.clone().filter(|k| !k.trim().is_empty()).unwrap_or_else(|| "singlesig".into());
-    let owner = input.owner_addr.clone().filter(|o| !o.trim().is_empty()).unwrap_or_else(|| cov.creator_addr.clone());
-    let redeem_lc = input.redeem_script_hex.trim().trim_start_matches("0x").to_lowercase();
-    let _ = db::insert_p2sh_covenant(&db, &txid, &cov.network, &cov.address, &redeem_lc, &kind, cov.amount_sompi, outpoint, &owner);
+    let txid = input
+        .covenant_id
+        .split(':')
+        .next()
+        .unwrap_or(&input.covenant_id)
+        .to_string();
+    let outpoint: u32 = input
+        .covenant_id
+        .split(':')
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    let kind = input
+        .kind
+        .clone()
+        .filter(|k| !k.trim().is_empty())
+        .unwrap_or_else(|| "singlesig".into());
+    let owner = input
+        .owner_addr
+        .clone()
+        .filter(|o| !o.trim().is_empty())
+        .unwrap_or_else(|| cov.creator_addr.clone());
+    let redeem_lc = input
+        .redeem_script_hex
+        .trim()
+        .trim_start_matches("0x")
+        .to_lowercase();
+    let _ = db::insert_p2sh_covenant(
+        &db,
+        &txid,
+        &cov.network,
+        &cov.address,
+        &redeem_lc,
+        &kind,
+        cov.amount_sompi,
+        outpoint,
+        &owner,
+    );
     let kind_base = kind.split(':').next().unwrap_or(&kind).to_string();
     let ctype = format!("p2sh-{kind_base}");
     let nm = input.name.clone().filter(|n| !n.trim().is_empty());
     let base_desc = input.description.clone().filter(|d| !d.trim().is_empty())
         .unwrap_or_else(|| format!("Claimed {kind_base} covenant - redeem script verified on-chain, now fully interactable on Covex."));
-    let desc = match nm { Some(n) => format!("{n} - {base_desc}"), None => base_desc };
+    let desc = match nm {
+        Some(n) => format!("{n} - {base_desc}"),
+        None => base_desc,
+    };
     let _ = db::set_claimed_metadata(&db, &input.covenant_id, &desc, &ctype);
-    info!("Covenant claimed + activated: {} kind={} (lock verified)", input.covenant_id, kind);
+    info!(
+        "Covenant claimed + activated: {} kind={} (lock verified)",
+        input.covenant_id, kind
+    );
     Json(serde_json::json!({
         "ok": true,
         "covenant_id": input.covenant_id,
@@ -4310,11 +5017,15 @@ pub async fn bundle_deploy_handler(
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
 
-    let (seckey, funder_addr_str) =
-        match resolve_signing_key(&req.network, &req.funder_addr, &req.private_key_hex, req.use_dev_mode) {
-            Ok(v) => v,
-            Err(e) => return err(e),
-        };
+    let (seckey, funder_addr_str) = match resolve_signing_key(
+        &req.network,
+        &req.funder_addr,
+        &req.private_key_hex,
+        req.use_dev_mode,
+    ) {
+        Ok(v) => v,
+        Err(e) => return err(e),
+    };
     let funder_xonly = match xonly_from_seckey(&seckey) {
         Ok(x) => x,
         Err(e) => return err(e),
@@ -4389,7 +5100,10 @@ pub async fn bundle_deploy_handler(
     let w1 = ra.saturating_sub(rb); // U_AA = max(0, r(a-b))
     let w2 = remaining.saturating_sub(rb).saturating_sub(w1); // U_AB
     let w3 = ra.saturating_sub(w1); // U_BA
-    let w4 = remaining.saturating_sub(w2).saturating_sub(w3).saturating_sub(w1); // U_BB (closes to `remaining`)
+    let w4 = remaining
+        .saturating_sub(w2)
+        .saturating_sub(w3)
+        .saturating_sub(w1); // U_BB (closes to `remaining`)
 
     // (amount, winner_a key, winner_b key, role). refund key = funder (escrow reclaims on silence).
     let legs: Vec<(u64, [u8; 32], [u8; 32], &str)> = vec![
@@ -4410,7 +5124,8 @@ pub async fn bundle_deploy_handler(
                 "carve leg '{role}' = {amt} sompi is below the {MIN_LEG}-sompi minimum; use larger stakes"
             ));
         }
-        let redeem = match redeem_binary_oracle_select(&h_a, &wa, &h_b, &wb, min_seq, &funder_xonly) {
+        let redeem = match redeem_binary_oracle_select(&h_a, &wa, &h_b, &wb, min_seq, &funder_xonly)
+        {
             Ok(r) => r,
             Err(e) => return err(e),
         };
@@ -4443,10 +5158,11 @@ pub async fn bundle_deploy_handler(
     // the mass-scaled fee; the pool size is now bounded only by the funder's TOTAL balance.
     // Every selected UTXO is the funder's own P2PK, so the one funder key signs each input.
     let total_locked: u64 = built.iter().map(|(a, _, _, _)| *a).sum();
-    let (selected, fee) = match select_utxos_with_fee(&utxos, total_locked, built.len(), |u| u.utxo_entry.amount) {
-        Ok(v) => v,
-        Err(e) => return err(format!("{e} (pool T={t})")),
-    };
+    let (selected, fee) =
+        match select_utxos_with_fee(&utxos, total_locked, built.len(), |u| u.utxo_entry.amount) {
+            Ok(v) => v,
+            Err(e) => return err(format!("{e} (pool T={t})")),
+        };
     let total_input: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
     let funder_script = selected[0].utxo_entry.script_public_key.clone();
     let mut change = total_input - total_locked - fee;
@@ -4461,7 +5177,10 @@ pub async fn bundle_deploy_handler(
         })
         .collect();
     if change > 0 {
-        outputs.push(TransactionOutput { value: change, script_public_key: funder_script });
+        outputs.push(TransactionOutput {
+            value: change,
+            script_public_key: funder_script,
+        });
     }
     // One input per selected UTXO; each is the funder's P2PK so sig_op_count = 1.
     let inputs: Vec<TransactionInput> = selected
@@ -4526,9 +5245,21 @@ pub async fn bundle_deploy_handler(
                 // spam the paid-tier top of the explorer. The MARKET is the featured unit (it
                 // lives on the /markets page); legs group under the "Prediction Markets" category.
                 let _ = db::insert_covenant(
-                    &db, &cid, addr, *amt, &crate::compute_script_hash(&p2sh_script_hex), &p2sh_script_hex,
-                    "p2sh-binary_oracle_select", "Prediction Markets", &funder_addr_str, &summary, 0,
-                    "EXPLORER", &summary, &recv, &req.network,
+                    &db,
+                    &cid,
+                    addr,
+                    *amt,
+                    &crate::compute_script_hash(&p2sh_script_hex),
+                    &p2sh_script_hex,
+                    "p2sh-binary_oracle_select",
+                    "Prediction Markets",
+                    &funder_addr_str,
+                    &summary,
+                    0,
+                    "EXPLORER",
+                    &summary,
+                    &recv,
+                    &req.network,
                 );
                 legs_json.push(serde_json::json!({
                     "role": role,
@@ -4541,7 +5272,10 @@ pub async fn bundle_deploy_handler(
                     "redeem_kind": redeem_kind.clone(),
                 }));
             }
-            info!("Parimutuel bundle deployed: tx={tx_id_str} T={t} sompi legs={}", built.len());
+            info!(
+                "Parimutuel bundle deployed: tx={tx_id_str} T={t} sompi legs={}",
+                built.len()
+            );
             Json(serde_json::json!({
                 "success": true,
                 "deploy_tx_id": tx_id_str,
@@ -4595,7 +5329,10 @@ pub async fn create_market_handler(
     Json(req): Json<CreateMarketRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
-    if req.question.trim().is_empty() || req.outcome_a.trim().is_empty() || req.outcome_b.trim().is_empty() {
+    if req.question.trim().is_empty()
+        || req.outcome_a.trim().is_empty()
+        || req.outcome_b.trim().is_empty()
+    {
         return err("question, outcome_a and outcome_b are required".into());
     }
     let creator_address = req.creator_address.trim().to_string();
@@ -4640,9 +5377,20 @@ pub async fn create_market_handler(
     let ha = hex::encode(blake2b256(&secret_a));
     let hb = hex::encode(blake2b256(&secret_b));
     if let Err(e) = db::insert_bundle_market(
-        &db, &market_id, &req.network, req.question.trim(), req.outcome_a.trim(), req.outcome_b.trim(),
-        &ha, &hb, &sa, &sb, req.kickoff_utc.as_deref(), req.source_url.as_deref(),
-        fee_bps as i64, rebate_bps as i64,
+        &db,
+        &market_id,
+        &req.network,
+        req.question.trim(),
+        req.outcome_a.trim(),
+        req.outcome_b.trim(),
+        &ha,
+        &hb,
+        &sa,
+        &sb,
+        req.kickoff_utc.as_deref(),
+        req.source_url.as_deref(),
+        fee_bps as i64,
+        rebate_bps as i64,
     ) {
         return err(format!("db insert failed: {e}"));
     }
@@ -4658,8 +5406,21 @@ pub async fn create_market_handler(
         req.outcome_a.trim(), req.outcome_b.trim(), fee_bps / 100, rebate_bps / 100
     );
     let _ = db::insert_covenant(
-        &db, &market_id, "", 0, &market_id, "", "prediction-market", "Prediction Markets",
-        "", req.question.trim(), 0, "EXPLORER", &anchor_summary, "[]", &req.network,
+        &db,
+        &market_id,
+        "",
+        0,
+        &market_id,
+        "",
+        "prediction-market",
+        "Prediction Markets",
+        "",
+        req.question.trim(),
+        0,
+        "EXPLORER",
+        &anchor_summary,
+        "[]",
+        &req.network,
     );
     Json(serde_json::json!({
         "success": true,
@@ -4717,9 +5478,14 @@ pub async fn resolve_market_handler(
         }
     };
     if req.signer_address.trim() != creator {
-        return err("signer_address is not the market creator; only the creator may resolve".into());
+        return err(
+            "signer_address is not the market creator; only the creator may resolve".into(),
+        );
     }
-    let msg = format!("covex-market-resolve:{}:{}:{}", req.market_id, req.outcome, req.nonce);
+    let msg = format!(
+        "covex-market-resolve:{}:{}:{}",
+        req.market_id, req.outcome, req.nonce
+    );
     match crate::kaspa_msg::verify_message(&creator, &msg, &req.signature) {
         Ok(true) => {}
         Ok(false) => return err("invalid creator signature for this resolution".into()),
@@ -4745,12 +5511,18 @@ pub async fn resolve_market_handler(
         s.push(tag);
         blake2b256(&s)
     };
-    let secret_bytes = if req.outcome == 0 { derive(0) } else { derive(1) };
+    let secret_bytes = if req.outcome == 0 {
+        derive(0)
+    } else {
+        derive(1)
+    };
     let secret = hex::encode(secret_bytes);
     // Fail closed if the re-derived secret does not match the market's on-chain commitment.
     let committed_hash = if req.outcome == 0 { &m.h_a } else { &m.h_b };
     if hex::encode(blake2b256(&secret_bytes)) != *committed_hash {
-        return err("re-derived secret does not match the market commitment; refusing to reveal".into());
+        return err(
+            "re-derived secret does not match the market commitment; refusing to reveal".into(),
+        );
     }
     if let Err(e) = db::resolve_bundle_market(&db, &req.market_id, req.outcome, &secret) {
         return err(format!("db resolve failed: {e}"));
@@ -4874,7 +5646,15 @@ pub async fn place_order_handler(
     seed.push(req.side as u8);
     seed.extend_from_slice(&nanos.to_le_bytes());
     let order_id = hex::encode(&blake2b256(&seed)[..12]);
-    if let Err(e) = db::insert_market_order(&db, &order_id, &req.market_id, req.side, stake_sompi, &req.bettor_addr, &pk) {
+    if let Err(e) = db::insert_market_order(
+        &db,
+        &order_id,
+        &req.market_id,
+        req.side,
+        stake_sompi,
+        &req.bettor_addr,
+        &pk,
+    ) {
         return err(format!("db insert failed: {e}"));
     }
     Json(serde_json::json!({
@@ -4949,15 +5729,35 @@ pub async fn match_market_handler(
             fee_bps: Some(m.fee_bps as u64),
             rebate_bps: Some(m.rebate_bps as u64),
         };
-        let res = bundle_deploy_handler(Extension(db.clone()), Json(breq)).await.0;
-        if res.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
-            let txid = res.get("deploy_tx_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let res = bundle_deploy_handler(Extension(db.clone()), Json(breq))
+            .await
+            .0;
+        if res
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            let txid = res
+                .get("deploy_tx_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let _ = db::mark_order_funded(&db, &ao.order_id, &txid);
             let _ = db::mark_order_funded(&db, &bo.order_id, &txid);
             // Persist the carved legs (role + redeem + outpoint) so /market/settle can claim
             // each one after resolution without recomputing the carve.
-            let legs_json = res.get("legs").map(|v| v.to_string()).unwrap_or_else(|| "[]".to_string());
-            let _ = db::insert_market_bundle(&db, &txid, &req.market_id, &ao.bettor_addr, &bo.bettor_addr, &legs_json);
+            let legs_json = res
+                .get("legs")
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "[]".to_string());
+            let _ = db::insert_market_bundle(
+                &db,
+                &txid,
+                &req.market_id,
+                &ao.bettor_addr,
+                &bo.bettor_addr,
+                &legs_json,
+            );
             matches.push(serde_json::json!({
                 "a_order": ao.order_id, "b_order": bo.order_id,
                 "a_kas": ao.stake_sompi as f64 / 1e8, "b_kas": bo.stake_sompi as f64 / 1e8,
@@ -4996,7 +5796,11 @@ pub async fn market_book_handler(
     let mut order_json = Vec::new();
     for o in &orders {
         if o.status == "funded" {
-            if o.side == 0 { pa += o.stake_sompi } else { pb += o.stake_sompi }
+            if o.side == 0 {
+                pa += o.stake_sompi
+            } else {
+                pb += o.stake_sompi
+            }
         } else if o.side == 0 {
             oa += o.stake_sompi
         } else {
@@ -5010,7 +5814,13 @@ pub async fn market_book_handler(
     // Generalized for the market's customizable economics: winner multiplier = (1-fee) + (1-fee-rebate)*(L/P).
     let f = m.fee_bps as f64 / 10000.0;
     let r = m.rebate_bps as f64 / 10000.0;
-    let mult = |p: i64, l: i64| if p > 0 { (1.0 - f) + (1.0 - f - r) * (l as f64 / p as f64) } else { 0.0 };
+    let mult = |p: i64, l: i64| {
+        if p > 0 {
+            (1.0 - f) + (1.0 - f - r) * (l as f64 / p as f64)
+        } else {
+            0.0
+        }
+    };
     Json(serde_json::json!({
         "success": true,
         "market_id": m.market_id, "question": m.question,
@@ -5073,12 +5883,23 @@ pub async fn settle_market_handler(
                 ("rebate_BA", _) => b.a_addr.clone(),
                 _ => b.a_addr.clone(),
             };
-            let redeem_hex = leg.get("redeem_script_hex").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let redeem_hex = leg
+                .get("redeem_script_hex")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             if redeem_hex.is_empty() {
                 continue;
             }
-            let kind = leg.get("redeem_kind").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let idx = leg.get("outpoint_index").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let kind = leg
+                .get("redeem_kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let idx = leg
+                .get("outpoint_index")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32;
             let sreq = P2shSpendRequest {
                 network: m.network.clone(),
                 deploy_tx_id: b.bundle_tx.clone(),
@@ -5095,7 +5916,9 @@ pub async fn settle_market_handler(
                 redeem_kind: Some(kind),
                 outpoint_index: Some(idx),
             };
-            let res = p2sh_spend_handler(Extension(db.clone()), Json(sreq)).await.0;
+            let res = p2sh_spend_handler(Extension(db.clone()), Json(sreq))
+                .await
+                .0;
             settled.push(serde_json::json!({
                 "bundle_tx": b.bundle_tx, "role": role,
                 "ok": res.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
@@ -5104,7 +5927,10 @@ pub async fn settle_market_handler(
             }));
         }
     }
-    let ok_count = settled.iter().filter(|s| s.get("ok").and_then(|v| v.as_bool()).unwrap_or(false)).count();
+    let ok_count = settled
+        .iter()
+        .filter(|s| s.get("ok").and_then(|v| v.as_bool()).unwrap_or(false))
+        .count();
     Json(serde_json::json!({
         "success": true,
         "market_id": req.market_id,
@@ -5131,12 +5957,21 @@ pub fn p2sh_routes() -> Router {
         .route("/covenant/p2sh/spend", post(p2sh_spend_handler))
         .route("/covenant/p2sh/prepare-spend", post(prepare_spend_handler))
         .route("/covenant/p2sh/submit-signed", post(submit_signed_handler))
-        .route("/covenant/p2sh/prepare-deploy", post(prepare_deploy_handler))
+        .route(
+            "/covenant/p2sh/prepare-deploy",
+            post(prepare_deploy_handler),
+        )
         .route("/covenant/p2sh/submit-deploy", post(submit_deploy_handler))
         .route("/covenant/p2sh/claim", post(claim_covenant_handler))
         .route("/covenant/oracle-payout", post(oracle_payout_handler))
-        .route("/covenant/oracle-payout/prepare", post(prepare_oracle_payout_handler))
-        .route("/covenant/oracle-payout/submit", post(submit_oracle_payout_handler))
+        .route(
+            "/covenant/oracle-payout/prepare",
+            post(prepare_oracle_payout_handler),
+        )
+        .route(
+            "/covenant/oracle-payout/submit",
+            post(submit_oracle_payout_handler),
+        )
 }
 
 #[cfg(test)]
@@ -5168,7 +6003,10 @@ mod tests {
         assert!(sum >= 160, "selected sum {sum} must cover target");
         // Largest-first greedy: 100 + 50 = 150 (<160) then +50 = 200. Minimal = 3 inputs.
         assert_eq!(sel.len(), 3, "picks the fewest inputs (largest-first)");
-        assert_eq!(sel.iter().map(|u| **u).collect::<Vec<_>>(), vec![100, 50, 50]);
+        assert_eq!(
+            sel.iter().map(|u| **u).collect::<Vec<_>>(),
+            vec![100, 50, 50]
+        );
 
         // Never picks more inputs than needed: a single UTXO that already covers target.
         let one = select_utxos_for(&utxos, 90, amt).unwrap();
@@ -5204,7 +6042,7 @@ mod tests {
         assert_eq!(scaled_fee(1, 2), TX_FEE * 2); // 1 input + 1 extra output
         assert_eq!(scaled_fee(3, 2), TX_FEE * 4); // 3 inputs + 1 extra output
         assert_eq!(scaled_fee(5, 6), TX_FEE * 10); // 5 inputs + 5 extra outputs
-        // Never below the flat fee.
+                                                   // Never below the flat fee.
         assert!(scaled_fee(0, 0) >= TX_FEE);
     }
 
@@ -5218,7 +6056,11 @@ mod tests {
         // (300_000), fee = scaled_fee(3, 2) = TX_FEE*4 = 40_000; 300_000 >= 290_000. Stable.
         let (sel, fee) = select_utxos_with_fee(&utxos, 250_000, 1, amt).unwrap();
         let sum: u64 = sel.iter().map(|u| **u).sum();
-        assert!(sum >= 250_000 + fee, "sum {sum} must cover locked+fee {}", 250_000 + fee);
+        assert!(
+            sum >= 250_000 + fee,
+            "sum {sum} must cover locked+fee {}",
+            250_000 + fee
+        );
         assert_eq!(fee, scaled_fee(sel.len(), 2));
 
         // Total shortfall errors with the total-balance message.
@@ -5240,52 +6082,144 @@ mod tests {
 
         // redeem_script() routes to the exact same builder bytes as the free functions.
         assert_eq!(
-            RedeemKind::SingleSig { xonly_pubkey: a }.redeem_script().unwrap(),
+            RedeemKind::SingleSig { xonly_pubkey: a }
+                .redeem_script()
+                .unwrap(),
             redeem_singlesig(&a).unwrap()
         );
         assert_eq!(
-            RedeemKind::HashLock { hash: h, xonly_pubkey: a }.redeem_script().unwrap(),
+            RedeemKind::HashLock {
+                hash: h,
+                xonly_pubkey: a
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_hashlock(&h, &a).unwrap()
         );
         assert_eq!(
-            RedeemKind::Timelock { lock_daa: 5000, xonly_pubkey: a }.redeem_script().unwrap(),
+            RedeemKind::Timelock {
+                lock_daa: 5000,
+                xonly_pubkey: a
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_timelock(5000, &a).unwrap()
         );
         assert_eq!(
-            RedeemKind::Multisig { pubkeys: vec![a, b], required: 2 }.redeem_script().unwrap(),
+            RedeemKind::Multisig {
+                pubkeys: vec![a, b],
+                required: 2
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_multisig(&[a, b], 2).unwrap()
         );
         assert_eq!(
-            RedeemKind::Htlc { hash: h, receiver_pubkey: a, lock_daa: 7000, sender_pubkey: b }
-                .redeem_script()
-                .unwrap(),
+            RedeemKind::Htlc {
+                hash: h,
+                receiver_pubkey: a,
+                lock_daa: 7000,
+                sender_pubkey: b
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_htlc(&h, &a, 7000, &b).unwrap()
         );
         assert_eq!(
-            RedeemKind::Channel { p1: a, p2: b, lock_daa: 8000 }.redeem_script().unwrap(),
+            RedeemKind::Channel {
+                p1: a,
+                p2: b,
+                lock_daa: 8000
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_channel(&a, &b, 8000).unwrap()
         );
         assert_eq!(
-            RedeemKind::OracleEnforced { oracle: a, winner: b }.redeem_script().unwrap(),
+            RedeemKind::OracleEnforced {
+                oracle: a,
+                winner: b
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_multisig(&[a, b], 2).unwrap()
         );
         assert_eq!(
-            RedeemKind::OracleEscrow { oracle: a, player_a: b, player_b: c }.redeem_script().unwrap(),
+            RedeemKind::OracleEscrow {
+                oracle: a,
+                player_a: b,
+                player_b: c
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_oracle_escrow(&a, &b, &c).unwrap()
         );
 
         // kind_str() reproduces the exact strings the deploy handler persisted pre-refactor.
-        assert_eq!(RedeemKind::SingleSig { xonly_pubkey: a }.kind_str(), "singlesig");
-        assert_eq!(RedeemKind::HashLock { hash: h, xonly_pubkey: a }.kind_str(), "hashlock");
-        assert_eq!(RedeemKind::Timelock { lock_daa: 5000, xonly_pubkey: a }.kind_str(), "timelock:5000");
-        assert_eq!(RedeemKind::Multisig { pubkeys: vec![a, b, c], required: 2 }.kind_str(), "multisig:3");
         assert_eq!(
-            RedeemKind::Htlc { hash: h, receiver_pubkey: a, lock_daa: 7000, sender_pubkey: b }.kind_str(),
+            RedeemKind::SingleSig { xonly_pubkey: a }.kind_str(),
+            "singlesig"
+        );
+        assert_eq!(
+            RedeemKind::HashLock {
+                hash: h,
+                xonly_pubkey: a
+            }
+            .kind_str(),
+            "hashlock"
+        );
+        assert_eq!(
+            RedeemKind::Timelock {
+                lock_daa: 5000,
+                xonly_pubkey: a
+            }
+            .kind_str(),
+            "timelock:5000"
+        );
+        assert_eq!(
+            RedeemKind::Multisig {
+                pubkeys: vec![a, b, c],
+                required: 2
+            }
+            .kind_str(),
+            "multisig:3"
+        );
+        assert_eq!(
+            RedeemKind::Htlc {
+                hash: h,
+                receiver_pubkey: a,
+                lock_daa: 7000,
+                sender_pubkey: b
+            }
+            .kind_str(),
             "htlc:7000"
         );
-        assert_eq!(RedeemKind::Channel { p1: a, p2: b, lock_daa: 8000 }.kind_str(), "channel:8000");
-        assert_eq!(RedeemKind::OracleEnforced { oracle: a, winner: b }.kind_str(), "oracle:2");
-        assert_eq!(RedeemKind::OracleEscrow { oracle: a, player_a: b, player_b: c }.kind_str(), "oracle_escrow");
+        assert_eq!(
+            RedeemKind::Channel {
+                p1: a,
+                p2: b,
+                lock_daa: 8000
+            }
+            .kind_str(),
+            "channel:8000"
+        );
+        assert_eq!(
+            RedeemKind::OracleEnforced {
+                oracle: a,
+                winner: b
+            }
+            .kind_str(),
+            "oracle:2"
+        );
+        assert_eq!(
+            RedeemKind::OracleEscrow {
+                oracle: a,
+                player_a: b,
+                player_b: c
+            }
+            .kind_str(),
+            "oracle_escrow"
+        );
     }
 
     /// Phase 1: SpendKind is the single source of truth for the consensus-critical spend
@@ -5295,12 +6229,30 @@ mod tests {
     fn spendkind_parse_and_sig_op_count() {
         assert_eq!(SpendKind::parse("singlesig"), Some(SpendKind::SingleSig));
         assert_eq!(SpendKind::parse("hashlock"), Some(SpendKind::HashLock));
-        assert_eq!(SpendKind::parse("timelock:123"), Some(SpendKind::Timelock { lock_daa: 123 }));
-        assert_eq!(SpendKind::parse("multisig:3"), Some(SpendKind::Multisig { total: 3 }));
-        assert_eq!(SpendKind::parse("htlc:9"), Some(SpendKind::Htlc { lock_daa: 9 }));
-        assert_eq!(SpendKind::parse("channel:8000"), Some(SpendKind::Channel { lock_daa: 8000 }));
-        assert_eq!(SpendKind::parse("oracle:2"), Some(SpendKind::OracleEnforced { total: 2 }));
-        assert_eq!(SpendKind::parse("oracle_escrow"), Some(SpendKind::OracleEscrow));
+        assert_eq!(
+            SpendKind::parse("timelock:123"),
+            Some(SpendKind::Timelock { lock_daa: 123 })
+        );
+        assert_eq!(
+            SpendKind::parse("multisig:3"),
+            Some(SpendKind::Multisig { total: 3 })
+        );
+        assert_eq!(
+            SpendKind::parse("htlc:9"),
+            Some(SpendKind::Htlc { lock_daa: 9 })
+        );
+        assert_eq!(
+            SpendKind::parse("channel:8000"),
+            Some(SpendKind::Channel { lock_daa: 8000 })
+        );
+        assert_eq!(
+            SpendKind::parse("oracle:2"),
+            Some(SpendKind::OracleEnforced { total: 2 })
+        );
+        assert_eq!(
+            SpendKind::parse("oracle_escrow"),
+            Some(SpendKind::OracleEscrow)
+        );
         assert_eq!(SpendKind::parse("nonsense"), None);
         assert_eq!(SpendKind::parse("timelock"), None); // missing the required lock_daa param
 
@@ -5318,19 +6270,51 @@ mod tests {
         let a = [7u8; 32];
         let kinds = [
             RedeemKind::SingleSig { xonly_pubkey: a },
-            RedeemKind::HashLock { hash: a, xonly_pubkey: a },
-            RedeemKind::Timelock { lock_daa: 10, xonly_pubkey: a },
-            RedeemKind::Multisig { pubkeys: vec![a, a, a], required: 2 },
-            RedeemKind::Htlc { hash: a, receiver_pubkey: a, lock_daa: 10, sender_pubkey: a },
-            RedeemKind::Channel { p1: a, p2: a, lock_daa: 10 },
-            RedeemKind::OracleEnforced { oracle: a, winner: a },
-            RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
+            RedeemKind::HashLock {
+                hash: a,
+                xonly_pubkey: a,
+            },
+            RedeemKind::Timelock {
+                lock_daa: 10,
+                xonly_pubkey: a,
+            },
+            RedeemKind::Multisig {
+                pubkeys: vec![a, a, a],
+                required: 2,
+            },
+            RedeemKind::Htlc {
+                hash: a,
+                receiver_pubkey: a,
+                lock_daa: 10,
+                sender_pubkey: a,
+            },
+            RedeemKind::Channel {
+                p1: a,
+                p2: a,
+                lock_daa: 10,
+            },
+            RedeemKind::OracleEnforced {
+                oracle: a,
+                winner: a,
+            },
+            RedeemKind::OracleEscrow {
+                oracle: a,
+                player_a: a,
+                player_b: a,
+            },
         ];
         for rk in &kinds {
-            assert!(SpendKind::parse(&rk.kind_str()).is_some(), "kind_str '{}' must parse", rk.kind_str());
+            assert!(
+                SpendKind::parse(&rk.kind_str()).is_some(),
+                "kind_str '{}' must parse",
+                rk.kind_str()
+            );
         }
         // A 3-member multisig's kind_str round-trips to sig_op_count 3.
-        let ms = RedeemKind::Multisig { pubkeys: vec![a, a, a], required: 2 };
+        let ms = RedeemKind::Multisig {
+            pubkeys: vec![a, a, a],
+            required: 2,
+        };
         assert_eq!(SpendKind::parse(&ms.kind_str()).unwrap().sig_op_count(), 3);
     }
 
@@ -5343,11 +6327,22 @@ mod tests {
         sequence: u64,
         make_sig: impl Fn(&SignableTransaction) -> Vec<u8>,
     ) -> bool {
-        let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([7u8; 32]), index: 0 };
+        let prev = TransactionOutpoint {
+            transaction_id: kaspa_hashes::Hash::from_bytes([7u8; 32]),
+            index: 0,
+        };
         let tx = Transaction::new(
             0,
-            vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence, sig_op_count: 1 }],
-            vec![TransactionOutput { value: 90_000_000, script_public_key: p2sh_script_pubkey(redeem) }],
+            vec![TransactionInput {
+                previous_outpoint: prev,
+                signature_script: vec![],
+                sequence,
+                sig_op_count: 1,
+            }],
+            vec![TransactionOutput {
+                value: 90_000_000,
+                script_public_key: p2sh_script_pubkey(redeem),
+            }],
             lock_time,
             SubnetworkId::from_bytes([0u8; 20]),
             0,
@@ -5367,8 +6362,15 @@ mod tests {
         let (input, entry) = verifiable.populated_inputs().next().unwrap();
         let mut reused = SigHashReusedValues::new();
         let cache = Cache::new(10_000);
-        let mut engine =
-            TxScriptEngine::from_transaction_input(&verifiable, input, 0, entry, &mut reused, &cache).unwrap();
+        let mut engine = TxScriptEngine::from_transaction_input(
+            &verifiable,
+            input,
+            0,
+            entry,
+            &mut reused,
+            &cache,
+        )
+        .unwrap();
         engine.execute().is_ok()
     }
 
@@ -5386,11 +6388,17 @@ mod tests {
         let redeem = redeem_singlesig(&xonly).unwrap();
 
         // Correct key spends.
-        assert!(run_spend(&redeem, &kp, &[]), "correct single-sig spend must satisfy the P2SH lock");
+        assert!(
+            run_spend(&redeem, &kp, &[]),
+            "correct single-sig spend must satisfy the P2SH lock"
+        );
 
         // Wrong key is rejected by the engine.
         let wrong = test_keypair(99);
-        assert!(!run_spend(&redeem, &wrong, &[]), "wrong-key single-sig spend must be rejected");
+        assert!(
+            !run_spend(&redeem, &wrong, &[]),
+            "wrong-key single-sig spend must be rejected"
+        );
     }
 
     #[test]
@@ -5402,14 +6410,23 @@ mod tests {
         let redeem = redeem_hashlock(&hash, &xonly).unwrap();
 
         // Correct preimage + correct key spends.
-        assert!(run_spend(&redeem, &kp, &[preimage.clone()]), "correct hashlock spend must satisfy the lock");
+        assert!(
+            run_spend(&redeem, &kp, &[preimage.clone()]),
+            "correct hashlock spend must satisfy the lock"
+        );
 
         // Wrong preimage is rejected (OpEqualVerify fails).
-        assert!(!run_spend(&redeem, &kp, &[b"wrong-preimage".to_vec()]), "wrong preimage must be rejected");
+        assert!(
+            !run_spend(&redeem, &kp, &[b"wrong-preimage".to_vec()]),
+            "wrong preimage must be rejected"
+        );
 
         // Correct preimage but wrong key is rejected (OpCheckSig fails).
         let wrong = test_keypair(98);
-        assert!(!run_spend(&redeem, &wrong, &[preimage]), "wrong key must be rejected even with correct preimage");
+        assert!(
+            !run_spend(&redeem, &wrong, &[preimage]),
+            "wrong key must be rejected even with correct preimage"
+        );
     }
 
     #[test]
@@ -5443,25 +6460,46 @@ mod tests {
         };
 
         // Exact match -> Ok.
-        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[present.clone()]).is_ok());
+        assert!(
+            oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[present.clone()])
+                .is_ok()
+        );
 
         // Empty set (spent / reorged out / already claimed) -> refuse.
         assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[]).is_err());
 
         // Same txid, different index (a sibling output, not the committed one) -> refuse.
-        assert!(oracle_payout_outpoint_still_valid(&txid, 1, amount, &script, &[present.clone()]).is_err());
+        assert!(
+            oracle_payout_outpoint_still_valid(&txid, 1, amount, &script, &[present.clone()])
+                .is_err()
+        );
 
         // Different txid present, committed one absent -> refuse.
-        let other = OnChainUtxoView { txid: "b".repeat(64), ..present.clone() };
+        let other = OnChainUtxoView {
+            txid: "b".repeat(64),
+            ..present.clone()
+        };
         assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[other]).is_err());
 
         // Outpoint matches but amount changed (reorg replacement) -> refuse.
-        let changed_amount = OnChainUtxoView { amount: amount + 1, ..present.clone() };
-        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[changed_amount]).is_err());
+        let changed_amount = OnChainUtxoView {
+            amount: amount + 1,
+            ..present.clone()
+        };
+        assert!(
+            oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[changed_amount])
+                .is_err()
+        );
 
         // Outpoint matches but locking script changed (different covenant) -> refuse.
-        let changed_script = OnChainUtxoView { p2sh_script: vec![0xaau8, 0x20, 0x09, 0x87], ..present.clone() };
-        assert!(oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[changed_script]).is_err());
+        let changed_script = OnChainUtxoView {
+            p2sh_script: vec![0xaau8, 0x20, 0x09, 0x87],
+            ..present.clone()
+        };
+        assert!(
+            oracle_payout_outpoint_still_valid(&txid, 0, amount, &script, &[changed_script])
+                .is_err()
+        );
     }
 
     #[test]
@@ -5469,7 +6507,10 @@ mod tests {
         let kp = test_keypair(44);
         let redeem = redeem_singlesig(&kp.x_only_public_key().0.serialize()).unwrap();
         let addr = p2sh_address(&redeem, Prefix::Testnet).unwrap();
-        assert!(addr.to_string().starts_with("kaspatest:"), "testnet P2SH address prefix");
+        assert!(
+            addr.to_string().starts_with("kaspatest:"),
+            "testnet P2SH address prefix"
+        );
     }
 
     /// HARDENING (ii): the persisted oracle-payout session must reconstruct to a VALUE-identical
@@ -5494,12 +6535,18 @@ mod tests {
         let prev_txid = kaspa_hashes::Hash::from_bytes([42u8; 32]);
         let amount: u64 = 100_000_000;
         let inputs = vec![TransactionInput {
-            previous_outpoint: TransactionOutpoint { transaction_id: prev_txid, index: 3 },
+            previous_outpoint: TransactionOutpoint {
+                transaction_id: prev_txid,
+                index: 3,
+            },
             signature_script: vec![],
             sequence: 0,
             sig_op_count: 2,
         }];
-        let outputs = vec![TransactionOutput { value: amount - TX_FEE, script_public_key: p2sh_spk.clone() }];
+        let outputs = vec![TransactionOutput {
+            value: amount - TX_FEE,
+            script_public_key: p2sh_spk.clone(),
+        }];
         let unsigned = Transaction::new_non_finalized(
             0,
             inputs,
@@ -5523,7 +6570,8 @@ mod tests {
             calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
         // A real oracle signature over that exact sighash (fixed bytes are fine; we only check it
         // survives the round-trip unchanged).
-        let msg = secp256k1::Message::from_digest_slice(orig_sighash.as_bytes().as_slice()).unwrap();
+        let msg =
+            secp256k1::Message::from_digest_slice(orig_sighash.as_bytes().as_slice()).unwrap();
         let oracle_sig: [u8; 64] = *oracle_kp.sign_schnorr(msg).as_ref();
 
         let pending = PendingOraclePayout {
@@ -5550,16 +6598,28 @@ mod tests {
         let restored = pending_from_persisted(persisted).expect("deserialize must succeed");
 
         // (1) The consensus types reconstruct to VALUE-identical structs.
-        assert_eq!(restored.unsigned_tx, unsigned, "unsigned tx must round-trip value-identical");
-        assert_eq!(restored.entry, entry, "utxo entry must round-trip value-identical");
+        assert_eq!(
+            restored.unsigned_tx, unsigned,
+            "unsigned tx must round-trip value-identical"
+        );
+        assert_eq!(
+            restored.entry, entry,
+            "utxo entry must round-trip value-identical"
+        );
 
         // (2) The recomputed sighash is BYTE-IDENTICAL, so the stored oracle signature still
         // matches. This is the property restart durability hinges on.
-        let restored_signable =
-            SignableTransaction::with_entries(restored.unsigned_tx.clone(), vec![restored.entry.clone()]);
+        let restored_signable = SignableTransaction::with_entries(
+            restored.unsigned_tx.clone(),
+            vec![restored.entry.clone()],
+        );
         let mut reused2 = SigHashReusedValues::new();
-        let restored_sighash =
-            calc_schnorr_signature_hash(&restored_signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused2);
+        let restored_sighash = calc_schnorr_signature_hash(
+            &restored_signable.as_verifiable(),
+            0,
+            SIG_HASH_ALL,
+            &mut reused2,
+        );
         assert_eq!(
             restored_sighash.as_bytes(),
             orig_sighash.as_bytes(),
@@ -5572,7 +6632,9 @@ mod tests {
         let sig = secp256k1::schnorr::Signature::from_slice(&restored.oracle_sig).unwrap();
         let xonly = secp256k1::XOnlyPublicKey::from_slice(&oracle_xonly).unwrap();
         assert!(
-            secp256k1::SECP256K1.verify_schnorr(&sig, &restored_msg, &xonly).is_ok(),
+            secp256k1::SECP256K1
+                .verify_schnorr(&sig, &restored_msg, &xonly)
+                .is_ok(),
             "stored oracle signature must verify against the reconstructed sighash"
         );
 
@@ -5599,16 +6661,29 @@ mod tests {
         let xonly = kp.x_only_public_key().0.serialize();
         let lock_daa: u64 = 1_000_000;
         let redeem = redeem_timelock(lock_daa, &xonly).unwrap();
-        let sign = |s: &SignableTransaction| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap();
+        let sign =
+            |s: &SignableTransaction| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap();
 
         // tx.lock_time == lock_daa, input not final -> CLTV satisfied.
-        assert!(run_spend_generic(&redeem, lock_daa, 0, sign), "spend at lock_time==lock_daa must pass");
+        assert!(
+            run_spend_generic(&redeem, lock_daa, 0, sign),
+            "spend at lock_time==lock_daa must pass"
+        );
         // tx.lock_time above lock_daa also passes (lock elapsed further).
-        assert!(run_spend_generic(&redeem, lock_daa + 50, 0, sign), "spend after the lock must pass");
+        assert!(
+            run_spend_generic(&redeem, lock_daa + 50, 0, sign),
+            "spend after the lock must pass"
+        );
         // tx.lock_time below lock_daa -> CLTV fails (still locked).
-        assert!(!run_spend_generic(&redeem, lock_daa - 1, 0, sign), "spend before the lock must be rejected");
+        assert!(
+            !run_spend_generic(&redeem, lock_daa - 1, 0, sign),
+            "spend before the lock must be rejected"
+        );
         // A finalized input (max sequence) disables locktime enforcement -> rejected.
-        assert!(!run_spend_generic(&redeem, lock_daa, u64::MAX, sign), "finalized input must be rejected by CLTV");
+        assert!(
+            !run_spend_generic(&redeem, lock_daa, u64::MAX, sign),
+            "finalized input must be rejected by CLTV"
+        );
     }
 
     #[test]
@@ -5625,18 +6700,36 @@ mod tests {
 
         // 2 of 3 (in pubkey order) -> passes.
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1, kp2], &redeem).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(
+                s,
+                0,
+                &[kp1, kp2],
+                &redeem
+            )
+            .unwrap()),
             "2-of-3 with two valid sigs must pass"
         );
         // Only 1 signature -> fails.
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1], &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(
+                s,
+                0,
+                &[kp1],
+                &redeem
+            )
+            .unwrap()),
             "2-of-3 with a single sig must be rejected"
         );
         // 2 sigs but one from a non-member key -> fails.
         let outsider = test_keypair(99);
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(s, 0, &[kp1, outsider], &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_p2sh_multisig_signature_script(
+                s,
+                0,
+                &[kp1, outsider],
+                &redeem
+            )
+            .unwrap()),
             "a signature from a non-member key must be rejected"
         );
     }
@@ -5654,32 +6747,65 @@ mod tests {
 
         // CLAIM: receiver reveals the correct preimage and signs (lock_time irrelevant).
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, true, Some(&preimage)).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(
+                s,
+                0,
+                &receiver,
+                &redeem,
+                true,
+                Some(&preimage)
+            )
+            .unwrap()),
             "receiver claim with correct preimage must pass"
         );
         // CLAIM with a wrong preimage fails (OpEqualVerify).
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, true, Some(b"wrong")).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(
+                s,
+                0,
+                &receiver,
+                &redeem,
+                true,
+                Some(b"wrong")
+            )
+            .unwrap()),
             "claim with wrong preimage must fail"
         );
         // CLAIM with the correct preimage but the SENDER key fails (OpCheckSig in IF branch).
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(s, 0, &sender, &redeem, true, Some(&preimage)).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_htlc_signature_script(
+                s,
+                0,
+                &sender,
+                &redeem,
+                true,
+                Some(&preimage)
+            )
+            .unwrap()),
             "claim branch requires the receiver key"
         );
         // REFUND: sender signs after the timelock (lock_time >= lock_daa, non-final input).
         assert!(
-            run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(s, 0, &sender, &redeem, false, None).unwrap()),
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(
+                s, 0, &sender, &redeem, false, None
+            )
+            .unwrap()),
             "sender refund after the timelock must pass"
         );
         // REFUND before the timelock fails (CLTV).
         assert!(
-            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_htlc_signature_script(s, 0, &sender, &redeem, false, None).unwrap()),
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_htlc_signature_script(
+                s, 0, &sender, &redeem, false, None
+            )
+            .unwrap()),
             "refund before the timelock must fail"
         );
         // REFUND branch with the RECEIVER key fails (OpCheckSig in ELSE branch).
         assert!(
-            !run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(s, 0, &receiver, &redeem, false, None).unwrap()),
+            !run_spend_generic(&redeem, lock_daa, 0, |s| build_htlc_signature_script(
+                s, 0, &receiver, &redeem, false, None
+            )
+            .unwrap()),
             "refund branch requires the sender key"
         );
     }
@@ -5695,27 +6821,41 @@ mod tests {
 
         // OWNER spends via the IF branch at any time (no timelock on that branch).
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_deadman_signature_script(s, 0, &owner, &redeem, true).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_deadman_signature_script(
+                s, 0, &owner, &redeem, true
+            )
+            .unwrap()),
             "owner must be able to spend anytime via the IF branch"
         );
         // The HEIR key on the IF branch fails (OpCheckSig wants the owner key).
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_deadman_signature_script(s, 0, &heir, &redeem, true).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_deadman_signature_script(
+                s, 0, &heir, &redeem, true
+            )
+            .unwrap()),
             "the IF branch requires the owner key"
         );
         // HEIR spends via the ELSE branch after the timelock (lock_time >= lock_daa, non-final input).
         assert!(
-            run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(s, 0, &heir, &redeem, false).unwrap()),
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(
+                s, 0, &heir, &redeem, false
+            )
+            .unwrap()),
             "heir must be able to claim after the timelock"
         );
         // HEIR before the timelock fails (CLTV).
         assert!(
-            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_deadman_signature_script(s, 0, &heir, &redeem, false).unwrap()),
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| {
+                build_deadman_signature_script(s, 0, &heir, &redeem, false).unwrap()
+            }),
             "heir claim before the timelock must fail"
         );
         // The OWNER key on the ELSE branch fails (OpCheckSig wants the heir key).
         assert!(
-            !run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(s, 0, &owner, &redeem, false).unwrap()),
+            !run_spend_generic(&redeem, lock_daa, 0, |s| build_deadman_signature_script(
+                s, 0, &owner, &redeem, false
+            )
+            .unwrap()),
             "the ELSE branch requires the heir key"
         );
     }
@@ -5726,16 +6866,48 @@ mod tests {
         let b = [22u8; 32];
         // redeem_script routes to the proven builder; kind_str / catalog_id are stable.
         assert_eq!(
-            RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.redeem_script().unwrap(),
+            RedeemKind::Deadman {
+                owner: a,
+                heir: b,
+                lock_daa: 8000
+            }
+            .redeem_script()
+            .unwrap(),
             redeem_deadman(&a, &b, 8000).unwrap()
         );
-        assert_eq!(RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.kind_str(), "deadman:8000");
-        assert_eq!(RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.catalog_id(), "p2sh_deadman");
+        assert_eq!(
+            RedeemKind::Deadman {
+                owner: a,
+                heir: b,
+                lock_daa: 8000
+            }
+            .kind_str(),
+            "deadman:8000"
+        );
+        assert_eq!(
+            RedeemKind::Deadman {
+                owner: a,
+                heir: b,
+                lock_daa: 8000
+            }
+            .catalog_id(),
+            "p2sh_deadman"
+        );
         // SpendKind parses the persisted string and reports 2 sig ops (IF + ELSE CheckSig).
-        assert_eq!(SpendKind::parse("deadman:8000"), Some(SpendKind::Deadman { lock_daa: 8000 }));
+        assert_eq!(
+            SpendKind::parse("deadman:8000"),
+            Some(SpendKind::Deadman { lock_daa: 8000 })
+        );
         assert_eq!(SpendKind::parse("deadman:8000").unwrap().sig_op_count(), 2);
         assert_eq!(
-            SpendKind::parse(&RedeemKind::Deadman { owner: a, heir: b, lock_daa: 8000 }.kind_str()),
+            SpendKind::parse(
+                &RedeemKind::Deadman {
+                    owner: a,
+                    heir: b,
+                    lock_daa: 8000
+                }
+                .kind_str()
+            ),
             Some(SpendKind::Deadman { lock_daa: 8000 })
         );
     }
@@ -5748,20 +6920,48 @@ mod tests {
         let redeem = redeem_relative_timelock(min_seq, &xonly).unwrap();
         // The CSV opcode passes iff the spend input's sequence >= the script's min_sequence.
         assert!(
-            run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap()),
+            run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(
+                s,
+                0,
+                &kp,
+                &redeem,
+                &[]
+            )
+            .unwrap()),
             "CSV passes when input.sequence == required"
         );
         assert!(
-            run_spend_generic(&redeem, 0, min_seq + 50, |s| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap()),
+            run_spend_generic(&redeem, 0, min_seq + 50, |s| build_p2sh_signature_script(
+                s,
+                0,
+                &kp,
+                &redeem,
+                &[]
+            )
+            .unwrap()),
             "CSV passes when input.sequence > required"
         );
         assert!(
-            !run_spend_generic(&redeem, 0, min_seq - 1, |s| build_p2sh_signature_script(s, 0, &kp, &redeem, &[]).unwrap()),
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| build_p2sh_signature_script(
+                s,
+                0,
+                &kp,
+                &redeem,
+                &[]
+            )
+            .unwrap()),
             "CSV fails when input.sequence < required"
         );
         let wrong = test_keypair(96);
         assert!(
-            !run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(s, 0, &wrong, &redeem, &[]).unwrap()),
+            !run_spend_generic(&redeem, 0, min_seq, |s| build_p2sh_signature_script(
+                s,
+                0,
+                &wrong,
+                &redeem,
+                &[]
+            )
+            .unwrap()),
             "wrong key must fail regardless of sequence"
         );
     }
@@ -5784,37 +6984,86 @@ mod tests {
 
         // A wins: reveal s_A, winner_a signs -> branch A passes.
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, RevealA, Some(&s_a[..])).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| {
+                build_binary_oracle_select_signature_script(
+                    s,
+                    0,
+                    &winner_a,
+                    &redeem,
+                    RevealA,
+                    Some(&s_a[..]),
+                )
+                .unwrap()
+            }),
             "reveal s_A + winner_a sig must pass branch A"
         );
         // s_A is public, but the LOSER's key cannot take branch A (each branch also needs the named key's sig).
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_b, &redeem, RevealA, Some(&s_a[..])).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                build_binary_oracle_select_signature_script(
+                    s,
+                    0,
+                    &winner_b,
+                    &redeem,
+                    RevealA,
+                    Some(&s_a[..]),
+                )
+                .unwrap()
+            }),
             "a public s_A must NOT let the wrong key sweep branch A"
         );
         // Wrong preimage on branch A fails (OpEqualVerify).
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, RevealA, Some(&b"nope"[..])).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| {
+                build_binary_oracle_select_signature_script(
+                    s,
+                    0,
+                    &winner_a,
+                    &redeem,
+                    RevealA,
+                    Some(&b"nope"[..]),
+                )
+                .unwrap()
+            }),
             "wrong preimage must fail branch A"
         );
         // B wins: reveal s_B, winner_b signs -> the nested ELSE/IF branch passes.
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_binary_oracle_select_signature_script(s, 0, &winner_b, &redeem, RevealB, Some(&s_b[..])).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| {
+                build_binary_oracle_select_signature_script(
+                    s,
+                    0,
+                    &winner_b,
+                    &redeem,
+                    RevealB,
+                    Some(&s_b[..]),
+                )
+                .unwrap()
+            }),
             "reveal s_B + winner_b sig must pass branch B"
         );
         // Refund: no secret, refund key signs, input aged >= min_seq -> passes (BIP68/CSV).
         assert!(
-            run_spend_generic(&redeem, 0, min_seq, |s| build_binary_oracle_select_signature_script(s, 0, &refund, &redeem, Refund, None).unwrap()),
+            run_spend_generic(&redeem, 0, min_seq, |s| {
+                build_binary_oracle_select_signature_script(s, 0, &refund, &redeem, Refund, None)
+                    .unwrap()
+            }),
             "refund after the relative timelock must pass"
         );
         // Refund before the relative timelock fails (input.sequence < min_seq).
         assert!(
-            !run_spend_generic(&redeem, 0, min_seq - 1, |s| build_binary_oracle_select_signature_script(s, 0, &refund, &redeem, Refund, None).unwrap()),
+            !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
+                build_binary_oracle_select_signature_script(s, 0, &refund, &redeem, Refund, None)
+                    .unwrap()
+            }),
             "refund before the relative timelock must be rejected"
         );
         // Refund branch with a non-refund key fails (final OpCheckSig).
         assert!(
-            !run_spend_generic(&redeem, 0, min_seq, |s| build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, Refund, None).unwrap()),
+            !run_spend_generic(&redeem, 0, min_seq, |s| {
+                build_binary_oracle_select_signature_script(s, 0, &winner_a, &redeem, Refund, None)
+                    .unwrap()
+            }),
             "refund branch requires the refund key"
         );
     }
@@ -5849,7 +7098,11 @@ mod tests {
         // checksig_only parse keeps the three pubkeys each directly followed by OpCheckSig
         // (the h_a/h_b pushes are followed by OpEqualVerify and are excluded).
         let members = parse_redeem_pubkeys(&redeem, true);
-        assert_eq!(members, vec![wa, wb, rf], "parse must yield [winner_a, winner_b, refund]");
+        assert_eq!(
+            members,
+            vec![wa, wb, rf],
+            "parse must yield [winner_a, winner_b, refund]"
+        );
 
         // (a) STRUCTURAL parity with the custodial builder: aside from the (randomized-nonce)
         // signature value, the non-custodial satisfier and build_binary_oracle_select_signature_
@@ -5864,7 +7117,9 @@ mod tests {
             let mut i = 0usize;
             while i < out.len() {
                 if out[i] == 0x41 && i + 1 + 65 <= out.len() {
-                    for b in out.iter_mut().skip(i + 1).take(65) { *b = 0; }
+                    for b in out.iter_mut().skip(i + 1).take(65) {
+                        *b = 0;
+                    }
                     i += 1 + 65;
                 } else {
                     i += 1;
@@ -5872,18 +7127,35 @@ mod tests {
             }
             out
         };
-        let parity = |branch: BinarySelectBranch, kp: &Keypair, winner_is_a: bool, preimage: Option<&[u8]>| {
+        let parity = |branch: BinarySelectBranch,
+                      kp: &Keypair,
+                      winner_is_a: bool,
+                      preimage: Option<&[u8]>| {
             let seq = if matches!(branch, Refund) { min_seq } else { 0 };
             let equal = std::cell::Cell::new(false);
             // Build both over the SAME signable; their layouts (sig push zeroed) must match.
             run_spend_generic(&redeem, 0, seq, |s| {
-                let custodial = build_binary_oracle_select_signature_script(s, 0, kp, &redeem, branch, preimage).unwrap();
+                let custodial = build_binary_oracle_select_signature_script(
+                    s, 0, kp, &redeem, branch, preimage,
+                )
+                .unwrap();
                 let mut sigs = std::collections::HashMap::new();
-                sigs.insert(hex::encode(kp.x_only_public_key().0.serialize()), ext_solo(s, kp));
+                sigs.insert(
+                    hex::encode(kp.x_only_public_key().0.serialize()),
+                    ext_solo(s, kp),
+                );
                 let noncustodial = assemble_noncustodial_satisfier(
-                    "binary_oracle_select", matches!(branch, Refund), &redeem, &members,
-                    &sigs, None, preimage, None, winner_is_a,
-                ).unwrap();
+                    "binary_oracle_select",
+                    matches!(branch, Refund),
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    preimage,
+                    None,
+                    winner_is_a,
+                )
+                .unwrap();
                 equal.set(strip_sig(&custodial) == strip_sig(&noncustodial));
                 custodial // run the custodial script through the engine to keep this a valid spend
             });
@@ -5898,7 +7170,18 @@ mod tests {
             run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(wa), ext_solo(s, &winner_a));
-                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    Some(&s_a[..]),
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(b) winner_a's browser sig + revealed s_A must claim outcome A"
         );
@@ -5907,7 +7190,18 @@ mod tests {
             run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(wb), ext_solo(s, &winner_b));
-                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_b[..]), None, false).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    Some(&s_b[..]),
+                    None,
+                    false,
+                )
+                .unwrap()
             }),
             "(b) winner_b's browser sig + revealed s_B must claim outcome B"
         );
@@ -5915,7 +7209,18 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let solo = ext_solo(s, &winner_a);
-                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(&s_a[..]), None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    false,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    Some(&s_a[..]),
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(b) the solo-signature wallet flow must also claim outcome A"
         );
@@ -5924,7 +7229,18 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, min_seq, |s| {
                 let solo = ext_solo(s, &refund);
-                assemble_noncustodial_satisfier("binary_oracle_select", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(c) the refund key must reclaim once the UTXO has aged min_sequence (BIP68)"
         );
@@ -5932,7 +7248,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
                 let solo = ext_solo(s, &refund);
-                assemble_noncustodial_satisfier("binary_oracle_select", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(c) the refund must be rejected before the relative timelock matures"
         );
@@ -5943,9 +7270,22 @@ mod tests {
             let mut sigs = std::collections::HashMap::new();
             // winner_b's sig offered for outcome A (named key = winner_a, which is absent).
             sigs.insert(hex::encode(wb), [0u8; 64]);
-            assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true)
+            assemble_noncustodial_satisfier(
+                "binary_oracle_select",
+                false,
+                &redeem,
+                &members,
+                &sigs,
+                None,
+                Some(&s_a[..]),
+                None,
+                true,
+            )
         };
-        assert!(wrong.is_err(), "(d) a sigs map missing the branch's named key must be rejected at assembly");
+        assert!(
+            wrong.is_err(),
+            "(d) a sigs map missing the branch's named key must be rejected at assembly"
+        );
         // Anti-redirect via the on-chain OpCheckSig: even if the LOSER's signature is supplied
         // UNDER the winner's named key (so it assembles), the engine rejects it - a public secret
         // cannot let the wrong party sweep the winner's branch.
@@ -5953,7 +7293,18 @@ mod tests {
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(wa), ext_solo(s, &winner_b)); // winner_b signing, keyed as winner_a
-                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    Some(&s_a[..]),
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(d) the loser's sig cannot take the winner's branch even when keyed as the winner"
         );
@@ -5962,7 +7313,18 @@ mod tests {
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(wa), ext_solo(s, &refund)); // refund signing, keyed as winner_a
-                assemble_noncustodial_satisfier("binary_oracle_select", false, &redeem, &members, &sigs, None, Some(&s_a[..]), None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "binary_oracle_select",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    Some(&s_a[..]),
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(d) the refund key cannot claim a reveal branch"
         );
@@ -5974,12 +7336,30 @@ mod tests {
         let b = [22u8; 32];
         let c = [33u8; 32];
         let d = [44u8; 32];
-        let k = RedeemKind::BinaryOracleSelect { h_a: a, winner_a: b, h_b: c, winner_b: d, min_sequence: 144, refund: a };
-        assert_eq!(k.redeem_script().unwrap(), redeem_binary_oracle_select(&a, &b, &c, &d, 144, &a).unwrap());
+        let k = RedeemKind::BinaryOracleSelect {
+            h_a: a,
+            winner_a: b,
+            h_b: c,
+            winner_b: d,
+            min_sequence: 144,
+            refund: a,
+        };
+        assert_eq!(
+            k.redeem_script().unwrap(),
+            redeem_binary_oracle_select(&a, &b, &c, &d, 144, &a).unwrap()
+        );
         assert_eq!(k.kind_str(), "binary_oracle_select:144");
         assert_eq!(k.catalog_id(), "p2sh_binary_oracle_select");
-        assert_eq!(SpendKind::parse("binary_oracle_select:144"), Some(SpendKind::BinaryOracleSelect { min_sequence: 144 }));
-        assert_eq!(SpendKind::parse("binary_oracle_select:144").unwrap().sig_op_count(), 3);
+        assert_eq!(
+            SpendKind::parse("binary_oracle_select:144"),
+            Some(SpendKind::BinaryOracleSelect { min_sequence: 144 })
+        );
+        assert_eq!(
+            SpendKind::parse("binary_oracle_select:144")
+                .unwrap()
+                .sig_op_count(),
+            3
+        );
     }
 
     #[test]
@@ -5998,22 +7378,45 @@ mod tests {
 
         // NOW: any 2 of the 3 satisfy the IF branch (lock_time irrelevant).
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_timedecay_signature_script(s, 0, &[k1, k2], &redeem, false).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_timedecay_signature_script(
+                s,
+                0,
+                &[k1, k2],
+                &redeem,
+                false
+            )
+            .unwrap()),
             "2-of-3 on the IF branch must pass"
         );
         // NOW with only 1 signature fails (needs 2).
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_timedecay_signature_script(s, 0, &[k1], &redeem, false).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_timedecay_signature_script(
+                s,
+                0,
+                &[k1],
+                &redeem,
+                false
+            )
+            .unwrap()),
             "1 signature on the 2-of-3 IF branch must fail"
         );
         // AFTER the timeout: just 1 of the 3 satisfies the ELSE branch (lock_time >= lock_daa).
         assert!(
-            run_spend_generic(&redeem, lock_daa, 0, |s| build_timedecay_signature_script(s, 0, &[k3], &redeem, true).unwrap()),
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_timedecay_signature_script(
+                s,
+                0,
+                &[k3],
+                &redeem,
+                true
+            )
+            .unwrap()),
             "1-of-3 after the timeout must pass"
         );
         // The ELSE branch BEFORE the timeout fails (CLTV).
         assert!(
-            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| build_timedecay_signature_script(s, 0, &[k3], &redeem, true).unwrap()),
+            !run_spend_generic(&redeem, lock_daa - 1, 0, |s| {
+                build_timedecay_signature_script(s, 0, &[k3], &redeem, true).unwrap()
+            }),
             "the ELSE branch before the timeout must fail"
         );
     }
@@ -6030,29 +7433,49 @@ mod tests {
 
         // Player A won: oracle co-signs + A signs the IF branch.
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &player_a, true, &redeem).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(
+                s, 0, &oracle, &player_a, true, &redeem
+            )
+            .unwrap()),
             "A's claim with the oracle co-sign must pass"
         );
         // Player B won: oracle co-signs + B signs the ELSE branch.
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &player_b, false, &redeem).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(
+                s, 0, &oracle, &player_b, false, &redeem
+            )
+            .unwrap()),
             "B's claim with the oracle co-sign must pass"
         );
         // A signs but selects B's branch (B's pubkey vs A's sig) -> fail.
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &player_a, false, &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(
+                s, 0, &oracle, &player_a, false, &redeem
+            )
+            .unwrap()),
             "claiming the wrong branch must fail"
         );
         // No valid oracle co-sign (wrong oracle key) -> OpCheckSigVerify aborts.
         let not_oracle = test_keypair(99);
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &not_oracle, &player_a, true, &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(
+                s,
+                0,
+                &not_oracle,
+                &player_a,
+                true,
+                &redeem
+            )
+            .unwrap()),
             "without the real oracle co-sign the pot is unspendable"
         );
         // A non-member 'player' with the oracle co-sign still fails (OpCheckSig in branch).
         let outsider = test_keypair(98);
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(s, 0, &oracle, &outsider, true, &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_oracle_escrow_signature_script(
+                s, 0, &oracle, &outsider, true, &redeem
+            )
+            .unwrap()),
             "a non-member cannot claim even with the oracle co-sign"
         );
     }
@@ -6068,28 +7491,53 @@ mod tests {
 
         // Cooperative close: BOTH players co-sign the IF branch (no oracle) -> spends.
         assert!(
-            run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(s, 0, &p1, Some(&p2), true, &redeem).unwrap()),
+            run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(
+                s,
+                0,
+                &p1,
+                Some(&p2),
+                true,
+                &redeem
+            )
+            .unwrap()),
             "cooperative 2-of-2 close must satisfy the IF branch"
         );
         // Cooperative close with a wrong second key -> the p2 OpCheckSig fails.
         let wrong = test_keypair(99);
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(s, 0, &p1, Some(&wrong), true, &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(
+                s,
+                0,
+                &p1,
+                Some(&wrong),
+                true,
+                &redeem
+            )
+            .unwrap()),
             "cooperative close needs BOTH real player signatures"
         );
         // Refund BEFORE the timeout (tx lock_time 0 < lock_daa) -> CLTV rejects.
         assert!(
-            !run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(s, 0, &p1, None, false, &redeem).unwrap()),
+            !run_spend_generic(&redeem, 0, 0, |s| build_channel_signature_script(
+                s, 0, &p1, None, false, &redeem
+            )
+            .unwrap()),
             "refund before the timeout must be rejected by CLTV"
         );
         // Refund AFTER the timeout (lock_time >= lock_daa, non-final sequence) -> p1 reclaims.
         assert!(
-            run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(s, 0, &p1, None, false, &redeem).unwrap()),
+            run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(
+                s, 0, &p1, None, false, &redeem
+            )
+            .unwrap()),
             "funder refund after the timeout must pass"
         );
         // Refund after the timeout by the wrong key -> the ELSE branch's OpCheckSig fails.
         assert!(
-            !run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(s, 0, &wrong, None, false, &redeem).unwrap()),
+            !run_spend_generic(&redeem, lock_daa, 0, |s| build_channel_signature_script(
+                s, 0, &wrong, None, false, &redeem
+            )
+            .unwrap()),
             "only the funder can refund the channel"
         );
     }
@@ -6099,10 +7547,14 @@ mod tests {
     // assembles + relays) satisfies the SAME consensus script engine. ──
     fn sighash_msg(signable: &SignableTransaction) -> secp256k1::Message {
         let mut reused = SigHashReusedValues::new();
-        let h = calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
+        let h =
+            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
         secp256k1::Message::from_digest_slice(h.as_bytes().as_slice()).unwrap()
     }
-    fn ext_sigs(signable: &SignableTransaction, kps: &[&Keypair]) -> std::collections::HashMap<String, [u8; 64]> {
+    fn ext_sigs(
+        signable: &SignableTransaction,
+        kps: &[&Keypair],
+    ) -> std::collections::HashMap<String, [u8; 64]> {
         let msg = sighash_msg(signable);
         let mut m = std::collections::HashMap::new();
         for kp in kps {
@@ -6114,7 +7566,9 @@ mod tests {
     fn ext_solo(signable: &SignableTransaction, kp: &Keypair) -> [u8; 64] {
         *kp.sign_schnorr(sighash_msg(signable)).as_ref()
     }
-    fn empty_sigs() -> std::collections::HashMap<String, [u8; 64]> { std::collections::HashMap::new() }
+    fn empty_sigs() -> std::collections::HashMap<String, [u8; 64]> {
+        std::collections::HashMap::new()
+    }
 
     #[test]
     fn noncustodial_multisig_2of2() {
@@ -6124,12 +7578,19 @@ mod tests {
         let x2 = kp2.x_only_public_key().0.serialize();
         let redeem = redeem_multisig(&[x1, x2], 2).unwrap();
         let members = parse_redeem_pubkeys(&redeem, false);
-        assert_eq!(members, vec![x1, x2], "multisig pubkey parse must keep both members in order");
+        assert_eq!(
+            members,
+            vec![x1, x2],
+            "multisig pubkey parse must keep both members in order"
+        );
         // Both members sign in their own wallet -> valid 2-of-2 spend.
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let sigs = ext_sigs(s, &[&kp1, &kp2]);
-                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "multisig", false, &redeem, &members, &sigs, None, None, None, true,
+                )
+                .unwrap()
             }),
             "2-of-2 non-custodial multisig must satisfy the lock"
         );
@@ -6137,7 +7598,10 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let sigs = ext_sigs(s, &[&kp1]);
-                assemble_noncustodial_satisfier("multisig", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "multisig", false, &redeem, &members, &sigs, None, None, None, true,
+                )
+                .unwrap()
             }),
             "a single signature must not satisfy a 2-of-2"
         );
@@ -6154,12 +7618,27 @@ mod tests {
         let lock_daa = 555u64;
         let redeem = redeem_htlc(&hash, &xr, lock_daa, &xs).unwrap();
         let members = parse_redeem_pubkeys(&redeem, true);
-        assert_eq!(members, vec![xr, xs], "htlc parse must yield [receiver, sender]");
+        assert_eq!(
+            members,
+            vec![xr, xs],
+            "htlc parse must yield [receiver, sender]"
+        );
         // Claim: receiver signs + reveals the preimage, lock_time 0.
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let solo = ext_solo(s, &receiver);
-                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(preimage), None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "htlc",
+                    false,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    Some(preimage),
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "non-custodial HTLC claim must satisfy"
         );
@@ -6167,7 +7646,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let solo = ext_solo(s, &receiver);
-                assemble_noncustodial_satisfier("htlc", false, &redeem, &members, &empty_sigs(), Some(&solo), Some(b"wrong"), None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "htlc",
+                    false,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    Some(b"wrong"),
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "HTLC claim with a wrong preimage must fail"
         );
@@ -6175,7 +7665,18 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, lock_daa, 0, |s| {
                 let solo = ext_solo(s, &sender);
-                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "htlc",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "non-custodial HTLC refund at lock_daa must satisfy"
         );
@@ -6183,7 +7684,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa - 1, 0, |s| {
                 let solo = ext_solo(s, &sender);
-                assemble_noncustodial_satisfier("htlc", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "htlc",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "HTLC refund before lock_daa must fail"
         );
@@ -6199,12 +7711,19 @@ mod tests {
         let lock_daa = 777u64;
         let redeem = redeem_channel(&xp1, &xp2, lock_daa).unwrap();
         let members = parse_redeem_pubkeys(&redeem, true);
-        assert_eq!(members, vec![xp1, xp2, xp1], "channel parse must yield [p1, p2, p1]");
+        assert_eq!(
+            members,
+            vec![xp1, xp2, xp1],
+            "channel parse must yield [p1, p2, p1]"
+        );
         // Cooperative close: both players sign the agreed payout, lock_time 0.
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let sigs = ext_sigs(s, &[&p1, &p2]);
-                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "channel", false, &redeem, &members, &sigs, None, None, None, true,
+                )
+                .unwrap()
             }),
             "non-custodial channel cooperative close must satisfy"
         );
@@ -6213,7 +7732,10 @@ mod tests {
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = ext_sigs(s, &[&p1]);
                 sigs.insert(hex::encode(xp2), ext_solo(s, &wrong));
-                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "channel", false, &redeem, &members, &sigs, None, None, None, true,
+                )
+                .unwrap()
             }),
             "channel close with a forged player2 signature must fail"
         );
@@ -6224,8 +7746,11 @@ mod tests {
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 run_spend_generic(&redeem, 0, 0, |s| {
                     let sigs = ext_sigs(s, &[&p1]); // only player1 present
-                    // assemble must Err ("channel close needs player2's signature"); unwrap panics.
-                    assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                                                    // assemble must Err ("channel close needs player2's signature"); unwrap panics.
+                    assemble_noncustodial_satisfier(
+                        "channel", false, &redeem, &members, &sigs, None, None, None, true,
+                    )
+                    .unwrap()
                 })
             }))
             .is_err(),
@@ -6237,7 +7762,10 @@ mod tests {
             !run_spend_generic(&redeem, 0, 0, |s| {
                 let mut sigs = ext_sigs(s, &[&p1]);
                 sigs.insert(hex::encode(xp2), ext_solo(s, &p1)); // player1 forging player2's slot
-                assemble_noncustodial_satisfier("channel", false, &redeem, &members, &sigs, None, None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "channel", false, &redeem, &members, &sigs, None, None, None, true,
+                )
+                .unwrap()
             }),
             "player1 cannot fill player2's signature slot - a real second-party sig is required"
         );
@@ -6245,7 +7773,18 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, lock_daa, 0, |s| {
                 let solo = ext_solo(s, &p1);
-                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "channel",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "non-custodial channel refund by the funder must satisfy"
         );
@@ -6253,7 +7792,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, lock_daa, 0, |s| {
                 let solo = ext_solo(s, &wrong);
-                assemble_noncustodial_satisfier("channel", true, &redeem, &members, &empty_sigs(), Some(&solo), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "channel",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&solo),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "only the funder can refund the channel (non-custodial)"
         );
@@ -6272,14 +7822,29 @@ mod tests {
         let xw = winner.x_only_public_key().0.serialize();
         let redeem = redeem_multisig(&[xo, xw], 2).unwrap();
         let members = parse_redeem_pubkeys(&redeem, false);
-        assert_eq!(members, vec![xo, xw], "oracle_enforced parse must yield [oracle, winner]");
+        assert_eq!(
+            members,
+            vec![xo, xw],
+            "oracle_enforced parse must yield [oracle, winner]"
+        );
         // oracle sig (server) + winner sig (browser) -> valid.
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xw), ext_solo(s, &winner));
-                assemble_noncustodial_satisfier("oracle_enforced", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "oracle 2-of-2 with the oracle + winner signatures must satisfy"
         );
@@ -6289,7 +7854,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xw), ext_solo(s, &wrong));
-                assemble_noncustodial_satisfier("oracle_enforced", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "a forged winner signature must not satisfy the oracle 2-of-2"
         );
@@ -6308,14 +7884,29 @@ mod tests {
         let xb = player_b.x_only_public_key().0.serialize();
         let redeem = redeem_oracle_escrow(&xo, &xa, &xb).unwrap();
         let members = parse_redeem_pubkeys(&redeem, true);
-        assert_eq!(members, vec![xo, xa, xb], "oracle_escrow parse must yield [oracle, player_a, player_b]");
+        assert_eq!(
+            members,
+            vec![xo, xa, xb],
+            "oracle_escrow parse must yield [oracle, player_a, player_b]"
+        );
         // Player A wins (winner_is_a = true): oracle sig + player A sig + IF branch -> valid.
         assert!(
             run_spend_generic(&redeem, 0, 0, |s| {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xa), ext_solo(s, &player_a));
-                assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "oracle_escrow payout to the winning player A must satisfy"
         );
@@ -6325,7 +7916,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xb), ext_solo(s, &player_b));
-                assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), false).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    false,
+                )
+                .unwrap()
             }),
             "oracle_escrow payout to the winning player B must satisfy"
         );
@@ -6338,7 +7940,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xa), ext_solo(s, &player_b)); // wrong signer for the A branch
-                assemble_noncustodial_satisfier("oracle_escrow", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "the loser cannot take the winner's branch even with the oracle co-signature"
         );
@@ -6357,33 +7970,64 @@ mod tests {
         let rf = [55u8; 32];
 
         // oracle_enforced_refundable: byte-identical, round-trips, 3 sig ops (2 multisig + 1 refund).
-        let ker = RedeemKind::OracleEnforcedRefundable { oracle: o, winner: w, min_sequence: 144, refund: rf };
-        assert_eq!(ker.redeem_script().unwrap(), redeem_oracle_enforced_refundable(&o, &w, 144, &rf).unwrap());
+        let ker = RedeemKind::OracleEnforcedRefundable {
+            oracle: o,
+            winner: w,
+            min_sequence: 144,
+            refund: rf,
+        };
+        assert_eq!(
+            ker.redeem_script().unwrap(),
+            redeem_oracle_enforced_refundable(&o, &w, 144, &rf).unwrap()
+        );
         assert_eq!(ker.kind_str(), "oracle_enforced_refundable:144");
         assert_eq!(ker.catalog_id(), "oracle_enforced_refundable");
         assert_eq!(
             SpendKind::parse("oracle_enforced_refundable:144"),
             Some(SpendKind::OracleEnforcedRefundable { min_sequence: 144 })
         );
-        assert_eq!(SpendKind::parse("oracle_enforced_refundable:144").unwrap().sig_op_count(), 3);
+        assert_eq!(
+            SpendKind::parse("oracle_enforced_refundable:144")
+                .unwrap()
+                .sig_op_count(),
+            3
+        );
 
         // oracle_escrow_refundable: byte-identical, round-trips, 4 sig ops (CSV(oracle) + a + b + refund).
-        let kes = RedeemKind::OracleEscrowRefundable { oracle: o, player_a: a, player_b: b, min_sequence: 200, refund: rf };
-        assert_eq!(kes.redeem_script().unwrap(), redeem_oracle_escrow_refundable(&o, &a, &b, 200, &rf).unwrap());
+        let kes = RedeemKind::OracleEscrowRefundable {
+            oracle: o,
+            player_a: a,
+            player_b: b,
+            min_sequence: 200,
+            refund: rf,
+        };
+        assert_eq!(
+            kes.redeem_script().unwrap(),
+            redeem_oracle_escrow_refundable(&o, &a, &b, 200, &rf).unwrap()
+        );
         assert_eq!(kes.kind_str(), "oracle_escrow_refundable:200");
         assert_eq!(kes.catalog_id(), "oracle_escrow_refundable");
         assert_eq!(
             SpendKind::parse("oracle_escrow_refundable:200"),
             Some(SpendKind::OracleEscrowRefundable { min_sequence: 200 })
         );
-        assert_eq!(SpendKind::parse("oracle_escrow_refundable:200").unwrap().sig_op_count(), 4);
+        assert_eq!(
+            SpendKind::parse("oracle_escrow_refundable:200")
+                .unwrap()
+                .sig_op_count(),
+            4
+        );
 
         // The refundable IF-branch is the existing redeem spliced in verbatim: the
         // oracle_enforced_refundable IF body equals the oracle_enforced 2-of-2 multisig bytes, so
         // already-deployed covenants are provably untouched.
         let ms = redeem_multisig(&[o, w], 2).unwrap();
         let er = redeem_oracle_enforced_refundable(&o, &w, 144, &rf).unwrap();
-        assert_eq!(&er[1..1 + ms.len()], &ms[..], "enforced_refundable IF branch must be the exact oracle_enforced 2-of-2 bytes");
+        assert_eq!(
+            &er[1..1 + ms.len()],
+            &ms[..],
+            "enforced_refundable IF branch must be the exact oracle_enforced 2-of-2 bytes"
+        );
     }
 
     /// The frozen-funds fix, proven against the REAL kaspa-txscript interpreter. The refundable
@@ -6407,7 +8051,11 @@ mod tests {
         let redeem = redeem_oracle_escrow_refundable(&xo, &xa, &xb, min_seq, &xr).unwrap();
         // checksig_only parse keeps the four pubkeys each directly followed by a checksig(verify).
         let members = parse_redeem_pubkeys(&redeem, true);
-        assert_eq!(members, vec![xo, xa, xb, xr], "parse must yield [oracle, player_a, player_b, refund]");
+        assert_eq!(
+            members,
+            vec![xo, xa, xb, xr],
+            "parse must yield [oracle, player_a, player_b, refund]"
+        );
 
         // (a) oracle + player A satisfy the IF branch (winner A claims), lock_time/sequence irrelevant.
         assert!(
@@ -6415,7 +8063,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xa), ext_solo(s, &player_a));
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(a) oracle + A must claim the IF branch"
         );
@@ -6425,7 +8084,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xb), ext_solo(s, &player_b));
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), false).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    false,
+                )
+                .unwrap()
             }),
             "(b) oracle + B must claim"
         );
@@ -6433,7 +8103,18 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, min_seq, |s| {
                 let rsig = ext_solo(s, &refund);
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&rsig),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(c) the funder must reclaim once the UTXO has aged min_sequence"
         );
@@ -6441,7 +8122,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
                 let rsig = ext_solo(s, &refund);
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&rsig),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(d) the refund must be rejected before the relative timelock matures"
         );
@@ -6449,7 +8141,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq, |s| {
                 let osig = ext_solo(s, &outsider);
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", true, &redeem, &members, &empty_sigs(), Some(&osig), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&osig),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(e) a non-refund key cannot take the refund branch (no theft)"
         );
@@ -6460,7 +8163,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xa), ext_solo(s, &oracle)); // oracle masquerading as winner A
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(e) the oracle alone cannot claim a player's branch"
         );
@@ -6470,7 +8184,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xa), ext_solo(s, &player_b)); // B signing A's branch
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(e) the loser cannot take the winner's branch even with the oracle co-sign"
         );
@@ -6480,7 +8205,18 @@ mod tests {
                 let osig = ext_solo(s, &outsider); // not the oracle
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xa), ext_solo(s, &player_a));
-                assemble_noncustodial_satisfier("oracle_escrow_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_escrow_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(e) without the real oracle co-sign the IF branch is unspendable"
         );
@@ -6505,7 +8241,11 @@ mod tests {
         // The IF body is a 2-of-2 multisig (pubkeys NOT followed by checksig), the refund key IS;
         // checksig_only=false keeps every 0x20<32> push: [oracle, winner, refund].
         let members = parse_redeem_pubkeys(&redeem, false);
-        assert_eq!(members, vec![xo, xw, xr], "parse must yield [oracle, winner, refund]");
+        assert_eq!(
+            members,
+            vec![xo, xw, xr],
+            "parse must yield [oracle, winner, refund]"
+        );
 
         // (a) oracle (server) + winner (browser) satisfy the IF branch 2-of-2.
         assert!(
@@ -6513,7 +8253,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xw), ext_solo(s, &winner));
-                assemble_noncustodial_satisfier("oracle_enforced_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(a) oracle + winner must claim the IF branch 2-of-2"
         );
@@ -6523,7 +8274,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xw), ext_solo(s, &outsider));
-                assemble_noncustodial_satisfier("oracle_enforced_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(b) a forged winner signature must not satisfy the IF branch"
         );
@@ -6531,7 +8293,18 @@ mod tests {
         assert!(
             run_spend_generic(&redeem, 0, min_seq, |s| {
                 let rsig = ext_solo(s, &refund);
-                assemble_noncustodial_satisfier("oracle_enforced_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced_refundable",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&rsig),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(c) the funder must reclaim once the UTXO has aged min_sequence"
         );
@@ -6539,7 +8312,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq - 1, |s| {
                 let rsig = ext_solo(s, &refund);
-                assemble_noncustodial_satisfier("oracle_enforced_refundable", true, &redeem, &members, &empty_sigs(), Some(&rsig), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced_refundable",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&rsig),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(d) the refund must be rejected before the relative timelock matures"
         );
@@ -6547,7 +8331,18 @@ mod tests {
         assert!(
             !run_spend_generic(&redeem, 0, min_seq, |s| {
                 let osig = ext_solo(s, &outsider);
-                assemble_noncustodial_satisfier("oracle_enforced_refundable", true, &redeem, &members, &empty_sigs(), Some(&osig), None, None, true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced_refundable",
+                    true,
+                    &redeem,
+                    &members,
+                    &empty_sigs(),
+                    Some(&osig),
+                    None,
+                    None,
+                    true,
+                )
+                .unwrap()
             }),
             "(e) a non-refund key cannot take the refund branch (no theft)"
         );
@@ -6557,7 +8352,18 @@ mod tests {
                 let osig = ext_solo(s, &oracle);
                 let mut sigs = std::collections::HashMap::new();
                 sigs.insert(hex::encode(xw), ext_solo(s, &oracle)); // oracle masquerading as the winner
-                assemble_noncustodial_satisfier("oracle_enforced_refundable", false, &redeem, &members, &sigs, None, None, Some(&osig), true).unwrap()
+                assemble_noncustodial_satisfier(
+                    "oracle_enforced_refundable",
+                    false,
+                    &redeem,
+                    &members,
+                    &sigs,
+                    None,
+                    None,
+                    Some(&osig),
+                    true,
+                )
+                .unwrap()
             }),
             "(e) the oracle alone cannot satisfy the 2-of-2 claim"
         );
@@ -6571,15 +8377,37 @@ mod tests {
         // key fails (so a forged funding signature cannot move the deployer's coins).
         use kaspa_consensus_core::tx::{ScriptPublicKey, ScriptVec};
         // Mirror run_spend_generic's borrow structure (a plain fn) but for a P2PK input.
-        fn run_p2pk(p2pk_spk: &ScriptPublicKey, make_sig: impl Fn(&SignableTransaction) -> Vec<u8>) -> bool {
-            let prev = TransactionOutpoint { transaction_id: kaspa_hashes::Hash::from_bytes([9u8; 32]), index: 0 };
+        fn run_p2pk(
+            p2pk_spk: &ScriptPublicKey,
+            make_sig: impl Fn(&SignableTransaction) -> Vec<u8>,
+        ) -> bool {
+            let prev = TransactionOutpoint {
+                transaction_id: kaspa_hashes::Hash::from_bytes([9u8; 32]),
+                index: 0,
+            };
             let tx = Transaction::new(
                 0,
-                vec![TransactionInput { previous_outpoint: prev, signature_script: vec![], sequence: 0, sig_op_count: 1 }],
-                vec![TransactionOutput { value: 90_000_000, script_public_key: p2pk_spk.clone() }],
-                0, SubnetworkId::from_bytes([0u8; 20]), 0, vec![0xaa, 0x20, 1, 2, 3],
+                vec![TransactionInput {
+                    previous_outpoint: prev,
+                    signature_script: vec![],
+                    sequence: 0,
+                    sig_op_count: 1,
+                }],
+                vec![TransactionOutput {
+                    value: 90_000_000,
+                    script_public_key: p2pk_spk.clone(),
+                }],
+                0,
+                SubnetworkId::from_bytes([0u8; 20]),
+                0,
+                vec![0xaa, 0x20, 1, 2, 3],
             );
-            let entries = vec![UtxoEntry { amount: 100_000_000, script_public_key: p2pk_spk.clone(), block_daa_score: 1, is_coinbase: false }];
+            let entries = vec![UtxoEntry {
+                amount: 100_000_000,
+                script_public_key: p2pk_spk.clone(),
+                block_daa_score: 1,
+                is_coinbase: false,
+            }];
             let mut signable = SignableTransaction::with_entries(tx, entries);
             let sig_script = make_sig(&signable);
             signable.tx.inputs[0].signature_script = sig_script;
@@ -6587,7 +8415,15 @@ mod tests {
             let (input, entry) = verifiable.populated_inputs().next().unwrap();
             let mut reused = SigHashReusedValues::new();
             let cache = Cache::new(10_000);
-            let mut engine = TxScriptEngine::from_transaction_input(&verifiable, input, 0, entry, &mut reused, &cache).unwrap();
+            let mut engine = TxScriptEngine::from_transaction_input(
+                &verifiable,
+                input,
+                0,
+                entry,
+                &mut reused,
+                &cache,
+            )
+            .unwrap();
             engine.execute().is_ok()
         }
         let kp = test_keypair(61);
@@ -6603,9 +8439,15 @@ mod tests {
             let msg = secp256k1::Message::from_digest_slice(h.as_bytes().as_slice()).unwrap();
             *k.sign_schnorr(msg).as_ref()
         };
-        assert!(run_p2pk(&p2pk_spk, |s| push65(&sign(s, &kp))), "non-custodial deploy funding P2PK spend must execute");
+        assert!(
+            run_p2pk(&p2pk_spk, |s| push65(&sign(s, &kp))),
+            "non-custodial deploy funding P2PK spend must execute"
+        );
         let wrong = test_keypair(62);
-        assert!(!run_p2pk(&p2pk_spk, |s| push65(&sign(s, &wrong))), "a wrong key must not satisfy the funding P2PK spend");
+        assert!(
+            !run_p2pk(&p2pk_spk, |s| push65(&sign(s, &wrong))),
+            "a wrong key must not satisfy the funding P2PK spend"
+        );
     }
 
     /// CROSS-LANGUAGE SATISFIER GOLDEN PARITY (the consensus-critical money-path gate).
@@ -6655,7 +8497,9 @@ mod tests {
         // Fixed inputs (must match tests/fixtures/satisfier_golden.json `fixed_inputs`).
         let fi = &doc["fixed_inputs"];
         let read_sig = |key: &str| -> [u8; 64] {
-            let h = fi[key].as_str().unwrap_or_else(|| panic!("fixed_inputs.{key} missing"));
+            let h = fi[key]
+                .as_str()
+                .unwrap_or_else(|| panic!("fixed_inputs.{key} missing"));
             let v = hex::decode(h).unwrap_or_else(|_| panic!("fixed_inputs.{key} not hex"));
             assert_eq!(v.len(), 64, "fixed_inputs.{key} must be 64 bytes");
             let mut a = [0u8; 64];
@@ -6667,7 +8511,9 @@ mod tests {
         let sig_refund = read_sig("sig_refund");
         let sig_oracle = read_sig("sig_oracle");
         let preimage = {
-            let h = fi["preimage"].as_str().expect("fixed_inputs.preimage missing");
+            let h = fi["preimage"]
+                .as_str()
+                .expect("fixed_inputs.preimage missing");
             hex::decode(h).expect("fixed_inputs.preimage not hex")
         };
 
@@ -6911,8 +8757,11 @@ mod tests {
                 ),
                 ("oracle", "claim") | ("oracle_enforced", "claim") => {
                     // [oracle, winner]; oracle=sig_oracle (oracle slot), winner=sig_a (keyed).
-                    let k: &'static str =
-                        if kind == "oracle" { "oracle" } else { "oracle_enforced" };
+                    let k: &'static str = if kind == "oracle" {
+                        "oracle"
+                    } else {
+                        "oracle_enforced"
+                    };
                     content(
                         &r_oracle,
                         Slots {
@@ -7061,7 +8910,9 @@ mod tests {
             }
         };
 
-        let vectors = doc["vectors"].as_array().expect("fixture.vectors is an array");
+        let vectors = doc["vectors"]
+            .as_array()
+            .expect("fixture.vectors is an array");
         assert!(!vectors.is_empty(), "golden fixture has no vectors");
         let mut checked = 0usize;
         for v in vectors {
@@ -7078,6 +8929,9 @@ mod tests {
             checked += 1;
         }
         // Every kind+branch the non-custodial assembler supports must be covered by the fixture.
-        assert_eq!(checked, 23, "expected 23 golden satisfier vectors, checked {checked}");
+        assert_eq!(
+            checked, 23,
+            "expected 23 golden satisfier vectors, checked {checked}"
+        );
     }
 }

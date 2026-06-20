@@ -5,7 +5,7 @@ pub enum CovenantCategory {
     #[serde(rename = "skill")]
     Skill,
     #[serde(rename = "verifiable-skill")]
-    VerifiableSkill,   // Skill contests with ZK/oracle resolution (chess, poker etc.)
+    VerifiableSkill, // Skill contests with ZK/oracle resolution (chess, poker etc.)
     #[serde(rename = "predictive")]
     Predictive,
     #[serde(rename = "escrow")]
@@ -21,13 +21,13 @@ pub enum CovenantCategory {
     #[serde(rename = "governance")]
     Governance,
     #[serde(rename = "membership-claim")]
-    MembershipClaim,   // Merkle / range / eligibility claims
+    MembershipClaim, // Merkle / range / eligibility claims
     #[serde(rename = "defi")]
-    DeFi,              // Yield, compounding, lending, pot splits
+    DeFi, // Yield, compounding, lending, pot splits
     #[serde(rename = "oracle")]
-    Oracle,            // Oracle-attested, VRF, external data
+    Oracle, // Oracle-attested, VRF, external data
     #[serde(rename = "zk")]
-    ZK,                // Pure ZK proofs, range, membership without oracle
+    ZK, // Pure ZK proofs, range, membership without oracle
     #[serde(rename = "p2sh")]
     P2sh,
     #[serde(rename = "vesting")]
@@ -61,7 +61,10 @@ impl CovenantCategory {
 
         // Pure P2SH commitment: exactly OpBlake2b <32-byte hash> OpEqual.
         // The script's logic is hidden until spend, so it gets its own honest class.
-        if script_hex.starts_with("aa20") && script_hex.ends_with("87") && (34..=36).contains(&raw_len) {
+        if script_hex.starts_with("aa20")
+            && script_hex.ends_with("87")
+            && (34..=36).contains(&raw_len)
+        {
             return CovenantCategory::P2sh;
         }
 
@@ -122,8 +125,15 @@ impl CovenantCategory {
 
     /// Quick check if this looks like a raw covenant (any aa2x but no strong category match).
     pub fn is_raw_covenant(script_hex: &str) -> bool {
-        let has_op = script_hex.contains("aa20") || script_hex.contains("aa21") || script_hex.contains("aa22") || script_hex.contains("aa23");
-        has_op && matches!(Self::from_script_ops(script_hex), CovenantCategory::General | CovenantCategory::Flash)
+        let has_op = script_hex.contains("aa20")
+            || script_hex.contains("aa21")
+            || script_hex.contains("aa22")
+            || script_hex.contains("aa23");
+        has_op
+            && matches!(
+                Self::from_script_ops(script_hex),
+                CovenantCategory::General | CovenantCategory::Flash
+            )
     }
 
     /// More granular covenant_type used for indexing and API (beyond broad category).
@@ -158,7 +168,11 @@ impl CovenantCategory {
             return "p2sh-commitment".into();
         }
         // Best-effort for raw / any opcode presence (to surface EVERY covenant from the chain)
-        if script_hex.contains("aa20") || script_hex.contains("aa21") || script_hex.contains("aa22") || script_hex.contains("aa23") {
+        if script_hex.contains("aa20")
+            || script_hex.contains("aa21")
+            || script_hex.contains("aa22")
+            || script_hex.contains("aa23")
+        {
             return "raw-covenant".into();
         }
         "generic-covenant".into()

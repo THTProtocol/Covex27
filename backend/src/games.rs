@@ -29,7 +29,10 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
         .route("/games/:covenant_id/submit-settle", post(submit_settle))
         .route("/games/:covenant_id/lock-channel", post(lock_channel))
-        .route("/games/:covenant_id/bind-channel-pot", post(bind_channel_pot))
+        .route(
+            "/games/:covenant_id/bind-channel-pot",
+            post(bind_channel_pot),
+        )
         .route("/games/:covenant_id/settle-channel", post(settle_channel))
         .route("/games/:covenant_id/refund-channel", post(refund_channel))
 }
@@ -92,16 +95,20 @@ fn authorize_money_caller(
     // POSITIVE match against a stored, non-empty token (check_seat_token returns
     // Ok on a NULL/empty stored token, so we gate on that explicitly here to keep
     // the money routes fail-closed).
-    if matches!(&p1_token, Some(t) if !t.is_empty()) && check_seat_token(&p1_token, supplied).is_ok()
+    if matches!(&p1_token, Some(t) if !t.is_empty())
+        && check_seat_token(&p1_token, supplied).is_ok()
     {
         return Ok(Seat::Player1);
     }
-    if matches!(&p2_token, Some(t) if !t.is_empty()) && check_seat_token(&p2_token, supplied).is_ok()
+    if matches!(&p2_token, Some(t) if !t.is_empty())
+        && check_seat_token(&p2_token, supplied).is_ok()
     {
         return Ok(Seat::Player2);
     }
-    Err("invalid or missing seat token - only a seated player of this match may move its funds"
-        .to_string())
+    Err(
+        "invalid or missing seat token - only a seated player of this match may move its funds"
+            .to_string(),
+    )
 }
 
 // ── Public thin wrappers for the off-chain channel relay (channel.rs). They expose
@@ -164,7 +171,14 @@ pub fn spawn_timeout_sweeper(db: crate::db::Db) {
                         Err(_) => continue,
                     };
                     stmt.query_map([], |r| {
-                        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+                        Ok((
+                            r.get(0)?,
+                            r.get(1)?,
+                            r.get(2)?,
+                            r.get(3)?,
+                            r.get(4)?,
+                            r.get(5)?,
+                        ))
                     })
                     .map(|it| it.flatten().collect())
                     .unwrap_or_default()
@@ -175,7 +189,11 @@ pub fn spawn_timeout_sweeper(db: crate::db::Db) {
                     let budget = if turn == "white" { p1ms } else { p2ms };
                     if budget - elapsed <= 0 {
                         let win = if turn == "white" { "black" } else { "white" };
-                        let (np1, np2) = if turn == "white" { (0i64, p2ms) } else { (p1ms, 0i64) };
+                        let (np1, np2) = if turn == "white" {
+                            (0i64, p2ms)
+                        } else {
+                            (p1ms, 0i64)
+                        };
                         if conn
                             .execute(
                                 "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'abandon', p1_time_ms = ?2, p2_time_ms = ?3, updated_at = unixepoch() WHERE covenant_id = ?4 AND status = 'active'",
@@ -199,8 +217,7 @@ pub fn spawn_timeout_sweeper(db: crate::db::Db) {
 
 fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
     let moves_raw: String = row.get(5)?;
-    let moves: serde_json::Value =
-        serde_json::from_str(&moves_raw).unwrap_or_else(|_| json!([]));
+    let moves: serde_json::Value = serde_json::from_str(&moves_raw).unwrap_or_else(|_| json!([]));
     Ok(json!({
         "covenant_id": row.get::<_, String>(0)?,
         "game_type": row.get::<_, String>(1)?,
@@ -225,10 +242,7 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
 
 const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch() FROM skill_games";
 
-fn fetch_game(
-    db: &crate::db::Db,
-    covenant_id: &str,
-) -> Option<serde_json::Value> {
+fn fetch_game(db: &crate::db::Db, covenant_id: &str) -> Option<serde_json::Value> {
     let conn = db.lock().unwrap();
     conn.query_row(
         &format!("{} WHERE covenant_id = ?1", GAME_SELECT),
@@ -243,7 +257,10 @@ fn xonly_hex_from_address(addr: &str) -> Result<String, String> {
     let a = Address::try_from(addr).map_err(|e| format!("invalid address '{addr}': {e}"))?;
     let p = a.payload.as_slice();
     if p.len() != 32 {
-        return Err(format!("address '{addr}' is not a 32-byte schnorr key (payload {} bytes)", p.len()));
+        return Err(format!(
+            "address '{addr}' is not a 32-byte schnorr key (payload {} bytes)",
+            p.len()
+        ));
     }
     Ok(hex::encode(p))
 }
@@ -271,15 +288,27 @@ async fn lock_pot(
     let p1 = game["player1"].as_str().unwrap_or("").to_string();
     let p2 = game["player2"].as_str().unwrap_or("").to_string();
     if p1.is_empty() || p2.is_empty() {
-        return Json(json!({ "success": false, "error": "game needs two players before locking a pot" }));
+        return Json(
+            json!({ "success": false, "error": "game needs two players before locking a pot" }),
+        );
     }
     let stake = req.get("stake_kas").and_then(|v| v.as_f64()).unwrap_or(0.0);
     if !(stake > 0.0) {
         return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
     }
-    let net = req.get("network").and_then(|v| v.as_str()).unwrap_or("testnet-12").to_string();
-    let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
-    let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
+    let net = req
+        .get("network")
+        .and_then(|v| v.as_str())
+        .unwrap_or("testnet-12")
+        .to_string();
+    let p1x = match xonly_hex_from_address(&p1) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let p2x = match xonly_hex_from_address(&p2) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
 
     // NON-CUSTODIAL: build the UNSIGNED oracle_escrow funding tx and return its sighash for
     // player1's browser wallet to sign. No use_dev_mode, so the server never holds player1's
@@ -290,9 +319,15 @@ async fn lock_pot(
         "redeem": { "kind": "oracle_escrow", "pubkeys_hex": [p1x, p2x] }
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build prepare-deploy request: {e}") })),
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("build prepare-deploy request: {e}") }),
+            )
+        }
     };
-    let mut v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(preq)).await.0;
+    let mut v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(preq))
+        .await
+        .0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         v["next"] = json!(format!(
             "Sign `sighash` (BIP340 Schnorr) with player1's wallet, then POST {{session_id, signature_hex, token}} to /games/{covenant_id}/submit-pot to broadcast and link the pot."
@@ -314,18 +349,34 @@ async fn submit_pot(
     if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
         return Json(json!({ "success": false, "error": e }));
     }
-    let session_id = req.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let signature_hex = req.get("signature_hex").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let session_id = req
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let signature_hex = req
+        .get("signature_hex")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if session_id.is_empty() || signature_hex.is_empty() {
-        return Json(json!({ "success": false, "error": "submit-pot requires session_id and signature_hex from lock-pot" }));
+        return Json(
+            json!({ "success": false, "error": "submit-pot requires session_id and signature_hex from lock-pot" }),
+        );
     }
     let sreq: crate::covenant_builder::SubmitDeployRequest = match serde_json::from_value(json!({
         "session_id": session_id, "signature_hex": signature_hex
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build submit-deploy request: {e}") })),
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("build submit-deploy request: {e}") }),
+            )
+        }
     };
-    let v = crate::covenant_builder::submit_deploy_handler(Extension(db.clone()), Json(sreq)).await.0;
+    let v = crate::covenant_builder::submit_deploy_handler(Extension(db.clone()), Json(sreq))
+        .await
+        .0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         if let Some(tx) = v.get("deploy_tx_id").and_then(|t| t.as_str()) {
             // Persist the LOCKED amount the node accepted (from the broadcast result), not a
@@ -372,18 +423,33 @@ async fn settle_pot(
     let (pot_tx, net): (Option<String>, String) = {
         let conn = db.lock().unwrap();
         let pot: Option<String> = conn
-            .query_row("SELECT pot_tx FROM skill_games WHERE covenant_id = ?1", params![covenant_id], |r| r.get(0))
+            .query_row(
+                "SELECT pot_tx FROM skill_games WHERE covenant_id = ?1",
+                params![covenant_id],
+                |r| r.get(0),
+            )
             .ok()
             .flatten();
         let net = pot
             .as_ref()
-            .and_then(|t| conn.query_row("SELECT network FROM p2sh_covenants WHERE tx_id = ?1", params![t], |r| r.get::<_, String>(0)).ok())
+            .and_then(|t| {
+                conn.query_row(
+                    "SELECT network FROM p2sh_covenants WHERE tx_id = ?1",
+                    params![t],
+                    |r| r.get::<_, String>(0),
+                )
+                .ok()
+            })
             .unwrap_or_else(|| "testnet-12".to_string());
         (pot, net)
     };
     let pot_tx = match pot_tx {
         Some(t) if !t.is_empty() => t,
-        _ => return Json(json!({ "success": false, "error": "no pot locked for this game (call lock-pot first)" })),
+        _ => {
+            return Json(
+                json!({ "success": false, "error": "no pot locked for this game (call lock-pot first)" }),
+            )
+        }
     };
 
     let wl = winner.to_lowercase();
@@ -392,7 +458,9 @@ async fn settle_pot(
     } else if winner == p2 || wl == "black" || wl == "player2" {
         1
     } else {
-        return Json(json!({ "success": false, "error": format!("cannot map winner '{winner}' to player1/player2") }));
+        return Json(
+            json!({ "success": false, "error": format!("cannot map winner '{winner}' to player1/player2") }),
+        );
     };
     // MONEY GATE (defense in depth, mirrors settle-channel): do NOT trust the stored
     // `winner` string to pick the destination. Re-derive the winning side from the
@@ -403,13 +471,19 @@ async fn settle_pot(
     let outcome: u32 = match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
         crate::covenant_builder::GamePot::Verified(o) if o == stored_side => o,
         crate::covenant_builder::GamePot::Verified(o) => {
-            return Json(json!({ "success": false, "error": format!("recorded winner maps to side {stored_side} but the server-verified result is side {o}; refusing to settle to the wrong player") }));
+            return Json(
+                json!({ "success": false, "error": format!("recorded winner maps to side {stored_side} but the server-verified result is side {o}; refusing to settle to the wrong player") }),
+            );
         }
         crate::covenant_builder::GamePot::Rejected(msg) => {
-            return Json(json!({ "success": false, "error": format!("pot settle refused: {msg}") }));
+            return Json(
+                json!({ "success": false, "error": format!("pot settle refused: {msg}") }),
+            );
         }
         crate::covenant_builder::GamePot::NotAGamePot => {
-            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }));
+            return Json(
+                json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }),
+            );
         }
     };
     let dest = if outcome == 0 { &p1 } else { &p2 };
@@ -419,14 +493,23 @@ async fn settle_pot(
     // but produce ONLY the oracle's partial signature over the winner-payout sighash. No
     // use_dev_mode: the winner signs their half in the browser. The destination is the
     // re-derived `dest` above, so the oracle commits to paying exactly the verified winner.
-    let preq: crate::covenant_builder::PrepareOraclePayoutRequest = match serde_json::from_value(json!({
-        "network": net, "deploy_tx_id": pot_tx, "destination_addr": dest,
-        "circuit_type": format!("{}_v1", gt), "proof": {}, "public_inputs": [], "requested_outcome": outcome
-    })) {
+    let preq: crate::covenant_builder::PrepareOraclePayoutRequest = match serde_json::from_value(
+        json!({
+            "network": net, "deploy_tx_id": pot_tx, "destination_addr": dest,
+            "circuit_type": format!("{}_v1", gt), "proof": {}, "public_inputs": [], "requested_outcome": outcome
+        }),
+    ) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build oracle-payout prepare request: {e}") })),
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("build oracle-payout prepare request: {e}") }),
+            )
+        }
     };
-    let mut v = crate::covenant_builder::prepare_oracle_payout_handler(Extension(db.clone()), Json(preq)).await.0;
+    let mut v =
+        crate::covenant_builder::prepare_oracle_payout_handler(Extension(db.clone()), Json(preq))
+            .await
+            .0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         v["next"] = json!(format!(
             "Sign `sighash` (BIP340 Schnorr) with the winner's wallet, then POST {{session_id, signature_hex, token}} to /games/{covenant_id}/submit-settle to broadcast. The server contributed only the oracle half."
@@ -451,18 +534,37 @@ async fn submit_settle(
     if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
         return Json(json!({ "success": false, "error": e }));
     }
-    let session_id = req.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let signature_hex = req.get("signature_hex").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let session_id = req
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let signature_hex = req
+        .get("signature_hex")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if session_id.is_empty() || signature_hex.is_empty() {
-        return Json(json!({ "success": false, "error": "submit-settle requires session_id and signature_hex from settle-pot" }));
+        return Json(
+            json!({ "success": false, "error": "submit-settle requires session_id and signature_hex from settle-pot" }),
+        );
     }
-    let sreq: crate::covenant_builder::SubmitOraclePayoutRequest = match serde_json::from_value(json!({
-        "session_id": session_id, "signature_hex": signature_hex
-    })) {
+    let sreq: crate::covenant_builder::SubmitOraclePayoutRequest = match serde_json::from_value(
+        json!({
+            "session_id": session_id, "signature_hex": signature_hex
+        }),
+    ) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build oracle-payout submit request: {e}") })),
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("build oracle-payout submit request: {e}") }),
+            )
+        }
     };
-    let v = crate::covenant_builder::submit_oracle_payout_handler(Extension(db.clone()), Json(sreq)).await.0;
+    let v =
+        crate::covenant_builder::submit_oracle_payout_handler(Extension(db.clone()), Json(sreq))
+            .await
+            .0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         if let Some(tx) = v.get("payout_tx_id").and_then(|t| t.as_str()) {
             let conn = db.lock().unwrap();
@@ -502,13 +604,19 @@ async fn lock_channel(
     let p1 = game["player1"].as_str().unwrap_or("").to_string();
     let p2 = game["player2"].as_str().unwrap_or("").to_string();
     if p1.is_empty() || p2.is_empty() {
-        return Json(json!({ "success": false, "error": "game needs two players before locking a channel" }));
+        return Json(
+            json!({ "success": false, "error": "game needs two players before locking a channel" }),
+        );
     }
     let stake = req.get("stake_kas").and_then(|v| v.as_f64()).unwrap_or(0.0);
     if !(stake > 0.0) {
         return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
     }
-    let net = req.get("network").and_then(|v| v.as_str()).unwrap_or("testnet-12").to_string();
+    let net = req
+        .get("network")
+        .and_then(|v| v.as_str())
+        .unwrap_or("testnet-12")
+        .to_string();
     // refund_after_daa: the absolute DAA after which the funder may reclaim if there is no
     // cooperative close (so a vanished counterparty cannot freeze the pot). The caller
     // (frontend) passes the current node DAA plus a window from /api/status. Keep the
@@ -516,10 +624,20 @@ async fn lock_channel(
     // losing position by refusing the cooperative close and refunding after this DAA.
     let refund_after_daa = match req.get("refund_after_daa").and_then(|v| v.as_u64()) {
         Some(d) => d,
-        None => return Json(json!({ "success": false, "error": "lock-channel requires refund_after_daa (current node DAA + a SHORT refund window)" })),
+        None => {
+            return Json(
+                json!({ "success": false, "error": "lock-channel requires refund_after_daa (current node DAA + a SHORT refund window)" }),
+            )
+        }
     };
-    let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
-    let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
+    let p1x = match xonly_hex_from_address(&p1) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let p2x = match xonly_hex_from_address(&p2) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
 
     // Trustless channel: cooperative 2-of-2 [player1, player2] close OR a funder refund
     // after refund_after_daa. NO oracle pubkey - Covex is never in the payout path. We
@@ -529,16 +647,24 @@ async fn lock_channel(
         "redeem": { "kind": "channel", "pubkeys_hex": [p1x, p2x], "lock_daa": refund_after_daa }
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build channel deploy: {e}") })),
+        Err(e) => {
+            return Json(json!({ "success": false, "error": format!("build channel deploy: {e}") }))
+        }
     };
-    let v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(dreq)).await.0;
+    let v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(dreq))
+        .await
+        .0;
     // The browser signs `sighash` and calls /covenant/p2sh/submit-deploy. We record the
     // resulting deploy_tx_id by having the frontend re-call /games/:id/bind-channel-pot,
     // OR (simpler) the frontend passes the deploy_tx_id to settle/refund directly. Here we
     // surface a hint so the caller knows the next step; we do NOT mark pot_tx yet (no tx
     // exists until the wallet broadcasts it).
     let mut out = v;
-    if out.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+    if out
+        .get("success")
+        .and_then(|s| s.as_bool())
+        .unwrap_or(false)
+    {
         out["next"] = json!("sign `sighash` with player1's wallet, POST {session_id, signature_hex} to /covenant/p2sh/submit-deploy, then POST the returned deploy_tx_id to /games/:id/bind-channel-pot to link the pot to this match");
         out["funder"] = json!(p1);
     }
@@ -559,9 +685,17 @@ async fn bind_channel_pot(
     if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
         return Json(json!({ "success": false, "error": e }));
     }
-    let deploy_tx = match req.get("deploy_tx_id").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+    let deploy_tx = match req
+        .get("deploy_tx_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
         Some(t) => t.to_string(),
-        None => return Json(json!({ "success": false, "error": "bind-channel-pot requires deploy_tx_id (from submit-deploy)" })),
+        None => {
+            return Json(
+                json!({ "success": false, "error": "bind-channel-pot requires deploy_tx_id (from submit-deploy)" }),
+            )
+        }
     };
     let game = match fetch_game(&db, &covenant_id) {
         Some(g) => g,
@@ -578,14 +712,22 @@ async fn bind_channel_pot(
             |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
         ) {
             Ok(v) => v,
-            Err(_) => return Json(json!({ "success": false, "error": "deploy_tx_id is not an indexed covenant (broadcast and index it via submit-deploy first)" })),
+            Err(_) => {
+                return Json(
+                    json!({ "success": false, "error": "deploy_tx_id is not an indexed covenant (broadcast and index it via submit-deploy first)" }),
+                )
+            }
         }
     };
     if !kind.starts_with("channel") {
-        return Json(json!({ "success": false, "error": format!("deploy_tx_id is a '{kind}' covenant, not a channel pot") }));
+        return Json(
+            json!({ "success": false, "error": format!("deploy_tx_id is a '{kind}' covenant, not a channel pot") }),
+        );
     }
     if creator != p1 {
-        return Json(json!({ "success": false, "error": "the channel pot was not funded by this match's player1 (funder mismatch)" }));
+        return Json(
+            json!({ "success": false, "error": "the channel pot was not funded by this match's player1 (funder mismatch)" }),
+        );
     }
     let pot_kas = game["pot_amount_kas"].as_f64().unwrap_or(0.0);
     {
@@ -600,7 +742,9 @@ async fn bind_channel_pot(
         );
         let _ = pot_kas;
     }
-    Json(json!({ "success": true, "pot_tx": deploy_tx, "message": "channel pot linked to this match" }))
+    Json(
+        json!({ "success": true, "pot_tx": deploy_tx, "message": "channel pot linked to this match" }),
+    )
 }
 
 /// POST /games/:id/settle-channel : the cooperative close. Reads the SERVER-VERIFIED winner
@@ -640,18 +784,33 @@ async fn settle_channel(
     let (pot_tx, net): (Option<String>, String) = {
         let conn = db.lock().unwrap();
         let pot: Option<String> = conn
-            .query_row("SELECT pot_tx FROM skill_games WHERE covenant_id = ?1", params![covenant_id], |r| r.get(0))
+            .query_row(
+                "SELECT pot_tx FROM skill_games WHERE covenant_id = ?1",
+                params![covenant_id],
+                |r| r.get(0),
+            )
             .ok()
             .flatten();
         let net = pot
             .as_ref()
-            .and_then(|t| conn.query_row("SELECT network FROM p2sh_covenants WHERE tx_id = ?1", params![t], |r| r.get::<_, String>(0)).ok())
+            .and_then(|t| {
+                conn.query_row(
+                    "SELECT network FROM p2sh_covenants WHERE tx_id = ?1",
+                    params![t],
+                    |r| r.get::<_, String>(0),
+                )
+                .ok()
+            })
             .unwrap_or_else(|| "testnet-12".to_string());
         (pot, net)
     };
     let pot_tx = match pot_tx {
         Some(t) if !t.is_empty() => t,
-        _ => return Json(json!({ "success": false, "error": "no channel pot locked (call lock-channel first)" })),
+        _ => {
+            return Json(
+                json!({ "success": false, "error": "no channel pot locked (call lock-channel first)" }),
+            )
+        }
     };
     let wl = winner.to_lowercase();
     let dest_outcome: u32 = if winner == p1 || wl == "white" || wl == "player1" {
@@ -659,7 +818,9 @@ async fn settle_channel(
     } else if winner == p2 || wl == "black" || wl == "player2" {
         1
     } else {
-        return Json(json!({ "success": false, "error": format!("cannot map winner '{winner}' to a player") }));
+        return Json(
+            json!({ "success": false, "error": format!("cannot map winner '{winner}' to a player") }),
+        );
     };
     // MONEY GATE (defense in depth): re-derive the winner from the server-authoritative
     // engine replay of the move log - exactly like settle-pot - and refuse to build the
@@ -671,13 +832,19 @@ async fn settle_channel(
     match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
         crate::covenant_builder::GamePot::Verified(o) if o == dest_outcome => {}
         crate::covenant_builder::GamePot::Verified(o) => {
-            return Json(json!({ "success": false, "error": format!("recorded winner maps to side {dest_outcome} but the server-verified result is side {o}; refusing to close to the wrong player") }));
+            return Json(
+                json!({ "success": false, "error": format!("recorded winner maps to side {dest_outcome} but the server-verified result is side {o}; refusing to close to the wrong player") }),
+            );
         }
         crate::covenant_builder::GamePot::Rejected(msg) => {
-            return Json(json!({ "success": false, "error": format!("channel close refused: {msg}") }));
+            return Json(
+                json!({ "success": false, "error": format!("channel close refused: {msg}") }),
+            );
         }
         crate::covenant_builder::GamePot::NotAGamePot => {
-            return Json(json!({ "success": false, "error": "this channel pot is not linked to a server-verified match; refusing to close" }));
+            return Json(
+                json!({ "success": false, "error": "this channel pot is not linked to a server-verified match; refusing to close" }),
+            );
         }
     }
     let dest = if dest_outcome == 0 { &p1 } else { &p2 };
@@ -690,11 +857,19 @@ async fn settle_channel(
         "network": net, "deploy_tx_id": pot_tx, "destination_addr": dest, "branch": "close"
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build channel close: {e}") })),
+        Err(e) => {
+            return Json(json!({ "success": false, "error": format!("build channel close: {e}") }))
+        }
     };
-    let v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq)).await.0;
+    let v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
+        .await
+        .0;
     let mut out = v;
-    if out.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+    if out
+        .get("success")
+        .and_then(|s| s.as_bool())
+        .unwrap_or(false)
+    {
         out["next"] = json!("both player1 and player2 sign `sighash` (BIP340) in their wallets, then POST {session_id, signatures:[{signer_xonly, signature_hex} x2]} to /covenant/p2sh/submit-signed to broadcast the cooperative close");
         out["winner_dest"] = json!(dest);
     }
@@ -724,7 +899,9 @@ async fn refund_channel(
     match authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
         Ok(Seat::Player1) => {}
         Ok(Seat::Player2) => {
-            return Json(json!({ "success": false, "error": "only the funder (player1) may refund the channel pot" }));
+            return Json(
+                json!({ "success": false, "error": "only the funder (player1) may refund the channel pot" }),
+            );
         }
         Err(e) => return Json(json!({ "success": false, "error": e })),
     }
@@ -739,12 +916,23 @@ async fn refund_channel(
     let (pot_tx, net): (Option<String>, String) = {
         let conn = db.lock().unwrap();
         let pot: Option<String> = conn
-            .query_row("SELECT pot_tx FROM skill_games WHERE covenant_id = ?1", params![covenant_id], |r| r.get(0))
+            .query_row(
+                "SELECT pot_tx FROM skill_games WHERE covenant_id = ?1",
+                params![covenant_id],
+                |r| r.get(0),
+            )
             .ok()
             .flatten();
         let net = pot
             .as_ref()
-            .and_then(|t| conn.query_row("SELECT network FROM p2sh_covenants WHERE tx_id = ?1", params![t], |r| r.get::<_, String>(0)).ok())
+            .and_then(|t| {
+                conn.query_row(
+                    "SELECT network FROM p2sh_covenants WHERE tx_id = ?1",
+                    params![t],
+                    |r| r.get::<_, String>(0),
+                )
+                .ok()
+            })
             .unwrap_or_else(|| "testnet-12".to_string());
         (pot, net)
     };
@@ -761,11 +949,19 @@ async fn refund_channel(
         "network": net, "deploy_tx_id": pot_tx, "destination_addr": p1, "branch": "refund"
     })) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("build channel refund: {e}") })),
+        Err(e) => {
+            return Json(json!({ "success": false, "error": format!("build channel refund: {e}") }))
+        }
     };
-    let v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq)).await.0;
+    let v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
+        .await
+        .0;
     let mut out = v;
-    if out.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+    if out
+        .get("success")
+        .and_then(|s| s.as_bool())
+        .unwrap_or(false)
+    {
         out["next"] = json!("player1 signs `sighash` (BIP340) in their wallet, then POST {session_id, signature_hex} to /covenant/p2sh/submit-signed to broadcast the refund (valid only after the channel's refund DAA)");
     }
     Json(out)
@@ -807,7 +1003,11 @@ async fn resign_game(
                 } else if req.player != p1 && req.player != p2 {
                     Err("only a seated player can resign".to_string())
                 } else if let Err(e) = check_seat_token(
-                    if req.player == p1 { &p1_token } else { &p2_token },
+                    if req.player == p1 {
+                        &p1_token
+                    } else {
+                        &p2_token
+                    },
                     req.token.as_deref().unwrap_or(""),
                 ) {
                     // The resigner must hold their own seat token, so the
@@ -828,7 +1028,10 @@ async fn resign_game(
     match result {
         Ok(()) => {
             let game = fetch_game(&db, &covenant_id);
-            live::publish("game_move", json!({"covenant_id": covenant_id, "game": game}));
+            live::publish(
+                "game_move",
+                json!({"covenant_id": covenant_id, "game": game}),
+            );
             Json(json!({"success": true, "game": game}))
         }
         Err(e) => Json(json!({"success": false, "error": e})),
@@ -859,11 +1062,19 @@ async fn claim_timeout(
                 if status != "active" {
                     Err("match is not active".to_string())
                 } else {
-                    let elapsed_ms = if turn_started > 0 { (now - turn_started).max(0) * 1000 } else { 0 };
+                    let elapsed_ms = if turn_started > 0 {
+                        (now - turn_started).max(0) * 1000
+                    } else {
+                        0
+                    };
                     let budget = if turn == "white" { p1_ms } else { p2_ms };
                     if budget - elapsed_ms <= 0 {
                         let win = if turn == "white" { "black" } else { "white" };
-                        let (np1, np2) = if turn == "white" { (0i64, p2_ms) } else { (p1_ms, 0i64) };
+                        let (np1, np2) = if turn == "white" {
+                            (0i64, p2_ms)
+                        } else {
+                            (p1_ms, 0i64)
+                        };
                         conn.execute(
                             "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'timeout', p1_time_ms = ?2, p2_time_ms = ?3, updated_at = unixepoch() WHERE covenant_id = ?4",
                             params![win, np1, np2, covenant_id],
@@ -881,7 +1092,10 @@ async fn claim_timeout(
         Ok(timed_out) => {
             let game = fetch_game(&db, &covenant_id);
             if timed_out {
-                live::publish("game_move", json!({"covenant_id": covenant_id, "game": game}));
+                live::publish(
+                    "game_move",
+                    json!({"covenant_id": covenant_id, "game": game}),
+                );
             }
             Json(json!({"success": true, "timed_out": timed_out, "game": game}))
         }
@@ -895,7 +1109,11 @@ async fn list_games(
     Query(p): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let status = p.get("status").cloned().unwrap_or_else(|| "waiting".into());
-    let limit: i64 = p.get("limit").and_then(|s| s.parse().ok()).unwrap_or(50).clamp(1, 200);
+    let limit: i64 = p
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(50)
+        .clamp(1, 200);
     let conn = db.lock().unwrap();
     let mut stmt = match conn.prepare(&format!(
         "{} WHERE status = ?1 ORDER BY updated_at DESC LIMIT ?2",
@@ -968,7 +1186,14 @@ async fn join_game(
                     // Rejoin/poll: the seated client already holds its token
                     // (stored locally on first join). Do NOT re-issue it here -
                     // that would leak it to anyone who knows the address.
-                    Ok((if status == "waiting" { "waiting" } else { "active" }, None))
+                    Ok((
+                        if status == "waiting" {
+                            "waiting"
+                        } else {
+                            "active"
+                        },
+                        None,
+                    ))
                 } else if status == "waiting" && p2.is_empty() {
                     // Match goes live: seat player2 (black) + start white's clock.
                     let token = gen_seat_token();
@@ -987,7 +1212,10 @@ async fn join_game(
     match result {
         Ok((status, issued)) => {
             let game = fetch_game(&db, &covenant_id);
-            live::publish("game_update", json!({"covenant_id": covenant_id, "status": status, "game": game}));
+            live::publish(
+                "game_update",
+                json!({"covenant_id": covenant_id, "status": status, "game": game}),
+            );
             let mut body = json!({"success": true, "status": status, "game": game});
             if let Some((token, seat)) = issued {
                 body["your_token"] = json!(token);
@@ -1037,7 +1265,20 @@ async fn make_move(
             .ok();
         match row {
             None => Err("no match for this covenant; join first".to_string()),
-            Some((p1, p2, moves_raw, turn, status, game_type, p1_ms, p2_ms, turn_started, now, p1_token, p2_token)) => {
+            Some((
+                p1,
+                p2,
+                moves_raw,
+                turn,
+                status,
+                game_type,
+                p1_ms,
+                p2_ms,
+                turn_started,
+                now,
+                p1_token,
+                p2_token,
+            )) => {
                 if status == "finished" {
                     Err("match already finished".to_string())
                 } else if (turn == "white" && req.player != p1)
@@ -1045,7 +1286,11 @@ async fn make_move(
                 {
                     Err("not your turn".to_string())
                 } else if let Err(e) = check_seat_token(
-                    if turn == "white" { &p1_token } else { &p2_token },
+                    if turn == "white" {
+                        &p1_token
+                    } else {
+                        &p2_token
+                    },
                     req.token.as_deref().unwrap_or(""),
                 ) {
                     // Only the seated client (holding the token) may submit this
@@ -1055,13 +1300,21 @@ async fn make_move(
                     // Server-authoritative clock: charge the mover for the time spent
                     // this turn. turn_started_at and the budgets are written ONLY by the
                     // server, so a client cannot manufacture or dodge a timeout.
-                    let elapsed_ms = if turn_started > 0 { (now - turn_started).max(0) * 1000 } else { 0 };
+                    let elapsed_ms = if turn_started > 0 {
+                        (now - turn_started).max(0) * 1000
+                    } else {
+                        0
+                    };
                     let mover_budget = if turn == "white" { p1_ms } else { p2_ms };
                     let mover_remaining = mover_budget - elapsed_ms;
                     if mover_remaining <= 0 {
                         // The mover's clock ran out: they lose on time (end_reason=timeout).
                         let win = if turn == "white" { "black" } else { "white" };
-                        let (np1, np2) = if turn == "white" { (0i64, p2_ms) } else { (p1_ms, 0i64) };
+                        let (np1, np2) = if turn == "white" {
+                            (0i64, p2_ms)
+                        } else {
+                            (p1_ms, 0i64)
+                        };
                         conn.execute(
                             "UPDATE skill_games SET status = 'finished', winner = ?1, end_reason = 'timeout', p1_time_ms = ?2, p2_time_ms = ?3, updated_at = unixepoch() WHERE covenant_id = ?4",
                             params![win, np1, np2, covenant_id],
@@ -1102,9 +1355,11 @@ async fn make_move(
                                             Ok((false, None, ""))
                                         }
                                     }
-                                    Some(decisive) => {
-                                        Ok((true, decisive.winner_str().map(|s| s.to_string()), "board"))
-                                    }
+                                    Some(decisive) => Ok((
+                                        true,
+                                        decisive.winner_str().map(|s| s.to_string()),
+                                        "board",
+                                    )),
                                     // Unsupported game type: no server replay yet, so
                                     // fall back to the client-reported result (still
                                     // turn-enforced; the pot gate fails closed for these).
@@ -1134,8 +1389,12 @@ async fn make_move(
                                     } else {
                                         (p1_ms, mover_remaining)
                                     };
-                                    let end_reason: Option<&str> =
-                                        if finished && !reason.is_empty() { Some(reason) } else { None };
+                                    let end_reason: Option<&str> = if finished && !reason.is_empty()
+                                    {
+                                        Some(reason)
+                                    } else {
+                                        None
+                                    };
                                     conn.execute(
                                         "UPDATE skill_games SET moves = ?1, current_turn = ?2, status = ?3, winner = ?4, p1_time_ms = ?5, p2_time_ms = ?6, turn_started_at = unixepoch(), end_reason = ?7, updated_at = unixepoch() WHERE covenant_id = ?8",
                                         params![
@@ -1162,7 +1421,10 @@ async fn make_move(
     match result {
         Ok(()) => {
             let game = fetch_game(&db, &covenant_id);
-            live::publish("game_move", json!({"covenant_id": covenant_id, "game": game}));
+            live::publish(
+                "game_move",
+                json!({"covenant_id": covenant_id, "game": game}),
+            );
             Json(json!({"success": true, "game": game}))
         }
         Err(e) => Json(json!({"success": false, "error": e})),
@@ -1197,8 +1459,7 @@ mod tests {
         ));
         // Best-effort cleanup of any stale file at this path before opening.
         let _ = std::fs::remove_file(&p);
-        crate::db::open_db(p.to_str().expect("temp path is utf-8"))
-            .expect("open_db on temp path")
+        crate::db::open_db(p.to_str().expect("temp path is utf-8")).expect("open_db on temp path")
     }
 
     /// Insert an active 2-player match with known per-seat tokens. Mirrors the
@@ -1235,10 +1496,8 @@ mod tests {
     /// Two BIP340-shaped 32-byte testnet addresses sourced from existing in-tree
     /// tests (`kaspa_msg.rs`). Real schnorr x-only keys, so `xonly_hex_from_address`
     /// would accept them; we only need them to be DISTINCT and well-formed.
-    const P1_ADDR: &str =
-        "kaspatest:qpkke2kzfzheda405lusfa2sy5aq70hn7k4zle5r322my9nfz35wyz3plwfst";
-    const P2_ADDR: &str =
-        "kaspatest:qprx6l72u437tjcf5rgcwza4sq6ysprp0pu6zj2feu3zshcm4cljwrzqrunpu";
+    const P1_ADDR: &str = "kaspatest:qpkke2kzfzheda405lusfa2sy5aq70hn7k4zle5r322my9nfz35wyz3plwfst";
+    const P2_ADDR: &str = "kaspatest:qprx6l72u437tjcf5rgcwza4sq6ysprp0pu6zj2feu3zshcm4cljwrzqrunpu";
 
     /// (a) lock_pot fails CLOSED when the caller does not supply a valid seat
     /// token. authorize_money_caller rejects an empty/missing token before any
@@ -1251,8 +1510,14 @@ mod tests {
         // any token must be rejected on the auth gate.
         seed_two_player_active(&db, "cov-a", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
         let body = json!({ "stake_kas": 1.0, "network": "testnet-12" });
-        let resp = lock_pot(Extension(db), Path("cov-a".into()), Json(body)).await.0;
-        assert_eq!(resp["success"], json!(false), "auth gate must fail closed without a seat token");
+        let resp = lock_pot(Extension(db), Path("cov-a".into()), Json(body))
+            .await
+            .0;
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "auth gate must fail closed without a seat token"
+        );
         let err = resp["error"].as_str().unwrap_or("");
         assert!(
             err.contains("seat token"),
@@ -1269,7 +1534,9 @@ mod tests {
         let db = fresh_db();
         seed_one_player_waiting(&db, "cov-b", P1_ADDR, "tok-p1");
         let body = json!({ "token": "tok-p1", "stake_kas": 1.0, "network": "testnet-12" });
-        let resp = lock_pot(Extension(db), Path("cov-b".into()), Json(body)).await.0;
+        let resp = lock_pot(Extension(db), Path("cov-b".into()), Json(body))
+            .await
+            .0;
         assert_eq!(resp["success"], json!(false));
         let err = resp["error"].as_str().unwrap_or("");
         assert!(
@@ -1291,7 +1558,9 @@ mod tests {
         // protects against replaying / forging a submit without a matching
         // prepare must fail closed.
         let body = json!({ "token": "tok-p1", "session_id": "", "signature_hex": "" });
-        let resp = submit_pot(Extension(db), Path("cov-c".into()), Json(body)).await.0;
+        let resp = submit_pot(Extension(db), Path("cov-c".into()), Json(body))
+            .await
+            .0;
         assert_eq!(resp["success"], json!(false));
         let err = resp["error"].as_str().unwrap_or("");
         assert!(
@@ -1320,8 +1589,14 @@ mod tests {
         // authorize_money_caller sees an empty supplied token and refuses.
         let body = json!({});
         let auth: AuthReq = serde_json::from_value(body).expect("AuthReq parses empty body");
-        let resp = settle_pot(Extension(db), Path("cov-d".into()), Json(auth)).await.0;
-        assert_eq!(resp["success"], json!(false), "settle must fail closed without a seat token");
+        let resp = settle_pot(Extension(db), Path("cov-d".into()), Json(auth))
+            .await
+            .0;
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "settle must fail closed without a seat token"
+        );
         let err = resp["error"].as_str().unwrap_or("");
         assert!(
             err.contains("seat token"),
@@ -1344,7 +1619,9 @@ mod tests {
         // seed_two_player_active sets turn_started_at = now and a full 300s
         // budget on both clocks, so 0 ms have elapsed for the side to move.
         seed_two_player_active(&db, "cov-e", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
-        let resp = claim_timeout(Extension(db.clone()), Path("cov-e".into())).await.0;
+        let resp = claim_timeout(Extension(db.clone()), Path("cov-e".into()))
+            .await
+            .0;
         assert_eq!(resp["success"], json!(true));
         assert_eq!(
             resp["timed_out"],
@@ -1362,6 +1639,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(status, "active");
-        assert!(winner.is_none(), "no winner may be written before the clock expires");
+        assert!(
+            winner.is_none(),
+            "no winner may be written before the clock expires"
+        );
     }
 }

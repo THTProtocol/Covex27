@@ -75,7 +75,11 @@ fn is_actively_supervised(network: &str) -> bool {
 }
 
 fn network_id_for(network: &str) -> Option<NetworkId> {
-    let norm = if network == "mainnet-1" { "mainnet" } else { network };
+    let norm = if network == "mainnet-1" {
+        "mainnet"
+    } else {
+        network
+    };
     NetworkId::from_str(norm).ok()
 }
 
@@ -86,14 +90,16 @@ fn network_id_for(network: &str) -> Option<NetworkId> {
 pub fn build_client(network: &str, direct_url: &str) -> Result<Arc<KaspaRpcClient>, String> {
     // Only enable the resolver when the network is eligible AND its network_id
     // parses -- a resolver client without a network_id panics on connect(url:None).
-    let (ctor_url, resolver, net_id) =
-        match (network_is_resolver_eligible(network), network_id_for(network)) {
-            // url:None so resolve_url can fall through to the resolver; network_id
-            // is required by the resolver to pick a node for the right network.
-            (true, Some(nid)) => (None, Some(Resolver::default()), Some(nid)),
-            // Non-eligible (or unparseable): pin the direct URL, no resolver path.
-            _ => (Some(direct_url), None, None),
-        };
+    let (ctor_url, resolver, net_id) = match (
+        network_is_resolver_eligible(network),
+        network_id_for(network),
+    ) {
+        // url:None so resolve_url can fall through to the resolver; network_id
+        // is required by the resolver to pick a node for the right network.
+        (true, Some(nid)) => (None, Some(Resolver::default()), Some(nid)),
+        // Non-eligible (or unparseable): pin the direct URL, no resolver path.
+        _ => (Some(direct_url), None, None),
+    };
     KaspaRpcClient::new(WrpcEncoding::Borsh, ctor_url, resolver, net_id, None)
         .map(Arc::new)
         .map_err(|e| e.to_string())
@@ -111,8 +117,14 @@ pub async fn initial_connect(client: &KaspaRpcClient, network: &str, direct_url:
         retry_interval: None,
     };
     match client.connect(Some(opts)).await {
-        Ok(_) => info!("{} wRPC connect initiated (direct node {}, non-blocking)", network, direct_url),
-        Err(e) => warn!("{} wRPC connect failed (will retry in background): {}", network, e),
+        Ok(_) => info!(
+            "{} wRPC connect initiated (direct node {}, non-blocking)",
+            network, direct_url
+        ),
+        Err(e) => warn!(
+            "{} wRPC connect failed (will retry in background): {}",
+            network, e
+        ),
     }
 }
 
@@ -131,11 +143,11 @@ enum Mode {
 
 struct NetState {
     mode: Mode,
-    ever_usable: bool,          // has our own node ever served a block body since boot
+    ever_usable: bool, // has our own node ever served a block body since boot
     unhealthy_since: Option<i64>, // Direct mode: when our node first stopped serving blocks
-    recover_since: Option<i64>,   // Resolver mode: when our own node first started serving blocks again
-    last_switch: i64,           // last Direct<->Resolver mode transition (gates re-failover in Direct mode)
-    last_reresolve: i64,        // last rotation to another public node (independent of mode switches)
+    recover_since: Option<i64>, // Resolver mode: when our own node first started serving blocks again
+    last_switch: i64, // last Direct<->Resolver mode transition (gates re-failover in Direct mode)
+    last_reresolve: i64, // last rotation to another public node (independent of mode switches)
     last_no_resolver_warn: i64,
     last_heartbeat: i64,
 }
@@ -218,7 +230,12 @@ pub fn spawn_supervisor(nets: Vec<Supervised>) {
                         // Our node IS the shared client's current target -- probe it directly.
                         let (mut unhealthy_since, ever_usable, last_warn, last_hb) = {
                             let s = st.get(net).unwrap();
-                            (s.unhealthy_since, s.ever_usable, s.last_no_resolver_warn, s.last_heartbeat)
+                            (
+                                s.unhealthy_since,
+                                s.ever_usable,
+                                s.last_no_resolver_warn,
+                                s.last_heartbeat,
+                            )
                         };
 
                         let usable = serves_blocks(&n.client).await;
@@ -236,7 +253,10 @@ pub fn spawn_supervisor(nets: Vec<Supervised>) {
 
                         let do_hb = now - last_hb >= HEARTBEAT_EVERY;
                         if do_hb {
-                            info!("Resolver failover [{}]: on OWN node, serving_blocks={}", net, usable);
+                            info!(
+                                "Resolver failover [{}]: on OWN node, serving_blocks={}",
+                                net, usable
+                            );
                         }
 
                         let mut switched = false;
@@ -362,7 +382,8 @@ pub fn spawn_supervisor(nets: Vec<Supervised>) {
 /// distinguishes a usable node from a down or still-syncing one. A healthy node
 /// (even caught up or busy) returns a recent block instantly.
 async fn serves_blocks(client: &KaspaRpcClient) -> bool {
-    let dag = match tokio::time::timeout(Duration::from_secs(8), client.get_block_dag_info()).await {
+    let dag = match tokio::time::timeout(Duration::from_secs(8), client.get_block_dag_info()).await
+    {
         Ok(Ok(d)) => d,
         _ => return false,
     };
@@ -381,7 +402,8 @@ async fn serves_blocks(client: &KaspaRpcClient) -> bool {
 /// decide whether our node has recovered. Requires it to actually serve a block
 /// body, not merely answer dag_info. Uses Fallback so the probe fails fast.
 async fn own_node_serves_blocks(direct_url: &str) -> bool {
-    let client = match KaspaRpcClient::new(WrpcEncoding::Borsh, Some(direct_url), None, None, None) {
+    let client = match KaspaRpcClient::new(WrpcEncoding::Borsh, Some(direct_url), None, None, None)
+    {
         Ok(c) => c,
         Err(_) => return false,
     };

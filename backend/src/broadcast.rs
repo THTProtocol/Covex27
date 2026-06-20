@@ -3,13 +3,13 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use std::collections::HashMap;
 use kaspa_addresses::Address;
 use kaspa_consensus_core::tx::Transaction;
 use kaspa_rpc_core::api::rpc::RpcApi;
 use kaspa_rpc_core::RpcTransaction;
 use kaspa_wrpc_client::KaspaRpcClient;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{info, warn};
 use workflow_serializer::prelude::BorshDeserialize;
@@ -19,7 +19,8 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
     } else if network == "mainnet" || network == "mainnet-1" {
-        std::env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+        std::env::var("KASPA_WRPC_URL_MAINNET")
+            .unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
     } else {
         std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
     };
@@ -157,7 +158,10 @@ pub async fn utxos_handler(
         }
     };
 
-    let net = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+    let net = params
+        .get("network")
+        .cloned()
+        .unwrap_or_else(|| "testnet-12".to_string());
     let client: Arc<KaspaRpcClient> = match client_for_network(&net).await {
         Ok(c) => c,
         Err(e) => {
@@ -213,11 +217,16 @@ pub async fn balance_handler(
         }
     };
 
-    let net = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+    let net = params
+        .get("network")
+        .cloned()
+        .unwrap_or_else(|| "testnet-12".to_string());
     let client: Arc<KaspaRpcClient> = match client_for_network(&net).await {
         Ok(c) => c,
         Err(e) => {
-            return Json(serde_json::json!({"balance": 0, "error": format!("Failed to reach {} node: {}", net, e)}));
+            return Json(
+                serde_json::json!({"balance": 0, "error": format!("Failed to reach {} node: {}", net, e)}),
+            );
         }
     };
 

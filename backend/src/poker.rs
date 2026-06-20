@@ -51,11 +51,17 @@ pub fn poker_routes() -> Router {
 
 // ── deck, shuffle, evaluation ────────────────────────────────────────────────
 
-const RANK_CH: [char; 13] = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+const RANK_CH: [char; 13] = [
+    '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A',
+];
 const SUIT_CH: [char; 4] = ['c', 'd', 'h', 's'];
 
 pub fn card_str(idx: u8) -> String {
-    format!("{}{}", RANK_CH[(idx % 13) as usize], SUIT_CH[(idx / 13) as usize])
+    format!(
+        "{}{}",
+        RANK_CH[(idx % 13) as usize],
+        SUIT_CH[(idx / 13) as usize]
+    )
 }
 fn card_rank(idx: u8) -> u8 {
     (idx % 13) + 2
@@ -73,7 +79,12 @@ struct SeedRng {
 }
 impl SeedRng {
     fn new(seed: &str) -> Self {
-        Self { seed: seed.to_string(), counter: 0, buf: Vec::new(), pos: 0 }
+        Self {
+            seed: seed.to_string(),
+            counter: 0,
+            buf: Vec::new(),
+            pos: 0,
+        }
     }
     fn next_u32(&mut self) -> u32 {
         let mut out = [0u8; 4];
@@ -239,7 +250,11 @@ impl HandState {
 /// calls), sweep committed chips into the pot, then either advance the street,
 /// trigger the all-in runout, or reach showdown after the river.
 fn close_street(st: &mut HandState, acted: &mut [bool; 2], bb_seat: u8) {
-    let hi = if st.committed[0] >= st.committed[1] { 0 } else { 1 };
+    let hi = if st.committed[0] >= st.committed[1] {
+        0
+    } else {
+        1
+    };
     let refund = st.committed[hi] - st.committed[1 - hi];
     st.stacks[hi] += refund;
     st.committed[hi] -= refund;
@@ -382,10 +397,7 @@ fn seats(db: &crate::db::Db, covenant_id: &str) -> Option<(String, String, Strin
     .ok()
 }
 
-fn match_row(
-    db: &crate::db::Db,
-    covenant_id: &str,
-) -> Option<(i64, i64, i64, i64, String)> {
+fn match_row(db: &crate::db::Db, covenant_id: &str) -> Option<(i64, i64, i64, i64, String)> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT chips1, chips2, hand_no, button, status FROM poker_matches WHERE covenant_id = ?1",
@@ -400,7 +412,16 @@ fn hand_row(
     db: &crate::db::Db,
     covenant_id: &str,
     hand_no: i64,
-) -> Option<(String, String, String, String, Option<String>, i64, i64, i64)> {
+) -> Option<(
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    i64,
+    i64,
+    i64,
+)> {
     let conn = db.lock().unwrap();
     conn.query_row(
         "SELECT seed, commitment, phase, actions, result, chips1_start, chips2_start, button \
@@ -443,7 +464,10 @@ fn seat_of(addr: &str, p1: &str, p2: &str) -> Option<u8> {
 }
 
 fn publish_update(covenant_id: &str) {
-    live::publish("game_update", json!({"covenant_id": covenant_id, "poker": true}));
+    live::publish(
+        "game_update",
+        json!({"covenant_id": covenant_id, "poker": true}),
+    );
 }
 
 // ── settlement ───────────────────────────────────────────────────────────────
@@ -460,7 +484,9 @@ fn settle_if_over(
     button: u8,
     st: &HandState,
 ) {
-    let Some((winner_code, reason)) = st.over else { return };
+    let Some((winner_code, reason)) = st.over else {
+        return;
+    };
     let deck = shuffled_deck(seed);
     let holes = [[deck[0], deck[2]], [deck[1], deck[3]]];
     let board: Vec<u8> = deck[4..9].to_vec();
@@ -579,8 +605,8 @@ async fn state_handler(
     let Some((p1, p2, sg_status)) = seats(&db, &covenant_id) else {
         return Json(json!({"match": null, "hand": null, "last_result": null}));
     };
-    let (chips1, chips2, hand_no, button, status) = match_row(&db, &covenant_id)
-        .unwrap_or((START_CHIPS, START_CHIPS, 1, 0, "active".into()));
+    let (chips1, chips2, hand_no, button, status) =
+        match_row(&db, &covenant_id).unwrap_or((START_CHIPS, START_CHIPS, 1, 0, "active".into()));
 
     let last_result: Option<serde_json::Value> = {
         let conn = db.lock().unwrap();
@@ -681,7 +707,9 @@ async fn session_handler(
     Json(req): Json<SessionReq>,
 ) -> Json<serde_json::Value> {
     let Some((p1, p2, _)) = seats(&db, &covenant_id) else {
-        return Json(json!({"success": false, "error": "no poker match for this covenant; take a seat first"}));
+        return Json(
+            json!({"success": false, "error": "no poker match for this covenant; take a seat first"}),
+        );
     };
     if seat_of(&req.address, &p1, &p2).is_none() {
         return Json(json!({"success": false, "error": "this address is not seated at the table"}));
@@ -698,7 +726,9 @@ async fn session_handler(
             == 1
     };
     if !nonce_ok {
-        return Json(json!({"success": false, "error": "unknown or expired challenge; request a new one"}));
+        return Json(
+            json!({"success": false, "error": "unknown or expired challenge; request a new one"}),
+        );
     }
     let message = format!("covex-poker:{}:{}", covenant_id, req.nonce);
     match crate::kaspa_msg::verify_message(&req.address, &message, &req.signature) {
@@ -706,12 +736,17 @@ async fn session_handler(
         Ok(false) => {
             return Json(json!({"success": false, "error": "signature does not match the address"}))
         }
-        Err(e) => return Json(json!({"success": false, "error": format!("signature error: {}", e)})),
+        Err(e) => {
+            return Json(json!({"success": false, "error": format!("signature error: {}", e)}))
+        }
     }
     let token = uuid::Uuid::new_v4().to_string();
     {
         let conn = db.lock().unwrap();
-        let _ = conn.execute("DELETE FROM poker_sessions WHERE expires <= unixepoch()", []);
+        let _ = conn.execute(
+            "DELETE FROM poker_sessions WHERE expires <= unixepoch()",
+            [],
+        );
         let _ = conn.execute(
             "INSERT INTO poker_sessions (token, covenant_id, address, expires) \
              VALUES (?1, ?2, ?3, unixepoch() + 86400)",
@@ -751,7 +786,11 @@ async fn hole_handler(
         return Json(json!({"success": false, "error": "hand already ended"}));
     }
     let deck = shuffled_deck(&seed);
-    let holes = if seat == 0 { [deck[0], deck[2]] } else { [deck[1], deck[3]] };
+    let holes = if seat == 0 {
+        [deck[0], deck[2]]
+    } else {
+        [deck[1], deck[3]]
+    };
     Json(json!({
         "success": true,
         "seat": seat,
@@ -892,7 +931,11 @@ async fn action_handler(
                 params![(1 - seat) as i64, covenant_id, hand_no],
             );
         }
-        info!("Poker[{}]: seat {} resigned the match", &covenant_id[..16.min(covenant_id.len())], seat);
+        info!(
+            "Poker[{}]: seat {} resigned the match",
+            &covenant_id[..16.min(covenant_id.len())],
+            seat
+        );
         publish_update(&covenant_id);
         return Json(json!({"success": true, "resigned": true}));
     }
@@ -907,7 +950,11 @@ async fn action_handler(
     }
 
     let mut actions: Vec<PAction> = serde_json::from_str(&actions_raw).unwrap_or_default();
-    actions.push(PAction { seat, act: req.act.clone(), amount: req.amount });
+    actions.push(PAction {
+        seat,
+        act: req.act.clone(),
+        amount: req.amount,
+    });
     let st = match replay([c1s, c2s], hbtn as u8, &actions) {
         Ok(s) => s,
         Err(e) => return Json(json!({"success": false, "error": e})),
@@ -929,7 +976,9 @@ async fn action_handler(
         .unwrap_or(0)
     };
     if saved == 0 {
-        return Json(json!({"success": false, "error": "table state changed; refresh and try again"}));
+        return Json(
+            json!({"success": false, "error": "table state changed; refresh and try again"}),
+        );
     }
 
     settle_if_over(&db, &covenant_id, hand_no, &seed, hbtn as u8, &st);
@@ -992,15 +1041,51 @@ mod tests {
     fn betting_full_hand_to_showdown() {
         // button = seat 0 (SB); seat 1 is BB and acts first postflop
         let acts = vec![
-            PAction { seat: 0, act: "raise".into(), amount: 6 },
-            PAction { seat: 1, act: "call".into(), amount: 0 },
-            PAction { seat: 1, act: "check".into(), amount: 0 }, // flop
-            PAction { seat: 0, act: "bet".into(), amount: 8 },
-            PAction { seat: 1, act: "call".into(), amount: 0 },
-            PAction { seat: 1, act: "check".into(), amount: 0 }, // turn
-            PAction { seat: 0, act: "check".into(), amount: 0 },
-            PAction { seat: 1, act: "bet".into(), amount: 20 }, // river
-            PAction { seat: 0, act: "call".into(), amount: 0 },
+            PAction {
+                seat: 0,
+                act: "raise".into(),
+                amount: 6,
+            },
+            PAction {
+                seat: 1,
+                act: "call".into(),
+                amount: 0,
+            },
+            PAction {
+                seat: 1,
+                act: "check".into(),
+                amount: 0,
+            }, // flop
+            PAction {
+                seat: 0,
+                act: "bet".into(),
+                amount: 8,
+            },
+            PAction {
+                seat: 1,
+                act: "call".into(),
+                amount: 0,
+            },
+            PAction {
+                seat: 1,
+                act: "check".into(),
+                amount: 0,
+            }, // turn
+            PAction {
+                seat: 0,
+                act: "check".into(),
+                amount: 0,
+            },
+            PAction {
+                seat: 1,
+                act: "bet".into(),
+                amount: 20,
+            }, // river
+            PAction {
+                seat: 0,
+                act: "call".into(),
+                amount: 0,
+            },
         ];
         let st = replay([100, 100], 0, &acts).unwrap();
         assert_eq!(st.over, Some((2, "showdown")));
@@ -1011,30 +1096,66 @@ mod tests {
     #[test]
     fn betting_rejects_illegal() {
         let acts = vec![
-            PAction { seat: 0, act: "raise".into(), amount: 6 },
-            PAction { seat: 1, act: "check".into(), amount: 0 },
+            PAction {
+                seat: 0,
+                act: "raise".into(),
+                amount: 6,
+            },
+            PAction {
+                seat: 1,
+                act: "check".into(),
+                amount: 0,
+            },
         ];
         assert!(replay([100, 100], 0, &acts).is_err()); // check facing a raise
-        let acts = vec![PAction { seat: 1, act: "check".into(), amount: 0 }];
+        let acts = vec![PAction {
+            seat: 1,
+            act: "check".into(),
+            amount: 0,
+        }];
         assert!(replay([100, 100], 0, &acts).is_err()); // out of turn
-        let acts = vec![PAction { seat: 0, act: "raise".into(), amount: 3 }];
+        let acts = vec![PAction {
+            seat: 0,
+            act: "raise".into(),
+            amount: 3,
+        }];
         assert!(replay([100, 100], 0, &acts).is_err()); // below min raise
     }
 
     #[test]
     fn betting_fold_and_bb_option() {
         let acts = vec![
-            PAction { seat: 0, act: "call".into(), amount: 0 }, // SB limp
-            PAction { seat: 1, act: "raise".into(), amount: 8 },
-            PAction { seat: 0, act: "fold".into(), amount: 0 },
+            PAction {
+                seat: 0,
+                act: "call".into(),
+                amount: 0,
+            }, // SB limp
+            PAction {
+                seat: 1,
+                act: "raise".into(),
+                amount: 8,
+            },
+            PAction {
+                seat: 0,
+                act: "fold".into(),
+                amount: 0,
+            },
         ];
         let st = replay([100, 100], 0, &acts).unwrap();
         assert_eq!(st.over, Some((1, "fold")));
         assert_eq!(st.total_pot(), 10); // 2 + 8
 
         let acts = vec![
-            PAction { seat: 0, act: "call".into(), amount: 0 },
-            PAction { seat: 1, act: "check".into(), amount: 0 }, // BB option closes
+            PAction {
+                seat: 0,
+                act: "call".into(),
+                amount: 0,
+            },
+            PAction {
+                seat: 1,
+                act: "check".into(),
+                amount: 0,
+            }, // BB option closes
         ];
         let st = replay([100, 100], 0, &acts).unwrap();
         assert_eq!(st.street, 1);
@@ -1046,8 +1167,16 @@ mod tests {
     fn all_in_runout_and_short_call_refund() {
         // even stacks: shove + call runs the board out
         let acts = vec![
-            PAction { seat: 0, act: "raise".into(), amount: 100 },
-            PAction { seat: 1, act: "call".into(), amount: 0 },
+            PAction {
+                seat: 0,
+                act: "raise".into(),
+                amount: 100,
+            },
+            PAction {
+                seat: 1,
+                act: "call".into(),
+                amount: 0,
+            },
         ];
         let st = replay([100, 100], 0, &acts).unwrap();
         assert!(st.all_in_runout);
@@ -1057,8 +1186,16 @@ mod tests {
 
         // short stack calls all-in for less: the excess returns to the shover
         let acts = vec![
-            PAction { seat: 0, act: "raise".into(), amount: 100 },
-            PAction { seat: 1, act: "call".into(), amount: 0 },
+            PAction {
+                seat: 0,
+                act: "raise".into(),
+                amount: 100,
+            },
+            PAction {
+                seat: 1,
+                act: "call".into(),
+                amount: 0,
+            },
         ];
         let st = replay([100, 40], 0, &acts).unwrap();
         assert!(st.all_in_runout);

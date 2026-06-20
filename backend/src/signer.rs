@@ -117,7 +117,9 @@ pub struct SignAndBroadcastRequest {
     pub acknowledge_unenforced: bool,
 }
 
-fn default_network() -> String { "testnet-12".to_string() }
+fn default_network() -> String {
+    "testnet-12".to_string()
+}
 
 #[derive(serde::Serialize)]
 pub struct SignAndBroadcastResponse {
@@ -160,8 +162,7 @@ fn tier_fee_sompi(tier: Option<&str>) -> u64 {
 pub(crate) fn is_pure_tier_payment(req: &SignAndBroadcastRequest) -> bool {
     let tier_fee = tier_fee_sompi(req.tier.as_deref());
     req.pure_tier_payment
-        || (tier_fee > 0
-            && (req.script_hex.trim().is_empty() || req.script_hex.trim() == "aa20"))
+        || (tier_fee > 0 && (req.script_hex.trim().is_empty() || req.script_hex.trim() == "aa20"))
 }
 
 /// True when a request on mainnet would deploy a DECORATIVE covenant
@@ -241,7 +242,8 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
     } else if network == "mainnet" || network == "mainnet-1" {
-        std::env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
+        std::env::var("KASPA_WRPC_URL_MAINNET")
+            .unwrap_or_else(|_| "ws://127.0.0.1:17110".to_string())
     } else {
         std::env::var("KASPA_WRPC_URL_TN12").unwrap_or_else(|_| "ws://127.0.0.1:17217".to_string())
     };
@@ -692,65 +694,72 @@ pub async fn sign_and_broadcast_handler(
             // Skip entirely for pure tier payments (e.g. "Pay 100 KAS" upgrade on an existing covenant).
             // Those only credit the payer address tier via the payment/upgrade_account above.
             if !is_pure_tier {
-            // Capture the actual hex payload for DB storage (compiled or raw)
-            let script_hex_for_db: String = covenant_payload
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect();
-            let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 {
-                tier_str
-            } else {
-                "SilverScript Covenant"
-            });
-            let _covenant_type = if tier_fee > 0 {
-                covenant_name.to_string()
-            } else {
-                "SilverScript Covenant".to_string()
-            };
-            let receiving_addrs =
-                serde_json::to_string(&vec![deployer_str.clone()]).unwrap_or_default();
-            // Use submitted description/category if provided, fall back to tier-default
-            let desc = payload.description.clone().unwrap_or_else(|| {
-                if tier_fee > 0 {
-                    format!("{} tier covenant deployed", tier_str)
+                // Capture the actual hex payload for DB storage (compiled or raw)
+                let script_hex_for_db: String = covenant_payload
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect();
+                let covenant_name = payload.covenant_name.as_deref().unwrap_or(if tier_fee > 0 {
+                    tier_str
                 } else {
-                    "Covenant deployed via Covex Terminal".to_string()
-                }
-            });
-            let covenant_type_val = payload.covenant_type.clone().unwrap_or_else(|| {
-                if tier_fee > 0 { tier_str.to_string() } else { "SilverScript Covenant".to_string() }
-            });
-            let category_val = payload.category.clone().unwrap_or_else(|| "general".to_string());
+                    "SilverScript Covenant"
+                });
+                let _covenant_type = if tier_fee > 0 {
+                    covenant_name.to_string()
+                } else {
+                    "SilverScript Covenant".to_string()
+                };
+                let receiving_addrs =
+                    serde_json::to_string(&vec![deployer_str.clone()]).unwrap_or_default();
+                // Use submitted description/category if provided, fall back to tier-default
+                let desc = payload.description.clone().unwrap_or_else(|| {
+                    if tier_fee > 0 {
+                        format!("{} tier covenant deployed", tier_str)
+                    } else {
+                        "Covenant deployed via Covex Terminal".to_string()
+                    }
+                });
+                let covenant_type_val = payload.covenant_type.clone().unwrap_or_else(|| {
+                    if tier_fee > 0 {
+                        tier_str.to_string()
+                    } else {
+                        "SilverScript Covenant".to_string()
+                    }
+                });
+                let category_val = payload
+                    .category
+                    .clone()
+                    .unwrap_or_else(|| "general".to_string());
 
-            // Compute script hash from hex
-            let script_bytes = hex::decode(&script_hex_for_db).unwrap_or_default();
-            let script_hash = {
-                use sha2::{Digest, Sha256};
-                format!("{:x}", Sha256::digest(&script_bytes))
-            };
+                // Compute script hash from hex
+                let script_bytes = hex::decode(&script_hex_for_db).unwrap_or_default();
+                let script_hash = {
+                    use sha2::{Digest, Sha256};
+                    format!("{:x}", Sha256::digest(&script_bytes))
+                };
 
-            // DB insert — non-fatal on failure; covenant is already on-chain
-            let _ = db::insert_covenant(
-                &db,
-                &tx_id_str,
-                &deployer_str,
-                COVENANT_AMOUNT,
-                &script_hash,
-                &script_hex_for_db,
-                &covenant_type_val,
-                &category_val,
-                &deployer_str,
-                &desc,
-                0, // block_daa_score (crawler updates this)
-                tier_str,
-                &desc,
-                &receiving_addrs,
-                network,
-            );
-            info!(
-                "Covenant {} saved to DB immediately after broadcast",
-                tx_id_str
-            );
+                // DB insert — non-fatal on failure; covenant is already on-chain
+                let _ = db::insert_covenant(
+                    &db,
+                    &tx_id_str,
+                    &deployer_str,
+                    COVENANT_AMOUNT,
+                    &script_hash,
+                    &script_hex_for_db,
+                    &covenant_type_val,
+                    &category_val,
+                    &deployer_str,
+                    &desc,
+                    0, // block_daa_score (crawler updates this)
+                    tier_str,
+                    &desc,
+                    &receiving_addrs,
+                    network,
+                );
+                info!(
+                    "Covenant {} saved to DB immediately after broadcast",
+                    tx_id_str
+                );
             } // end if !is_pure_tier
 
             let output_summaries: Vec<TxOutputSummary> = outputs
@@ -835,7 +844,8 @@ mod mainnet_fail_closed_tests {
             // A valid kaspa: mainnet address shape is irrelevant: gates (a)
             // and (b) return before address parsing. We still supply a
             // placeholder so the struct is well-formed.
-            deployer_addr: "kaspa:qrp9000000000000000000000000000000000000000000000000000000000".to_string(),
+            deployer_addr: "kaspa:qrp9000000000000000000000000000000000000000000000000000000000"
+                .to_string(),
             // Non-empty + not "aa20" so is_pure_tier stays false (matters
             // for the gate (c) logic replica below).
             script_hex: "deadbeef".to_string(),

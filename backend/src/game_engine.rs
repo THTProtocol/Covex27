@@ -105,9 +105,14 @@ pub fn verify_claim(
 
 fn tictactoe(moves: &[String]) -> GameResult {
     const LINES: [[usize; 3]; 8] = [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-        [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
-        [0, 4, 8], [2, 4, 6], // diagonals
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8], // rows
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8], // cols
+        [0, 4, 8],
+        [2, 4, 6], // diagonals
     ];
     let mut board = [b' '; 9];
     for m in moves {
@@ -128,7 +133,11 @@ fn tictactoe(moves: &[String]) -> GameResult {
         }
         board[cell] = label;
         if LINES.iter().any(|l| l.iter().all(|&i| board[i] == label)) {
-            return if label == b'X' { GameResult::WhiteWins } else { GameResult::BlackWins };
+            return if label == b'X' {
+                GameResult::WhiteWins
+            } else {
+                GameResult::BlackWins
+            };
         }
     }
     if board.iter().all(|&c| c != b' ') {
@@ -148,7 +157,10 @@ fn connect4(moves: &[String]) -> GameResult {
             let mut cnt = 1;
             for d in 1..4isize {
                 let (rr, cc) = (r + d * dr, c + d * dc);
-                if rr < 0 || rr >= ROWS as isize || cc < 0 || cc >= COLS as isize
+                if rr < 0
+                    || rr >= ROWS as isize
+                    || cc < 0
+                    || cc >= COLS as isize
                     || b[rr as usize * COLS + cc as usize] != label
                 {
                     break;
@@ -157,7 +169,10 @@ fn connect4(moves: &[String]) -> GameResult {
             }
             for d in 1..4isize {
                 let (rr, cc) = (r - d * dr, c - d * dc);
-                if rr < 0 || rr >= ROWS as isize || cc < 0 || cc >= COLS as isize
+                if rr < 0
+                    || rr >= ROWS as isize
+                    || cc < 0
+                    || cc >= COLS as isize
                     || b[rr as usize * COLS + cc as usize] != label
                 {
                     break;
@@ -197,7 +212,11 @@ fn connect4(moves: &[String]) -> GameResult {
         }
         if let Some(i) = landed {
             if win_at(&board, i, label) {
-                return if label == b'R' { GameResult::WhiteWins } else { GameResult::BlackWins };
+                return if label == b'R' {
+                    GameResult::WhiteWins
+                } else {
+                    GameResult::BlackWins
+                };
             }
         }
     }
@@ -288,13 +307,18 @@ mod tests {
     #[test]
     fn connect4_black_wins_horizontal() {
         // Y fills the bottom row cols 0-3; R stacks col 6 harmlessly.
-        let r = connect4(&mv(&["R:6", "Y:0", "R:6", "Y:1", "R:6", "Y:2", "R:5", "Y:3"]));
+        let r = connect4(&mv(&[
+            "R:6", "Y:0", "R:6", "Y:1", "R:6", "Y:2", "R:5", "Y:3",
+        ]));
         assert_eq!(r, GameResult::BlackWins);
     }
 
     #[test]
     fn connect4_unfinished() {
-        assert_eq!(connect4(&mv(&["R:0", "Y:1", "R:2"])), GameResult::Unfinished);
+        assert_eq!(
+            connect4(&mv(&["R:0", "Y:1", "R:2"])),
+            GameResult::Unfinished
+        );
     }
 
     #[test]

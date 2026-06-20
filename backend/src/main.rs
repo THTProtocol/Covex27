@@ -5,6 +5,7 @@ use axum::{
     routing::post,
     Extension, Json, Router,
 };
+use rusqlite::params;
 use serde_json::json;
 use std::collections::HashMap;
 use std::env;
@@ -13,29 +14,28 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
-use rusqlite::params;
 
 mod broadcast;
 // Stable library modules below keep some helpers/types for the full feature set that are
 // not all wired into the running binary today; silence their dead_code noise at the module.
-#[allow(dead_code)]
-mod game_engine;
-mod games;
 mod channel;
-mod live;
 mod compiler;
 mod covenant_builder;
 mod covenant_catalog;
-mod disassembler;
-mod decompiler;
 #[allow(dead_code)]
 mod covenant_types;
 mod crawler;
 #[allow(dead_code)]
 mod db;
+mod decompiler;
 mod dev_wallets;
+mod disassembler;
+#[allow(dead_code)]
+mod game_engine;
+mod games;
 mod indexer;
 mod kaspa_msg;
+mod live;
 mod node_status;
 mod poker;
 // oracle.rs keeps a library of per-circuit verify_* helpers; some are intentionally
@@ -134,8 +134,7 @@ async fn main() {
     // Mainnet safety: a configured mainnet indexer MUST have a real oracle key.
     // There is no compiled-in oracle key (removed 2026-06-16); without COVEX_ORACLE_KEY
     // the oracle fails closed everywhere, and on mainnet we refuse to even start.
-    if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok()
-        && std::env::var("COVEX_ORACLE_KEY").is_err()
+    if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok() && std::env::var("COVEX_ORACLE_KEY").is_err()
     {
         eprintln!(
             "FATAL: KASPA_WRPC_URL_MAINNET is set but COVEX_ORACLE_KEY is not. \
@@ -175,7 +174,8 @@ async fn main() {
         if let Ok(exe) = std::env::current_exe() {
             // Binary is at <project>/backend/target/release/covex27-backend
             // Project root is 3 levels up: <project>/
-            let project_root = exe.parent()
+            let project_root = exe
+                .parent()
                 .and_then(|p| p.parent())
                 .and_then(|p| p.parent())
                 .and_then(|p| p.parent());
@@ -187,8 +187,7 @@ async fn main() {
         "../covex.db".to_string()
     });
     // Read network BEFORE treasury so we can branch on mainnet vs testnet
-    let network = env::var("KASPA_NETWORK")
-        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    let network = env::var("KASPA_NETWORK").unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let treasury = env::var("COVENANT_TREASURY_ADDRESS").unwrap_or_else(|_| {
         if network == "mainnet" || network == "mainnet-1" {
             dev_wallets::TREASURY_ADDRESS_MAINNET.to_string()
@@ -260,7 +259,10 @@ async fn main() {
     };
     let client_url = wrpc_url.clone();
 
-    info!("Connecting to Kaspa wRPC node at {} (network {})...", client_url, network);
+    info!(
+        "Connecting to Kaspa wRPC node at {} (network {})...",
+        client_url, network
+    );
     // Non-blocking connect: the HTTP server MUST bind and serve regardless of
     // whether any Kaspa node is currently reachable. The connect returns
     // immediately and the client keeps retrying in the background (strategy:
@@ -268,12 +270,11 @@ async fn main() {
     resolver_failover::initial_connect(&client, &network, &wrpc_url).await;
 
     // Networks placed under resolver-failover supervision (filled in below).
-    let mut supervised: Vec<resolver_failover::Supervised> =
-        vec![resolver_failover::Supervised {
-            network: network.clone(),
-            client: Arc::clone(&client),
-            direct_url: wrpc_url.clone(),
-        }];
+    let mut supervised: Vec<resolver_failover::Supervised> = vec![resolver_failover::Supervised {
+        network: network.clone(),
+        client: Arc::clone(&client),
+        direct_url: wrpc_url.clone(),
+    }];
 
     // --- Multi-network support: spawn indexers for ALL configured networks ---
     // This lets ONE backend process index covenants for TN12, TN10, and MAINNET
@@ -294,7 +295,8 @@ async fn main() {
     if !mainnet_only && primary_network != "testnet-12" {
         extra_networks.push("testnet-12");
     }
-    if primary_network != "mainnet" && primary_network != "mainnet-1"
+    if primary_network != "mainnet"
+        && primary_network != "mainnet-1"
         && std::env::var("KASPA_WRPC_URL_MAINNET").is_ok()
     {
         extra_networks.push("mainnet");
@@ -302,16 +304,20 @@ async fn main() {
 
     for &extra_net in &extra_networks {
         let extra_wrpc = match extra_net {
-            "testnet-10" => env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string()),
-            "mainnet" => env::var("KASPA_WRPC_URL_MAINNET").unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string()),
+            "testnet-10" => env::var("KASPA_WRPC_URL_TN10")
+                .unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string()),
+            "mainnet" => env::var("KASPA_WRPC_URL_MAINNET")
+                .unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string()),
             _ => continue,
         };
 
         let extra_treasury = match extra_net {
-            "testnet-10" => env::var("COVENANT_TREASURY_ADDRESS_TN10")
-                .unwrap_or_else(|_| dev_wallets::treasury_address_for_network(extra_net).to_string()),
-            "mainnet" => env::var("COVENANT_TREASURY_ADDRESS")
-                .unwrap_or_else(|_| dev_wallets::treasury_address_for_network(extra_net).to_string()),
+            "testnet-10" => env::var("COVENANT_TREASURY_ADDRESS_TN10").unwrap_or_else(|_| {
+                dev_wallets::treasury_address_for_network(extra_net).to_string()
+            }),
+            "mainnet" => env::var("COVENANT_TREASURY_ADDRESS").unwrap_or_else(|_| {
+                dev_wallets::treasury_address_for_network(extra_net).to_string()
+            }),
             _ => continue,
         };
 
@@ -428,7 +434,14 @@ async fn main() {
     let crawl_treasury = treasury.clone();
     let crawl_network = network.clone();
     tokio::spawn(async move {
-        crawler::run_crawler(crawl_client, crawl_db, crawl_treasury, crawl_start_daa, crawl_network).await;
+        crawler::run_crawler(
+            crawl_client,
+            crawl_db,
+            crawl_treasury,
+            crawl_start_daa,
+            crawl_network,
+        )
+        .await;
     });
 
     // --- Background: Resolver failover supervisor ---
@@ -461,7 +474,10 @@ async fn main() {
         .route("/health", get(health_handler))
         .route("/covenants", get(covenants_handler))
         .route("/covenants/:covenant_id", get(covenant_by_id_handler))
-        .route("/covenants/:covenant_id/actions", get(covenant_actions_handler))
+        .route(
+            "/covenants/:covenant_id/actions",
+            get(covenant_actions_handler),
+        )
         .route("/compile", post(compile_handler))
         .route("/script/disassemble", post(disassemble_handler))
         .route("/script/decompile", post(decompile_handler))
@@ -571,7 +587,10 @@ async fn events_handler(
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let network = params.get("network").cloned();
-    let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(30);
+    let limit: i64 = params
+        .get("limit")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30);
     // Run the synchronous SQLite read on a blocking thread so it never stalls a
     // Tokio worker (this is one of the hottest GET endpoints).
     let result = db::blocking(&db, move |conn| {
@@ -612,10 +631,19 @@ async fn address_summary_handler(
     .await;
     let list: Vec<serde_json::Value> = covs
         .iter()
-        .map(|c| covenant_summary_json(c, ui_ids.contains(&c.tx_id), db::ui_config_for_tier(&c.verified_tier)))
+        .map(|c| {
+            covenant_summary_json(
+                c,
+                ui_ids.contains(&c.tx_id),
+                db::ui_config_for_tier(&c.verified_tier),
+            )
+        })
         .collect();
     let tvl: f64 = covs.iter().map(|c| c.amount_kaspa).sum();
-    let paid = covs.iter().filter(|c| matches!(c.verified_tier.as_str(), "BUILDER" | "PRO" | "MAX")).count();
+    let paid = covs
+        .iter()
+        .filter(|c| matches!(c.verified_tier.as_str(), "BUILDER" | "PRO" | "MAX"))
+        .count();
     Json(json!({
         "address": addr,
         "covenants": list,
@@ -741,7 +769,12 @@ async fn rate_limit_middleware(
     let path = req.uri().path();
     let expensive = matches!(
         path,
-        "/compile" | "/script/disassemble" | "/script/decompile" | "/sign-and-broadcast" | "/broadcast" | "/auth-session"
+        "/compile"
+            | "/script/disassemble"
+            | "/script/decompile"
+            | "/sign-and-broadcast"
+            | "/broadcast"
+            | "/auth-session"
     ) || path.starts_with("/oracle/")
         || (req.method() == axum::http::Method::POST && path.starts_with("/covenant/"));
     if !expensive {
@@ -797,7 +830,13 @@ fn get_git_commit() -> String {
     }
     // Robust fallback: spawn git from likely working trees (local dev, Hetzner volume, cwd)
     // This ensures /health and /status always report real deployed commit-ish even if env inject missed.
-    for base in [".", "/root/Covex27", "/mnt/HC_Volume_105579109/Covex27", "..", "../.."] {
+    for base in [
+        ".",
+        "/root/Covex27",
+        "/mnt/HC_Volume_105579109/Covex27",
+        "..",
+        "../..",
+    ] {
         if let Ok(out) = std::process::Command::new("git")
             .current_dir(base)
             .args(["rev-parse", "--short", "HEAD"])
@@ -832,8 +871,8 @@ fn oracle_status_json() -> (&'static str, String) {
 }
 
 async fn health_handler() -> Json<serde_json::Value> {
-    let network = std::env::var("KASPA_NETWORK")
-        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    let network =
+        std::env::var("KASPA_NETWORK").unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let (oracle_mode, oracle_pubkey) = oracle_status_json();
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
@@ -865,8 +904,8 @@ async fn health_handler() -> Json<serde_json::Value> {
 }
 
 async fn root_handler() -> Json<serde_json::Value> {
-    let network = std::env::var("KASPA_NETWORK")
-        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    let network =
+        std::env::var("KASPA_NETWORK").unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let (oracle_mode, oracle_pubkey) = oracle_status_json();
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let has_tn10_wrpc = std::env::var("KASPA_WRPC_URL_TN10").is_ok();
@@ -897,17 +936,19 @@ async fn root_handler() -> Json<serde_json::Value> {
     }))
 }
 
-async fn status_handler(
-    Extension(db): Extension<db::Db>,
-) -> Json<serde_json::Value> {
+async fn status_handler(Extension(db): Extension<db::Db>) -> Json<serde_json::Value> {
     let total = db::count_covenants(&db).unwrap_or(0);
     let active = db::count_active_covenants(&db).unwrap_or(0);
     let verified = db::count_verified_covenants(&db).unwrap_or(0);
-    let network = std::env::var("KASPA_NETWORK")
-        .unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
+    let network =
+        std::env::var("KASPA_NETWORK").unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     // status reports only the mode, so don't derive the key here (keeps the prior
     // behaviour of not touching the signing key on this endpoint).
-    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() { "custom" } else { "unconfigured" };
+    let oracle_mode = if std::env::var("COVEX_ORACLE_KEY").is_ok() {
+        "custom"
+    } else {
+        "unconfigured"
+    };
     let has_mainnet_wrpc = std::env::var("KASPA_WRPC_URL_MAINNET").is_ok();
     let git_commit = get_git_commit();
     let crawl_full_rescan = std::env::var("CRAWL_FULL_RESCAN").is_ok();
@@ -1017,9 +1058,7 @@ async fn covenants_handler(
     Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let network_filter = params
-        .get("network")
-        .map(|s| s.to_string());
+    let network_filter = params.get("network").map(|s| s.to_string());
     let creator = params
         .get("creator")
         .filter(|s| !s.is_empty())
@@ -1180,10 +1219,7 @@ struct CompileRequest {
 async fn compile_handler(
     Json(req): Json<CompileRequest>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let source = req
-        .source
-        .or(req.silver_script)
-        .unwrap_or_default();
+    let source = req.source.or(req.silver_script).unwrap_or_default();
     if source.trim().is_empty() {
         return Err((
             axum::http::StatusCode::BAD_REQUEST,
@@ -1335,7 +1371,10 @@ async fn paid_status_handler(
         return Json(json!({"highest_tier": null}));
     }
     // Default to testnet-12 for backward compat, but honor ?network=
-    let network = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+    let network = params
+        .get("network")
+        .cloned()
+        .unwrap_or_else(|| "testnet-12".to_string());
 
     match db::get_highest_paid_tier_for_address(&db, &address, &network) {
         Ok(tier) => Json(json!({ "highest_tier": tier })),
@@ -1452,8 +1491,12 @@ async fn save_terminal_config_handler(
     // Case (a): indexed with a known creator. The signer must be that creator.
     if let Some(creator) = indexed_creator.as_deref() {
         if signer != creator {
-            warn!("terminal-config rejected for {}: signer {} != creator {}",
-                pfx(&covenant_id), pfx(signer), pfx(creator));
+            warn!(
+                "terminal-config rejected for {}: signer {} != creator {}",
+                pfx(&covenant_id),
+                pfx(signer),
+                pfx(creator)
+            );
             return Err((
                 axum::http::StatusCode::FORBIDDEN,
                 Json(json!({
@@ -1467,7 +1510,10 @@ async fn save_terminal_config_handler(
         // ownership signature (no silent accept), but there is no creator to
         // compare against, so we only enforce that a signer is present.
         if signer.is_empty() {
-            warn!("terminal-config rejected for {}: unindexed/no-creator covenant and no signer", pfx(&covenant_id));
+            warn!(
+                "terminal-config rejected for {}: unindexed/no-creator covenant and no signer",
+                pfx(&covenant_id)
+            );
             return Err((
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(json!({
@@ -1489,9 +1535,16 @@ async fn save_terminal_config_handler(
         ));
     }
     match verify_terminal_ownership_signature(signer, sig, nonce, &covenant_id) {
-        Ok(true) => info!("ownership signature verified for covenant {}", pfx(&covenant_id)),
+        Ok(true) => info!(
+            "ownership signature verified for covenant {}",
+            pfx(&covenant_id)
+        ),
         Ok(false) => {
-            warn!("terminal-config signature FAILED for {} by {}", pfx(&covenant_id), pfx(signer));
+            warn!(
+                "terminal-config signature FAILED for {} by {}",
+                pfx(&covenant_id),
+                pfx(signer)
+            );
             return Err((
                 axum::http::StatusCode::UNAUTHORIZED,
                 Json(json!({
@@ -1501,7 +1554,11 @@ async fn save_terminal_config_handler(
             ));
         }
         Err(e) => {
-            warn!("terminal-config signature error for {}: {}", pfx(&covenant_id), e);
+            warn!(
+                "terminal-config signature error for {}: {}",
+                pfx(&covenant_id),
+                e
+            );
             return Err((
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(json!({
@@ -1516,7 +1573,10 @@ async fn save_terminal_config_handler(
     // also what stops an unauthenticated pre-plant on an unindexed covenant: the
     // nonce is server-issued and single-use.
     if !consume_ownership_nonce(nonce, &covenant_id) {
-        warn!("terminal-config nonce rejected (unknown/expired/replayed) for {}", pfx(&covenant_id));
+        warn!(
+            "terminal-config nonce rejected (unknown/expired/replayed) for {}",
+            pfx(&covenant_id)
+        );
         return Err((
             axum::http::StatusCode::UNAUTHORIZED,
             Json(json!({
@@ -1547,7 +1607,10 @@ async fn save_terminal_config_handler(
     let slug = format!("covenant-{}", &covenant_id[..12.min(covenant_id.len())]);
 
     // Store with the actual signer as owner when provided (for future audit)
-    let owner = input.signer_address.clone().unwrap_or_else(|| "system".to_string());
+    let owner = input
+        .signer_address
+        .clone()
+        .unwrap_or_else(|| "system".to_string());
 
     match db::save_generated_ui(
         &db,
@@ -1560,7 +1623,10 @@ async fn save_terminal_config_handler(
         false,
     ) {
         Ok(_) => {
-            info!("Terminal config saved for covenant {} by {}", covenant_id, owner);
+            info!(
+                "Terminal config saved for covenant {} by {}",
+                covenant_id, owner
+            );
             // Audit: a creator/raw-HTML UI was published. By this point the
             // ownership signature has verified (the save is unreachable otherwise),
             // so signature_verified is always true here.
@@ -1572,7 +1638,9 @@ async fn save_terminal_config_handler(
                     true
                 );
             }
-            Ok(Json(json!({"success": true, "message": "Configuration saved successfully"})))
+            Ok(Json(
+                json!({"success": true, "message": "Configuration saved successfully"}),
+            ))
         }
         Err(e) => {
             error!("Failed to save terminal config: {}", e);
@@ -1676,7 +1744,10 @@ fn record_ownership_nonce(nonce: &str, covenant_id: &str) {
     let mut map = ownership_nonce_store().lock().unwrap();
     // Opportunistic purge of expired entries so the map cannot grow unbounded.
     map.retain(|_, (_, expiry)| *expiry > now);
-    map.insert(nonce.to_string(), (covenant_id.to_string(), now + OWNERSHIP_NONCE_TTL_SECS));
+    map.insert(
+        nonce.to_string(),
+        (covenant_id.to_string(), now + OWNERSHIP_NONCE_TTL_SECS),
+    );
 }
 
 /// Atomically consume a single-use ownership nonce. Returns true only if the
@@ -1768,7 +1839,11 @@ async fn og_covenant_handler(
             } else {
                 format!(
                     "A {} covenant locking {:.2} KAS on {}, indexed live by Covex.",
-                    if c.category.trim().is_empty() { "Kaspa" } else { &c.category },
+                    if c.category.trim().is_empty() {
+                        "Kaspa"
+                    } else {
+                        &c.category
+                    },
                     c.amount_kaspa,
                     net
                 )
@@ -1822,7 +1897,9 @@ fn urlencoding_path(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 8);
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{:02X}", b)),
         }
     }
@@ -1849,9 +1926,20 @@ fn covenant_og_card_svg(c: &db::DbCovenant) -> String {
             s.to_string()
         }
     };
-    let label = if c.covenant_type.trim().is_empty() { "Covenant" } else { &c.covenant_type };
+    let label = if c.covenant_type.trim().is_empty() {
+        "Covenant"
+    } else {
+        &c.covenant_type
+    };
     let name = svg_escape(&truncate(label, 22));
-    let category = svg_escape(&truncate(if c.category.trim().is_empty() { "general" } else { &c.category }, 28));
+    let category = svg_escape(&truncate(
+        if c.category.trim().is_empty() {
+            "general"
+        } else {
+            &c.category
+        },
+        28,
+    ));
     let net = match c.network.as_str() {
         "mainnet" => "Kaspa Mainnet",
         "testnet-10" => "Kaspa TN10",
@@ -1954,7 +2042,10 @@ async fn og_card_handler(
         Ok(Some(c)) => c,
         _ => return fallback(),
     };
-    let cache_key = format!("{}|{}|{:.4}", covenant_id, cov.verified_tier, cov.amount_kaspa);
+    let cache_key = format!(
+        "{}|{}|{:.4}",
+        covenant_id, cov.verified_tier, cov.amount_kaspa
+    );
 
     let cache = OG_CARD_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     if let Some(bytes) = cache.lock().unwrap().get(&cache_key).cloned() {
@@ -1996,7 +2087,10 @@ async fn platform_stats_handler(
     Extension(db): Extension<db::Db>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let network = params.get("network").map(|s| s.as_str()).filter(|s| *s != "all");
+    let network = params
+        .get("network")
+        .map(|s| s.as_str())
+        .filter(|s| *s != "all");
     match db::platform_stats(&db, network) {
         Ok(v) => Json(v),
         Err(e) => Json(json!({"error": e.to_string()})),
@@ -2017,7 +2111,7 @@ async fn analytics_handler(
         let total_val: f64 = covenants.iter().map(|c| c.amount_kaspa).sum();
         let count = covenants.len();
         let active_count = covenants.iter().filter(|c| c.is_active).count();
-        
+
         Json(json!({
             "creator": addr,
             "total_covenants": count,
@@ -2034,7 +2128,9 @@ async fn analytics_handler(
         let verified = db::count_verified_covenants(&db).unwrap_or(0);
         // Real platform-wide TVL: sum of locked KAS across active covenants, computed live
         // (same basis as /stats tvl_kas). Never report a fabricated 0 when value exists.
-        let tvl = db::covenant_stats(&db, None).map(|(_, _, t)| t).unwrap_or(0.0);
+        let tvl = db::covenant_stats(&db, None)
+            .map(|(_, _, t)| t)
+            .unwrap_or(0.0);
         Json(json!({
             "total_covenants": total,
             "total_value_kas": (tvl * 100.0).round() / 100.0,
@@ -2048,7 +2144,14 @@ async fn analytics_handler(
 
 // ── Marketplace handlers (Phase 18) ─────────────────────────────
 
-fn tmpl(id: String, name: String, category: &str, reality: &str, desc: String, kind: &str) -> serde_json::Value {
+fn tmpl(
+    id: String,
+    name: String,
+    category: &str,
+    reality: &str,
+    desc: String,
+    kind: &str,
+) -> serde_json::Value {
     json!({
         "id": id, "name": name, "category": category, "reality": reality,
         "description": desc, "author": "Covex Official", "price_kas": 0,
@@ -2075,22 +2178,51 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("deadman-switch", "Dead-Man's Switch", "Vesting & Timelocks", "Owner can always spend; an heir can spend after the owner goes silent past a deadline.", "timelock"),
     ];
     for (id, name, cat, desc, kind) in primitives {
-        out.push(tmpl(id.to_string(), name.to_string(), cat, "on-chain", desc.to_string(), kind));
+        out.push(tmpl(
+            id.to_string(),
+            name.to_string(),
+            cat,
+            "on-chain",
+            desc.to_string(),
+            kind,
+        ));
     }
     // Concrete stake-preset starting points for the simplest vaults.
-    for (kind, base) in [("singlesig", "Single-Key Vault"), ("timelock", "Timelock Vault"), ("multisig", "Multisig Treasury")] {
-        for (suffix, amt) in [("micro", "0.5 KAS"), ("standard", "10 KAS"), ("pro", "100 KAS"), ("treasury", "1000 KAS")] {
-            out.push(tmpl(format!("{kind}-{suffix}"), format!("{base} · {amt}"), "P2SH Commitments", "on-chain",
-                format!("On-chain {kind} covenant, pre-set for {amt}."), kind));
+    for (kind, base) in [
+        ("singlesig", "Single-Key Vault"),
+        ("timelock", "Timelock Vault"),
+        ("multisig", "Multisig Treasury"),
+    ] {
+        for (suffix, amt) in [
+            ("micro", "0.5 KAS"),
+            ("standard", "10 KAS"),
+            ("pro", "100 KAS"),
+            ("treasury", "1000 KAS"),
+        ] {
+            out.push(tmpl(
+                format!("{kind}-{suffix}"),
+                format!("{base} · {amt}"),
+                "P2SH Commitments",
+                "on-chain",
+                format!("On-chain {kind} covenant, pre-set for {amt}."),
+                kind,
+            ));
         }
     }
 
     // ── Games (oracle-attested, server-authoritative engine) ──
     let games: &[(&str, &str)] = &[
-        ("chess", "Chess Match"), ("chess-blitz", "Blitz Chess (10 min)"), ("chess-bullet", "Bullet Chess"),
-        ("poker", "Texas Hold'em Poker"), ("poker-6max", "6-max Poker"), ("blackjack", "Blackjack"),
-        ("checkers", "Checkers"), ("connect4", "Connect Four"), ("tictactoe", "Tic-Tac-Toe"),
-        ("reversi", "Reversi / Othello"), ("rps", "Rock Paper Scissors"),
+        ("chess", "Chess Match"),
+        ("chess-blitz", "Blitz Chess (10 min)"),
+        ("chess-bullet", "Bullet Chess"),
+        ("poker", "Texas Hold'em Poker"),
+        ("poker-6max", "6-max Poker"),
+        ("blackjack", "Blackjack"),
+        ("checkers", "Checkers"),
+        ("connect4", "Connect Four"),
+        ("tictactoe", "Tic-Tac-Toe"),
+        ("reversi", "Reversi / Othello"),
+        ("rps", "Rock Paper Scissors"),
     ];
     for (id, name) in games {
         out.push(tmpl(format!("game-{id}"), name.to_string(), "Games", "oracle-attested",
@@ -2114,7 +2246,14 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("private-prediction", "Private Prediction Position", "oracle-attested", "Hidden market position + ZK payout eligibility."),
     ];
     for (id, name, reality, desc) in zk {
-        out.push(tmpl(format!("zk-{id}"), name.to_string(), "ZK Proofs & Claims", reality, desc.to_string(), "zk"));
+        out.push(tmpl(
+            format!("zk-{id}"),
+            name.to_string(),
+            "ZK Proofs & Claims",
+            reality,
+            desc.to_string(),
+            "zk",
+        ));
     }
 
     // ── Genuine full-zk circuits with a LIVE in-browser prover (each id is the exact
@@ -2135,57 +2274,207 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("escrow_2party", "2-Party Escrow (ZK)", "DAA timelock escrow: outcome 0 = timeout refund, outcome 1 = still locked. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle. Simple Kaspa escrow deals with an honest timeout refund."),
     ];
     for (id, name, desc) in live_zk {
-        out.push(tmpl(id.to_string(), name.to_string(), "ZK Proofs & Claims", "oracle-attested", desc.to_string(), "zk"));
+        out.push(tmpl(
+            id.to_string(),
+            name.to_string(),
+            "ZK Proofs & Claims",
+            "oracle-attested",
+            desc.to_string(),
+            "zk",
+        ));
     }
 
     // ── Oracle & markets ──
     let markets: &[(&str, &str, &str)] = &[
-        ("binary", "Binary Prediction Market", "Yes/No event, oracle resolves at a deadline; winners split the pool."),
-        ("ternary", "Ternary Outcome Market", "Three-way outcome market with oracle resolution."),
-        ("multi-outcome", "Multi-Outcome Market", "N-way market; oracle attests the winning outcome."),
-        ("dutch-auction", "Dutch Auction", "Price descends over time; the first bidder wins at the current price."),
-        ("english-auction", "English Auction", "Ascending bids; highest bidder at close wins. Oracle-settled."),
-        ("parametric-insurance", "Parametric Insurance", "Pays out on an oracle data trigger (weather / price / flight)."),
-        ("price-settle", "Price-Feed Settlement", "Settle a contract against an oracle price at expiry."),
-        ("sports-settle", "Sports Settlement", "Oracle attests the match result; winners are paid."),
-        ("multi-oracle", "Multi-Oracle Market", "Critical markets resolved by a threshold of independent oracles."),
+        (
+            "binary",
+            "Binary Prediction Market",
+            "Yes/No event, oracle resolves at a deadline; winners split the pool.",
+        ),
+        (
+            "ternary",
+            "Ternary Outcome Market",
+            "Three-way outcome market with oracle resolution.",
+        ),
+        (
+            "multi-outcome",
+            "Multi-Outcome Market",
+            "N-way market; oracle attests the winning outcome.",
+        ),
+        (
+            "dutch-auction",
+            "Dutch Auction",
+            "Price descends over time; the first bidder wins at the current price.",
+        ),
+        (
+            "english-auction",
+            "English Auction",
+            "Ascending bids; highest bidder at close wins. Oracle-settled.",
+        ),
+        (
+            "parametric-insurance",
+            "Parametric Insurance",
+            "Pays out on an oracle data trigger (weather / price / flight).",
+        ),
+        (
+            "price-settle",
+            "Price-Feed Settlement",
+            "Settle a contract against an oracle price at expiry.",
+        ),
+        (
+            "sports-settle",
+            "Sports Settlement",
+            "Oracle attests the match result; winners are paid.",
+        ),
+        (
+            "multi-oracle",
+            "Multi-Oracle Market",
+            "Critical markets resolved by a threshold of independent oracles.",
+        ),
     ];
     for (id, name, desc) in markets {
-        out.push(tmpl(format!("market-{id}"), name.to_string(), "Prediction & Markets", "oracle-attested", desc.to_string(), "oracle"));
+        out.push(tmpl(
+            format!("market-{id}"),
+            name.to_string(),
+            "Prediction & Markets",
+            "oracle-attested",
+            desc.to_string(),
+            "oracle",
+        ));
     }
 
     // ── DeFi & financial ──
     let defi: &[(&str, &str, &str)] = &[
-        ("revenue-share", "Revenue Share Pool", "Members receive a proportional split on an oracle-attested distribution."),
-        ("vesting-stream", "Vesting Stream", "Linear vesting unlocked over time via timelocks."),
-        ("collateral-loan", "Collateralized Loan", "Lock collateral; release on repayment or liquidate on default (oracle LTV)."),
-        ("escrow-2party", "2-Party Escrow", "Funds release on mutual sign-off or an arbiter decision."),
-        ("escrow-milestone", "Milestone Escrow", "Tranches release as oracle-attested milestones complete."),
-        ("tip-jar", "Tip Jar", "Open contributions; the creator withdraws. Transparent on-chain."),
-        ("subscription", "Subscription Covenant", "Recurring access gated by periodic payment."),
-        ("royalty-split", "Royalty Split", "Automatic proportional royalty distribution."),
-        ("fee-pot-split", "Fee & Pot Split", "Verifiable split of a pot among parties with fees."),
-        ("crowdfund", "Crowdfunding Goal", "Refund if a funding goal isn't met by the deadline."),
-        ("dao-treasury", "DAO Treasury", "N-of-M multisig treasury with an approval threshold."),
-        ("dca-vault", "DCA Vault", "Time-released tranches for dollar-cost-averaging out."),
+        (
+            "revenue-share",
+            "Revenue Share Pool",
+            "Members receive a proportional split on an oracle-attested distribution.",
+        ),
+        (
+            "vesting-stream",
+            "Vesting Stream",
+            "Linear vesting unlocked over time via timelocks.",
+        ),
+        (
+            "collateral-loan",
+            "Collateralized Loan",
+            "Lock collateral; release on repayment or liquidate on default (oracle LTV).",
+        ),
+        (
+            "escrow-2party",
+            "2-Party Escrow",
+            "Funds release on mutual sign-off or an arbiter decision.",
+        ),
+        (
+            "escrow-milestone",
+            "Milestone Escrow",
+            "Tranches release as oracle-attested milestones complete.",
+        ),
+        (
+            "tip-jar",
+            "Tip Jar",
+            "Open contributions; the creator withdraws. Transparent on-chain.",
+        ),
+        (
+            "subscription",
+            "Subscription Covenant",
+            "Recurring access gated by periodic payment.",
+        ),
+        (
+            "royalty-split",
+            "Royalty Split",
+            "Automatic proportional royalty distribution.",
+        ),
+        (
+            "fee-pot-split",
+            "Fee & Pot Split",
+            "Verifiable split of a pot among parties with fees.",
+        ),
+        (
+            "crowdfund",
+            "Crowdfunding Goal",
+            "Refund if a funding goal isn't met by the deadline.",
+        ),
+        (
+            "dao-treasury",
+            "DAO Treasury",
+            "N-of-M multisig treasury with an approval threshold.",
+        ),
+        (
+            "dca-vault",
+            "DCA Vault",
+            "Time-released tranches for dollar-cost-averaging out.",
+        ),
     ];
     for (id, name, desc) in defi {
-        let reality = if id.starts_with("escrow") || *id == "dao-treasury" || *id == "vesting-stream" || *id == "dca-vault" { "on-chain" } else { "oracle-attested" };
-        let kind = if id.starts_with("escrow") || *id == "dao-treasury" { "multisig" } else if *id == "vesting-stream" || *id == "dca-vault" { "timelock" } else { "oracle" };
-        out.push(tmpl(format!("defi-{id}"), name.to_string(), "Financial Tools", reality, desc.to_string(), kind));
+        let reality = if id.starts_with("escrow")
+            || *id == "dao-treasury"
+            || *id == "vesting-stream"
+            || *id == "dca-vault"
+        {
+            "on-chain"
+        } else {
+            "oracle-attested"
+        };
+        let kind = if id.starts_with("escrow") || *id == "dao-treasury" {
+            "multisig"
+        } else if *id == "vesting-stream" || *id == "dca-vault" {
+            "timelock"
+        } else {
+            "oracle"
+        };
+        out.push(tmpl(
+            format!("defi-{id}"),
+            name.to_string(),
+            "Financial Tools",
+            reality,
+            desc.to_string(),
+            kind,
+        ));
     }
 
     // ── Identity & gating ──
     let gating: &[(&str, &str, &str)] = &[
-        ("age-gate", "Age Gate", "Unlock only for users who prove age over a threshold (ZK)."),
-        ("anti-sybil", "Anti-Sybil Gate", "One action per unique human via nullifier + reputation."),
-        ("membership-claim", "Membership Claim", "Claim a benefit by proving membership."),
-        ("kyc-attest", "KYC Attestation", "Gate on an oracle-attested KYC credential."),
-        ("reputation-gate", "Reputation Gate", "Require a minimum reputation / score to participate."),
-        ("allowlist", "Allowlist Gate", "Gate on a Merkle allowlist of addresses."),
+        (
+            "age-gate",
+            "Age Gate",
+            "Unlock only for users who prove age over a threshold (ZK).",
+        ),
+        (
+            "anti-sybil",
+            "Anti-Sybil Gate",
+            "One action per unique human via nullifier + reputation.",
+        ),
+        (
+            "membership-claim",
+            "Membership Claim",
+            "Claim a benefit by proving membership.",
+        ),
+        (
+            "kyc-attest",
+            "KYC Attestation",
+            "Gate on an oracle-attested KYC credential.",
+        ),
+        (
+            "reputation-gate",
+            "Reputation Gate",
+            "Require a minimum reputation / score to participate.",
+        ),
+        (
+            "allowlist",
+            "Allowlist Gate",
+            "Gate on a Merkle allowlist of addresses.",
+        ),
     ];
     for (id, name, desc) in gating {
-        out.push(tmpl(format!("gate-{id}"), name.to_string(), "Identity & Gating", "oracle-attested", desc.to_string(), "zk"));
+        out.push(tmpl(
+            format!("gate-{id}"),
+            name.to_string(),
+            "Identity & Gating",
+            "oracle-attested",
+            desc.to_string(),
+            "zk",
+        ));
     }
 
     // ── Compute & cross-chain ──
@@ -2197,7 +2486,14 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
         ("vrf-fair", "Verifiable Random Draw", "Provably-fair randomness (VRF) for lotteries and shuffles. A real Groth16 proof, generated in your browser, verified fail-closed by the disclosed Covex oracle."),
     ];
     for (id, name, desc) in compute {
-        out.push(tmpl(format!("compute-{id}"), name.to_string(), "Compute & Cross-chain", "oracle-attested", desc.to_string(), "zk"));
+        out.push(tmpl(
+            format!("compute-{id}"),
+            name.to_string(),
+            "Compute & Cross-chain",
+            "oracle-attested",
+            desc.to_string(),
+            "zk",
+        ));
     }
 
     let total = out.len();
@@ -2218,8 +2514,11 @@ async fn marketplace_publish_handler(
     Extension(db): Extension<db::Db>,
     Json(input): Json<MarketplacePublishInput>,
 ) -> Json<serde_json::Value> {
-    let id = format!("tmpl_{}", uuid::Uuid::new_v4().to_string()[..12].to_string());
-    
+    let id = format!(
+        "tmpl_{}",
+        uuid::Uuid::new_v4().to_string()[..12].to_string()
+    );
+
     // Actually store the template in generated_uis as a published template
     let conn = db.lock().unwrap();
     let result = conn.execute(
@@ -2244,7 +2543,7 @@ async fn marketplace_publish_handler(
         Err(e) => Json(json!({
             "success": false,
             "error": format!("Failed to publish template: {}", e)
-        }))
+        })),
     }
 }
 
@@ -2305,7 +2604,7 @@ async fn compute_payout_handler(
         input.outcome,
         input.oracle_timestamp.unwrap_or(0)
     );
-    
+
     // The message must be the canonical one for THIS covenant+outcome+timestamp,
     // AND carry a valid BIP340 Schnorr signature from the oracle. No bypass: the
     // old `|| message == expected_message` let anyone mint a payout witness from
@@ -2331,9 +2630,9 @@ async fn compute_payout_handler(
     let (fee_percent, pot_return_percent) = (0.0_f64, 0.0_f64);
 
     // 3. Determine total pot
-    let total_pot = input.total_stake_kas.unwrap_or(
-        input.per_side_stake_kas.unwrap_or(100.0) * 2.0
-    );
+    let total_pot = input
+        .total_stake_kas
+        .unwrap_or(input.per_side_stake_kas.unwrap_or(100.0) * 2.0);
 
     // 4. Compute payout breakdown
     let platform_fee = total_pot * fee_percent / 100.0;
@@ -2379,7 +2678,9 @@ async fn compute_payout_handler(
     info!(
         "Payout computed for covenant {}: winner={:.2} KAS, fee={:.2}, pot_return={:.2}",
         &covenant_id[..16.min(covenant_id.len())],
-        winner_share, platform_fee, pot_return,
+        winner_share,
+        platform_fee,
+        pot_return,
     );
 
     Json(json!({
@@ -2414,9 +2715,9 @@ struct CovenantMetadataInput {
     resolution: Option<String>,
     paid_token: Option<String>,
     network: Option<String>,
-    reality: Option<String>,           // 'full-zk' | 'hybrid' | 'oracle-attested'
-    circuit_category: Option<String>,  // 'game' | 'crypto' | 'ownership' | 'defi' | etc.
-    has_artifacts: Option<bool>,       // true if real artifacts exist in zk/
+    reality: Option<String>, // 'full-zk' | 'hybrid' | 'oracle-attested'
+    circuit_category: Option<String>, // 'game' | 'crypto' | 'ownership' | 'defi' | etc.
+    has_artifacts: Option<bool>, // true if real artifacts exist in zk/
     // Ownership proof (same scheme as terminal-config): required to set featured
     // metadata on a covenant that has a known creator. Signature is over the
     // `covex-config:{tx_id}:{nonce}` challenge issued by terminal_config_challenge_handler.
@@ -2481,7 +2782,7 @@ async fn auth_session_handler(
             "token": null,
             "tier": "FREE",
             "error": format!("Failed to create auth token: {}", e)
-        }))
+        })),
     }
 }
 
@@ -2536,7 +2837,7 @@ async fn consume_auth_token_handler(
         Err(e) => Json(json!({
             "consumed": false,
             "error": format!("Failed to consume token: {}", e)
-        }))
+        })),
     }
 }
 
@@ -2547,19 +2848,24 @@ async fn deploy_capacity_handler(
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let address = params.get("address").cloned().unwrap_or_default();
-    let network = params.get("network").cloned().unwrap_or_else(|| "testnet-12".to_string());
+    let network = params
+        .get("network")
+        .cloned()
+        .unwrap_or_else(|| "testnet-12".to_string());
 
     if address.is_empty() {
         return Json(json!({ "can_deploy": false, "error": "address required" }));
     }
 
     let conn = db.lock().unwrap();
-    let (max_deploy, used): (i32, i32) = conn.query_row(
-        "SELECT COALESCE(max_deployments, 0), COALESCE(deployments_used, 0)
+    let (max_deploy, used): (i32, i32) = conn
+        .query_row(
+            "SELECT COALESCE(max_deployments, 0), COALESCE(deployments_used, 0)
          FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
-        params![address, network],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    ).unwrap_or((0, 0));
+            params![address, network],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap_or((0, 0));
 
     let remaining = (max_deploy - used).max(0);
     let can_deploy = remaining > 0;
@@ -2600,8 +2906,12 @@ async fn save_covenant_metadata_handler(
             let sig = input.signature.as_deref().unwrap_or("");
             let nonce = input.nonce.as_deref().unwrap_or("");
             if signer != cov.creator_addr {
-                warn!("covenant-metadata rejected for {}: signer {} != creator {}",
-                    pfx(&input.tx_id), pfx(signer), pfx(&cov.creator_addr));
+                warn!(
+                    "covenant-metadata rejected for {}: signer {} != creator {}",
+                    pfx(&input.tx_id),
+                    pfx(signer),
+                    pfx(&cov.creator_addr)
+                );
                 return Json(json!({
                     "success": false,
                     "error": "Only the original covenant deployer can set featured metadata for this covenant"
@@ -2616,14 +2926,22 @@ async fn save_covenant_metadata_handler(
             match verify_terminal_ownership_signature(signer, sig, nonce, &input.tx_id) {
                 Ok(true) => {}
                 Ok(false) => {
-                    warn!("covenant-metadata signature FAILED for {} by {}", pfx(&input.tx_id), pfx(signer));
+                    warn!(
+                        "covenant-metadata signature FAILED for {} by {}",
+                        pfx(&input.tx_id),
+                        pfx(signer)
+                    );
                     return Json(json!({
                         "success": false,
                         "error": "Signature verification failed - the provided signature does not match the signer address"
                     }));
                 }
                 Err(e) => {
-                    warn!("covenant-metadata signature error for {}: {}", pfx(&input.tx_id), e);
+                    warn!(
+                        "covenant-metadata signature error for {}: {}",
+                        pfx(&input.tx_id),
+                        e
+                    );
                     return Json(json!({
                         "success": false,
                         "error": format!("Signature error: {}", e)
@@ -2632,7 +2950,10 @@ async fn save_covenant_metadata_handler(
             }
             // Replay protection: consume the single-use nonce bound to this tx_id.
             if !consume_ownership_nonce(nonce, &input.tx_id) {
-                warn!("covenant-metadata nonce rejected (unknown/expired/replayed) for {}", pfx(&input.tx_id));
+                warn!(
+                    "covenant-metadata nonce rejected (unknown/expired/replayed) for {}",
+                    pfx(&input.tx_id)
+                );
                 return Json(json!({
                     "success": false,
                     "error": "Challenge nonce is invalid, expired, or already used. Request a fresh challenge and sign again."
@@ -2640,7 +2961,10 @@ async fn save_covenant_metadata_handler(
             }
             // Ownership proven: this covenant may be featured.
             featured = true;
-            info!("ownership signature verified for covenant-metadata {}", pfx(&input.tx_id));
+            info!(
+                "ownership signature verified for covenant-metadata {}",
+                pfx(&input.tx_id)
+            );
         }
     }
 
@@ -2674,7 +2998,11 @@ async fn save_covenant_metadata_handler(
         featured, // only featured when ownership was proven above
     ) {
         Ok(_) => {
-            info!("Covenant metadata saved for {} (featured={})", pfx(&input.tx_id), featured);
+            info!(
+                "Covenant metadata saved for {} (featured={})",
+                pfx(&input.tx_id),
+                featured
+            );
             let message = if featured {
                 "Metadata persisted. Covenant now has top visibility."
             } else {
@@ -2682,7 +3010,7 @@ async fn save_covenant_metadata_handler(
             };
             Json(json!({ "success": true, "message": message }))
         }
-        Err(e) => Json(json!({ "success": false, "error": e.to_string() }))
+        Err(e) => Json(json!({ "success": false, "error": e.to_string() })),
     }
 }
 

@@ -14,14 +14,19 @@
 //                        Falls back to oracle attestation with requested_outcome if no (valid) Groth16 proof body.
 //   - tictactoe_v1, connect4_v1, timelock_absolute, hash_preimage: Groth16 + oracle fallback.
 
-use axum::{extract::Extension, extract::Json, routing::{get, post}, Router};
+use axum::{
+    extract::Extension,
+    extract::Json,
+    routing::{get, post},
+    Router,
+};
+use secp256k1::{schnorr::Signature, Keypair, Message, Secp256k1};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::Command;
 use tracing::info;
-use secp256k1::{schnorr::Signature, Keypair, Message, Secp256k1};
-use serde_json::json;
 
 use crate::oracle_verifier::{
     circuit_requires_crypto_proof, determine_outcome_for_circuit, verify_proof_for_circuit,
@@ -33,9 +38,9 @@ pub struct OracleVerifyInput {
     pub covenant_id: String,
     #[serde(default = "default_circuit_type")]
     pub circuit_type: String, // "merkle_membership" | "range_proof" | "chess_v1" (oracle attestation for game results)
-    pub proof: serde_json::Value,       // The Groth16 proof object
+    pub proof: serde_json::Value, // The Groth16 proof object
     #[serde(default)]
-    pub public_inputs: Vec<String>,     // Public signals (rootHash, etc.) — default empty for attested/hybrid/simulate paths
+    pub public_inputs: Vec<String>, // Public signals (rootHash, etc.) — default empty for attested/hybrid/simulate paths
     #[serde(default)]
     pub requested_outcome: Option<u32>, // Claimed outcome (0-1 for binary)
 
@@ -73,8 +78,8 @@ pub struct MultiOracleProvider {
 
 #[derive(Deserialize, Debug)]
 pub struct MultiOracleSignature {
-    pub public_key: String,   // which provider this signature is for
-    pub signature: String,    // the hex signature
+    pub public_key: String, // which provider this signature is for
+    pub signature: String,  // the hex signature
 }
 
 fn default_circuit_type() -> String {
@@ -86,13 +91,13 @@ fn default_circuit_type() -> String {
 pub struct OracleVerifyOutput {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub outcome: Option<u32>,        // 0 = proven (claimant wins), 1 = rejected (depositor wins)
+    pub outcome: Option<u32>, // 0 = proven (claimant wins), 1 = rejected (depositor wins)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,   // Oracle signature over outcome
+    pub signature: Option<String>, // Oracle signature over outcome
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,     // The signed message for verification
+    pub message: Option<String>, // The signed message for verification
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     pub public_inputs: Vec<String>,
@@ -390,9 +395,13 @@ fn run_zk_verifier(
         "proof": proof,
         "publicSignals": public_inputs,
     });
-    let tmp_path = std::env::temp_dir().join(format!("{}_{}.json", tmp_prefix, uuid::Uuid::new_v4()));
-    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
+    let tmp_path =
+        std::env::temp_dir().join(format!("{}_{}.json", tmp_prefix, uuid::Uuid::new_v4()));
+    std::fs::write(
+        &tmp_path,
+        serde_json::to_string(&proof_json).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
     let output = Command::new(node_binary())
         .arg(script.to_str().unwrap_or("zk/verify.js"))
@@ -405,11 +414,15 @@ fn run_zk_verifier(
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !output.status.success() {
-        return Err(format!("Verifier failed: {} {}", stdout.trim(), stderr.trim()));
+        return Err(format!(
+            "Verifier failed: {} {}",
+            stdout.trim(),
+            stderr.trim()
+        ));
     }
 
-    let result: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|e| format!("Invalid verifier output: {}", e))?;
+    let result: serde_json::Value =
+        serde_json::from_str(&stdout).map_err(|e| format!("Invalid verifier output: {}", e))?;
 
     match result["valid"].as_bool() {
         Some(v) => Ok(v),
@@ -430,14 +443,20 @@ async fn run_zk_verifier_async(
 
 /// Verify a MerkleMembership Groth16 proof via snarkjs.
 /// Runs the Node.js verifier in a blocking task to avoid stalling the async runtime.
-fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Result<bool, String> {
+fn verify_merkle_proof(
+    proof: &serde_json::Value,
+    public_inputs: &[String],
+) -> Result<bool, String> {
     let proof_json = serde_json::json!({
         "proof": proof,
         "publicSignals": public_inputs,
     });
     let tmp_path = std::env::temp_dir().join(format!("covex_oracle_{}.json", uuid::Uuid::new_v4()));
-    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
+    std::fs::write(
+        &tmp_path,
+        serde_json::to_string(&proof_json).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
     let script = verify_script_path();
     let node_binary = if std::path::Path::new("/usr/bin/node").exists() {
@@ -454,7 +473,12 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
         .arg(script.to_str().unwrap_or("zk/verify.js"))
         .arg(&tmp_path)
         .output()
-        .map_err(|e| format!("Failed to run snarkjs verifier (node={}): {}", node_binary, e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to run snarkjs verifier (node={}): {}",
+                node_binary, e
+            )
+        })?;
 
     // Cleanup
     let _ = std::fs::remove_file(&tmp_path);
@@ -465,12 +489,17 @@ fn verify_merkle_proof(proof: &serde_json::Value, public_inputs: &[String]) -> R
     if !output.status.success() {
         return Err(format!(
             "Verifier exited with status {}: stdout={} stderr={}",
-            output.status, stdout.trim(), stderr.trim()
+            output.status,
+            stdout.trim(),
+            stderr.trim()
         ));
     }
 
     if stdout.trim().is_empty() {
-        return Err(format!("Verifier produced no output. stderr: {}", stderr.trim()));
+        return Err(format!(
+            "Verifier produced no output. stderr: {}",
+            stderr.trim()
+        ));
     }
 
     let result: serde_json::Value = serde_json::from_str(&stdout)
@@ -494,8 +523,11 @@ fn verify_range_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Re
         "publicSignals": public_inputs,
     });
     let tmp_path = std::env::temp_dir().join(format!("covex_range_{}.json", uuid::Uuid::new_v4()));
-    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
+    std::fs::write(
+        &tmp_path,
+        serde_json::to_string(&proof_json).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
     let script = verify_range_script_path();
     let node_binary = if std::path::Path::new("/usr/bin/node").exists() {
@@ -518,7 +550,11 @@ fn verify_range_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Re
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !output.status.success() {
-        return Err(format!("Range verifier failed: {} {}", stdout.trim(), stderr.trim()));
+        return Err(format!(
+            "Range verifier failed: {} {}",
+            stdout.trim(),
+            stderr.trim()
+        ));
     }
 
     let result: serde_json::Value = serde_json::from_str(&stdout)
@@ -532,7 +568,10 @@ fn verify_range_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Re
 }
 
 /// Async wrapper around verify_merkle_proof for use in axum handlers.
-async fn verify_merkle_proof_async(proof: serde_json::Value, public_inputs: Vec<String>) -> Result<bool, String> {
+async fn verify_merkle_proof_async(
+    proof: serde_json::Value,
+    public_inputs: Vec<String>,
+) -> Result<bool, String> {
     tokio::task::spawn_blocking(move || verify_merkle_proof(&proof, &public_inputs))
         .await
         .map_err(|e| format!("Spawn blocking failed: {}", e))?
@@ -540,7 +579,10 @@ async fn verify_merkle_proof_async(proof: serde_json::Value, public_inputs: Vec<
 
 /// Async wrapper for Range Proof verification (Phase 12).
 /// Now calls the real snarkjs verifier when artifacts exist.
-async fn verify_range_proof_async(proof: serde_json::Value, public_inputs: Vec<String>) -> Result<bool, String> {
+async fn verify_range_proof_async(
+    proof: serde_json::Value,
+    public_inputs: Vec<String>,
+) -> Result<bool, String> {
     tokio::task::spawn_blocking(move || verify_range_proof(&proof, &public_inputs))
         .await
         .map_err(|e| format!("Spawn blocking failed: {}", e))?
@@ -587,7 +629,8 @@ async fn verify_and_sign_handler(
     // - RISC0 guests expanded: poker_solver.rs (hand equity), financial_formula.rs (BS approx)
     //   + their _proof.json samples. Registered as risc0_poker_solver / verifiable_poker etc.
     // - Stubs kept honest: no real crypto/ZK exec here, just wiring + fixed responses.
-    if input.circuit_type == "decentralized_liveness" || input.circuit_type == "onchain_sig_verify" {
+    if input.circuit_type == "decentralized_liveness" || input.circuit_type == "onchain_sig_verify"
+    {
         // Explicit branch for documentation / future extension (currently falls to Attested path).
         // Support simulate for easy covenant dev testing (e.g. simulate=partial to test outage paths in .sil covenants).
         // This keeps everything compatible while making liveness/oracle connection to covenants trivial to test.
@@ -671,7 +714,9 @@ async fn verify_and_sign_handler(
                     signature: None,
                     timestamp: None,
                     message: None,
-                    error: Some(format!("game has no settleable winner (recorded: {other:?})")),
+                    error: Some(format!(
+                        "game has no settleable winner (recorded: {other:?})"
+                    )),
                     public_inputs: input.public_inputs,
                     circuit_type: Some(input.circuit_type.clone()),
                     covenant_hint: None,
@@ -813,7 +858,11 @@ async fn verify_and_sign_handler(
         let digest = message_digest(&message);
         for sig_entry in &multi.signatures {
             // Find the matching provider.
-            if let Some(provider) = multi.providers.iter().find(|p| p.public_key == sig_entry.public_key) {
+            if let Some(provider) = multi
+                .providers
+                .iter()
+                .find(|p| p.public_key == sig_entry.public_key)
+            {
                 // REAL BIP340 Schnorr verification: the provider must have actually signed
                 // the outcome message with their key. (The old code compared
                 // sha256(pubkey||message) to the supplied signature - a keyless MAC anyone
@@ -833,7 +882,11 @@ async fn verify_and_sign_handler(
                     None => continue,
                 };
                 if verifier.verify_schnorr(&sig, &digest, &xonly).is_ok() {
-                    valid_weight += if provider.weight > 0 { provider.weight } else { 1 };
+                    valid_weight += if provider.weight > 0 {
+                        provider.weight
+                    } else {
+                        1
+                    };
                 }
             }
         }
@@ -847,7 +900,9 @@ async fn verify_and_sign_handler(
                 message: None,
                 error: Some(format!(
                     "Multi-oracle threshold not met: weight {}/{} (need {})",
-                    valid_weight, multi.signatures.len(), threshold
+                    valid_weight,
+                    multi.signatures.len(),
+                    threshold
                 )),
                 public_inputs: input.public_inputs,
                 circuit_type: Some(input.circuit_type.clone()),
@@ -857,7 +912,9 @@ async fn verify_and_sign_handler(
 
         info!(
             "Multi-oracle cryptographic verification passed (weight {}/{}) for covenant {}",
-            valid_weight, threshold, &input.covenant_id[..16.min(input.covenant_id.len())]
+            valid_weight,
+            threshold,
+            &input.covenant_id[..16.min(input.covenant_id.len())]
         );
     }
 
@@ -945,9 +1002,9 @@ mod tests {
     #[test]
     fn test_verify_valid_merkle_proof() {
         // Load the known-good proof from merkle_proof.json
-        let proof_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../zk/merkle_proof.json");
-        
+        let proof_path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../zk/merkle_proof.json");
+
         if !proof_path.exists() {
             eprintln!("Skipping test: merkle_proof.json not found");
             return;
@@ -972,9 +1029,9 @@ mod tests {
     /// Test that a tampered proof is rejected.
     #[test]
     fn test_reject_tampered_proof() {
-        let proof_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../zk/merkle_proof.json");
-        
+        let proof_path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../zk/merkle_proof.json");
+
         if !proof_path.exists() {
             eprintln!("Skipping test: merkle_proof.json not found");
             return;

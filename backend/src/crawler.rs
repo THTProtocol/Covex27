@@ -21,12 +21,12 @@ use tracing::{debug, error, info, warn};
 ///
 /// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
-const MAX_WALK_DISTANCE: u64 = 5_000_000;  // Increased to catch more historic covenants on TN10/TN12 (full DAG coverage)
-// Forward-tail window (C3): when the watermark is far below the tip, walk only this many
-// recent DAA each cycle so NEW covenants index immediately and the health signal reflects
-// tip coverage, instead of re-walking a million blocks of history every cycle (which
-// stalled TN12). The deferred deep history is logged for a later backfill, not silently
-// dropped. In steady state the gap is tiny so this never binds.
+const MAX_WALK_DISTANCE: u64 = 5_000_000; // Increased to catch more historic covenants on TN10/TN12 (full DAG coverage)
+                                          // Forward-tail window (C3): when the watermark is far below the tip, walk only this many
+                                          // recent DAA each cycle so NEW covenants index immediately and the health signal reflects
+                                          // tip coverage, instead of re-walking a million blocks of history every cycle (which
+                                          // stalled TN12). The deferred deep history is logged for a later backfill, not silently
+                                          // dropped. In steady state the gap is tiny so this never binds.
 const FORWARD_WINDOW: u64 = 5_000;
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
@@ -94,7 +94,12 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
 }
 
 /// Auto-generate a logic summary from covenant type, category and amount
-fn auto_summary(covenant_type: &str, category: &str, amount_sompi: u64, network_label: &str) -> String {
+fn auto_summary(
+    covenant_type: &str,
+    category: &str,
+    amount_sompi: u64,
+    network_label: &str,
+) -> String {
     let kas = amount_sompi as f64 / 100_000_000.0;
     format!("{} covenant (category: {}) locking {:.2} KAS on Kaspa BlockDAG {}. Extracted automatically from on-chain UTXO data.", covenant_type, category, kas, network_label)
 }
@@ -142,7 +147,10 @@ pub async fn run_crawler(
     // This guarantees full historic coverage of *all* on-chain covenants from TN10/TN12
     // (opcode scan in tx payload and output scripts). Use on restart if gaps vs official explorers.
     let mut scan_daa = if std::env::var("CRAWL_FULL_RESCAN").is_ok() {
-        info!("CRAWL_FULL_RESCAN=1 for {} - forcing full scan from DAA 0", network);
+        info!(
+            "CRAWL_FULL_RESCAN=1 for {} - forcing full scan from DAA 0",
+            network
+        );
         0u64
     } else {
         db::get_last_scanned_daa(&db, &network).unwrap_or(start_daa)
@@ -212,7 +220,8 @@ pub async fn run_crawler(
         // covenant whether or not new covenants are appearing. Isolated and fail-safe -
         // any node/RPC error just re-anchors and skips the delta; it can never corrupt the
         // discovery watermark.
-        last_sink = reconcile_reorgs(&client, &db, &network, dag.sink, virtual_daa, last_sink).await;
+        last_sink =
+            reconcile_reorgs(&client, &db, &network, dag.sink, virtual_daa, last_sink).await;
 
         if scan_daa >= virtual_daa {
             let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
@@ -242,7 +251,10 @@ pub async fn run_crawler(
                 continue;
             }
         };
-        info!("Crawler: tip DAA {} | scanned={} | walk_floor={}", virtual_daa, scan_daa, walk_floor);
+        info!(
+            "Crawler: tip DAA {} | scanned={} | walk_floor={}",
+            virtual_daa, scan_daa, walk_floor
+        );
 
         let mut cur = tip_hash;
         let mut walked = 0u64;
@@ -276,7 +288,10 @@ pub async fn run_crawler(
                     break;
                 }
                 Err(_) => {
-                    warn!("Crawler[{}]: get_block timeout (node likely mid-sync); retrying", network);
+                    warn!(
+                        "Crawler[{}]: get_block timeout (node likely mid-sync); retrying",
+                        network
+                    );
                     crate::node_status::report_err(&network, "get_block timeout (node serving dag_info but not block bodies; still syncing)");
                     walk_interrupted = true;
                     break;
@@ -302,7 +317,10 @@ pub async fn run_crawler(
                 // bytes (inscriptions, KRC-20 envelopes) - critical on mainnet where
                 // honest data matters most.
                 let is_envelope = |h: &str| {
-                    h.starts_with("aa20") || h.starts_with("aa21") || h.starts_with("aa22") || h.starts_with("aa23")
+                    h.starts_with("aa20")
+                        || h.starts_with("aa21")
+                        || h.starts_with("aa22")
+                        || h.starts_with("aa23")
                 };
                 let mut has_covenant_opcode = is_envelope(&pl);
 
@@ -312,7 +330,10 @@ pub async fn run_crawler(
                 // only a prefix match avoids inscription false positives.
                 for out in &tx.outputs {
                     let sh = hex::encode(out.script_public_key.script());
-                    if sh.contains("aa20") || sh.contains("aa21") || sh.contains("aa22") || sh.contains("aa23")
+                    if sh.contains("aa20")
+                        || sh.contains("aa21")
+                        || sh.contains("aa22")
+                        || sh.contains("aa23")
                     {
                         has_covenant_opcode = true;
                         // Prefer the first output script that carries the opcode for classification
@@ -353,7 +374,11 @@ pub async fn run_crawler(
                 let tid = format!("{}:{}", txh, 0);
                 let ctype = classify(&covenant_script);
                 let cat = categorize(&covenant_script);
-                let addr_prefix = if network.starts_with("mainnet") { "kaspa" } else { "kaspatest" };
+                let addr_prefix = if network.starts_with("mainnet") {
+                    "kaspa"
+                } else {
+                    "kaspatest"
+                };
                 let addr = format!("{}:{}", addr_prefix, &txh[..32]);
                 // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
                 let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
@@ -368,7 +393,10 @@ pub async fn run_crawler(
                 };
                 let summary = auto_summary(&ctype, &cat, amt, nlabel);
                 if total_found % 100 == 0 {
-                    info!("[CRAWLER-{}] discovered {} covenants so far (latest DAA {})", network, total_found, daa);
+                    info!(
+                        "[CRAWLER-{}] discovered {} covenants so far (latest DAA {})",
+                        network, total_found, daa
+                    );
                 }
                 let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
                 // Store the best script (output script preferred over payload for raw detection)
@@ -412,9 +440,10 @@ pub async fn run_crawler(
                         // Honest enforcement label from the on-chain script, so the
                         // auto-generated UI's trust banner can't call a consensus-
                         // enforced covenant "dangerous". (Mirrors the detail page.)
-                        let greality = crate::covenant_catalog::reality_for_script(&covenant_script)
-                            .as_str()
-                            .to_string();
+                        let greality =
+                            crate::covenant_catalog::reality_for_script(&covenant_script)
+                                .as_str()
+                                .to_string();
                         let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
                             db.clone(),
                             tid.clone(),
@@ -548,7 +577,10 @@ async fn reconcile_reorgs(
         }
         Err(_) => {
             // Transient: keep the same anchor and retry next cycle (no chain progress lost).
-            warn!("Crawler[{}]: reorg reconcile timed out; will retry from same anchor", network);
+            warn!(
+                "Crawler[{}]: reorg reconcile timed out; will retry from same anchor",
+                network
+            );
             return Some(start);
         }
     };
@@ -604,13 +636,34 @@ mod tests {
     #[test]
     fn mainnet_gate_blocks_until_enabled() {
         // Gate OFF (pre-Toccata): mainnet indexes ZERO covenants; testnets always index.
-        assert!(covenant_indexing_gated("mainnet", false), "mainnet must be gated when disabled");
-        assert!(covenant_indexing_gated("mainnet-1", false), "mainnet-1 must be gated when disabled");
-        assert!(!covenant_indexing_gated("testnet-12", false), "testnet-12 is never gated");
-        assert!(!covenant_indexing_gated("testnet-10", false), "testnet-10 is never gated");
+        assert!(
+            covenant_indexing_gated("mainnet", false),
+            "mainnet must be gated when disabled"
+        );
+        assert!(
+            covenant_indexing_gated("mainnet-1", false),
+            "mainnet-1 must be gated when disabled"
+        );
+        assert!(
+            !covenant_indexing_gated("testnet-12", false),
+            "testnet-12 is never gated"
+        );
+        assert!(
+            !covenant_indexing_gated("testnet-10", false),
+            "testnet-10 is never gated"
+        );
         // Gate ON (operator flips it at Toccata activation): mainnet covenants now index.
-        assert!(!covenant_indexing_gated("mainnet", true), "mainnet must index once enabled");
-        assert!(!covenant_indexing_gated("mainnet-1", true), "mainnet-1 must index once enabled");
-        assert!(!covenant_indexing_gated("testnet-12", true), "testnets unaffected by the flag");
+        assert!(
+            !covenant_indexing_gated("mainnet", true),
+            "mainnet must index once enabled"
+        );
+        assert!(
+            !covenant_indexing_gated("mainnet-1", true),
+            "mainnet-1 must index once enabled"
+        );
+        assert!(
+            !covenant_indexing_gated("testnet-12", true),
+            "testnets unaffected by the flag"
+        );
     }
 }

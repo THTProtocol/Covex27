@@ -146,12 +146,17 @@ pub async fn run_indexer(
                         // (the indexer looks at seed addresses, not treasury addresses)
                         let (tier, _) =
                             tier_from_script(&script_hex, &treasury_script, amount_sompi);
-                        let tier = if tier == "FREE" { "EXPLORER".to_string() } else { tier };
+                        let tier = if tier == "FREE" {
+                            "EXPLORER".to_string()
+                        } else {
+                            tier
+                        };
 
                         // Mainnet honesty gate (see crawler.rs): no covenants on mainnet
                         // until Toccata activation is confirmed via env flag.
                         if network.starts_with("mainnet")
-                            && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref() != Ok("true")
+                            && std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").as_deref()
+                                != Ok("true")
                         {
                             continue;
                         }
@@ -173,7 +178,11 @@ pub async fn run_indexer(
                                 "{} covenant locking {:.2} KAS on Kaspa BlockDAG {}",
                                 covenant_type,
                                 amount_sompi as f64 / 100_000_000.0,
-                                if network == "testnet-10" { "TN-10" } else { "TN-12" }
+                                if network == "testnet-10" {
+                                    "TN-10"
+                                } else {
+                                    "TN-12"
+                                }
                             ),
                             &format!("[\"{}\"]", address),
                             &network,
@@ -193,11 +202,10 @@ pub async fn run_indexer(
                             // Honest enforcement label from the on-chain script, so the
                             // auto-generated UI's trust banner can't call a consensus-
                             // enforced covenant "dangerous". (Mirrors the detail page.)
-                            let gen_reality = crate::covenant_catalog::reality_for_script(
-                                &script_hex,
-                            )
-                            .as_str()
-                            .to_string();
+                            let gen_reality =
+                                crate::covenant_catalog::reality_for_script(&script_hex)
+                                    .as_str()
+                                    .to_string();
                             tokio::spawn(async move {
                                 let params = crate::ui_generator::extract_parameters_from_script(
                                     "aa20", &gen_hash,
@@ -209,7 +217,9 @@ pub async fn run_indexer(
                                     script_hash: gen_hash,
                                     parameters: params,
                                     is_enhanced: gen_tier != "FREE" && gen_tier != "EXPLORER",
-                                    disclosure_level: if gen_tier == "FREE" || gen_tier == "EXPLORER" {
+                                    disclosure_level: if gen_tier == "FREE"
+                                        || gen_tier == "EXPLORER"
+                                    {
                                         "limited".into()
                                     } else {
                                         "full".into()

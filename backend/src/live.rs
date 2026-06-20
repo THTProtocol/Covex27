@@ -36,7 +36,8 @@ async fn handle_socket(mut socket: WebSocket) {
     let mut rx = tx().subscribe();
     let _ = socket
         .send(Message::Text(
-            serde_json::json!({"type": "hello", "data": {"message": "covex live feed"}}).to_string(),
+            serde_json::json!({"type": "hello", "data": {"message": "covex live feed"}})
+                .to_string(),
         ))
         .await;
     loop {

@@ -98,10 +98,24 @@ pub const CHAIN_ENFORCED_ZK_CIRCUITS: &[&str] = &[
 /// for the 4 in CHAIN_ENFORCED_ZK_CIRCUITS), so the 4-vs-15 honesty split actually
 /// reaches the badge instead of being flattened to "on-chain" by the exact-P2SH wrapper.
 pub const VERIFIED_FULL_ZK_CIRCUITS: &[&str] = &[
-    "merkle_membership", "age_verification", "escrow_2party", "range_proof", "vrf_dice_roll",
-    "nullifier_set", "utxo_ownership", "hash_preimage", "timelock_absolute", "relative_timelock",
-    "vrf_random", "turn_timer", "script_constraint", "pot_split_math",
-    "commitment_open", "balance_threshold", "solvency_sum", "set_non_membership",
+    "merkle_membership",
+    "age_verification",
+    "escrow_2party",
+    "range_proof",
+    "vrf_dice_roll",
+    "nullifier_set",
+    "utxo_ownership",
+    "hash_preimage",
+    "timelock_absolute",
+    "relative_timelock",
+    "vrf_random",
+    "turn_timer",
+    "script_constraint",
+    "pot_split_math",
+    "commitment_open",
+    "balance_threshold",
+    "solvency_sum",
+    "set_non_membership",
     "anon_membership_nullifier",
 ];
 
@@ -410,7 +424,10 @@ mod tests {
         let payload = format!("aa20{}51{}", "ab".repeat(50), "cd".repeat(20));
         let r = reality_for_script(&payload);
         assert!(
-            matches!(r, EnforcementReality::OracleAttested | EnforcementReality::Decorative),
+            matches!(
+                r,
+                EnforcementReality::OracleAttested | EnforcementReality::Decorative
+            ),
             "a game payload must never be labeled OnChain (got {:?})",
             r
         );
@@ -430,7 +447,12 @@ mod tests {
     /// "on-chain" by the exact-P2SH wrapper. Do not soften.
     #[test]
     fn chain_enforced_zk_circuits_promote_to_full_zk_chain() {
-        for id in ["merkle_membership", "age_verification", "escrow_2party", "range_proof"] {
+        for id in [
+            "merkle_membership",
+            "age_verification",
+            "escrow_2party",
+            "range_proof",
+        ] {
             assert_eq!(
                 zk_reality_for_circuit(id),
                 Some(EnforcementReality::FullZkChain),
@@ -441,7 +463,13 @@ mod tests {
 
     #[test]
     fn other_verified_zk_circuits_promote_to_full_zk() {
-        for id in ["vrf_dice_roll", "nullifier_set", "hash_preimage", "turn_timer", "balance_threshold"] {
+        for id in [
+            "vrf_dice_roll",
+            "nullifier_set",
+            "hash_preimage",
+            "turn_timer",
+            "balance_threshold",
+        ] {
             assert_eq!(
                 zk_reality_for_circuit(id),
                 Some(EnforcementReality::FullZk),
@@ -505,7 +533,12 @@ mod tests {
             .filter(|e| e.reality == EnforcementReality::OnChain)
             .map(|e| e.id)
             .collect();
-        for id in ["p2sh_singlesig", "p2sh_hashlock", "p2sh_timelock", "p2sh_multisig"] {
+        for id in [
+            "p2sh_singlesig",
+            "p2sh_hashlock",
+            "p2sh_timelock",
+            "p2sh_multisig",
+        ] {
             assert!(onchain.contains(&id), "missing OnChain primitive {id}");
         }
     }
@@ -519,19 +552,74 @@ mod tests {
         let a = [1u8; 32];
         let kinds = [
             RedeemKind::SingleSig { xonly_pubkey: a },
-            RedeemKind::HashLock { hash: a, xonly_pubkey: a },
-            RedeemKind::Timelock { lock_daa: 1, xonly_pubkey: a },
-            RedeemKind::Multisig { pubkeys: vec![a, a], required: 2 },
-            RedeemKind::Htlc { hash: a, receiver_pubkey: a, lock_daa: 1, sender_pubkey: a },
-            RedeemKind::Channel { p1: a, p2: a, lock_daa: 1 },
-            RedeemKind::OracleEnforced { oracle: a, winner: a },
-            RedeemKind::OracleEscrow { oracle: a, player_a: a, player_b: a },
-            RedeemKind::Deadman { owner: a, heir: a, lock_daa: 1 },
-            RedeemKind::RelativeTimelock { min_sequence: 1, xonly_pubkey: a },
-            RedeemKind::TimeDecay { pubkeys: vec![a, a], req_now: 2, req_after: 1, lock_daa: 1 },
-            RedeemKind::BinaryOracleSelect { h_a: a, winner_a: a, h_b: a, winner_b: a, min_sequence: 1, refund: a },
-            RedeemKind::OracleEnforcedRefundable { oracle: a, winner: a, min_sequence: 1, refund: a },
-            RedeemKind::OracleEscrowRefundable { oracle: a, player_a: a, player_b: a, min_sequence: 1, refund: a },
+            RedeemKind::HashLock {
+                hash: a,
+                xonly_pubkey: a,
+            },
+            RedeemKind::Timelock {
+                lock_daa: 1,
+                xonly_pubkey: a,
+            },
+            RedeemKind::Multisig {
+                pubkeys: vec![a, a],
+                required: 2,
+            },
+            RedeemKind::Htlc {
+                hash: a,
+                receiver_pubkey: a,
+                lock_daa: 1,
+                sender_pubkey: a,
+            },
+            RedeemKind::Channel {
+                p1: a,
+                p2: a,
+                lock_daa: 1,
+            },
+            RedeemKind::OracleEnforced {
+                oracle: a,
+                winner: a,
+            },
+            RedeemKind::OracleEscrow {
+                oracle: a,
+                player_a: a,
+                player_b: a,
+            },
+            RedeemKind::Deadman {
+                owner: a,
+                heir: a,
+                lock_daa: 1,
+            },
+            RedeemKind::RelativeTimelock {
+                min_sequence: 1,
+                xonly_pubkey: a,
+            },
+            RedeemKind::TimeDecay {
+                pubkeys: vec![a, a],
+                req_now: 2,
+                req_after: 1,
+                lock_daa: 1,
+            },
+            RedeemKind::BinaryOracleSelect {
+                h_a: a,
+                winner_a: a,
+                h_b: a,
+                winner_b: a,
+                min_sequence: 1,
+                refund: a,
+            },
+            RedeemKind::OracleEnforcedRefundable {
+                oracle: a,
+                winner: a,
+                min_sequence: 1,
+                refund: a,
+            },
+            RedeemKind::OracleEscrowRefundable {
+                oracle: a,
+                player_a: a,
+                player_b: a,
+                min_sequence: 1,
+                refund: a,
+            },
         ];
         let ids: Vec<&str> = CATALOG.iter().map(|e| e.id).collect();
         for k in &kinds {

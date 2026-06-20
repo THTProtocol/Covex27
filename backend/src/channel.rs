@@ -88,13 +88,17 @@ struct ChannelState {
 }
 
 fn channels() -> &'static Mutex<HashMap<String, ChannelState>> {
-    static S: std::sync::OnceLock<Mutex<HashMap<String, ChannelState>>> = std::sync::OnceLock::new();
+    static S: std::sync::OnceLock<Mutex<HashMap<String, ChannelState>>> =
+        std::sync::OnceLock::new();
     S.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 pub fn channel_routes() -> Router {
     Router::new()
-        .route("/games/:covenant_id/channel/checkpoint", post(post_checkpoint))
+        .route(
+            "/games/:covenant_id/channel/checkpoint",
+            post(post_checkpoint),
+        )
         .route("/games/:covenant_id/channel", get(get_channel))
 }
 
@@ -117,7 +121,9 @@ fn verify_member_sig(signer_xonly: &str, sig_hex: &str, sighash_hex: &str) -> Re
         .map_err(|_| "sighash must be 32 bytes".to_string())?;
     secp256k1::SECP256K1
         .verify_schnorr(&sig, &msg, &xonly)
-        .map_err(|_| "signature does not verify for this signer over the checkpoint sighash".to_string())
+        .map_err(|_| {
+            "signature does not verify for this signer over the checkpoint sighash".to_string()
+        })
 }
 
 /// The pure decision the monotonic-nonce gate makes for an incoming checkpoint given the
@@ -201,11 +207,23 @@ async fn post_checkpoint(
     if p1.is_empty() || p2.is_empty() {
         return Json(json!({ "success": false, "error": "channel needs two seated players" }));
     }
-    let p1x = match xonly_hex_from_address(&p1) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
-    let p2x = match xonly_hex_from_address(&p2) { Ok(x) => x, Err(e) => return Json(json!({ "success": false, "error": e })) };
-    let submitted = req.signer_xonly.trim().trim_start_matches("0x").to_lowercase();
+    let p1x = match xonly_hex_from_address(&p1) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let p2x = match xonly_hex_from_address(&p2) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let submitted = req
+        .signer_xonly
+        .trim()
+        .trim_start_matches("0x")
+        .to_lowercase();
     if submitted != p1x.to_lowercase() && submitted != p2x.to_lowercase() {
-        return Json(json!({ "success": false, "error": "signer_xonly is not a member of this channel (must be player1 or player2)" }));
+        return Json(
+            json!({ "success": false, "error": "signer_xonly is not a member of this channel (must be player1 or player2)" }),
+        );
     }
     // Validate the partial signature is real BEFORE storing anything. A bad sig is
     // rejected outright, so the relay never holds a forged or junk signature.
@@ -218,14 +236,20 @@ async fn post_checkpoint(
     // Evict the least-recently-touched channels if we are over the cap (relay cache;
     // safe to evict because the chain + each client's signed copy are the real state).
     if map.len() >= MAX_CHANNELS && !map.contains_key(&covenant_id) {
-        if let Some(oldest) = map.iter().min_by_key(|(_, v)| v.last_touched).map(|(k, _)| k.clone()) {
+        if let Some(oldest) = map
+            .iter()
+            .min_by_key(|(_, v)| v.last_touched)
+            .map(|(k, _)| k.clone())
+        {
             map.remove(&oldest);
         }
     }
-    let state = map.entry(covenant_id.clone()).or_insert_with(|| ChannelState {
-        checkpoints: Vec::new(),
-        last_touched: now,
-    });
+    let state = map
+        .entry(covenant_id.clone())
+        .or_insert_with(|| ChannelState {
+            checkpoints: Vec::new(),
+            last_touched: now,
+        });
     state.last_touched = now;
 
     // Monotonic-nonce gate (fail-closed): an old (already-superseded) state can never
@@ -251,8 +275,15 @@ async fn post_checkpoint(
             // Idempotent merge: the SAME checkpoint (same nonce, sighash, winner) may be
             // co-signed by the second player. Merge their sig; never regress the nonce.
             let latest = state.checkpoints.last_mut().unwrap();
-            if !latest.partial_sigs.iter().any(|s| s.signer_xonly.eq_ignore_ascii_case(&submitted)) {
-                latest.partial_sigs.push(PartialSig { signer_xonly: submitted.clone(), sig_hex: req.sig_hex.clone() });
+            if !latest
+                .partial_sigs
+                .iter()
+                .any(|s| s.signer_xonly.eq_ignore_ascii_case(&submitted))
+            {
+                latest.partial_sigs.push(PartialSig {
+                    signer_xonly: submitted.clone(),
+                    sig_hex: req.sig_hex.clone(),
+                });
                 latest.updated_at = now;
             }
             let out = latest.clone();
@@ -270,7 +301,10 @@ async fn post_checkpoint(
         winner_dest: req.winner_dest.clone(),
         amount_sompi: req.amount_sompi,
         lock_daa: req.lock_daa,
-        partial_sigs: vec![PartialSig { signer_xonly: submitted, sig_hex: req.sig_hex.clone() }],
+        partial_sigs: vec![PartialSig {
+            signer_xonly: submitted,
+            sig_hex: req.sig_hex.clone(),
+        }],
         updated_at: now,
     };
     state.checkpoints.push(cp.clone());
@@ -354,15 +388,30 @@ mod tests {
         // An EQUAL nonce with a DIFFERENT sighash or winner is rejected (cannot overwrite an
         // agreed state with a conflicting one at the same nonce).
         let other_sh = hex::encode([0xcdu8; 32]);
-        assert_eq!(nonce_decision(latest, 5, &other_sh, win), NonceDecision::Reject);
-        assert_eq!(nonce_decision(latest, 5, &sh, "kaspatest:qother"), NonceDecision::Reject);
+        assert_eq!(
+            nonce_decision(latest, 5, &other_sh, win),
+            NonceDecision::Reject
+        );
+        assert_eq!(
+            nonce_decision(latest, 5, &sh, "kaspatest:qother"),
+            NonceDecision::Reject
+        );
 
         // An EQUAL nonce with the SAME sighash AND winner merges (the counterparty co-signs).
-        assert_eq!(nonce_decision(latest, 5, &sh, win), NonceDecision::MergeSameCheckpoint);
+        assert_eq!(
+            nonce_decision(latest, 5, &sh, win),
+            NonceDecision::MergeSameCheckpoint
+        );
         // Case-insensitive / whitespace-tolerant sighash still merges (same value).
         let sh_upper = sh.to_uppercase();
         let sh_padded = format!("  {sh}  ");
-        assert_eq!(nonce_decision(latest, 5, &sh_upper, win), NonceDecision::MergeSameCheckpoint);
-        assert_eq!(nonce_decision(latest, 5, &sh_padded, win), NonceDecision::MergeSameCheckpoint);
+        assert_eq!(
+            nonce_decision(latest, 5, &sh_upper, win),
+            NonceDecision::MergeSameCheckpoint
+        );
+        assert_eq!(
+            nonce_decision(latest, 5, &sh_padded, win),
+            NonceDecision::MergeSameCheckpoint
+        );
     }
 }

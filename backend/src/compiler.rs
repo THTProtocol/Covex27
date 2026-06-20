@@ -31,7 +31,7 @@ pub struct CompileUnit {
     pub zk_verifier_key: Option<String>,
     pub reusable: bool,
     pub allow_topups: bool,
-    pub pot_return_percent: f64,  // % returned to covenant_pot on resolution for reusable sustainability
+    pub pot_return_percent: f64, // % returned to covenant_pot on resolution for reusable sustainability
     pub outcomes: Vec<OutcomeBranch>,
     /// "claimant" = claimant/depositor payout model (ZK circuit types)
     /// "player"   = player_a/player_b model (game types)
@@ -149,7 +149,10 @@ pub fn parse_dsl(source: &str) -> Result<CompileUnit> {
             Regex::new(r"VerifyPayout\([^,]+,\s*covenant_pot,\s*pot\s*\*\s*(\d+)\s*/\s*10000\)")
                 .ok()
                 .and_then(|re| re.captures(source))
-                .and_then(|c| c.get(1).map(|m| m.as_str().parse::<f64>().unwrap_or(0.0) / 100.0))
+                .and_then(|c| {
+                    c.get(1)
+                        .map(|m| m.as_str().parse::<f64>().unwrap_or(0.0) / 100.0)
+                })
         })
         .unwrap_or(2.0);
 
@@ -379,7 +382,10 @@ fn emit_generic_game(unit: &CompileUnit, max_outcome: i64) -> String {
     let mut out = String::new();
     out.push_str("pragma silverscript ^0.1.0;\n\n");
     out.push_str("// ── REAL ENFORCEMENT (Phase 2) ──\n");
-    out.push_str(&format!("// Game type: {} | Payout model: {}\n", unit.game_type, unit.payout_model));
+    out.push_str(&format!(
+        "// Game type: {} | Payout model: {}\n",
+        unit.game_type, unit.payout_model
+    ));
     out.push_str("// Outcome-gated payout branches. silverc v0.1.0 if/else + require()\n");
     out.push_str("// enforce which branch unlocks based on the outcome value.\n");
     out.push_str("// Actual fund transfers: handled by Kaspa UTXO protocol layer.\n\n");

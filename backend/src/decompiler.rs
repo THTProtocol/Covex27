@@ -96,9 +96,9 @@ fn hole_bytes(t: &Token) -> Vec<u8> {
 /// value for small-int opcodes). Used for lock DAAs, sequences, and multisig thresholds.
 fn hole_u64(t: &Token) -> u64 {
     match t.opcode {
-        0x00 => 0,                                  // OpFalse
-        0x51..=0x60 => (t.opcode - 0x50) as u64,    // OpTrue(=1)..Op16
-        0x4f => 0,                                  // Op1Negate (-1; never a valid lock)
+        0x00 => 0,                               // OpFalse
+        0x51..=0x60 => (t.opcode - 0x50) as u64, // OpTrue(=1)..Op16
+        0x4f => 0,                               // Op1Negate (-1; never a valid lock)
         _ => {
             let b = hole_bytes(t);
             let mut v = 0u64;
@@ -134,7 +134,13 @@ enum Shape {
 fn shape_of(tokens: &[Token]) -> Vec<Shape> {
     tokens
         .iter()
-        .map(|t| if is_value_push(t) { Shape::Hole } else { Shape::Op(t.opcode) })
+        .map(|t| {
+            if is_value_push(t) {
+                Shape::Hole
+            } else {
+                Shape::Op(t.opcode)
+            }
+        })
         .collect()
 }
 
@@ -162,10 +168,22 @@ fn fixed_specs() -> Vec<(&'static str, Vec<u8>)> {
         ("htlc", redeem_htlc(&h1, &p1, lock, &p2).unwrap()),
         ("channel", redeem_channel(&p1, &p2, lock).unwrap()),
         ("deadman", redeem_deadman(&p1, &p2, lock).unwrap()),
-        ("oracle_escrow", redeem_oracle_escrow(&p1, &p2, &p3).unwrap()),
-        ("binary_oracle_select", redeem_binary_oracle_select(&h1, &p1, &h2, &p2, seq, &p3).unwrap()),
-        ("oracle_escrow_refundable", redeem_oracle_escrow_refundable(&p1, &p2, &p3, seq, &p1).unwrap()),
-        ("oracle_enforced_refundable", redeem_oracle_enforced_refundable(&p1, &p2, seq, &p3).unwrap()),
+        (
+            "oracle_escrow",
+            redeem_oracle_escrow(&p1, &p2, &p3).unwrap(),
+        ),
+        (
+            "binary_oracle_select",
+            redeem_binary_oracle_select(&h1, &p1, &h2, &p2, seq, &p3).unwrap(),
+        ),
+        (
+            "oracle_escrow_refundable",
+            redeem_oracle_escrow_refundable(&p1, &p2, &p3, seq, &p1).unwrap(),
+        ),
+        (
+            "oracle_enforced_refundable",
+            redeem_oracle_enforced_refundable(&p1, &p2, seq, &p3).unwrap(),
+        ),
     ]
 }
 
@@ -173,18 +191,37 @@ fn fixed_specs() -> Vec<(&'static str, Vec<u8>)> {
 /// key/hash hole is not a 32-byte push (so a malformed look-alike does not get mislabeled).
 fn construct_fixed(kind: &str, h: &[&Token]) -> Option<RedeemKind> {
     Some(match kind {
-        "singlesig" => RedeemKind::SingleSig { xonly_pubkey: hole_key(h[0])? },
-        "hashlock" => RedeemKind::HashLock { hash: hole_key(h[0])?, xonly_pubkey: hole_key(h[1])? },
-        "timelock" => RedeemKind::Timelock { lock_daa: hole_u64(h[0]), xonly_pubkey: hole_key(h[1])? },
-        "rcsv" => RedeemKind::RelativeTimelock { min_sequence: hole_u64(h[0]), xonly_pubkey: hole_key(h[1])? },
+        "singlesig" => RedeemKind::SingleSig {
+            xonly_pubkey: hole_key(h[0])?,
+        },
+        "hashlock" => RedeemKind::HashLock {
+            hash: hole_key(h[0])?,
+            xonly_pubkey: hole_key(h[1])?,
+        },
+        "timelock" => RedeemKind::Timelock {
+            lock_daa: hole_u64(h[0]),
+            xonly_pubkey: hole_key(h[1])?,
+        },
+        "rcsv" => RedeemKind::RelativeTimelock {
+            min_sequence: hole_u64(h[0]),
+            xonly_pubkey: hole_key(h[1])?,
+        },
         "htlc" => RedeemKind::Htlc {
             hash: hole_key(h[0])?,
             receiver_pubkey: hole_key(h[1])?,
             lock_daa: hole_u64(h[2]),
             sender_pubkey: hole_key(h[3])?,
         },
-        "channel" => RedeemKind::Channel { p1: hole_key(h[0])?, p2: hole_key(h[1])?, lock_daa: hole_u64(h[2]) },
-        "deadman" => RedeemKind::Deadman { owner: hole_key(h[0])?, heir: hole_key(h[2])?, lock_daa: hole_u64(h[1]) },
+        "channel" => RedeemKind::Channel {
+            p1: hole_key(h[0])?,
+            p2: hole_key(h[1])?,
+            lock_daa: hole_u64(h[2]),
+        },
+        "deadman" => RedeemKind::Deadman {
+            owner: hole_key(h[0])?,
+            heir: hole_key(h[2])?,
+            lock_daa: hole_u64(h[1]),
+        },
         "oracle_escrow" => RedeemKind::OracleEscrow {
             oracle: hole_key(h[0])?,
             player_a: hole_key(h[1])?,
@@ -247,7 +284,10 @@ fn try_multisig(tokens: &[Token]) -> Option<RedeemKind> {
     if count != keys.len() || required == 0 || required > keys.len() {
         return None;
     }
-    Some(RedeemKind::Multisig { pubkeys: keys, required })
+    Some(RedeemKind::Multisig {
+        pubkeys: keys,
+        required,
+    })
 }
 
 /// Parse a multisig sub-slice (`<threshold> <keys..> <count> OpCheckMultiSig`) returning
@@ -270,9 +310,10 @@ fn try_timedecay(tokens: &[Token]) -> Option<RedeemKind> {
     let mut else_idx = None;
     for (i, t) in tokens.iter().enumerate() {
         match t.opcode {
-            0x63 | 0x64 => depth += 1,            // OpIf / OpNotIf
-            0x68 => depth -= 1,                   // OpEndIf
-            0x67 if depth == 1 => {               // OpElse at the outer level
+            0x63 | 0x64 => depth += 1, // OpIf / OpNotIf
+            0x68 => depth -= 1,        // OpEndIf
+            0x67 if depth == 1 => {
+                // OpElse at the outer level
                 else_idx = Some(i);
                 break;
             }
@@ -292,7 +333,12 @@ fn try_timedecay(tokens: &[Token]) -> Option<RedeemKind> {
     if keys_now != keys_after || req_after >= req_now {
         return None;
     }
-    Some(RedeemKind::TimeDecay { pubkeys: keys_now, req_now, req_after, lock_daa })
+    Some(RedeemKind::TimeDecay {
+        pubkeys: keys_now,
+        req_now,
+        req_after,
+        lock_daa,
+    })
 }
 
 // ---- describe a matched RedeemKind ------------------------------------------------------
@@ -312,7 +358,11 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
         r#type: "hash32".into(),
         value: hexv(b),
     };
-    let daa = |role: &str, v: u64| DecodedParam { role: role.into(), r#type: "daa".into(), value: v.to_string() };
+    let daa = |role: &str, v: u64| DecodedParam {
+        role: role.into(),
+        r#type: "daa".into(),
+        value: v.to_string(),
+    };
     let seq = |role: &str, v: u64| DecodedParam {
         role: role.into(),
         r#type: "sequence".into(),
@@ -320,19 +370,40 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
     };
     match kind {
         RedeemKind::SingleSig { xonly_pubkey } => vec![pk("xonly_pubkey", xonly_pubkey)],
-        RedeemKind::HashLock { hash: h, xonly_pubkey } => vec![hash("hash", h), pk("xonly_pubkey", xonly_pubkey)],
-        RedeemKind::Timelock { lock_daa, xonly_pubkey } => vec![daa("lock_daa", *lock_daa), pk("xonly_pubkey", xonly_pubkey)],
-        RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey } => {
-            vec![seq("min_sequence", *min_sequence), pk("xonly_pubkey", xonly_pubkey)]
+        RedeemKind::HashLock {
+            hash: h,
+            xonly_pubkey,
+        } => vec![hash("hash", h), pk("xonly_pubkey", xonly_pubkey)],
+        RedeemKind::Timelock {
+            lock_daa,
+            xonly_pubkey,
+        } => vec![daa("lock_daa", *lock_daa), pk("xonly_pubkey", xonly_pubkey)],
+        RedeemKind::RelativeTimelock {
+            min_sequence,
+            xonly_pubkey,
+        } => {
+            vec![
+                seq("min_sequence", *min_sequence),
+                pk("xonly_pubkey", xonly_pubkey),
+            ]
         }
         RedeemKind::Multisig { pubkeys, required } => {
-            let mut v = vec![DecodedParam { role: "threshold".into(), r#type: "int".into(), value: required.to_string() }];
+            let mut v = vec![DecodedParam {
+                role: "threshold".into(),
+                r#type: "int".into(),
+                value: required.to_string(),
+            }];
             for (i, k) in pubkeys.iter().enumerate() {
                 v.push(pk(&format!("pubkey_{}", i + 1), k));
             }
             v
         }
-        RedeemKind::Htlc { hash: h, receiver_pubkey, lock_daa, sender_pubkey } => vec![
+        RedeemKind::Htlc {
+            hash: h,
+            receiver_pubkey,
+            lock_daa,
+            sender_pubkey,
+        } => vec![
             hash("hash", h),
             pk("receiver_pubkey", receiver_pubkey),
             daa("lock_daa", *lock_daa),
@@ -341,17 +412,48 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
         RedeemKind::Channel { p1, p2, lock_daa } => {
             vec![pk("p1", p1), pk("p2", p2), daa("lock_daa", *lock_daa)]
         }
-        RedeemKind::OracleEnforced { oracle, winner } => vec![pk("oracle", oracle), pk("winner", winner)],
-        RedeemKind::OracleEscrow { oracle, player_a, player_b } => {
-            vec![pk("oracle", oracle), pk("player_a", player_a), pk("player_b", player_b)]
+        RedeemKind::OracleEnforced { oracle, winner } => {
+            vec![pk("oracle", oracle), pk("winner", winner)]
         }
-        RedeemKind::Deadman { owner, heir, lock_daa } => {
-            vec![pk("owner", owner), pk("heir", heir), daa("lock_daa", *lock_daa)]
+        RedeemKind::OracleEscrow {
+            oracle,
+            player_a,
+            player_b,
+        } => {
+            vec![
+                pk("oracle", oracle),
+                pk("player_a", player_a),
+                pk("player_b", player_b),
+            ]
         }
-        RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa } => {
+        RedeemKind::Deadman {
+            owner,
+            heir,
+            lock_daa,
+        } => {
+            vec![
+                pk("owner", owner),
+                pk("heir", heir),
+                daa("lock_daa", *lock_daa),
+            ]
+        }
+        RedeemKind::TimeDecay {
+            pubkeys,
+            req_now,
+            req_after,
+            lock_daa,
+        } => {
             let mut v = vec![
-                DecodedParam { role: "req_now".into(), r#type: "int".into(), value: req_now.to_string() },
-                DecodedParam { role: "req_after".into(), r#type: "int".into(), value: req_after.to_string() },
+                DecodedParam {
+                    role: "req_now".into(),
+                    r#type: "int".into(),
+                    value: req_now.to_string(),
+                },
+                DecodedParam {
+                    role: "req_after".into(),
+                    r#type: "int".into(),
+                    value: req_after.to_string(),
+                },
                 daa("lock_daa", *lock_daa),
             ];
             for (i, k) in pubkeys.iter().enumerate() {
@@ -359,7 +461,14 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
             }
             v
         }
-        RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund } => vec![
+        RedeemKind::BinaryOracleSelect {
+            h_a,
+            winner_a,
+            h_b,
+            winner_b,
+            min_sequence,
+            refund,
+        } => vec![
             hash("h_a", h_a),
             pk("winner_a", winner_a),
             hash("h_b", h_b),
@@ -367,13 +476,24 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
             seq("min_sequence", *min_sequence),
             pk("refund", refund),
         ],
-        RedeemKind::OracleEnforcedRefundable { oracle, winner, min_sequence, refund } => vec![
+        RedeemKind::OracleEnforcedRefundable {
+            oracle,
+            winner,
+            min_sequence,
+            refund,
+        } => vec![
             pk("oracle", oracle),
             pk("winner", winner),
             seq("min_sequence", *min_sequence),
             pk("refund", refund),
         ],
-        RedeemKind::OracleEscrowRefundable { oracle, player_a, player_b, min_sequence, refund } => vec![
+        RedeemKind::OracleEscrowRefundable {
+            oracle,
+            player_a,
+            player_b,
+            min_sequence,
+            refund,
+        } => vec![
             pk("oracle", oracle),
             pk("player_a", player_a),
             pk("player_b", player_b),
@@ -384,7 +504,11 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
 }
 
 fn branch(name: &str, condition: &str, satisfier: &str) -> SpendBranch {
-    SpendBranch { name: name.into(), condition: condition.into(), satisfier: satisfier.into() }
+    SpendBranch {
+        name: name.into(),
+        condition: condition.into(),
+        satisfier: satisfier.into(),
+    }
 }
 
 fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
@@ -411,7 +535,11 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
             "<sig_1> .. <sig_required>",
         )],
         RedeemKind::Htlc { lock_daa, .. } => vec![
-            branch("claim", "IF: receiver reveals the preimage and signs", "<receiver_sig> <preimage> OP_TRUE"),
+            branch(
+                "claim",
+                "IF: receiver reveals the preimage and signs",
+                "<receiver_sig> <preimage> OP_TRUE",
+            ),
             branch(
                 "refund",
                 &format!("ELSE: sender refunds after DAA {lock_daa}"),
@@ -419,8 +547,16 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
             ),
         ],
         RedeemKind::Channel { lock_daa, .. } => vec![
-            branch("cooperative_close", "IF: both p1 and p2 sign (2-of-2)", "<p1_sig> <p2_sig> OP_TRUE"),
-            branch("refund", &format!("ELSE: p1 refunds after DAA {lock_daa}"), "<p1_sig> OP_FALSE (tx.lock_time >= lock_daa)"),
+            branch(
+                "cooperative_close",
+                "IF: both p1 and p2 sign (2-of-2)",
+                "<p1_sig> <p2_sig> OP_TRUE",
+            ),
+            branch(
+                "refund",
+                &format!("ELSE: p1 refunds after DAA {lock_daa}"),
+                "<p1_sig> OP_FALSE (tx.lock_time >= lock_daa)",
+            ),
         ],
         RedeemKind::OracleEnforced { .. } => vec![branch(
             "payout",
@@ -428,15 +564,40 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
             "<oracle_sig> <winner_sig>",
         )],
         RedeemKind::OracleEscrow { .. } => vec![
-            branch("player_a", "IF: oracle co-signs and player A signs", "<player_a_sig> OP_TRUE <oracle_sig>"),
-            branch("player_b", "ELSE: oracle co-signs and player B signs", "<player_b_sig> OP_FALSE <oracle_sig>"),
+            branch(
+                "player_a",
+                "IF: oracle co-signs and player A signs",
+                "<player_a_sig> OP_TRUE <oracle_sig>",
+            ),
+            branch(
+                "player_b",
+                "ELSE: oracle co-signs and player B signs",
+                "<player_b_sig> OP_FALSE <oracle_sig>",
+            ),
         ],
         RedeemKind::Deadman { lock_daa, .. } => vec![
-            branch("owner", "IF: the owner spends or refreshes at any time", "<owner_sig> OP_TRUE"),
-            branch("heir", &format!("ELSE: the heir claims after DAA {lock_daa}"), "<heir_sig> OP_FALSE (tx.lock_time >= lock_daa)"),
+            branch(
+                "owner",
+                "IF: the owner spends or refreshes at any time",
+                "<owner_sig> OP_TRUE",
+            ),
+            branch(
+                "heir",
+                &format!("ELSE: the heir claims after DAA {lock_daa}"),
+                "<heir_sig> OP_FALSE (tx.lock_time >= lock_daa)",
+            ),
         ],
-        RedeemKind::TimeDecay { req_now, req_after, lock_daa, .. } => vec![
-            branch("now", &format!("IF: {req_now} signatures before DAA {lock_daa}"), "<sigs..> OP_TRUE"),
+        RedeemKind::TimeDecay {
+            req_now,
+            req_after,
+            lock_daa,
+            ..
+        } => vec![
+            branch(
+                "now",
+                &format!("IF: {req_now} signatures before DAA {lock_daa}"),
+                "<sigs..> OP_TRUE",
+            ),
             branch(
                 "after",
                 &format!("ELSE: only {req_after} signatures after DAA {lock_daa}"),
@@ -444,8 +605,16 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
             ),
         ],
         RedeemKind::BinaryOracleSelect { min_sequence, .. } => vec![
-            branch("outcome_a", "Reveal preimage of h_a, signed by winner_a", "<winner_a_sig> <preimage_a> OP_TRUE"),
-            branch("outcome_b", "Reveal preimage of h_b, signed by winner_b", "<winner_b_sig> <preimage_b> OP_TRUE OP_FALSE"),
+            branch(
+                "outcome_a",
+                "Reveal preimage of h_a, signed by winner_a",
+                "<winner_a_sig> <preimage_a> OP_TRUE",
+            ),
+            branch(
+                "outcome_b",
+                "Reveal preimage of h_b, signed by winner_b",
+                "<winner_b_sig> <preimage_b> OP_TRUE OP_FALSE",
+            ),
             branch(
                 "refund",
                 &format!("Neither secret revealed: refund key after the UTXO ages {min_sequence}"),
@@ -453,7 +622,11 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
             ),
         ],
         RedeemKind::OracleEnforcedRefundable { min_sequence, .. } => vec![
-            branch("payout", "IF: 2-of-2, the disclosed oracle co-signs the winner", "<...multisig...> OP_TRUE"),
+            branch(
+                "payout",
+                "IF: 2-of-2, the disclosed oracle co-signs the winner",
+                "<...multisig...> OP_TRUE",
+            ),
             branch(
                 "refund",
                 &format!("ELSE: funder refunds after the UTXO ages {min_sequence}"),
@@ -461,8 +634,16 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
             ),
         ],
         RedeemKind::OracleEscrowRefundable { min_sequence, .. } => vec![
-            branch("player_a", "IF then inner IF: oracle co-signs and player A signs", "<player_a_sig> OP_TRUE <oracle_sig> OP_TRUE"),
-            branch("player_b", "IF then inner ELSE: oracle co-signs and player B signs", "<player_b_sig> OP_FALSE <oracle_sig> OP_TRUE"),
+            branch(
+                "player_a",
+                "IF then inner IF: oracle co-signs and player A signs",
+                "<player_a_sig> OP_TRUE <oracle_sig> OP_TRUE",
+            ),
+            branch(
+                "player_b",
+                "IF then inner ELSE: oracle co-signs and player B signs",
+                "<player_b_sig> OP_FALSE <oracle_sig> OP_TRUE",
+            ),
             branch(
                 "refund",
                 &format!("ELSE: funder refunds after the UTXO ages {min_sequence}"),
@@ -495,7 +676,9 @@ fn label_for(kind: &RedeemKind) -> String {
         RedeemKind::HashLock { .. } => "Hashlock (commit/reveal)".into(),
         RedeemKind::Timelock { .. } => "Absolute timelock (CLTV)".into(),
         RedeemKind::RelativeTimelock { .. } => "Relative timelock (CSV)".into(),
-        RedeemKind::Multisig { required, pubkeys } => format!("{required}-of-{} multisig", pubkeys.len()),
+        RedeemKind::Multisig { required, pubkeys } => {
+            format!("{required}-of-{} multisig", pubkeys.len())
+        }
         RedeemKind::Htlc { .. } => "HTLC (atomic swap)".into(),
         RedeemKind::Channel { .. } => "Payment channel".into(),
         RedeemKind::OracleEnforced { .. } => "Oracle-enforced payout (2-of-2)".into(),
@@ -579,7 +762,11 @@ pub fn commitment_matches(redeem: &[u8], commitment: &[u8]) -> Option<bool> {
     let h = blake2b256(redeem);
     if commitment.len() == 32 {
         Some(commitment == h)
-    } else if commitment.len() == 35 && commitment[0] == 0xaa && commitment[1] == 0x20 && commitment[34] == 0x87 {
+    } else if commitment.len() == 35
+        && commitment[0] == 0xaa
+        && commitment[1] == 0x20
+        && commitment[34] == 0x87
+    {
         Some(&commitment[2..34] == h)
     } else {
         None
@@ -604,29 +791,163 @@ mod tests {
         let h2 = key(55);
 
         let cases: Vec<(&str, Vec<u8>)> = vec![
-            ("singlesig", RedeemKind::SingleSig { xonly_pubkey: a }.redeem_script().unwrap()),
-            ("hashlock", RedeemKind::HashLock { hash: h, xonly_pubkey: a }.redeem_script().unwrap()),
-            ("timelock:500000", RedeemKind::Timelock { lock_daa: 500_000, xonly_pubkey: a }.redeem_script().unwrap()),
-            ("rcsv:10", RedeemKind::RelativeTimelock { min_sequence: 10, xonly_pubkey: a }.redeem_script().unwrap()),
-            ("rcsv:1000", RedeemKind::RelativeTimelock { min_sequence: 1000, xonly_pubkey: a }.redeem_script().unwrap()),
-            ("multisig:3", RedeemKind::Multisig { pubkeys: vec![a, b, c], required: 2 }.redeem_script().unwrap()),
-            ("htlc:7000", RedeemKind::Htlc { hash: h, receiver_pubkey: a, lock_daa: 7000, sender_pubkey: b }.redeem_script().unwrap()),
-            ("channel:8000", RedeemKind::Channel { p1: a, p2: b, lock_daa: 8000 }.redeem_script().unwrap()),
-            ("deadman:9000", RedeemKind::Deadman { owner: a, heir: b, lock_daa: 9000 }.redeem_script().unwrap()),
-            ("oracle_escrow", RedeemKind::OracleEscrow { oracle: a, player_a: b, player_b: c }.redeem_script().unwrap()),
-            ("timedecay:3:2:1:9000", RedeemKind::TimeDecay { pubkeys: vec![a, b, c], req_now: 2, req_after: 1, lock_daa: 9000 }.redeem_script().unwrap()),
-            ("binary_oracle_select:64", RedeemKind::BinaryOracleSelect { h_a: h, winner_a: a, h_b: h2, winner_b: b, min_sequence: 64, refund: c }.redeem_script().unwrap()),
-            ("oracle_enforced_refundable:64", RedeemKind::OracleEnforcedRefundable { oracle: a, winner: b, min_sequence: 64, refund: c }.redeem_script().unwrap()),
-            ("oracle_escrow_refundable:64", RedeemKind::OracleEscrowRefundable { oracle: a, player_a: b, player_b: c, min_sequence: 64, refund: a }.redeem_script().unwrap()),
+            (
+                "singlesig",
+                RedeemKind::SingleSig { xonly_pubkey: a }
+                    .redeem_script()
+                    .unwrap(),
+            ),
+            (
+                "hashlock",
+                RedeemKind::HashLock {
+                    hash: h,
+                    xonly_pubkey: a,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "timelock:500000",
+                RedeemKind::Timelock {
+                    lock_daa: 500_000,
+                    xonly_pubkey: a,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "rcsv:10",
+                RedeemKind::RelativeTimelock {
+                    min_sequence: 10,
+                    xonly_pubkey: a,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "rcsv:1000",
+                RedeemKind::RelativeTimelock {
+                    min_sequence: 1000,
+                    xonly_pubkey: a,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "multisig:3",
+                RedeemKind::Multisig {
+                    pubkeys: vec![a, b, c],
+                    required: 2,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "htlc:7000",
+                RedeemKind::Htlc {
+                    hash: h,
+                    receiver_pubkey: a,
+                    lock_daa: 7000,
+                    sender_pubkey: b,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "channel:8000",
+                RedeemKind::Channel {
+                    p1: a,
+                    p2: b,
+                    lock_daa: 8000,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "deadman:9000",
+                RedeemKind::Deadman {
+                    owner: a,
+                    heir: b,
+                    lock_daa: 9000,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "oracle_escrow",
+                RedeemKind::OracleEscrow {
+                    oracle: a,
+                    player_a: b,
+                    player_b: c,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "timedecay:3:2:1:9000",
+                RedeemKind::TimeDecay {
+                    pubkeys: vec![a, b, c],
+                    req_now: 2,
+                    req_after: 1,
+                    lock_daa: 9000,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "binary_oracle_select:64",
+                RedeemKind::BinaryOracleSelect {
+                    h_a: h,
+                    winner_a: a,
+                    h_b: h2,
+                    winner_b: b,
+                    min_sequence: 64,
+                    refund: c,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "oracle_enforced_refundable:64",
+                RedeemKind::OracleEnforcedRefundable {
+                    oracle: a,
+                    winner: b,
+                    min_sequence: 64,
+                    refund: c,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
+            (
+                "oracle_escrow_refundable:64",
+                RedeemKind::OracleEscrowRefundable {
+                    oracle: a,
+                    player_a: b,
+                    player_b: c,
+                    min_sequence: 64,
+                    refund: a,
+                }
+                .redeem_script()
+                .unwrap(),
+            ),
         ];
 
         for (expected_kind, script) in cases {
             let d = decompile(&script);
-            assert!(d.matched, "[{expected_kind}] should match a template; got non-standard");
+            assert!(
+                d.matched,
+                "[{expected_kind}] should match a template; got non-standard"
+            );
             assert_eq!(d.kind, expected_kind, "[{expected_kind}] wrong kind id");
-            assert!(d.verified, "[{expected_kind}] re-emit verification failed (binding bug)");
+            assert!(
+                d.verified,
+                "[{expected_kind}] re-emit verification failed (binding bug)"
+            );
             assert!(!d.params.is_empty(), "[{expected_kind}] no params decoded");
-            assert!(!d.branches.is_empty(), "[{expected_kind}] no branches decoded");
+            assert!(
+                !d.branches.is_empty(),
+                "[{expected_kind}] no branches decoded"
+            );
         }
     }
 
@@ -634,7 +955,12 @@ mod tests {
     fn binds_hashlock_params_correctly() {
         let h = key(0xAB);
         let pk = key(0xCD);
-        let script = RedeemKind::HashLock { hash: h, xonly_pubkey: pk }.redeem_script().unwrap();
+        let script = RedeemKind::HashLock {
+            hash: h,
+            xonly_pubkey: pk,
+        }
+        .redeem_script()
+        .unwrap();
         let d = decompile(&script);
         assert_eq!(d.kind, "hashlock");
         assert!(d.verified);
@@ -648,18 +974,34 @@ mod tests {
     #[test]
     fn multisig_arity_and_threshold() {
         let keys: Vec<[u8; 32]> = (1..=5).map(key).collect();
-        let script = RedeemKind::Multisig { pubkeys: keys.clone(), required: 3 }.redeem_script().unwrap();
+        let script = RedeemKind::Multisig {
+            pubkeys: keys.clone(),
+            required: 3,
+        }
+        .redeem_script()
+        .unwrap();
         let d = decompile(&script);
         assert_eq!(d.kind, "multisig:5");
         assert!(d.verified);
         assert_eq!(d.params[0].role, "threshold");
         assert_eq!(d.params[0].value, "3");
-        assert_eq!(d.params.iter().filter(|p| p.role.starts_with("pubkey_")).count(), 5);
+        assert_eq!(
+            d.params
+                .iter()
+                .filter(|p| p.role.starts_with("pubkey_"))
+                .count(),
+            5
+        );
     }
 
     #[test]
     fn two_of_two_multisig_carries_oracle_note() {
-        let script = RedeemKind::Multisig { pubkeys: vec![key(1), key(2)], required: 2 }.redeem_script().unwrap();
+        let script = RedeemKind::Multisig {
+            pubkeys: vec![key(1), key(2)],
+            required: 2,
+        }
+        .redeem_script()
+        .unwrap();
         let d = decompile(&script);
         assert_eq!(d.kind, "multisig:2");
         assert!(d.note.as_deref().unwrap_or("").contains("oracle-enforced"));
@@ -677,7 +1019,11 @@ mod tests {
 
     #[test]
     fn commitment_match_accepts_hash_and_spk() {
-        let script = RedeemKind::SingleSig { xonly_pubkey: key(7) }.redeem_script().unwrap();
+        let script = RedeemKind::SingleSig {
+            xonly_pubkey: key(7),
+        }
+        .redeem_script()
+        .unwrap();
         let h = blake2b256(&script);
         assert_eq!(commitment_matches(&script, &h), Some(true));
         let mut spk = vec![0xaa, 0x20];

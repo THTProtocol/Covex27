@@ -325,9 +325,8 @@ fn push_layout(script: &[u8], i: usize) -> Result<Option<(usize, usize)>, String
                     "OpPushData4 at offset {i}: truncated length prefix (need 4 bytes)"
                 ));
             }
-            let l =
-                u32::from_le_bytes([script[i + 1], script[i + 2], script[i + 3], script[i + 4]])
-                    as usize;
+            let l = u32::from_le_bytes([script[i + 1], script[i + 2], script[i + 3], script[i + 4]])
+                as usize;
             Ok(Some((5, l)))
         }
         _ => Ok(None),
@@ -480,14 +479,20 @@ mod tests {
             ("singlesig", redeem_singlesig(&a).unwrap()),
             ("hashlock", redeem_hashlock(&h, &a).unwrap()),
             ("timelock", redeem_timelock(500_000, &a).unwrap()),
-            ("relative_timelock", redeem_relative_timelock(64, &a).unwrap()),
+            (
+                "relative_timelock",
+                redeem_relative_timelock(64, &a).unwrap(),
+            ),
             ("multisig_2of3", redeem_multisig(&[a, b, c], 2).unwrap()),
             ("htlc", redeem_htlc(&h, &a, 7000, &b).unwrap()),
             ("channel", redeem_channel(&a, &b, 8000).unwrap()),
             ("oracle_enforced", redeem_multisig(&[a, b], 2).unwrap()),
             ("oracle_escrow", redeem_oracle_escrow(&a, &b, &c).unwrap()),
             ("deadman", redeem_deadman(&a, &b, 9000).unwrap()),
-            ("timedecay", redeem_timedecay_multisig(&[a, b, c], 2, 1, 9000).unwrap()),
+            (
+                "timedecay",
+                redeem_timedecay_multisig(&[a, b, c], 2, 1, 9000).unwrap(),
+            ),
             (
                 "binary_oracle_select",
                 redeem_binary_oracle_select(&h, &a, &h2, &b, 64, &c).unwrap(),
@@ -507,14 +512,22 @@ mod tests {
     fn matches_consensus_tokenizer_on_builder_corpus() {
         for (label, script) in builder_corpus() {
             let dis = disassemble(&script, false);
-            assert!(dis.error.is_none(), "[{label}] unexpected error: {:?}", dis.error);
+            assert!(
+                dis.error.is_none(),
+                "[{label}] unexpected error: {:?}",
+                dis.error
+            );
             let (mine, mine_err) = mine_tokens(&script);
             let (theirs, theirs_err) = consensus_tokens(&script);
             assert_eq!(mine, theirs, "[{label}] tokenizer divergence vs consensus");
             assert_eq!(mine_err, theirs_err, "[{label}] error-flag divergence");
             // Round-trip: the token sizes exactly reconstruct the script length.
             let total: usize = dis.tokens.iter().map(|t| t.size).sum();
-            assert_eq!(total, script.len(), "[{label}] sizes do not cover the script");
+            assert_eq!(
+                total,
+                script.len(),
+                "[{label}] sizes do not cover the script"
+            );
         }
     }
 
@@ -533,9 +546,15 @@ mod tests {
             let script: Vec<u8> = (0..len).map(|_| (next() & 0xff) as u8).collect();
             let (mine, mine_err) = mine_tokens(&script);
             let (theirs, theirs_err) = consensus_tokens(&script);
-            assert_eq!(mine, theirs, "tokenizer divergence on random script {}", hex::encode(&script));
             assert_eq!(
-                mine_err, theirs_err,
+                mine,
+                theirs,
+                "tokenizer divergence on random script {}",
+                hex::encode(&script)
+            );
+            assert_eq!(
+                mine_err,
+                theirs_err,
                 "error-flag divergence on random script {}",
                 hex::encode(&script)
             );
@@ -574,7 +593,10 @@ mod tests {
         assert_eq!(dis.tokens.len(), 5);
         assert_eq!(dis.tokens[0].name, "OpBlake2b");
         assert_eq!(dis.tokens[1].name, "OpData32");
-        assert_eq!(dis.tokens[1].data_hex.as_deref(), Some(&"ab".repeat(32)[..]));
+        assert_eq!(
+            dis.tokens[1].data_hex.as_deref(),
+            Some(&"ab".repeat(32)[..])
+        );
         assert_eq!(dis.tokens[2].name, "OpEqualVerify");
         assert_eq!(dis.tokens[4].name, "OpCheckSig");
         assert!(dis.asm.contains("OpBlake2b\nOpData32 0x"));

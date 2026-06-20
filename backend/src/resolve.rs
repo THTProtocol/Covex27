@@ -173,8 +173,7 @@ fn kns_api_base() -> String {
 fn encode_segment(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
-        let unreserved = b.is_ascii_alphanumeric()
-            || matches!(b, b'.' | b'-' | b'_' | b'~');
+        let unreserved = b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~');
         if unreserved {
             out.push(b as char);
         } else {
@@ -197,7 +196,10 @@ struct KnsResolution {
 async fn resolve_kns(domain_lc: &str, kns_net: &str) -> KnsResolution {
     let cache_key = format!("{kns_net}|{domain_lc}");
     if let Some(hit) = cache_get(&cache_key) {
-        return KnsResolution { hit: Some(hit), note: None };
+        return KnsResolution {
+            hit: Some(hit),
+            note: None,
+        };
     }
 
     let url = format!(
@@ -238,7 +240,10 @@ async fn resolve_kns(domain_lc: &str, kns_net: &str) -> KnsResolution {
         } else {
             format!("KNS lookup returned status {code}")
         };
-        return KnsResolution { hit: None, note: Some(note) };
+        return KnsResolution {
+            hit: None,
+            note: Some(note),
+        };
     }
 
     let body: serde_json::Value = match resp.json().await {
@@ -251,7 +256,10 @@ async fn resolve_kns(domain_lc: &str, kns_net: &str) -> KnsResolution {
         }
     };
 
-    let success = body.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+    let success = body
+        .get("success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let owner = body
         .get("data")
         .and_then(|d| d.get("owner"))
@@ -270,7 +278,10 @@ async fn resolve_kns(domain_lc: &str, kns_net: &str) -> KnsResolution {
                 .to_string();
             let hit = KnsHit { name, owner };
             cache_put(cache_key, hit.clone());
-            KnsResolution { hit: Some(hit), note: None }
+            KnsResolution {
+                hit: Some(hit),
+                note: None,
+            }
         }
         _ => KnsResolution {
             hit: None,
@@ -386,7 +397,10 @@ mod tests {
     #[test]
     fn address_prefix_is_case_insensitive_and_trimmed() {
         assert_eq!(classify_query("  KASPA:QPZ2  "), QueryKind::Address);
-        assert_eq!(address_network_hint("  KASPA:QPZ2  ".trim()), Some("mainnet"));
+        assert_eq!(
+            address_network_hint("  KASPA:QPZ2  ".trim()),
+            Some("mainnet")
+        );
     }
 
     #[test]

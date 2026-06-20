@@ -1,7 +1,7 @@
 // oracle_verifier.rs
 //
 // Pluggable verifier registry and helpers for the Covex Oracle.
-// 
+//
 // Goal (per ZK_ORACLE_FULL_STACK_VISION_AND_ROADMAP.md Phase 0 and §6):
 //   - Make oracle fully pluggable: config-driven / map dispatch instead of giant
 //     hardcoded match on circuit_type in oracle.rs.
@@ -65,10 +65,16 @@ use serde_json::Value;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum VerifierSpec {
     /// Real Groth16 via snarkjs; always run the verifier script (merkle, range, timelock, hash).
-    StrictGroth16 { script: &'static str, prefix: &'static str },
+    StrictGroth16 {
+        script: &'static str,
+        prefix: &'static str,
+    },
     /// Groth16 when proof body present (pi_a etc), else treat as oracle-attested success.
     /// Used for chess_v1, tictactoe_v1, connect4_v1, privacy_mixer_v1 (hybrid per current).
-    HybridGroth16 { script: &'static str, prefix: &'static str },
+    HybridGroth16 {
+        script: &'static str,
+        prefix: &'static str,
+    },
     /// RISC0 receipt verification. If risc0 binary (or cargo risc0) found, attempt invoke
     /// (stubbed; real would feed receipt json); otherwise accept (dev + attested fallback).
     Risc0Stub { guest: &'static str },
@@ -94,43 +100,73 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // These have (or will have) real artifacts + vkeys in ../zk/
     m.insert(
         "merkle_membership",
-        VerifierSpec::StrictGroth16 { script: "verify.js", prefix: "covex_merkle" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify.js",
+            prefix: "covex_merkle",
+        },
     );
     m.insert(
         "merkle_dao",
-        VerifierSpec::StrictGroth16 { script: "verify.js", prefix: "covex_merkle" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify.js",
+            prefix: "covex_merkle",
+        },
     );
     m.insert(
         "merkle_airdrop",
-        VerifierSpec::StrictGroth16 { script: "verify.js", prefix: "covex_merkle" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify.js",
+            prefix: "covex_merkle",
+        },
     );
     m.insert(
         "range_proof",
-        VerifierSpec::StrictGroth16 { script: "verify_range.js", prefix: "covex_range" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_range.js",
+            prefix: "covex_range",
+        },
     );
     m.insert(
         "range_collateral",
-        VerifierSpec::StrictGroth16 { script: "verify_range.js", prefix: "covex_range" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_range.js",
+            prefix: "covex_range",
+        },
     );
     m.insert(
         "timelock_absolute",
-        VerifierSpec::StrictGroth16 { script: "verify_timelock.js", prefix: "covex_tl" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_timelock.js",
+            prefix: "covex_tl",
+        },
     );
     m.insert(
         "timelock_abs",
-        VerifierSpec::StrictGroth16 { script: "verify_timelock.js", prefix: "covex_tl" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_timelock.js",
+            prefix: "covex_tl",
+        },
     );
     m.insert(
         "hash_preimage",
-        VerifierSpec::StrictGroth16 { script: "verify_hash_preimage.js", prefix: "covex_hp" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_hash_preimage.js",
+            prefix: "covex_hp",
+        },
     );
     m.insert(
         "age_verification",
-        VerifierSpec::StrictGroth16 { script: "verify_age_verification.js", prefix: "covex_age" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_age_verification.js",
+            prefix: "covex_age",
+        },
     );
     m.insert(
         "escrow_2party",
-        VerifierSpec::StrictGroth16 { script: "verify_escrow_2party.js", prefix: "covex_escrow" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_escrow_2party.js",
+            prefix: "covex_escrow",
+        },
     );
     // utxo_ownership is the frontend catalog alias for basic_utxo_ownership (same served
     // artifacts + verify script). basic_utxo_ownership, nullifier_set and vrf_dice_roll are
@@ -139,73 +175,85 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // the crypto_attested / ownership_attested arrays below so the later loops cannot re-attest.
     m.insert(
         "utxo_ownership",
-        VerifierSpec::StrictGroth16 { script: "verify_basic_utxo_ownership.js", prefix: "covex_utxo" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_basic_utxo_ownership.js",
+            prefix: "covex_utxo",
+        },
     );
 
     // === Hybrids: Groth16 when supplied, else oracle-attested (current behavior) ===
     m.insert(
         "tictactoe_v1",
-        VerifierSpec::HybridGroth16 { script: "verify_tictactoe.js", prefix: "covex_tt" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_tictactoe.js",
+            prefix: "covex_tt",
+        },
     );
     m.insert(
         "connect4_v1",
-        VerifierSpec::HybridGroth16 { script: "verify_connect4.js", prefix: "covex_c4" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_connect4.js",
+            prefix: "covex_c4",
+        },
     );
     m.insert(
         "privacy_mixer_v1",
-        VerifierSpec::HybridGroth16 { script: "verify_privacy_mixer.js", prefix: "covex_mixer" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_privacy_mixer.js",
+            prefix: "covex_mixer",
+        },
     );
 
     // === RISC0 / verifiable compute stubs (per vision §4.6, Phase 0 wire skeleton) ===
-    m.insert(
-        "verifiable",
-        VerifierSpec::Risc0Stub { guest: "generic" },
-    );
+    m.insert("verifiable", VerifierSpec::Risc0Stub { guest: "generic" });
     m.insert(
         "risc0_generic",
         VerifierSpec::Risc0Stub { guest: "generic" },
     );
-    m.insert(
-        "ml_inference",
-        VerifierSpec::Risc0Stub { guest: "ml_stub" },
-    );
+    m.insert("ml_inference", VerifierSpec::Risc0Stub { guest: "ml_stub" });
     m.insert(
         "poker_solver",
-        VerifierSpec::Risc0Stub { guest: "poker_nash" },
+        VerifierSpec::Risc0Stub {
+            guest: "poker_nash",
+        },
     );
     // (chess risc0 removed)
     // Phase 3: new RISC0 guests added to risc0_guests/ (poker_solver.rs, financial_formula.rs)
     // Registered explicitly so "risc0_poker_solver", "verifiable_poker" dispatch to Risc0Stub path.
     m.insert(
         "risc0_poker_solver",
-        VerifierSpec::Risc0Stub { guest: "poker_solver" },
+        VerifierSpec::Risc0Stub {
+            guest: "poker_solver",
+        },
     );
     m.insert(
         "verifiable_poker",
-        VerifierSpec::Risc0Stub { guest: "poker_solver" },
+        VerifierSpec::Risc0Stub {
+            guest: "poker_solver",
+        },
     );
     m.insert(
         "risc0_financial_formula",
-        VerifierSpec::Risc0Stub { guest: "financial_formula" },
+        VerifierSpec::Risc0Stub {
+            guest: "financial_formula",
+        },
     );
     // Phase 4 prep from sub-agent (chess_endgame removed)
     m.insert(
         "risc0_defi_liquidation",
-        VerifierSpec::Risc0Stub { guest: "defi_liquidation" },
+        VerifierSpec::Risc0Stub {
+            guest: "defi_liquidation",
+        },
     );
     m.insert(
         "risc0_connect4_eval",
-        VerifierSpec::Risc0Stub { guest: "connect4_eval" },
+        VerifierSpec::Risc0Stub {
+            guest: "connect4_eval",
+        },
     );
     // Decentralized oracle skeleton (Phase 2: multi-provider, liveness stub)
-    m.insert(
-        "decentralized_oracle",
-        VerifierSpec::Attested,
-    );
-    m.insert(
-        "multi_oracle_v2",
-        VerifierSpec::Attested,
-    );
+    m.insert("decentralized_oracle", VerifierSpec::Attested);
+    m.insert("multi_oracle_v2", VerifierSpec::Attested);
     // Phase 3 explicit: decentralized_liveness (for /liveness + POST) and onchain_sig_verify
     // (ties to onchain_sig_verify.circom stub) registered so they don't hit the None fallthrough.
     m.insert("decentralized_liveness", VerifierSpec::Attested);
@@ -215,22 +263,51 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // === WASM exec / predicate stubs (vision §4.6, WASM for portability + custom logic) ===
     m.insert(
         "wasm_execution",
-        VerifierSpec::WasmStub { module_hint: "generic" },
+        VerifierSpec::WasmStub {
+            module_hint: "generic",
+        },
     );
     m.insert(
         "wasm_predicate",
-        VerifierSpec::WasmStub { module_hint: "predicate" },
+        VerifierSpec::WasmStub {
+            module_hint: "predicate",
+        },
     );
 
     // === Attested / hybrid for everything else (expanded from frontend ZK_CIRCUIT_TYPES + vision) ===
     // Games (non full-zk)
     let game_attested = [
-        "chess_v1", "chess_blitz", "chess_bullet", "poker_v1", "poker_6max", "poker_tourney",
-        "blackjack_v1", "blackjack_multi", "rps_v1", "go_9x9", "go_13x13", "go_19x19",
-        "backgammon_v1", "checkers_v1", "reversi_v1", "battleship_v1", "scrabble_v1",
-        "dominoes_v1", "rummikub_v1", "mancala_v1", "risk_v1", "catan_v1",
-        "monopoly_v1", "yahtzee_v1", "gin_rummy_v1", "hearts_v1", "spades_v1",
-        "bridge_v1", "euchre_v1", "cribbage_v1", "mahjong_v1",
+        "chess_v1",
+        "chess_blitz",
+        "chess_bullet",
+        "poker_v1",
+        "poker_6max",
+        "poker_tourney",
+        "blackjack_v1",
+        "blackjack_multi",
+        "rps_v1",
+        "go_9x9",
+        "go_13x13",
+        "go_19x19",
+        "backgammon_v1",
+        "checkers_v1",
+        "reversi_v1",
+        "battleship_v1",
+        "scrabble_v1",
+        "dominoes_v1",
+        "rummikub_v1",
+        "mancala_v1",
+        "risk_v1",
+        "catan_v1",
+        "monopoly_v1",
+        "yahtzee_v1",
+        "gin_rummy_v1",
+        "hearts_v1",
+        "spades_v1",
+        "bridge_v1",
+        "euchre_v1",
+        "cribbage_v1",
+        "mahjong_v1",
     ];
     for &id in &game_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -238,14 +315,32 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Crypto primitives (current + vision 4.1 expansions)
     let crypto_attested = [
-        "schnorr_knowledge", "pedersen_commitment", "vrf_random", "vrf_shuffle",
-        "bls_signature", "vrf_card_deal", "dao_multisig",
+        "schnorr_knowledge",
+        "pedersen_commitment",
+        "vrf_random",
+        "vrf_shuffle",
+        "bls_signature",
+        "vrf_card_deal",
+        "dao_multisig",
         // NOTE: nullifier_set + vrf_dice_roll are registered above as StrictGroth16 (full-zk), not here.
         // vision expansions
-        "poseidon_commit", "sha256_preimage", "blake3_commit", "merkle_multi_membership",
-        "set_accumulator", "ecdsa_knowledge", "ring_signature", "adaptor_sig",
-        "commit_reveal", "distributed_randomness", "timestamp_bound", "recursive_proof_verify",
-        "pedersen", "mimc7", "poseidon", "blake2_commit", "sha256_commit",
+        "poseidon_commit",
+        "sha256_preimage",
+        "blake3_commit",
+        "merkle_multi_membership",
+        "set_accumulator",
+        "ecdsa_knowledge",
+        "ring_signature",
+        "adaptor_sig",
+        "commit_reveal",
+        "distributed_randomness",
+        "timestamp_bound",
+        "recursive_proof_verify",
+        "pedersen",
+        "mimc7",
+        "poseidon",
+        "blake2_commit",
+        "sha256_commit",
     ];
     for &id in &crypto_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -253,15 +348,33 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Ownership / Script / Timelock / Kaspa-native (vision 4.2 highest priority)
     let ownership_attested = [
-        "script_hash_match", "timelock_relative", "multisig_threshold",
+        "script_hash_match",
+        "timelock_relative",
+        "multisig_threshold",
         // NOTE: utxo_ownership + basic_utxo_ownership are registered above as StrictGroth16 (full-zk), not here.
-        "state_transition", "vesting_schedule", "replay_protection", "utxo_spend_auth",
-        "covenant_state_hash", "script_constraint_proof",
+        "state_transition",
+        "vesting_schedule",
+        "replay_protection",
+        "utxo_spend_auth",
+        "covenant_state_hash",
+        "script_constraint_proof",
         // vision expansions (more ownership, script, state, cross)
-        "relative_timelock", "selected_parent_proof", "utxo_set_proof", "covenant_state_commit",
-        "fee_pot_math", "metadata_constraint", "silver_script_fragment", "oracle_pubkey_binding",
-        "script_opcode_satisfy", "onchain_sig_verify_stub", "vesting_linear", "vesting_cliff",
-        "multi_sig_threshold", "n_of_m_spend", "block_header_proof", "dag_inclusion",
+        "relative_timelock",
+        "selected_parent_proof",
+        "utxo_set_proof",
+        "covenant_state_commit",
+        "fee_pot_math",
+        "metadata_constraint",
+        "silver_script_fragment",
+        "oracle_pubkey_binding",
+        "script_opcode_satisfy",
+        "onchain_sig_verify_stub",
+        "vesting_linear",
+        "vesting_cliff",
+        "multi_sig_threshold",
+        "n_of_m_spend",
+        "block_header_proof",
+        "dag_inclusion",
     ];
     for &id in &ownership_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -269,14 +382,36 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // DeFi / Economic (vision 4.4)
     let defi_attested = [
-        "collateral_loan", "yield_accrual", "token_gated", "pot_distribution", "escrow_2party",
-        "escrow_multiparty", "auction_dutch", "auction_english", "lending_pool", "prediction_market",
-        "liquidation_threshold", "yield_compounding",
+        "collateral_loan",
+        "yield_accrual",
+        "token_gated",
+        "pot_distribution",
+        "escrow_2party",
+        "escrow_multiparty",
+        "auction_dutch",
+        "auction_english",
+        "lending_pool",
+        "prediction_market",
+        "liquidation_threshold",
+        "yield_compounding",
         // vision expansions
-        "insurance_parametric", "fractional_ownership", "options_derivative", "dao_treasury_mgmt",
-        "yield_farming_claim", "cross_asset_swap", "amm_invariant_proof", "black_scholes",
-        "bond_yield", "dcf_valuation", "portfolio_var", "var_risk", "option_greeks",
-        "lending_health", "liquidation_auction", "escrow_milestone", "prediction_tally",
+        "insurance_parametric",
+        "fractional_ownership",
+        "options_derivative",
+        "dao_treasury_mgmt",
+        "yield_farming_claim",
+        "cross_asset_swap",
+        "amm_invariant_proof",
+        "black_scholes",
+        "bond_yield",
+        "dcf_valuation",
+        "portfolio_var",
+        "var_risk",
+        "option_greeks",
+        "lending_health",
+        "liquidation_auction",
+        "escrow_milestone",
+        "prediction_tally",
     ];
     for &id in &defi_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -284,13 +419,28 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Verifiable Compute + Custom (vision 4.6; RISC0/WASM for heavy ones)
     let compute_attested = [
-        "financial_formula", "sorting_proof", "graph_reachability", "zk_email",
+        "financial_formula",
+        "sorting_proof",
+        "graph_reachability",
+        "zk_email",
         "basic_state_machine",
         // vision expansions (concrete programs + backends)
-        "monte_carlo_sim", "linear_optimizer", "regex_string_match", "supply_chain_graph",
-        "formal_verif_proof", "custom_compute", "simulation_engine", "optimization_lp",
-        "string_regex", "graph_shortest", "ml_credit", "fraud_detect", "image_classify_stub",
-        "custom_game_logic", "fsm_compiler", "python_subset_guest",
+        "monte_carlo_sim",
+        "linear_optimizer",
+        "regex_string_match",
+        "supply_chain_graph",
+        "formal_verif_proof",
+        "custom_compute",
+        "simulation_engine",
+        "optimization_lp",
+        "string_regex",
+        "graph_shortest",
+        "ml_credit",
+        "fraud_detect",
+        "image_classify_stub",
+        "custom_game_logic",
+        "fsm_compiler",
+        "python_subset_guest",
     ];
     for &id in &compute_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -298,11 +448,21 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Gating / Access / Identity (vision 4.8)
     let gating_attested = [
-        "nft_gating", "reputation_threshold", "age_verification", "kyc_alternative",
-        "private_group_membership", "anti_sybil_proof", "credential_proof",
+        "nft_gating",
+        "reputation_threshold",
+        "age_verification",
+        "kyc_alternative",
+        "private_group_membership",
+        "anti_sybil_proof",
+        "credential_proof",
         // vision
-        "nft_collection_gate", "soulbound_gate", "rep_update_nullifier", "kyc_range",
-        "location_bound", "income_bracket", "education_cred",
+        "nft_collection_gate",
+        "soulbound_gate",
+        "rep_update_nullifier",
+        "kyc_range",
+        "location_bound",
+        "income_bracket",
+        "education_cred",
     ];
     for &id in &gating_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -310,12 +470,28 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Oracle / Data feeds / Real-world (vision 4.7) — treated as circuit_types for uniformity
     let data_oracle_attested = [
-        "price_kas", "price_btc", "price_eth", "price_stable", "sports_nba", "sports_soccer",
-        "weather_trigger", "election_result", "shipping_event", "drand_beacon",
-        "web2_api_attest", "ai_model_output", "cross_chain_light_client",
+        "price_kas",
+        "price_btc",
+        "price_eth",
+        "price_stable",
+        "sports_nba",
+        "sports_soccer",
+        "weather_trigger",
+        "election_result",
+        "shipping_event",
+        "drand_beacon",
+        "web2_api_attest",
+        "ai_model_output",
+        "cross_chain_light_client",
         // vision specifics
-        "price_gold", "price_oil", "price_spx", "nba_player_prop", "flight_delay",
-        "hurricane_event", "governance_vote", "randomness_beacon",
+        "price_gold",
+        "price_oil",
+        "price_spx",
+        "nba_player_prop",
+        "flight_delay",
+        "hurricane_event",
+        "governance_vote",
+        "randomness_beacon",
     ];
     for &id in &data_oracle_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -323,8 +499,13 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Privacy expansions (vision 4.5, beyond the one full-zk mixer)
     let privacy_attested = [
-        "private_transfer", "shielded_utxo", "private_vote", "private_airdrop",
-        "private_reputation", "mixnet_metadata", "confidential_collateral",
+        "private_transfer",
+        "shielded_utxo",
+        "private_vote",
+        "private_airdrop",
+        "private_reputation",
+        "mixnet_metadata",
+        "confidential_collateral",
     ];
     for &id in &privacy_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -332,9 +513,15 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Meta / self-referential / advanced (vision 4.9-4.10)
     let meta_attested = [
-        "oracle_self_proof", "ceremony_contrib", "benchmark_attest", "circuit_registry_member",
-        "artifact_hash_integrity", "liveness_heartbeat", "staking_commit",
-        "recursive_aggregate", "folding_incremental",
+        "oracle_self_proof",
+        "ceremony_contrib",
+        "benchmark_attest",
+        "circuit_registry_member",
+        "artifact_hash_integrity",
+        "liveness_heartbeat",
+        "staking_commit",
+        "recursive_aggregate",
+        "folding_incremental",
     ];
     for &id in &meta_attested {
         m.insert(id, VerifierSpec::Attested);
@@ -342,26 +529,41 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
 
     // Always-supported escape hatches
     m.insert("custom", VerifierSpec::Attested);
-    m.insert("verifiable_compute", VerifierSpec::Risc0Stub { guest: "generic" }); // alias
+    m.insert(
+        "verifiable_compute",
+        VerifierSpec::Risc0Stub { guest: "generic" },
+    ); // alias
 
     // === High-value circuit stubs from Covex vision inventory (12-15 added) ===
     // oracle-attested or hybrid start; point to new minimal verify_*.js + .circom
     // (inserted late so Hybrid overrides any prior Attested from vision lists)
     m.insert(
         "poker_vrf_deal",
-        VerifierSpec::HybridGroth16 { script: "verify_poker_vrf_deal.js", prefix: "covex_pvd" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_poker_vrf_deal.js",
+            prefix: "covex_pvd",
+        },
     );
     m.insert(
         "auction_clearing",
-        VerifierSpec::HybridGroth16 { script: "verify_auction_clearing.js", prefix: "covex_auc" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_auction_clearing.js",
+            prefix: "covex_auc",
+        },
     );
     m.insert(
         "private_transfer_nullifier",
-        VerifierSpec::HybridGroth16 { script: "verify_private_transfer_nullifier.js", prefix: "covex_ptn" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_private_transfer_nullifier.js",
+            prefix: "covex_ptn",
+        },
     );
     m.insert(
         "election_feed",
-        VerifierSpec::HybridGroth16 { script: "verify_election_feed.js", prefix: "covex_elec" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_election_feed.js",
+            prefix: "covex_elec",
+        },
     );
     // SECURITY (C1): ml_inference_stub has NO real circom circuit + committed vkey - its
     // verify script was a rubber-stamp delegator to verify_attested.js. Registering it as
@@ -381,11 +583,17 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     m.insert("poker_equity", VerifierSpec::Attested);
     m.insert(
         "collateral_ltv",
-        VerifierSpec::HybridGroth16 { script: "verify_collateral_ltv.js", prefix: "covex_ltv" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_collateral_ltv.js",
+            prefix: "covex_ltv",
+        },
     );
     m.insert(
         "loan_health",
-        VerifierSpec::HybridGroth16 { script: "verify_loan_health.js", prefix: "covex_loan" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_loan_health.js",
+            prefix: "covex_loan",
+        },
     );
     // SECURITY (C1): multi_sig_gating has NO real circuit (rubber-stamp delegator). Attested.
     m.insert("multi_sig_gating", VerifierSpec::Attested);
@@ -393,7 +601,10 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     m.insert("anon_credential", VerifierSpec::Attested);
     m.insert(
         "financial_formula",
-        VerifierSpec::HybridGroth16 { script: "verify_financial_formula.js", prefix: "covex_ff" },
+        VerifierSpec::HybridGroth16 {
+            script: "verify_financial_formula.js",
+            prefix: "covex_ff",
+        },
     );
     // SECURITY (C1): verifiable_poker_solver has NO real circuit (rubber-stamp delegator). Attested.
     m.insert("verifiable_poker_solver", VerifierSpec::Attested);
@@ -403,35 +614,59 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // fail closed; a bodyless request can no longer be rubber-stamped to requested_outcome.
     m.insert(
         "relative_timelock",
-        VerifierSpec::StrictGroth16 { script: "verify_relative_timelock.js", prefix: "covex_rtl" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_relative_timelock.js",
+            prefix: "covex_rtl",
+        },
     );
     m.insert(
         "vrf_dice_roll",
-        VerifierSpec::StrictGroth16 { script: "verify_vrf_dice_roll.js", prefix: "covex_vrf" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_vrf_dice_roll.js",
+            prefix: "covex_vrf",
+        },
     );
     m.insert(
         "vrf_random",
-        VerifierSpec::StrictGroth16 { script: "verify_vrf_random.js", prefix: "covex_vrf" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_vrf_random.js",
+            prefix: "covex_vrf",
+        },
     );
     m.insert(
         "script_constraint",
-        VerifierSpec::StrictGroth16 { script: "verify_script_constraint.js", prefix: "covex_script" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_script_constraint.js",
+            prefix: "covex_script",
+        },
     );
     m.insert(
         "pot_split_math",
-        VerifierSpec::StrictGroth16 { script: "verify_pot_split_math.js", prefix: "covex_pot" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_pot_split_math.js",
+            prefix: "covex_pot",
+        },
     );
     m.insert(
         "turn_timer",
-        VerifierSpec::StrictGroth16 { script: "verify_turn_timer.js", prefix: "covex_timer" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_turn_timer.js",
+            prefix: "covex_timer",
+        },
     );
     m.insert(
         "basic_utxo_ownership",
-        VerifierSpec::StrictGroth16 { script: "verify_basic_utxo_ownership.js", prefix: "covex_utxo" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_basic_utxo_ownership.js",
+            prefix: "covex_utxo",
+        },
     );
     m.insert(
         "nullifier_set",
-        VerifierSpec::StrictGroth16 { script: "verify_nullifier_set.js", prefix: "covex_null" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_nullifier_set.js",
+            prefix: "covex_null",
+        },
     );
     // === New privacy / identity / solvency circuits (StrictGroth16, dev pot10/pot12 ceremony) ===
     // Each verified end-to-end on the server BEFORE registration: a genuine proof verifies true,
@@ -442,23 +677,38 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // NO attested fallback). Keys are a single-contributor Covex dev ceremony, NOT a production MPC.
     m.insert(
         "commitment_open",
-        VerifierSpec::StrictGroth16 { script: "verify_commitment_open.js", prefix: "covex_copen" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_commitment_open.js",
+            prefix: "covex_copen",
+        },
     );
     m.insert(
         "balance_threshold",
-        VerifierSpec::StrictGroth16 { script: "verify_balance_threshold.js", prefix: "covex_bal" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_balance_threshold.js",
+            prefix: "covex_bal",
+        },
     );
     m.insert(
         "solvency_sum",
-        VerifierSpec::StrictGroth16 { script: "verify_solvency_sum.js", prefix: "covex_solv" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_solvency_sum.js",
+            prefix: "covex_solv",
+        },
     );
     m.insert(
         "set_non_membership",
-        VerifierSpec::StrictGroth16 { script: "verify_set_non_membership.js", prefix: "covex_snm" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_set_non_membership.js",
+            prefix: "covex_snm",
+        },
     );
     m.insert(
         "anon_membership_nullifier",
-        VerifierSpec::StrictGroth16 { script: "verify_anon_membership_nullifier.js", prefix: "covex_anm" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_anon_membership_nullifier.js",
+            prefix: "covex_anm",
+        },
     );
     // Re-assert as StrictGroth16 AFTER the attested loops above. age_verification and
     // escrow_2party were inserted Strict early (lines ~128/131) but the later
@@ -468,11 +718,17 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // proof, so re-pinning them Strict here makes them genuinely require a real proof.
     m.insert(
         "age_verification",
-        VerifierSpec::StrictGroth16 { script: "verify_age_verification.js", prefix: "covex_age" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_age_verification.js",
+            prefix: "covex_age",
+        },
     );
     m.insert(
         "escrow_2party",
-        VerifierSpec::StrictGroth16 { script: "verify_escrow_2party.js", prefix: "covex_escrow" },
+        VerifierSpec::StrictGroth16 {
+            script: "verify_escrow_2party.js",
+            prefix: "covex_escrow",
+        },
     );
 
     m
@@ -534,9 +790,13 @@ fn run_groth16_verifier_sync(
         "proof": proof,
         "publicSignals": public_inputs,
     });
-    let tmp_path = std::env::temp_dir().join(format!("{}_{}.json", tmp_prefix, uuid::Uuid::new_v4()));
-    std::fs::write(&tmp_path, serde_json::to_string(&proof_json).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("Failed to write temp proof: {}", e))?;
+    let tmp_path =
+        std::env::temp_dir().join(format!("{}_{}.json", tmp_prefix, uuid::Uuid::new_v4()));
+    std::fs::write(
+        &tmp_path,
+        serde_json::to_string(&proof_json).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Failed to write temp proof: {}", e))?;
 
     // Spawn with a wall-clock timeout so a hung or malicious verifier can never hold a
     // spawn_blocking thread forever (a self-inflicted DoS). On timeout we kill the child and
@@ -548,7 +808,14 @@ fn run_groth16_verifier_sync(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to run verifier (node={} script={:?}): {}", node_binary(), script, e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to run verifier (node={} script={:?}): {}",
+                node_binary(),
+                script,
+                e
+            )
+        })?;
 
     let started = std::time::Instant::now();
     let status = loop {
@@ -559,7 +826,10 @@ fn run_groth16_verifier_sync(
                     let _ = child.kill();
                     let _ = child.wait();
                     let _ = std::fs::remove_file(&tmp_path);
-                    return Err(format!("Verifier timed out after {}s and was killed", VERIFY_TIMEOUT.as_secs()));
+                    return Err(format!(
+                        "Verifier timed out after {}s and was killed",
+                        VERIFY_TIMEOUT.as_secs()
+                    ));
                 }
                 std::thread::sleep(std::time::Duration::from_millis(40));
             }
@@ -574,20 +844,29 @@ fn run_groth16_verifier_sync(
     let mut stderr = String::new();
     {
         use std::io::Read as _;
-        if let Some(mut o) = child.stdout.take() { let _ = o.read_to_string(&mut stdout); }
-        if let Some(mut e) = child.stderr.take() { let _ = e.read_to_string(&mut stderr); }
+        if let Some(mut o) = child.stdout.take() {
+            let _ = o.read_to_string(&mut stdout);
+        }
+        if let Some(mut e) = child.stderr.take() {
+            let _ = e.read_to_string(&mut stderr);
+        }
     }
     let _ = std::fs::remove_file(&tmp_path);
 
     if !status.success() {
         return Err(format!(
             "Verifier exited {}: stdout={} stderr={}",
-            status, stdout.trim(), stderr.trim()
+            status,
+            stdout.trim(),
+            stderr.trim()
         ));
     }
 
     if stdout.trim().is_empty() {
-        return Err(format!("Verifier produced no output. stderr: {}", stderr.trim()));
+        return Err(format!(
+            "Verifier produced no output. stderr: {}",
+            stderr.trim()
+        ));
     }
 
     let result: Value = serde_json::from_str(&stdout)
@@ -618,9 +897,11 @@ pub(crate) async fn run_groth16_verifier_async(
         .await
         .map_err(|e| format!("verify semaphore closed: {}", e))?;
     let script = zk_script_path(script_rel);
-    tokio::task::spawn_blocking(move || run_groth16_verifier_sync(&script, tmp_prefix, &proof, &public_inputs))
-        .await
-        .map_err(|e| format!("Spawn blocking failed: {}", e))?
+    tokio::task::spawn_blocking(move || {
+        run_groth16_verifier_sync(&script, tmp_prefix, &proof, &public_inputs)
+    })
+    .await
+    .map_err(|e| format!("Spawn blocking failed: {}", e))?
 }
 
 /// Hybrid: if the proof contains a real Groth16 body, run verifier; else accept (attested path).
@@ -746,7 +1027,12 @@ fn find_wasm_runtime() -> Option<&'static str> {
     if std::path::Path::new("/usr/bin/wasmtime").exists() {
         return Some("/usr/bin/wasmtime");
     }
-    if Command::new("wasmtime").arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("wasmtime")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         return Some("wasmtime");
     }
     // Fallback: node can execute .wasm in some cases (or use for js-wasm harness)
@@ -973,16 +1259,37 @@ mod tests {
     #[test]
     fn registry_contains_core_full_zk_and_stubs() {
         let r = get_registry();
-        assert!(matches!(r.get("merkle_membership"), Some(VerifierSpec::StrictGroth16 { .. })));
-        assert!(matches!(r.get("range_proof"), Some(VerifierSpec::StrictGroth16 { .. })));
+        assert!(matches!(
+            r.get("merkle_membership"),
+            Some(VerifierSpec::StrictGroth16 { .. })
+        ));
+        assert!(matches!(
+            r.get("range_proof"),
+            Some(VerifierSpec::StrictGroth16 { .. })
+        ));
         // chess_v1 assert removed (circuit deleted)
-        assert!(matches!(r.get("privacy_mixer_v1"), Some(VerifierSpec::HybridGroth16 { .. })));
-        assert!(matches!(r.get("verifiable"), Some(VerifierSpec::Risc0Stub { .. })));
-        assert!(matches!(r.get("wasm_execution"), Some(VerifierSpec::WasmStub { .. })));
+        assert!(matches!(
+            r.get("privacy_mixer_v1"),
+            Some(VerifierSpec::HybridGroth16 { .. })
+        ));
+        assert!(matches!(
+            r.get("verifiable"),
+            Some(VerifierSpec::Risc0Stub { .. })
+        ));
+        assert!(matches!(
+            r.get("wasm_execution"),
+            Some(VerifierSpec::WasmStub { .. })
+        ));
         // utxo_ownership is the catalog alias for basic_utxo_ownership: now StrictGroth16
         // (fail-closed Poseidon-note proof with a working in-browser prover + served vkey).
-        assert!(matches!(r.get("utxo_ownership"), Some(VerifierSpec::StrictGroth16 { .. })));
-        assert!(matches!(r.get("liquidation_threshold"), Some(VerifierSpec::Attested)));
+        assert!(matches!(
+            r.get("utxo_ownership"),
+            Some(VerifierSpec::StrictGroth16 { .. })
+        ));
+        assert!(matches!(
+            r.get("liquidation_threshold"),
+            Some(VerifierSpec::Attested)
+        ));
         assert!(matches!(r.get("price_kas"), Some(VerifierSpec::Attested)));
         assert!(matches!(r.get("custom"), Some(VerifierSpec::Attested)));
         // Promoted to StrictGroth16 after a live trusted setup + verified proofs.
@@ -1014,10 +1321,22 @@ mod tests {
             );
         }
         // Re-pinned Strict after the attested-loop overwrite bug.
-        assert!(matches!(r.get("escrow_2party"), Some(VerifierSpec::StrictGroth16 { .. })));
-        assert!(matches!(r.get("age_verification"), Some(VerifierSpec::StrictGroth16 { .. })));
-        assert!(matches!(r.get("vrf_card_deal"), Some(VerifierSpec::Attested)));
-        assert!(matches!(r.get("black_scholes"), Some(VerifierSpec::Attested)));
+        assert!(matches!(
+            r.get("escrow_2party"),
+            Some(VerifierSpec::StrictGroth16 { .. })
+        ));
+        assert!(matches!(
+            r.get("age_verification"),
+            Some(VerifierSpec::StrictGroth16 { .. })
+        ));
+        assert!(matches!(
+            r.get("vrf_card_deal"),
+            Some(VerifierSpec::Attested)
+        ));
+        assert!(matches!(
+            r.get("black_scholes"),
+            Some(VerifierSpec::Attested)
+        ));
         // chess_engine assert removed (circuit deleted)
     }
 
@@ -1025,21 +1344,44 @@ mod tests {
     fn registry_has_many_vision_expansions() {
         let r = get_registry();
         // spot check breadth (ownership, vrf, defi, compute, data, gating)
-        for id in &["utxo_spend_auth", "script_constraint_proof", "fee_pot_math", "selected_parent_proof",
-                    "vrf_dice_roll", "distributed_randomness",
-                    "insurance_parametric", "amm_invariant_proof", "portfolio_var",
-                    "monte_carlo_sim", "regex_string_match", "supply_chain_graph",
-                    "nft_gating", "anti_sybil_proof", "price_gold", "drand_beacon", "ai_model_output"] {
+        for id in &[
+            "utxo_spend_auth",
+            "script_constraint_proof",
+            "fee_pot_math",
+            "selected_parent_proof",
+            "vrf_dice_roll",
+            "distributed_randomness",
+            "insurance_parametric",
+            "amm_invariant_proof",
+            "portfolio_var",
+            "monte_carlo_sim",
+            "regex_string_match",
+            "supply_chain_graph",
+            "nft_gating",
+            "anti_sybil_proof",
+            "price_gold",
+            "drand_beacon",
+            "ai_model_output",
+        ] {
             assert!(r.contains_key(*id), "missing vision circuit stub: {}", id);
         }
     }
 
     #[test]
     fn outcome_defaults_and_clamp() {
-        assert_eq!(determine_outcome_for_circuit("foo", &Value::Null, &[], Some(5)), 5);
+        assert_eq!(
+            determine_outcome_for_circuit("foo", &Value::Null, &[], Some(5)),
+            5
+        );
         // chess_v1 outcome tests removed (circuit deleted)
-        assert_eq!(determine_outcome_for_circuit("privacy_mixer_v1", &Value::Null, &[], Some(9)), 1);
-        assert_eq!(determine_outcome_for_circuit("some_new_defi", &Value::Null, &[], None), 0);
+        assert_eq!(
+            determine_outcome_for_circuit("privacy_mixer_v1", &Value::Null, &[], Some(9)),
+            1
+        );
+        assert_eq!(
+            determine_outcome_for_circuit("some_new_defi", &Value::Null, &[], None),
+            0
+        );
     }
 
     #[test]
@@ -1049,19 +1391,66 @@ mod tests {
         // gating output at publicSignals[0] (valid / on_time), so a valid-but-false proof loses.
         let proof = serde_json::json!({ "pi_a": ["1", "2", "3"] });
         // age_verification [valid, commitment, ...]: valid=0 (underage) must FAIL the gate (outcome 1).
-        assert_eq!(determine_outcome_for_circuit("age_verification", &proof, &["0".to_string(), "x".to_string()], None), 1);
-        assert_eq!(determine_outcome_for_circuit("age_verification", &proof, &["1".to_string(), "x".to_string()], None), 0);
+        assert_eq!(
+            determine_outcome_for_circuit(
+                "age_verification",
+                &proof,
+                &["0".to_string(), "x".to_string()],
+                None
+            ),
+            1
+        );
+        assert_eq!(
+            determine_outcome_for_circuit(
+                "age_verification",
+                &proof,
+                &["1".to_string(), "x".to_string()],
+                None
+            ),
+            0
+        );
         // escrow_2party [valid, ...]: valid=0 (timeout not elapsed) -> claim fails.
-        assert_eq!(determine_outcome_for_circuit("escrow_2party", &proof, &["0".to_string()], None), 1);
-        assert_eq!(determine_outcome_for_circuit("escrow_2party", &proof, &["1".to_string()], None), 0);
+        assert_eq!(
+            determine_outcome_for_circuit("escrow_2party", &proof, &["0".to_string()], None),
+            1
+        );
+        assert_eq!(
+            determine_outcome_for_circuit("escrow_2party", &proof, &["1".to_string()], None),
+            0
+        );
         // timelocks [valid, ...] and turn_timer [on_time, ...]: read the public output.
-        assert_eq!(determine_outcome_for_circuit("timelock_absolute", &proof, &["0".to_string()], None), 1);
-        assert_eq!(determine_outcome_for_circuit("relative_timelock", &proof, &["1".to_string()], None), 0);
-        assert_eq!(determine_outcome_for_circuit("turn_timer", &proof, &["0".to_string()], None), 1);
+        assert_eq!(
+            determine_outcome_for_circuit("timelock_absolute", &proof, &["0".to_string()], None),
+            1
+        );
+        assert_eq!(
+            determine_outcome_for_circuit("relative_timelock", &proof, &["1".to_string()], None),
+            0
+        );
+        assert_eq!(
+            determine_outcome_for_circuit("turn_timer", &proof, &["0".to_string()], None),
+            1
+        );
         // Circuits with NO separate valid output keep proof-presence => 0 (a verifying proof IS
         // the claim): nullifier_set [spent=0, ...] and vrf_dice_roll [seed, roll].
-        assert_eq!(determine_outcome_for_circuit("nullifier_set", &proof, &["0".to_string(), "n".to_string()], None), 0);
-        assert_eq!(determine_outcome_for_circuit("vrf_dice_roll", &proof, &["999".to_string(), "3".to_string()], None), 0);
+        assert_eq!(
+            determine_outcome_for_circuit(
+                "nullifier_set",
+                &proof,
+                &["0".to_string(), "n".to_string()],
+                None
+            ),
+            0
+        );
+        assert_eq!(
+            determine_outcome_for_circuit(
+                "vrf_dice_roll",
+                &proof,
+                &["999".to_string(), "3".to_string()],
+                None
+            ),
+            0
+        );
     }
 
     #[test]

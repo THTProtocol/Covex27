@@ -40,15 +40,16 @@ pub fn verify_message(address: &str, message: &str, signature_hex: &str) -> Resu
             payload.len()
         ));
     }
-    let xonly = XOnlyPublicKey::from_slice(payload).map_err(|e| format!("bad public key: {}", e))?;
+    let xonly =
+        XOnlyPublicKey::from_slice(payload).map_err(|e| format!("bad public key: {}", e))?;
 
     let mut hasher = kaspa_hashes::PersonalMessageSigningHash::new();
     hasher.write(message.as_bytes());
     let hash = hasher.finalize();
     let msg = Message::from_digest(hash.as_bytes());
 
-    let sig_bytes =
-        hex::decode(signature_hex.trim_start_matches("0x")).map_err(|e| format!("bad signature hex: {}", e))?;
+    let sig_bytes = hex::decode(signature_hex.trim_start_matches("0x"))
+        .map_err(|e| format!("bad signature hex: {}", e))?;
     let sig = Signature::from_slice(&sig_bytes).map_err(|e| format!("bad signature: {}", e))?;
 
     Ok(Secp256k1::verification_only()

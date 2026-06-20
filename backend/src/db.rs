@@ -1,5 +1,5 @@
-use rusqlite::{params, Connection};
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::{params, Connection};
 
 /// A connection checked out of the pool. Derefs to rusqlite::Connection
 /// (Deref + DerefMut), so every existing `conn.execute / prepare / query_row /
@@ -373,7 +373,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
     if !has_network {
         conn.execute_batch(
             "ALTER TABLE covenants ADD COLUMN network TEXT NOT NULL DEFAULT 'testnet-12';
-             CREATE INDEX IF NOT EXISTS idx_covenants_network ON covenants(network);"
+             CREATE INDEX IF NOT EXISTS idx_covenants_network ON covenants(network);",
         )?;
     }
     // Fast dedup lookup: a covenant is its (network, script) pair; re-deposits to the same
@@ -381,7 +381,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
     // network column is guaranteed to exist (just added above, or already present on an
     // already-migrated DB) — so a fresh-DB cold start does not fail with "no such column".
     conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);"
+        "CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);",
     )?;
 
     // ── Migration: add 'block_hash' + 'reorged' columns for finality/reorg handling ──
@@ -425,24 +425,20 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
     )?;
 
     // ── Migration: add 'network' column to payments if missing ──
-    let has_payments_network: bool = conn
-        .prepare("SELECT network FROM payments LIMIT 1")
-        .is_ok();
+    let has_payments_network: bool = conn.prepare("SELECT network FROM payments LIMIT 1").is_ok();
     if !has_payments_network {
         conn.execute_batch(
             "ALTER TABLE payments ADD COLUMN network TEXT NOT NULL DEFAULT 'testnet-12';
-             CREATE INDEX IF NOT EXISTS idx_payments_network ON payments(network);"
+             CREATE INDEX IF NOT EXISTS idx_payments_network ON payments(network);",
         )?;
     }
 
     // ── Migration: add 'network' column to accounts if missing ──
-    let has_accounts_network: bool = conn
-        .prepare("SELECT network FROM accounts LIMIT 1")
-        .is_ok();
+    let has_accounts_network: bool = conn.prepare("SELECT network FROM accounts LIMIT 1").is_ok();
     if !has_accounts_network {
         conn.execute_batch(
             "ALTER TABLE accounts ADD COLUMN network TEXT NOT NULL DEFAULT 'testnet-12';
-             CREATE INDEX IF NOT EXISTS idx_accounts_network ON accounts(network);"
+             CREATE INDEX IF NOT EXISTS idx_accounts_network ON accounts(network);",
         )?;
     }
 
@@ -453,11 +449,17 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
     if !has_max_deploy {
         conn.execute_batch(
             "ALTER TABLE accounts ADD COLUMN max_deployments INTEGER NOT NULL DEFAULT 1;
-             ALTER TABLE accounts ADD COLUMN deployments_used INTEGER NOT NULL DEFAULT 0;"
+             ALTER TABLE accounts ADD COLUMN deployments_used INTEGER NOT NULL DEFAULT 0;",
         )?;
         // Set deployment counts based on existing tiers
-        conn.execute("UPDATE accounts SET max_deployments = 3 WHERE tier = 'MAX'", [])?;
-        conn.execute("UPDATE accounts SET max_deployments = 2 WHERE tier = 'PRO'", [])?;
+        conn.execute(
+            "UPDATE accounts SET max_deployments = 3 WHERE tier = 'MAX'",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE accounts SET max_deployments = 2 WHERE tier = 'PRO'",
+            [],
+        )?;
     }
 
     // ── Migration: customizable economics columns on bundle_markets (idempotent) ──
@@ -479,22 +481,22 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         // Losing scan positions is fine — crawlers restart from config start_daa
         conn.execute_batch("DROP TABLE IF EXISTS crawler_state;")?;
 
-    // Migration: production skill_games tables created before the current
-    // schema lack newer columns; CREATE TABLE IF NOT EXISTS never alters.
-    for ddl in [
-        "ALTER TABLE skill_games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'chess'",
-        "ALTER TABLE skill_games ADD COLUMN pot_amount_kas REAL NOT NULL DEFAULT 0",
-        "ALTER TABLE skill_games ADD COLUMN player1 TEXT NOT NULL DEFAULT ''",
-        "ALTER TABLE skill_games ADD COLUMN player2 TEXT NOT NULL DEFAULT ''",
-        "ALTER TABLE skill_games ADD COLUMN moves TEXT NOT NULL DEFAULT '[]'",
-        "ALTER TABLE skill_games ADD COLUMN current_turn TEXT NOT NULL DEFAULT 'white'",
-        "ALTER TABLE skill_games ADD COLUMN winner TEXT",
-        "ALTER TABLE skill_games ADD COLUMN status TEXT NOT NULL DEFAULT 'waiting'",
-        "ALTER TABLE skill_games ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE skill_games ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0",
-    ] {
-        let _ = conn.execute(ddl, []); // duplicate-column errors are expected
-    }
+        // Migration: production skill_games tables created before the current
+        // schema lack newer columns; CREATE TABLE IF NOT EXISTS never alters.
+        for ddl in [
+            "ALTER TABLE skill_games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'chess'",
+            "ALTER TABLE skill_games ADD COLUMN pot_amount_kas REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE skill_games ADD COLUMN player1 TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE skill_games ADD COLUMN player2 TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE skill_games ADD COLUMN moves TEXT NOT NULL DEFAULT '[]'",
+            "ALTER TABLE skill_games ADD COLUMN current_turn TEXT NOT NULL DEFAULT 'white'",
+            "ALTER TABLE skill_games ADD COLUMN winner TEXT",
+            "ALTER TABLE skill_games ADD COLUMN status TEXT NOT NULL DEFAULT 'waiting'",
+            "ALTER TABLE skill_games ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE skill_games ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0",
+        ] {
+            let _ = conn.execute(ddl, []); // duplicate-column errors are expected
+        }
 
         conn.execute_batch(
             "CREATE TABLE crawler_state (
@@ -839,10 +841,7 @@ pub fn annotate_finality(covs: &mut [DbCovenant]) {
     }
 }
 
-pub fn get_all_covenants(
-    db: &Db,
-    network: Option<&str>,
-) -> anyhow::Result<Vec<DbCovenant>> {
+pub fn get_all_covenants(db: &Db, network: Option<&str>) -> anyhow::Result<Vec<DbCovenant>> {
     let conn = db.lock().unwrap();
     let sql = if let Some(_net) = network {
         format!(
@@ -937,11 +936,7 @@ pub struct EventRow {
     pub timestamp: i64,
 }
 
-pub fn get_events(
-    db: &Db,
-    network: Option<&str>,
-    limit: i64,
-) -> anyhow::Result<Vec<EventRow>> {
+pub fn get_events(db: &Db, network: Option<&str>, limit: i64) -> anyhow::Result<Vec<EventRow>> {
     let conn = db.lock().unwrap();
     get_events_conn(&conn, network, limit)
 }
@@ -967,10 +962,14 @@ pub fn get_events_conn(
     };
     if let Some(net) = network {
         let mut stmt = conn.prepare("SELECT id, event_type, covenant_id, network, amount_kaspa, detail, timestamp FROM events WHERE network = ?1 ORDER BY id DESC LIMIT ?2")?;
-        for r in stmt.query_map(params![net, limit], map)? { out.push(r?); }
+        for r in stmt.query_map(params![net, limit], map)? {
+            out.push(r?);
+        }
     } else {
         let mut stmt = conn.prepare("SELECT id, event_type, covenant_id, network, amount_kaspa, detail, timestamp FROM events ORDER BY id DESC LIMIT ?1")?;
-        for r in stmt.query_map(params![limit], map)? { out.push(r?); }
+        for r in stmt.query_map(params![limit], map)? {
+            out.push(r?);
+        }
     }
     Ok(out)
 }
@@ -988,7 +987,16 @@ pub fn query_covenants(
     genuine_only: bool,
 ) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
     let conn = db.lock().unwrap();
-    query_covenants_conn(&conn, network, creator, q, category, limit, offset, genuine_only)
+    query_covenants_conn(
+        &conn,
+        network,
+        creator,
+        q,
+        category,
+        limit,
+        offset,
+        genuine_only,
+    )
 }
 
 /// Connection-borrowing core of `query_covenants`, for use inside `db::blocking`.
@@ -1031,10 +1039,20 @@ pub fn query_covenants_conn(
         // Pipe-separated terms act as OR alternatives (used by category filters):
         // q=chess|fide matches covenants containing either term in any text field.
         let mut alts: Vec<String> = Vec::new();
-        for t in term.split('|').map(str::trim).filter(|t| !t.is_empty()).take(8) {
+        for t in term
+            .split('|')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .take(8)
+        {
             // Escape the LIKE wildcards (_ and %) so a literal term like "binary_oracle_select"
             // matches by underscore instead of treating _ as "any char" (or being stripped).
-            let like = format!("%{}%", t.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+            let like = format!(
+                "%{}%",
+                t.replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_")
+            );
             args.push(Box::new(like));
             let i = args.len();
             alts.push(format!(
@@ -1050,7 +1068,8 @@ pub fn query_covenants_conn(
     let params_ref: Vec<&dyn rusqlite::types::ToSql> = args.iter().map(|b| b.as_ref()).collect();
     let total: i64 = conn.query_row(&count_sql, params_ref.as_slice(), |r| r.get(0))?;
 
-    let sql = format!(
+    let sql =
+        format!(
         "{} WHERE {} ORDER BY tier_rank DESC, amount_kaspa DESC, timestamp DESC LIMIT {} OFFSET {}",
         COVENANT_SELECT, where_sql, limit.clamp(1, 200), offset.max(0)
     );
@@ -1065,10 +1084,7 @@ pub fn query_covenants_conn(
 }
 
 /// Network-scoped aggregates for the explorer header: (total, paid, tvl_kas).
-pub fn covenant_stats(
-    db: &Db,
-    network: Option<&str>,
-) -> anyhow::Result<(i64, i64, f64)> {
+pub fn covenant_stats(db: &Db, network: Option<&str>) -> anyhow::Result<(i64, i64, f64)> {
     let conn = db.lock().unwrap();
     covenant_stats_conn(&conn, network)
 }
@@ -1083,11 +1099,21 @@ pub fn covenant_stats_conn(
         conn.query_row(
             &format!("{} AND network = ?1", sql_base),
             params![net],
-            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?)),
+            |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, f64>(2)?,
+                ))
+            },
         )?
     } else {
         conn.query_row(sql_base, [], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?))
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, f64>(2)?,
+            ))
         })?
     };
     Ok(row)
@@ -1098,15 +1124,16 @@ pub fn covenant_stats_conn(
 /// timeline reflects only the rolling window the events table retains (capped
 /// at the most recent 5000 events), so it is labelled as recent activity, not
 /// full history. Network is optional; None aggregates across all networks.
-pub fn platform_stats(
-    db: &Db,
-    network: Option<&str>,
-) -> anyhow::Result<serde_json::Value> {
+pub fn platform_stats(db: &Db, network: Option<&str>) -> anyhow::Result<serde_json::Value> {
     use serde_json::json;
     let conn = db.lock().unwrap();
 
     // helper: build the optional "AND network = ?" clause + bind value
-    let net_clause = if network.is_some() { " AND network = ?1" } else { "" };
+    let net_clause = if network.is_some() {
+        " AND network = ?1"
+    } else {
+        ""
+    };
 
     // ── Per-network summary (always all networks, ignores the filter) ──
     let mut by_network = Vec::new();
@@ -1146,7 +1173,8 @@ pub fn platform_stats(
             }))
         };
         if let Some(net) = network {
-            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+            stmt.query_map(params![net], map)?
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
         }
@@ -1169,7 +1197,8 @@ pub fn platform_stats(
             }))
         };
         if let Some(net) = network {
-            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+            stmt.query_map(params![net], map)?
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
         }
@@ -1187,7 +1216,8 @@ pub fn platform_stats(
             Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
         };
         let rows = if let Some(net) = network {
-            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+            stmt.query_map(params![net], map)?
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
         };
@@ -1214,7 +1244,8 @@ pub fn platform_stats(
             }))
         };
         if let Some(net) = network {
-            stmt.query_map(params![net], map)?.collect::<Result<Vec<_>, _>>()?
+            stmt.query_map(params![net], map)?
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             stmt.query_map([], map)?.collect::<Result<Vec<_>, _>>()?
         }
@@ -1299,9 +1330,7 @@ pub fn get_generated_ui_for(
 }
 
 /// Set of covenant_ids that have a custom UI (cheap badge lookup for list pages).
-pub fn get_custom_ui_id_set(
-    db: &Db,
-) -> anyhow::Result<std::collections::HashSet<String>> {
+pub fn get_custom_ui_id_set(db: &Db) -> anyhow::Result<std::collections::HashSet<String>> {
     let conn = db.lock().unwrap();
     get_custom_ui_id_set_conn(&conn)
 }
@@ -1330,7 +1359,10 @@ const CUSTOM_UI_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(
 // always refreshes (no fragile Instant-underflow seeding needed).
 #[allow(clippy::type_complexity)]
 static CUSTOM_UI_CACHE: std::sync::OnceLock<
-    std::sync::Mutex<(Option<std::time::Instant>, std::collections::HashSet<String>)>,
+    std::sync::Mutex<(
+        Option<std::time::Instant>,
+        std::collections::HashSet<String>,
+    )>,
 > = std::sync::OnceLock::new();
 
 /// Cached variant of `get_custom_ui_id_set_conn`. Returns a clone of the cached set
@@ -1339,9 +1371,7 @@ static CUSTOM_UI_CACHE: std::sync::OnceLock<
 /// to the (possibly stale) cached value rather than failing the request; before the
 /// first successful load this is an empty set. Honest: it is a badge hint, never a
 /// money-path gate.
-pub fn get_custom_ui_id_set_cached_conn(
-    conn: &Connection,
-) -> std::collections::HashSet<String> {
+pub fn get_custom_ui_id_set_cached_conn(conn: &Connection) -> std::collections::HashSet<String> {
     let now = std::time::Instant::now();
     let cell = CUSTOM_UI_CACHE
         .get_or_init(|| std::sync::Mutex::new((None, std::collections::HashSet::new())));
@@ -1390,10 +1420,7 @@ pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
     }
 }
 
-pub fn get_covenant_by_txid(
-    db: &Db,
-    tx_id: &str,
-) -> anyhow::Result<Option<DbCovenant>> {
+pub fn get_covenant_by_txid(db: &Db, tx_id: &str) -> anyhow::Result<Option<DbCovenant>> {
     let conn = db.lock().unwrap();
     let sql = format!("{} WHERE tx_id = ?1", COVENANT_SELECT);
     let mut stmt = conn.prepare(&sql)?;
@@ -1425,9 +1452,7 @@ pub fn get_covenants_by_creator(
     let mut stmt = conn.prepare(&sql)?;
     let mut result = Vec::new();
     if let Some(net) = network {
-        let rows = stmt.query_map(params![creator_addr, net], |row| {
-            row_to_covenant(row)
-        })?;
+        let rows = stmt.query_map(params![creator_addr, net], |row| row_to_covenant(row))?;
         for r in rows {
             result.push(r?);
         }
@@ -1509,11 +1534,7 @@ pub fn insert_payment(
     Ok(())
 }
 
-pub fn confirm_payment(
-    db: &Db,
-    tx_id: &str,
-    confirmations: i64,
-) -> anyhow::Result<()> {
+pub fn confirm_payment(db: &Db, tx_id: &str, confirmations: i64) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE payments SET status = 'confirmed', confirmations = ?2 WHERE tx_id = ?1",
@@ -1723,10 +1744,7 @@ pub fn get_all_generated_uis_map(
     Ok(map)
 }
 
-pub fn get_generated_uis(
-    db: &Db,
-    owner: Option<&str>,
-) -> anyhow::Result<Vec<serde_json::Value>> {
+pub fn get_generated_uis(db: &Db, owner: Option<&str>) -> anyhow::Result<Vec<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let sql = if let Some(_owner_addr) = owner {
         format!(
@@ -1922,10 +1940,23 @@ pub fn insert_oracle_payout_session(db: &Db, s: &PersistedOraclePayout) -> anyho
           committed_index, committed_amount, committed_p2sh_hex, p2sh_address, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
         params![
-            s.session_id, s.network, s.unsigned_tx_json, s.entry_json, s.redeem_hex,
-            s.deploy_tx_id, s.kind_base, s.oracle_sig_hex, s.member_pubkeys_json,
-            s.winner_is_a as i64, s.winner_xonly_hex, s.committed_txid, s.committed_index,
-            s.committed_amount as i64, s.committed_p2sh_hex, s.p2sh_address, s.created_at,
+            s.session_id,
+            s.network,
+            s.unsigned_tx_json,
+            s.entry_json,
+            s.redeem_hex,
+            s.deploy_tx_id,
+            s.kind_base,
+            s.oracle_sig_hex,
+            s.member_pubkeys_json,
+            s.winner_is_a as i64,
+            s.winner_xonly_hex,
+            s.committed_txid,
+            s.committed_index,
+            s.committed_amount as i64,
+            s.committed_p2sh_hex,
+            s.p2sh_address,
+            s.created_at,
         ],
     )?;
     Ok(())
@@ -1934,7 +1965,10 @@ pub fn insert_oracle_payout_session(db: &Db, s: &PersistedOraclePayout) -> anyho
 /// Load a persisted oracle-payout session by id (used at submit after a restart drops the
 /// in-memory map). Returns Ok(None) when the row is absent. Err only on a real DB error, so the
 /// caller can distinguish unknown-session (refuse) from DB-down (refuse, fail closed).
-pub fn get_oracle_payout_session(db: &Db, session_id: &str) -> anyhow::Result<Option<PersistedOraclePayout>> {
+pub fn get_oracle_payout_session(
+    db: &Db,
+    session_id: &str,
+) -> anyhow::Result<Option<PersistedOraclePayout>> {
     let conn = db.lock().unwrap();
     let row = conn.query_row(
         "SELECT session_id, network, unsigned_tx_json, entry_json, redeem_hex, deploy_tx_id,
@@ -2021,10 +2055,19 @@ pub struct BundleMarket {
 #[allow(clippy::too_many_arguments)]
 pub fn insert_bundle_market(
     db: &Db,
-    market_id: &str, network: &str, question: &str, outcome_a: &str, outcome_b: &str,
-    h_a: &str, h_b: &str, secret_a: &str, secret_b: &str,
-    kickoff_utc: Option<&str>, source_url: Option<&str>,
-    fee_bps: i64, rebate_bps: i64,
+    market_id: &str,
+    network: &str,
+    question: &str,
+    outcome_a: &str,
+    outcome_b: &str,
+    h_a: &str,
+    h_b: &str,
+    secret_a: &str,
+    secret_b: &str,
+    kickoff_utc: Option<&str>,
+    source_url: Option<&str>,
+    fee_bps: i64,
+    rebate_bps: i64,
 ) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
@@ -2039,7 +2082,11 @@ pub fn insert_bundle_market(
 /// Bind a market to its on-chain creator address. Called immediately after
 /// insert_bundle_market so the creator can be authorised for privileged market
 /// actions (e.g. resolution) without changing insert_bundle_market's signature.
-pub fn set_bundle_market_creator(db: &Db, market_id: &str, creator: &str) -> rusqlite::Result<usize> {
+pub fn set_bundle_market_creator(
+    db: &Db,
+    market_id: &str,
+    creator: &str,
+) -> rusqlite::Result<usize> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE bundle_markets SET creator_address = ?2 WHERE market_id = ?1",
@@ -2075,9 +2122,22 @@ pub fn get_bundle_market(db: &Db, market_id: &str) -> Option<BundleMarket> {
 
 fn row_to_market(r: &rusqlite::Row) -> rusqlite::Result<BundleMarket> {
     Ok(BundleMarket {
-        market_id: r.get(0)?, network: r.get(1)?, question: r.get(2)?, outcome_a: r.get(3)?, outcome_b: r.get(4)?,
-        h_a: r.get(5)?, h_b: r.get(6)?, secret_a: r.get(7)?, secret_b: r.get(8)?,
-        kickoff_utc: r.get(9)?, source_url: r.get(10)?, revealed_outcome: r.get(11)?, revealed_secret: r.get(12)?, resolved_at: r.get(13)?, fee_bps: r.get(14)?, rebate_bps: r.get(15)?,
+        market_id: r.get(0)?,
+        network: r.get(1)?,
+        question: r.get(2)?,
+        outcome_a: r.get(3)?,
+        outcome_b: r.get(4)?,
+        h_a: r.get(5)?,
+        h_b: r.get(6)?,
+        secret_a: r.get(7)?,
+        secret_b: r.get(8)?,
+        kickoff_utc: r.get(9)?,
+        source_url: r.get(10)?,
+        revealed_outcome: r.get(11)?,
+        revealed_secret: r.get(12)?,
+        resolved_at: r.get(13)?,
+        fee_bps: r.get(14)?,
+        rebate_bps: r.get(15)?,
     })
 }
 
@@ -2089,12 +2149,17 @@ pub fn list_bundle_markets(db: &Db, network: Option<&str>, limit: i64) -> Vec<Bu
     if let Some(net) = network {
         let sql = format!("SELECT {MARKET_COLS} FROM bundle_markets WHERE network = ?1 ORDER BY created_at DESC LIMIT ?2");
         if let Ok(mut stmt) = conn.prepare(&sql) {
-            if let Ok(rows) = stmt.query_map(params![net, limit], row_to_market) { out.extend(rows.flatten()); }
+            if let Ok(rows) = stmt.query_map(params![net, limit], row_to_market) {
+                out.extend(rows.flatten());
+            }
         }
     } else {
-        let sql = format!("SELECT {MARKET_COLS} FROM bundle_markets ORDER BY created_at DESC LIMIT ?1");
+        let sql =
+            format!("SELECT {MARKET_COLS} FROM bundle_markets ORDER BY created_at DESC LIMIT ?1");
         if let Ok(mut stmt) = conn.prepare(&sql) {
-            if let Ok(rows) = stmt.query_map(params![limit], row_to_market) { out.extend(rows.flatten()); }
+            if let Ok(rows) = stmt.query_map(params![limit], row_to_market) {
+                out.extend(rows.flatten());
+            }
         }
     }
     out
@@ -2102,7 +2167,12 @@ pub fn list_bundle_markets(db: &Db, network: Option<&str>, limit: i64) -> Vec<Bu
 
 /// Reveal exactly ONE outcome's secret (single-secret policy: the WHERE clause only updates
 /// when the market is unresolved or already resolved to the SAME outcome).
-pub fn resolve_bundle_market(db: &Db, market_id: &str, outcome: i64, secret: &str) -> anyhow::Result<()> {
+pub fn resolve_bundle_market(
+    db: &Db,
+    market_id: &str,
+    outcome: i64,
+    secret: &str,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "UPDATE bundle_markets SET revealed_outcome = ?2, revealed_secret = ?3, resolved_at = unixepoch()
@@ -2127,14 +2197,29 @@ pub struct MarketOrder {
 
 fn row_to_order(r: &rusqlite::Row) -> rusqlite::Result<MarketOrder> {
     Ok(MarketOrder {
-        order_id: r.get(0)?, market_id: r.get(1)?, side: r.get(2)?, stake_sompi: r.get(3)?,
-        bettor_addr: r.get(4)?, bettor_pubkey: r.get(5)?, status: r.get(6)?, bundle_tx: r.get(7)?,
+        order_id: r.get(0)?,
+        market_id: r.get(1)?,
+        side: r.get(2)?,
+        stake_sompi: r.get(3)?,
+        bettor_addr: r.get(4)?,
+        bettor_pubkey: r.get(5)?,
+        status: r.get(6)?,
+        bundle_tx: r.get(7)?,
     })
 }
 
-const ORDER_COLS: &str = "order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx";
+const ORDER_COLS: &str =
+    "order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx";
 
-pub fn insert_market_order(db: &Db, order_id: &str, market_id: &str, side: i64, stake_sompi: i64, bettor_addr: &str, bettor_pubkey: &str) -> anyhow::Result<()> {
+pub fn insert_market_order(
+    db: &Db,
+    order_id: &str,
+    market_id: &str,
+    side: i64,
+    stake_sompi: i64,
+    bettor_addr: &str,
+    bettor_pubkey: &str,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO market_orders (order_id, market_id, side, stake_sompi, bettor_addr, bettor_pubkey, status, bundle_tx, created_at)
@@ -2146,7 +2231,9 @@ pub fn insert_market_order(db: &Db, order_id: &str, market_id: &str, side: i64, 
 
 pub fn list_market_orders(db: &Db, market_id: &str) -> Vec<MarketOrder> {
     let conn = db.lock().unwrap();
-    let sql = format!("SELECT {ORDER_COLS} FROM market_orders WHERE market_id = ?1 ORDER BY created_at ASC");
+    let sql = format!(
+        "SELECT {ORDER_COLS} FROM market_orders WHERE market_id = ?1 ORDER BY created_at ASC"
+    );
     let mut out = Vec::new();
     if let Ok(mut stmt) = conn.prepare(&sql) {
         if let Ok(rows) = stmt.query_map(params![market_id], row_to_order) {
@@ -2170,7 +2257,10 @@ pub fn list_open_orders_side(db: &Db, market_id: &str, side: i64) -> Vec<MarketO
 
 pub fn mark_order_funded(db: &Db, order_id: &str, bundle_tx: &str) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
-    conn.execute("UPDATE market_orders SET status='funded', bundle_tx=?2 WHERE order_id=?1", params![order_id, bundle_tx])?;
+    conn.execute(
+        "UPDATE market_orders SET status='funded', bundle_tx=?2 WHERE order_id=?1",
+        params![order_id, bundle_tx],
+    )?;
     Ok(())
 }
 
@@ -2183,7 +2273,14 @@ pub struct MarketBundle {
     pub legs_json: String,
 }
 
-pub fn insert_market_bundle(db: &Db, bundle_tx: &str, market_id: &str, a_addr: &str, b_addr: &str, legs_json: &str) -> anyhow::Result<()> {
+pub fn insert_market_bundle(
+    db: &Db,
+    bundle_tx: &str,
+    market_id: &str,
+    a_addr: &str,
+    b_addr: &str,
+    legs_json: &str,
+) -> anyhow::Result<()> {
     let conn = db.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO market_bundles (bundle_tx, market_id, a_addr, b_addr, legs_json, created_at) VALUES (?1,?2,?3,?4,?5,unixepoch())",
@@ -2251,7 +2348,10 @@ pub fn create_auth_token(
         params![token, address, network, tier, now],
     )?;
     // Clean expired tokens
-    conn.execute("DELETE FROM auth_tokens WHERE expires_at < ?1", params![now])?;
+    conn.execute(
+        "DELETE FROM auth_tokens WHERE expires_at < ?1",
+        params![now],
+    )?;
     Ok(token)
 }
 
@@ -2273,10 +2373,7 @@ pub fn validate_auth_token(
          AND used_for_deploy = 0 AND expires_at > ?4",
     )?;
     let mut rows = stmt.query_map(params![token, address, network, now], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-        ))
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
     Ok(rows.next().transpose()?.map(|(addr, tier)| (addr, tier)))
 }
@@ -2314,29 +2411,29 @@ pub fn consume_auth_token(
     )?;
 
     // Return remaining deployments
-    let remaining: i32 = conn.query_row(
-        "SELECT max_deployments - deployments_used FROM accounts
+    let remaining: i32 = conn
+        .query_row(
+            "SELECT max_deployments - deployments_used FROM accounts
          WHERE address = ?1 AND network = ?2",
-        params![address, network],
-        |r| r.get(0),
-    ).unwrap_or(0);
+            params![address, network],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     Ok(remaining.max(0))
 }
 
 /// Check if address can deploy on this network.
-pub fn can_deploy(
-    db: &Db,
-    address: &str,
-    network: &str,
-) -> anyhow::Result<bool> {
+pub fn can_deploy(db: &Db, address: &str, network: &str) -> anyhow::Result<bool> {
     let conn = db.lock().unwrap();
-    let remaining: i32 = conn.query_row(
-        "SELECT COALESCE(max_deployments, 0) - COALESCE(deployments_used, 0)
+    let remaining: i32 = conn
+        .query_row(
+            "SELECT COALESCE(max_deployments, 0) - COALESCE(deployments_used, 0)
          FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
-        params![address, network],
-        |r| r.get(0),
-    ).unwrap_or(0);
+            params![address, network],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
     Ok(remaining > 0)
 }
 
@@ -2348,11 +2445,13 @@ pub fn mixer_add_leaf(
     leaf_hash: &str,
 ) -> anyhow::Result<(i64, String)> {
     let conn = db.lock().unwrap();
-    let leaf_index: i64 = conn.query_row(
-        "SELECT COALESCE(MAX(leaf_index), -1) + 1 FROM mixer_leaves WHERE covenant_id = ?1",
-        params![covenant_id],
-        |r| r.get(0),
-    ).unwrap_or(0);
+    let leaf_index: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(leaf_index), -1) + 1 FROM mixer_leaves WHERE covenant_id = ?1",
+            params![covenant_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     conn.execute(
         "INSERT INTO mixer_leaves (covenant_id, leaf_index, leaf_hash) VALUES (?1, ?2, ?3)",
@@ -2452,8 +2551,12 @@ fn compute_mixer_root(leaves: &[String]) -> anyhow::Result<String> {
     }
 
     // Common prod locations (Hetzner /root checkout + legacy volume)
-    candidates.push(std::path::PathBuf::from("/root/Covex27/zk/privacy_mixer/lib/compute_root.js"));
-    candidates.push(std::path::PathBuf::from("/mnt/HC_Volume_105579109/Covex27/zk/privacy_mixer/lib/compute_root.js"));
+    candidates.push(std::path::PathBuf::from(
+        "/root/Covex27/zk/privacy_mixer/lib/compute_root.js",
+    ));
+    candidates.push(std::path::PathBuf::from(
+        "/mnt/HC_Volume_105579109/Covex27/zk/privacy_mixer/lib/compute_root.js",
+    ));
 
     let node = if std::path::Path::new("/usr/bin/node").exists() {
         "/usr/bin/node"
@@ -2511,7 +2614,10 @@ fn compute_mixer_root(leaves: &[String]) -> anyhow::Result<String> {
     anyhow::bail!(
         "compute_root.js failed for all candidates (last: {}). Tried: {:?}",
         last_err,
-        candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
+        candidates
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
     )
 }
 

@@ -91,8 +91,16 @@ pub fn snapshot() -> serde_json::Value {
         let fresh = s.last_ok > 0 && (now_ts - s.last_ok) < 180;
         let connected = s.connected && fresh;
         let behind = s.tip_daa.saturating_sub(s.scanned_daa);
-        let tip_age = if s.tip_changed_at > 0 { now_ts - s.tip_changed_at } else { -1 };
-        let scanned_age = if s.scanned_changed_at > 0 { now_ts - s.scanned_changed_at } else { -1 };
+        let tip_age = if s.tip_changed_at > 0 {
+            now_ts - s.tip_changed_at
+        } else {
+            -1
+        };
+        let scanned_age = if s.scanned_changed_at > 0 {
+            now_ts - s.scanned_changed_at
+        } else {
+            -1
+        };
         // Watchdog: classify a stall so the operator (and the gate-flip decision) never
         // reads green while frozen. A quiet-but-alive node still advances its tip, so a
         // long-unchanged tip is a genuine freeze, not low activity.

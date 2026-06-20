@@ -61,11 +61,14 @@ pub async fn run_payment_verifier(
                         };
 
                         // MATCH payment to covenant by from_address == creator_addr
-                        let matched_covenant =
-                            match db::get_covenants_by_creator(&db, &from_address, Some(&network)) {
-                                Ok(list) => list.into_iter().next(),
-                                Err(_) => None,
-                            };
+                        let matched_covenant = match db::get_covenants_by_creator(
+                            &db,
+                            &from_address,
+                            Some(&network),
+                        ) {
+                            Ok(list) => list.into_iter().next(),
+                            Err(_) => None,
+                        };
 
                         let covenant_id: Option<String> =
                             matched_covenant.as_ref().map(|c| c.tx_id.clone());
@@ -110,7 +113,14 @@ pub async fn run_payment_verifier(
                                         &from_address[..16], tier, amount_sompi as f64 / 100_000_000.0, confirmations);
                                     {
                                         let conn = db.lock().unwrap();
-                                        crate::db::record_event_once(&conn, "tier_upgraded", &tx_id, &network, amount_sompi as f64 / 100_000_000.0, tier);
+                                        crate::db::record_event_once(
+                                            &conn,
+                                            "tier_upgraded",
+                                            &tx_id,
+                                            &network,
+                                            amount_sompi as f64 / 100_000_000.0,
+                                            tier,
+                                        );
                                     }
 
                                     // Upgrade matched covenant record with full disclosure

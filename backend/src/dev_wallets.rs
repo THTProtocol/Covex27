@@ -124,7 +124,11 @@ pub fn dev_private_key(wallet: u8, network: &str) -> Result<String, String> {
         (2, "testnet-10") => "COVEX_DEV_WALLET_2_KEY_TN10",
         (1, _) => "COVEX_DEV_WALLET_1_KEY_TN12",
         (2, _) => "COVEX_DEV_WALLET_2_KEY_TN12",
-        _ => return Err(format!("unknown dev wallet index {wallet} (expected 1 or 2)")),
+        _ => {
+            return Err(format!(
+                "unknown dev wallet index {wallet} (expected 1 or 2)"
+            ))
+        }
     };
     match std::env::var(var) {
         Ok(v) if !v.trim().is_empty() => Ok(v.trim().trim_start_matches("0x").to_string()),

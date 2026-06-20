@@ -39,7 +39,7 @@ const SRC = {
 };
 // Per-theme blend so the DAG strokes sit INTO the page (screen on black, multiply
 // on white) rather than floating flat on top - the cohesion the brief asks for.
-const THEME_OPACITY = { dark: 0.3, light: 0.7 };
+const THEME_OPACITY = { dark: 0.3, light: 0.34 };
 const THEME_BLEND = { dark: 'screen', light: 'multiply' };
 
 let _seq = 0;
@@ -194,7 +194,7 @@ const DagBackground = () => {
         style={{
           background: isDark
             ? 'radial-gradient(circle at center, transparent 0%, #000000 80%)'
-            : 'radial-gradient(ellipse 106% 100% at 50% 38%, transparent 0%, transparent 20%, #eef2f7 62%)',
+            : 'radial-gradient(ellipse 120% 108% at 50% 34%, transparent 0%, transparent 8%, #eef2f7 46%)',
         }}
       />
     </div>

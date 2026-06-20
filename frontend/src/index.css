@@ -1150,6 +1150,28 @@ body {
 /* ── Claim/Reset buttons in light ── */
 .light .bg-emerald-500 { background: #0f766e !important; color: #fff !important; }
 
+/* ── Solid saturated buttons in light: re-force white text (Gap 3, WCAG AA).
+   The global `.light .text-white` rule darkens white to near-black, which on a
+   saturated solid fill fails contrast (~2.5-3.9:1). Re-force #fff and, where the
+   default fill is too light for white text at AA (4.5:1), deepen the fill one
+   step so the money-path claim button and game-arena controls pass AA. ── */
+.light .bg-blue-600,
+.light .bg-red-600 { color: #fff !important; }
+/* Too light for white text at AA -> deepen one step (white-on-fill >= 4.5:1).
+   Tailwind v4 renders these fills in oklch, which is lighter than the sRGB hex,
+   so pin to the sRGB hex (which carries the AA-passing contrast shown below). */
+.light .bg-blue-500 { background: #2563eb !important; color: #fff !important; }   /* 5.17:1 */
+.light .bg-emerald-600 { background: #047857 !important; color: #fff !important; } /* 5.48:1 */
+.light .bg-purple-600 { background: #9333ea !important; color: #fff !important; }  /* 5.38:1 (oklch was 4.21) */
+.light .bg-purple-500 { background: #9333ea !important; color: #fff !important; }  /* 5.38:1 */
+.light .bg-red-500 { background: #dc2626 !important; color: #fff !important; }    /* 4.83:1 */
+/* Translucent red used by the game-arena RESIGN/FOLD/STAND controls
+   (bg-red-600/90, bg-red-600/80). The /NN opacity variants are distinct classes
+   the rules above do not match, so re-force white text on them too (the fill is
+   red-dominant; white is the AA-correct foreground). ── */
+.light .bg-red-600\/90,
+.light .bg-red-600\/80 { color: #fff !important; }
+
 /* ═══════════════════════════════════════════════════════════════
    EXTRA: DAG Background - handled in DagBackground.jsx
    ═══════════════════════════════════════════════════════════════ */

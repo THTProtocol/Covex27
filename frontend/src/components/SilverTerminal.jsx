@@ -180,6 +180,13 @@ export default function SilverTerminal() {
           </div>
         </div>
 
+        {/* Pro-mode honesty: compiling here shows the genuine declared logic, but authoring your
+            OWN script is a preview today; locking real funds goes through the on-chain primitives. */}
+        <div className="flex items-start gap-2 px-4 py-2 border-b border-white/10 light:border-slate-200 bg-amber-500/[0.05] light:bg-amber-50 text-[11px] text-amber-200 light:text-amber-800">
+          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+          <span>Authoring your own script is a preview today; deploy uses the on-chain primitives below.</span>
+        </div>
+
         {/* Editor: line gutter + textarea */}
         <div className="flex max-h-[440px]">
           <pre

@@ -336,7 +336,7 @@ export default function CovenantStudio() {
     setInitialData(next);
     puckDataRef.current = next;
     setDataKey((k) => k + 1);
-    toast.success(`Added "${componentId}" block.`);
+    toast.success(`Added "${blockLabel(componentId)}" block.`);
   }, []);
 
   // Apply a designPresets palette to the Puck ROOT (accent + nearest background).

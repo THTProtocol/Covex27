@@ -115,7 +115,10 @@ function CircuitCard({ c, active, onSelect, onInspect, onExample }) {
 // honest "what happens" view; everything else shows a scaled, read-only render of
 // the covenant website the circuit lands in. Hoisted so it never remounts.
 function CircuitExampleModal({ circuit, onClose }) {
-  const isGame = circuit?.category === 'game' || circuit?.reality === 'decorative';
+  // Only genuine games get the pot / payout resolution preview. The old `|| reality ===
+  // 'decorative'` also pulled every metadata-only circuit into the game flow, which was wrong:
+  // a decorative-reality circuit is not a game and should show the page preview, not a pot split.
+  const isGame = circuit?.category === 'game';
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={`Example: ${circuit?.name || 'covenant'}`} className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0f] light:bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>

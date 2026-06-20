@@ -768,6 +768,7 @@ export const puckConfig = {
       },
     },
     Heading: {
+      label: 'Heading',
       fields: { text: { type: 'text' }, size: { type: 'select', options: [{ label: 'Large', value: 'lg' }, { label: 'Medium', value: 'md' }] } },
       defaultProps: { text: 'Section title', size: 'md' },
       render: ({ text, size, puck }) => (
@@ -775,6 +776,7 @@ export const puckConfig = {
       ),
     },
     Paragraph: {
+      label: 'Paragraph',
       fields: { text: { type: 'textarea' } },
       defaultProps: { text: 'Describe how your covenant works, who can join, and how it resolves.' },
       render: ({ text, puck }) => <p className="text-sm cvx-body leading-relaxed px-4 mb-3 whitespace-pre-wrap">{resolveTokens(text, puck?.metadata?.live || {})}</p>,
@@ -793,6 +795,7 @@ export const puckConfig = {
       },
     },
     BulletList: {
+      label: 'Bullet List',
       fields: { items: { type: 'array', arrayFields: { text: { type: 'text' } }, defaultItemProps: { text: 'A rule of this covenant' } } },
       defaultProps: { items: [{ text: 'Players stake equal amounts' }, { text: 'Winner takes the pot minus fees' }] },
       render: ({ items, puck }) => {
@@ -807,6 +810,7 @@ export const puckConfig = {
       },
     },
     FAQItem: {
+      label: 'FAQ Item',
       fields: { question: { type: 'text' }, answer: { type: 'textarea' } },
       defaultProps: { question: 'How do payouts work?', answer: 'The disclosed rules release the pot. Custody and payout are on-chain and verifiable on the explorer.' },
       render: ({ question, answer, puck }) => {
@@ -820,6 +824,7 @@ export const puckConfig = {
       },
     },
     ImageBlock: {
+      label: 'Image',
       fields: { url: imageField('Image (https or upload)'), caption: { type: 'text' }, rounded: { type: 'radio', options: [{ label: 'Rounded', value: 'yes' }, { label: 'Square', value: 'no' }] } },
       defaultProps: { url: '', caption: '', rounded: 'yes' },
       render: ({ url, caption, rounded }) => {
@@ -1220,6 +1225,7 @@ export const puckConfig = {
       ),
     },
     TwoColumns: {
+      label: 'Two Columns',
       fields: { left: { type: 'textarea' }, right: { type: 'textarea' } },
       defaultProps: { left: 'Left column text', right: 'Right column text' },
       render: ({ left, right, puck }) => {
@@ -1233,11 +1239,13 @@ export const puckConfig = {
       },
     },
     Spacer: {
+      label: 'Spacer',
       fields: { size: { type: 'select', options: [{ label: 'Small', value: 'sm' }, { label: 'Medium', value: 'md' }, { label: 'Large', value: 'lg' }] } },
       defaultProps: { size: 'md' },
       render: ({ size }) => <div className={size === 'lg' ? 'h-16' : size === 'sm' ? 'h-4' : 'h-8'} />,
     },
     Divider: {
+      label: 'Divider',
       fields: {},
       defaultProps: {},
       render: () => <hr className="cvx-divider mx-4 my-4" />,

@@ -81,7 +81,7 @@ function CopyBtn({ text }) {
 // like "lock everything"; the backend rejects an underfunded tx rather than overspending.
 const MAX_LOCK_FEE_HEADROOM_KAS = 0.001;
 
-export default function EnforcedDeploy({ embedded = false, onDeployed = null }) {
+export default function EnforcedDeploy({ embedded = false, onDeployed = null, initialKind: initialKindProp = null }) {
   const { address, isDevMode, devMode, DevConnectPanel } = useWallet();
   const net = getCurrentNetwork();
   const isMainnet = net === 'mainnet' || net === 'mainnet-1';
@@ -97,8 +97,12 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
 
   const [catalog, setCatalog] = useState([]);
   const [searchParams] = useSearchParams();
-  // Preselect a primitive from ?kind= (used by template "Use Template" links). Falls back to singlesig.
+  // Preselect a primitive. An explicit initialKind prop (passed by the embedded Sandbox
+  // handoff, which knows the real EnforcedDeploy kind id for the picked circuit) wins over
+  // the ?kind= URL param used by template "Use Template" links. Falls back to singlesig.
   const initialKind = (() => {
+    const fromProp = (initialKindProp || '').toLowerCase();
+    if (KINDS.some((x) => x.id === fromProp)) return fromProp;
     const k = (searchParams.get('kind') || '').toLowerCase();
     return KINDS.some((x) => x.id === k) ? k : 'singlesig';
   })();

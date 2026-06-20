@@ -15,6 +15,7 @@ import EnforcedDeploy from './EnforcedDeploy';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { BUILD_STEPS } from '../lib/build-steps.js';
 
 // Covenant Sandbox: a calm, premium ORCHESTRATOR. It only sequences and frames the existing
 // engine, never re-implements its logic. The flow follows the user's exact mental model in three
@@ -58,6 +59,26 @@ const REALITY = {
   },
 };
 
+// First-use jargon glossary. Plain-language definitions surfaced as native title
+// tooltips on the first mention of each term, so a newcomer never hits an
+// unexplained acronym. Kept short and honest. No em dashes.
+const JARGON = {
+  daa: "DAA = Kaspa's block-height clock, ~10 blocks/sec. Timelocks unlock at a target DAA score.",
+  p2sh: 'P2SH = pay-to-script-hash. Funds lock to the hash of the redeem script; spending must reveal a script that matches and satisfies it.',
+  oracle: 'Oracle = the disclosed Covex signer that verifies an off-chain outcome (or ZK proof) and co-signs the spend. Trust is in this named signer.',
+  redeem: 'Redeem script = the covenant logic the chain checks at spend time. The P2SH address commits to its hash.',
+};
+
+// Wraps a term in a dotted-underline span with a first-use title tooltip. Hoisted to
+// module scope so it never remounts. Renders inline; safe inside paragraphs.
+function Term({ k, children }) {
+  return (
+    <span title={JARGON[k]} className="underline decoration-dotted decoration-gray-500 light:decoration-slate-400 underline-offset-2 cursor-help">
+      {children}
+    </span>
+  );
+}
+
 // A friendly kind for the preview / simulator gating, derived from the circuit's category.
 function kindForCircuit(c) {
   if (!c) return '';
@@ -76,25 +97,43 @@ const ENFORCED_DEPLOY_KINDS = new Set([
   'oracle_escrow', 'market',
 ]);
 
+// Catalog circuit id -> the EnforcedDeploy KINDS id that actually builds it. For the 11
+// primitives the catalog id IS the kind id, so they map to themselves. The one mismatch is
+// the parimutuel market: the catalog circuit is `prediction_market` but EnforcedDeploy's
+// market builder kind is `market`. Returns null when no on-chain builder owns the circuit
+// (the long tail of ZK / oracle circuits, which deploy through the script terminal).
+const CIRCUIT_TO_ENFORCED_KIND = { prediction_market: 'market' };
+function enforcedKindFor(id) {
+  if (!id) return null;
+  const mapped = CIRCUIT_TO_ENFORCED_KIND[id] || id;
+  return ENFORCED_DEPLOY_KINDS.has(mapped) ? mapped : null;
+}
+
+// One canonical label set for the 5 build steps, sourced from BUILD_STEPS (Create /
+// Logic / Deploy / Website / Share) so the Sandbox phases, the "Your build" rail, and
+// the global BuildStepsRail never drift apart. Keyed by step number.
+const STEP_LABEL = Object.fromEntries(BUILD_STEPS.map((s) => [s.n, s.label]));
+
 // The three sandbox phases in the 5-step model. The website / page step lives in
 // /covenant/:id/studio after deploy, so it is intentionally not in this array.
-// One source of truth for ?phase= persistence and the bottom CTA.
+// One source of truth for ?phase= persistence and the bottom CTA. Labels come from
+// the canonical STEP_LABEL map.
 const PHASES = [
-  { id: 'create', n: 1, label: 'Create', Icon: Wand2 },
-  { id: 'logic', n: 2, label: 'Choose how it resolves', Icon: Cpu },
-  { id: 'deploy', n: 3, label: 'Deploy', Icon: TerminalSquare },
+  { id: 'create', n: 1, label: STEP_LABEL[1], Icon: Wand2 },
+  { id: 'logic', n: 2, label: STEP_LABEL[2], Icon: Cpu },
+  { id: 'deploy', n: 3, label: STEP_LABEL[3], Icon: TerminalSquare },
 ];
 
 // The full 5-step model shown in the "Your build" rail. Steps 1-3 map to the
 // reachable PHASES; steps 4 (Website) and 5 (Share) happen AFTER deploy, on the
 // per-covenant Studio / public page, so they render as inert (non-interactive)
-// markers. shortLabel keeps the rail compact.
+// markers. Labels come from the canonical STEP_LABEL map.
 const RAIL_STEPS = [
-  { id: 'create', n: 1, label: 'Create', Icon: Wand2, phase: 'create' },
-  { id: 'logic', n: 2, label: 'Logic', Icon: Cpu, phase: 'logic' },
-  { id: 'deploy', n: 3, label: 'Deploy', Icon: TerminalSquare, phase: 'deploy' },
-  { id: 'website', n: 4, label: 'Website', Icon: Rocket, phase: null },
-  { id: 'share', n: 5, label: 'Share', Icon: ArrowRight, phase: null },
+  { id: 'create', n: 1, label: STEP_LABEL[1], Icon: Wand2, phase: 'create' },
+  { id: 'logic', n: 2, label: STEP_LABEL[2], Icon: Cpu, phase: 'logic' },
+  { id: 'deploy', n: 3, label: STEP_LABEL[3], Icon: TerminalSquare, phase: 'deploy' },
+  { id: 'website', n: 4, label: STEP_LABEL[4], Icon: Rocket, phase: null },
+  { id: 'share', n: 5, label: STEP_LABEL[5], Icon: ArrowRight, phase: null },
 ];
 
 // Phase 1 information architecture: three intentional, equal entry points. Persisted via ?tab=
@@ -362,6 +401,9 @@ export default function Sandbox() {
   }, []);
   const kind = kindForCircuit(circuit);
   const reality = circuit ? (REALITY[circuit.reality] || REALITY['oracle-attested']) : null;
+  // The EnforcedDeploy kind id that owns this circuit's real on-chain signing, or null when
+  // the circuit deploys through the script terminal instead. Drives the Phase 3 branch + banner.
+  const deployKind = enforcedKindFor(selectedId);
 
   const select = (id) => {
     setSelectedId(id);
@@ -467,17 +509,19 @@ export default function Sandbox() {
 
   // The quiet "What is a covenant?" Learn disclosure lives in the right rail now,
   // not as a bordered box above the tabs. Reused across phases via the rail.
+  const covenantDetails = (
+    <p>
+      Covex compiles your covenant DSL into a Kaspa <Term k="redeem">redeem script</Term>. Funds lock to its{' '}
+      <Term k="p2sh">P2SH</Term> commitment. Some redeem paths are consensus-enforced by Kaspa alone;{' '}
+      <Term k="oracle">oracle</Term> paths require the disclosed Covex oracle to co-sign, which is the
+      off-chain reality for ZK and parimutuel circuits.
+    </p>
+  );
   const learnDisclosure = (
     <HowThisWorks
       title="What is a covenant?"
       summary="A program that locks Kaspa funds until rules are met."
-      details={(
-        <p>
-          Covex compiles your covenant DSL into a Kaspa redeem script. Funds lock to its P2SH commitment.
-          Some redeem paths are consensus-enforced by Kaspa alone; oracle paths require the disclosed
-          Covex oracle to co-sign, which is the off-chain reality for ZK and parimutuel circuits.
-        </p>
-      )}
+      details={covenantDetails}
     />
   );
 
@@ -534,6 +578,14 @@ export default function Sandbox() {
                 {phase === 'create' && (
                   <div className="space-y-5 min-w-0">
                     <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Create the covenant" action="Start from an idea, a template, or the full catalog." />
+                    {/* Mobile-only "What is a covenant?" definition. On lg the same text lives
+                        in the right rail (hidden lg:block), so it is duplicated here below lg
+                        rather than left invisible to phone users. */}
+                    <div className="lg:hidden rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white light:shadow-sm p-4">
+                      <div className="text-sm font-bold text-white light:text-slate-900 mb-1">What is a covenant?</div>
+                      <p className="text-[12px] text-gray-400 light:text-slate-600 mb-2">A program that locks Kaspa funds until rules are met.</p>
+                      <div className="text-[12px] text-gray-300 light:text-slate-700 leading-relaxed">{covenantDetails}</div>
+                    </div>
                     {/* Segmented tab control as a simple bottom border. role=tablist + role=tab
                         keep this keyboard + screen-reader honest. */}
                     <div data-tour="sandbox-create" role="tablist" aria-label="Create entry points" className="flex items-stretch gap-1 border-b border-white/10 light:border-slate-200">
@@ -596,7 +648,7 @@ export default function Sandbox() {
                       </div>
                       <div className="px-5 pb-4 pt-4 grid md:grid-cols-3 gap-4 text-sm">
                         <div className="md:col-span-2 min-w-0">
-                          <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">Circuit</div>
+                          <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">Circuit id</div>
                           <div className="text-white light:text-slate-900 font-mono text-xs mb-2 break-all light:bg-slate-100 light:px-2 light:py-1 light:rounded-md light:inline-block">{circuit.id}</div>
                           <p className="text-gray-300 light:text-slate-700 leading-relaxed">{circuit.description}</p>
                         </div>
@@ -604,6 +656,14 @@ export default function Sandbox() {
                           <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">What enforcement means</div>
                           <p className="text-gray-300 light:text-slate-700 text-xs leading-relaxed">{reality.note}</p>
                         </div>
+                      </div>
+                      {/* First-use jargon: hover any term for a plain-language definition. */}
+                      <div className="px-5 pb-4 -mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 light:text-slate-500">
+                        <span className="uppercase tracking-wider light:font-semibold">Key terms</span>
+                        <Term k="daa">DAA</Term>
+                        <Term k="p2sh">P2SH</Term>
+                        <Term k="oracle">Oracle</Term>
+                        <Term k="redeem">Redeem script</Term>
                       </div>
                     </Card>
                     <SandboxCircuitPreview key={circuit.id} circuit={circuit} kind={kind} />
@@ -620,20 +680,35 @@ export default function Sandbox() {
                       <ShieldCheck size={16} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
                       <div className="text-xs">
                         <div className="font-bold text-white light:text-slate-900">Your wallet signs this. Covex never holds your key.</div>
-                        <div className="text-gray-400 light:text-slate-700 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting P2SH address.</div>
+                        <div className="text-gray-400 light:text-slate-700 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting <Term k="p2sh">P2SH</Term> address.</div>
                       </div>
                     </div>
-                    {/* THE REAL BUILDER. EnforcedDeploy owns the 12 primitive kinds end to end
+                    {/* THE REAL BUILDER. EnforcedDeploy owns the on-chain primitives end to end
                         (signing, broadcast, covenant id). On a successful deploy it hands back the
                         new covenant id and we open Studio with ?fresh=1 so the page starts empty.
-                        Everything outside that set still falls back to CovexTerminal. */}
-                    {ENFORCED_DEPLOY_KINDS.has(selectedId) ? (
+                        deployKind maps the catalog circuit id to the right EnforcedDeploy kind (so
+                        prediction_market reaches the market builder, not the terminal). Everything
+                        outside that set falls back to CovexTerminal with a clear explanation. */}
+                    {deployKind ? (
                       <EnforcedDeploy
                         embedded
+                        initialKind={deployKind}
                         onDeployed={(covenantId) => navigate('/covenant/' + covenantId + '/studio?fresh=1')}
                       />
                     ) : (
-                      <CovexTerminal externalCircuit={selectedId} />
+                      <>
+                        {/* Build-flow signpost: without this, a non-primitive circuit dropped into
+                            the generic terminal with no explanation of why the guided on-chain
+                            builder was not shown. */}
+                        <div className="rounded-xl border border-amber-500/30 light:border-amber-300 bg-amber-500/[0.06] light:bg-amber-50 light:shadow-sm px-4 py-3 flex items-start gap-2.5">
+                          <Cpu size={16} className="text-amber-300 light:text-amber-700 mt-0.5 shrink-0" />
+                          <div className="text-xs">
+                            <div className="font-bold text-white light:text-slate-900">This circuit deploys through the script terminal below.</div>
+                            <div className="text-gray-400 light:text-slate-700 mt-0.5">Live on-chain signing is available for the on-chain primitives (single-key, hashlock, timelock, market, escrow).</div>
+                          </div>
+                        </div>
+                        <CovexTerminal externalCircuit={selectedId} />
+                      </>
                     )}
                     {/* Demoted post-deploy note: "design a website" is step 4 in the rail, so this is
                         a single quiet line, not a premature promo card. Points back to the Phase 1
@@ -684,25 +759,34 @@ export default function Sandbox() {
           builder owns the forward CTA, so the bar keeps only a Back affordance. */}
       {mode === 'guided' && (
         <div
-          className="lg:hidden sticky z-20 mt-6 flex items-center justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)] light:shadow-md px-5 py-3.5"
+          className="lg:hidden sticky z-20 mt-6 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)] light:shadow-md px-5 py-3.5"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
-          {phase !== 'create' ? (
-            <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">
-              <ArrowLeft size={14} /> {phase === 'deploy' ? 'Back to logic' : 'Back'}
-            </Button>
-          ) : <span />}
-          {phase !== 'deploy' && (
-            <Button
-              variant="kaspa"
-              shimmer
-              className="shrink-0 light:shadow-md"
-              disabled={!circuit}
-              onClick={goForward}
-            >
-              Continue
-              <ArrowRight size={15} className="light:drop-shadow-sm" />
-            </Button>
+          <div className="flex items-center justify-between gap-3">
+            {phase !== 'create' ? (
+              <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">
+                <ArrowLeft size={14} /> {phase === 'deploy' ? 'Back to logic' : 'Back'}
+              </Button>
+            ) : <span />}
+            {phase !== 'deploy' && (
+              <Button
+                variant="kaspa"
+                shimmer
+                className="shrink-0 light:shadow-md"
+                disabled={!circuit}
+                onClick={goForward}
+              >
+                Continue
+                <ArrowRight size={15} className="light:drop-shadow-sm" />
+              </Button>
+            )}
+          </div>
+          {/* Adjacent reason for the disabled CTA: the button alone gives no hint why
+              it is greyed out. Shown only when Continue is visible but blocked. */}
+          {phase !== 'deploy' && !circuit && (
+            <p className="mt-2 text-[11px] text-gray-400 light:text-slate-500 text-right">
+              Pick a covenant above to continue.
+            </p>
           )}
         </div>
       )}

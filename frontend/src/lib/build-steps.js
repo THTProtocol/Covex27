@@ -7,7 +7,7 @@ export const BUILD_STEPS = [
     match: (loc) => loc.pathname === '/sandbox' && loc.search.includes('phase=logic') },
   { id: 'deploy',  n: 3, label: 'Deploy', title: 'Deploy on Kaspa',
     match: (loc) => loc.pathname === '/sandbox' && loc.search.includes('phase=deploy') },
-  { id: 'design',  n: 4, label: 'Page',   title: 'Design the website',
+  { id: 'design',  n: 4, label: 'Website', title: 'Design the website',
     match: (loc) => /^\/covenant\/[^/]+\/studio/.test(loc.pathname) },
   { id: 'share',   n: 5, label: 'Share',  title: 'Preview and share',
     match: (loc) => /^\/covenant\/[^/]+(\/|$)/.test(loc.pathname) && !/\/studio$/.test(loc.pathname) },

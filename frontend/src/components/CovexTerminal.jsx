@@ -38,6 +38,7 @@ import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import { explorerTxUrl } from '../lib/explorer';
 import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
+import { HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET } from '../lib/playableGames';
 
 // loadSnarkjs + the in-browser provers now live in lib/zk/provers.js (single source of truth,
 // shared with the public ZkClaimPanel). Imported above.
@@ -97,6 +98,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'checkers_v1', name: 'Checkers (Standard)', description: '8×8 American checkers, forced jumps, kings. Oracle-attested rules. Per-turn timer. Zero = auto-resolve. Reality: oracle-attested. Use cases: classic checkers on Kaspa.', circuit: 'checkers_v1', accent: '#A855F7', category: 'game', reality: 'oracle-attested' },
   { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: 'Full ZK: Groth16 proof per legal move (3×3, full in-circuit win/draw). MiMC7 board hash. Falls back to oracle attestation. Artifacts in zk/games/tictactoe/. Reality: full-zk. Use cases: entry-level full-zk teaching covenants.', circuit: 'tictactoe_v1', accent: '#EC4899', category: 'game', reality: 'full-zk', artifacts: true },
   { id: 'reversi_v1', name: 'Reversi / Othello', description: '8×8, capture-flip mechanics. Oracle-attested rules. Per-turn timer. Reality: oracle-attested. Use cases: flip-based Kaspa games.', circuit: 'reversi_v1', accent: '#06B6D4', category: 'game', reality: 'oracle-attested' },
+  { id: 'rps_v1', name: 'Rock Paper Scissors', description: 'Best of 3 with a commit-reveal protocol so picks stay secret until both are locked. Two-wallet arena, oracle co-signed result (not trustless), winner takes the pot minus the creator fee. Reality: oracle-attested. Use cases: quick-stake Kaspa skill/luck duels.', circuit: 'rps_v1', accent: '#F2557A', category: 'game', reality: 'oracle-attested' },
   { id: 'battleship_v1', name: 'Battleship', description: '10×10 fleet placement + salvo. VRF for ship placement fairness. Per-turn (salvo phase). Oracle-attested. Reality: hybrid. Use cases: hidden placement Kaspa battleship.', circuit: 'battleship_v1', accent: '#84CC16', category: 'game', reality: 'hybrid' },
   { id: 'battleship_placement', name: 'Battleship Ship Placement Proof', description: 'Property: prove valid non-overlapping fleet placement (VRF or committed). Reality: hybrid. Use cases: fair setup in Kaspa battleship. (vision §4.3)', circuit: 'battleship_placement', accent: '#84CC16', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'scrabble_v1', name: 'Scrabble', description: '15×15 board, dictionary validation, premium squares. Oracle word-check. Per-turn timer. Reality: oracle-attested. Use cases: word game covenants.', circuit: 'scrabble_v1', accent: '#F97316', category: 'game', reality: 'oracle-attested' },
@@ -401,6 +403,15 @@ export const ZK_CIRCUIT_TYPES = ZK_CIRCUIT_TYPES_RAW.filter((c) => {
 
 // Backward-compat alias
 export const GAME_TYPES = ZK_CIRCUIT_TYPES;
+
+// The catalog circuit ids that lead the "Create a game" view: the 8 games that
+// actually have a playable FullScreen arena (chess, poker, blackjack, checkers,
+// connect4, reversi, tictactoe, rps). Re-exported from lib/playableGames.js (the
+// single source of truth shared with the arena registry) so the headline cards can
+// never drift from what is really playable. The remaining ~47 game-category entries
+// are technical/proof variants and stay reachable behind an "Advanced game circuits"
+// expander in the gallery.
+export { HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET };
 
 // ── Template → circuit resolver ───────────────────────────────────────────────
 // The official template catalog (backend /api/marketplace/templates) ships ids like

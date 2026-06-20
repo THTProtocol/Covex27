@@ -78,8 +78,9 @@ vi.mock('../../covenant-config/ResolutionSimulator', () => ({ default: () => nul
 vi.mock('../../advanced-primitives/AdvancedPrimitivesComposer', () => ({ default: () => null }));
 vi.mock('../../multi-oracle/MultiOracleConfigurator', () => ({ default: () => null }));
 
-const { ZK_CIRCUIT_TYPES } = await import('../../../components/CovexTerminal.jsx');
+const { ZK_CIRCUIT_TYPES, HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET } = await import('../../../components/CovexTerminal.jsx');
 const circuitsModule = await import('../circuits.js');
+const playable = await import('../../playableGames.js');
 
 // The Sandbox REALITY map (pages/Sandbox.jsx) recognizes exactly these keys. Any
 // reality outside this set falls through to the oracle-attested default, which
@@ -201,5 +202,57 @@ describe('ZK_CIRCUIT_TYPES catalog honesty (pinned against the real export)', ()
       `circuit(s) claim artifacts on a non-genuine reality: ` +
         bad.map((c) => `${c.id}=${c.reality}`).join(', '),
     ).toEqual([]);
+  });
+});
+
+// ── Playable-game catalog (the "Create a game" headline set) ───────────────────
+// Pins the fix for the game-catalog gap: the 8 games with a real FullScreen arena
+// must each have a buildable catalog entry under category 'game', and the headline
+// set the gallery leads with must be exactly that playable set (no drift).
+describe('playable games: catalog entries + headline set', () => {
+  it('every playable game maps to a real category-game catalog entry', () => {
+    // PLAYABLE_GAMES is the single source of truth (arena registry + headline cards
+    // both derive from it). Each .circuit id must resolve to a buildable game entry.
+    const byId = new Map(ZK_CIRCUIT_TYPES.map((c) => [c.id, c]));
+    for (const g of playable.PLAYABLE_GAMES) {
+      const c = byId.get(g.circuit);
+      expect(c, `playable game "${g.key}" has no catalog circuit "${g.circuit}"`).toBeTruthy();
+      expect(
+        c.category,
+        `catalog circuit "${g.circuit}" (for "${g.key}") must be category 'game', got '${c.category}'`,
+      ).toBe('game');
+    }
+  });
+
+  it('rps_v1 is buildable (regression: RPS had an arena but no catalog entry)', () => {
+    const rps = ZK_CIRCUIT_TYPES.find((c) => c.id === 'rps_v1');
+    expect(rps, 'rps_v1 missing from the catalog').toBeTruthy();
+    expect(rps.category).toBe('game');
+    // The arena resolves by name/description regex /rock.?paper|\brps\b/, so the
+    // entry must name itself recognizably or the built covenant never opens the arena.
+    expect(/rock.?paper|\brps\b/i.test(`${rps.name} ${rps.description}`)).toBe(true);
+  });
+
+  it('HEADLINE_GAME_CIRCUITS equals the playable set, in order, all category game', () => {
+    expect(HEADLINE_GAME_CIRCUITS).toEqual(playable.HEADLINE_GAME_CIRCUITS);
+    expect([...HEADLINE_GAME_CIRCUIT_SET].sort()).toEqual(
+      [...playable.HEADLINE_GAME_CIRCUIT_SET].sort(),
+    );
+    expect(HEADLINE_GAME_CIRCUITS.length).toBe(8);
+    const byId = new Map(ZK_CIRCUIT_TYPES.map((c) => [c.id, c]));
+    for (const id of HEADLINE_GAME_CIRCUITS) {
+      expect(byId.get(id)?.category, `headline ${id} not category game`).toBe('game');
+    }
+  });
+
+  it('advanced game variants remain buildable (demoted, not removed)', () => {
+    // Every non-headline category-game entry stays in the catalog so it is still
+    // reachable behind the "Advanced game circuits" expander.
+    const gameEntries = ZK_CIRCUIT_TYPES.filter((c) => c.category === 'game');
+    const advanced = gameEntries.filter((c) => !HEADLINE_GAME_CIRCUIT_SET.has(c.id));
+    // There are dozens of technical/proof variants; assert the demoted set is real
+    // and that headline + advanced together cover the whole game category.
+    expect(advanced.length).toBeGreaterThan(20);
+    expect(gameEntries.length).toBe(advanced.length + HEADLINE_GAME_CIRCUITS.length);
   });
 });

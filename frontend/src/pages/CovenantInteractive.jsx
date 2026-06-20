@@ -21,9 +21,13 @@ import FullScreenCheckers from '../components/FullScreenCheckers';
 import FullScreenTicTacToe from '../components/FullScreenTicTacToe';
 import FullScreenRPS from '../components/FullScreenRPS';
 import FullScreenBlackjack from '../components/FullScreenBlackjack';
+import { assertGamesInSync } from '../lib/playableGames';
 
 // Every game covenant is playable from its detail page (not just chess). Each FullScreen* arena
 // shares the prop shape { stake, onClose, covenantId, feePercent, potReturnPercent }.
+// The keys here ARE the playable set: the catalog's headline "Create a game" cards are derived
+// from the same list in lib/playableGames.js, so the catalog can never lead with a game that has
+// no arena (or omit one that does). The dev-only guard below flags any drift.
 const GAME_REGISTRY = {
   chess: { Component: FullScreenChess, label: 'Chess', stake: 50 },
   poker: { Component: FullScreenPoker, label: 'Poker', stake: 100 },
@@ -34,6 +38,7 @@ const GAME_REGISTRY = {
   rps: { Component: FullScreenRPS, label: 'Rock Paper Scissors', stake: 25 },
   blackjack: { Component: FullScreenBlackjack, label: 'Blackjack', stake: 100 },
 };
+assertGamesInSync(Object.keys(GAME_REGISTRY), 'GAME_REGISTRY');
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
 import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock, Wallet } from 'lucide-react';

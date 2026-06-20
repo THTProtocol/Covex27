@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, ArrowUpRight, Info, Eye, X } from 'lucide-react';
 import TransparencyModal from './TransparencyModal';
 import SandboxCircuitPreview from './SandboxCircuitPreview';
+import { HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET } from '../lib/playableGames';
 
 // Lazy: the example-page preview pulls the Puck render bundle. Loading it only when
 // a visitor opens "See an example" keeps the Sandbox initial load lean.
@@ -163,6 +164,20 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
     return g;
   }, [circuits]);
 
+  // Games split: the ~8 with a real FullScreen arena (HEADLINE_GAME_CIRCUITS, the
+  // playable set) lead the section; the ~47 technical/proof variants collapse behind
+  // an "Advanced game circuits" expander. The headline cards keep their canonical
+  // playable order (not the generic full-zk sort) so the lobby reads the same way the
+  // arena does. Everything stays buildable - the advanced set is only demoted, never
+  // removed. Computed even when no game group is present (cheap; empty arrays).
+  const gameSplit = useMemo(() => {
+    const items = grouped.game || [];
+    const byId = new Map(items.map((c) => [c.id, c]));
+    const headline = HEADLINE_GAME_CIRCUITS.map((id) => byId.get(id)).filter(Boolean);
+    const advanced = items.filter((c) => !HEADLINE_GAME_CIRCUIT_SET.has(c.id));
+    return { headline, advanced };
+  }, [grouped]);
+
   const s = q.trim().toLowerCase();
   const searchResults = s ? circuits.filter((c) => `${c.name} ${c.id} ${c.description} ${c.category}`.toLowerCase().includes(s)) : null;
 
@@ -191,6 +206,68 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
           {GROUPS.map((grp) => {
             const items = grouped[grp.key];
             if (!items.length) return null;
+
+            // Games render specially: LEAD with the playable arena games (headline),
+            // then collapse the technical/proof variants behind their own expander so
+            // a visitor who clicked "Create a game" sees the real games first.
+            if (grp.key === 'game') {
+              const { headline, advanced } = gameSplit;
+              const advOpen = expanded.gameAdvanced;
+              // Fallback: if the headline set somehow resolved empty (catalog filtered
+              // to a subset that excludes them), show the full list rather than nothing.
+              const lead = headline.length ? headline : items;
+              const rest = headline.length ? advanced : [];
+              return (
+                <section key={grp.key}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-7 h-7 rounded-lg bg-kaspa-green/10 light:bg-emerald-50 border border-kaspa-green/25 light:border-emerald-200 flex items-center justify-center">
+                      <grp.icon size={14} className="text-kaspa-green light:text-emerald-700" />
+                    </span>
+                    <h3 className="text-sm font-bold text-white light:text-slate-900 tracking-tight">Playable games</h3>
+                    <span className="text-[10px] text-gray-500 light:text-slate-500 tabular-nums">{lead.length}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 light:text-slate-600 leading-snug mb-3 max-w-xl">
+                    Each of these opens a real interactive arena - pick one, set the stake, share the link, your opponent joins by matching it. Server-authoritative engine, oracle co-signed result (not trustless), winner takes the pot minus the creator fee.
+                  </p>
+                  <motion.div
+                    className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5"
+                    variants={prefersReduced ? undefined : GRID_STAGGER}
+                    initial={prefersReduced ? false : 'hidden'}
+                    animate={prefersReduced ? false : 'show'}
+                  >
+                    {lead.map((c) => (
+                      <motion.div key={c.id} variants={prefersReduced ? undefined : CARD_RISE}>
+                        <CircuitCard c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} onExample={setExampleCircuit} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                  {rest.length > 0 && (
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setExpanded((m) => ({ ...m, gameAdvanced: !advOpen }))}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-300 light:text-slate-600 hover:text-white light:hover:text-slate-900 transition-colors"
+                      >
+                        {advOpen ? 'Hide advanced game circuits' : `Advanced game circuits (${rest.length})`}
+                        <ChevronDown size={14} className={`transition-transform ${advOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {advOpen && (
+                        <>
+                          <p className="text-[11px] text-gray-500 light:text-slate-500 leading-snug mt-2 mb-3 max-w-xl">
+                            Per-game proof circuits and game variants (chess clocks, poker hand-rank proofs, board games without an arena yet, shared VRF/timer primitives). Buildable as covenants, but they do not open a playable arena.
+                          </p>
+                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                            {rest.map((c) => (
+                              <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} onExample={setExampleCircuit} />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </section>
+              );
+            }
+
             const open = expanded[grp.key];
             const visible = open ? items : items.slice(0, INITIAL);
             return (

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Zap, Gamepad2, X, Play } from 'lucide-react';
 import ChessMini from './chess/ChessMini';
 import { VERIFIED_FULL_ZK } from '../lib/zk/circuits';
+import { PLAYABLE_GAME_KEYS } from '../lib/playableGames';
 // Note: PokerMini, BlackjackMini, DiceMini etc. are intentionally not used here.
 // Covex main pages (Explorer) must remain neutral - no gambling visuals (no
 // cards, chips, or dice rendered). Non-chess board games get a NEUTRAL
@@ -10,9 +11,9 @@ import { VERIFIED_FULL_ZK } from '../lib/zk/circuits';
 
 // Games we can render a small neutral preview for. Chess has its own native
 // interactive mini; everything else falls through to the board-thumb tile.
-const KNOWN_GAMES = new Set([
-  'chess', 'poker', 'blackjack', 'checkers', 'connect4', 'reversi', 'rps', 'tictactoe',
-]);
+// Sourced from the shared playable set so it stays in lockstep with the arena
+// registry + the catalog's headline games (lib/playableGames.js).
+const KNOWN_GAMES = new Set(PLAYABLE_GAME_KEYS);
 
 // Normalize varied game_type / name spellings into our canonical KNOWN_GAMES key.
 const normalizeGameKey = (raw) => {

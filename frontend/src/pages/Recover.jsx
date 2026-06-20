@@ -41,12 +41,12 @@ const KIND_BRANCHES = {
     { value: 'refund', label: 'Heir takeover (after delay)' },
   ],
   channel: [
-    { value: 'close', label: 'Cooperative close (both keys)' },
+    { value: 'close', label: 'Cooperative close (needs BOTH player signatures)' },
     { value: 'refund', label: 'Funder refund (after timeout)' },
   ],
   binary_oracle_select: [
-    { value: 'revealA', label: 'Claim as winner A (secret revealed)' },
-    { value: 'revealB', label: 'Claim as winner B (secret revealed)' },
+    { value: 'revealA', label: 'Claim as winner A (after the oracle reveals the secret)' },
+    { value: 'revealB', label: 'Claim as winner B (after the oracle reveals the secret)' },
     { value: 'refund', label: 'Refund (after CSV delay)' },
   ],
   oracle_escrow: [
@@ -362,7 +362,9 @@ function ClaimFlow({ kit, utxos }) {
       {(kind === 'timelock' || (isRefund && (kind === 'htlc' || kind === 'channel' || kind === 'deadman'))) && (
         <LabeledInput label="Locktime (DAA / CLTV operand)" value={lockTime} onChange={setLockTime} placeholder="required for this CLTV branch" />
       )}
-      {(kind === 'rcsv' || (kind === 'binary_oracle_select' && isRefund)) && (
+      {(kind === 'rcsv'
+        || (kind === 'binary_oracle_select' && isRefund)
+        || ((kind === 'oracle_enforced_refundable' || kind === 'oracle_escrow_refundable') && isRefund)) && (
         <LabeledInput label="Sequence (CSV relative-locktime operand)" value={sequence} onChange={setSequence} placeholder="required for this CSV branch" />
       )}
 

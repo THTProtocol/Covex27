@@ -787,7 +787,13 @@ export async function buildUnsignedSpend(p) {
     || (p.kind === 'channel' && isRefundBranch)
     || (p.kind === 'deadman' && isRefundBranch); // heir / ELSE is the CLTV branch
   const needsSequence = p.kind === 'rcsv'
-    || (p.kind === 'binary_oracle_select' && isRefundBranch);
+    || (p.kind === 'binary_oracle_select' && isRefundBranch)
+    // The two *_refundable oracle kinds gate their REFUND branch with CSV on the backend
+    // (covenant_builder.rs OpCheckSequenceVerify), so the offline refund spend must carry the
+    // relative-locktime operand on its input. Without this the in-app refund was built with
+    // sequence=0 and the node rejected it as non-final, making the advertised "claim when Covex
+    // is down" refund fallback unreachable for these kinds (it only worked in the cold tool).
+    || ((p.kind === 'oracle_enforced_refundable' || p.kind === 'oracle_escrow_refundable') && isRefundBranch);
   if (needsLockTime && (p.lockTime === undefined || BigInt(p.lockTime) <= 0n)) {
     throw new Error(`buildUnsignedSpend: ${p.kind} ${p.branch || ''} requires a positive lockTime (CLTV)`);
   }

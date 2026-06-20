@@ -199,13 +199,20 @@ pub async fn run_indexer(
                             let gen_hash = script_hash.clone();
                             let gen_addr = address.clone();
                             let gen_tier = tier.clone();
-                            // Honest enforcement label from the on-chain script, so the
-                            // auto-generated UI's trust banner can't call a consensus-
-                            // enforced covenant "dangerous". (Mirrors the detail page.)
-                            let gen_reality =
-                                crate::covenant_catalog::reality_for_script(&script_hex)
-                                    .as_str()
-                                    .to_string();
+                            // Honest enforcement label, so the auto-generated UI's trust banner
+                            // can't call a consensus-enforced covenant "dangerous" NOR claim
+                            // "on-chain" for an oracle-resolved covenant. Same type-driven override
+                            // as the JSON path (covenant_summary_json) and the crawler auto-page:
+                            // prediction-market / binary_oracle_select / oracle_enforced /
+                            // oracle_escrow -> hybrid, else the raw on-chain script classification.
+                            // No disclosed circuit at index time, so the full-zk upgrade does not
+                            // apply here.
+                            let gen_reality = crate::covenant_catalog::enforcement_reality_label(
+                                &covenant_type,
+                                None,
+                                &script_hex,
+                            )
+                            .to_string();
                             tokio::spawn(async move {
                                 let params = crate::ui_generator::extract_parameters_from_script(
                                     "aa20", &gen_hash,

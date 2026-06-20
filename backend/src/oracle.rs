@@ -305,6 +305,23 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
             | "solvency_sum"
             | "set_non_membership"
             | "anon_membership_nullifier"
+            // Registry aliases that share a binding-emitting circuit's prover artifacts, so their
+            // proofs carry the SAME covenantId public input as the base circuit. Confirmed against
+            // oracle_verifier.rs (same StrictGroth16 script + prefix) and the served vkeys whose
+            // nPublic includes covenantId: merkle_dao + merkle_airdrop reuse merkle_membership
+            // (verify.js / covex_merkle, covenantId in merkle_membership.circom public list);
+            // range_collateral reuses range_proof (verify_range.js / covex_range, covenantId in
+            // range_proof.circom); timelock_abs is the catalog alias of timelock_absolute
+            // (verify_timelock.js / covex_tl, covenantId in timelock_absolute.circom). A missing
+            // binding for these is therefore a replay or a stale pre-H4 proof: hard reject, same as
+            // the base circuit. (The game/mixer hybrids tictactoe_v1 / connect4_v1 /
+            // privacy_mixer_v1 are deliberately NOT here: their served vkeys are nPublic 5/5/7 and
+            // their circom public lists omit covenantId, so a hard reject would break every
+            // legitimate hybrid proof.)
+            | "merkle_dao"
+            | "merkle_airdrop"
+            | "range_collateral"
+            | "timelock_abs"
     )
 }
 
@@ -995,6 +1012,45 @@ mod tests {
         assert!(!verify_outcome(message, &"ab".repeat(64)));
         // the pubkey is a 32-byte x-only key
         assert_eq!(oracle_xonly_pubkey_hex().len(), 64);
+    }
+
+    /// H4 defense-in-depth: registry aliases that reuse a binding-emitting circuit's prover
+    /// artifacts carry the SAME covenantId public input as the base circuit, so a missing binding
+    /// for them must be a HARD reject (cross-covenant replay / stale pre-H4 proof), not warn-and-
+    /// allow. The game/mixer hybrids legitimately omit covenantId (their served vkeys are nPublic
+    /// 5/5/7), so they must NOT be in the set or every legitimate hybrid proof would be rejected.
+    #[test]
+    fn circuit_emits_covenant_binding_covers_strict_aliases() {
+        // Base binding-emitting circuits (sanity: already covered).
+        for base in [
+            "merkle_membership",
+            "range_proof",
+            "timelock_absolute",
+            "escrow_2party",
+        ] {
+            assert!(
+                circuit_emits_covenant_binding(base),
+                "base circuit {base} must emit the covenant binding"
+            );
+        }
+        // Aliases that share a binding-emitting circuit's verify script + zkey prefix, so their
+        // proofs carry covenantId too: a missing binding is a hard reject for these.
+        for alias in ["merkle_dao", "merkle_airdrop", "range_collateral", "timelock_abs"] {
+            assert!(
+                circuit_emits_covenant_binding(alias),
+                "alias {alias} reuses a binding-emitting circuit's artifacts and must hard-close"
+            );
+        }
+        // Hybrids whose served artifacts genuinely omit covenantId: must stay warn-and-allow
+        // (env-gated), never hard-rejected for lacking a binding they never emit.
+        for hybrid in ["tictactoe_v1", "connect4_v1", "privacy_mixer_v1"] {
+            assert!(
+                !circuit_emits_covenant_binding(hybrid),
+                "hybrid {hybrid} omits covenantId in its served vkey and must NOT be hard-rejected"
+            );
+        }
+        // A circuit with no binding at all stays out of the set.
+        assert!(!circuit_emits_covenant_binding("some_legacy_attested_circuit"));
     }
 
     /// Test that verify_merkle_proof with a real valid proof returns Ok(true).

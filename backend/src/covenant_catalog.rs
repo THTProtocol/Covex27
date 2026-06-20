@@ -120,6 +120,38 @@ pub fn zk_reality_for_circuit(circuit_id: &str) -> Option<EnforcementReality> {
     None
 }
 
+/// The HONEST enforcement-reality string for a covenant, applying the type-driven override
+/// BEFORE falling back to the raw script. This is the single source of truth shared by the JSON
+/// boundary (covenant_summary_json) and the crawler's auto-generated static page, so a crawled
+/// oracle covenant's banner can never claim "on-chain" while it actually requires the Covex oracle
+/// co-signature to release funds.
+///
+/// Order mirrors the JSON path exactly:
+///   1. prediction-market / binary_oracle_select / oracle_enforced / oracle_escrow (and their
+///      _refundable variants via contains()) deploy as the exact 35-byte aa20<hash>87 P2SH, so
+///      reality_for_script() alone would flatten them to "on-chain". They are Hybrid: custody is
+///      on-chain but WHICH branch releases is set by the disclosed oracle's reveal/co-signature.
+///   2. else, if a disclosed circuit id is a verified full-zk circuit, upgrade to "full-zk"
+///      (oracle-verified OFF-CHAIN; never chain-enforced - no proof->hashlock binding exists).
+///   3. else, fall back to the raw on-chain script classification.
+pub fn enforcement_reality_label(
+    covenant_type: &str,
+    circuit_id: Option<&str>,
+    script_hex: &str,
+) -> &'static str {
+    if covenant_type == "prediction-market"
+        || covenant_type.contains("binary_oracle_select")
+        || covenant_type.contains("oracle_enforced")
+        || covenant_type.contains("oracle_escrow")
+    {
+        return EnforcementReality::Hybrid.as_str();
+    }
+    if let Some(r) = zk_reality_for_circuit(circuit_id.unwrap_or("")) {
+        return r.as_str();
+    }
+    reality_for_script(script_hex).as_str()
+}
+
 /// True iff `script_hex` is EXACTLY the Kaspa P2SH structure: OpBlake2b (0xaa) +
 /// 32-byte push (0x20) + 32-byte hash + OpEqual (0x87), i.e. 35 bytes. This is the
 /// only pattern we trust to mean "the chain enforces a script", because it is exact
@@ -387,6 +419,49 @@ mod tests {
             .reality;
         assert_eq!(catalog_reality, EnforcementReality::Hybrid);
         assert_eq!(live_label, catalog_reality.as_str());
+    }
+
+    /// enforcement_reality_label is the single source of truth shared by the JSON boundary AND
+    /// the crawler's auto-generated static page. An oracle-resolved covenant whose stored script
+    /// is the exact 35-byte aa20<hash>87 P2SH must read "hybrid" through this helper, NEVER
+    /// "on-chain": custody is on-chain but the Covex oracle co-signature releases the funds. This
+    /// is exactly the banner the crawler page must show.
+    #[test]
+    fn enforcement_reality_label_overrides_oracle_types_to_hybrid() {
+        let hash = "44".repeat(32);
+        let p2sh = format!("aa20{hash}87");
+        // Control: script alone is on-chain.
+        assert_eq!(reality_for_script(&p2sh), EnforcementReality::OnChain);
+
+        // All four oracle-resolved kinds (and their _refundable variants) override to hybrid.
+        for ctype in [
+            "prediction-market",
+            "p2sh-binary_oracle_select",
+            "oracle_enforced",
+            "oracle_enforced_refundable",
+            "oracle_escrow",
+            "oracle_escrow_refundable",
+        ] {
+            assert_eq!(
+                enforcement_reality_label(ctype, None, &p2sh),
+                "hybrid",
+                "{ctype} must read hybrid, not on-chain, through the shared label helper"
+            );
+        }
+
+        // A plain script-only covenant still reads on-chain (no over-claiming hybrid).
+        assert_eq!(
+            enforcement_reality_label("hashlock", None, &p2sh),
+            "on-chain"
+        );
+
+        // A disclosed verified full-zk circuit upgrades to full-zk (JSON path only; the crawler
+        // passes None so it never reaches this branch).
+        let zk_circuit = VERIFIED_FULL_ZK_CIRCUITS[0];
+        assert_eq!(
+            enforcement_reality_label("zk_covenant", Some(zk_circuit), &p2sh),
+            "full-zk"
+        );
     }
 
     #[test]

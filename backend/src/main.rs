@@ -1051,24 +1051,14 @@ fn covenant_summary_json(
         // wire label tells the truth. contains() folds in the _refundable variants
         // (oracle_enforced -> oracle_enforced_refundable, oracle_escrow ->
         // oracle_escrow_refundable).
-        "enforcement_reality": if c.covenant_type == "prediction-market"
-            || c.covenant_type.contains("binary_oracle_select")
-            || c.covenant_type.contains("oracle_enforced")
-            || c.covenant_type.contains("oracle_escrow")
-        {
-            "hybrid"
-        } else {
-            let circuit = ui_config
+        "enforcement_reality": covenant_catalog::enforcement_reality_label(
+            &c.covenant_type,
+            ui_config
                 .as_object()
                 .and_then(|o| o.get("circuit"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if let Some(r) = covenant_catalog::zk_reality_for_circuit(circuit) {
-                r.as_str()
-            } else {
-                covenant_catalog::reality_for_script(&c.script_hex).as_str()
-            }
-        },
+                .and_then(|v| v.as_str()),
+            &c.script_hex,
+        ),
     })
 }
 

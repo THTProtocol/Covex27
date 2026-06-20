@@ -437,13 +437,20 @@ pub async fn run_crawler(
                             tier,
                             &stored_script[..40.min(stored_script.len())]
                         );
-                        // Honest enforcement label from the on-chain script, so the
-                        // auto-generated UI's trust banner can't call a consensus-
-                        // enforced covenant "dangerous". (Mirrors the detail page.)
-                        let greality =
-                            crate::covenant_catalog::reality_for_script(&covenant_script)
-                                .as_str()
-                                .to_string();
+                        // Honest enforcement label, so the auto-generated UI's trust banner can't
+                        // call a consensus-enforced covenant "dangerous" NOR claim "on-chain" for
+                        // an oracle-resolved covenant. Uses the SAME type-driven override as the
+                        // JSON path (covenant_summary_json): prediction-market / binary_oracle_select
+                        // / oracle_enforced / oracle_escrow -> hybrid (custody is on-chain but the
+                        // Covex oracle co-signature releases the funds), else the raw on-chain
+                        // script classification. No disclosed circuit exists at crawl time, so the
+                        // full-zk upgrade (which keys on a disclosed circuit id) does not apply here.
+                        let greality = crate::covenant_catalog::enforcement_reality_label(
+                            &ctype,
+                            None,
+                            &covenant_script,
+                        )
+                        .to_string();
                         let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
                             db.clone(),
                             tid.clone(),

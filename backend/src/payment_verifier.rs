@@ -169,13 +169,22 @@ pub async fn run_payment_verifier(
                                                 .as_ref()
                                                 .map(|c| c.script_hash.clone())
                                                 .unwrap_or_default();
+                                            // Honest enforcement label with the same type-driven
+                                            // override as the JSON path (covenant_summary_json) and
+                                            // the crawler/indexer auto-pages, so an oracle-resolved
+                                            // covenant's regenerated banner never claims "on-chain"
+                                            // while it actually needs the Covex oracle co-signature:
+                                            // prediction-market / binary_oracle_select /
+                                            // oracle_enforced / oracle_escrow -> hybrid, else the raw
+                                            // on-chain script classification.
                                             let gen_reality = matched_covenant
                                                 .as_ref()
                                                 .map(|c| {
-                                                    crate::covenant_catalog::reality_for_script(
+                                                    crate::covenant_catalog::enforcement_reality_label(
+                                                        &c.covenant_type,
+                                                        None,
                                                         &c.script_hex,
                                                     )
-                                                    .as_str()
                                                     .to_string()
                                                 })
                                                 .unwrap_or_default();

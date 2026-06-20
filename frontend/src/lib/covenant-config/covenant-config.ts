@@ -59,7 +59,7 @@ export const OracleConfigSchema = z.object({
 
 export const PayoutModelSchema = z.object({
   type: PayoutModelType,
-  feeBasisPoints: z.number().int().min(0).max(1000),
+  feeBasisPoints: z.number().int().min(0).max(10000), // 0 to 100% (10000 bps), no sub-100 cap
   platformShare: z.number().int().min(0).max(10000).optional(),
   creatorShare: z.number().int().min(0).max(10000).optional(),
 });

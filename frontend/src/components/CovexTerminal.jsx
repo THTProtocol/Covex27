@@ -876,7 +876,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     selectedCircuits: ['chess_v1'],
     resolutionMode: 'hybrid',
     minStake: 10,
-    maxStake: 1000,
+    maxStake: 0, // 0 = no maximum stake (any amount allowed)
     timeoutMinutes: 10,
     refundIfNoMatch: true,
   });
@@ -1116,6 +1116,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     const creatorCut = 0;
     const totalFee = fee + creatorCut;
     const winnerShare = Math.max(0, 100 - totalFee);
+    const hasMaxStake = Number(cfg.maxStake) > 0;
     const circuits = cfg.selectedCircuits.length ? cfg.selectedCircuits : ['chess_v1'];
     const circuitList = circuits.map(id => {
       const c = ZK_CIRCUIT_TYPES.find(x => x.id === id);
@@ -1125,22 +1126,22 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 ;; Fee: ${fee}% | Winner share: ${winnerShare}%
 ;; Circuits: ${circuitList}
 ;; Resolution: ${cfg.resolutionMode}
-;; Stake: ${cfg.minStake}-${cfg.maxStake} KAS | Timeout: ${cfg.timeoutMinutes} min
+;; Stake: min ${cfg.minStake} KAS, ${hasMaxStake ? `max ${cfg.maxStake} KAS` : 'no maximum'} | Timeout: ${cfg.timeoutMinutes} min
 ;; Refund if unmatched: ${cfg.refundIfNoMatch}
 
 contract VisualCovenant {
     state {
         owner: Address,
         treasury: Address,
-        minStake: u64,
-        maxStake: u64,
+        minStake: u64,${hasMaxStake ? `
+        maxStake: u64,` : ''}
         timeoutSec: u64,
         resolved: bool,
     }
 
     entrypoint function join(stake: u64) {
-        require(stake >= state.minStake && stake <= state.maxStake);
-        // match logic
+        require(stake >= state.minStake${hasMaxStake ? ' && stake <= state.maxStake' : ''});
+        // match logic${hasMaxStake ? '' : ' (any stake at or above minStake is accepted, no maximum)'}
     }
 
     entrypoint function resolve(outcome: String, proof: Bytes) {
@@ -2599,7 +2600,8 @@ ${gameMeta.outcomeBranches}
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-1 text-gray-300 light:text-slate-600"><span>Platform Fee</span><span className="font-mono text-[#49EACB]">{visualConfig.feePercent}%</span></div>
-                <input type="range" min="0" max="10" step="0.5" value={visualConfig.feePercent} onChange={e => updateVisual({ feePercent: parseFloat(e.target.value) })} className="w-full" style={{ '--range-pct': `${(visualConfig.feePercent / 10) * 100}%` }} />
+                <input type="range" min="0" max="100" step="0.5" value={visualConfig.feePercent} onChange={e => updateVisual({ feePercent: parseFloat(e.target.value) })} className="w-full" style={{ '--range-pct': `${visualConfig.feePercent}%` }} />
+                <div className="text-[9px] text-gray-500 light:text-slate-500 mt-1">Set anything from 0 to 100%. No cap.</div>
               </div>
             </div>
 
@@ -2661,16 +2663,21 @@ ${gameMeta.outcomeBranches}
               <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2 light:text-slate-700">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> MATCHMAKING
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <div className="text-[10px] text-gray-300 mb-1 light:text-slate-600">Min Stake (KAS)</div>
-                  <input type="number" value={visualConfig.minStake} onChange={e => updateVisual({ minStake: parseInt(e.target.value) || 10 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm light:bg-white light:border-slate-300 light:text-slate-900" />
+                  <input type="number" min="0" value={visualConfig.minStake} onChange={e => updateVisual({ minStake: Math.max(0, parseInt(e.target.value) || 0) })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm light:bg-white light:border-slate-300 light:text-slate-900" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-gray-300 mb-1 light:text-slate-600">Max Stake (KAS)</div>
+                  <input type="number" min="0" value={visualConfig.maxStake || ''} placeholder="no max" onChange={e => updateVisual({ maxStake: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0) })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm light:bg-white light:border-slate-300 light:text-slate-900" />
                 </div>
                 <div>
                   <div className="text-[10px] text-gray-300 mb-1 light:text-slate-600">Timeout (min)</div>
                   <input type="number" value={visualConfig.timeoutMinutes} onChange={e => updateVisual({ timeoutMinutes: parseInt(e.target.value) || 5 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm light:bg-white light:border-slate-300 light:text-slate-900" />
                 </div>
               </div>
+              <div className="text-[9px] text-gray-500 light:text-slate-500 mt-1.5">Leave Max Stake blank for no maximum. Any amount is allowed.</div>
               <label className="mt-3 flex items-center gap-2 text-xs text-gray-300 cursor-pointer light:text-slate-600">
                 <input type="checkbox" checked={visualConfig.refundIfNoMatch} onChange={e => updateVisual({ refundIfNoMatch: e.target.checked })} className="accent-[#49EACB]" /> Auto-refund if no match
               </label>
@@ -3888,22 +3895,22 @@ ${gameMeta.outcomeBranches}
             />
           </div>
 
-          {/* Fee Slider */}
+          {/* Fee Slider - full 0 to 100% range, no cap */}
           <SliderField
             label="Platform Fee"
             value={feePercent}
             min={0}
-            max={5}
+            max={100}
             step={0.1}
             onChange={setFeePercent}
           />
 
-          {/* Pot Return % Slider */}
+          {/* Pot Return % Slider - full 0 to 100% range, no cap */}
           <SliderField
             label="% Returned to Covenant Pot"
             value={potReturnPercent}
             min={0}
-            max={10}
+            max={100}
             step={0.5}
             onChange={setPotReturnPercent}
           />

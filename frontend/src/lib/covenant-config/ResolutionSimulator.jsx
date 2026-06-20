@@ -153,8 +153,8 @@ function PotView({ initFee, initPotReturn, loStake, hiStake, players, perSideSta
     const seed = perSideStake ?? Math.min(hiStake, Math.max(loStake, 100));
     return Math.min(hiStake, Math.max(loStake, seed));
   });
-  const [fee, setFee] = useState(Math.min(5, Math.max(0, initFee)));
-  const [potReturn, setPotReturn] = useState(Math.min(10, Math.max(0, initPotReturn)));
+  const [fee, setFee] = useState(Math.min(100, Math.max(0, initFee)));
+  const [potReturn, setPotReturn] = useState(Math.min(100, Math.max(0, initPotReturn)));
   const [nPlayers, setNPlayers] = useState(Math.min(8, Math.max(2, players ?? 2)));
   const [winProb, setWinProb] = useState(50);
   const [outcome, setOutcome] = useState('win');
@@ -288,8 +288,8 @@ function PotView({ initFee, initPotReturn, loStake, hiStake, players, perSideSta
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
         <Slider label="Stake per player" value={stake} set={setStake} min={loStake} max={hiStake} step={Math.max(0.5, (hiStake - loStake) / 200)} fmt={(v) => `${KAS(v)} KAS`} />
         <Slider label="Players" value={nPlayers} set={setNPlayers} min={2} max={8} step={1} fmt={(v) => `${v}`} />
-        <Slider label="Creator fee (display)" value={fee} set={setFee} min={0} max={5} step={0.1} fmt={(v) => `${v}%`} accent="#E8AF34" />
-        <Slider label="Pot return (display)" value={potReturn} set={setPotReturn} min={0} max={10} step={0.5} fmt={(v) => `${v}%`} accent="#E8AF34" />
+        <Slider label="Creator fee (display)" value={fee} set={setFee} min={0} max={100} step={0.1} fmt={(v) => `${v}%`} accent="#E8AF34" />
+        <Slider label="Pot return (display)" value={potReturn} set={setPotReturn} min={0} max={100} step={0.5} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <div className="sm:col-span-2"><Slider label="Your assumed win-rate (p)" value={winProb} set={setWinProb} min={0} max={100} step={1} fmt={(v) => `${v}%`} /></div>
       </div>
       <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
@@ -303,7 +303,7 @@ function PotView({ initFee, initPotReturn, loStake, hiStake, players, perSideSta
 function ParimutuelView({ initFee, loStake, hiStake }) {
   const [poolYes, setPoolYes] = useState(Math.min(hiStake, 120));
   const [poolNo, setPoolNo] = useState(Math.min(hiStake, 240));
-  const [fee, setFee] = useState(Math.min(60, Math.max(0, initFee > 5 ? initFee : 30)));
+  const [fee, setFee] = useState(Math.min(99, Math.max(0, initFee > 5 ? initFee : 30)));
   const [rebate, setRebate] = useState(50);
   const [bet, setBet] = useState(Math.min(hiStake, 10));
   const [side, setSide] = useState('yes');
@@ -361,7 +361,7 @@ function ParimutuelView({ initFee, loStake, hiStake }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
         <Slider label="YES pool" value={poolYes} set={setPoolYes} min={0} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} />
         <Slider label="NO pool" value={poolNo} set={setPoolNo} min={0} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} accent="#F472B6" />
-        <Slider label="House fee" value={fee} set={setFee} min={0} max={60} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
+        <Slider label="House fee" value={fee} set={setFee} min={0} max={99} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <Slider label="Loser rebate" value={rebate} set={setRebate} min={0} max={Math.max(0, 99 - fee)} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <div className="sm:col-span-2"><Slider label="Your bet" value={bet} set={setBet} min={1} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} /></div>
       </div>
@@ -437,7 +437,9 @@ export default function ResolutionSimulator({ config, circuitType, circuitCatego
   const initFee = feePercent ?? (cfgFee != null ? cfgFee / 100 : 2);
   const initPotReturn = potReturnPercent ?? 2;
   const loStake = Math.max(0.0001, minStake ?? 10);
-  const hiStake = Math.max(loStake + 1, maxStake ?? 1000);
+  // maxStake of 0 / null / undefined means "no maximum" - the builder imposes no cap.
+  // Use a generous display range for the simulator sliders (the real covenant has no upper bound).
+  const hiStake = Math.max(loStake + 1, (maxStake && maxStake > 0) ? maxStake : Math.max(1000, loStake * 100));
 
   const archetype = useMemo(() => archetypeFor(circuit, payoutType, category), [circuit, payoutType, category]);
   const meta = ARCH_META[archetype] || ARCH_META.pot;

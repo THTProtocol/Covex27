@@ -328,17 +328,17 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
   const lockOpen = myRevealPhase || phase >= 2 || !!result;
 
   return (
-    <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #1a1408 0%, #050505 70%)' }}>
-      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur shrink-0">
-        <div className="font-bold tracking-wider text-[#49EACB] truncate text-[11px] sm:text-sm">
+    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+      <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 light:bg-white/80 backdrop-blur shrink-0">
+        <div className="font-bold tracking-wider text-[#49EACB] light:text-[#0d9488] truncate text-[11px] sm:text-sm">
           <span className="sm:hidden">RPS · BO3</span>
           <span className="hidden sm:inline">ROCK PAPER SCISSORS · BEST OF 3 · COMMIT-REVEAL</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{totalPot} KAS · {potReturnPercent}% POT</div>
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300 whitespace-nowrap">{totalPot} KAS · {potReturnPercent}% POT</div>
           <button
             onClick={onClose}
-            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 text-xs font-bold"
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold"
             aria-label="Exit RPS arena"
           >EXIT</button>
         </div>
@@ -346,7 +346,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4 relative">
         {status !== 'active' && !result && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm px-4">
+          <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm px-4">
             {(status === 'none' || (status === 'waiting' && !myColor)) ? (
               <>
                 <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You play X. Your opponent joins as O." />
@@ -365,21 +365,21 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         {/* ── Premium scoreboard with best-of-3 progress pips ── */}
         <div className="flex items-center gap-6 sm:gap-10 text-center">
           <div className={`flex flex-col items-center ${myColor === 'white' ? 'rps-seat-me' : ''}`}>
-            <div className="text-[11px] font-bold tracking-wider text-gray-300">X {myColor === 'white' && <span className="text-[#49EACB]">(you)</span>}</div>
-            <div className="text-[9px] font-mono text-gray-500">{seat(game?.player1)}</div>
-            <div className="text-3xl font-black font-mono tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace", textShadow: '0 0 18px rgba(73,234,203,0.25)' }}>{score.p1}</div>
+            <div className="text-[11px] font-bold tracking-wider text-gray-300 light:text-slate-600">X {myColor === 'white' && <span className="text-[#49EACB] light:text-[#0d9488]">(you)</span>}</div>
+            <div className="text-[9px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player1)}</div>
+            <div className="text-3xl font-black font-mono tabular-nums text-white light:text-slate-800" style={{ fontFamily: "'JetBrains Mono', monospace", textShadow: '0 0 18px rgba(73,234,203,0.25)' }}>{score.p1}</div>
             <div className="flex gap-1.5 mt-1.5">
               {pipRow(score.p1).map((s, i) => <span key={i} className={`rps-pip rps-pip-x rps-pip-${s}`} />)}
             </div>
           </div>
           <div className="flex flex-col items-center gap-1 pt-1">
-            <div className="text-[#49EACB] text-[10px] tracking-[4px] font-bold">ROUND</div>
-            <div className="font-mono text-lg font-black text-white" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{Math.min(roundIndex + 1, 3)}<span className="text-gray-600">/3</span></div>
+            <div className="text-[#49EACB] light:text-[#0d9488] text-[10px] tracking-[4px] font-bold">ROUND</div>
+            <div className="font-mono text-lg font-black text-white light:text-slate-800" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{Math.min(roundIndex + 1, 3)}<span className="text-gray-600 light:text-slate-400">/3</span></div>
           </div>
           <div className={`flex flex-col items-center ${myColor === 'black' ? 'rps-seat-me' : ''}`}>
-            <div className="text-[11px] font-bold tracking-wider text-gray-300">O {myColor === 'black' && <span className="text-[#49EACB]">(you)</span>}</div>
-            <div className="text-[9px] font-mono text-gray-500">{seat(game?.player2)}</div>
-            <div className="text-3xl font-black font-mono tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace", textShadow: '0 0 18px rgba(232,175,52,0.25)' }}>{score.p2}</div>
+            <div className="text-[11px] font-bold tracking-wider text-gray-300 light:text-slate-600">O {myColor === 'black' && <span className="text-[#49EACB] light:text-[#0d9488]">(you)</span>}</div>
+            <div className="text-[9px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player2)}</div>
+            <div className="text-3xl font-black font-mono tabular-nums text-white light:text-slate-800" style={{ fontFamily: "'JetBrains Mono', monospace", textShadow: '0 0 18px rgba(232,175,52,0.25)' }}>{score.p2}</div>
             <div className="flex gap-1.5 mt-1.5">
               {pipRow(score.p2).map((s, i) => <span key={i} className={`rps-pip rps-pip-o rps-pip-${s}`} />)}
             </div>
@@ -395,7 +395,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
                 <div className={`rps-hand-tile ${showdown.myOutcome === 'win' ? 'rps-hand-win' : ''}`} style={{ '--rps-accent': ACCENTS[showdown.mine] }}>
                   <RpsIcon choice={showdown.mine} size={64} />
                 </div>
-                <div className="text-[10px] font-bold tracking-widest mt-1.5 text-gray-300">{myColor ? 'YOU' : 'X'}</div>
+                <div className="text-[10px] font-bold tracking-widest mt-1.5 text-gray-300 light:text-slate-600">{myColor ? 'YOU' : 'X'}</div>
               </div>
               {/* VS divider */}
               <div className="flex flex-col items-center">
@@ -406,13 +406,13 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
                 <div className={`rps-hand-tile ${showdown.myOutcome === 'loss' ? 'rps-hand-win' : ''}`} style={{ '--rps-accent': ACCENTS[showdown.opp] }}>
                   <RpsIcon choice={showdown.opp} size={64} />
                 </div>
-                <div className="text-[10px] font-bold tracking-widest mt-1.5 text-gray-300">{myColor ? 'OPPONENT' : 'O'}</div>
+                <div className="text-[10px] font-bold tracking-widest mt-1.5 text-gray-300 light:text-slate-600">{myColor ? 'OPPONENT' : 'O'}</div>
               </div>
             </div>
           ) : countingIn ? (
             <div className="flex flex-col items-center gap-1">
               <div className="rps-countin font-black" style={{ fontFamily: "'JetBrains Mono', monospace" }}>3 · 2 · 1</div>
-              <div className="text-[10px] text-gray-500 tracking-widest">LOCKING IN</div>
+              <div className="text-[10px] text-gray-500 light:text-slate-500 tracking-widest">LOCKING IN</div>
             </div>
           ) : (
             <div className="flex items-center justify-center gap-5 opacity-60">
@@ -425,7 +425,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
           )}
         </div>
 
-        <div className="text-sm text-gray-300 text-center max-w-sm tracking-wide">{phaseText}</div>
+        <div className="text-sm text-gray-300 light:text-slate-600 text-center max-w-sm tracking-wide">{phaseText}</div>
 
         {/* ── Premium glass choice tiles with idle float + LOCKED padlock badge ── */}
         <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
@@ -440,7 +440,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
                 style={{ '--rps-accent': ACCENTS[c], animationDelay: `${i * 0.22}s` }}
               >
                 <span className="rps-tile-icon"><RpsIcon choice={c} size={52} /></span>
-                <span className="text-xs font-bold uppercase tracking-[2px] text-gray-200">{LABELS[c]}</span>
+                <span className="text-xs font-bold uppercase tracking-[2px] text-gray-200 light:text-slate-700">{LABELS[c]}</span>
                 {/* padlock fairness badge: closed while committed/hidden, snaps open on reveal */}
                 <span className={`rps-lock ${lockOpen ? 'rps-lock-open' : 'rps-lock-closed'}`}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -457,18 +457,18 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         </div>
 
         {lastRound && lastRound.r1 && lastRound.r2 && (
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-gray-400 light:text-slate-600">
             Round {rounds.length}: {lastRound.r1.split(':')[0]} vs {lastRound.r2.split(':')[0]} → {(() => { const w = roundWinner(lastRound, lastV); return w === 'draw' ? 'draw' : w === 'p1' ? 'X' : 'O'; })()}
           </div>
         )}
         {score.cheats.map((c, i) => (
-          <div key={i} className="text-[10px] text-amber-300">Round {c.round}: {c.by}'s reveal did not match their commit - round forfeited to the other side.</div>
+          <div key={i} className="text-[10px] text-amber-300 light:text-amber-600">Round {c.round}: {c.by}'s reveal did not match their commit - round forfeited to the other side.</div>
         ))}
         {lostData && !result && (
-          <div className="text-[10px] text-amber-300 max-w-xs text-center">Your pick data for this round is not on this device (different browser or cleared storage), so it cannot be revealed. You can resign the match.</div>
+          <div className="text-[10px] text-amber-300 light:text-amber-600 max-w-xs text-center">Your pick data for this round is not on this device (different browser or cleared storage), so it cannot be revealed. You can resign the match.</div>
         )}
-        {!myColor && status === 'active' && <div className="text-[10px] text-gray-500">You are spectating. Picks stay hidden until both reveal.</div>}
-        {error && status === 'active' && <div className="text-[10px] text-red-300">{error}</div>}
+        {!myColor && status === 'active' && <div className="text-[10px] text-gray-500 light:text-slate-500">You are spectating. Picks stay hidden until both reveal.</div>}
+        {error && status === 'active' && <div className="text-[10px] text-red-300 light:text-red-600">{error}</div>}
 
         {result && myColor && !payoutResult && (
           <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
@@ -479,25 +479,25 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
           {!result && myColor && status === 'active' && <button onClick={resign} className="py-2 rounded bg-red-600/80 text-white text-xs">RESIGN MATCH</button>}
           {result && !oracleSubmitted && <button onClick={submitToOracle} disabled={oracleLoading} className="py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm">{oracleLoading ? '...' : '1. Get oracle signature'}</button>}
           {oracleSubmitted && !payoutResult && <button onClick={claimPayout} disabled={payoutLoading} className="py-3 rounded-2xl bg-emerald-500 text-black font-black text-sm">{payoutLoading ? 'COMPUTING...' : '2. Claim pot on-chain'}</button>}
-          <button onClick={onClose} className="py-2 rounded border border-white/20 text-xs">CLOSE ARENA</button>
+          <button onClick={onClose} className="py-2 rounded border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs">CLOSE ARENA</button>
         </div>
-        {oracleError && <div className="text-[10px] text-amber-300 max-w-xs text-center">{oracleError}</div>}
+        {oracleError && <div className="text-[10px] text-amber-300 light:text-amber-600 max-w-xs text-center">{oracleError}</div>}
 
         {result && (
-          <div className="text-sm font-bold text-[#49EACB]">{result.outcome === 'draw' ? 'MATCH DRAWN' : `${result.outcome.toUpperCase()} WINS THE MATCH`}{result.method === 'resign' ? ' • BY RESIGNATION' : ''}</div>
+          <div className="text-sm font-bold text-[#49EACB] light:text-[#0d9488]">{result.outcome === 'draw' ? 'MATCH DRAWN' : `${result.outcome.toUpperCase()} WINS THE MATCH`}{result.method === 'resign' ? ' • BY RESIGNATION' : ''}</div>
         )}
 
         {result && !payoutResult && (
           <div className="text-[10px] grid grid-cols-3 gap-2 w-72 text-center">
-            <div className="p-2 bg-black/40 border border-white/10 rounded">Winner {previewW} KAS</div>
-            <div className="p-2 bg-black/40 border border-white/10 rounded">Platform {previewF} KAS</div>
-            <div className="p-2 bg-black/40 border border-white/10 rounded">Pot {previewR} KAS</div>
+            <div className="p-2 bg-black/40 light:bg-white border border-white/10 light:border-slate-200 light:shadow-sm light:text-slate-700 rounded">Winner {previewW} KAS</div>
+            <div className="p-2 bg-black/40 light:bg-white border border-white/10 light:border-slate-200 light:shadow-sm light:text-slate-700 rounded">Platform {previewF} KAS</div>
+            <div className="p-2 bg-black/40 light:bg-white border border-white/10 light:border-slate-200 light:shadow-sm light:text-slate-700 rounded">Pot {previewR} KAS</div>
           </div>
         )}
         {payoutResult && !payoutResult.error && (
-          <div className="text-xs p-3 border border-emerald-500/30 bg-emerald-500/5 rounded-xl">
+          <div className="text-xs p-3 border border-emerald-500/30 bg-emerald-500/5 light:bg-emerald-50 rounded-xl light:text-emerald-800">
             PAYOUT: Winner {payoutResult.winner_share_kas} • Platform {payoutResult.platform_fee_kas} • Pot {payoutResult.pot_return_kas} KAS
-            <details><summary className="text-[9px] text-gray-400">witness</summary><pre className="text-[8px]">{payoutResult.unlock_witness}</pre></details>
+            <details><summary className="text-[9px] text-gray-400 light:text-slate-500">witness</summary><pre className="text-[8px]">{payoutResult.unlock_witness}</pre></details>
           </div>
         )}
       </div>

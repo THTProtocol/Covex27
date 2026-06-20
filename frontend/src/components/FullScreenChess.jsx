@@ -193,17 +193,17 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
     const active = game?.current_turn === side && status === 'active';
     const isMe = myColor === side;
     return (
-      <div className={`px-4 py-2.5 rounded-xl w-full flex items-center justify-between gap-6 border transition-colors ${active ? 'bg-white/10 border-emerald-400/30 clock-active' : 'bg-white/5 border-white/10'}`}>
+      <div className={`px-4 py-2.5 rounded-xl w-full flex items-center justify-between gap-6 border transition-colors ${active ? 'bg-white/10 border-emerald-400/30 light:bg-white light:border-emerald-500/40 light:shadow-sm clock-active' : 'bg-white/5 border-white/10 light:bg-white/80 light:border-slate-200 light:shadow-sm'}`}>
         <div className="flex items-center gap-2.5">
-          <span className={`inline-block w-3 h-3 rounded-full border ${side === 'white' ? 'bg-gray-100 border-gray-300' : 'bg-gray-900 border-gray-600'}`} />
+          <span className={`inline-block w-3 h-3 rounded-full border ${side === 'white' ? 'bg-gray-100 border-gray-300 light:bg-white light:border-slate-400' : 'bg-gray-900 border-gray-600 light:bg-slate-800 light:border-slate-700'}`} />
           <div>
-            <div className="text-xs text-gray-300 font-medium">
-              {side === 'white' ? 'White' : 'Black'}{isMe && <span className="text-emerald-300"> (you)</span>}
+            <div className="text-xs text-gray-300 light:text-slate-700 font-medium">
+              {side === 'white' ? 'White' : 'Black'}{isMe && <span className="text-emerald-300 light:text-emerald-800"> (you)</span>}
             </div>
-            <div className="text-[10px] font-mono text-gray-500">{seatTaken(seat) ? `${seat.slice(0, 14)}...` : 'seat open'}</div>
+            <div className="text-[10px] font-mono text-gray-500 light:text-slate-500">{seatTaken(seat) ? `${seat.slice(0, 14)}...` : 'seat open'}</div>
           </div>
         </div>
-        <div className={`font-mono text-2xl font-bold tabular-nums ${lowTime(ms) ? 'text-red-400' : active ? 'text-emerald-300' : 'text-white'}`}>
+        <div className={`font-mono text-2xl font-bold tabular-nums ${lowTime(ms) ? 'text-red-400 light:text-red-600' : active ? 'text-emerald-300 light:text-emerald-800' : 'text-white light:text-slate-800'}`}>
           {formatMs(ms)}
         </div>
       </div>
@@ -215,24 +215,24 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
     const lead = side === 'white' ? captured.adv : -captured.adv;
     return (
       <div className="flex items-center gap-1.5 min-h-[20px] px-1">
-        <span className="font-mono text-lg leading-none text-gray-300 tracking-tight">{c.glyphs.join('')}</span>
-        {lead > 0 && <span className="text-[11px] font-mono font-bold text-emerald-400">+{lead}</span>}
+        <span className="font-mono text-lg leading-none text-gray-300 light:text-slate-600 tracking-tight">{c.glyphs.join('')}</span>
+        {lead > 0 && <span className="text-[11px] font-mono font-bold text-emerald-400 light:text-emerald-700">+{lead}</span>}
       </div>
     );
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
-        <div className="text-white font-mono text-sm flex items-center gap-3">
-          <span className="text-[#E8AF34] font-bold">{stake} KAS</span> Chess Match
-          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${status === 'active' ? 'border-emerald-500/40 text-emerald-300' : status === 'finished' ? 'border-purple-500/40 text-purple-300' : 'border-amber-500/40 text-amber-300'}`}>
+    <div className="game-fullscreen-bg fixed inset-0 z-[100] flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 light:border-slate-300/70 bg-gradient-to-b from-white/[0.04] to-transparent light:from-white/70 light:to-transparent">
+        <div className="text-white light:text-slate-800 font-mono text-sm flex items-center gap-3">
+          <span className="text-[#E8AF34] light:text-amber-600 font-bold">{stake} KAS</span> Chess Match
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${status === 'active' ? 'border-emerald-500/40 text-emerald-300 light:text-emerald-800' : status === 'finished' ? 'border-purple-500/40 text-purple-300 light:text-purple-700' : 'border-amber-500/40 text-amber-300 light:text-amber-600'}`}>
             {status === 'none' ? 'OPEN' : status.toUpperCase()}
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-xs text-gray-400">Fee: {feePercent}%</div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors"><X size={20} className="text-white" /></button>
+          <div className="text-xs text-gray-400 light:text-slate-600">Fee: {feePercent}%</div>
+          <button onClick={onClose} className="min-h-[44px] sm:min-h-0 p-2 rounded-full hover:bg-white/10 light:hover:bg-slate-900/5 transition-colors" aria-label="Exit chess arena"><X size={20} className="text-white light:text-slate-700" /></button>
         </div>
       </div>
 
@@ -265,7 +265,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
 
         {/* Side rail: status / move list / actions */}
         <div className="w-full max-w-xs flex flex-col gap-4">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] light:bg-white light:border-slate-200 light:shadow-sm p-4 text-center">
             {status === 'none' || (status === 'waiting' && !myColor) ? (
               <div className="flex flex-col items-center gap-3">
                 <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You take white. Your opponent joins as black." />
@@ -273,48 +273,48 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
               </div>
             ) : status === 'waiting' ? (
               <div className="flex flex-col items-center gap-3 py-2">
-                <div className="text-sm text-amber-300 animate-pulse">Waiting for an opponent to join as black...</div>
+                <div className="text-sm text-amber-300 light:text-amber-600 animate-pulse">Waiting for an opponent to join as black...</div>
                 <InviteLink stake={stake} />
               </div>
             ) : status === 'active' ? (
-              <div className="text-sm text-amber-400">
+              <div className="text-sm text-amber-400 light:text-amber-600">
                 <div className="flex items-center gap-2 justify-center mb-2">
                   <Clock size={16} /> {game.current_turn === 'white' ? 'White' : 'Black'} to move
-                  {isMyTurn && <span className="text-emerald-300 font-bold">(your move)</span>}
+                  {isMyTurn && <span className="text-emerald-300 light:text-emerald-800 font-bold">(your move)</span>}
                 </div>
                 {myColor && (
-                  <button onClick={resign} className="mt-1 px-4 py-2 rounded-xl border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1.5 mx-auto hover:bg-red-500/10 transition-colors">
+                  <button onClick={resign} className="min-h-[44px] sm:min-h-0 mt-1 px-4 py-2 rounded-xl border border-red-500/40 text-red-300 light:text-red-600 text-xs font-bold flex items-center gap-1.5 mx-auto hover:bg-red-500/10 light:hover:bg-red-500/10 transition-colors">
                     <Flag size={12} /> Resign
                   </button>
                 )}
               </div>
             ) : (
-              <div className="text-sm text-purple-300 flex items-center gap-2 justify-center py-2">
-                <Trophy size={18} className="text-[#E8AF34]" />
+              <div className="text-sm text-purple-300 light:text-purple-700 flex items-center gap-2 justify-center py-2">
+                <Trophy size={18} className="text-[#E8AF34] light:text-amber-600" />
                 {game?.winner === 'draw' ? 'Draw' : `${game?.winner === 'white' ? 'White' : 'Black'} wins`}
               </div>
             )}
-            {!myColor && status !== 'none' && <div className="text-[11px] text-gray-500 mt-2">You are spectating. Moves sync live.</div>}
-            {error && <div className="mt-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs">{error}</div>}
+            {!myColor && status !== 'none' && <div className="text-[11px] text-gray-500 light:text-slate-500 mt-2">You are spectating. Moves sync live.</div>}
+            {error && <div className="mt-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 light:text-red-600 text-xs">{error}</div>}
           </div>
 
           {/* Two-column SAN move list with current-move highlight + autoscroll */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-white/10 text-[11px] uppercase tracking-wider text-gray-400 font-semibold flex items-center justify-between">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] light:bg-white light:border-slate-200 light:shadow-sm overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-white/10 light:border-slate-200 text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 font-semibold flex items-center justify-between">
               <span>Moves</span>
-              <span className="font-mono text-gray-500">{sanHistory.length} ply</span>
+              <span className="font-mono text-gray-500 light:text-slate-500">{sanHistory.length} ply</span>
             </div>
             <div ref={moveListRef} className="max-h-56 overflow-y-auto px-2 py-2 font-mono text-[13px]">
               {moveRows.length === 0 ? (
-                <div className="text-gray-600 text-xs text-center py-4">No moves yet</div>
+                <div className="text-gray-600 light:text-slate-500 text-xs text-center py-4">No moves yet</div>
               ) : (
                 moveRows.map((r) => {
                   const last = sanHistory.length - 1;
                   return (
-                    <div key={r.no} className="grid grid-cols-[2rem_1fr_1fr] items-center gap-1 px-1 py-0.5 rounded hover:bg-white/[0.03]">
-                      <span className="text-gray-600 text-[11px]">{r.no}.</span>
-                      <span className={`px-1.5 py-0.5 rounded ${r.wi === last ? 'bg-[#49EACB]/20 text-[#49EACB] font-bold' : 'text-gray-200'}`}>{r.white}</span>
-                      <span className={`px-1.5 py-0.5 rounded ${r.bi === last ? 'bg-[#49EACB]/20 text-[#49EACB] font-bold' : 'text-gray-200'}`}>{r.black || ''}</span>
+                    <div key={r.no} className="grid grid-cols-[2rem_1fr_1fr] items-center gap-1 px-1 py-0.5 rounded hover:bg-white/[0.03] light:hover:bg-slate-900/5">
+                      <span className="text-gray-600 light:text-slate-500 text-[11px]">{r.no}.</span>
+                      <span className={`px-1.5 py-0.5 rounded ${r.wi === last ? 'bg-[#49EACB]/20 text-[#49EACB] light:text-[#0d9488] font-bold' : 'text-gray-200 light:text-slate-700'}`}>{r.white}</span>
+                      <span className={`px-1.5 py-0.5 rounded ${r.bi === last ? 'bg-[#49EACB]/20 text-[#49EACB] light:text-[#0d9488] font-bold' : 'text-gray-200 light:text-slate-700'}`}>{r.black || ''}</span>
                     </div>
                   );
                 })
@@ -322,7 +322,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
             </div>
           </div>
 
-          <div className="text-[10px] text-gray-600 px-1">
+          <div className="text-[10px] text-gray-600 light:text-slate-500 px-1">
             Moves persist on the match record and sync in real time. The pot settles on-chain with oracle verification.
             <br />Creator: {creatorAddr?.slice(0, 16)}...
           </div>

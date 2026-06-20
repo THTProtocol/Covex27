@@ -422,18 +422,18 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         : status.toUpperCase();
 
   return (
-    <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a0f0d 0%, #050505 70%)' }}>
+    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
       {/* Top bar */}
-      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
-        <div className="font-bold tracking-wider text-[#49EACB] truncate text-[11px] sm:text-sm">
+      <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl shrink-0">
+        <div className="font-bold tracking-wider text-[#49EACB] light:text-[#0d9488] truncate text-[11px] sm:text-sm">
           <span className="sm:hidden">CHECKERS</span>
           <span className="hidden sm:inline">CHECKERS · KASPA COVENANT</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{totalPot} KAS POT · {potReturnPercent}% POT RETURN</div>
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300 whitespace-nowrap">{totalPot} KAS POT · {potReturnPercent}% POT RETURN</div>
           <button
             onClick={onClose}
-            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold"
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold"
             aria-label="Exit checkers arena"
           >EXIT</button>
         </div>
@@ -442,13 +442,13 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-3 p-2 sm:p-4 overflow-auto">
         {/* Desktop left: White clock */}
         <div className="hidden lg:flex flex-col items-center gap-1 w-44 shrink-0">
-          <div className="text-[10px] uppercase tracking-[2px] text-gray-400">WHITE{mySide === 'w' && ' • YOU'}</div>
+          <div className="text-[10px] uppercase tracking-[2px] text-gray-400 light:text-slate-600">WHITE{mySide === 'w' && ' • YOU'}</div>
           <div className={`px-3 py-1 ${status === 'active' && turnSide === 'w' ? 'clock-active' : ''}`}>
-            <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(whiteMs)}</div>
+            <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteMs < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{formatTime(whiteMs)}</div>
           </div>
-          <div className="text-[10px] font-mono text-gray-500">{seat(game?.player1)}</div>
+          <div className="text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player1)}</div>
           <CapturedTray side="w" count={blackCaptured} />
-          <div className="text-[10px] text-gray-500 mt-1">{status === 'active' && turnSide === 'w' ? 'TO MOVE' : ''}</div>
+          <div className="text-[10px] text-gray-500 light:text-slate-500 mt-1">{status === 'active' && turnSide === 'w' ? 'TO MOVE' : ''}</div>
         </div>
 
         {/* CENTER BOARD + mobile clocks */}
@@ -456,15 +456,15 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
           {/* Mobile clocks */}
           <div className="lg:hidden flex items-center justify-between w-full max-w-[min(92vw,520px)] mb-1 px-1">
             <div className={`flex flex-col items-center px-2 py-0.5 ${status === 'active' && turnSide === 'w' ? 'clock-active' : ''}`}>
-              <div className="text-[9px] text-gray-400">WHITE</div>
-              <div className={`font-mono text-xl font-bold tabular-nums ${whiteMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(whiteMs)}</div>
-              <div className="text-[8px] font-mono text-gray-500">TAKEN {blackCaptured}</div>
+              <div className="text-[9px] text-gray-400 light:text-slate-600">WHITE</div>
+              <div className={`font-mono text-xl font-bold tabular-nums ${whiteMs < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{formatTime(whiteMs)}</div>
+              <div className="text-[8px] font-mono text-gray-500 light:text-slate-500">TAKEN {blackCaptured}</div>
             </div>
-            <div className="text-center text-[10px] text-kaspa-green font-mono tracking-widest">{result ? 'GAME OVER' : statusLine}</div>
+            <div className="text-center text-[10px] text-kaspa-green light:text-[#0d9488] font-mono tracking-widest">{result ? 'GAME OVER' : statusLine}</div>
             <div className={`flex flex-col items-center px-2 py-0.5 ${status === 'active' && turnSide === 'b' ? 'clock-active' : ''}`}>
-              <div className="text-[9px] text-gray-400">BLACK</div>
-              <div className={`font-mono text-xl font-bold tabular-nums ${blackMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(blackMs)}</div>
-              <div className="text-[8px] font-mono text-gray-500">TAKEN {whiteCaptured}</div>
+              <div className="text-[9px] text-gray-400 light:text-slate-600">BLACK</div>
+              <div className={`font-mono text-xl font-bold tabular-nums ${blackMs < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{formatTime(blackMs)}</div>
+              <div className="text-[8px] font-mono text-gray-500 light:text-slate-500">TAKEN {whiteCaptured}</div>
             </div>
           </div>
 
@@ -523,7 +523,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
           </div>
 
           {status !== 'active' && !result && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm rounded-2xl px-4">
+            <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm rounded-2xl px-4">
               {(status === 'none' || (status === 'waiting' && !myColor)) ? (
                 <>
                   <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You take white. Your opponent joins as black." />
@@ -539,25 +539,25 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
             </div>
           )}
 
-          <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-4 py-0.5 rounded-full bg-black/80 border border-white/10 text-[10px] sm:text-xs font-mono text-kaspa-green tracking-wider">
+          <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-4 py-0.5 rounded-full bg-black/80 light:bg-white/80 border border-white/10 light:border-slate-300 text-[10px] sm:text-xs font-mono text-kaspa-green light:text-[#0d9488] tracking-wider">
             {statusLine}
           </div>
         </div>
 
         {/* Desktop right panel + actions */}
         <div className="hidden lg:flex flex-col items-center gap-1 w-44 xl:w-56 shrink-0">
-          <div className="text-[10px] uppercase tracking-[2px] text-gray-400">BLACK{mySide === 'b' && ' • YOU'}</div>
+          <div className="text-[10px] uppercase tracking-[2px] text-gray-400 light:text-slate-600">BLACK{mySide === 'b' && ' • YOU'}</div>
           <div className={`px-3 py-1 ${status === 'active' && turnSide === 'b' ? 'clock-active' : ''}`}>
-            <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackMs < 30000 ? 'text-red-500' : 'text-white'}`}>{formatTime(blackMs)}</div>
+            <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackMs < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{formatTime(blackMs)}</div>
           </div>
-          <div className="text-[10px] font-mono text-gray-500">{seat(game?.player2)}</div>
+          <div className="text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player2)}</div>
           <CapturedTray side="b" count={whiteCaptured} />
 
           {/* Move log */}
-          <div className="mt-3 w-full bg-black/60 border border-white/10 rounded-2xl p-2 text-[11px] font-mono max-h-[160px] overflow-auto text-gray-200">
+          <div className="mt-3 w-full bg-black/60 light:bg-white/80 border border-white/10 light:border-slate-200 light:shadow-sm rounded-2xl p-2 text-[11px] font-mono max-h-[160px] overflow-auto text-gray-200 light:text-slate-700">
             {moves.length ? moves.slice(-8).map((m, idx) => (
-              <div key={idx} className="py-px border-b border-white/5 last:border-none">{m}</div>
-            )) : <div className="text-gray-500 italic">No moves yet</div>}
+              <div key={idx} className="py-px border-b border-white/5 light:border-slate-200 last:border-none">{m}</div>
+            )) : <div className="text-gray-500 light:text-slate-500 italic">No moves yet</div>}
           </div>
 
           <div className="mt-3 w-full flex flex-col gap-2">
@@ -574,15 +574,15 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
                 {payoutLoading ? 'COMPUTING PAYOUT...' : 'CLAIM PAYOUT'}
               </button>
             )}
-            <button onClick={onClose} className="w-full py-2 rounded-xl border border-white/20 text-xs">CLOSE ARENA</button>
+            <button onClick={onClose} className="w-full py-2 rounded-xl border border-white/20 light:border-slate-400 text-xs light:text-slate-700">CLOSE ARENA</button>
           </div>
 
-          {!myColor && status === 'active' && <div className="text-[10px] text-gray-500 mt-1">You are spectating. Moves sync live.</div>}
+          {!myColor && status === 'active' && <div className="text-[10px] text-gray-500 light:text-slate-500 mt-1">You are spectating. Moves sync live.</div>}
           {error && status === 'active' && <div className="text-[10px] text-red-300 mt-1">{error}</div>}
-          {oracleError && <div className="text-[10px] text-amber-300 mt-1 text-center">{oracleError}</div>}
+          {oracleError && <div className="text-[10px] text-amber-300 light:text-amber-600 mt-1 text-center">{oracleError}</div>}
 
           {result && !payoutResult && (
-            <div className="mt-2 text-[10px] w-full text-center text-gray-300">
+            <div className="mt-2 text-[10px] w-full text-center text-gray-300 light:text-slate-600">
               {oracleSubmitted ? 'Signature ready - claim to compute shares' : 'Game finished - submit for oracle sig'}
             </div>
           )}
@@ -590,11 +590,11 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
       </div>
 
       {/* Mobile bottom sheet: log + actions + payout */}
-      <div className="lg:hidden border-t border-white/10 bg-black/70 backdrop-blur-xl shrink-0" style={{ maxHeight: '38vh' }}>
-        <div className="px-3 py-2 text-[11px] font-mono text-gray-200 overflow-auto" style={{ maxHeight: '14vh' }}>
-          {moves.length ? moves.slice(-6).map((m, i) => <span key={i} className="mr-3">{m}</span>) : <span className="text-gray-500">Tap pieces • Jumps mandatory</span>}
+      <div className="lg:hidden border-t border-white/10 light:border-slate-300/70 bg-black/70 light:bg-white/80 backdrop-blur-xl shrink-0" style={{ maxHeight: '38vh' }}>
+        <div className="px-3 py-2 text-[11px] font-mono text-gray-200 light:text-slate-700 overflow-auto" style={{ maxHeight: '14vh' }}>
+          {moves.length ? moves.slice(-6).map((m, i) => <span key={i} className="mr-3">{m}</span>) : <span className="text-gray-500 light:text-slate-500">Tap pieces • Jumps mandatory</span>}
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5 light:border-slate-200">
           {!result && myColor && status === 'active' && (
             <button onClick={resign} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button>
           )}
@@ -608,30 +608,30 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
               {payoutLoading ? 'COMPUTING...' : 'CLAIM PAYOUT'}
             </button>
           )}
-          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-white/20 text-xs">CLOSE</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-white/20 light:border-slate-400 text-xs light:text-slate-700">CLOSE</button>
         </div>
-        {oracleError && <div className="px-3 pb-1 text-[10px] text-amber-300">{oracleError}</div>}
+        {oracleError && <div className="px-3 pb-1 text-[10px] text-amber-300 light:text-amber-600">{oracleError}</div>}
 
         {/* Mobile payout previews */}
         {result && !payoutResult && (
           <div className="px-3 pb-2">
-            <div className="text-[10px] text-emerald-400 font-mono mb-1">PREVIEW (FEE {feePercent}% • POT RETURN {potReturnPercent}%)</div>
+            <div className="text-[10px] text-emerald-400 light:text-emerald-800 font-mono mb-1">PREVIEW (FEE {feePercent}% • POT RETURN {potReturnPercent}%)</div>
             <div className="grid grid-cols-3 gap-2 text-[10px] text-center">
-              <div className="p-1.5 rounded bg-black/40 border border-white/10">Winner<br /><span className="text-emerald-400 font-bold">{previewWinner} KAS</span></div>
-              <div className="p-1.5 rounded bg-black/40 border border-white/10">Platform<br /><span className="text-rose-400 font-bold">{previewPlatform} KAS</span></div>
-              <div className="p-1.5 rounded bg-black/40 border border-white/10">Pot Return<br /><span className="text-kaspa-green font-bold">{previewPotRet} KAS</span></div>
+              <div className="p-1.5 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10">Winner<br /><span className="text-emerald-400 light:text-emerald-800 font-bold">{previewWinner} KAS</span></div>
+              <div className="p-1.5 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10">Platform<br /><span className="text-rose-400 light:text-rose-600 font-bold">{previewPlatform} KAS</span></div>
+              <div className="p-1.5 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10">Pot Return<br /><span className="text-kaspa-green light:text-[#0d9488] font-bold">{previewPotRet} KAS</span></div>
             </div>
           </div>
         )}
         {payoutResult && !payoutResult.error && (
           <div className="px-3 pb-2 text-[10px]">
-            <div className="text-emerald-400 font-bold mb-1">PAYOUT COMPUTED</div>
-            <div className="grid grid-cols-3 gap-1 text-center">
-              <div>Winner: <span className="font-bold text-white">{payoutResult.winner_share_kas} KAS</span></div>
-              <div>Platform: <span className="font-bold text-rose-400">{payoutResult.platform_fee_kas} KAS</span></div>
-              <div>Pot: <span className="font-bold text-kaspa-green">{payoutResult.pot_return_kas} KAS</span></div>
+            <div className="text-emerald-400 light:text-emerald-800 font-bold mb-1">PAYOUT COMPUTED</div>
+            <div className="grid grid-cols-3 gap-1 text-center light:text-slate-700">
+              <div>Winner: <span className="font-bold text-white light:text-slate-900">{payoutResult.winner_share_kas} KAS</span></div>
+              <div>Platform: <span className="font-bold text-rose-400 light:text-rose-600">{payoutResult.platform_fee_kas} KAS</span></div>
+              <div>Pot: <span className="font-bold text-kaspa-green light:text-[#0d9488]">{payoutResult.pot_return_kas} KAS</span></div>
             </div>
-            <details className="mt-1"><summary className="text-[9px] text-gray-400 cursor-pointer">witness</summary><pre className="text-[8px] bg-black/50 p-1 rounded overflow-x-auto">{payoutResult.unlock_witness}</pre></details>
+            <details className="mt-1"><summary className="text-[9px] text-gray-400 light:text-slate-600 cursor-pointer">witness</summary><pre className="text-[8px] bg-black/50 light:bg-slate-900/5 light:text-slate-700 p-1 rounded overflow-x-auto">{payoutResult.unlock_witness}</pre></details>
           </div>
         )}
       </div>
@@ -640,43 +640,43 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
       <div className="hidden lg:block px-4 pb-2">
         {result && !payoutResult && (
           <div className="max-w-md mx-auto text-center">
-            <div className="text-[10px] text-emerald-400 mb-1">PREVIEW USING {feePercent}% FEE + {potReturnPercent}% POT RETURN</div>
+            <div className="text-[10px] text-emerald-400 light:text-emerald-800 mb-1">PREVIEW USING {feePercent}% FEE + {potReturnPercent}% POT RETURN</div>
             <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="p-2 rounded bg-black/40 border border-white/10">Winner: <span className="font-bold text-emerald-400">{previewWinner} KAS</span></div>
-              <div className="p-2 rounded bg-black/40 border border-white/10">Platform: <span className="font-bold text-rose-400">{previewPlatform} KAS</span></div>
-              <div className="p-2 rounded bg-black/40 border border-white/10">Pot Return: <span className="font-bold text-kaspa-green">{previewPotRet} KAS</span></div>
+              <div className="p-2 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10">Winner: <span className="font-bold text-emerald-400 light:text-emerald-800">{previewWinner} KAS</span></div>
+              <div className="p-2 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10">Platform: <span className="font-bold text-rose-400 light:text-rose-600">{previewPlatform} KAS</span></div>
+              <div className="p-2 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10">Pot Return: <span className="font-bold text-kaspa-green light:text-[#0d9488]">{previewPotRet} KAS</span></div>
             </div>
           </div>
         )}
         {payoutResult && !payoutResult.error && (
-          <div className="max-w-lg mx-auto mt-1 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
-            <div className="flex items-center gap-2 text-emerald-400 mb-1 text-xs"><CheckCircle2 size={14} /> PAYOUT COMPUTED - ORACLE SIG VERIFIED</div>
+          <div className="max-w-lg mx-auto mt-1 p-3 rounded-xl bg-emerald-500/[0.06] light:bg-emerald-50 border border-emerald-500/30 light:border-emerald-300 text-sm">
+            <div className="flex items-center gap-2 text-emerald-400 light:text-emerald-800 mb-1 text-xs"><CheckCircle2 size={14} /> PAYOUT COMPUTED - ORACLE SIG VERIFIED</div>
             <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="p-2 rounded bg-black/40 border border-white/10">
-                <div className="text-gray-400">Platform ({payoutResult.fee_percent || feePercent}%)</div>
-                <div className="font-bold text-rose-400 tabular-nums">{payoutResult.platform_fee_kas} KAS</div>
+              <div className="p-2 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10">
+                <div className="text-gray-400 light:text-slate-600">Platform ({payoutResult.fee_percent || feePercent}%)</div>
+                <div className="font-bold text-rose-400 light:text-rose-600 tabular-nums">{payoutResult.platform_fee_kas} KAS</div>
               </div>
-              <div className="p-2 rounded bg-black/40 border border-white/10">
-                <div className="text-gray-400">{payoutResult.winner_label || 'Winner'}</div>
-                <div className="font-bold text-emerald-400 tabular-nums">{payoutResult.winner_share_kas} KAS</div>
+              <div className="p-2 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10">
+                <div className="text-gray-400 light:text-slate-600">{payoutResult.winner_label || 'Winner'}</div>
+                <div className="font-bold text-emerald-400 light:text-emerald-800 tabular-nums">{payoutResult.winner_share_kas} KAS</div>
               </div>
-              <div className="p-2 rounded bg-black/40 border border-white/10">
-                <div className="text-gray-400">Pot Return ({payoutResult.pot_return_percent || potReturnPercent}%)</div>
-                <div className="font-bold text-[#49EACB] tabular-nums">{payoutResult.pot_return_kas} KAS</div>
+              <div className="p-2 rounded bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10">
+                <div className="text-gray-400 light:text-slate-600">Pot Return ({payoutResult.pot_return_percent || potReturnPercent}%)</div>
+                <div className="font-bold text-[#49EACB] light:text-[#0d9488] tabular-nums">{payoutResult.pot_return_kas} KAS</div>
               </div>
             </div>
             <details className="mt-2 text-[10px]">
-              <summary className="cursor-pointer text-gray-400">Copy unlock witness for on-chain claim</summary>
-              <pre className="mt-1 p-2 rounded bg-black/60 text-[9px] text-gray-300 overflow-auto">{payoutResult.unlock_witness}</pre>
+              <summary className="cursor-pointer text-gray-400 light:text-slate-600">Copy unlock witness for on-chain claim</summary>
+              <pre className="mt-1 p-2 rounded bg-black/60 light:bg-slate-900/5 text-[9px] text-gray-300 light:text-slate-700 overflow-auto">{payoutResult.unlock_witness}</pre>
             </details>
           </div>
         )}
         {payoutResult && payoutResult.error && (
-          <div className="text-amber-400 text-xs text-center">Payout error: {payoutResult.error}</div>
+          <div className="text-amber-400 light:text-amber-600 text-xs text-center">Payout error: {payoutResult.error}</div>
         )}
       </div>
 
-      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
+      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
         FORCED JUMPS · KINGS · LIVE MULTIPLAYER · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% TO POT
       </div>
     </div>

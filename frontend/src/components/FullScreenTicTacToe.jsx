@@ -174,23 +174,23 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
   const seat = (p) => (p && p.length ? `${p.slice(0, 10)}...` : 'open');
 
   return (
-    <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 18%, #1a0f0f 0%, #050505 72%)' }}>
+    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
       <style>{`
         @keyframes ttt-draw { to { stroke-dashoffset: 0; } }
         @media (prefers-reduced-motion: reduce) {
           [style*="ttt-draw"] { animation: none !important; stroke-dashoffset: 0 !important; }
         }
       `}</style>
-      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur shrink-0">
-        <div className="font-bold tracking-wider text-[#49EACB] truncate text-[11px] sm:text-sm">
+      <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 light:bg-white/80 backdrop-blur shrink-0">
+        <div className="font-bold tracking-wider text-[#49EACB] light:text-[#0d9488] truncate text-[11px] sm:text-sm">
           <span className="sm:hidden">TIC-TAC-TOE</span>
           <span className="hidden sm:inline">TIC-TAC-TOE · KASPA COVENANT</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{totalPot} KAS · {potReturnPercent}% POT</div>
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300 whitespace-nowrap">{totalPot} KAS · {potReturnPercent}% POT</div>
           <button
             onClick={onClose}
-            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 text-xs font-bold"
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold"
             aria-label="Exit tic-tac-toe arena"
           >EXIT</button>
         </div>
@@ -198,17 +198,17 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
 
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-4 p-3">
         <div className="hidden lg:block text-center w-40">
-          <div className="text-[10px] tracking-widest text-gray-400 mb-1">X (FIRST){myLabel === 'X' && ' • YOU'}</div>
-          <div className={`rounded-2xl bg-black/50 border border-white/10 px-4 py-3 ${status === 'active' && xIsTurn ? 'clock-active' : ''}`}>
-            <div className={`font-mono text-5xl font-bold tabular-nums ${xTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(xTime)}</div>
+          <div className="text-[10px] tracking-widest text-gray-400 light:text-slate-600 mb-1">X (FIRST){myLabel === 'X' && ' • YOU'}</div>
+          <div className={`rounded-2xl bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10 px-4 py-3 ${status === 'active' && xIsTurn ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl font-bold tabular-nums ${xTime < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{format(xTime)}</div>
           </div>
         </div>
 
         <div className="relative">
           <div className="lg:hidden flex justify-between items-center w-[min(86vw,380px)] mb-2 text-xs font-mono">
-            <span className={`px-2 py-1 rounded-lg bg-black/50 border border-white/10 ${status === 'active' && xIsTurn ? 'clock-active' : ''} ${xTime < 30000 ? 'text-red-500' : ''}`}>X {format(xTime)}</span>
-            <span className="text-kaspa-green tracking-wider">{result ? 'OVER' : status === 'active' ? turnLabel + ' TO PLAY' : status.toUpperCase()}</span>
-            <span className={`px-2 py-1 rounded-lg bg-black/50 border border-white/10 ${status === 'active' && !xIsTurn ? 'clock-active' : ''} ${oTime < 30000 ? 'text-red-500' : ''}`}>O {format(oTime)}</span>
+            <span className={`px-2 py-1 rounded-lg bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10 light:text-slate-700 ${status === 'active' && xIsTurn ? 'clock-active' : ''} ${xTime < 30000 ? 'text-red-500' : ''}`}>X {format(xTime)}</span>
+            <span className="text-kaspa-green light:text-[#0d9488] tracking-wider">{result ? 'OVER' : status === 'active' ? turnLabel + ' TO PLAY' : status.toUpperCase()}</span>
+            <span className={`px-2 py-1 rounded-lg bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10 light:text-slate-700 ${status === 'active' && !xIsTurn ? 'clock-active' : ''} ${oTime < 30000 ? 'text-red-500' : ''}`}>O {format(oTime)}</span>
           </div>
 
           <div
@@ -269,7 +269,7 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
           </div>
 
           {status !== 'active' && !result && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm rounded-2xl px-4">
+            <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm rounded-2xl px-4">
               {(status === 'none' || (status === 'waiting' && !myColor)) ? (
                 <>
                   <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You play X, which moves first. Your opponent joins as O." />
@@ -285,59 +285,59 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
             </div>
           )}
 
-          <div className="text-center mt-1 text-xs font-mono text-kaspa-green">{result ? (result.outcome === 'draw' ? 'DRAW' : `${result.outcome.toUpperCase()} WINS`) : status === 'active' ? (turnLabel + ' TO PLAY') : ''}</div>
-          <div className="text-center mt-0.5 text-[10px] font-mono text-gray-500">
+          <div className="text-center mt-1 text-xs font-mono text-kaspa-green light:text-[#0d9488]">{result ? (result.outcome === 'draw' ? 'DRAW' : `${result.outcome.toUpperCase()} WINS`) : status === 'active' ? (turnLabel + ' TO PLAY') : ''}</div>
+          <div className="text-center mt-0.5 text-[10px] font-mono text-gray-500 light:text-slate-500">
             X {seat(game?.player1)}{myColor === 'white' && ' (you)'} · O {seat(game?.player2)}{myColor === 'black' && ' (you)'}
           </div>
-          {!myColor && status === 'active' && <div className="text-center text-[10px] text-gray-500 mt-0.5">You are spectating. Moves sync live.</div>}
+          {!myColor && status === 'active' && <div className="text-center text-[10px] text-gray-500 light:text-slate-500 mt-0.5">You are spectating. Moves sync live.</div>}
           {error && status === 'active' && <div className="text-center text-[10px] text-red-300 mt-0.5">{error}</div>}
         </div>
 
         <div className="hidden lg:block text-center w-40">
-          <div className="text-[10px] tracking-widest text-gray-400 mb-1">O{myLabel === 'O' && ' • YOU'}</div>
-          <div className={`rounded-2xl bg-black/50 border border-white/10 px-4 py-3 ${status === 'active' && !xIsTurn ? 'clock-active' : ''}`}>
-            <div className={`font-mono text-5xl font-bold tabular-nums ${oTime < 30000 ? 'text-red-500' : 'text-white'}`}>{format(oTime)}</div>
+          <div className="text-[10px] tracking-widest text-gray-400 light:text-slate-600 mb-1">O{myLabel === 'O' && ' • YOU'}</div>
+          <div className={`rounded-2xl bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10 px-4 py-3 ${status === 'active' && !xIsTurn ? 'clock-active' : ''}`}>
+            <div className={`font-mono text-5xl font-bold tabular-nums ${oTime < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{format(oTime)}</div>
           </div>
-          <div className="mt-3 text-[10px] font-mono bg-black/50 p-2 rounded border border-white/10">{moves.slice(-4).join(' ')}</div>
+          <div className="mt-3 text-[10px] font-mono bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 p-2 rounded border border-white/10">{moves.slice(-4).join(' ')}</div>
           <div className="mt-2 flex flex-col gap-1 text-xs w-32 mx-auto">
             {!result && myColor && status === 'active' && <button onClick={resign} className="py-1.5 rounded bg-red-600/90 text-white">RESIGN</button>}
             {result && !oracleSubmitted && <button onClick={submitToOracle} disabled={oracleLoading} className="py-2 rounded-2xl bg-[#49EACB] text-black font-bold text-sm">{oracleLoading ? '...' : 'SUBMIT TO ORACLE'}</button>}
             {oracleSubmitted && !payoutResult && <button onClick={claimPayout} disabled={payoutLoading} className="py-2 rounded-2xl bg-emerald-500 text-black font-bold text-sm">{payoutLoading ? '...' : 'CLAIM PAYOUT'}</button>}
-            <button onClick={onClose} className="py-1.5 rounded border border-white/20">CLOSE</button>
+            <button onClick={onClose} className="py-1.5 rounded border border-white/20 light:border-slate-400 light:text-slate-700 light:hover:bg-slate-900/5">CLOSE</button>
           </div>
-          {oracleError && <div className="mt-2 text-[10px] text-amber-300 max-w-[140px] mx-auto">{oracleError}</div>}
+          {oracleError && <div className="mt-2 text-[10px] text-amber-300 light:text-amber-600 max-w-[140px] mx-auto">{oracleError}</div>}
         </div>
       </div>
 
       {/* Mobile bar */}
-      <div className="lg:hidden px-3 pb-2 border-t border-white/10 bg-black/60">
+      <div className="lg:hidden px-3 pb-2 border-t border-white/10 light:border-slate-300/70 bg-black/60 light:bg-white/80">
         <div className="flex gap-2 py-2">
           {!result && myColor && status === 'active' && <button onClick={resign} className="flex-1 py-2 rounded bg-red-600/90 text-xs text-white font-bold">RESIGN</button>}
           {result && !oracleSubmitted && <button onClick={submitToOracle} className="flex-1 py-2 rounded-2xl bg-[#49EACB] text-black text-sm font-bold" disabled={oracleLoading}>{oracleLoading ? '...' : 'SUBMIT ORACLE'}</button>}
           {oracleSubmitted && !payoutResult && <button onClick={claimPayout} className="flex-1 py-2 rounded-2xl bg-emerald-500 text-black text-sm font-bold" disabled={payoutLoading}>{payoutLoading ? '...' : 'CLAIM'}</button>}
-          <button onClick={onClose} className="px-3 py-2 border border-white/20 rounded text-xs">CLOSE</button>
+          <button onClick={onClose} className="px-3 py-2 border border-white/20 light:border-slate-400 light:text-slate-700 light:hover:bg-slate-900/5 rounded text-xs">CLOSE</button>
         </div>
-        {oracleError && <div className="text-[10px] text-amber-300 pb-1">{oracleError}</div>}
+        {oracleError && <div className="text-[10px] text-amber-300 light:text-amber-600 pb-1">{oracleError}</div>}
         {result && !payoutResult && <div className="grid grid-cols-3 gap-2 text-[10px] text-center mb-1">
-          <div className="bg-black/40 rounded p-1 border border-white/10">Win {previewW} KAS</div>
-          <div className="bg-black/40 rounded p-1 border border-white/10">Fee {previewP} KAS</div>
-          <div className="bg-black/40 rounded p-1 border border-white/10">Pot {previewR} KAS</div>
+          <div className="bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 rounded p-1 border border-white/10">Win {previewW} KAS</div>
+          <div className="bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 rounded p-1 border border-white/10">Fee {previewP} KAS</div>
+          <div className="bg-black/40 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 rounded p-1 border border-white/10">Pot {previewR} KAS</div>
         </div>}
       </div>
 
       {/* Desktop payout */}
       {payoutResult && !payoutResult.error && (
-        <div className="hidden lg:block max-w-sm mx-auto mb-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/30 text-xs">
-          <div className="text-emerald-400 mb-1">PAYOUT COMPUTED</div>
+        <div className="hidden lg:block max-w-sm mx-auto mb-2 p-3 rounded-xl bg-emerald-500/5 light:bg-emerald-50 border border-emerald-500/30 light:border-emerald-300 text-xs">
+          <div className="text-emerald-400 light:text-emerald-700 mb-1">PAYOUT COMPUTED</div>
           <div className="grid grid-cols-3 gap-2">
-            <div>Winner: <span className="font-bold text-white">{payoutResult.winner_share_kas} KAS</span></div>
-            <div>Plat: <span className="font-bold text-rose-400">{payoutResult.platform_fee_kas} KAS</span></div>
-            <div>Pot: <span className="font-bold text-kaspa-green">{payoutResult.pot_return_kas} KAS</span></div>
+            <div>Winner: <span className="font-bold text-white light:text-slate-900">{payoutResult.winner_share_kas} KAS</span></div>
+            <div>Plat: <span className="font-bold text-rose-400 light:text-rose-600">{payoutResult.platform_fee_kas} KAS</span></div>
+            <div>Pot: <span className="font-bold text-kaspa-green light:text-[#0d9488]">{payoutResult.pot_return_kas} KAS</span></div>
           </div>
         </div>
       )}
 
-      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">3×3 · LIVE MULTIPLAYER · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
+      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">3×3 · LIVE MULTIPLAYER · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
     </div>
   );
 }

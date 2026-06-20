@@ -320,10 +320,15 @@ body {
 .light .border-kaspa-green { border-color: var(--lm-brand) !important; }
 .light .ring-kaspa-green { --tw-ring-color: var(--lm-brand) !important; }
 .light .fill-kaspa-green { fill: var(--lm-brand) !important; }
-.light a {
+/* Body links get the brand-ink color in light mode - but ONLY when the anchor does
+   not declare its own light: text color. Tailwind's light: variant compiles to a
+   zero-specificity :where() selector, so a bare `.light a` rule (specificity 0,1,1)
+   silently overrides an anchor's explicit light:text-white (e.g. a teal CTA button),
+   leaving teal-on-teal. Excluding self-managed anchors lets their own light text win. */
+.light a:not([class*="light:text"]) {
   color: var(--lm-brand-ink);  /* darker for body links, good contrast */
 }
-.light a:hover {
+.light a:not([class*="light:text"]):hover {
   color: var(--lm-brand-bright);
 }
 

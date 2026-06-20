@@ -185,14 +185,16 @@ const DagBackground = () => {
         );
       })}
 
-      {/* Vignette: the focal frame that gives the backdrop its depth + atmosphere.
-          Identical in both themes - a clear focal center sinking into pure black at
-          the outer ~20%. Dark reads it as edge-to-black depth; light gets the exact
-          same spotlight framing the bright content. */}
+      {/* Vignette: the focal frame. Each theme fades the DAG to ITS OWN page
+          background - dark to black, light to the bright canvas - so the live DAG
+          concentrates in a focal center and dissolves cleanly at the edges. Same
+          treatment, theme-correct colour (light must NOT overlay black). */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(circle at center, transparent 0%, #000000 80%)',
+          background: isDark
+            ? 'radial-gradient(circle at center, transparent 0%, #000000 80%)'
+            : 'radial-gradient(ellipse 106% 100% at 50% 38%, transparent 0%, transparent 20%, #eef2f7 62%)',
         }}
       />
     </div>

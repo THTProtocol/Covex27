@@ -1041,8 +1041,20 @@ fn covenant_summary_json(
         // wins is set by the secret the disclosed oracle reveals, so it is hybrid for
         // resolution - never "on-chain" (the exact word README s2 forbids for oracle-resolved
         // outcomes).
+        //
+        // The same override is required for the oracle co-sign kinds. oracle_enforced,
+        // oracle_escrow, and their _refundable variants ALL deploy as the exact 35-byte
+        // aa20<hash>87 P2SH, so reality_for_script() alone would flatten them to "on-chain"
+        // and they would wear the "on-chain, no oracle, no trust" badge while in fact the
+        // chain requires the disclosed Covex oracle's co-signature to release the funds. The
+        // catalog already declares all four EnforcementReality::Hybrid; match it here so the
+        // wire label tells the truth. contains() folds in the _refundable variants
+        // (oracle_enforced -> oracle_enforced_refundable, oracle_escrow ->
+        // oracle_escrow_refundable).
         "enforcement_reality": if c.covenant_type == "prediction-market"
             || c.covenant_type.contains("binary_oracle_select")
+            || c.covenant_type.contains("oracle_enforced")
+            || c.covenant_type.contains("oracle_escrow")
         {
             "hybrid"
         } else {
@@ -3060,5 +3072,102 @@ mod mainnet_preflight_tests {
     fn mainnet_rejects_placeholder() {
         assert!(validate_mainnet_env("mainnet", "kaspa:placeholder").is_err());
         assert!(validate_mainnet_env("mainnet", "kaspa:your_address_here").is_err());
+    }
+}
+
+#[cfg(test)]
+mod enforcement_reality_override_tests {
+    use super::*;
+
+    /// Build a minimal DbCovenant whose stored script_hex is the exact 35-byte
+    /// aa20<hash>87 P2SH that reality_for_script() alone calls OnChain. Only the
+    /// covenant_type varies, so any non-OnChain enforcement_reality must come from
+    /// the type-driven honesty override in covenant_summary_json.
+    fn covenant_with_type(covenant_type: &str) -> db::DbCovenant {
+        let hash = "33".repeat(32);
+        db::DbCovenant {
+            tx_id: "tx".into(),
+            address: "kaspatest:addr".into(),
+            amount_kaspa: 1.0,
+            amount_sompi: 100_000_000,
+            script_hash: hash.clone(),
+            // Exact 35-byte P2SH wrapper - on script alone this reads "on-chain".
+            script_hex: format!("aa20{hash}87"),
+            covenant_type: covenant_type.into(),
+            category: "Verifiable Games (ZK/Oracle)".into(),
+            creator_addr: String::new(),
+            description: String::new(),
+            verified_tier: "FREE".into(),
+            verified_payment_tx: None,
+            verified_at: None,
+            custom_ui_enabled: false,
+            full_logic_summary: String::new(),
+            receiving_addresses: String::new(),
+            is_active: true,
+            block_daa_score: 1,
+            timestamp: 0,
+            network: "testnet-12".into(),
+            block_hash: String::new(),
+            reorged: false,
+            confirmations: None,
+            finality: String::new(),
+            finality_eta_secs: None,
+        }
+    }
+
+    fn reality_for(covenant_type: &str) -> String {
+        let c = covenant_with_type(covenant_type);
+        let v = covenant_summary_json(&c, false, serde_json::Value::Null);
+        v.get("enforcement_reality")
+            .and_then(|r| r.as_str())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    /// HONESTY: the oracle co-sign kinds deploy as the same exact 35-byte aa20<hash>87
+    /// P2SH as every other covenant, so reality_for_script() alone would flatten them to
+    /// "on-chain" and they would wear the emerald "on-chain, no oracle, no trust" badge.
+    /// They actually require the disclosed Covex oracle's co-signature, so the JSON
+    /// boundary must override the label to "hybrid" - exactly as the catalog already
+    /// declares for all four. Asserts both base kinds AND the _refundable variants
+    /// (folded in via contains()).
+    #[test]
+    fn oracle_enforced_and_escrow_serialize_hybrid_despite_exact_p2sh() {
+        // Control: the bare P2SH on script alone is on-chain (so any "hybrid" below is
+        // proven to come from the type override, not from the script classifier).
+        assert_eq!(
+            covenant_catalog::reality_for_script(&format!("aa20{}87", "33".repeat(32)))
+                .as_str(),
+            "on-chain"
+        );
+
+        assert_eq!(reality_for("oracle_enforced"), "hybrid");
+        assert_eq!(reality_for("oracle_escrow"), "hybrid");
+        // The _refundable variants fold in through contains().
+        assert_eq!(reality_for("oracle_enforced_refundable"), "hybrid");
+        assert_eq!(reality_for("oracle_escrow_refundable"), "hybrid");
+
+        // The catalog declares all four Hybrid; the live label must agree.
+        for id in [
+            "oracle_enforced",
+            "oracle_escrow",
+            "oracle_enforced_refundable",
+            "oracle_escrow_refundable",
+        ] {
+            let catalog_reality = covenant_catalog::CATALOG
+                .iter()
+                .find(|e| e.id == id)
+                .unwrap_or_else(|| panic!("catalog must contain {id}"))
+                .reality;
+            assert_eq!(catalog_reality.as_str(), "hybrid", "catalog drift for {id}");
+        }
+    }
+
+    /// The override stays narrow: a plain timelock covenant (no oracle in the redeem)
+    /// must still serialize "on-chain". Guards against the override accidentally
+    /// over-claiming hybrid for genuinely script-only covenants.
+    #[test]
+    fn non_oracle_covenant_stays_on_chain() {
+        assert_eq!(reality_for("p2sh_timelock"), "on-chain");
     }
 }

@@ -6607,4 +6607,477 @@ mod tests {
         let wrong = test_keypair(62);
         assert!(!run_p2pk(&p2pk_spk, |s| push65(&sign(s, &wrong))), "a wrong key must not satisfy the funding P2PK spend");
     }
+
+    /// CROSS-LANGUAGE SATISFIER GOLDEN PARITY (the consensus-critical money-path gate).
+    ///
+    /// This pins the REAL `assemble_noncustodial_satisfier` output, for every kind+branch the
+    /// non-custodial spend path supports, to the SAME shared golden fixture the frontend
+    /// `buildSatisfier` is pinned to (`tests/fixtures/satisfier_golden.json` at the repo root,
+    /// also asserted by frontend/src/lib/redeemer/covenantRedeemer.golden.test.js). Both
+    /// emitters compare against one neutral file, so any byte drift on EITHER side fails CI.
+    ///
+    /// Method (matches the spend handlers exactly): build the production redeem per kind via the
+    /// `redeem_*` builders with DISTINCT deterministic keypairs (so each parsed member is
+    /// identifiable), parse members with the SAME `checksig_only` flag the spend handlers use
+    /// (multisig / oracle / oracle_enforced / oracle_enforced_refundable = false, else true),
+    /// feed the fixture's FIXED placeholder sigs + preimage into the slot the chosen branch
+    /// consumes, strip the trailing redeem-script push, and assert byte equality. The assembler
+    /// only PLACES signatures (it does not verify them), so placeholder bytes are sound here.
+    #[test]
+    fn satisfier_golden_cross_language_parity() {
+        use std::collections::HashMap;
+
+        // Inputs into one assembly call. `solo`/`oracle` are owned options so a branch can hand
+        // the placeholder bytes to whichever slot it consumes.
+        struct Slots {
+            kind: &'static str,
+            branch_refund: bool,
+            checksig_only: bool,
+            sigs: HashMap<String, [u8; 64]>,
+            solo: Option<[u8; 64]>,
+            preimage: Option<Vec<u8>>,
+            oracle: Option<[u8; 64]>,
+            winner_is_a: bool,
+        }
+
+        // The fixture lives at the repo root; CARGO_MANIFEST_DIR is backend, so go up one dir to
+        // the root then into tests/fixtures.
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("tests")
+            .join("fixtures")
+            .join("satisfier_golden.json");
+        let raw = std::fs::read_to_string(&fixture_path)
+            .unwrap_or_else(|e| panic!("read golden fixture {}: {e}", fixture_path.display()));
+        let doc: serde_json::Value =
+            serde_json::from_str(&raw).expect("golden fixture is valid JSON");
+
+        // Fixed inputs (must match tests/fixtures/satisfier_golden.json `fixed_inputs`).
+        let fi = &doc["fixed_inputs"];
+        let read_sig = |key: &str| -> [u8; 64] {
+            let h = fi[key].as_str().unwrap_or_else(|| panic!("fixed_inputs.{key} missing"));
+            let v = hex::decode(h).unwrap_or_else(|_| panic!("fixed_inputs.{key} not hex"));
+            assert_eq!(v.len(), 64, "fixed_inputs.{key} must be 64 bytes");
+            let mut a = [0u8; 64];
+            a.copy_from_slice(&v);
+            a
+        };
+        let sig_a = read_sig("sig_a");
+        let sig_b = read_sig("sig_b");
+        let sig_refund = read_sig("sig_refund");
+        let sig_oracle = read_sig("sig_oracle");
+        let preimage = {
+            let h = fi["preimage"].as_str().expect("fixed_inputs.preimage missing");
+            hex::decode(h).expect("fixed_inputs.preimage not hex")
+        };
+
+        // Distinct deterministic keypairs so each member pubkey is identifiable.
+        let xo = |k: &Keypair| k.x_only_public_key().0.serialize();
+        let lock_daa: u64 = 1_000;
+        let min_seq: u64 = 144;
+        let k_single = test_keypair(11);
+        let k_recv = test_keypair(20);
+        let k_send = test_keypair(21);
+        let k_ms_a = test_keypair(30);
+        let k_ms_b = test_keypair(31);
+        let k_p1 = test_keypair(40);
+        let k_p2 = test_keypair(41);
+        let k_owner = test_keypair(50);
+        let k_heir = test_keypair(51);
+        let k_oracle = test_keypair(60);
+        let k_winner = test_keypair(61);
+        let k_e_oracle = test_keypair(70);
+        let k_e_a = test_keypair(71);
+        let k_e_b = test_keypair(72);
+        let k_e_refund = test_keypair(73);
+        let k_er_oracle = test_keypair(80);
+        let k_er_winner = test_keypair(81);
+        let k_er_refund = test_keypair(82);
+        let k_bos_a = test_keypair(90);
+        let k_bos_b = test_keypair(91);
+        let k_bos_refund = test_keypair(92);
+
+        // Any 32-byte value works for the hashlock-style branches: the assembler never checks the
+        // preimage against the redeem hash (the on-chain OpBlake2b does; here we only pin layout).
+        let h32 = [0xee_u8; 32];
+
+        // Production redeems. oracle / oracle_enforced are redeem_multisig([oracle, winner], 2).
+        let r_singlesig = redeem_singlesig(&xo(&k_single)).unwrap();
+        let r_timelock = redeem_timelock(lock_daa, &xo(&k_single)).unwrap();
+        let r_rcsv = redeem_relative_timelock(min_seq, &xo(&k_single)).unwrap();
+        let r_hashlock = redeem_hashlock(&h32, &xo(&k_single)).unwrap();
+        let r_htlc = redeem_htlc(&h32, &xo(&k_recv), lock_daa, &xo(&k_send)).unwrap();
+        let r_multisig = redeem_multisig(&[xo(&k_ms_a), xo(&k_ms_b)], 2).unwrap();
+        let r_channel = redeem_channel(&xo(&k_p1), &xo(&k_p2), lock_daa).unwrap();
+        let r_deadman = redeem_deadman(&xo(&k_owner), &xo(&k_heir), lock_daa).unwrap();
+        let r_oracle = redeem_multisig(&[xo(&k_oracle), xo(&k_winner)], 2).unwrap();
+        let r_escrow = redeem_oracle_escrow(&xo(&k_e_oracle), &xo(&k_e_a), &xo(&k_e_b)).unwrap();
+        let r_escrow_ref = redeem_oracle_escrow_refundable(
+            &xo(&k_e_oracle),
+            &xo(&k_e_a),
+            &xo(&k_e_b),
+            min_seq,
+            &xo(&k_e_refund),
+        )
+        .unwrap();
+        let r_enforced_ref = redeem_oracle_enforced_refundable(
+            &xo(&k_er_oracle),
+            &xo(&k_er_winner),
+            min_seq,
+            &xo(&k_er_refund),
+        )
+        .unwrap();
+        let r_bos = redeem_binary_oracle_select(
+            &h32,
+            &xo(&k_bos_a),
+            &h32,
+            &xo(&k_bos_b),
+            min_seq,
+            &xo(&k_bos_refund),
+        )
+        .unwrap();
+
+        // A sigs map with one (pubkey -> placeholder sig) entry.
+        let one = |pk: [u8; 32], sig: [u8; 64]| -> HashMap<String, [u8; 64]> {
+            let mut m = HashMap::new();
+            m.insert(hex::encode(pk), sig);
+            m
+        };
+
+        // Run one assembly and strip the trailing redeem push to recover the satisfier CONTENT.
+        // The redeem push is a constant suffix independent of the satisfier content, so assembling
+        // with an EMPTY satisfier recovers the suffix; assert-and-strip it.
+        let content = |redeem: &[u8], s: Slots| -> Vec<u8> {
+            let members = parse_redeem_pubkeys(redeem, s.checksig_only);
+            let full = assemble_noncustodial_satisfier(
+                s.kind,
+                s.branch_refund,
+                redeem,
+                &members,
+                &s.sigs,
+                s.solo.as_ref(),
+                s.preimage.as_deref(),
+                s.oracle.as_ref(),
+                s.winner_is_a,
+            )
+            .unwrap_or_else(|e| panic!("assemble {}/{}: {e}", s.kind, s.branch_refund));
+            let suffix =
+                kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), Vec::new())
+                    .expect("empty-satisfier redeem push");
+            assert!(
+                full.ends_with(&suffix),
+                "{}: assembled sig_script does not end with the redeem push",
+                s.kind
+            );
+            full[..full.len() - suffix.len()].to_vec()
+        };
+
+        // Map (kind, branch) -> the satisfier CONTENT, routing the fixed placeholders into the
+        // slot the branch consumes (mirrors the JS golden test's argsFor exactly).
+        let actual = |kind: &str, branch: &str| -> Vec<u8> {
+            let plain = |k: &'static str, redeem: &[u8], solo: [u8; 64]| {
+                content(
+                    redeem,
+                    Slots {
+                        kind: k,
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: HashMap::new(),
+                        solo: Some(solo),
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                )
+            };
+            match (kind, branch) {
+                ("singlesig", "claim") => plain("singlesig", &r_singlesig, sig_a),
+                ("timelock", "claim") => plain("timelock", &r_timelock, sig_a),
+                ("rcsv", "claim") => plain("rcsv", &r_rcsv, sig_a),
+                ("hashlock", "claim") => content(
+                    &r_hashlock,
+                    Slots {
+                        kind: "hashlock",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: HashMap::new(),
+                        solo: Some(sig_a),
+                        preimage: Some(preimage.clone()),
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("htlc", "claim") => content(
+                    &r_htlc,
+                    Slots {
+                        kind: "htlc",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: HashMap::new(),
+                        solo: Some(sig_a),
+                        preimage: Some(preimage.clone()),
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("htlc", "refund") => content(
+                    &r_htlc,
+                    Slots {
+                        kind: "htlc",
+                        branch_refund: true,
+                        checksig_only: true,
+                        sigs: HashMap::new(),
+                        solo: Some(sig_a),
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("multisig", "claim") => {
+                    let mut sigs = HashMap::new();
+                    sigs.insert(hex::encode(xo(&k_ms_a)), sig_a);
+                    sigs.insert(hex::encode(xo(&k_ms_b)), sig_b);
+                    content(
+                        &r_multisig,
+                        Slots {
+                            kind: "multisig",
+                            branch_refund: false,
+                            checksig_only: false,
+                            sigs,
+                            solo: None,
+                            preimage: None,
+                            oracle: None,
+                            winner_is_a: true,
+                        },
+                    )
+                }
+                ("channel", "close") => {
+                    // close pushes sig_p2 then sig_p1 -> p1=sig_a, p2=sig_b.
+                    let mut sigs = HashMap::new();
+                    sigs.insert(hex::encode(xo(&k_p1)), sig_a);
+                    sigs.insert(hex::encode(xo(&k_p2)), sig_b);
+                    content(
+                        &r_channel,
+                        Slots {
+                            kind: "channel",
+                            branch_refund: false,
+                            checksig_only: true,
+                            sigs,
+                            solo: None,
+                            preimage: None,
+                            oracle: None,
+                            winner_is_a: true,
+                        },
+                    )
+                }
+                ("channel", "refund") => content(
+                    &r_channel,
+                    Slots {
+                        kind: "channel",
+                        branch_refund: true,
+                        checksig_only: true,
+                        sigs: one(xo(&k_p1), sig_a),
+                        solo: None,
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("deadman", "claim") => content(
+                    &r_deadman,
+                    Slots {
+                        kind: "deadman",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: HashMap::new(),
+                        solo: Some(sig_a),
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("deadman", "refund") => content(
+                    &r_deadman,
+                    Slots {
+                        kind: "deadman",
+                        branch_refund: true,
+                        checksig_only: true,
+                        sigs: HashMap::new(),
+                        solo: Some(sig_a),
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("oracle", "claim") | ("oracle_enforced", "claim") => {
+                    // [oracle, winner]; oracle=sig_oracle (oracle slot), winner=sig_a (keyed).
+                    let k: &'static str =
+                        if kind == "oracle" { "oracle" } else { "oracle_enforced" };
+                    content(
+                        &r_oracle,
+                        Slots {
+                            kind: k,
+                            branch_refund: false,
+                            checksig_only: false,
+                            sigs: one(xo(&k_winner), sig_a),
+                            solo: None,
+                            preimage: None,
+                            oracle: Some(sig_oracle),
+                            winner_is_a: true,
+                        },
+                    )
+                }
+                ("oracle_escrow", "revealA") => content(
+                    &r_escrow,
+                    Slots {
+                        kind: "oracle_escrow",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: one(xo(&k_e_a), sig_a),
+                        solo: None,
+                        preimage: None,
+                        oracle: Some(sig_oracle),
+                        winner_is_a: true,
+                    },
+                ),
+                ("oracle_escrow", "revealB") => content(
+                    &r_escrow,
+                    Slots {
+                        kind: "oracle_escrow",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: one(xo(&k_e_b), sig_b),
+                        solo: None,
+                        preimage: None,
+                        oracle: Some(sig_oracle),
+                        winner_is_a: false,
+                    },
+                ),
+                ("oracle_enforced_refundable", "claim") => content(
+                    &r_enforced_ref,
+                    Slots {
+                        kind: "oracle_enforced_refundable",
+                        branch_refund: false,
+                        checksig_only: false,
+                        sigs: one(xo(&k_er_winner), sig_a),
+                        solo: None,
+                        preimage: None,
+                        oracle: Some(sig_oracle),
+                        winner_is_a: true,
+                    },
+                ),
+                ("oracle_enforced_refundable", "refund") => content(
+                    &r_enforced_ref,
+                    Slots {
+                        kind: "oracle_enforced_refundable",
+                        branch_refund: true,
+                        checksig_only: false,
+                        sigs: one(xo(&k_er_refund), sig_refund),
+                        solo: None,
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("oracle_escrow_refundable", "revealA") => content(
+                    &r_escrow_ref,
+                    Slots {
+                        kind: "oracle_escrow_refundable",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: one(xo(&k_e_a), sig_a),
+                        solo: None,
+                        preimage: None,
+                        oracle: Some(sig_oracle),
+                        winner_is_a: true,
+                    },
+                ),
+                ("oracle_escrow_refundable", "revealB") => content(
+                    &r_escrow_ref,
+                    Slots {
+                        kind: "oracle_escrow_refundable",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: one(xo(&k_e_b), sig_b),
+                        solo: None,
+                        preimage: None,
+                        oracle: Some(sig_oracle),
+                        winner_is_a: false,
+                    },
+                ),
+                ("oracle_escrow_refundable", "refund") => content(
+                    &r_escrow_ref,
+                    Slots {
+                        kind: "oracle_escrow_refundable",
+                        branch_refund: true,
+                        checksig_only: true,
+                        sigs: one(xo(&k_e_refund), sig_refund),
+                        solo: None,
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("binary_oracle_select", "revealA") => content(
+                    &r_bos,
+                    Slots {
+                        kind: "binary_oracle_select",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: one(xo(&k_bos_a), sig_a),
+                        solo: None,
+                        preimage: Some(preimage.clone()),
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                ("binary_oracle_select", "revealB") => content(
+                    &r_bos,
+                    Slots {
+                        kind: "binary_oracle_select",
+                        branch_refund: false,
+                        checksig_only: true,
+                        sigs: one(xo(&k_bos_b), sig_b),
+                        solo: None,
+                        preimage: Some(preimage.clone()),
+                        oracle: None,
+                        winner_is_a: false,
+                    },
+                ),
+                ("binary_oracle_select", "refund") => content(
+                    &r_bos,
+                    Slots {
+                        kind: "binary_oracle_select",
+                        branch_refund: true,
+                        checksig_only: true,
+                        sigs: one(xo(&k_bos_refund), sig_refund),
+                        solo: None,
+                        preimage: None,
+                        oracle: None,
+                        winner_is_a: true,
+                    },
+                ),
+                _ => panic!("golden fixture has a vector this test does not map: {kind}/{branch}"),
+            }
+        };
+
+        let vectors = doc["vectors"].as_array().expect("fixture.vectors is an array");
+        assert!(!vectors.is_empty(), "golden fixture has no vectors");
+        let mut checked = 0usize;
+        for v in vectors {
+            let kind = v["kind"].as_str().expect("vector.kind");
+            let branch = v["branch"].as_str().expect("vector.branch");
+            let expected = v["expected_satisfier_hex"]
+                .as_str()
+                .expect("vector.expected_satisfier_hex");
+            let got = hex::encode(actual(kind, branch));
+            assert_eq!(
+                got, expected,
+                "satisfier byte drift for {kind}/{branch}: Rust assemble_noncustodial_satisfier no longer matches tests/fixtures/satisfier_golden.json (and therefore the frontend buildSatisfier). Regenerate via scripts/gen-satisfier-golden.mjs and update BOTH emitters if intentional."
+            );
+            checked += 1;
+        }
+        // Every kind+branch the non-custodial assembler supports must be covered by the fixture.
+        assert_eq!(checked, 23, "expected 23 golden satisfier vectors, checked {checked}");
+    }
 }

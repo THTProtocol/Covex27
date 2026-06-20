@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { toast } from '../components/ToastContext';
+import TierTransparency from '../components/TierTransparency';
 import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 
 // Copyable address pill - same honest clipboard pattern as EnforcedDeploy's CopyBtn:
@@ -358,6 +359,13 @@ const Pricing = () => {
           <span className="font-semibold text-white light:text-slate-900">Every covenant can lock or bet any amount on the free tier.</span>{' '}
           Paid tiers buy priority placement on Covex and the website builder, never a higher limit. There is no maximum bet or lock size on any tier.
         </p>
+      </div>
+
+      {/* Always-visible tier transparency: the same component and copy rendered in the
+          Covex Terminal, so the crystal-clear "paid = placement only, never capability"
+          message is identical on both surfaces. */}
+      <div className="relative z-10 max-w-3xl mx-auto mb-12">
+        <TierTransparency currentTier="FREE" />
       </div>
 
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

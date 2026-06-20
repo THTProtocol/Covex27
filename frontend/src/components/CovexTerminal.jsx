@@ -12,6 +12,7 @@ import {
 import { copyWithFeedback } from '../lib/copy';
 import { Chess } from 'chess.js';
 import { CovexMark } from './CovexLogo';
+import TierTransparency from './TierTransparency';
 import TransparencyModal from './TransparencyModal';
 // Single source of truth for the ZK reality sets + the shared in-browser provers.
 // (VERIFIED_FULL_ZK / IN_BROWSER_PROVERS / STRICT_GROTH16 used to be duplicated here and in
@@ -41,13 +42,13 @@ import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator
 // loadSnarkjs + the in-browser provers now live in lib/zk/provers.js (single source of truth,
 // shared with the public ZkClaimPanel). Imported above.
 
-const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm';
+const SECTION_BASE = 'bg-black/30 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm light:bg-white light:border-slate-200 light:shadow-sm';
 const SECTION_HEADER = 'flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest';
-const LABEL = 'text-xs text-gray-300 uppercase tracking-wider font-mono';
+const LABEL = 'text-xs text-gray-300 uppercase tracking-wider font-mono light:text-slate-600';
 const INPUT =
-  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all';
+  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 light:text-slate-700 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder:text-slate-400';
 const TEXTAREA =
-  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none';
+  'w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-gray-200 light:text-slate-700 focus:outline-none focus:border-kaspa-green/50 focus:shadow-[0_0_8px_rgba(73,234,203,0.1)] transition-all resize-none light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder:text-slate-400';
 
 // ── ZK Circuit Types (covenant-focused, exhaustive per vision) ────────────────────────────────
 // These are ZK proof types for covenant resolution - not "game types."
@@ -345,7 +346,7 @@ const REALITY_META = {
   'full-zk':         { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'hybrid':          { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'oracle-attested': { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
-  'decorative':      { label: 'Metadata',       short: 'Meta',   accent: '#9ca3af', text: 'text-gray-300',    bg: 'bg-white/[0.06]',   border: 'border-white/15' },
+  'decorative':      { label: 'Metadata',       short: 'Meta',   accent: '#9ca3af', text: 'text-gray-300 light:text-slate-600',    bg: 'bg-white/[0.06]',   border: 'border-white/15' },
 };
 const realityMeta = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
 // Rewrite legacy "Full ZK" / "Hybrid" prose to the honest mainnet framing: the proof is verified
@@ -597,10 +598,9 @@ export function generateSilverScriptForConfig(cfg) {
   })();
 
   let resolveBlock = '';
+  // ZK resolution is FREE for everyone. Paid tiers buy only priority placement /
+  // featured listing on Covex, never build capability, so resolution is never downgraded.
   let effectiveResolution = resolutionMode;
-  if (!hasPaidAccess && effectiveResolution === 'zk') {
-    effectiveResolution = 'oracle';
-  }
   switch (effectiveResolution) {
     case 'zk':
       resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0xCHESSv1_8x8_STANDARD'} ;; circuit: ${zkCircuit}`;
@@ -674,8 +674,8 @@ function Toggle({ label, desc, enabled, onChange, disabled = false }) {
       }`}
     >
       <div className="text-left">
-        <p className={`text-sm font-medium ${disabled ? 'text-gray-200' : 'text-white'}`}>{label}</p>
-        {desc && <p className="text-[11px] text-gray-200 mt-0.5">{desc}</p>}
+        <p className={`text-sm font-medium ${disabled ? 'text-gray-200 light:text-slate-700' : 'text-white'}`}>{label}</p>
+        {desc && <p className="text-[11px] text-gray-200 light:text-slate-700 mt-0.5">{desc}</p>}
       </div>
       {enabled ? (
         <ToggleRight size={22} className="text-kaspa-green shrink-0" />
@@ -747,12 +747,12 @@ function ResolutionCard({ icon: Icon, title, desc, selected, onClick, accent = '
       >
         <Icon
           size={18}
-          className={selected ? `text-${accent === 'kaspa-green' ? 'kaspa-green' : accent === 'kaspa-gold' ? 'kaspa-gold' : 'purple-400'}` : 'text-gray-200'}
+          className={selected ? `text-${accent === 'kaspa-green' ? 'kaspa-green' : accent === 'kaspa-gold' ? 'kaspa-gold' : 'purple-400'}` : 'text-gray-200 light:text-slate-700'}
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-gray-200'}`}>{title}</p>
-        <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">{desc}</p>
+        <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-gray-200 light:text-slate-700'}`}>{title}</p>
+        <p className="text-[11px] text-gray-200 light:text-slate-700 mt-1 leading-relaxed">{desc}</p>
       </div>
       <Radio
         size={16}
@@ -847,9 +847,13 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   const networkLabel = 'MAINNET';
   const networkColorClass = 'text-red-400 border-red-500/40 bg-red-500/10';
 
-  // ── Paid tier enforcement (for advanced features like circuits - required on ALL networks including mainnet)
-  // Free basic SilverScript creation is always allowed (no special treatment).
-  // Circuits / pro features only after verified payment from the SAME wallet address.
+  // ── Tier model: ALL build capability is FREE for everyone on every network.
+  // Every ZK circuit, ZK resolution, the live SilverScript editor, oracles, custom
+  // UI, and game arenas are available to a FREE-tier wallet, and any bet/lock amount
+  // is allowed with no cap. Paid tiers buy ONLY priority placement / featured listing
+  // of the covenant and its website on Covex; they never unlock a circuit or feature.
+  // paidStatus is still read from the backend (/api/paid-status) purely to drive that
+  // placement priority and the featured-listing badge, not to gate the builder.
   const [paidStatus, setPaidStatus] = useState(null);
   const [checkingPaid, setCheckingPaid] = useState(false);
   // Tier access is decided ONLY by the backend (paidStatus from /api/paid-status), never by
@@ -937,7 +941,8 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
           if (cancelled || !data) return;
           if (data.highest_tier && data.highest_tier !== 'FREE') {
             // If the payer is the connected wallet, also sync local paidStatus so the
-            // whole terminal unlocks without waiting for the connectedAddress poll tick.
+            // priority-placement badge reflects the new tier without waiting for the
+            // connectedAddress poll tick. (The builder itself is already free either way.)
             if (connectedAddress && connectedAddress === storedAddress) {
               setPaidStatus(data);
             }
@@ -1010,10 +1015,12 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     if (externalCircuit.startsWith('chess')) setGameType(externalCircuit);
   }, [externalCircuit]);
 
+  // Tiers buy ONLY priority placement / featured listing on Covex. Every build
+  // capability (all circuits, ZK resolution, the editor, arenas) is already free.
   const TIERS = [
-    { id: 'BUILDER', name: 'BUILDER', price: 100, accent: '#3B82F6', desc: 'Interactive UIs, standard circuits' },
-    { id: 'PRO', name: 'PRO', price: 500, accent: '#E8AF34', desc: 'Full pro arenas + priority' },
-    { id: 'MAX', name: 'MAX', price: 1000, accent: '#A855F7', desc: 'Max visibility + all features' },
+    { id: 'BUILDER', name: 'BUILDER', price: 100, accent: '#3B82F6', desc: 'Listed placement on Covex' },
+    { id: 'PRO', name: 'PRO', price: 500, accent: '#E8AF34', desc: 'Priority placement + featured' },
+    { id: 'MAX', name: 'MAX', price: 1000, accent: '#A855F7', desc: 'Top placement + max visibility' },
   ];
 
   // Mainnet-only config. Real mainnet seeds ONLY via secure env, never hardcoded.
@@ -1094,9 +1101,10 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       setTimeout(checkPaymentNow, 4000);
     } catch (e) {
       // NEVER self-grant a tier on error. If the tx really did broadcast, the backend credited it
-      // and the paid-status poll will unlock the terminal; otherwise the user simply retries.
+      // and the paid-status poll will activate the priority placement; otherwise the user simply
+      // retries. The builder is free regardless, so nothing capability-related is blocked here.
       setPayingTier(null);
-      toast.error('Payment failed: ' + (e?.message || e) + '\n\nNo tier was granted. If your transaction did broadcast, the terminal will unlock automatically once the backend confirms it.');
+      toast.error('Payment failed: ' + (e?.message || e) + '\n\nNo tier was granted. Every build feature stays free. If your transaction did broadcast, priority placement will activate automatically once the backend confirms it.');
       setTimeout(checkPaymentNow, 1500);
       setTimeout(checkPaymentNow, 5000);
     }
@@ -1579,10 +1587,9 @@ contract VisualCovenant {
   })();
 
     let resolveBlock;
+    // ZK resolution is FREE for everyone. Paid tiers buy only priority placement /
+    // featured listing on Covex, never build capability, so resolution is never downgraded.
     let effectiveResolution = resolutionMode;
-    if (!hasPaidAccess && effectiveResolution === 'zk') {
-      effectiveResolution = 'oracle'; // circuits only after payment
-    }
     switch (effectiveResolution) {
       case 'custom':
         resolveBlock = `\n  ;; ── Resolution: Custom Oracle (recorded intent)\n  ;; Oracle pubkey (metadata only, NOT verified by the deployed covenant): ${customOracleKey || '(not set)'}\n  ;; Resolution today runs through the disclosed Covex oracle. On-chain binding to this key is a roadmap item.`;
@@ -2318,18 +2325,18 @@ ${gameMeta.outcomeBranches}
           <Terminal size={22} className="text-kaspa-green" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Covex Terminal</h2>
-          <p className="text-xs text-gray-300 font-mono">ADVANCED COVENANT CONFIGURATION</p>
+          <h2 className="text-xl font-bold text-white tracking-tight light:text-slate-900">Covex Terminal</h2>
+          <p className="text-xs text-gray-300 font-mono light:text-slate-600">ADVANCED COVENANT CONFIGURATION</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <button
             onClick={() => navigate(covenantId ? `/covenant/${covenantId}` : '/sandbox')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-300 hover:text-white text-xs font-mono transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-300 hover:text-white text-xs font-mono transition-colors light:border-slate-200 light:text-slate-600 light:hover:text-slate-900 light:hover:bg-slate-100">
             <ArrowLeft size={12} />
             {covenantId ? 'Back to covenant' : 'Back to builder'}
           </button>
           <span className="h-2 w-2 rounded-full bg-kaspa-green animate-pulse shadow-[0_0_6px_#49EACB]" />
-          <span className="text-[10px] text-gray-200 font-mono uppercase tracking-wider">Live</span>
+          <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono uppercase tracking-wider light:text-slate-600">Live</span>
         </div>
       </div>
 
@@ -2347,7 +2354,7 @@ ${gameMeta.outcomeBranches}
         <summary className="cursor-pointer select-none flex items-center gap-3 text-kaspa-green font-semibold text-sm uppercase tracking-widest -my-0.5">
           <Info size={16} />
           <span>Best Covenant Guide: How to Build the Best Covenant</span>
-          <span className="text-[10px] font-mono text-gray-300 normal-case tracking-normal ml-auto mr-2">Expand for full guide</span>
+          <span className="text-[10px] font-mono text-gray-300 light:text-slate-600 normal-case tracking-normal ml-auto mr-2">Expand for full guide</span>
         </summary>
         <div className="mt-4 ml-2 pl-4 border-l-2 border-kaspa-green/30 space-y-4">
           {/* Why non-1time (reusable) is advisable */}
@@ -2356,10 +2363,10 @@ ${gameMeta.outcomeBranches}
               <div className="p-1.5 rounded-lg bg-kaspa-green/15"><Settings size={14} className="text-kaspa-green" /></div>
               <p className="text-sm text-white font-bold">Non-1time (Reusable) Covenants: Why and How</p>
             </div>
-            <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
+            <div className="space-y-2 text-xs text-gray-300 light:text-slate-600 leading-relaxed">
               <p><strong className="text-white">1-time covenants</strong> lock funds once. One player or pair plays, one resolution, funds move, covenant is done. Simple but single-use. To run another session you must redeploy a new covenant on-chain.</p>
               <p><strong className="text-kaspa-green">Reusable covenants are advisable for most use cases.</strong> They support multiple sessions and ongoing value:</p>
-              <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300">
+              <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300 light:text-slate-600">
                 <li>Multiple players or sessions from a single on-chain covenant deploy</li>
                 <li>The covenant pot persists and grows across games</li>
                 <li>Creator earns platform % on every game without redeploying</li>
@@ -2378,9 +2385,9 @@ ${gameMeta.outcomeBranches}
               <div className="p-1.5 rounded-lg bg-kaspa-green/15"><Shield size={14} className="text-kaspa-green" /></div>
               <p className="text-sm text-white font-bold">Full Transparency: Required Covenant Information</p>
             </div>
-            <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
+            <div className="space-y-2 text-xs text-gray-300 light:text-slate-600 leading-relaxed">
               <p>Every covenant deployed on COVEX must provide complete information publicly visible in the Explorer. This protects participants:</p>
-              <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300">
+              <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300 light:text-slate-600">
                 <li><strong className="text-white">Name</strong>: Clear, descriptive covenant name</li>
                 <li><strong className="text-white">Full description</strong>: Rules, variants, edge cases, examples (minimum 80 characters for best results)</li>
                 <li><strong className="text-white">Exact payout structure</strong>: Who gets what percentage of the pot under each outcome</li>
@@ -2401,76 +2408,86 @@ ${gameMeta.outcomeBranches}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div className="space-y-1">
                 <p className="text-white font-semibold">1. Make it reusable</p>
-                <p className="text-gray-300">Toggle Reusable + Allow Top-ups. One deploy, many sessions, ongoing creator revenue.</p>
+                <p className="text-gray-300 light:text-slate-600">Toggle Reusable + Allow Top-ups. One deploy, many sessions, ongoing creator revenue.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">2. Write a detailed description</p>
-                <p className="text-gray-300">Explain rules, edge cases, and examples. Public description builds trust.</p>
+                <p className="text-gray-300 light:text-slate-600">Explain rules, edge cases, and examples. Public description builds trust.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">3. Set % back to covenant pot</p>
-                <p className="text-gray-300">Keep 1-3% flowing back to sustain the pot for future players.</p>
+                <p className="text-gray-300 light:text-slate-600">Keep 1-3% flowing back to sustain the pot for future players.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">4. Choose ZK for high-stakes</p>
-                <p className="text-gray-300">For chess or other game outcomes where fairness matters, prefer ZK resolution when circuits are available.</p>
+                <p className="text-gray-300 light:text-slate-600">For chess or other game outcomes where fairness matters, prefer ZK resolution when circuits are available.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">5. Test thoroughly first</p>
-                <p className="text-gray-300">Verify oracle/ZK submission works before opening to real stakes.</p>
+                <p className="text-gray-300 light:text-slate-600">Verify oracle/ZK submission works before opening to real stakes.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">6. Paste rich UI from Studio</p>
-                <p className="text-gray-300">Design in Covenant Studio (github.com/THTProtocol/Covenant-Studio), generate, paste into Terminal for pro mobile+PC experience.</p>
+                <p className="text-gray-300 light:text-slate-600">Design in Covenant Studio (github.com/THTProtocol/Covenant-Studio), generate, paste into Terminal for pro mobile+PC experience.</p>
               </div>
             </div>
           </div>
         </div>
       </details>
 
-      {/* ─── Paid gate + QR for circuits (only after payment from this wallet; free basic SilverScript always works) ─── */}
+      {/* ─── Tier transparency: ALWAYS visible, every tier, all the time. Same component
+            and copy as the Pricing page so the message can never drift. Honesty rule:
+            paid = priority placement only, never capability. ─── */}
+      <TierTransparency currentTier={currentTier} />
+
+      {/* Inline note pinned next to the tier / payment control. */}
+      <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed -mt-2">
+        Priority placement is a paid add-on. Your covenant still deploys fully on Free - this only affects ranking on Covex.
+      </p>
+
+      {/* ─── Optional priority placement / featured listing (every build feature is already free) ─── */}
       {!hasPaidAccess && connectedAddress && (
-        <section className={`${SECTION_BASE} border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20`}>
-          <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
-            <Shield size={16} /> CIRCUITS & ADVANCED FEATURES - PAYMENT REQUIRED
+        <section className={`${SECTION_BASE} border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20 light:border-amber-300 light:bg-amber-50`}>
+          <div className="flex items-center gap-2 text-amber-400 light:text-amber-700 font-semibold text-sm">
+            <Shield size={16} /> PRIORITY PLACEMENT & FEATURED LISTING (OPTIONAL)
           </div>
-          <p className="text-xs text-gray-300 mt-1">Free basic SilverScript is always available. The Live SilverScript Editor (side add-ons for fee, ZK circuits with full list, oracles, timing, live code updates, public UI designer) + all tools for the best covenant are unlocked only after one-time payment from this exact connected wallet to the treasury. TXs broadcast in real time via backend signer.</p>
+          <p className="text-xs text-gray-300 light:text-slate-600 mt-1">Every build feature is already free: select any ZK circuit, use ZK resolution, the live SilverScript editor, oracles, timing, live code updates, the public UI designer, and any bet/lock amount with no cap. A one-time payment from this connected wallet buys ONLY priority placement and a featured listing of your covenant and its website on Covex, never a circuit or build feature. TXs broadcast in real time via backend signer.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
             {TIERS.map((t) => (
               <button key={t.id} onClick={() => startPaymentForTier(t)} className="p-3 rounded-xl border text-left transition hover:scale-[1.01]" style={{ borderColor: t.accent + '40', background: t.accent + '08' }}>
                 <div className="font-bold text-sm" style={{ color: t.accent }}>{t.name}</div>
-                <div className="text-[11px] text-gray-300">{t.price} KAS • {t.desc}</div>
+                <div className="text-[11px] text-gray-300 light:text-slate-600">{t.price} KAS • {t.desc}</div>
               </button>
             ))}
           </div>
 
           {payingTier && (
-            <div className="mt-4 p-4 rounded-xl bg-black/60 border border-amber-500/30">
-              <div className="text-sm font-semibold mb-1">Scan or copy to pay exactly {payingTier.price} KAS for {payingTier.name} from {connectedAddress}</div>
-              <div className="font-mono text-[10px] break-all text-gray-400 mb-2">{payingTier.treasury}</div>
+            <div className="mt-4 p-4 rounded-xl bg-black/60 border border-amber-500/30 light:bg-white light:border-amber-300">
+              <div className="text-sm font-semibold mb-1 light:text-slate-900">Scan or copy to pay exactly {payingTier.price} KAS for {payingTier.name} from {connectedAddress}</div>
+              <div className="font-mono text-[10px] break-all text-gray-400 light:text-slate-500 mb-2">{payingTier.treasury}</div>
               <div className="flex gap-4 items-start">
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(payingTier.uri)}`} 
-                  alt="Payment QR" 
-                  className="rounded border border-white/10 bg-white p-1" 
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(payingTier.uri)}`}
+                  alt="Payment QR"
+                  className="rounded border border-white/10 bg-white p-1"
                 />
-                <div className="text-xs flex-1 space-y-1">
+                <div className="text-xs flex-1 space-y-1 light:text-slate-700">
                   <div>URI (tap to pay in wallet):</div>
-                  <div className="font-mono break-all bg-black/40 p-1 rounded text-amber-300">{payingTier.uri}</div>
-                  <button onClick={() => copyWithFeedback(payingTier.uri, { label: 'Payment URI copied' })} className="text-[10px] underline">Copy URI</button>
+                  <div className="font-mono break-all bg-black/40 p-1 rounded text-amber-300 light:bg-slate-50 light:text-amber-700">{payingTier.uri}</div>
+                  <button onClick={() => copyWithFeedback(payingTier.uri, { label: 'Payment URI copied' })} className="text-[10px] underline light:text-slate-600">Copy URI</button>
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
                 <button onClick={checkPaymentNow} disabled={checkingPaid} className="flex-1 py-2 rounded bg-amber-600 text-black text-xs font-bold disabled:opacity-60">
                   {checkingPaid ? 'CHECKING PAYMENT FROM YOUR WALLET...' : 'I SENT THE PAYMENT - REFRESH STATUS'}
                 </button>
-                <button onClick={cancelPayment} className="px-3 py-2 text-xs border border-white/20 rounded">Cancel</button>
+                <button onClick={cancelPayment} className="px-3 py-2 text-xs border border-white/20 rounded light:border-slate-300 light:text-slate-700">Cancel</button>
               </div>
-              <div className="text-[9px] text-gray-400 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain. Works on mainnet with real KAS.</div>
+              <div className="text-[9px] text-gray-400 light:text-slate-500 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain. Works on mainnet with real KAS.</div>
             </div>
           )}
-          {!connectedAddress && <p className="text-xs text-amber-400 mt-2">Connect a wallet to see payment options for this network.</p>}
+          {!connectedAddress && <p className="text-xs text-amber-400 light:text-amber-700 mt-2">Connect a wallet to see payment options for this network.</p>}
         </section>
       )}
 
@@ -2503,7 +2520,7 @@ ${gameMeta.outcomeBranches}
                   {pendingBroadcast.tier || pendingBroadcast.id || 'TIER'} PENDING
                 </span>
               </div>
-              <p className="text-xs text-gray-300 mt-1 leading-relaxed light:text-slate-700">
+              <p className="text-xs text-gray-300 light:text-slate-600 mt-1 leading-relaxed light:text-slate-700">
                 {pendingTimedOut ? (
                   <>
                     We have not seen this transaction on chain after 75 seconds. The broadcast may
@@ -2511,13 +2528,14 @@ ${gameMeta.outcomeBranches}
                     on a different network than the one you are viewing
                     {' '}(<span className="font-mono">{kaspaNetwork}</span>).
                     Open the explorer to check the txid and confirm. Once the funding tx is on chain,
-                    the tier unlocks automatically for the payer address.
+                    the priority placement activates automatically for the payer address.
                   </>
                 ) : (
                   <>
-                    Your tier payment has been broadcast to a Kaspa node. The full terminal will
-                    unlock automatically for the payer address as soon as the funding tx is included
-                    in the chain. No tier is granted client side.
+                    Your tier payment has been broadcast to a Kaspa node. Priority placement /
+                    featured listing activates automatically for the payer address as soon as the
+                    funding tx is included in the chain. Every build feature is already free; no tier
+                    is granted client side.
                   </>
                 )}
               </p>
@@ -2527,7 +2545,7 @@ ${gameMeta.outcomeBranches}
                   <ExternalLink size={12} /> {pendingTimedOut ? 'Check explorer' : 'View transaction'}: {String(pendingBroadcast.txid).slice(0, 20)}{String(pendingBroadcast.txid).length > 20 ? '...' : ''}
                 </a>
                 {connectedAddress && pendingBroadcast.address && connectedAddress !== pendingBroadcast.address && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-gray-300 light:bg-slate-100 light:border-slate-200 light:text-slate-700">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-gray-300 light:text-slate-600 light:bg-slate-100 light:border-slate-200 light:text-slate-700">
                     <Info size={12} /> Paid from a different wallet than the one currently connected. The tier unlocks for the payer address.
                   </span>
                 )}
@@ -2538,22 +2556,22 @@ ${gameMeta.outcomeBranches}
       )}
 
       {paymentSuccess && (
-        <div className="mb-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-500/[0.12] to-[#49EACB]/[0.05] border border-emerald-500/30 shadow-[0_0_34px_-12px_rgba(16,185,129,0.45)] animate-[slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
+        <div className="mb-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-500/[0.12] to-[#49EACB]/[0.05] border border-emerald-500/30 shadow-[0_0_34px_-12px_rgba(16,185,129,0.45)] animate-[slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both] light:from-emerald-100 light:to-emerald-50 light:border-emerald-300">
           <div className="flex items-start gap-3.5">
-            <div className="h-11 w-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
-              <CheckCircle2 size={22} className="text-emerald-400" />
+            <div className="h-11 w-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 light:bg-emerald-200/60 light:border-emerald-400/60">
+              <CheckCircle2 size={22} className="text-emerald-400 light:text-emerald-700" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-base font-bold text-white">{paymentSuccess.tier} tier unlocked</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold tracking-wide">PAID</span>
+                <span className="text-base font-bold text-white light:text-slate-900">{paymentSuccess.tier} placement active</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold tracking-wide light:bg-emerald-200 light:text-emerald-800 light:border-emerald-400/60">PAID</span>
               </div>
-              <p className="text-xs text-gray-300 mt-1 leading-relaxed">
-                Payment broadcast on-chain. The full terminal (live SilverScript editor, ZK circuits, custom UI designer, oracles and game arenas) is now unlocked for this wallet on this network.
+              <p className="text-xs text-gray-300 light:text-slate-600 mt-1 leading-relaxed light:text-slate-700">
+                Payment broadcast on-chain. Your covenant and its website now get {paymentSuccess.tier} priority placement / featured listing on Covex. Every build feature (live SilverScript editor, all ZK circuits, ZK resolution, custom UI designer, oracles and game arenas) is and always was free for this wallet on this network.
               </p>
               {paymentSuccess.txid && (
                 <a href={explorerTxUrl(paymentSuccess.txid, kaspaNetwork)} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-emerald-300 hover:text-emerald-200 hover:border-emerald-500/50 transition-colors">
+                  className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-emerald-300 hover:text-emerald-200 hover:border-emerald-500/50 transition-colors light:bg-emerald-100 light:text-emerald-800 light:border-emerald-400/60 light:hover:text-emerald-900">
                   <ExternalLink size={12} /> View transaction: {String(paymentSuccess.txid).slice(0, 20)}…
                 </a>
               )}
@@ -2562,36 +2580,35 @@ ${gameMeta.outcomeBranches}
         </div>
       )}
 
-      {/* Live SilverScript Editor (the visual sandbox with side add-ons) - gated behind paywall, only for paid users. Integrated in the terminal with all other tools (circuits, custom UI for public look, oracles, arenas, etc.) to create the best covenant. */}
-      {hasPaidAccess && (
+      {/* Live SilverScript Editor (the visual sandbox with side add-ons) - FREE for everyone. Integrated in the terminal with all other build tools (circuits, custom UI for public look, oracles, arenas, etc.) to create the best covenant. Paid tiers buy only priority placement, not this editor. */}
       <section className={`${SECTION_BASE} border-[#49EACB]/20 bg-[#49EACB]/[0.01]`}>
         <div className={SECTION_HEADER}>
           <Code2 size={16} />
           <span>Live SilverScript Editor</span>
-          <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/30">PAID</span>
+          <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/30">FREE</span>
         </div>
-        <p className="text-xs text-gray-300 mb-4">Side add-ons instantly rewrite the live SilverScript. Use for your covenant logic. The public appearance designer is in the Custom UI section below. Free basic under Deploy.</p>
+        <p className="text-xs text-gray-300 mb-4 light:text-slate-600">Side add-ons instantly rewrite the live SilverScript. Use for your covenant logic. The public appearance designer is in the Custom UI section below. Free for every tier.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Add-ons (left, organized) */}
           <div className="lg:col-span-5 space-y-4">
-            <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
-              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/5 light:bg-slate-50 light:border-slate-200">
+              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2 light:text-slate-700">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> ECONOMICS
               </div>
               <div>
-                <div className="flex justify-between text-xs mb-1 text-gray-300"><span>Platform Fee</span><span className="font-mono text-[#49EACB]">{visualConfig.feePercent}%</span></div>
+                <div className="flex justify-between text-xs mb-1 text-gray-300 light:text-slate-600"><span>Platform Fee</span><span className="font-mono text-[#49EACB]">{visualConfig.feePercent}%</span></div>
                 <input type="range" min="0" max="10" step="0.5" value={visualConfig.feePercent} onChange={e => updateVisual({ feePercent: parseFloat(e.target.value) })} className="w-full" style={{ '--range-pct': `${(visualConfig.feePercent / 10) * 100}%` }} />
               </div>
             </div>
 
-            <div id="builder-circuits" className="p-4 rounded-2xl bg-black/40 border border-white/5 scroll-mt-24">
-              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
+            <div id="builder-circuits" className="p-4 rounded-2xl bg-black/40 border border-white/5 scroll-mt-24 light:bg-slate-50 light:border-slate-200">
+              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2 light:text-slate-700">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> RESOLUTION &amp; CIRCUITS
               </div>
               <div className="flex gap-1.5 mb-3">
                 {['oracle','zk','hybrid'].map(m => (
-                  <button key={m} onClick={() => updateVisual({ resolutionMode: m })} className={`flex-1 text-[10px] py-1.5 rounded-xl border transition ${visualConfig.resolutionMode === m ? 'border-[#49EACB] bg-[#49EACB]/10 text-white' : 'border-white/10 hover:bg-white/5'}`}>{m.toUpperCase()}</button>
+                  <button key={m} onClick={() => updateVisual({ resolutionMode: m })} className={`flex-1 text-[10px] py-1.5 rounded-xl border transition ${visualConfig.resolutionMode === m ? 'border-[#49EACB] bg-[#49EACB]/10 text-white light:text-slate-900' : 'border-white/10 hover:bg-white/5 light:border-slate-300 light:text-slate-600 light:hover:bg-slate-100'}`}>{m.toUpperCase()}</button>
                 ))}
               </div>
               {(() => {
@@ -2602,7 +2619,7 @@ ${gameMeta.outcomeBranches}
                     <button key={c.id} onClick={() => {
                       const next = active ? visualConfig.selectedCircuits.filter(x => x !== c.id) : [...visualConfig.selectedCircuits, c.id];
                       updateVisual({ selectedCircuits: next.length ? next : ['chess_v1'] });
-                    }} className={`text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white' : 'border-white/10 hover:bg-white/5 text-gray-300'}`}>{c.name}</button>
+                    }} className={`text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white light:text-slate-900 light:bg-[#49EACB]/15' : 'border-white/10 hover:bg-white/5 text-gray-300 light:border-slate-300 light:text-slate-600 light:hover:bg-slate-100'}`}>{c.name}</button>
                   );
                 };
                 const POPULAR = ['chess_v1', 'chess_blitz', 'poker_v1', 'merkle_membership', 'range_proof'];
@@ -2614,7 +2631,7 @@ ${gameMeta.outcomeBranches}
                 const keys = [...new Set([...order.filter(k => groups[k]), ...Object.keys(groups)])];
                 return (
                   <>
-                    <div className="text-[10px] text-gray-300 mb-1.5 flex items-center justify-between gap-2">
+                    <div className="text-[10px] text-gray-300 mb-1.5 flex items-center justify-between gap-2 light:text-slate-600">
                       <span>ZK circuits &amp; primitives - tap to include ({visualConfig.selectedCircuits.length} selected)</span>
                       <button onClick={() => setShowAllToggles(s => !s)} className="shrink-0 text-[9px] font-semibold text-[#49EACB] underline">
                         {showAllToggles ? 'Hide list' : `Browse all ${ZK_CIRCUIT_TYPES.length}`}
@@ -2623,11 +2640,11 @@ ${gameMeta.outcomeBranches}
                     {!showAllToggles ? (
                       <div className="flex flex-wrap gap-1">{collapsed.map(Pill)}</div>
                     ) : (
-                      <div className="rounded-xl border border-white/10 bg-black/30 p-2.5 max-h-[340px] overflow-y-auto space-y-3">
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-2.5 max-h-[340px] overflow-y-auto space-y-3 light:border-slate-200 light:bg-white">
                         {keys.map(k => (
                           <div key={k}>
-                            <div className="text-[9px] uppercase tracking-widest text-[#49EACB]/80 font-semibold mb-1 sticky top-0 bg-black/60 backdrop-blur py-0.5">
-                              {TITLE[k] || k} <span className="text-gray-600 ml-1">{groups[k].length}</span>
+                            <div className="text-[9px] uppercase tracking-widest text-[#49EACB]/80 font-semibold mb-1 sticky top-0 bg-black/60 backdrop-blur py-0.5 light:bg-white/90">
+                              {TITLE[k] || k} <span className="text-gray-600 ml-1 light:text-slate-400">{groups[k].length}</span>
                             </div>
                             <div className="flex flex-wrap gap-1">{groups[k].map(Pill)}</div>
                           </div>
@@ -2639,21 +2656,21 @@ ${gameMeta.outcomeBranches}
               })()}
             </div>
 
-            <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
-              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/5 light:bg-slate-50 light:border-slate-200">
+              <div className="text-[11px] font-semibold text-gray-200 mb-3 flex items-center gap-2 light:text-slate-700">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#49EACB]"></span> MATCHMAKING
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[10px] text-gray-300 mb-1">Min Stake (KAS)</div>
-                  <input type="number" value={visualConfig.minStake} onChange={e => updateVisual({ minStake: parseInt(e.target.value) || 10 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm" />
+                  <div className="text-[10px] text-gray-300 mb-1 light:text-slate-600">Min Stake (KAS)</div>
+                  <input type="number" value={visualConfig.minStake} onChange={e => updateVisual({ minStake: parseInt(e.target.value) || 10 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm light:bg-white light:border-slate-300 light:text-slate-900" />
                 </div>
                 <div>
-                  <div className="text-[10px] text-gray-300 mb-1">Timeout (min)</div>
-                  <input type="number" value={visualConfig.timeoutMinutes} onChange={e => updateVisual({ timeoutMinutes: parseInt(e.target.value) || 5 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm" />
+                  <div className="text-[10px] text-gray-300 mb-1 light:text-slate-600">Timeout (min)</div>
+                  <input type="number" value={visualConfig.timeoutMinutes} onChange={e => updateVisual({ timeoutMinutes: parseInt(e.target.value) || 5 })} className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-sm light:bg-white light:border-slate-300 light:text-slate-900" />
                 </div>
               </div>
-              <label className="mt-3 flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+              <label className="mt-3 flex items-center gap-2 text-xs text-gray-300 cursor-pointer light:text-slate-600">
                 <input type="checkbox" checked={visualConfig.refundIfNoMatch} onChange={e => updateVisual({ refundIfNoMatch: e.target.checked })} className="accent-[#49EACB]" /> Auto-refund if no match
               </label>
             </div>
@@ -2662,20 +2679,19 @@ ${gameMeta.outcomeBranches}
           {/* Live Editor (right) */}
           <div className="lg:col-span-7">
             <div className="flex items-center justify-between mb-1.5 px-1">
-              <div className="text-[11px] font-semibold text-gray-200">Live SilverScript (updates instantly from add-ons on left)</div>
-              <button onClick={() => navigator.clipboard.writeText(liveSilverScript)} className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10">Copy script</button>
+              <div className="text-[11px] font-semibold text-gray-200 light:text-slate-700">Live SilverScript (updates instantly from add-ons on left)</div>
+              <button onClick={() => navigator.clipboard.writeText(liveSilverScript)} className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 light:bg-slate-100 light:hover:bg-slate-200 light:border-slate-300 light:text-slate-700">Copy script</button>
             </div>
-            <textarea 
-              value={liveSilverScript} 
-              onChange={e => setLiveSilverScript(e.target.value)} 
-              className="w-full h-[280px] font-mono text-[12px] leading-relaxed bg-black/70 border border-white/10 rounded-2xl p-4 focus:border-[#49EACB]/40 outline-none resize-y" 
-              spellCheck={false} 
+            <textarea
+              value={liveSilverScript}
+              onChange={e => setLiveSilverScript(e.target.value)}
+              className="w-full h-[280px] font-mono text-[12px] leading-relaxed bg-black/70 border border-white/10 rounded-2xl p-4 focus:border-[#49EACB]/40 outline-none resize-y light:bg-slate-50 light:border-slate-300 light:text-slate-900"
+              spellCheck={false}
             />
-            <div className="text-[10px] text-gray-500 mt-1.5 px-1">This is the covenant logic (use in deploys below). Public UI designer for how visitors see it is in the Custom UI section.</div>
+            <div className="text-[10px] text-gray-500 mt-1.5 px-1 light:text-slate-500">This is the covenant logic (use in deploys below). Public UI designer for how visitors see it is in the Custom UI section.</div>
           </div>
         </div>
       </section>
-      )}
 
       {/* --- Section 0: ZK Circuit Configuration --- */}
       <section className={`${SECTION_BASE} border-kaspa-green/20 bg-kaspa-green/[0.02] ring-1 ring-kaspa-green/10`}>
@@ -2690,25 +2706,25 @@ ${gameMeta.outcomeBranches}
         </div>
 
         {/* TECHNICAL DISCLAIMER - non-dismissible, accurately reflects current state */}
-        <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25">
+        <div className="p-4 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 light:bg-amber-50 light:border-amber-300">
           <div className="flex items-start gap-3">
-            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-[11px] text-amber-300/90 leading-relaxed">
-              <strong className="text-amber-200">Technical reality:</strong> Every circuit here is oracle-attested. Kaspa has no on-chain pairing verifier, so a Groth16 proof is never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by the disclosed Covex oracle (fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by the oracle without a proof. In all cases the trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.
-              <strong className="text-amber-200"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign verifies any supplied proof off-chain and returns a real BIP340-signed outcome.
+            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5 light:text-amber-600" />
+            <div className="text-[11px] text-amber-300/90 leading-relaxed light:text-amber-800">
+              <strong className="text-amber-200 light:text-amber-900">Technical reality:</strong> Every circuit here is oracle-attested. Kaspa has no on-chain pairing verifier, so a Groth16 proof is never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by the disclosed Covex oracle (fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by the oracle without a proof. In all cases the trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.
+              <strong className="text-amber-200 light:text-amber-900"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign verifies any supplied proof off-chain and returns a real BIP340-signed outcome.
               The oracle co-signature is the only thing checked on-chain (Schnorr) at covenant unlock. There is no on-chain proof verification.
             </div>
           </div>
         </div>
 
-        <p className="text-xs text-gray-300 leading-relaxed">
-          Select the ZK circuit that defines what your covenant verifies. <strong className="text-white">Visual interfaces for interactive applications should be designed in Covenant Studio and pasted below.</strong> This section configures only the proof logic.
+        <p className="text-xs text-gray-300 leading-relaxed light:text-slate-600">
+          Select the ZK circuit that defines what your covenant verifies. <strong className="text-white light:text-slate-900">Visual interfaces for interactive applications should be designed in Covenant Studio and pasted below.</strong> This section configures only the proof logic.
         </p>
 
         {/* ── Part A: ZK Circuit Selector ── */}
         <div className="space-y-3">
           <p className={LABEL}>ZK Circuit</p>
-          <p className="text-[11px] text-gray-200 leading-relaxed">
+          <p className="text-[11px] text-gray-200 leading-relaxed light:text-slate-700">
             Each circuit proves a specific verifiable statement. The covenant lock script contains the verifier key for the selected circuit. Only the proof output (or oracle signature) is submitted on-chain.
           </p>
 
@@ -2727,9 +2743,10 @@ ${gameMeta.outcomeBranches}
               const list = showAllZK ? ZK_CIRCUIT_TYPES : ZK_CIRCUIT_TYPES.filter(c => popular.includes(c.id));
               return list.map((gt) => {
                 // The outcome resolves via the live oracle-attested path (a real BIP340 oracle
-                // signature), which is honest. The paid tier unlocks the full circuit set + the
-                // in-browser ZK proving experience.
-                const disabled = isMainnet && !hasPaidAccess;
+                // signature), which is honest. Circuit selection is FREE for everyone: every card
+                // is fully selectable and the in-browser ZK proving experience is never payment
+                // gated. Paid tiers buy only priority placement / featured listing, not capability.
+                const disabled = false;
                 const selected = gameType === gt.id;
                 const circuitDescriptions = {
                   chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
@@ -2755,8 +2772,8 @@ ${gameMeta.outcomeBranches}
                     title={`${gt.name} - ${rm.label}`}
                     className={`group relative overflow-hidden text-left p-3 rounded-xl border transition-all duration-200 motion-safe:hover:-translate-y-0.5 ${
                       selected
-                        ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_24px_rgba(73,234,203,0.18)]'
-                        : 'border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.14] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.65)]'
+                        ? 'border-kaspa-green/60 bg-kaspa-green/[0.08] ring-1 ring-kaspa-green/30 shadow-[0_0_24px_rgba(73,234,203,0.18)] light:bg-emerald-50 light:border-emerald-400'
+                        : 'border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.14] hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.65)] light:border-slate-200 light:from-slate-50 light:to-slate-50 light:hover:border-slate-300'
                     } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
                     {/* reality accent top-edge + soft corner glow */}
@@ -2764,7 +2781,7 @@ ${gameMeta.outcomeBranches}
                     <span aria-hidden="true" className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl opacity-20 group-hover:opacity-35 transition-opacity pointer-events-none" style={{ background: selected ? '#49EACB' : rm.accent }} />
 
                     <div className="relative flex items-start justify-between gap-2 mb-1">
-                      <span className={`text-xs font-bold leading-tight ${selected ? 'text-kaspa-green' : 'text-white'}`}>
+                      <span className={`text-xs font-bold leading-tight ${selected ? 'text-kaspa-green' : 'text-white light:text-slate-900'}`}>
                         {gt.name}
                       </span>
                       {/* The reality badge is itself the inspect trigger: press to see how it is verified + the source. */}
@@ -2780,7 +2797,7 @@ ${gameMeta.outcomeBranches}
                       </button>
                     </div>
 
-                    <p className="relative text-[10px] text-gray-300 leading-snug line-clamp-3">
+                    <p className="relative text-[10px] text-gray-300 leading-snug line-clamp-3 light:text-slate-600">
                       {circuitDescriptions[gt.id] || gt.description}
                     </p>
 
@@ -2788,7 +2805,7 @@ ${gameMeta.outcomeBranches}
                       <code className={`text-[9px] font-mono px-1.5 py-0.5 rounded border truncate max-w-[55%] ${
                         selected
                           ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green'
-                          : 'border-white/[0.08] bg-white/[0.03] text-gray-300'
+                          : 'border-white/[0.08] bg-white/[0.03] text-gray-300 light:border-slate-200 light:bg-slate-100 light:text-slate-600'
                       }`}>
                         {gt.circuit === 'custom' ? 'CUSTOM' : gt.circuit.toUpperCase()}
                       </code>
@@ -2809,7 +2826,7 @@ ${gameMeta.outcomeBranches}
           {!showAllZK && (
             <button
               onClick={() => setShowAllZK(true)}
-              className="mt-2 w-full text-center text-xs py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-kaspa-green"
+              className="mt-2 w-full text-center text-xs py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-kaspa-green light:border-slate-200 light:bg-slate-50 light:hover:bg-slate-100 light:text-[#14B8A6]"
             >
               Press to see all {ZK_CIRCUIT_TYPES.length} ZK circuits (showing popular ones now)
             </button>
@@ -2817,7 +2834,7 @@ ${gameMeta.outcomeBranches}
           {showAllZK && (
             <button
               onClick={() => setShowAllZK(false)}
-              className="mt-1 w-full text-center text-xs py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-400"
+              className="mt-1 w-full text-center text-xs py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-400 light:border-slate-200 light:hover:bg-slate-100 light:text-slate-500"
             >
               Collapse full list
             </button>
@@ -2828,13 +2845,13 @@ ${gameMeta.outcomeBranches}
             const activeCircuit = ZK_CIRCUIT_TYPES.find(g => g.id === gameType);
             if (!activeCircuit) return null;
             return (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/20">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-kaspa-green/[0.03] border border-kaspa-green/20 light:bg-emerald-50 light:border-emerald-300">
                 <Shield size={14} className="text-kaspa-green shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-xs text-white font-semibold">Circuit: {activeCircuit.name}</p>
-                  <p className="text-[11px] text-gray-300">This circuit proves the selected verifiable statement. The proof (or oracle signature) is the only input required by the covenant unlock function.</p>
-                  <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15">
-                    <span className="text-[10px] text-gray-200 font-mono">Auto-suggested Verifier Key</span>
+                  <p className="text-xs text-white font-semibold light:text-slate-900">Circuit: {activeCircuit.name}</p>
+                  <p className="text-[11px] text-gray-300 light:text-slate-600">This circuit proves the selected verifiable statement. The proof (or oracle signature) is the only input required by the covenant unlock function.</p>
+                  <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15 light:border-emerald-200">
+                    <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono light:text-slate-600">Auto-suggested Verifier Key</span>
                     <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded truncate max-w-[280px]">
                       {zkVerifierKey || activeCircuit.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD' :
                        activeCircuit.circuit === 'merkle_generic' ? '0xMERKLE_GENERIC_V1' :
@@ -2950,27 +2967,27 @@ ${gameMeta.outcomeBranches}
                         </div>
                         <div className="space-y-2">
                           <p className="text-white font-semibold text-xs">Gas Estimate</p>
-                          <p className="text-gray-300">{details.gasEstimate}</p>
+                          <p className="text-gray-300 light:text-slate-600">{details.gasEstimate}</p>
                         </div>
                       </div>
 
                       <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-2">
                         <p className="text-white font-semibold text-xs">What This Circuit Proves</p>
-                        <p className="text-gray-300 leading-relaxed">{details.whatItProves}</p>
+                        <p className="text-gray-300 light:text-slate-600 leading-relaxed">{details.whatItProves}</p>
                       </div>
 
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <p className="text-[10px] text-gray-200 font-semibold uppercase tracking-wider">Public Inputs (on-chain)</p>
-                          <ul className="list-disc list-inside text-gray-300 space-y-0.5">
+                          <p className="text-[10px] text-gray-200 light:text-slate-700 font-semibold uppercase tracking-wider">Public Inputs (on-chain)</p>
+                          <ul className="list-disc list-inside text-gray-300 light:text-slate-600 space-y-0.5">
                             {details.publicInputs.map((pi, i) => (
                               <li key={i} className="text-[11px]">{pi}</li>
                             ))}
                           </ul>
                         </div>
                         <div className="space-y-1.5">
-                          <p className="text-[10px] text-gray-200 font-semibold uppercase tracking-wider">Private Witness (off-chain only)</p>
-                          <ul className="list-disc list-inside text-gray-300 space-y-0.5">
+                          <p className="text-[10px] text-gray-200 light:text-slate-700 font-semibold uppercase tracking-wider">Private Witness (off-chain only)</p>
+                          <ul className="list-disc list-inside text-gray-300 light:text-slate-600 space-y-0.5">
                             {details.privateWitness.map((pw, i) => (
                               <li key={i} className="text-[11px]">{pw}</li>
                             ))}
@@ -2984,7 +3001,7 @@ ${gameMeta.outcomeBranches}
                         <Zap size={12} className="text-kaspa-green" />
                         <p className="text-[11px] text-white font-semibold uppercase tracking-wider">Covenant Resolution Flow</p>
                       </div>
-                      <p className="text-[11px] text-gray-300 leading-relaxed">{details.covenantFlow}</p>
+                      <p className="text-[11px] text-gray-300 light:text-slate-600 leading-relaxed">{details.covenantFlow}</p>
                     </div>
                   </>
                 );
@@ -2996,7 +3013,7 @@ ${gameMeta.outcomeBranches}
         {/* ── Part B: Oracle / Resolution Options ── */}
         <div className="pt-2 border-t border-white/[0.04] space-y-3">
           <p className={LABEL}>Oracle Resolution Options</p>
-          <p className="text-[11px] text-gray-200 leading-relaxed">
+          <p className="text-[11px] text-gray-200 light:text-slate-700 leading-relaxed">
             Choose how the covenant outcome is resolved on-chain. This determines who or what signs off on the game result.
           </p>
 
@@ -3031,16 +3048,16 @@ ${gameMeta.outcomeBranches}
                   <div className={`p-2 rounded-lg shrink-0 ${
                     resolutionMode === opt.id ? 'bg-kaspa-green/15' : 'bg-white/[0.03]'
                   }`}>
-                    <opt.icon size={16} className={resolutionMode === opt.id ? 'text-kaspa-green' : 'text-gray-200'} />
+                    <opt.icon size={16} className={resolutionMode === opt.id ? 'text-kaspa-green' : 'text-gray-200 light:text-slate-700'} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className={`text-sm font-bold ${resolutionMode === opt.id ? 'text-kaspa-green' : 'text-white'}`}>
                         {opt.title}
                       </span>
-                      <span className="text-[10px] text-gray-200 font-mono">{opt.tier}</span>
+                      <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono">{opt.tier}</span>
                     </div>
-                    <p className="text-[11px] text-gray-300 leading-relaxed">{opt.desc}</p>
+                    <p className="text-[11px] text-gray-300 light:text-slate-600 leading-relaxed">{opt.desc}</p>
                   </div>
                   {resolutionMode === opt.id && (
                     <CheckCircle2 size={18} className="text-kaspa-green shrink-0" />
@@ -3071,7 +3088,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div className="p-3 rounded-xl bg-black/30 border border-orange-500/20 space-y-2">
                 <p className="text-[11px] text-orange-200/90 font-semibold">Timelock / Clock (DAA)</p>
-                <p className="text-[10px] text-gray-400">Maps to covenant-config <code className="text-orange-300/80">resolution.circuit.timelock</code> and turn_timer / relative_timelock circuits.</p>
+                <p className="text-[10px] text-gray-400 light:text-slate-500">Maps to covenant-config <code className="text-orange-300/80">resolution.circuit.timelock</code> and turn_timer / relative_timelock circuits.</p>
                 <select value={timelockMode} onChange={(e) => setTimelockMode(e.target.value)} className={`${INPUT} text-xs`}>
                   <option value="turn_timer">Per-turn window (turn_timer)</option>
                   <option value="relative">Relative DAA lock (relative_timelock)</option>
@@ -3131,7 +3148,7 @@ ${gameMeta.outcomeBranches}
               <Info size={14} className="text-kaspa-green" />
               <p className="text-xs text-white font-bold uppercase tracking-wider">Best Practices: ZK, Oracles & Covenants</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 leading-relaxed">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 light:text-slate-600 leading-relaxed">
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">ZK vs Oracle</p>
                 <p>ZK proofs (where circuits and zkeys exist) provide cryptographic verification of computation. Currently, only Merkle Membership has a complete proving pipeline. Oracles are faster but require trust in the key holder. Range Proof circuit foundation exists, awaiting zkey generation for live verification. For external data (price feeds, weather), use an Oracle.</p>
@@ -3165,7 +3182,7 @@ ${gameMeta.outcomeBranches}
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-wider">LIVE PREVIEW</span>
           </div>
-          <p className="text-xs text-gray-300 leading-relaxed -mt-1">
+          <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
             Set the clock, fee, and stake, then see exactly how the logic resolves and how the public covenant page will render. Everything below updates live and is saved into the deployed covenant config.
           </p>
           <ChessPreviewConfig
@@ -3198,7 +3215,7 @@ ${gameMeta.outcomeBranches}
               onChange={(e) => setChessStake(Math.max(1, parseInt(e.target.value, 10) || 1))}
               className={`${INPUT} font-mono`}
             />
-            <p className="text-[11px] text-gray-400 leading-relaxed">
+            <p className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed">
               Both players stake this amount. Total pot is {chessStake * 2} KAS. The platform fee and pot return are set in the Deploy section below.
             </p>
           </div>
@@ -3218,14 +3235,14 @@ ${gameMeta.outcomeBranches}
             </div>
             <div className="text-right flex flex-col items-end gap-1">
               <div className="text-[11px] text-[#49EACB] font-mono">{chessStake} KAS STAKE, {feePercent}% FEE, {potReturnPercent}% POT RETURN, {chessBaseMinutes}m+{chessIncrementSeconds}s</div>
-              <div className="text-[10px] text-gray-400 -mt-0.5">Winner: {(100 - feePercent - potReturnPercent).toFixed(1)}%, Creator: {feePercent}%, Pot: {potReturnPercent}%, oracle-attested (server-authoritative)</div>
+              <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Winner: {(100 - feePercent - potReturnPercent).toFixed(1)}%, Creator: {feePercent}%, Pot: {potReturnPercent}%, oracle-attested (server-authoritative)</div>
               <div className="text-[9px] mt-0.5 flex items-center gap-1">
                 Proving Mode: 
                 <select value={chessProvingMode} onChange={e => setChessProvingMode(parseInt(e.target.value))} className="bg-black/50 border border-white/20 text-[9px] px-1 py-0.5 rounded text-white">
                   <option value={0}>Fast (witnessed, &lt;15s target)</option>
                   <option value={1}>Exhaustive (stronger proof)</option>
                 </select>
-                <span className="text-[8px] text-gray-500">(see CHESS_PROVING_MODES.md)</span>
+                <span className="text-[8px] text-gray-500 light:text-slate-500">(see CHESS_PROVING_MODES.md)</span>
               </div>
               {opponentStake === chessStake && (chessMatchState === 'playing' || chessMatchState === 'finished') && (
                 <button
@@ -3238,25 +3255,25 @@ ${gameMeta.outcomeBranches}
             </div>
           </div>
 
-          <p className="text-xs text-gray-300 leading-relaxed -mt-1">
+          <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
             Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign), which replays the move log server-side and returns a real BIP340-signed outcome. The oracle co-signature is verified on-chain (Schnorr) at covenant unlock. This is oracle-attested, not an on-chain ZK proof: Kaspa has no on-chain pairing verifier.
           </p>
 
           {/* Stake + Pot Summary - requires equal stake from both sides before pro play */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
             <div>
-              <div className="text-[10px] uppercase tracking-widest text-gray-400">YOUR STAKE</div>
-              <div className="text-3xl font-bold tabular-nums text-white">{chessStake} <span className="text-sm font-mono text-gray-400">KAS</span></div>
+              <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">YOUR STAKE</div>
+              <div className="text-3xl font-bold tabular-nums text-white">{chessStake} <span className="text-sm font-mono text-gray-400 light:text-slate-500">KAS</span></div>
             </div>
             <div className="flex-1 h-px bg-white/10" />
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
+              <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">TOTAL POT</div>
               <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{chessStake + opponentStake} KAS</div>
               <div className="text-[11px] text-rose-400/90">{opponentStake === chessStake ? 'STAKES MATCHED' : 'WAITING FOR OPPONENT MATCH'}</div>
             </div>
             <div className="text-right pl-3 border-l border-white/10">
-              <div className="text-[10px] uppercase tracking-widest text-gray-400">PAYOUT BREAKDOWN</div>
-              <div className="text-xs font-mono text-gray-300 leading-relaxed tabular-nums">
+              <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">PAYOUT BREAKDOWN</div>
+              <div className="text-xs font-mono text-gray-300 light:text-slate-600 leading-relaxed tabular-nums">
                 <div className="border-r-2 border-[#49EACB]/60 pr-1.5">Winner: {((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS ({(100 - feePercent - potReturnPercent).toFixed(1)}%)</div>
                 <div className="border-r-2 border-[#E8AF34]/50 pr-1.5">Creator: {((chessStake + opponentStake) * feePercent / 100).toFixed(1)} KAS ({feePercent}%)</div>
                 <div className="text-kaspa-green border-r-2 border-[#49EACB]/30 pr-1.5">Pot return: {((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)} KAS ({potReturnPercent}%)</div>
@@ -3267,7 +3284,7 @@ ${gameMeta.outcomeBranches}
           {/* The Professional Board (chess.com quality via react-chessboard) */}
           <div className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-b from-[#15151d] to-[#0c0c11] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] p-3">
             <div className="flex justify-between items-center mb-2 px-1">
-              <div className="font-mono text-xs text-gray-400 flex items-center gap-3">
+              <div className="font-mono text-xs text-gray-400 light:text-slate-500 flex items-center gap-3">
                 <span>{chessMatchState === 'idle' && 'POST STAKE TO OPEN A MATCH'}
                 {chessMatchState === 'posted' && 'WAITING FOR OPPONENT TO MATCH YOUR STAKE'}
                 {chessMatchState === 'matched' && `MATCHED vs ${chessOpponent}`}
@@ -3279,7 +3296,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div className="flex gap-2">
                 {chessMatchState !== 'idle' && (
-                  <button onClick={resetChessArena} className="px-3 py-1 text-xs rounded-lg border border-white/20 hover:bg-white/5 text-gray-300">RESET ARENA</button>
+                  <button onClick={resetChessArena} className="px-3 py-1 text-xs rounded-lg border border-white/20 hover:bg-white/5 text-gray-300 light:text-slate-600">RESET ARENA</button>
                 )}
                 {chessMatchState === 'playing' && (
                   <>
@@ -3309,7 +3326,7 @@ ${gameMeta.outcomeBranches}
 
             {/* Move list + status */}
             <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
-              <div className="md:col-span-3 p-2.5 rounded-lg bg-black/40 border border-white/[0.08] font-mono text-[11px] text-gray-300 overflow-auto max-h-[72px] shadow-[inset_0_8px_12px_-12px_rgba(0,0,0,0.85)]">
+              <div className="md:col-span-3 p-2.5 rounded-lg bg-black/40 border border-white/[0.08] font-mono text-[11px] text-gray-300 light:text-slate-600 overflow-auto max-h-[72px] shadow-[inset_0_8px_12px_-12px_rgba(0,0,0,0.85)]">
                 {chessGame.pgn() || 'No moves yet. Drag pieces on the board (only legal moves allowed).'}
               </div>
               <div className="md:col-span-2">
@@ -3378,33 +3395,33 @@ ${gameMeta.outcomeBranches}
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">
                   <CheckCircle2 size={15} /> PAYOUT COMPUTED - REAL AMOUNTS VERIFIED BY ORACLE SIG
                 </div>
-                <div className="font-mono text-xs text-gray-400 break-all mb-3">
+                <div className="font-mono text-xs text-gray-400 light:text-slate-500 break-all mb-3">
                   Oracle sig: {chessProofHash?.slice(0, 32)}...
                 </div>
 
-                <div className="text-xs uppercase tracking-widest text-gray-300 mb-1 font-semibold">ON-CHAIN PAYOUT BREAKDOWN</div>
+                <div className="text-xs uppercase tracking-widest text-gray-300 light:text-slate-600 mb-1 font-semibold">ON-CHAIN PAYOUT BREAKDOWN</div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div className="p-2 rounded bg-black/40 border border-white/10">
-                    <div className="text-gray-400">Platform ({payoutResult.fee_percent}%)</div>
+                    <div className="text-gray-400 light:text-slate-500">Platform ({payoutResult.fee_percent}%)</div>
                     <div className="font-bold text-rose-400 tabular-nums">{payoutResult.platform_fee_kas} KAS</div>
                   </div>
                   <div className="p-2 rounded bg-black/40 border border-white/10">
-                    <div className="text-gray-400">{payoutResult.winner_label}</div>
+                    <div className="text-gray-400 light:text-slate-500">{payoutResult.winner_label}</div>
                     <div className="font-bold text-emerald-400 tabular-nums">{payoutResult.winner_share_kas} KAS</div>
                   </div>
                   <div className="p-2 rounded bg-black/40 border border-white/10">
-                    <div className="text-gray-400">Pot Return ({payoutResult.pot_return_percent}%)</div>
+                    <div className="text-gray-400 light:text-slate-500">Pot Return ({payoutResult.pot_return_percent}%)</div>
                     <div className="font-bold text-[#49EACB] tabular-nums">{payoutResult.pot_return_kas} KAS</div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-300 mt-2">
+                <div className="text-xs text-gray-300 light:text-slate-600 mt-2">
                   <span className="text-emerald-400">Total pot: {payoutResult.total_pot_kas} KAS</span>
                   {' • '}Signature {payoutResult.signature_verified ? 'verified' : 'accepted'}
                 </div>
                 {/* Copyable witness data */}
                 <details className="mt-2">
-                  <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-300">Copy witness data for unlock TX</summary>
-                  <pre className="mt-1 p-2 rounded bg-black/60 text-[10px] text-gray-300 whitespace-pre-wrap font-mono">{payoutResult.unlock_witness}</pre>
+                  <summary className="text-[10px] text-gray-400 light:text-slate-500 cursor-pointer hover:text-gray-300 light:text-slate-600">Copy witness data for unlock TX</summary>
+                  <pre className="mt-1 p-2 rounded bg-black/60 text-[10px] text-gray-300 light:text-slate-600 whitespace-pre-wrap font-mono">{payoutResult.unlock_witness}</pre>
                 </details>
               </div>
             )}
@@ -3420,13 +3437,13 @@ ${gameMeta.outcomeBranches}
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">
                   <CheckCircle2 size={15} /> RESULT ATTESTED BY ORACLE - CLICK "CLAIM PAYOUT" TO COMPUTE
                 </div>
-                <div className="font-mono text-xs text-gray-400 break-all mb-2">Oracle sig / proof ref: {chessProofHash}</div>
-                <div className="text-[10px] text-gray-400">The oracle has signed this result. Claiming computes the exact payout amounts via the backend, verified against the covenant's configured fee and pot-return percentages.</div>
+                <div className="font-mono text-xs text-gray-400 light:text-slate-500 break-all mb-2">Oracle sig / proof ref: {chessProofHash}</div>
+                <div className="text-[10px] text-gray-400 light:text-slate-500">The oracle has signed this result. Claiming computes the exact payout amounts via the backend, verified against the covenant's configured fee and pot-return percentages.</div>
               </div>
             )}
           </div>
 
-          <div className="text-[10px] text-gray-400 px-1">
+          <div className="text-[10px] text-gray-400 light:text-slate-500 px-1">
             chess.js validates all FIDE rules client-side. After both sides stake the same amount the full-screen professional arena (chess.com smooth: large board, clocks, move list) becomes available. Results submitted to live oracle for signed attestation (real ZK when circuit ready).
           </div>
         </section>
@@ -3445,23 +3462,23 @@ ${gameMeta.outcomeBranches}
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-emerald-400 font-mono">{pokerStake} KAS STAKE • 2% FEE</div>
-            <div className="text-[10px] text-gray-400 -mt-0.5">Each side stakes equally • Oracle attested result</div>
+            <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Each side stakes equally • Oracle attested result</div>
           </div>
         </div>
 
-        <p className="text-xs text-gray-300 leading-relaxed -mt-1">
+        <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
           Real heads-up No-Limit Hold'em against another wallet. Every deal is committed before any card is visible (sha256 of the deck seed, published on the table) and the seed is revealed after each hand, so both players can verify the deal was fixed in advance. Hole cards stay private behind wallet-signed table sessions. Chips are score units; the covenant pot pays the match winner through the oracle claim flow.
         </p>
 
         {/* Compact stake summary */}
         <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400">YOUR STAKE</div>
-            <div className="text-3xl font-bold tabular-nums text-white">{pokerStake} <span className="text-sm font-mono text-gray-400">KAS</span></div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">YOUR STAKE</div>
+            <div className="text-3xl font-bold tabular-nums text-white">{pokerStake} <span className="text-sm font-mono text-gray-400 light:text-slate-500">KAS</span></div>
           </div>
           <div className="flex-1 h-px bg-white/10" />
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">TOTAL POT</div>
             <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{pokerStake * 2} KAS</div>
             <div className="text-[11px] text-rose-400/90">-2% fee • COMMITMENT-VERIFIED DEALS</div>
           </div>
@@ -3482,7 +3499,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
+            <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300 light:text-slate-600">
               Take a seat at the full-screen table: first wallet sits as P1 and waits, the second activates the match. Blinds 1/2, 100 chips each, winner takes the covenant pot.
             </div>
             <div>
@@ -3496,7 +3513,7 @@ ${gameMeta.outcomeBranches}
           </div>
         </div>
 
-        <div className="text-[10px] text-gray-400 px-1">
+        <div className="text-[10px] text-gray-400 light:text-slate-500 px-1">
           Oracle-dealt with a published deck commitment before every hand, seed revealed after; the client re-verifies each deal. Fold/check/call/bet/raise, all-in runouts, multi-hand chip play. Real ZK hand ranking proofs coming as circuits mature.
         </div>
       </section>
@@ -3513,22 +3530,22 @@ ${gameMeta.outcomeBranches}
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-amber-400 font-mono">{bjStake} KAS STAKE • 2% FEE</div>
-            <div className="text-[10px] text-gray-400 -mt-0.5">Each side stakes equally • Oracle attested result</div>
+            <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Each side stakes equally • Oracle attested result</div>
           </div>
         </div>
 
-        <p className="text-xs text-gray-300 leading-relaxed -mt-1">
+        <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
           Open duel, no house: both players co-commit shuffle seeds (commit-reveal), the deck derives from the combined seeds so neither side controls it, and each plays their own open hand. Closest to 21 without busting wins. Seats, turns, and moves persist on the covenant match record.
         </p>
 
         <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400">YOUR STAKE</div>
-            <div className="text-3xl font-bold tabular-nums text-white">{bjStake} <span className="text-sm font-mono text-gray-400">KAS</span></div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">YOUR STAKE</div>
+            <div className="text-3xl font-bold tabular-nums text-white">{bjStake} <span className="text-sm font-mono text-gray-400 light:text-slate-500">KAS</span></div>
           </div>
           <div className="flex-1 h-px bg-white/10" />
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-widest text-gray-400">TOTAL POT</div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">TOTAL POT</div>
             <div className="text-2xl font-bold tabular-nums text-[#49EACB]">{bjStake * 2} KAS</div>
             <div className="text-[11px] text-rose-400/90">-2% fee • OPEN DUEL, NO HOUSE</div>
           </div>
@@ -3548,7 +3565,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300">
+            <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300 light:text-slate-600">
               Take a seat in the full-screen table: first wallet sits as X and waits, the second activates the duel. Hands sync live.
             </div>
             <div>
@@ -3562,7 +3579,7 @@ ${gameMeta.outcomeBranches}
           </div>
         </div>
 
-        <div className="text-[10px] text-gray-400 px-1">
+        <div className="text-[10px] text-gray-400 light:text-slate-500 px-1">
           Commit-reveal deck cut, open hands, hit/stand on your own hand, oracle attested result. Real ZK verification coming.
         </div>
       </section>
@@ -3580,14 +3597,14 @@ ${gameMeta.outcomeBranches}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] text-gray-400">YOUR STAKE (KAS)</label>
+            <label className="text-[10px] text-gray-400 light:text-slate-500">YOUR STAKE (KAS)</label>
             <input type="number" value={checkersStake} onChange={e=>setCheckersStake(Math.max(1,parseInt(e.target.value||'50')))} className={INPUT} />
           </div>
           <div className="flex items-end">
             <button onClick={launchFullScreenCheckers} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">OPEN MATCH TABLE - {checkersStake} KAS SEAT</button>
           </div>
         </div>
-        <div className="text-[10px] text-gray-400">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT → CLAIM with {potReturnPercent}% pot return</div>
+        <div className="text-[10px] text-gray-400 light:text-slate-500">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT → CLAIM with {potReturnPercent}% pot return</div>
       </section>
 
       {/* Connect 4 + TTT + Reversi + RPS in a compact grid */}
@@ -3599,7 +3616,7 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={connect4Stake} onChange={e=>setConnect4Stake(Math.max(5,parseInt(e.target.value||'30')))} className={INPUT + ' flex-1'} />
             <button onClick={launchFullScreenConnect4} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
-          <div className="text-[9px] text-gray-400 mt-1">Gravity drops • 4-in-row • 2min clocks • oracle + {potReturnPercent}% pot return</div>
+          <div className="text-[9px] text-gray-400 light:text-slate-500 mt-1">Gravity drops • 4-in-row • 2min clocks • oracle + {potReturnPercent}% pot return</div>
         </section>
 
         {/* Tic Tac Toe */}
@@ -3609,7 +3626,7 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={tttStake} onChange={e=>setTttStake(Math.max(5,parseInt(e.target.value||'20')))} className={INPUT + ' flex-1'} />
             <button onClick={launchFullScreenTicTacToe} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
-          <div className="text-[9px] text-gray-400 mt-1">Classic • 90s clocks • 3-in-row • fast oracle resolution + {potReturnPercent}% return</div>
+          <div className="text-[9px] text-gray-400 light:text-slate-500 mt-1">Classic • 90s clocks • 3-in-row • fast oracle resolution + {potReturnPercent}% return</div>
         </section>
 
         {/* Reversi */}
@@ -3619,7 +3636,7 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={reversiStake} onChange={e=>setReversiStake(Math.max(5,parseInt(e.target.value||'40')))} className={INPUT + ' flex-1'} />
             <button onClick={launchFullScreenReversi} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
-          <div className="text-[9px] text-gray-400 mt-1">8×8 flips • legal only • 2.5min clocks • oracle attested + {potReturnPercent}% pot</div>
+          <div className="text-[9px] text-gray-400 light:text-slate-500 mt-1">8×8 flips • legal only • 2.5min clocks • oracle attested + {potReturnPercent}% pot</div>
         </section>
 
         {/* RPS */}
@@ -3629,7 +3646,7 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={rpsStake} onChange={e=>setRpsStake(Math.max(5,parseInt(e.target.value||'25')))} className={INPUT + ' flex-1'} />
             <button onClick={launchFullScreenRPS} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
-          <div className="text-[9px] text-gray-400 mt-1">Timed picks • 12s/choice • best of 3 • instant oracle + {potReturnPercent}% return</div>
+          <div className="text-[9px] text-gray-400 light:text-slate-500 mt-1">Timed picks • 12s/choice • best of 3 • instant oracle + {potReturnPercent}% return</div>
         </section>
       </div>
 
@@ -3650,12 +3667,12 @@ ${gameMeta.outcomeBranches}
             {/* Mobile clocks row */}
             <div className="lg:hidden flex items-center justify-around px-2 py-1.5 bg-black/40 border-b border-white/5 shrink-0">
               <div className="flex flex-col items-center">
-                <div className="text-[9px] uppercase tracking-[1.5px] text-gray-400">WHITE</div>
+                <div className="text-[9px] uppercase tracking-[1.5px] text-gray-400 light:text-slate-500">WHITE</div>
                 <div className={`font-mono text-lg font-bold tabular-nums ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(whiteTime / 60000)}:{String(Math.floor((whiteTime % 60000) / 1000)).padStart(2, '0')}</div>
               </div>
-              <div className="text-[10px] text-gray-500 font-mono">{chessMatchState === 'playing' ? `${chessGame.turn() === 'w' ? 'WHITE' : 'BLACK'} TO MOVE` : 'GAME OVER'}</div>
+              <div className="text-[10px] text-gray-500 light:text-slate-500 font-mono">{chessMatchState === 'playing' ? `${chessGame.turn() === 'w' ? 'WHITE' : 'BLACK'} TO MOVE` : 'GAME OVER'}</div>
               <div className="flex flex-col items-center">
-                <div className="text-[9px] uppercase tracking-[1.5px] text-gray-400">BLACK</div>
+                <div className="text-[9px] uppercase tracking-[1.5px] text-gray-400 light:text-slate-500">BLACK</div>
                 <div className={`font-mono text-lg font-bold tabular-nums ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(blackTime / 60000)}:{String(Math.floor((blackTime % 60000) / 1000)).padStart(2, '0')}</div>
               </div>
             </div>
@@ -3663,7 +3680,7 @@ ${gameMeta.outcomeBranches}
             <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-2 sm:gap-6 p-2 sm:p-4 overflow-auto">
               {/* Desktop: White side panel */}
               <div className="hidden lg:flex flex-col items-center gap-2 w-48 xl:w-64 shrink-0">
-                <div className="text-xs uppercase tracking-[2px] text-gray-400">WHITE</div>
+                <div className="text-xs uppercase tracking-[2px] text-gray-400 light:text-slate-500">WHITE</div>
                 <div className="font-mono text-sm xl:text-lg text-white truncate">{chessPlayerColor === 'w' ? 'YOU' : chessOpponent}</div>
                 <div className={`font-mono text-4xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(whiteTime / 60000)}:{String(Math.floor((whiteTime % 60000) / 1000)).padStart(2, '0')}</div>
               </div>
@@ -3687,11 +3704,11 @@ ${gameMeta.outcomeBranches}
 
               {/* Desktop: Black side panel */}
               <div className="hidden lg:flex flex-col items-center gap-2 w-48 xl:w-64 shrink-0">
-                <div className="text-xs uppercase tracking-[2px] text-gray-400">BLACK</div>
+                <div className="text-xs uppercase tracking-[2px] text-gray-400 light:text-slate-500">BLACK</div>
                 <div className="font-mono text-sm xl:text-lg text-white truncate">{chessPlayerColor === 'b' ? 'YOU' : chessOpponent}</div>
                 <div className={`font-mono text-4xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackTime < 30000 ? 'text-red-500' : 'text-white'}`}>{Math.floor(blackTime / 60000)}:{String(Math.floor((blackTime % 60000) / 1000)).padStart(2, '0')}</div>
-                <div className="mt-4 w-full bg-black/60 border border-white/10 rounded-2xl p-3 text-[12px] font-mono max-h-[180px] xl:max-h-[220px] overflow-auto text-gray-200">
-                  {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<div key={i} className="py-0.5 border-b border-white/5 last:border-none">{i + 1}. {m.trim()}</div>)) : <div className="text-gray-500 italic">No moves yet</div>}
+                <div className="mt-4 w-full bg-black/60 border border-white/10 rounded-2xl p-3 text-[12px] font-mono max-h-[180px] xl:max-h-[220px] overflow-auto text-gray-200 light:text-slate-700">
+                  {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<div key={i} className="py-0.5 border-b border-white/5 last:border-none">{i + 1}. {m.trim()}</div>)) : <div className="text-gray-500 light:text-slate-500 italic">No moves yet</div>}
                 </div>
                 <div className="mt-3 flex flex-col gap-2 w-full">
                   {chessMatchState === 'playing' && (<><button onClick={() => resignGame(chessPlayerColor)} className="w-full py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold active:bg-red-700">RESIGN</button><button type="button" disabled title="Draw offers are not wired into the on-chain result yet. You can resign or play on." className="w-full py-2 rounded-xl border border-white/20 text-xs opacity-40 cursor-not-allowed">OFFER DRAW (not wired)</button></>)}
@@ -3699,7 +3716,7 @@ ${gameMeta.outcomeBranches}
                   {chessZkVerified && (
                     <div className="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">
                       <div className="text-[10px] text-emerald-400 font-mono text-center mb-2">ORACLE SIGNATURE RECEIVED</div>
-                      <div className="text-[10px] text-gray-300 leading-relaxed space-y-0.5">
+                      <div className="text-[10px] text-gray-300 light:text-slate-600 leading-relaxed space-y-0.5">
                         <div className="flex justify-between"><span>Winner:</span><span className="text-white">{((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</span></div>
                         <div className="flex justify-between"><span>Creator fee:</span><span className="text-white">{((chessStake + opponentStake) * feePercent / 100).toFixed(1)} KAS</span></div>
                         <div className="flex justify-between"><span className="text-kaspa-green">Pot return:</span><span className="text-kaspa-green">{((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)} KAS</span></div>
@@ -3713,14 +3730,14 @@ ${gameMeta.outcomeBranches}
 
             {/* Mobile bottom panel: moves + actions */}
             <div className="lg:hidden flex flex-col border-t border-white/10 bg-black/60 backdrop-blur-xl shrink-0" style={{ maxHeight: '30vh' }}>
-              <div className="overflow-auto px-3 py-2 text-[11px] font-mono text-gray-200" style={{ maxHeight: '12vh' }}>
-                {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<span key={i} className="inline-block mr-3">{i + 1}. {m.trim()}</span>)) : <div className="text-gray-500 italic text-center">Drag pieces to play</div>}
+              <div className="overflow-auto px-3 py-2 text-[11px] font-mono text-gray-200 light:text-slate-700" style={{ maxHeight: '12vh' }}>
+                {chessGame.pgn() ? chessGame.pgn().split(/\d+\./).filter(Boolean).map((m, i) => (<span key={i} className="inline-block mr-3">{i + 1}. {m.trim()}</span>)) : <div className="text-gray-500 light:text-slate-500 italic text-center">Drag pieces to play</div>}
               </div>
               <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5">
                 {chessMatchState === 'playing' ? (<><button onClick={() => resignGame(chessPlayerColor)} className="flex-1 py-2 rounded-xl bg-red-600/90 text-white text-[11px] font-bold">RESIGN</button><button onClick={() => { toast.info('Draw offers are not wired into the on-chain result yet. You can resign or play on.'); }} className="flex-1 py-2 rounded-xl border border-white/20 text-[11px]">DRAW</button></>) : chessMatchState === 'finished' && !chessZkVerified ? (<button onClick={submitChessResultToOracle} className="flex-1 py-3 rounded-xl bg-[#49EACB] text-black font-black text-sm active:scale-[0.985] shadow-[0_0_25px_rgba(73,234,203,0.3)]">SUBMIT TO ORACLE</button>) : chessZkVerified ? (
                     <div className="flex-1 p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05]">
                       <div className="text-[10px] text-emerald-400 font-mono text-center">SIGNATURE RECEIVED</div>
-                      <div className="text-[9px] text-gray-300 flex justify-around mt-1">
+                      <div className="text-[9px] text-gray-300 light:text-slate-600 flex justify-around mt-1">
                         <span>Winner: {((chessStake + opponentStake) * (100 - feePercent - potReturnPercent) / 100).toFixed(1)} KAS</span>
                         <span>Creator: {((chessStake + opponentStake) * feePercent / 100).toFixed(1)}</span>
                         <span className="text-kaspa-green">Pot: {((chessStake + opponentStake) * potReturnPercent / 100).toFixed(1)}</span>
@@ -3731,7 +3748,7 @@ ${gameMeta.outcomeBranches}
             </div>
           </div>
 
-          <div className="h-8 sm:h-10 border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0">FIDE RULES (chess.js) - ORACLE ATTESTED - ZK CIRCUIT TARGET</div>
+          <div className="h-8 sm:h-10 border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-500 flex items-center justify-center font-mono shrink-0">FIDE RULES (chess.js) - ORACLE ATTESTED - ZK CIRCUIT TARGET</div>
         </div>
       )}
 
@@ -3838,11 +3855,11 @@ ${gameMeta.outcomeBranches}
 
         {/* Mainnet-only. Real KAS on the live Kaspa mainnet. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="text-[10px] uppercase tracking-widest text-gray-400">NETWORK</span>
+          <span className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">NETWORK</span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded border text-red-400 border-red-500/30 bg-red-500/10">
             {networkLabel}
           </span>
-          <span className="text-[9px] text-gray-500">- real KAS on the live Kaspa mainnet</span>
+          <span className="text-[9px] text-gray-500 light:text-slate-500">- real KAS on the live Kaspa mainnet</span>
         </div>
 
         <div className="space-y-4">
@@ -3889,7 +3906,7 @@ ${gameMeta.outcomeBranches}
             step={0.5}
             onChange={setPotReturnPercent}
           />
-          <p className="text-[10px] text-gray-400 -mt-4 ml-1">% of pot flowing back to sustain the covenant for future sessions. 0% = winner takes all after fee. 2% = sustainable pot.</p>
+          <p className="text-[10px] text-gray-400 light:text-slate-500 -mt-4 ml-1">% of pot flowing back to sustain the covenant for future sessions. 0% = winner takes all after fee. 2% = sustainable pot.</p>
 
           {/* Reusable Toggle */}
           <Toggle
@@ -3912,7 +3929,7 @@ ${gameMeta.outcomeBranches}
             <Info size={16} className="text-kaspa-green shrink-0 mt-0.5" />
             <div>
               <p className="text-xs text-kaspa-green font-semibold">2% Fee Model</p>
-              <p className="text-[11px] text-gray-300 leading-relaxed mt-1">
+              <p className="text-[11px] text-gray-300 light:text-slate-600 leading-relaxed mt-1">
                 The 2% platform fee remains in the covenant pot and is redistributed per the
                 SilverScript logic. This keeps the covenant self-sustaining.
               </p>
@@ -3951,7 +3968,7 @@ ${gameMeta.outcomeBranches}
               </div>
               <div className="text-left">
                 <div className="text-sm font-bold text-white">Design Visual UI in Covenant Studio</div>
-                <div className="text-[11px] text-gray-300 mt-0.5">
+                <div className="text-[11px] text-gray-300 light:text-slate-600 mt-0.5">
                   Create game boards, card tables, animations, and rich interfaces. Export and paste below.
                 </div>
               </div>
@@ -3968,7 +3985,7 @@ ${gameMeta.outcomeBranches}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className={LABEL}>Custom UI Code (HTML / JS / CSS)</p>
-              <span className="text-[10px] text-gray-200 font-mono">
+              <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono">
                 Paste from Covenant Studio
               </span>
             </div>
@@ -3983,7 +4000,7 @@ ${gameMeta.outcomeBranches}
               />
               {customUICode && (
                 <div className="absolute top-2 right-2 flex items-center gap-1">
-                  <span className="text-[10px] text-gray-200 font-mono">
+                  <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono">
                     {customUICode.split('\n').length} lines
                   </span>
                 </div>
@@ -3998,10 +4015,10 @@ ${gameMeta.outcomeBranches}
               disabled={!customUICode}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
                 !customUICode
-                  ? 'opacity-30 cursor-not-allowed border-white/[0.04] bg-black/20 text-gray-200'
+                  ? 'opacity-30 cursor-not-allowed border-white/[0.04] bg-black/20 text-gray-200 light:text-slate-700'
                   : showPreview
                   ? 'border-kaspa-green/30 bg-kaspa-green/[0.04] text-kaspa-green'
-                  : 'border-white/10 bg-black/20 text-gray-200 hover:text-white hover:border-white/20'
+                  : 'border-white/10 bg-black/20 text-gray-200 light:text-slate-700 hover:text-white hover:border-white/20'
               }`}
             >
               {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -4031,7 +4048,7 @@ ${gameMeta.outcomeBranches}
                   <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                   <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
                 </div>
-                <span className="text-[10px] text-gray-200 font-mono ml-2">Preview</span>
+                <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono ml-2">Preview</span>
               </div>
               <div className="p-4">
                 <iframe
@@ -4053,7 +4070,7 @@ ${gameMeta.outcomeBranches}
           Outcome Resolution
         </div>
 
-        <p className="text-xs text-gray-300 leading-relaxed">
+        <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed">
           Choose how the covenant outcome is determined and enforced. This feeds into the
           SilverScript template generation.
         </p>
@@ -4121,13 +4138,13 @@ ${gameMeta.outcomeBranches}
                          zkCircuit === 'risc0_generic' ? 'Verifiable Computation (RISC Zero)' :
                          zkCircuit === 'custom' ? 'Custom Circuit' : zkCircuit}
                       </p>
-                      <p className="text-[11px] text-gray-300 mt-0.5">
+                      <p className="text-[11px] text-gray-300 light:text-slate-600 mt-0.5">
                         Circuit controlled by ZK Proof Type selection above
                       </p>
                     </div>
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-200 leading-relaxed">
+                <p className="text-[11px] text-gray-200 light:text-slate-700 leading-relaxed">
                   {zkCircuit === 'chess_v1' &&
                     'Chess outcome is oracle-attested: the server replays the move log (shakmaty) to decide the winner and co-signs it. Not an on-chain ZK proof - no third-party audit is claimed.'}
                   {zkCircuit === 'merkle_generic' &&
@@ -4205,7 +4222,7 @@ ${gameMeta.outcomeBranches}
             </span>
           </div>
 
-          <p className="text-xs text-gray-300 leading-relaxed">
+          <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed">
             {gameType === 'range_proof'
               ? 'Paste (or generate) a Groth16 proof for the RangeProof circuit. Proves knowledge of a value inside [min, max] without revealing it. Verified by the Covex Oracle (snarkjs + vkey). Valid proof (valid=1) produces signed outcome 0 (proven/claimant).'
               : gameType === 'merkle_membership'
@@ -4271,7 +4288,7 @@ ${gameMeta.outcomeBranches}
 
               {/* Global busy hint - explains why the active prover and any siblings are disabled */}
               {zkGeneratingId && (
-                <p role="status" aria-live="polite" className="text-[10px] text-gray-300 font-mono">
+                <p role="status" aria-live="polite" className="text-[10px] text-gray-300 light:text-slate-600 font-mono">
                   Generating proof for {zkGeneratingId}. Other provers are paused until this run finishes.
                 </p>
               )}
@@ -4491,7 +4508,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : gameType === 'hash_preimage' ? 'Format: valid,commitment_hash. valid=1 proves you know the (hidden) MiMC7 pre-image of the public commitment_hash; the pre-image never leaves your browser.' : gameType === 'timelock_absolute' ? 'Format: valid,current_daa,lock_threshold. valid=1 (a public output) means current_daa >= lock_threshold.' : gameType === 'relative_timelock' ? 'Format: valid,current_daa,reference_daa,lock_duration. valid=1 (a public output) means current_daa >= reference_daa + lock_duration.' : gameType === 'vrf_random' ? 'Format: valid,seed,output_val,pub_vrf_key. output_val = Poseidon(hidden secret, seed, vrf_key) - the secret never leaves your browser, so the output cannot be cherry-picked.' : gameType === 'turn_timer' ? 'Format: on_time,current_daa,max_delta. on_time=1 proves the (hidden) last move was within max_delta DAA of current_daa.' : gameType === 'script_constraint' ? 'Format: ok,constraint_id,value,public_root. ok=1 proves you know the (hidden) script_hash whose Poseidon bundle equals public_root.' : gameType === 'pot_split_math' ? 'Format: valid,total_pot,fee_bps,pot_return_bps,winner_share. valid=1 proves winner_share + fee + return == total_pot at the given bps (a verifiable fair split).' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
+              <p className="text-[10px] text-gray-200 light:text-slate-700">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : gameType === 'hash_preimage' ? 'Format: valid,commitment_hash. valid=1 proves you know the (hidden) MiMC7 pre-image of the public commitment_hash; the pre-image never leaves your browser.' : gameType === 'timelock_absolute' ? 'Format: valid,current_daa,lock_threshold. valid=1 (a public output) means current_daa >= lock_threshold.' : gameType === 'relative_timelock' ? 'Format: valid,current_daa,reference_daa,lock_duration. valid=1 (a public output) means current_daa >= reference_daa + lock_duration.' : gameType === 'vrf_random' ? 'Format: valid,seed,output_val,pub_vrf_key. output_val = Poseidon(hidden secret, seed, vrf_key) - the secret never leaves your browser, so the output cannot be cherry-picked.' : gameType === 'turn_timer' ? 'Format: on_time,current_daa,max_delta. on_time=1 proves the (hidden) last move was within max_delta DAA of current_daa.' : gameType === 'script_constraint' ? 'Format: ok,constraint_id,value,public_root. ok=1 proves you know the (hidden) script_hash whose Poseidon bundle equals public_root.' : gameType === 'pot_split_math' ? 'Format: valid,total_pot,fee_bps,pot_return_bps,winner_share. valid=1 proves winner_share + fee + return == total_pot at the given bps (a verifiable fair split).' : 'Public inputs for your circuit. For oracle attestation, use \"1\" to indicate valid/proven.'}</p>
             </div>
 
             <button
@@ -4534,7 +4551,7 @@ ${gameMeta.outcomeBranches}
               <div className="space-y-1 flex-1">
                 <p className="text-sm font-semibold text-amber-400">Proof Rejected</p>
                 <p className="text-xs text-amber-300/80">{oracleResult.error}</p>
-                <p className="text-[10px] text-gray-200 font-mono mt-1">Returned by: {new Date().toISOString()}</p>
+                <p className="text-[10px] text-gray-200 light:text-slate-700 font-mono mt-1">Returned by: {new Date().toISOString()}</p>
               </div>
             </div>
           )}
@@ -4556,35 +4573,35 @@ ${gameMeta.outcomeBranches}
               {/* Outcome display */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Outcome</p>
+                  <p className="text-[10px] text-gray-200 light:text-slate-700 uppercase tracking-wider mb-1">Outcome</p>
                   <p className="text-lg font-bold text-white">
                     {oracleResult.outcome === 0 ? 'PROVEN: Claimant Wins' : 'REJECTED: Depositor Keeps Stake'}
                   </p>
-                  <p className="text-[10px] text-gray-200 mt-0.5">
+                  <p className="text-[10px] text-gray-200 light:text-slate-700 mt-0.5">
                     outcome={oracleResult.outcome} (0=claimant, 1=depositor)
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                  <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">
+                  <p className="text-[10px] text-gray-200 light:text-slate-700 uppercase tracking-wider mb-1">
                     <Clock size={10} className="inline mr-1" />
                     Timestamp
                   </p>
                   <p className="text-sm font-mono text-white">{oracleResult.timestamp}</p>
-                  <p className="text-[10px] text-gray-200 mt-0.5">Unix epoch seconds</p>
+                  <p className="text-[10px] text-gray-200 light:text-slate-700 mt-0.5">Unix epoch seconds</p>
                 </div>
               </div>
 
               {/* Message */}
               <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Signed Message</p>
+                <p className="text-[10px] text-gray-200 light:text-slate-700 uppercase tracking-wider mb-1">Signed Message</p>
                 <p className="text-xs font-mono text-[#3B82F6] break-all">{oracleResult.message}</p>
               </div>
 
               {/* Signature */}
               <div className="p-3 rounded-xl bg-black/40 border border-white/10">
-                <p className="text-[10px] text-gray-200 uppercase tracking-wider mb-1">Oracle Signature (SHA256)</p>
+                <p className="text-[10px] text-gray-200 light:text-slate-700 uppercase tracking-wider mb-1">Oracle Signature (SHA256)</p>
                 <p className="text-xs font-mono text-emerald-300 break-all">{oracleResult.signature}</p>
-                <p className="text-[10px] text-gray-200 mt-1">
+                <p className="text-[10px] text-gray-200 light:text-slate-700 mt-1">
                   Computed as SHA256(oracle_private_key || message). Present this signature as witness data when constructing the covenant unlock transaction.
                 </p>
               </div>
@@ -4595,7 +4612,7 @@ ${gameMeta.outcomeBranches}
                   const data = JSON.stringify(oracleResult, null, 2);
                   navigator.clipboard.writeText(data);
                 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-gray-200 hover:text-white hover:border-white/20 transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-gray-200 light:text-slate-700 hover:text-white hover:border-white/20 transition-all"
               >
                 <Clipboard size={12} />
                 Copy Full Oracle Response
@@ -4626,7 +4643,7 @@ ${gameMeta.outcomeBranches}
           Design in Covenant Studio
         </div>
 
-        <p className="text-xs text-gray-300 leading-relaxed">
+        <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed">
           Send your current resolution, circuit, fees, and payout model to <strong>Covenant Studio</strong> to create a beautiful custom UI.
           Changes made in Studio can be sent back here.
         </p>
@@ -4678,7 +4695,7 @@ ${gameMeta.outcomeBranches}
           Open in Covenant Studio
         </button>
 
-        <p className="text-[10px] text-gray-500 mt-2 text-center">
+        <p className="text-[10px] text-gray-500 light:text-slate-500 mt-2 text-center">
           The visual Studio designs the public page of a deployed covenant.
         </p>
 
@@ -4707,7 +4724,7 @@ ${gameMeta.outcomeBranches}
           Generated SilverScript
         </div>
 
-        <p className="text-xs text-gray-300 leading-relaxed">
+        <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed">
           Generate a complete{' '}
           <code className="text-kaspa-green/80 bg-kaspa-green/[0.06] px-1.5 py-0.5 rounded text-[11px] font-mono">
             {GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
@@ -4737,7 +4754,7 @@ ${gameMeta.outcomeBranches}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   copied
                     ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                    : 'bg-white/[0.04] border border-white/10 text-gray-200 hover:text-white hover:border-white/20'
+                    : 'bg-white/[0.04] border border-white/10 text-gray-200 light:text-slate-700 hover:text-white hover:border-white/20'
                 }`}
               >
                 {copied ? <Check size={13} /> : <Clipboard size={13} />}
@@ -4751,11 +4768,11 @@ ${gameMeta.outcomeBranches}
                   <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
                   <span className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
                 </div>
-                <span className="text-[10px] text-gray-200 font-mono ml-2">
+                <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono ml-2">
                   {generatedScript.match(/Covenant (\w+)/)?.[1] || 'Covenant'}.silver
                 </span>
               </div>
-              <pre className="p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre">
+              <pre className="p-5 text-xs font-mono text-gray-300 light:text-slate-600 leading-relaxed overflow-x-auto whitespace-pre">
                 <code>{generatedScript}</code>
               </pre>
             </div>
@@ -4786,7 +4803,7 @@ ${gameMeta.outcomeBranches}
             </div>
           )}
           {saveStatus === 'idle' && (
-            <div className="flex items-center gap-2 text-gray-200 text-sm">
+            <div className="flex items-center gap-2 text-gray-200 light:text-slate-700 text-sm">
               <div className="h-1.5 w-1.5 rounded-full bg-gray-700" />
               <span className="font-mono text-xs uppercase tracking-wider">Ready</span>
             </div>

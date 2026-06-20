@@ -28,10 +28,10 @@ fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
     }
 }
 
-/// Determine tier from the script hex of a UTXO — checks if it's a treasury address
+/// Determine tier from the script hex of a UTXO - checks if it's a treasury address
 fn tier_from_script(_spk_hex: &str, _treasury_script: &str, amount: u64) -> (String, u64) {
     // For the indexer, we check individual UTXO amounts.
-    // The live indexer polls seed addresses for covenant UTXOs — treasury matching
+    // The live indexer polls seed addresses for covenant UTXOs - treasury matching
     // is less relevant here since we're already filtering by seed addresses.
     // But if a UTXO has a large amount going to treasury, we detect it.
 
@@ -54,7 +54,7 @@ pub async fn run_indexer(
     network: String,
 ) {
     info!(
-        "Covex Indexer v3 started — tier-aware indexing (treasury={}, network={})",
+        "Covex Indexer v3 started - tier-aware indexing (treasury={}, network={})",
         treasury_address, network
     );
 
@@ -120,7 +120,7 @@ pub async fn run_indexer(
                         let amount_sompi = entry.utxo_entry.amount;
                         let script_hex = hex::encode(entry.utxo_entry.script_public_key.script());
 
-                        // Reject standard wallet outputs — NOT covenants.
+                        // Reject standard wallet outputs - NOT covenants.
                         // Standard outputs ≤ 40 raw bytes, or P2PKH/Schnorr/P2SH.
                         if is_standard_output(&script_hex) {
                             debug!(
@@ -141,7 +141,7 @@ pub async fn run_indexer(
                         let covenant_type = classify_covenant(&script_hex);
                         let block_daa = entry.utxo_entry.block_daa_score;
 
-                        // Determine tier — check if UTXO is a treasury payment
+                        // Determine tier - check if UTXO is a treasury payment
                         // For seed addresses, tier is determined by the UTXO amount itself
                         // (the indexer looks at seed addresses, not treasury addresses)
                         let (tier, _) =
@@ -275,7 +275,7 @@ fn classify_covenant(script_hex: &str) -> String {
     crate::covenant_types::CovenantCategory::covenant_type(script_hex)
 }
 
-/// Returns true if the script is a standard wallet output — NOT a covenant.
+/// Returns true if the script is a standard wallet output - NOT a covenant.
 /// Standard outputs ≤ 40 raw bytes, or known patterns (P2PKH, Schnorr P2PK, P2SH).
 fn is_standard_output(spk_hex: &str) -> bool {
     let raw_len = spk_hex.len() / 2;

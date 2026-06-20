@@ -1,4 +1,4 @@
-// mixer.rs — Privacy Mixer pool API (Covex27)
+// mixer.rs - Privacy Mixer pool API (Covex27)
 
 use axum::{
     extract::{Extension, Path},
@@ -122,7 +122,7 @@ async fn withdraw_handler(
     // that circuit is verified here, the guards below are the minimum safety net:
     //   (a) reject blank inputs,
     //   (b) require the pool to contain at least one recorded deposit (no withdraws from an
-    //       empty pool — a partial bind to a real prior deposit; a full per-note bind needs
+    //       empty pool - a partial bind to a real prior deposit; a full per-note bind needs
     //       the ZK membership proof above),
     //   (c) record the nullifier ATOMICALLY and reject any reuse (double-spend).
     let nullifier = input.nullifier.trim();

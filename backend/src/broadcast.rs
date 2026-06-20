@@ -41,7 +41,7 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
 // STRICT: This endpoint ONLY receives the signed hex, broadcasts it to the
 // local node's mempool via wRPC, and returns the tx_id. No database writes
 // whatsoever. The crawler is the ONLY code path allowed to index covenants
-// into covex.db — it discovers them natively on the DAG and verifies
+// into covex.db - it discovers them natively on the DAG and verifies
 // treasury outputs to determine tier.
 
 #[derive(Deserialize, Debug)]
@@ -63,7 +63,7 @@ fn default_network() -> String {
     "testnet-12".to_string()
 }
 
-/// POST /broadcast — accepts a signed Kaspa transaction hex, parses, broadcasts via wRPC
+/// POST /broadcast - accepts a signed Kaspa transaction hex, parses, broadcasts via wRPC
 pub async fn broadcast_handler(
     Extension(_client): Extension<Arc<KaspaRpcClient>>, // kept for router layer compat; we use on-demand below
     Json(payload): Json<BroadcastRequest>,
@@ -109,7 +109,7 @@ pub async fn broadcast_handler(
 
     let rpc_tx: RpcTransaction = RpcTransaction::from(&consensus_tx);
 
-    // Submit to node via wRPC — no DB writes, no auto-indexing
+    // Submit to node via wRPC - no DB writes, no auto-indexing
     match client.submit_transaction(rpc_tx, false).await {
         Ok(tx_id) => {
             let tx_id_str = tx_id.to_string();
@@ -141,7 +141,7 @@ pub struct UtxoEntry {
     pub script_hex: String,
 }
 
-/// GET /utxos/:address — fetch UTXOs for a Kaspa address from the wRPC node
+/// GET /utxos/:address - fetch UTXOs for a Kaspa address from the wRPC node
 /// Supports ?network=testnet-10 so balance/UTXO checks before deploy target the chosen net.
 pub async fn utxos_handler(
     Path(addr_str): Path<String>,
@@ -201,7 +201,7 @@ pub async fn utxos_handler(
     }
 }
 
-/// GET /balance/:address — check balance
+/// GET /balance/:address - check balance
 /// Supports ?network=... for correct chain when using the site toggle.
 pub async fn balance_handler(
     Path(addr_str): Path<String>,

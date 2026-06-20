@@ -28,7 +28,7 @@ impl Db {
 /// worker. The closure receives a borrowed `&Connection` checked out of the pool.
 /// Use this for the hottest GET read handlers. Do NOT use it for the money-path
 /// writes or any multi-statement transaction that must stay on one connection
-/// for atomicity — those keep calling `db.lock()` directly.
+/// for atomicity - those keep calling `db.lock()` directly.
 pub async fn blocking<F, T>(db: &Db, f: F) -> T
 where
     F: FnOnce(&rusqlite::Connection) -> T + Send + 'static,
@@ -94,7 +94,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         CREATE INDEX IF NOT EXISTS idx_covenants_verified ON covenants(verified_tier);
         CREATE INDEX IF NOT EXISTS idx_covenants_creator ON covenants(creator_addr);
         -- NOTE: the (network, script_hex) dedup index is intentionally NOT created here.
-        -- On a fresh DB the covenants table above has no `network` column yet — it is added
+        -- On a fresh DB the covenants table above has no `network` column yet - it is added
         -- by the migration further down. Creating the index inside this batch would fail with
         -- a no-such-column error and the process would never bind. It is created right
         -- after the network-column migration instead (see below).
@@ -377,9 +377,9 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         )?;
     }
     // Fast dedup lookup: a covenant is its (network, script) pair; re-deposits to the same
-    // P2SH share the script and must not be counted as new covenants. Created here — AFTER the
+    // P2SH share the script and must not be counted as new covenants. Created here - AFTER the
     // network column is guaranteed to exist (just added above, or already present on an
-    // already-migrated DB) — so a fresh-DB cold start does not fail with "no such column".
+    // already-migrated DB) - so a fresh-DB cold start does not fail with "no such column".
     conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_covenants_net_scripthex ON covenants(network, script_hex);",
     )?;
@@ -478,7 +478,7 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         .is_ok();
     if !has_crawler_network {
         // Drop old single-row table and recreate with composite PK + per-network rows
-        // Losing scan positions is fine — crawlers restart from config start_daa
+        // Losing scan positions is fine - crawlers restart from config start_daa
         conn.execute_batch("DROP TABLE IF EXISTS crawler_state;")?;
 
         // Migration: production skill_games tables created before the current
@@ -1013,7 +1013,7 @@ pub fn query_covenants_conn(
 ) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
     let mut where_clauses: Vec<String> = vec!["is_active = 1".to_string()];
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    // Curated default: show covenants Covex can say something REAL about — a paid tier, a genuine
+    // Curated default: show covenants Covex can say something REAL about - a paid tier, a genuine
     // creator/builder description, OR anything discovered in the last 24h so the explorer always
     // shows live on-chain activity (new covenants) instead of looking frozen. Older bare crawled
     // P2SH commitments (opaque until spend, empty description) sit behind the "Show all" toggle.

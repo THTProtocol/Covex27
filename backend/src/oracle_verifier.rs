@@ -468,7 +468,7 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         m.insert(id, VerifierSpec::Attested);
     }
 
-    // Oracle / Data feeds / Real-world (vision 4.7) — treated as circuit_types for uniformity
+    // Oracle / Data feeds / Real-world (vision 4.7) - treated as circuit_types for uniformity
     let data_oracle_attested = [
         "price_kas",
         "price_btc",
@@ -992,7 +992,7 @@ pub(crate) async fn verify_risc0_stub(
     }
 
     if bin_opt.is_none() {
-        // No risc0 yet — stub accepts (common for dev, attested compute, or when offloading to external prover).
+        // No risc0 yet - stub accepts (common for dev, attested compute, or when offloading to external prover).
         return Ok(true);
     }
     let bin = bin_opt.unwrap();

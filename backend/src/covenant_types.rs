@@ -112,7 +112,7 @@ impl CovenantCategory {
         // script hash is cryptographically OPAQUE until the redeem script is revealed at spend
         // time, so the bytes inside it tell us NOTHING about what the covenant actually does.
         // Classifying it as "Predictive"/"VerifiableSkill"/"Skill" from incidental hash bytes (the
-        // presence of 0x51/0x52/0x53) was fabrication — every such "covenant" is really just a P2SH
+        // presence of 0x51/0x52/0x53) was fabrication - every such "covenant" is really just a P2SH
         // commitment. Label it honestly. The genuine type is only known when the covenant is
         // deployed THROUGH Covex (which records its real type) or its redeem script is revealed.
         if has_aa20 {
@@ -163,7 +163,7 @@ impl CovenantCategory {
             return "community-pool-covenant".into();
         }
         if script_hex.contains("aa20") {
-            // aa20 commitment we can't further classify from opaque bytes — label honestly as a
+            // aa20 commitment we can't further classify from opaque bytes - label honestly as a
             // P2SH commitment rather than guessing "skill"/"verifiable-skill" from random hash bytes.
             return "p2sh-commitment".into();
         }

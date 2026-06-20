@@ -4,13 +4,13 @@
 //
 // Escape-hatch endpoint that builds, signs, and broadcasts a Kaspa
 // transaction entirely in native Rust. This avoids the Node.js CLI
-// ESM/CJS WASM conflict — the backend already links kaspa-consensus-core
+// ESM/CJS WASM conflict - the backend already links kaspa-consensus-core
 // and secp256k1, so we can sign Schnorr transactions natively.
 //
 // Transaction structure:
 //   - Deploy: Output 0 → Covenant (1 KAS to deployer), Output 1 → Treasury tier fee (if any), Output 2 → change
 //   - Pure tier upgrade ("Pay 100 KAS" etc): Output 0 → Treasury (exact tier fee), Output 1 → change
-//     (no 1 KAS covenant side-output, no covenant DB row created — only address tier credit)
+//     (no 1 KAS covenant side-output, no covenant DB row created - only address tier credit)
 //
 // STRICT: No DB writes. Returns tx_id only. Crawler discovers and
 // indexes the covenant on-chain.
@@ -43,7 +43,7 @@ use crate::dev_wallets;
 
 // ── Constants ─────────────────────────────────────────────────────
 
-/// Treasury address — all tier fees go here
+/// Treasury address - all tier fees go here
 const TREASURY_ADDRESS: &str = dev_wallets::TREASURY_ADDRESS;
 
 /// Minimum tx fee (10,000 sompi = 0.0001 KAS)
@@ -61,7 +61,7 @@ const BUILDER_FEE: u64 = 100 * 100_000_000;
 
 #[derive(Deserialize, Debug)]
 pub struct SignAndBroadcastRequest {
-    /// 64-char hex private key (32 bytes) — ignored when use_dev_mode is true
+    /// 64-char hex private key (32 bytes) - ignored when use_dev_mode is true
     #[serde(default)]
     pub private_key_hex: String,
     /// Kaspa address of the deployer (kaspatest:...)
@@ -77,7 +77,7 @@ pub struct SignAndBroadcastRequest {
     /// If true, load private key from dev_wallets.rs (wallet 1)
     #[serde(default)]
     pub use_dev_mode: bool,
-    /// Optional Covex DSL source text — if present, compiled via silverc
+    /// Optional Covex DSL source text - if present, compiled via silverc
     /// and used as tx.payload instead of script_hex.
     #[serde(default)]
     pub dsl_source: Option<String>,
@@ -101,7 +101,7 @@ pub struct SignAndBroadcastRequest {
     #[serde(default)]
     pub pure_tier_payment: bool,
 
-    // Premium covenant metadata — category and custom_ui_config
+    // Premium covenant metadata - category and custom_ui_config
     #[serde(default)]
     pub covenant_type: Option<String>,
     #[serde(default)]
@@ -448,7 +448,7 @@ pub async fn sign_and_broadcast_handler(
         }));
     }
 
-    // Clone UTXO's script_public_key exactly — avoids byte mismatches
+    // Clone UTXO's script_public_key exactly - avoids byte mismatches
     let deployer_script = utxos[0].utxo_entry.script_public_key.clone();
 
     let treasury_script = match script_pub_key_from_address(treasury_addr_str) {
@@ -488,7 +488,7 @@ pub async fn sign_and_broadcast_handler(
                 }
                 Err(e) => {
                     warn!(
-                        "[COMPILER] DSL compilation failed: {} — falling back to raw script_hex",
+                        "[COMPILER] DSL compilation failed: {} - falling back to raw script_hex",
                         e
                     );
                     if payload.script_hex.trim().is_empty() {
@@ -642,7 +642,7 @@ pub async fn sign_and_broadcast_handler(
         }
     };
 
-    // Finalize AFTER signing — tx ID must include signature bytes
+    // Finalize AFTER signing - tx ID must include signature bytes
     signed_tx.tx.finalize();
     let consensus_tx = signed_tx.tx;
     let rpc_tx = RpcTransaction::from(&consensus_tx);
@@ -738,7 +738,7 @@ pub async fn sign_and_broadcast_handler(
                     format!("{:x}", Sha256::digest(&script_bytes))
                 };
 
-                // DB insert — non-fatal on failure; covenant is already on-chain
+                // DB insert - non-fatal on failure; covenant is already on-chain
                 let _ = db::insert_covenant(
                     &db,
                     &tx_id_str,
@@ -795,7 +795,7 @@ pub fn signer_routes() -> Router {
     Router::new().route("/sign-and-broadcast", post(sign_and_broadcast_handler))
     // NOTE: GET /balance/:address is already provided by broadcast_routes() (broadcast.rs),
     // which returns {"balance": <sompi>} via get_balance_by_address. We deliberately do NOT
-    // register a second balance route here — axum rejects two routes that differ only in their
+    // register a second balance route here - axum rejects two routes that differ only in their
     // path-param name (/balance/:addr vs /balance/:address) with a startup panic.
 }
 

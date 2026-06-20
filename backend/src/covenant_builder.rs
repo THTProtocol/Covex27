@@ -4873,13 +4873,13 @@ pub struct ClaimCovenantInput {
     pub owner_addr: Option<String>,
 }
 
-/// POST /covenant/p2sh/claim — "Claim & activate" an elsewhere-created covenant.
+/// POST /covenant/p2sh/claim - "Claim & activate" an elsewhere-created covenant.
 ///
 /// The caller supplies the covenant's REDEEM SCRIPT (and optional metadata). We recompute the P2SH
 /// lock from it and require it to MATCH the covenant's on-chain commitment, so a claim is impossible
 /// without genuinely knowing the script (which is secret until a spend reveals it). On success the
 /// covenant becomes fully interactable on Covex: redeemable (a p2sh_covenants row) + richly
-/// displayed (metadata). Fully trustless — no key, no trust, just a hash match.
+/// displayed (metadata). Fully trustless - no key, no trust, just a hash match.
 pub async fn claim_covenant_handler(
     Extension(db): Extension<db::Db>,
     Json(input): Json<ClaimCovenantInput>,

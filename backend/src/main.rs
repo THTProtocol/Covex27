@@ -150,7 +150,7 @@ async fn main() {
         eprintln!("[covex] oracle signing key configured via COVEX_ORACLE_KEY.");
     } else {
         eprintln!(
-            "[covex] WARNING: COVEX_ORACLE_KEY is not set — the oracle will FAIL CLOSED \
+            "[covex] WARNING: COVEX_ORACLE_KEY is not set - the oracle will FAIL CLOSED \
              (refuse to sign). Set a 64-hex value (throwaway is fine for local testnet)."
         );
     }
@@ -283,7 +283,7 @@ async fn main() {
     let primary_network = network.clone();
 
     // Networks to additionally index (all except the primary, which gets its own spawns below)
-    // Only include mainnet if KASPA_WRPC_URL_MAINNET is explicitly configured — the default
+    // Only include mainnet if KASPA_WRPC_URL_MAINNET is explicitly configured - the default
     // ws://127.0.0.1:17110 hangs the startup if no mainnet node is running locally.
     let mut extra_networks: Vec<&str> = Vec::new();
     // Mainnet-only deployment (KASPA_NETWORK=mainnet): index ONLY mainnet, with no
@@ -859,7 +859,7 @@ fn get_git_commit() -> String {
 
 /// Oracle identity for the public health/status JSON. Fail-closed: there is no
 /// compiled-in oracle key any more, so when COVEX_ORACLE_KEY is unset we report
-/// ("unconfigured", "unconfigured") instead of deriving a key — this keeps /health
+/// ("unconfigured", "unconfigured") instead of deriving a key - this keeps /health
 /// serving (rather than panicking) on an env that can't sign. When the key IS set we
 /// derive and expose the real x-only pubkey exactly as before.
 fn oracle_status_json() -> (&'static str, String) {
@@ -1726,7 +1726,7 @@ fn verify_terminal_ownership_signature(
 // nonces bound to (covenant_id, expiry); each is consumed exactly once on a
 // successful ownership check. Entries are single-process and non-persistent,
 // which is acceptable: a restart only invalidates outstanding challenges, forcing
-// the client to fetch a fresh nonce — it never weakens verification.
+// the client to fetch a fresh nonce - it never weakens verification.
 
 /// Time-to-live for an issued challenge nonce, in seconds.
 const OWNERSHIP_NONCE_TTL_SECS: i64 = 300;
@@ -2160,7 +2160,7 @@ fn tmpl(
 }
 
 async fn marketplace_templates_handler() -> Json<serde_json::Value> {
-    // A comprehensive, honest catalog of OFFICIAL Covex starting points — every covenant primitive,
+    // A comprehensive, honest catalog of OFFICIAL Covex starting points - every covenant primitive,
     // game, ZK proof, oracle market, DeFi pattern, identity gate and compute proof. Each carries its
     // REAL enforcement reality (on-chain / hybrid / oracle-attested) and a `kind` the UI uses to
     // route "Use Template" to the right builder. Nothing here overstates what the chain enforces.
@@ -2898,7 +2898,7 @@ async fn save_covenant_metadata_handler(
     // wallet signature over a single-use challenge nonce bound to this tx_id, with
     // signer == creator. `featured` is only set when ownership is proven.
     // If the covenant is unknown / has no creator, there is nothing to protect, so the
-    // save is allowed — but it is NEVER featured.
+    // save is allowed - but it is NEVER featured.
     let mut featured = false;
     if let Ok(Some(cov)) = db::get_covenant_by_txid(&db, &input.tx_id) {
         if !cov.creator_addr.is_empty() {

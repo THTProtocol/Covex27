@@ -1,4 +1,4 @@
-// oracle.rs — Covex Oracle Verification & Signing Service (Phase 2)
+// oracle.rs - Covex Oracle Verification & Signing Service (Phase 2)
 //
 // POST /api/oracle/verify-and-sign
 //
@@ -40,7 +40,7 @@ pub struct OracleVerifyInput {
     pub circuit_type: String, // "merkle_membership" | "range_proof" | "chess_v1" (oracle attestation for game results)
     pub proof: serde_json::Value, // The Groth16 proof object
     #[serde(default)]
-    pub public_inputs: Vec<String>, // Public signals (rootHash, etc.) — default empty for attested/hybrid/simulate paths
+    pub public_inputs: Vec<String>, // Public signals (rootHash, etc.) - default empty for attested/hybrid/simulate paths
     #[serde(default)]
     pub requested_outcome: Option<u32>, // Claimed outcome (0-1 for binary)
 
@@ -128,7 +128,7 @@ async fn oracle_pubkey_handler() -> Json<serde_json::Value> {
     }))
 }
 
-/// Placeholder ONLY — this is NOT a usable signing key. The oracle's real signing
+/// Placeholder ONLY - this is NOT a usable signing key. The oracle's real signing
 /// key MUST be supplied at runtime via the `COVEX_ORACLE_KEY` env var (64-hex / 32
 /// bytes). If the env var is unset the oracle fails closed (refuses to sign) rather
 /// than silently signing with a secret baked into source / git history.
@@ -138,13 +138,13 @@ async fn oracle_pubkey_handler() -> Json<serde_json::Value> {
 /// history). Note the on-chain identity is `sha256(key)` -> secp256k1 (see
 /// `oracle_keypair`), so an environment that wants to reproduce the prior testnet
 /// oracle identity (for existing TN10/TN12 oracle_enforced / oracle_escrow covenants)
-/// can set `COVEX_ORACLE_KEY` to the old value as an env secret — never in source.
+/// can set `COVEX_ORACLE_KEY` to the old value as an env secret - never in source.
 const ORACLE_KEY_PLACEHOLDER: &str = "SET_COVEX_ORACLE_KEY__no_oracle_key_is_baked_into_source";
 
 /// Returns the oracle signing key from `COVEX_ORACLE_KEY`. Fails closed: there is no
 /// compiled-in default, so an unset / empty / placeholder value panics rather than
 /// signing with a non-secret key. (Panicking aborts only the offending request task,
-/// not the whole server — observability endpoints degrade gracefully; see main.rs.)
+/// not the whole server - observability endpoints degrade gracefully; see main.rs.)
 fn oracle_key_bytes() -> Vec<u8> {
     let raw = match std::env::var("COVEX_ORACLE_KEY") {
         Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
@@ -158,7 +158,7 @@ fn oracle_key_bytes() -> Vec<u8> {
     };
     if raw == ORACLE_KEY_PLACEHOLDER {
         panic!(
-            "COVEX_ORACLE_KEY is set to the placeholder sentinel — refusing to sign with \
+            "COVEX_ORACLE_KEY is set to the placeholder sentinel - refusing to sign with \
              a non-secret value. Provide a real 64-hex oracle key."
         );
     }
@@ -467,7 +467,7 @@ fn verify_merkle_proof(
         "node"
     };
 
-    // Run verification synchronously — this is fine because the handler
+    // Run verification synchronously - this is fine because the handler
     // wraps us in tokio::task::spawn_blocking.
     let output = Command::new(node_binary.to_string())
         .arg(script.to_str().unwrap_or("zk/verify.js"))
@@ -1064,7 +1064,7 @@ mod tests {
 /// A multi-oracle set with heartbeats / weights / threshold signatures is roadmap, not live.
 async fn oracle_liveness_handler() -> Json<serde_json::Value> {
     // Is a usable signing key configured? (mirror oracle_key_bytes' fail-closed checks, but
-    // without panicking — this is an observability endpoint, so it must degrade gracefully).
+    // without panicking - this is an observability endpoint, so it must degrade gracefully).
     let key_configured = std::env::var("COVEX_ORACLE_KEY")
         .map(|v| {
             let t = v.trim();

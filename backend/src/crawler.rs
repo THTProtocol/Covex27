@@ -8,7 +8,7 @@ use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
-/// Historic BlockDAG Crawler — walks the selected-parent chain backward from tip.
+/// Historic BlockDAG Crawler - walks the selected-parent chain backward from tip.
 ///
 /// Detects *ALL* possible covenants (to match/exceed the official Kaspa TN12 explorer)
 /// by scanning BOTH tx.payload AND every output's script_public_key for the

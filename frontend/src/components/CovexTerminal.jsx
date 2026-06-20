@@ -2450,9 +2450,9 @@ ${gameMeta.outcomeBranches}
       {!hasPaidAccess && connectedAddress && (
         <section className={`${SECTION_BASE} border-amber-500/30 bg-amber-500/[0.03] ring-1 ring-amber-500/20 light:border-amber-300 light:bg-amber-50`}>
           <div className="flex items-center gap-2 text-amber-400 light:text-amber-700 font-semibold text-sm">
-            <Shield size={16} /> PRIORITY PLACEMENT & FEATURED LISTING (OPTIONAL)
+            <Shield size={16} /> PRIORITY PLACEMENT & PREMIUM TEMPLATES (OPTIONAL)
           </div>
-          <p className="text-xs text-gray-300 light:text-slate-600 mt-1">Every build feature is already free: select any ZK circuit, use ZK resolution, the live SilverScript editor, oracles, timing, live code updates, the public UI designer, and any bet/lock amount with no cap. A one-time payment from this connected wallet buys ONLY priority placement and a featured listing of your covenant and its website on Covex, never a circuit or build feature. TXs broadcast in real time via backend signer.</p>
+          <p className="text-xs text-gray-300 light:text-slate-600 mt-1">Every build feature is already free: select any ZK circuit, use ZK resolution, the live SilverScript editor, oracles, timing, live code updates, the public UI designer, and any bet/lock amount with no cap. A one-time payment from this connected wallet adds priority placement for your covenant and its website on Covex plus the premium UI website template library, never a circuit or build feature. TXs broadcast in real time via backend signer.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
             {TIERS.map((t) => (
@@ -2568,7 +2568,7 @@ ${gameMeta.outcomeBranches}
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold tracking-wide light:bg-emerald-200 light:text-emerald-800 light:border-emerald-400/60">PAID</span>
               </div>
               <p className="text-xs text-gray-300 light:text-slate-600 mt-1 leading-relaxed light:text-slate-700">
-                Payment broadcast on-chain. Your covenant and its website now get {paymentSuccess.tier} priority placement / featured listing on Covex. Every build feature (live SilverScript editor, all ZK circuits, ZK resolution, custom UI designer, oracles and game arenas) is and always was free for this wallet on this network.
+                Payment broadcast on-chain. Your covenant and its website now get {paymentSuccess.tier} priority placement on Covex plus the premium UI website template library. Every build feature (live SilverScript editor, all ZK circuits, ZK resolution, custom UI designer, oracles and game arenas) is and always was free for this wallet on this network.
               </p>
               {paymentSuccess.txid && (
                 <a href={explorerTxUrl(paymentSuccess.txid, kaspaNetwork)} target="_blank" rel="noreferrer"

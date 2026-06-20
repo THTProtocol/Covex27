@@ -559,17 +559,17 @@ export default function Explorer() {
       <section data-tour="explorer-hero" className="relative z-10 flex flex-col items-center justify-center pt-14 sm:pt-20 pb-10 px-4 sm:px-6 text-center">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
         <h1
-          className="relative font-black text-white light:text-slate-900 mb-6 max-w-3xl leading-[1.1] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
-          style={{ fontSize: 'clamp(2.25rem, 5.5vw, 4.5rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
+          className="relative font-black text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl leading-[1.08] sm:leading-[1.05] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
+          style={{ fontSize: 'clamp(1.9rem, 5vw, 3.85rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
         >
-          Build anything on <span className="text-kaspa-green">Kaspa</span>. Free.
+          Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
         </h1>
         <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-          A covenant is a self-running on-chain app whose rules the Kaspa network enforces - your wallet signs, Covex never holds your keys. Build games, markets, escrows, ZK proofs, auctions and custom logic, each with its own website.
+          A covenant is a self-running on-chain app whose rules the Kaspa network enforces - your wallet signs, Covex never holds your keys. Build games, prediction markets, escrows, ZK proofs, auctions and custom logic, each with its own website.
         </p>
         <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
           <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
-            Powered by SilverScript covenants on programmable UTXOs. Building is always free - paid tiers buy priority placement only.
+            Powered by SilverScript covenants on programmable UTXOs. Building is free; paid tiers add priority placement and the premium template library.
           </span>
         </p>
         {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
@@ -656,7 +656,7 @@ export default function Explorer() {
         <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-6 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
-            { icon: TrendingUp, label: 'Featured', value: stats.paidCount, fmt: formatCount, tip: 'Building is always free. Paid = priority placement only.' },
+            { icon: TrendingUp, label: 'Featured', value: stats.paidCount, fmt: formatCount, tip: 'Building is always free. Paid tiers add priority placement and the premium template library.' },
             { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
           ].map((s, i) => (
             <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} tip={s.tip} />

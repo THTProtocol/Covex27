@@ -457,7 +457,7 @@ export default function CovenantStudio() {
     return (
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-24 text-center">
         <Sparkles size={28} className="text-kaspa-green mx-auto mb-4" />
-        <p className="text-white font-bold mb-2">Page Studio is creator-only</p>
+        <p className="text-white font-bold mb-2">Covenant Studio is creator-only</p>
         <p className="text-sm text-gray-400 mb-6">Connect the wallet that deployed this covenant to design its public page with drag and drop blocks.</p>
         <Link to={`/covenant/${encodeURIComponent(id)}`} className="text-kaspa-green text-sm underline">View the covenant instead</Link>
       </div>
@@ -505,7 +505,7 @@ export default function CovenantStudio() {
         <Link data-tour="public-page" to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
           <ArrowLeft size={16} /> <span className="hidden sm:inline">Back to covenant</span>
         </Link>
-        <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white light:text-slate-900 truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Page Studio</p>
+        <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white light:text-slate-900 truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Covenant Studio</p>
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
           {/* Desktop: inline secondary actions (md+). Mobile: collapsed into overflow menu. */}
           <button onClick={() => openDrawer('settings')} aria-label="Page settings" title="Stake amount, name, description. Saved with your page. The fund destination is always derived from the indexed covenant record, never from page settings." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
@@ -1194,7 +1194,7 @@ function MobileStudioInterstitial({ covenantId, data, liveData }) {
     setTimeout(() => setCopied(false), 1400);
   }, [studioUrl]);
   const mailHref = useMemo(() => {
-    const subject = encodeURIComponent('Open Covex Page Studio on desktop');
+    const subject = encodeURIComponent('Open Covex Covenant Studio on desktop');
     const body = encodeURIComponent(`Open this on a desktop browser to design your covenant page:\n\n${studioUrl}\n\nThe studio uses drag and drop, which needs a larger screen.`);
     return `mailto:?subject=${subject}&body=${body}`;
   }, [studioUrl]);

@@ -68,25 +68,30 @@ export const STEPS = [
   {
     id: 'sandbox-create',
     anchor: 'sandbox-create',
-    route: '/sandbox',
+    // The Sandbox defaults to phase=create; force it so a returning visitor whose
+    // URL carried a later phase still starts the build tour at step one.
+    route: '/sandbox?phase=create',
     title: 'Phase 1: Create',
     body: 'Pick a template. Each template tells you what is consensus-enforced (the script the Kaspa node verifies) and what is oracle co-signed (resolved by the disclosed Covex oracle, fail-closed).',
     nextLabel: 'Next: logic',
-    nextRoute: '/sandbox',
+    // Seed a real demo selection so the logic panel actually mounts during the
+    // tour instead of the "pick a covenant first" empty state. merkle_membership
+    // is a genuinely verified circuit and a curated template.
+    nextRoute: '/sandbox?phase=logic&circuit=merkle_membership&kind=zk',
   },
   {
     id: 'sandbox-logic',
     anchor: 'sandbox-logic',
-    route: '/sandbox',
+    route: '/sandbox?phase=logic&circuit=merkle_membership&kind=zk',
     title: 'Phase 2: Logic',
     body: 'Set the parameters: amounts, thresholds, deadlines, the oracle outcome to watch. The Sandbox shows the exact enforcement label for each field so nothing is hidden.',
     nextLabel: 'Next: deploy',
-    nextRoute: '/sandbox',
+    nextRoute: '/sandbox?phase=deploy&circuit=merkle_membership&kind=zk',
   },
   {
     id: 'sandbox-deploy',
     anchor: 'sandbox-deploy',
-    route: '/sandbox',
+    route: '/sandbox?phase=deploy&circuit=merkle_membership&kind=zk',
     title: 'Phase 3: Deploy',
     body: 'Review the script bytes, fees, and the honest enforcement summary. On mainnet, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting.',
     nextLabel: 'See the website builder',

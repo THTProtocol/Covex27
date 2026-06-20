@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock,
-  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket, LayoutTemplate,
+  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket, LayoutTemplate, Compass,
 } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
@@ -261,7 +261,7 @@ function BuildRail({
         ) : (
           <p className="text-[12px] text-gray-400 light:text-slate-500">Pick a covenant to continue.</p>
         )}
-        {phase !== 'deploy' && (
+        {phase !== 'deploy' ? (
           <div className="flex items-center gap-2">
             {phase !== 'create' && (
               <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
@@ -280,6 +280,13 @@ function BuildRail({
               <ArrowRight size={15} />
             </Button>
           </div>
+        ) : (
+          // Deploy: the builder owns the forward action, so the rail keeps only a
+          // Back affordance to the logic phase. Without this, Back was unreachable
+          // once you entered deploy.
+          <Button variant="ghost" size="sm" onClick={onBack} className="w-full justify-center">
+            <ArrowLeft size={14} /> Back to logic
+          </Button>
         )}
       </div>
 
@@ -383,6 +390,57 @@ export default function Sandbox() {
     setPhase('logic');
   };
 
+  // URL -> state sync. The Sandbox is a single route element, so navigating to
+  // /sandbox?phase=logic&circuit=... while already mounted (e.g. the guided tour
+  // stepping through the phases) does NOT remount the component or re-run the
+  // useState initializers above. Without this, the tour's ?phase / ?circuit are
+  // ignored and the logic/deploy panels never mount. We mirror the params into
+  // state when they differ; the component's own setters already write the URL to
+  // match state, so once state catches up the params equal state and this no-ops
+  // (no feedback loop). Reading the primitive param strings keeps the deps stable.
+  const pPhase = params.get('phase');
+  const pCircuit = params.get('circuit');
+  const pKind = params.get('kind') || '';
+  const pName = params.get('name') || '';
+  const pMode = params.get('mode');
+  const pTab = params.get('tab');
+  useEffect(() => {
+    // phase
+    const wantPhase = pPhase && PHASES.some((x) => x.id === pPhase) ? pPhase : 'create';
+    if (wantPhase !== phase) setPhaseState(wantPhase);
+    // selection
+    const wantId = pCircuit ? resolveCircuit(pCircuit, pKind) : null;
+    const validId = wantId && ZK_CIRCUIT_TYPES.some((c) => c.id === wantId) ? wantId : null;
+    if (validId !== selectedId) {
+      setSelectedId(validId);
+      setTplName(pName);
+    } else if (pName && pName !== tplName) {
+      setTplName(pName);
+    }
+    // mode
+    const wantMode = pMode === 'pro' ? 'pro' : 'guided';
+    if (wantMode !== mode) setModeState(wantMode);
+    // create tab
+    const wantTab = CREATE_TABS.some((x) => x.id === pTab) ? pTab : 'assistant';
+    if (wantTab !== createTab) setCreateTabState(wantTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pPhase, pCircuit, pKind, pName, pMode, pTab]);
+
+  // Launch the global FirstCovenantTour overlay. Same mechanism as the Explorer
+  // hero launcher: set the active flag, clear any prior skip, and dispatch a
+  // synthetic same-tab 'storage' event (the native one only fires cross-tab) so
+  // the single mounted tour instance picks it up immediately. The tour then
+  // drives the user from the Explorer hero through these very build phases.
+  const startTour = () => {
+    try {
+      window.localStorage.removeItem('covex_tour_skipped');
+      window.localStorage.setItem('covex_tour_active', '1');
+      window.dispatchEvent(new StorageEvent('storage', { key: 'covex_tour_active', newValue: '1' }));
+    } catch {
+      /* ignore quota / private mode */
+    }
+  };
+
   const phaseIdx = PHASES.findIndex((p) => p.id === phase);
   // Reachability: Add-logic and Interactive-UI require a selection.
   const reachable = (i) => i === 0 || !!circuit;
@@ -441,6 +499,16 @@ export default function Sandbox() {
           <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl">
             A real Kaspa covenant, built step by step. Exploring and simulating is free; deploying needs only your own wallet.
           </p>
+          {/* Visible build-tour launcher. This is a BUILD tour, so the affordance
+              belongs here, not only on the Explorer hero. */}
+          <button
+            type="button"
+            onClick={startTour}
+            className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-kaspa-green light:text-emerald-700 hover:text-kaspa-green/80 light:hover:text-emerald-800 underline-offset-4 hover:underline transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 rounded"
+          >
+            <Compass size={14} className="shrink-0" />
+            New here? Take the 60-second tour
+          </button>
         </div>
         <div className="shrink-0">
           <ModeSegmented mode={mode} onChange={setMode} />
@@ -568,10 +636,22 @@ export default function Sandbox() {
                       <CovexTerminal externalCircuit={selectedId} />
                     )}
                     {/* Demoted post-deploy note: "design a website" is step 4 in the rail, so this is
-                        a single quiet line, not a premature promo card. */}
+                        a single quiet line, not a premature promo card. Points back to the Phase 1
+                        "See an example" preview so the one genuinely visual artifact (the public page)
+                        is previewable before any funds move, not only after deploy. */}
                     <p className="flex items-start gap-2 text-xs text-gray-400 light:text-slate-600">
                       <Rocket size={14} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
-                      <span>After your funding tx confirms, the visual Studio opens automatically so you can design the public page. You can also reach it later at /covenant/:id/studio.</span>
+                      <span>
+                        After your funding tx confirms, the visual Studio opens automatically so you can design the public page (also at /covenant/:id/studio).{' '}
+                        <button
+                          type="button"
+                          onClick={() => setPhase('create')}
+                          className="text-kaspa-green light:text-emerald-700 hover:underline font-semibold"
+                        >
+                          Preview the page layout
+                        </button>{' '}
+                        first from any template's "See an example".
+                      </span>
                     </p>
                   </div>
                 ) : emptyState)}
@@ -599,27 +679,31 @@ export default function Sandbox() {
       )}
 
       {/* MOBILE-ONLY sticky bottom action bar (< lg). On lg the action lives in the
-          rail. Hidden on phase 'deploy' where CovexTerminal owns the deploy CTA. */}
-      {mode === 'guided' && phase !== 'deploy' && (
+          rail. Sticky at every mobile breakpoint so the primary CTA never scrolls
+          away; a top shadow lifts it above the scrolling content. On deploy the
+          builder owns the forward CTA, so the bar keeps only a Back affordance. */}
+      {mode === 'guided' && (
         <div
-          className="lg:hidden sticky z-20 mt-6 flex items-center justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white light:shadow-md px-5 py-3.5"
+          className="lg:hidden sticky z-20 mt-6 flex items-center justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)] light:shadow-md px-5 py-3.5"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
           {phase !== 'create' ? (
             <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">
-              <ArrowLeft size={14} /> Back
+              <ArrowLeft size={14} /> {phase === 'deploy' ? 'Back to logic' : 'Back'}
             </Button>
           ) : <span />}
-          <Button
-            variant="kaspa"
-            shimmer
-            className="shrink-0 light:shadow-md"
-            disabled={!circuit}
-            onClick={goForward}
-          >
-            Continue
-            <ArrowRight size={15} className="light:drop-shadow-sm" />
-          </Button>
+          {phase !== 'deploy' && (
+            <Button
+              variant="kaspa"
+              shimmer
+              className="shrink-0 light:shadow-md"
+              disabled={!circuit}
+              onClick={goForward}
+            >
+              Continue
+              <ArrowRight size={15} className="light:drop-shadow-sm" />
+            </Button>
+          )}
         </div>
       )}
 

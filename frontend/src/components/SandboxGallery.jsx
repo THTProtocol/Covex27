@@ -167,21 +167,21 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
     <div>
       {infoCircuit && <TransparencyModal circuit={infoCircuit} onClose={() => setInfoCircuit(null)} />}
       {exampleCircuit && <CircuitExampleModal circuit={exampleCircuit} onClose={() => setExampleCircuit(null)} />}
-      <div className="flex items-center gap-2 mb-5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 max-w-md">
-        <Search size={15} className="text-gray-400 shrink-0" />
+      <div className="flex items-center gap-2 mb-5 rounded-xl border border-white/10 bg-black/30 light:border-slate-200 light:bg-white light:shadow-sm px-3.5 py-2.5 max-w-md">
+        <Search size={15} className="text-gray-400 light:text-slate-500 shrink-0" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search all covenants, circuits, games…"
-          className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
+          className="flex-1 bg-transparent text-sm text-white light:text-slate-900 placeholder:text-gray-500 light:placeholder:text-slate-400 outline-none"
         />
-        {s && <span className="text-[10px] text-gray-500 tabular-nums shrink-0">{searchResults.length}</span>}
+        {s && <span className="text-[10px] text-gray-500 light:text-slate-500 tabular-nums shrink-0">{searchResults.length}</span>}
       </div>
 
       {searchResults ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {searchResults.map((c) => <CircuitCard key={c.id} c={c} active={c.id === selectedId} onSelect={onSelect} onInspect={setInfoCircuit} onExample={setExampleCircuit} />)}
-          {searchResults.length === 0 && <div className="text-sm text-gray-500 py-8 col-span-full text-center">No covenants match your search.</div>}
+          {searchResults.length === 0 && <div className="text-sm text-gray-500 light:text-slate-500 py-8 col-span-full text-center">No covenants match your search.</div>}
         </div>
       ) : (
         <div className="space-y-7">
@@ -193,11 +193,11 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
             return (
               <section key={grp.key}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="w-7 h-7 rounded-lg bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
-                    <grp.icon size={14} className="text-kaspa-green" />
+                  <span className="w-7 h-7 rounded-lg bg-kaspa-green/10 light:bg-emerald-50 border border-kaspa-green/25 light:border-emerald-200 flex items-center justify-center">
+                    <grp.icon size={14} className="text-kaspa-green light:text-emerald-700" />
                   </span>
-                  <h3 className="text-sm font-bold text-white tracking-tight">{grp.title}</h3>
-                  <span className="text-[10px] text-gray-500 tabular-nums">{items.length}</span>
+                  <h3 className="text-sm font-bold text-white light:text-slate-900 tracking-tight">{grp.title}</h3>
+                  <span className="text-[10px] text-gray-500 light:text-slate-500 tabular-nums">{items.length}</span>
                 </div>
                 <motion.div
                   className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5"
@@ -226,13 +226,13 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
 
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                <ShieldCheck size={14} className="text-emerald-300" />
+              <span className="w-7 h-7 rounded-lg bg-emerald-500/10 light:bg-emerald-50 border border-emerald-500/30 light:border-emerald-200 flex items-center justify-center">
+                <ShieldCheck size={14} className="text-emerald-300 light:text-emerald-700" />
               </span>
-              <h3 className="text-sm font-bold text-white tracking-tight">On-chain enforced primitives</h3>
-              <span className="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/12 text-emerald-300 border border-emerald-500/35">On-chain</span>
+              <h3 className="text-sm font-bold text-white light:text-slate-900 tracking-tight">On-chain enforced primitives</h3>
+              <span className="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/12 light:bg-emerald-100 text-emerald-300 light:text-emerald-700 border border-emerald-500/35 light:border-emerald-200">On-chain</span>
             </div>
-            <p className="text-[11px] text-gray-400 leading-snug mb-3 max-w-xl">
+            <p className="text-[11px] text-gray-400 light:text-slate-600 leading-snug mb-3 max-w-xl">
               These seven are enforced by Kaspa consensus: the redeem script itself releases the funds, not an oracle or proof. Open the real on-chain builder rather than a ZK or oracle look-alike. The ones marked demo deploy via server-assisted dev wallets on this platform; the single-key ones (hashlock, timelock, CSV) deploy non-custodially.
             </p>
             <div className="flex flex-wrap gap-2 max-w-2xl">

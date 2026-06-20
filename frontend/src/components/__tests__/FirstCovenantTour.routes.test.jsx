@@ -58,11 +58,17 @@ function liveRoutePatterns() {
 // Resolve a concrete path against the live Route patterns. Param routes
 // ('/covenant/:id') match any single segment in their slot. Returns the
 // matched pattern, or null if only '*' would catch the path.
+//
+// React Router matches on the PATHNAME only; the query string and hash are
+// not part of route resolution. The Sandbox build-tour steps carry ?phase=
+// and ?circuit= so the right phase/selection mount, so strip the query/hash
+// here to mirror real routing before matching against the path patterns.
 function matchRoute(pathname, patterns) {
+  const cleanPath = String(pathname).split('?')[0].split('#')[0];
   for (const pat of patterns) {
     if (pat === '*') continue;
     const re = new RegExp('^' + pat.replace(/:[A-Za-z_][A-Za-z0-9_]*/g, '[^/]+') + '$');
-    if (re.test(pathname)) return pat;
+    if (re.test(cleanPath)) return pat;
   }
   return null;
 }

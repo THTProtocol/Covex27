@@ -24,7 +24,7 @@ const RESOLUTION_FLOW = {
       'The Kaspa P2SH script checks that condition at spend time.',
       'Funds release only if it is satisfied. No third party can move them.',
     ],
-    note: 'The chain itself is the referee. This is the most trustless reality on Covex.',
+    note: 'The chain itself is the referee. This is the most consensus-enforced reality on Covex.',
   },
   'full-zk': {
     label: 'Oracle-attested (ZK proof verified off-chain)',
@@ -136,8 +136,8 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
 
       {/* Resolution flow */}
       <div className="rounded-2xl border border-white/10 bg-black/30 light:border-slate-200 light:bg-white p-5 hover-lift">
-        <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-          <FileSearch size={13} className="text-kaspa-green" /> How it resolves
+        <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 mb-4 flex items-center gap-2">
+          <FileSearch size={13} className="text-kaspa-green light:text-emerald-700" /> How it resolves
           <button
             type="button"
             onClick={() => setShowInfo(true)}
@@ -149,28 +149,28 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
         </div>
         <ol className="space-y-2.5">
           {flow.steps.map((s, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm text-gray-300">
-              <span className="shrink-0 w-5 h-5 rounded-full bg-kaspa-green/10 border border-kaspa-green/30 text-kaspa-green text-[11px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+            <li key={i} className="flex items-start gap-3 text-sm text-gray-300 light:text-slate-700">
+              <span className="shrink-0 w-5 h-5 rounded-full bg-kaspa-green/10 light:bg-emerald-50 border border-kaspa-green/30 light:border-emerald-200 text-kaspa-green light:text-emerald-700 text-[11px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
               <span className="leading-relaxed">{s}</span>
             </li>
           ))}
         </ol>
-        <p className="text-xs text-gray-400 mt-4 pt-3 border-t border-white/[0.06] leading-relaxed">{flow.note}</p>
+        <p className="text-xs text-gray-400 light:text-slate-600 mt-4 pt-3 border-t border-white/[0.06] light:border-slate-200 leading-relaxed">{flow.note}</p>
       </div>
 
       {/* Example covenant logic (SilverScript) - declared logic, regenerated live per circuit */}
       {exampleScript && (
         <div className="rounded-2xl border border-white/10 bg-black/40 light:border-slate-200 light:bg-slate-50 overflow-hidden">
           <div className="px-4 py-2.5 border-b border-white/10 light:border-slate-200 flex items-center gap-2">
-            <Code2 size={13} className="text-kaspa-green" />
-            <span className="text-[11px] uppercase tracking-wider text-gray-300">Example covenant logic</span>
-            <span className="text-[10px] text-gray-500">SilverScript · declared</span>
-            <button onClick={copyScript} className="ml-auto inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-kaspa-green transition-colors">
+            <Code2 size={13} className="text-kaspa-green light:text-emerald-700" />
+            <span className="text-[11px] uppercase tracking-wider text-gray-300 light:text-slate-700">Example covenant logic</span>
+            <span className="text-[10px] text-gray-500 light:text-slate-500">SilverScript · declared</span>
+            <button onClick={copyScript} className="ml-auto inline-flex items-center gap-1 text-[10px] text-gray-400 light:text-slate-500 hover:text-kaspa-green light:hover:text-emerald-700 transition-colors">
               {copied ? (<><Check size={12} className="text-kaspa-green" /> Copied</>) : (<><Copy size={12} /> Copy</>)}
             </button>
           </div>
           <pre className="text-[10.5px] leading-relaxed text-gray-300 light:text-slate-700 font-mono p-4 overflow-auto whitespace-pre-wrap break-words" style={{ maxHeight: 280 }}>{exampleScript}</pre>
-          <div className="px-4 py-2 border-t border-white/[0.06] text-[10px] text-gray-500 leading-relaxed">
+          <div className="px-4 py-2 border-t border-white/[0.06] light:border-slate-200 text-[10px] text-gray-500 light:text-slate-500 leading-relaxed">
             This is the declared, human-readable logic. What the chain enforces today is shown in "How it resolves" above.
           </div>
         </div>
@@ -179,8 +179,8 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
       {/* Payout simulator (interactive, faithful to on-chain math) */}
       {showSimulator && (
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-2">
-            <ArrowRight size={13} className="text-kaspa-green" /> Simulate the economics
+          <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 mb-2 flex items-center gap-2">
+            <ArrowRight size={13} className="text-kaspa-green light:text-emerald-700" /> Simulate the economics
           </div>
           <ResolutionSimulator
             config={simConfig}
@@ -195,10 +195,10 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
       )}
 
       {/* Honest free-vs-paid note */}
-      <div className="rounded-xl border border-kaspa-green/20 bg-kaspa-green/5 p-4 flex items-start gap-3 text-sm">
-        <Sparkles size={16} className="text-kaspa-green mt-0.5 shrink-0" />
-        <div className="text-gray-300 leading-relaxed">
-          <span className="text-white font-semibold">Free to explore and simulate.</span> Inspecting the circuit, its real
+      <div className="rounded-xl border border-kaspa-green/20 light:border-emerald-200 bg-kaspa-green/5 light:bg-emerald-50 p-4 flex items-start gap-3 text-sm">
+        <Sparkles size={16} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
+        <div className="text-gray-300 light:text-slate-700 leading-relaxed">
+          <span className="text-white light:text-slate-900 font-semibold">Free to explore and simulate.</span> Inspecting the circuit, its real
           enforcement, and the payout math costs nothing and needs no wallet. To deploy a live covenant on Kaspa, open the
           builder below; basic SilverScript is free and the advanced editor unlocks with a tier.
         </div>

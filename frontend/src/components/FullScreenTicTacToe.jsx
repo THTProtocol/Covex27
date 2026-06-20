@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Users } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
+import SeatButton, { TrustNote } from './SeatButton';
+import InviteLink from './InviteLink';
 
 // Full-screen Tic-Tac-Toe (3x3): persistent two-wallet multiplayer over the
 // covenant match record. Seats: player1 = X (moves first), player2 = O.
@@ -87,7 +88,7 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
   const totalPot = stake * 2;
 
   const onMoves = useCallback((moves) => { setBoard(replayBoard(moves)); }, []);
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected } =
     useGameSync({ covenantId, gameType: 'tictactoe', stake, onMoves });
 
   const myLabel = myColor === 'white' ? 'X' : myColor === 'black' ? 'O' : null;
@@ -268,14 +269,17 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
           </div>
 
           {status !== 'active' && !result && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm rounded-2xl">
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm rounded-2xl px-4">
               {(status === 'none' || (status === 'waiting' && !myColor)) ? (
-                <button onClick={join} disabled={joining}
-                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
-                  <Users size={16} /> {joining ? 'JOINING...' : status === 'none' ? 'CREATE MATCH (X)' : 'JOIN AS O'}
-                </button>
+                <>
+                  <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You play X, which moves first. Your opponent joins as O." />
+                  <TrustNote />
+                </>
               ) : (
-                <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO JOIN AS O...</div>
+                <>
+                  <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO JOIN AS O...</div>
+                  <InviteLink stake={stake} />
+                </>
               )}
               {error && <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-[11px] max-w-[240px] text-center">{error}</div>}
             </div>

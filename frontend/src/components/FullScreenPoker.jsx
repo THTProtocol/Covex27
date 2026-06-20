@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Users, ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
 import { useWallet } from './WalletContext';
 import useGameSync from '../hooks/useGameSync';
+import SeatButton, { TrustNote } from './SeatButton';
+import InviteLink from './InviteLink';
 import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';
 
@@ -257,7 +259,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
   const { address, signMessage } = useWallet();
 
   // seats + join come from the shared match record (skill_games)
-  const { game, status, myColor, joining, error: seatError, join, clocks } =
+  const { game, status, myColor, joining, error: seatError, join, clocks, walletConnected } =
     useGameSync({ covenantId, gameType: 'poker', stake, onMoves: undefined });
 
   const [ps, setPs] = useState(null); // /api/poker/:id/state
@@ -623,14 +625,17 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
 
             {/* join overlay */}
             {status !== 'active' && !matchOver && (
-              <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm" style={{ borderRadius: 999 }}>
+              <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm px-4" style={{ borderRadius: 999 }}>
                 {(status === 'none' || (status === 'waiting' && !myColor)) ? (
-                  <button onClick={join} disabled={joining}
-                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
-                    <Users size={16} /> {joining ? 'JOINING...' : status === 'none' ? 'TAKE SEAT 1 (CREATE TABLE)' : 'TAKE SEAT 2 (JOIN TABLE)'}
-                  </button>
+                  <>
+                    <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You take seat 1. Your opponent joins as seat 2." />
+                    <TrustNote />
+                  </>
                 ) : (
-                  <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO TAKE SEAT 2...</div>
+                  <>
+                    <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO TAKE SEAT 2...</div>
+                    <InviteLink stake={stake} />
+                  </>
                 )}
                 {seatError && <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-[11px] max-w-[280px] text-center">{seatError}</div>}
               </div>
@@ -760,17 +765,22 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                 ? `SEAT ${(m.chips[0] > 0 ? 1 : 2)} WINS THE MATCH`
                 : iWonMatch ? 'YOU WIN THE MATCH!' : 'OPPONENT WINS THE MATCH'}
             </div>
+            {mySeat != null && !payoutResult && (
+              <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
+                Two steps: (1) the disclosed oracle co-signs who won, (2) you claim the on-chain payout. Covex never holds the pot.
+              </p>
+            )}
             {!oracleSubmitted && mySeat != null && (
               <button onClick={submitToOracle} disabled={oracleLoading}
                 className="px-7 py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm disabled:opacity-50 shadow-[0_0_30px_rgba(73,234,203,0.35)]">
-                {oracleLoading ? 'SUBMITTING...' : 'SUBMIT RESULT TO ORACLE'}
+                {oracleLoading ? '...' : '1. Get oracle signature'}
               </button>
             )}
             {oracleError && <div className="text-red-400 text-xs font-mono p-2 border border-red-500/30 rounded-xl bg-red-500/5">{oracleError}</div>}
             {oracleSubmitted && !payoutResult && (
               <button onClick={claimPayout} disabled={payoutLoading}
                 className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">
-                {payoutLoading ? 'COMPUTING...' : 'CLAIM PAYOUT'}
+                {payoutLoading ? 'COMPUTING...' : '2. Claim pot on-chain'}
               </button>
             )}
             {payoutResult && !payoutResult.error && (

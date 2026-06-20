@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Users } from 'lucide-react';
+import SeatButton, { TrustNote } from './SeatButton';
+import InviteLink from './InviteLink';
 import useGameSync from '../hooks/useGameSync';
 
 // Rock Paper Scissors, best of 3: persistent two-wallet multiplayer with a
@@ -125,7 +126,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
   const totalPot = stake * 2;
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, walletConnected } =
     useGameSync({ covenantId, gameType: 'rps', stake, onMoves: undefined });
 
   const ms = protocolMoves(game?.moves);
@@ -345,14 +346,17 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4 relative">
         {status !== 'active' && !result && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm px-4">
             {(status === 'none' || (status === 'waiting' && !myColor)) ? (
-              <button onClick={join} disabled={joining}
-                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
-                <Users size={16} /> {joining ? 'JOINING...' : status === 'none' ? 'CREATE MATCH (X)' : 'JOIN AS O'}
-              </button>
+              <>
+                <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You play X. Your opponent joins as O." />
+                <TrustNote />
+              </>
             ) : (
-              <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO JOIN AS O...</div>
+              <>
+                <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO JOIN AS O...</div>
+                <InviteLink stake={stake} />
+              </>
             )}
             {error && <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-[11px] max-w-[260px] text-center">{error}</div>}
           </div>
@@ -466,10 +470,15 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         {!myColor && status === 'active' && <div className="text-[10px] text-gray-500">You are spectating. Picks stay hidden until both reveal.</div>}
         {error && status === 'active' && <div className="text-[10px] text-red-300">{error}</div>}
 
+        {result && myColor && !payoutResult && (
+          <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
+            Two steps: (1) the disclosed oracle co-signs who won, (2) you claim the on-chain payout. Covex never holds the pot.
+          </p>
+        )}
         <div className="flex flex-col gap-2 w-64">
           {!result && myColor && status === 'active' && <button onClick={resign} className="py-2 rounded bg-red-600/80 text-white text-xs">RESIGN MATCH</button>}
-          {result && !oracleSubmitted && <button onClick={submitToOracle} disabled={oracleLoading} className="py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm">{oracleLoading ? '...' : 'SUBMIT RESULT TO ORACLE'}</button>}
-          {oracleSubmitted && !payoutResult && <button onClick={claimPayout} disabled={payoutLoading} className="py-3 rounded-2xl bg-emerald-500 text-black font-black text-sm">{payoutLoading ? 'COMPUTING...' : 'CLAIM PAYOUT'}</button>}
+          {result && !oracleSubmitted && <button onClick={submitToOracle} disabled={oracleLoading} className="py-3 rounded-2xl bg-[#49EACB] text-black font-black text-sm">{oracleLoading ? '...' : '1. Get oracle signature'}</button>}
+          {oracleSubmitted && !payoutResult && <button onClick={claimPayout} disabled={payoutLoading} className="py-3 rounded-2xl bg-emerald-500 text-black font-black text-sm">{payoutLoading ? 'COMPUTING...' : '2. Claim pot on-chain'}</button>}
           <button onClick={onClose} className="py-2 rounded border border-white/20 text-xs">CLOSE ARENA</button>
         </div>
         {oracleError && <div className="text-[10px] text-amber-300 max-w-xs text-center">{oracleError}</div>}
@@ -493,7 +502,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         )}
       </div>
 
-      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">COMMIT-REVEAL FAIRNESS · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
+      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[11px] text-gray-300 light:text-slate-600 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">COMMIT-REVEAL FAIRNESS · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
 
       {/* Self-contained premium styles for this arena (rps-* scoped, visual only). */}
       <style>{`

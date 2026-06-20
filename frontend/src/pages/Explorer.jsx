@@ -887,6 +887,25 @@ export default function Explorer() {
                 Skill games with someone waiting to match. Covex-created only.
               </span>
             </div>
+            {/* Create-a-game entry point: a game is a covenant you deploy. Routes into the
+                build flow with the game category pre-selected. Always visible in the Arena. */}
+            <div className="mb-6 rounded-2xl border border-kaspa-green/25 light:border-emerald-300 bg-kaspa-green/[0.05] light:bg-emerald-50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <span className="grid place-items-center h-11 w-11 shrink-0 rounded-xl border border-kaspa-green/30 bg-kaspa-green/10">
+                <Gamepad2 size={22} className="text-kaspa-green light:text-emerald-700" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white light:text-slate-900">Create a game covenant</p>
+                <p className="text-[11px] text-gray-300 light:text-slate-600 mt-0.5 leading-snug">
+                  Games are covenants you deploy. Pick a game, set the stake, share the link - your opponent joins by matching it.
+                </p>
+              </div>
+              <Link
+                to="/sandbox?category=game"
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-all shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
+              >
+                <Play size={14} /> Create a game
+              </Link>
+            </div>
             {liveMatches.length > 0 && (
               <div className="mb-6">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-2 flex items-center gap-1.5">
@@ -927,7 +946,13 @@ export default function Explorer() {
                     <Gamepad2 size={28} className="text-amber-400" />
                   </span>
                   <p className="text-lg font-semibold text-white mb-1">No active matches right now</p>
-                  <p className="text-sm text-gray-300 max-w-md mx-auto">When a game creator is waiting for an opponent, their match appears here.</p>
+                  <p className="text-sm text-gray-300 max-w-md mx-auto mb-5">When a game creator is waiting for an opponent, their match appears here. Or start your own.</p>
+                  <Link
+                    to="/sandbox?category=game"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-all shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
+                  >
+                    <Play size={14} /> Create a game covenant
+                  </Link>
                 </div>
               </div>
             ) : (

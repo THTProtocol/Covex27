@@ -381,9 +381,15 @@ export default function Sandbox() {
   // Phase-1 tab persistence. ?tab=templates|catalog lands a newcomer directly on either entry
   // point; default Assistant matches the first-load eyebrow promise. Tab state is independent of
   // ?phase= so a deep link can both pick a tab and a phase without one clobbering the other.
+  // ?category=game (from the Arena "Create a game" CTA) lands the builder on the
+  // catalog filtered to game circuits, so a player who wants their own table sees
+  // only the games. The filter is purely a Phase-1 catalog view; selection wiring
+  // is unchanged. Other categories are accepted generically for future entry points.
+  const categoryFilter = (params.get('category') || '').toLowerCase() || null;
   const [createTab, setCreateTabState] = useState(() => {
     const t = params.get('tab');
-    return CREATE_TABS.some((x) => x.id === t) ? t : 'assistant';
+    if (CREATE_TABS.some((x) => x.id === t)) return t;
+    return (params.get('category') || '').toLowerCase() ? 'catalog' : 'assistant';
   });
   const setCreateTab = (id) => {
     setCreateTabState(id);
@@ -399,6 +405,14 @@ export default function Sandbox() {
     const byId = new Map(ZK_CIRCUIT_TYPES.map((c) => [c.id, c]));
     return TEMPLATE_IDS.map((id) => byId.get(id)).filter(Boolean);
   }, []);
+  // Catalog view, optionally narrowed to a single category (e.g. ?category=game).
+  // If a category yields nothing (unknown value), fall back to the full catalog so
+  // the builder is never an empty dead end.
+  const catalogCircuits = useMemo(() => {
+    if (!categoryFilter) return ZK_CIRCUIT_TYPES;
+    const filtered = ZK_CIRCUIT_TYPES.filter((c) => (c.category || '').toLowerCase() === categoryFilter);
+    return filtered.length ? filtered : ZK_CIRCUIT_TYPES;
+  }, [categoryFilter]);
   const kind = kindForCircuit(circuit);
   const reality = circuit ? (REALITY[circuit.reality] || REALITY['oracle-attested']) : null;
   // The EnforcedDeploy kind id that owns this circuit's real on-chain signing, or null when
@@ -629,7 +643,15 @@ export default function Sandbox() {
                         <SandboxGallery circuits={templateCircuits} selectedId={selectedId} onSelect={select} />
                       )}
                       {createTab === 'catalog' && (
-                        <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
+                        <>
+                          {categoryFilter === 'game' && catalogCircuits !== ZK_CIRCUIT_TYPES && (
+                            <p className="mb-3 text-xs text-gray-300 light:text-slate-600">
+                              Showing game covenants. Pick one, set the stake on the next step, then deploy and share the link.{' '}
+                              <button type="button" onClick={() => setParams((p) => { const n = new URLSearchParams(p); n.delete('category'); return n; }, { replace: true })} className="text-kaspa-green light:text-emerald-700 hover:underline font-semibold">Show the full catalog</button>
+                            </p>
+                          )}
+                          <SandboxGallery circuits={catalogCircuits} selectedId={selectedId} onSelect={select} />
+                        </>
                       )}
                     </div>
                   </div>

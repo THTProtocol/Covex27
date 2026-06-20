@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Play, Users } from 'lucide-react';
+import { Play } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';
+import SeatButton, { TrustNote } from './SeatButton';
+import InviteLink from './InviteLink';
 
 // Map our internal suit names to the PlayingCard primitive's suit codes.
 const SUIT_CODE = { hearts: 'H', diamonds: 'D', clubs: 'C', spades: 'S' };
@@ -163,7 +165,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
   const totalPot = stake * 2;
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, walletConnected } =
     useGameSync({ covenantId, gameType: 'blackjack', stake, onMoves: undefined });
 
   const table = useMemo(() => deriveTable(game?.moves), [game]);
@@ -511,14 +513,17 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
           {/* Join overlay */}
           {status !== 'active' && !result && (
-            <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm rounded-[150px]">
+            <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm rounded-[150px] px-4">
               {(status === 'none' || (status === 'waiting' && !myColor)) ? (
-                <button onClick={join} disabled={joining}
-                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
-                  <Users size={16} /> {joining ? 'JOINING...' : status === 'none' ? 'TAKE SEAT X (CREATE DUEL)' : 'TAKE SEAT O (JOIN DUEL)'}
-                </button>
+                <>
+                  <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You play X. Your opponent joins as O." />
+                  <TrustNote />
+                </>
               ) : (
-                <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO TAKE SEAT O...</div>
+                <>
+                  <div className="text-xs text-amber-300 animate-pulse font-mono">WAITING FOR AN OPPONENT TO TAKE SEAT O...</div>
+                  <InviteLink stake={stake} />
+                </>
               )}
               {error && <div className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-[11px] max-w-[260px] text-center">{error}</div>}
             </div>
@@ -559,6 +564,11 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
         {/* Oracle result section */}
         {result && (
           <div className="flex flex-col items-center gap-4">
+            {myColor && !payoutResult && (
+              <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
+                Two steps: (1) the disclosed oracle co-signs who won, (2) you claim the on-chain payout. Covex never holds the pot.
+              </p>
+            )}
             {!oracleSubmitted && (
               <button
                 onClick={submitToOracle}
@@ -568,10 +578,10 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                 {oracleLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    SUBMITTING TO ORACLE...
+                    GETTING ORACLE SIGNATURE...
                   </span>
                 ) : (
-                  'SUBMIT RESULT TO ORACLE (GET SIGNED OUTCOME)'
+                  '1. Get oracle signature'
                 )}
               </button>
             )}
@@ -599,7 +609,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                   disabled={payoutLoading}
                   className="mt-2 px-6 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"
                 >
-                  {payoutLoading ? 'Computing...' : 'CLAIM PAYOUT (VERIFY ON BACKEND)'}
+                  {payoutLoading ? 'Computing...' : '2. Claim pot on-chain'}
                 </button>
               </div>
             )}

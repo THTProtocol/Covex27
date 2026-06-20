@@ -200,6 +200,9 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
 
   const status = game?.status || 'none';
   const isMyTurn = !!(game && myColor && game.status === 'active' && game.current_turn === myColor);
+  // Surfaced so each arena can wallet-gate its create/join control instead of
+  // letting a logged-out click fall through to a "connect a wallet" error.
+  const walletConnected = !!address;
 
-  return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh, clocks, claimTimeout };
+  return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh, clocks, claimTimeout, address, walletConnected };
 }

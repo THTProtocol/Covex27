@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
-import { X, Clock, Trophy, Flag, Users } from 'lucide-react';
+import { X, Clock, Trophy, Flag } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
+import SeatButton, { TrustNote } from './SeatButton';
+import InviteLink from './InviteLink';
 
 /**
  * Persistent multiplayer chess over the covenant's match record.
@@ -39,7 +41,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
     setSanHistory(chess.history());
   }, [chess]);
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected } =
     useGameSync({ covenantId, gameType: 'chess', stake, onMoves });
 
   // Autoscroll the move list so the latest ply stays visible.
@@ -265,12 +267,15 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
         <div className="w-full max-w-xs flex flex-col gap-4">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
             {status === 'none' || (status === 'waiting' && !myColor) ? (
-              <button onClick={join} disabled={joining}
-                className="w-full px-8 py-4 bg-[#49EACB] hover:brightness-110 disabled:opacity-50 text-black font-extrabold rounded-2xl text-lg flex items-center justify-center gap-2 transition-all">
-                <Users size={20} /> {joining ? 'JOINING...' : status === 'none' ? 'CREATE MATCH (WHITE)' : 'JOIN AS BLACK'}
-              </button>
+              <div className="flex flex-col items-center gap-3">
+                <SeatButton status={status} joining={joining} walletConnected={walletConnected} onJoin={join} stake={stake} seatHint="You take white. Your opponent joins as black." />
+                <TrustNote />
+              </div>
             ) : status === 'waiting' ? (
-              <div className="text-sm text-amber-300 animate-pulse py-2">Waiting for an opponent to join as black...</div>
+              <div className="flex flex-col items-center gap-3 py-2">
+                <div className="text-sm text-amber-300 animate-pulse">Waiting for an opponent to join as black...</div>
+                <InviteLink stake={stake} />
+              </div>
             ) : status === 'active' ? (
               <div className="text-sm text-amber-400">
                 <div className="flex items-center gap-2 justify-center mb-2">

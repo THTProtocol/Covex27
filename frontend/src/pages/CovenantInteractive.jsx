@@ -36,7 +36,7 @@ const GAME_REGISTRY = {
 };
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock, Wallet } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
@@ -68,6 +68,75 @@ const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 const tierValue = (t) => ({ MAX: 3, PRO: 2, BUILDER: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
+
+// Shared stake control for every game lobby (chess + the seven others). Hoisted to
+// module scope so it never remounts on a parent render (would otherwise lose input
+// focus mid-type). Two modes:
+//   - create  (no stake locked yet): free amount input, "you take the first seat".
+//   - join    (a creator already staked a pot): the input is pre-filled to the pot
+//     and locked, so a joiner matches exactly. Honest labels throughout: the CTA
+//     is wallet-gated (spectating stays free), and the trust note states outcomes
+//     are oracle-attested off-chain while custody + payout are on-chain.
+function GameStakeControl({
+  gameLabel, stake, setStake, joinPot, walletConnected, onConnect, onStake, ctaLabel = 'Stake and play',
+}) {
+  const isJoin = joinPot > 0;
+  return (
+    <div className="w-full max-w-md">
+      {isJoin ? (
+        <>
+          <div className="text-xs text-gray-300 mb-1.5 text-center tracking-widest light:text-slate-600">MATCH THE STAKED AMOUNT TO JOIN: {joinPot} KAS</div>
+          <input
+            type="number"
+            value={joinPot}
+            readOnly
+            aria-readonly="true"
+            className="w-full text-center text-5xl font-mono p-4 rounded-2xl bg-black/60 border-2 border-kaspa-green/40 mb-2 light:bg-white light:border-emerald-500/40 light:text-slate-900 cursor-not-allowed opacity-90"
+          />
+          <div className="text-center text-[11px] text-amber-300 light:text-amber-700 mb-3">Locked to the creator stake. If you do not match within 5 minutes, the funds return automatically.</div>
+        </>
+      ) : (
+        <>
+          <div className="text-xs text-gray-300 mb-1.5 text-center tracking-widest light:text-slate-600">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
+          <input
+            type="number"
+            value={stake}
+            onChange={e => setStake(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-full text-center text-5xl font-mono p-4 rounded-2xl bg-black/60 border-2 border-kaspa-green/40 focus:border-kaspa-green mb-2 light:bg-white light:border-emerald-500/40 light:text-slate-900"
+          />
+          <div className="text-center text-[11px] text-gray-300 light:text-slate-600 mb-3">You take the first seat and lock this {gameLabel} stake. Share this page so an opponent can join by matching it.</div>
+        </>
+      )}
+      {walletConnected ? (
+        <Button
+          variant="kaspa"
+          shimmer
+          size="xl"
+          onClick={onStake}
+          className="w-full rounded-2xl font-extrabold uppercase tracking-wide"
+        >
+          {isJoin ? `Match ${joinPot} KAS and play` : ctaLabel}
+        </Button>
+      ) : (
+        <Button
+          variant="kaspa"
+          size="xl"
+          onClick={onConnect}
+          className="w-full rounded-2xl font-extrabold flex items-center justify-center gap-2"
+        >
+          <Wallet size={18} /> Connect wallet to take a seat
+        </Button>
+      )}
+      <p className="text-center text-[11px] text-gray-400 light:text-slate-600 mt-3 leading-snug">
+        Outcome is decided by the disclosed Covex oracle (off-chain, server-authoritative), not Kaspa consensus.
+        Custody and payout are on-chain. This is not trustless.
+      </p>
+      {!walletConnected && (
+        <p className="text-center text-[11px] text-gray-500 light:text-slate-500 mt-1">Spectating works without a wallet.</p>
+      )}
+    </div>
+  );
+}
 
 // Kinds EnforcedDeploy can sign locally end-to-end (mirrors EnforcedDeploy.jsx NONCUSTODIAL).
 // Other kinds (oracle_escrow / oracle_enforced / timedecay / deadman / relative_timelock)
@@ -281,6 +350,14 @@ export default function CovenantInteractive() {
   }, [covenant]);
   const isChess = gameType === 'chess';
   const isOtherGame = !!gameType && gameType !== 'chess';
+  // A joiner must match the creator's locked pot exactly. If a stake is already
+  // locked on the covenant and the viewer is NOT the creator, the lobby switches
+  // to join mode: the stake input is pre-filled to that pot and locked. The
+  // creator (or a fresh, unstaked covenant) keeps the free create-a-match input.
+  const joinPot = useMemo(
+    () => (!isCreator ? Math.round(Number(covenant?.amount_kaspa || 0)) : 0),
+    [isCreator, covenant?.amount_kaspa],
+  );
   // Creator-chosen chess look (board theme + piece set), resolved from the saved
   // custom_ui_config so the public page matches what the creator previewed.
   const chessLook = useMemo(() => chessLookFromConfig(covenant?.custom_ui_config), [covenant]);
@@ -1475,30 +1552,23 @@ export default function CovenantInteractive() {
                               <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome oracle-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
-                          <div className="text-[10px] text-emerald-300/70 light:text-emerald-700 mt-1 text-center">Transparent · Custody on-chain · Outcome oracle-attested</div>
+                          <div className="text-[11px] text-emerald-300/80 light:text-emerald-700 mt-1 text-center">Transparent · Custody on-chain · Outcome oracle-attested</div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Single stake input at bottom, straightforward */}
-                    <div className="w-full max-w-md mt-6">
-                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest light:text-slate-500">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
-                      <input
-                        type="number"
-                        value={chessStake}
-                        onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full text-center text-5xl font-mono p-4 rounded-2xl bg-black/60 border-2 border-kaspa-green/40 focus:border-kaspa-green mb-3 light:bg-white light:border-emerald-500/40 light:text-slate-900"
+                    {/* Single stake control at bottom: create (free stake) or join (match the pot). */}
+                    <div className="mt-6 flex flex-col items-center">
+                      <GameStakeControl
+                        gameLabel="chess"
+                        stake={chessStake}
+                        setStake={setChessStake}
+                        joinPot={joinPot}
+                        walletConnected={!!address}
+                        onConnect={() => setWalletModalOpen(true)}
+                        onStake={() => setShowChessArena(true)}
                       />
-                      <Button
-                        variant="kaspa"
-                        shimmer
-                        size="xl"
-                        onClick={() => setShowChessArena(true)}
-                        className="w-full rounded-2xl font-extrabold uppercase tracking-wide"
-                      >
-                        Stake and play
-                      </Button>
-                      <div className="text-center text-xs text-gray-500 mt-2 light:text-slate-500">Launches the full interactive pro arena with real timers, moves, resign, oracle co-signed (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive pro arena with real timers, moves, resign, oracle co-signed (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1513,25 +1583,36 @@ export default function CovenantInteractive() {
                         Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine, oracle co-signed result (not trustless), winner takes the pot minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
                       </p>
                     </div>
-                    <div className="w-full max-w-md">
-                      <div className="text-xs text-gray-400 mb-1.5 text-center tracking-widest light:text-slate-500">HOW MUCH KAS DO YOU WANT TO STAKE?</div>
-                      <input
-                        type="number"
-                        value={chessStake}
-                        onChange={e => setChessStake(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full text-center text-5xl font-mono p-4 rounded-2xl bg-black/60 border-2 border-kaspa-green/40 focus:border-kaspa-green mb-3 light:bg-white light:border-emerald-500/40 light:text-slate-900"
+                    <div className="flex flex-col items-center">
+                      <GameStakeControl
+                        gameLabel={GAME_REGISTRY[gameType].label}
+                        stake={chessStake}
+                        setStake={setChessStake}
+                        joinPot={joinPot}
+                        walletConnected={!!address}
+                        onConnect={() => setWalletModalOpen(true)}
+                        onStake={() => setShowGameArena(true)}
                       />
-                      <Button
-                        variant="kaspa"
-                        shimmer
-                        size="xl"
-                        onClick={() => setShowGameArena(true)}
-                        className="w-full rounded-2xl font-extrabold uppercase tracking-wide"
-                      >
-                        Stake and play
-                      </Button>
-                      <div className="text-center text-xs text-gray-500 mt-2 light:text-slate-500">Launches the full interactive arena with real moves, oracle co-signed resolution (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive arena with real moves, oracle co-signed resolution (not trustless).</div>
                     </div>
+                  </div>
+                )}
+
+                {/* Create-your-own entry point: a game is a covenant you deploy. Routes into
+                    the build flow with the game category pre-selected. Shown on every game
+                    lobby (chess + the rest) so a visitor can go from playing to creating. */}
+                {gameType && (
+                  <div className="mt-6 mx-auto max-w-md text-center rounded-2xl border border-white/10 light:border-slate-300 bg-white/[0.03] light:bg-white px-5 py-4">
+                    <div className="text-sm font-bold text-white light:text-slate-900">Want your own table?</div>
+                    <p className="text-[11px] text-gray-300 light:text-slate-600 mt-1 leading-snug">
+                      Games are covenants you deploy. Pick a game, set the stake, share the link - your opponent joins by matching it.
+                    </p>
+                    <Link
+                      to="/sandbox?category=game"
+                      className="inline-flex items-center justify-center gap-2 mt-3 px-5 py-2.5 rounded-xl border border-kaspa-green/40 bg-kaspa-green/10 hover:bg-kaspa-green/15 text-kaspa-green light:text-emerald-700 font-bold text-sm transition-colors"
+                    >
+                      Create a game covenant
+                    </Link>
                   </div>
                 )}
 
@@ -1717,9 +1798,9 @@ export default function CovenantInteractive() {
 
                 {/* Launch the full professional chess arena (chess.com style, full page, nice timers) */}
                 {showChessArena && isChess && (
-                  <FullScreenChess 
-                    stake={chessStake} 
-                    onClose={() => setShowChessArena(false)} 
+                  <FullScreenChess
+                    stake={joinPot > 0 ? joinPot : chessStake}
+                    onClose={() => setShowChessArena(false)}
                     covenantId={covenant.tx_id}
                     creatorAddr={covenant.creator_addr}
                     feePercent={2}
@@ -1729,7 +1810,7 @@ export default function CovenantInteractive() {
                   const G = GAME_REGISTRY[gameType].Component;
                   return (
                     <G
-                      stake={chessStake}
+                      stake={joinPot > 0 ? joinPot : chessStake}
                       onClose={() => setShowGameArena(false)}
                       covenantId={covenant.tx_id}
                       feePercent={2}

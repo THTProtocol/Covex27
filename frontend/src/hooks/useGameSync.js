@@ -204,5 +204,10 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
   // letting a logged-out click fall through to a "connect a wallet" error.
   const walletConnected = !!address;
 
-  return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh, clocks, claimTimeout, address, walletConnected };
+  // Surfaced so the arena can drive the non-custodial pot money path (GamePotPanel):
+  // the per-seat token authorises lock/settle, and getSeatToken() always reads the
+  // current value (it is set on join, so it is stable by the time a pot is lockable).
+  const getSeatToken = () => seatToken.current;
+
+  return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh, clocks, claimTimeout, address, walletConnected, seatToken: seatToken.current, getSeatToken };
 }

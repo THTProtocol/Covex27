@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import useGameSync from '../hooks/useGameSync';
+import GamePotPanel from './GamePotPanel';
+import { getCurrentNetwork } from './WalletContext';
 
 // Rock Paper Scissors, best of 3: persistent two-wallet multiplayer with a
 // COMMIT-REVEAL protocol so picks stay secret until both are locked.
@@ -126,7 +128,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
   const totalPot = stake * 2;
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, walletConnected } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, walletConnected, getSeatToken, refresh } =
     useGameSync({ covenantId, gameType: 'rps', stake, onMoves: undefined });
 
   const ms = protocolMoves(game?.moves);
@@ -426,6 +428,11 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         </div>
 
         <div className="text-sm text-gray-300 light:text-slate-600 text-center max-w-sm tracking-wide">{phaseText}</div>
+
+        {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+        <div className="w-full max-w-xs">
+          <GamePotPanel covenantId={covenantId} gameType="rps" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />
+        </div>
 
         {/* ── Premium glass choice tiles with idle float + LOCKED padlock badge ── */}
         <div className="flex flex-wrap justify-center gap-3 sm:gap-4">

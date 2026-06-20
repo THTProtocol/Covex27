@@ -5,6 +5,8 @@ import { X, Clock, Trophy, Flag } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
+import GamePotPanel from './GamePotPanel';
+import { getCurrentNetwork } from './WalletContext';
 
 /**
  * Persistent multiplayer chess over the covenant's match record.
@@ -41,7 +43,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
     setSanHistory(chess.history());
   }, [chess]);
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected, getSeatToken, refresh } =
     useGameSync({ covenantId, gameType: 'chess', stake, onMoves });
 
   // Autoscroll the move list so the latest ply stays visible.
@@ -297,6 +299,9 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
             {!myColor && status !== 'none' && <div className="text-[11px] text-gray-500 light:text-slate-500 mt-2">You are spectating. Moves sync live.</div>}
             {error && <div className="mt-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 light:text-red-600 text-xs">{error}</div>}
           </div>
+
+          {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+          <GamePotPanel covenantId={covenantId} gameType="chess" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />
 
           {/* Two-column SAN move list with current-move highlight + autoscroll */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] light:bg-white light:border-slate-200 light:shadow-sm overflow-hidden">

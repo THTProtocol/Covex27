@@ -5,6 +5,8 @@ import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
+import GamePotPanel from './GamePotPanel';
+import { getCurrentNetwork } from './WalletContext';
 
 // Map our internal suit names to the PlayingCard primitive's suit codes.
 const SUIT_CODE = { hearts: 'H', diamonds: 'D', clubs: 'C', spades: 'S' };
@@ -165,7 +167,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
   const totalPot = stake * 2;
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, walletConnected } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, walletConnected, getSeatToken, refresh } =
     useGameSync({ covenantId, gameType: 'blackjack', stake, onMoves: undefined });
 
   const table = useMemo(() => deriveTable(game?.moves), [game]);
@@ -560,6 +562,11 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
         {!result && myColor && status === 'active' && (
           <button onClick={resign} className="px-5 py-2 rounded-xl bg-red-600/80 text-white text-xs font-bold">RESIGN DUEL</button>
         )}
+
+        {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+        <div className="w-full max-w-xs">
+          <GamePotPanel covenantId={covenantId} gameType="blackjack" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />
+        </div>
 
         {/* Oracle result section */}
         {result && (

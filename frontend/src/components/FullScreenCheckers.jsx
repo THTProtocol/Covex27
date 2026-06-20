@@ -3,6 +3,8 @@ import { CheckCircle2 } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
+import GamePotPanel from './GamePotPanel';
+import { getCurrentNetwork } from './WalletContext';
 
 // Professional full-screen Checkers (8x8, forced jumps, kings, multi-jump):
 // persistent two-wallet multiplayer over the covenant match record.
@@ -247,7 +249,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
     setChain(null);
   }, []);
 
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected, getSeatToken, refresh } =
     useGameSync({ covenantId, gameType: 'checkers', stake, onMoves });
 
   // Live countdowns come straight from the hook's server-authoritative clocks.
@@ -552,6 +554,9 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
           </div>
           <div className="text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player2)}</div>
           <CapturedTray side="b" count={whiteCaptured} />
+
+          {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+          <GamePotPanel covenantId={covenantId} gameType="checkers" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />
 
           {/* Move log */}
           <div className="mt-3 w-full bg-black/60 light:bg-white/80 border border-white/10 light:border-slate-200 light:shadow-sm rounded-2xl p-2 text-[11px] font-mono max-h-[160px] overflow-auto text-gray-200 light:text-slate-700">

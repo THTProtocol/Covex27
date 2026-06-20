@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
+import GamePotPanel from './GamePotPanel';
+import { getCurrentNetwork } from './WalletContext';
 
 // Full-screen Tic-Tac-Toe (3x3): persistent two-wallet multiplayer over the
 // covenant match record. Seats: player1 = X (moves first), player2 = O.
@@ -88,7 +90,7 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
   const totalPot = stake * 2;
 
   const onMoves = useCallback((moves) => { setBoard(replayBoard(moves)); }, []);
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected, getSeatToken, refresh } =
     useGameSync({ covenantId, gameType: 'tictactoe', stake, onMoves });
 
   const myLabel = myColor === 'white' ? 'X' : myColor === 'black' ? 'O' : null;
@@ -298,6 +300,8 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
           <div className={`rounded-2xl bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm border border-white/10 px-4 py-3 ${status === 'active' && !xIsTurn ? 'clock-active' : ''}`}>
             <div className={`font-mono text-5xl font-bold tabular-nums ${oTime < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{format(oTime)}</div>
           </div>
+          {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+          <div className="mt-3 text-left"><GamePotPanel covenantId={covenantId} gameType="tictactoe" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} /></div>
           <div className="mt-3 text-[10px] font-mono bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 p-2 rounded border border-white/10">{moves.slice(-4).join(' ')}</div>
           <div className="mt-2 flex flex-col gap-1 text-xs w-32 mx-auto">
             {!result && myColor && status === 'active' && <button onClick={resign} className="py-1.5 rounded bg-red-600/90 text-white">RESIGN</button>}

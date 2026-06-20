@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
-import { useWallet } from './WalletContext';
+import { useWallet, getCurrentNetwork } from './WalletContext';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
+import GamePotPanel from './GamePotPanel';
 import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';
 
@@ -259,7 +260,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
   const { address, signMessage } = useWallet();
 
   // seats + join come from the shared match record (skill_games)
-  const { game, status, myColor, joining, error: seatError, join, clocks, walletConnected } =
+  const { game, status, myColor, joining, error: seatError, join, clocks, walletConnected, getSeatToken } =
     useGameSync({ covenantId, gameType: 'poker', stake, onMoves: undefined });
 
   const [ps, setPs] = useState(null); // /api/poker/:id/state
@@ -756,6 +757,9 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
         {!matchOver && mySeat == null && status === 'active' && (
           <div className="text-[11px] text-gray-500">You are spectating. Hole cards stay hidden; every deal is commitment-verified.</div>
         )}
+
+        {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+        <GamePotPanel covenantId={covenantId} gameType="poker" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />
 
         {/* match over: oracle + claim */}
         {matchOver && (

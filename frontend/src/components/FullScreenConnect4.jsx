@@ -3,6 +3,8 @@ import { CheckCircle2 } from 'lucide-react';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
+import GamePotPanel from './GamePotPanel';
+import { getCurrentNetwork } from './WalletContext';
 
 // Professional full-screen Connect 4 (7x6): persistent two-wallet multiplayer
 // over the covenant match record. Seats: player1 = R (red, drops first),
@@ -97,7 +99,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
       }
     }
   }, []);
-  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected } =
+  const { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, clocks, walletConnected, getSeatToken, refresh } =
     useGameSync({ covenantId, gameType: 'connect4', stake, onMoves });
 
   const myLabel = myColor === 'white' ? 'R' : myColor === 'black' ? 'Y' : null;
@@ -396,6 +398,11 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
           <div className="text-xs text-gray-400 light:text-slate-600 tracking-widest">YELLOW{myLabel === 'Y' && ' • YOU'}</div>
           <div className={`font-mono text-5xl font-bold tabular-nums px-3 py-1 ${turnLabel === 'Y' && status === 'active' && !result ? 'clock-active' : ''} ${yellowTime < 30000 ? 'text-red-500' : 'text-yellow-400'}`}>{formatTime(yellowTime)}</div>
           <div className="mt-1 text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player2)}</div>
+
+          {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
+          <div className="mt-3 w-full">
+            <GamePotPanel covenantId={covenantId} gameType="connect4" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />
+          </div>
 
           <div className="mt-3 w-full text-[10px] font-mono bg-black/50 light:bg-white light:border-slate-200 light:shadow-sm light:text-slate-700 border border-white/10 rounded-xl p-2 max-h-[120px] overflow-auto">
             {moves.slice(-6).map((m, i) => <div key={i}>{m}</div>)}

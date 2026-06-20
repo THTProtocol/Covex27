@@ -237,10 +237,15 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
         "turn_started_at": row.get::<_, i64>(13)?,
         "end_reason": row.get::<_, Option<String>>(14)?,
         "server_now": row.get::<_, i64>(15)?,
+        // On-chain pot state so the client can render the non-custodial money flow honestly:
+        // pot_tx is set once a real pot is locked + bound (submit-pot / bind-channel-pot),
+        // pot_payout_tx once the winner payout (or refund) has broadcast (submit-settle).
+        "pot_tx": row.get::<_, Option<String>>(16)?,
+        "pot_payout_tx": row.get::<_, Option<String>>(17)?,
     }))
 }
 
-const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch() FROM skill_games";
+const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch(), pot_tx, pot_payout_tx FROM skill_games";
 
 fn fetch_game(db: &crate::db::Db, covenant_id: &str) -> Option<serde_json::Value> {
     let conn = db.lock().unwrap();

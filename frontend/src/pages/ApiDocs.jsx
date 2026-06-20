@@ -174,7 +174,7 @@ export default function ApiDocs() {
               return (
                 <div key={method + path} className="glass-panel rounded-2xl p-5 border border-white/[0.06] hover-lift">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${method === 'get' ? 'bg-kaspa-green/15 text-kaspa-green' : 'bg-amber-500/15 text-amber-300'}`}>{method}</span>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${method === 'get' ? 'bg-kaspa-green/15 text-kaspa-green light:bg-emerald-50' : 'bg-amber-500/15 text-amber-300 light:bg-amber-50'}`}>{method}</span>
                     <code className="text-sm text-white font-mono break-all min-w-0">{path}</code>
                   </div>
                   <p className="text-xs text-gray-400 mb-3">{op.summary}</p>

@@ -80,11 +80,11 @@ export default function HonestLimits({ covenant, kind, className = 'mb-6' }) {
   return (
     <div className={className}>
       <div className="flex items-center gap-2 mb-3">
-        <AlertTriangle size={14} className="text-amber-400" />
+        <AlertTriangle size={14} className="text-amber-400 light:text-amber-700" />
         <h3 className="text-xs font-mono text-gray-300 uppercase tracking-widest">What this does NOT prove</h3>
       </div>
-      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4">
-        <ul className="list-disc pl-4 space-y-1.5 text-[12.5px] text-amber-200/90 leading-relaxed">
+      <div className="rounded-xl border border-amber-500/25 light:border-amber-500/40 bg-amber-500/[0.05] light:bg-amber-50 p-4">
+        <ul className="list-disc pl-4 space-y-1.5 text-[12.5px] text-amber-200/90 light:text-amber-800 leading-relaxed">
           {lines.map((line, i) => (
             <li key={i}>{line}</li>
           ))}

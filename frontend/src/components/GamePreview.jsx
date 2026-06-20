@@ -160,7 +160,7 @@ const GenericPreviewTile = ({ compact, isZk }) => {
     <div className="flex items-center justify-center bg-black/30 light:bg-black/[0.04] rounded-lg"
       style={{ height: compact ? '140px' : '220px' }}>
       <div className="text-center">
-        <div className="text-4xl mb-2"><Zap size={40} className="mx-auto text-gray-400" /></div>
+        <div className="text-4xl mb-2"><Zap size={40} className="mx-auto text-gray-400 light:text-slate-500" /></div>
         <p className="text-xs text-gray-200 light:text-gray-700 font-mono uppercase tracking-wider">
           {isZk ? 'ZK Circuit' : 'Covenant'}
         </p>
@@ -279,7 +279,7 @@ const GamePreview = ({ covenant, compact = false, large = false }) => {
         title="Click to preview game"
       >
         {/* Subtle scanline overlay */}
-        <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-b from-transparent 50% to-black/20" />
+        <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-b from-transparent 50% to-black/20 light:to-slate-900/[0.06]" />
 
         {/* Decorative corner accents */}
         <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-kaspa-green/20 rounded-tl pointer-events-none z-10" />

@@ -471,11 +471,11 @@ export default function CovenantStudio() {
         </div>
       )}
 
-      <div className="relative flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D]">
-        <Link data-tour="public-page" to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 hover:text-white shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
+      <div className="relative flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D] light:bg-white">
+        <Link data-tour="public-page" to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
           <ArrowLeft size={16} /> <span className="hidden sm:inline">Back to covenant</span>
         </Link>
-        <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Page Studio</p>
+        <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white light:text-slate-900 truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Page Studio</p>
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
           {/* Desktop: inline secondary actions (md+). Mobile: collapsed into overflow menu. */}
           <button onClick={() => openDrawer('settings')} aria-label="Page settings" title="Stake amount, name, description. Saved with your page. The fund destination is always derived from the indexed covenant record, never from page settings." className="hidden md:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 h-10 rounded-lg border border-white/15 light:border-slate-300 text-gray-200 light:text-slate-700 hover:bg-white/5 light:hover:bg-slate-100 transition-colors">
@@ -568,7 +568,7 @@ export default function CovenantStudio() {
             headerActions: ({ children }) => (
               <>
                 {children}
-                {saving && <span className="text-xs text-gray-400 flex items-center gap-1"><Save size={12} /> Saving...</span>}
+                {saving && <span className="text-xs text-slate-500 flex items-center gap-1"><Save size={12} /> Saving...</span>}
               </>
             ),
             // Sidebar block list with a live search filter (Priority 8). When the
@@ -778,7 +778,7 @@ function BlockSearch({ children, paletteOpen = false, onClosePalette, onAddBlock
                 type="button"
                 aria-label="Close add-block panel"
                 onClick={onClosePalette}
-                className="flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-white hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
+                className="flex items-center justify-center h-6 w-6 rounded-md text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 light:hover:bg-slate-100 transition-colors"
               >
                 <X size={12} />
               </button>
@@ -818,7 +818,7 @@ function TemplatePickerModal({ defaultId, liveData, onPick, onBlank, onClose }) 
             <p className="text-sm font-black text-white light:text-slate-900">Start from a template</p>
             <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5">Premium, honest layouts. Tweak everything after.</p>
           </div>
-          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white"><X size={18} /></button>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900"><X size={18} /></button>
         </div>
         <div className="p-4 grid sm:grid-cols-2 gap-3 sm:gap-4">
           {STARTER_TEMPLATES.map((t) => {
@@ -923,11 +923,11 @@ function ThemePickerModal({ onApply, onClose }) {
             <p className="text-sm font-black text-white light:text-slate-900">Page theme</p>
             <p className="text-[11px] text-gray-400 light:text-slate-500 mt-0.5">Sets the accent color and page background in one click.</p>
           </div>
-          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white"><X size={18} /></button>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900"><X size={18} /></button>
         </div>
         <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {presets.map((p) => (
-            <button key={p.id} onClick={() => onApply(p)} className="rounded-xl overflow-hidden border border-white/10 light:border-slate-200 hover:border-white/30 transition-all text-left">
+            <button key={p.id} onClick={() => onApply(p)} className="rounded-xl overflow-hidden border border-white/10 light:border-slate-200 hover:border-white/30 light:hover:border-slate-300 transition-all text-left">
               <div className="h-20" style={{ background: presetBackdrop(p) }} />
               <div className="px-3 py-2.5 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ background: p.palette.accent }} />

@@ -223,6 +223,12 @@ body {
   --lm-brand-tint: rgba(13, 148, 136, 0.07);
   --lm-brand-tint-strong: rgba(13, 148, 136, 0.13);
 
+  /* - Enforcement-reality accent ramp: ONE token per hue (kills the emerald-
+       defined-3x / amber-defined-2x drift). Each clears WCAG AA on white. - */
+  --lm-success: #047857;   /* payout / claim / on-chain emerald */
+  --lm-amber: #b45309;     /* caution / oracle / recovery warning */
+  --lm-blue: #1d4ed8;      /* hybrid / info */
+
   /* - Soft, diffuse, cool elevation shadow scale (the premium "lift") - */
   --lm-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
   --lm-shadow-2: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 20px -8px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -267,13 +273,14 @@ body {
     radial-gradient(48% 44% at 6% 28%, rgba(13, 148, 136, 0.035) 0%, transparent 62%),
     radial-gradient(circle at 50% -5%, #ffffff 0%, var(--lm-canvas) 62%, var(--lm-canvas-deep) 100%);
   background-attachment: fixed;
-  color: var(--lm-ink-1);
+  color: var(--lm-ink-2);
 }
 
-/* Crisp, high-contrast typography - all text visible */
-.light h1, .light h2, .light h3, .light h4, .light h5, .light h6,
-.light p, .light span, .light div, .light li, .light label {
-  color: #0f172a;
+/* Crisp, high-contrast typography. Headings get primary ink; body copy
+   (p/span/div/li/label) inherits the relaxed body default (--lm-ink-2) so the
+   3-bucket ink hierarchy below survives instead of being flattened to one ink. */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: var(--lm-ink-1);
 }
 /* Three-bucket hierarchy ramp in light mode: primary ink, secondary body, tertiary meta.
    Without this split, every muted text class collapses to one weight and the visual
@@ -299,6 +306,16 @@ body {
 .light .text-\[\#49EACB\] {
   color: var(--lm-brand) !important; /* deep teal: brand-true but readable on white */
 }
+/* SOLID (slashless) brand utilities. #49EACB neon vibrates/reads pale on white,
+   so retone the whole brand-utility family to the deep teal here at the root.
+   The opacity-suffixed variants (bg-kaspa-green/10 etc.) are handled lower down. */
+.light .bg-kaspa-green {
+  background-color: var(--lm-brand) !important;
+  color: #fff !important;
+}
+.light .border-kaspa-green { border-color: var(--lm-brand) !important; }
+.light .ring-kaspa-green { --tw-ring-color: var(--lm-brand) !important; }
+.light .fill-kaspa-green { fill: var(--lm-brand) !important; }
 .light a {
   color: var(--lm-brand-ink);  /* darker for body links, good contrast */
 }
@@ -393,16 +410,16 @@ body {
 .light .from-black\/80,
 .light .from-black\/60,
 .light .from-black\/40 {
-  --tw-gradient-from: #f1f5f9 !important;
+  --tw-gradient-from: var(--lm-surface-2) !important;
 }
 .light .to-\[\#0c0c12\],
 .light .to-\[\#0a0a0a\],
 .light .to-black {
-  --tw-gradient-to: #f1f5f9 !important;
+  --tw-gradient-to: var(--lm-surface-2) !important;
 }
 .light .via-\[\#0c0c12\],
 .light .via-black {
-  --tw-gradient-via: #f1f5f9 !important;
+  --tw-gradient-via: var(--lm-surface-2) !important;
 }
 
 /* Opacity-modified white text (text-white/60, /70 ...) is not caught by the .text-white
@@ -563,11 +580,11 @@ body {
   -webkit-backdrop-filter: blur(16px) saturate(1.1);
 }
 
-/* Badges */
+/* Badges - token-driven so a brand change retones them (no one-off #99f6e4). */
 .light .badge {
-  background: #f0fdfa;
-  color: #0f766e;
-  border: 1px solid #99f6e4;
+  background: var(--lm-brand-tint);
+  color: var(--lm-brand-ink);
+  border: 1px solid var(--lm-border-brand-strong);
 }
 
 /* Tier glows - use brand colors but softer for light.
@@ -623,9 +640,9 @@ body {
   background: linear-gradient(to bottom right, #fef3c7, #fff) !important;
   border-color: #fcd34d !important;
 }
-.light .text-amber-400 { color: #92400e !important; }
-.light .text-emerald-400 { color: #166534 !important; }
-.light .text-blue-400 { color: #1e40af !important; }
+/* (amber/emerald accents consolidated into the token-driven block lower down;
+   the dead duplicates that were here are removed.) */
+.light .text-blue-400 { color: var(--lm-blue) !important; }
 
 .light .border-emerald-500\/25 { border-color: #86efac !important; }
 .light .border-blue-500\/20 { border-color: #93c5fd !important; }
@@ -663,18 +680,17 @@ body {
 .light .fixed.inset-0.z-\[100\].bg-black\/80 {
   background: rgba(248, 250, 252, 0.96) !important;
 }
-.light .text-white,
-.light .text-white\/80,
-.light .text-white\/40,
+/* (Plain `.light .text-white` is already mapped to ink-1 near the top of the
+   light layer; it is intentionally NOT repeated here so a later brand-CTA rule
+   like `.light .bg-kaspa-green {color:#fff}` can give white text on a deep-teal
+   button. Only the opacity-suffixed white variants are (re)mapped here. */
 .light .text-white\/20 {
   color: #0f172a !important;
 }
 
-/* Game boards - nice light chess/checker colors for visibility */
-.light .chess-square.light { background: #f0d9b5 !important; }
-.light .chess-square.dark { background: #b58863 !important; color: #fff; }
-.light .ck-light { background: #f0d9b5 !important; }
-.light .ck-dark { background: #b58863 !important; }
+/* (Canonical chess/checker square palette lives below at the green Lichess set;
+   the earlier brown duplicate that was here is removed so the board palette is
+   single-source and not source-order dependent.) */
 
 /* Game felt (table) in light mode: a genuine bright casino cloth, not a dark
    green wash. A radial emerald with a soft highlight reads as a real felt and
@@ -701,11 +717,8 @@ body {
   background: #94a3b8;
 }
 
-/* Selection */
-.light ::selection {
-  background: rgba(73, 234, 203, 0.2);
-  color: #0f172a;
-}
+/* (Selection is defined once, token-driven, lower in this file. The earlier
+   bright-teal duplicate that was here is removed.) */
 
 /* ═══════════════════════════════════════════════════════════════
    MOBILE-FIRST RESPONSIVE & PERFECT MOBILE COMPATIBILITY
@@ -811,9 +824,11 @@ body {
 /* Game action buttons (hit/stand/resign) keep their strong dark-mode fills in
    light mode by design - no override needed, so no rule here. */
 
-/* Chess / board specific squares get a nice light chessboard if not already */
+/* CANONICAL light board palettes (single source of truth):
+   - chess uses the conventional green Lichess set (#ebecd0 / #779556)
+   - checkers (ck-*) uses the classic brown wood set (#f0d9b5 / #b58863) */
 .light .chess-square.light { background: #ebecd0 !important; }
-.light .chess-square.dark { background: #779556 !important; color: #fff; } /* for dark squares in light mode */
+.light .chess-square.dark { background: #779556 !important; color: #fff; }
 .light .ck-light { background: #f0d9b5 !important; }
 .light .ck-dark { background: #b58863 !important; }
 
@@ -881,10 +896,10 @@ body {
   background: rgba(248, 250, 252, 0.95) !important;
 }
 
-/* ── Light Mode Selection ── */
+/* ── Light Mode Selection (single source of truth, token-driven) ── */
 .light ::selection {
-  background: rgba(15, 118, 110, 0.15);
-  color: #0f172a;
+  background: var(--lm-brand-tint-strong);
+  color: var(--lm-ink-1);
 }
 
 /* ── Light Mode Focus Rings ── */
@@ -1116,8 +1131,8 @@ body {
    ═══════════════════════════════════════════════════════════════ */
 .light .bg-emerald-500\/\[0\.06\] { background: rgba(5, 150, 105, 0.06) !important; }
 .light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.25) !important; }
-.light .text-emerald-400 { color: #059669 !important; }
-.light .text-emerald-300 { color: #047857 !important; }
+/* (text-emerald-400 / -300 consolidated into the token-driven accent block
+   near the foot of the light layer; the duplicates that were here are removed.) */
 
 /* ── details/summary → work in light ── */
 .light details summary { color: #475569 !important; }
@@ -1197,7 +1212,7 @@ body {
 
 /* ===== Global supreme-polish tokens ===== */
 ::selection { background: rgba(73, 234, 203, 0.3); color: #fff; }
-.light ::selection { color: #0f172a; }
+/* (light ::selection consolidated into the single token-driven rule above) */
 
 * { scrollbar-width: thin; scrollbar-color: rgba(73, 234, 203, 0.25) transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -1262,6 +1277,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .light .bg-white\/5 {
   background: var(--lm-surface-2) !important;
 }
+/* The shared Separator primitive uses bg-white/5, which the rule above flattens
+   to the canvas-coloured surface-2 (a real hairline as a panel FILL, but the same
+   colour as the page when used as a 1px divider line, so every divider went
+   invisible on white). This wins by source order (later !important) and restores
+   a true hairline app-wide without changing the panel-fill mapping. */
+.light .ui-separator {
+  background: var(--lm-border) !important;
+}
 .light .bg-white\/\[0\.04\],
 .light .bg-white\/\[0\.05\],
 .light .bg-white\/\[0\.06\],
@@ -1284,12 +1307,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   color: #0f172a !important;
 }
 
-/* Amber / purple / sky accents: darken for white backgrounds */
-.light .text-amber-300, .light .text-amber-400 { color: #b45309 !important; }
+/* Amber / purple / sky accents: darken for white backgrounds. Token-driven so
+   each enforcement-reality hue resolves to ONE color (no source-order drift). */
+.light .text-amber-300, .light .text-amber-400 { color: var(--lm-amber) !important; }
 .light .text-purple-300 { color: #7e22ce !important; }
 .light .text-sky-300, .light .text-sky-400 { color: #0369a1 !important; }
-.light .text-emerald-300, .light .text-emerald-400 { color: #047857 !important; }
+.light .text-emerald-300, .light .text-emerald-400 { color: var(--lm-success) !important; }
 .light .text-red-300, .light .text-red-400 { color: #b91c1c !important; }
+
+/* OPACITY-SUFFIXED accent coverage (honesty/safety critical). Tailwind's slash
+   opacity makes text-amber-300/90, text-emerald-300/70 etc. DISTINCT classes the
+   exact-class rules above never match, so every caution / recovery / "what this
+   does NOT prove" disclosure was falling through to pale dark-mode yellow/mint on
+   near-white (below WCAG). Remap the whole suffixed family to the same tokens. */
+.light [class*="text-amber-200/"],
+.light [class*="text-amber-300/"],
+.light [class*="text-amber-400/"] { color: var(--lm-amber) !important; }
+.light [class*="text-emerald-200/"],
+.light [class*="text-emerald-300/"],
+.light [class*="text-emerald-400/"] { color: var(--lm-success) !important; }
+.light [class*="text-sky-300/"],
+.light [class*="text-sky-400/"] { color: #0369a1 !important; }
+.light [class*="text-red-300/"],
+.light [class*="text-red-400/"] { color: #b91c1c !important; }
 
 /* Comprehensive 300/400-shade remaps for every hue family used on light glass.
    Each maps to the 700 shade family so it clears WCAG AA (>= 4.5:1) on white
@@ -1327,8 +1367,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .light * { scrollbar-color: rgba(13,148,136,0.35) transparent; }
 .light *::-webkit-scrollbar-thumb { background: rgba(13,148,136,0.3); }
 
-/* Buttons that keep dark fills in dark mode get light treatment */
-.light .bg-black\/40, .light .bg-black\/60 { background: #f1f5f9 !important; }
+/* (The late blanket `.light .bg-black/40,.bg-black/60 { #f1f5f9 }` catch-all was
+   removed: the panel-narrowed rules at 777-809 already flatten rounded/bordered
+   glass panels, and the blanket version re-flattened deliberately-scoped surfaces
+   and risked lightening full-viewport scrims meant to stay dark.) */
 
 /* ===== Mobile refinements ===== */
 @media (max-width: 640px) {
@@ -1503,6 +1545,35 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .light .game-join-overlay {
   background: rgba(6, 60, 42, 0.30);
 }
+
+/* Poker seat plate: themeable surface + text (was inline near-black, which read
+   as a black blob with a white-on-white border on the bright felt). Mirrors the
+   blackjack treatment so the plate reads on both themes. */
+.poker-seat-plate {
+  background: rgba(8, 14, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.8);
+}
+.light .poker-seat-plate {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.3);
+}
+.poker-seat-avatar { border: 1.5px solid rgba(255, 255, 255, 0.22); }
+.light .poker-seat-avatar { border: 1.5px solid rgba(15, 23, 42, 0.18); }
+.poker-seat-label { color: #cbd2cf; }
+.light .poker-seat-label { color: #0f172a; }
+.poker-seat-label-me { color: #49EACB; }
+.light .poker-seat-label-me { color: #0d9488; }
+.poker-seat-addr { color: #8c948f; }
+.light .poker-seat-addr { color: #475569; }
+.poker-seat-stack { color: #E8AF34; }
+.light .poker-seat-stack { color: #92610b; }
+
+/* COVEX felt watermark: tuned for the dark felt; on the bright felt the neon
+   mint nearly disappears, so deepen it when light. */
+.poker-watermark { color: rgba(73, 234, 203, 0.10); }
+.light .poker-watermark { color: rgba(6, 80, 60, 0.12); }
 
 /* ── Move hints (legal moves, captures, last move) ── */
 .move-dot {

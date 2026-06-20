@@ -206,21 +206,19 @@ function SeatPlate({ label, addr, stack, isButton, active, isMe, ms }) {
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
       <TimeBankRing ms={ms} active={active} size={104} />
       <div
-        className={active ? 'clock-active' : ''}
+        className={`poker-seat-plate${active ? ' clock-active' : ''}`}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '5px 11px 5px 5px', borderRadius: 999,
-          background: 'rgba(8,14,12,0.82)', backdropFilter: 'blur(6px)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          boxShadow: '0 6px 18px -8px rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)',
         }}
       >
         {/* avatar */}
         <div
+          className="poker-seat-avatar"
           style={{
             width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
             background: addr ? avatarColor(addr) : '#23262e',
-            border: '1.5px solid rgba(255,255,255,0.22)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 11, color: '#fff',
           }}
@@ -229,15 +227,15 @@ function SeatPlate({ label, addr, stack, isButton, active, isMe, ms }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 10, letterSpacing: '1px', color: isMe ? '#49EACB' : '#cbd2cf', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
+            <span className={isMe ? 'poker-seat-label-me' : 'poker-seat-label'} style={{ fontSize: 10, letterSpacing: '1px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
               {label}
             </span>
             {isButton && (
               <span style={{ background: '#fff', color: '#000', fontSize: 8, fontWeight: 900, borderRadius: '50%', width: 14, height: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>D</span>
             )}
           </span>
-          <span style={{ fontSize: 10, color: '#8c948f', fontFamily: "'JetBrains Mono', monospace" }}>{shortAddr(addr)}</span>
-          <span style={{ fontSize: 11, color: '#E8AF34', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{stack} chips</span>
+          <span className="poker-seat-addr" style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>{shortAddr(addr)}</span>
+          <span className="poker-seat-stack" style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{stack} chips</span>
         </div>
       </div>
     </div>
@@ -510,25 +508,25 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
   });
 
   return (
-    <div className="fixed inset-0 z-[999] flex flex-col" style={{ background: 'radial-gradient(ellipse at 50% 55%, #0a1a12 0%, #050510 72%)' }}>
+    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
       {/* Top bar */}
-      <div className="h-12 sm:h-14 border-b border-white/10 flex items-center justify-between gap-2 px-3 sm:px-4 text-sm bg-black/60 backdrop-blur-xl shrink-0">
+      <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="font-bold tracking-wider text-[#E8AF34] truncate text-[11px] sm:text-sm">
+          <div className="font-bold tracking-wider text-amber-400 light:text-amber-600 truncate text-[11px] sm:text-sm">
             <span className="sm:hidden">POKER · NLHE</span>
             <span className="hidden sm:inline">POKER · HEADS-UP NLHE · KASPA COVENANT</span>
           </div>
-          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 text-[10px] font-mono border border-white/10 whitespace-nowrap">{stake * 2} KAS POT · BLINDS {m?.blinds?.[0] ?? 1}/{m?.blinds?.[1] ?? 2}</div>
+          <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300 whitespace-nowrap">{stake * 2} KAS POT · BLINDS {m?.blinds?.[0] ?? 1}/{m?.blinds?.[1] ?? 2}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {hand?.commitment && (
-            <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 font-mono" title="sha256 deck commitment, published before any card was visible">
-              <ShieldCheck size={12} className="text-[#49EACB]" /> deal {hand.commitment.slice(0, 12)}…
+            <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 light:text-slate-600 font-mono" title="sha256 deck commitment, published before any card was visible">
+              <ShieldCheck size={12} className="text-[#49EACB] light:text-[#0d9488]" /> deal {hand.commitment.slice(0, 12)}…
             </div>
           )}
           <button
             onClick={onClose}
-            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1.5 rounded-xl border border-white/20 hover:bg-white/5 text-xs font-bold"
+            className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1.5 rounded-xl border border-white/20 light:border-slate-400 hover:bg-white/5 light:hover:bg-slate-900/5 text-xs font-bold"
             aria-label="Exit poker arena"
           >EXIT</button>
         </div>
@@ -536,10 +534,10 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
 
       <div className="flex-1 flex flex-col items-center justify-start sm:justify-center p-3 gap-3 overflow-auto">
         {/* match score */}
-        <div className="flex items-center gap-4 text-xs font-mono text-gray-300">
-          <span className={mySeat === 0 ? 'text-[#49EACB]' : ''}>P1 {shortAddr(m?.players?.[0])} · {m?.chips?.[0] ?? '-'} chips</span>
-          <span className="text-gray-500">hand #{m?.hand_no ?? '-'}</span>
-          <span className={mySeat === 1 ? 'text-[#49EACB]' : ''}>P2 {shortAddr(m?.players?.[1])} · {m?.chips?.[1] ?? '-'} chips</span>
+        <div className="flex items-center gap-4 text-xs font-mono text-gray-300 light:text-slate-600">
+          <span className={mySeat === 0 ? 'text-[#49EACB] light:text-[#0d9488]' : ''}>P1 {shortAddr(m?.players?.[0])} · {m?.chips?.[0] ?? '-'} chips</span>
+          <span className="text-gray-500 light:text-slate-500">hand #{m?.hand_no ?? '-'}</span>
+          <span className={mySeat === 1 ? 'text-[#49EACB] light:text-[#0d9488]' : ''}>P2 {shortAddr(m?.players?.[1])} · {m?.chips?.[1] ?? '-'} chips</span>
         </div>
 
         {/* Table (wood bezel around a teal-rail felt oval) */}
@@ -559,8 +557,8 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
               <ellipse cx="440" cy="196" rx="150" ry="70" fill="none" stroke="rgba(232,175,52,0.18)" strokeWidth="1.5" strokeDasharray="4 7" />
             </svg>
             <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none"
-              style={{ fontFamily: "'JetBrains Mono', monospace", color: 'rgba(73,234,203,0.10)', fontWeight: 900, fontSize: 'clamp(28px, 7vw, 64px)', letterSpacing: '0.08em', pointerEvents: 'none' }}
+              className="poker-watermark absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none"
+              style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 'clamp(28px, 7vw, 64px)', letterSpacing: '0.08em', pointerEvents: 'none' }}
             >
               COVEX
             </div>
@@ -601,11 +599,11 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                   const potVal = hand ? hand.pot : (reveal && last ? last.pot : 0);
                   return potVal > 0
                     ? <div key={`pot-${potVal}`} className="anim-pop"><ChipStack amount={potVal} size={30} /></div>
-                    : <div className="text-xs font-bold font-mono text-emerald-300/70">POT 0</div>;
+                    : <div className="text-xs font-bold font-mono text-emerald-300 light:text-emerald-800">POT 0</div>;
                 })()}
-                <div className="text-[10px] font-mono text-emerald-300/80 tracking-wider">POT</div>
+                <div className="text-[10px] font-mono text-emerald-300 light:text-emerald-800 tracking-wider">POT</div>
               </div>
-              {statusLine && <div className="text-[10px] text-gray-300 uppercase tracking-[3px] font-mono">{statusLine}</div>}
+              {statusLine && <div className="text-[10px] text-gray-300 light:text-slate-600 uppercase tracking-[3px] font-mono">{statusLine}</div>}
             </div>
 
             {/* my seat (bottom) */}
@@ -625,7 +623,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
 
             {/* join overlay */}
             {status !== 'active' && !matchOver && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm" style={{ borderRadius: 999 }}>
+              <div className="game-join-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 backdrop-blur-sm" style={{ borderRadius: 999 }}>
                 {(status === 'none' || (status === 'waiting' && !myColor)) ? (
                   <button onClick={join} disabled={joining}
                     className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-sm flex items-center gap-2">
@@ -757,7 +755,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
         {/* match over: oracle + claim */}
         {matchOver && (
           <div className="flex flex-col items-center gap-3">
-            <div className="text-base font-bold text-[#49EACB]">
+            <div className="text-base font-bold text-[#49EACB] light:text-[#0d9488]">
               {mySeat == null
                 ? `SEAT ${(m.chips[0] > 0 ? 1 : 2)} WINS THE MATCH`
                 : iWonMatch ? 'YOU WIN THE MATCH!' : 'OPPONENT WINS THE MATCH'}
@@ -785,7 +783,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
         )}
       </div>
 
-      <div className="h-auto min-h-[2rem] border-t border-white/10 text-[9px] sm:text-[10px] text-gray-500 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
+      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
         COMMIT-REVEAL DEAL · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · PAYOUT ENFORCED ON-CHAIN BY THE REDEEM SCRIPT
       </div>
     </div>

@@ -586,11 +586,11 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold text-white light:text-slate-900 tracking-tight">Deploy an Enforced Covenant</h1>
           {isHybridKind ? (
-            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/15 text-sky-300 text-[10px] font-bold uppercase tracking-wider">
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sky-500/40 light:border-sky-300 bg-sky-500/15 light:bg-sky-50 text-sky-300 light:text-sky-700 text-[10px] font-bold uppercase tracking-wider">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden="true" /> Hybrid
             </span>
           ) : (
-            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/40 light:border-emerald-300 bg-emerald-500/15 light:bg-emerald-50 text-emerald-300 light:text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" /> On-chain
             </span>
           )}
@@ -643,7 +643,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
               className={`hover-lift group relative overflow-hidden text-left p-4 rounded-xl border transition-all ${
                 active
                   ? 'border-kaspa-green/60 bg-kaspa-green/[0.07] ring-1 ring-kaspa-green/50 shadow-[0_0_22px_-6px_rgba(73,234,203,0.45)]'
-                  : 'border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]'
+                  : 'border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04] light:border-slate-200 light:bg-white light:hover:border-slate-300 light:hover:bg-slate-50'
               }`}
             >
               {active && (
@@ -656,7 +656,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
               <div className="flex items-start justify-between gap-2">
                 <span
                   className={`grid place-items-center h-9 w-9 rounded-lg border transition-colors shrink-0 ${
-                    active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20'
+                    active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20 light:border-slate-200 light:bg-slate-100 light:group-hover:border-slate-300'
                   }`}
                 >
                   <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300 light:text-slate-700'} />
@@ -889,13 +889,13 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
             <div className="text-white light:text-slate-900 font-semibold">Your enforced covenants (this session)</div>
             <div className="text-xs text-gray-400 light:text-slate-600 mt-0.5">Deployed and live on-chain.</div>
           </div>
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-white/[0.04] light:divide-slate-200">
             {mine.map((c) => (
               <div key={c.tx} className="px-6 py-4 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase">on-chain</span>
-                    {c.nonCustodialDeploy && <span className="px-2 py-0.5 rounded-md border border-kaspa-green/30 bg-kaspa-green/10 text-kaspa-green text-[10px] font-bold uppercase" title="Funded by a signature made in your browser; the key never reached the server">non-custodial</span>}
+                    <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 light:border-emerald-300 bg-emerald-500/10 light:bg-emerald-50 text-emerald-300 light:text-emerald-700 text-[10px] font-bold uppercase">on-chain</span>
+                    {c.nonCustodialDeploy && <span className="px-2 py-0.5 rounded-md border border-kaspa-green/30 bg-kaspa-green/10 text-kaspa-green light:text-[#0d9488] text-[10px] font-bold uppercase" title="Funded by a signature made in your browser; the key never reached the server">non-custodial</span>}
                     <span className="text-sm font-semibold text-white light:text-slate-900">{c.kind}</span>
                     <span className="text-xs text-gray-400 light:text-slate-600">{c.kas} KAS locked</span>
                   </div>
@@ -932,10 +932,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                   );
                 })()}
                 {c.redeem_script_hex && !c.spent && (
-                  <div className="text-[11px] text-amber-300 font-mono break-all border border-amber-400/30 bg-amber-400/[0.04] rounded-lg p-2 mt-1">
+                  <div className="text-[11px] text-amber-300 light:text-amber-800 font-mono break-all border border-amber-400/30 light:border-amber-500/40 bg-amber-400/[0.04] light:bg-amber-50 rounded-lg p-2 mt-1">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-sans font-semibold not-italic">Save your redeem script</span>
-                      <button onClick={() => downloadRecoveryBundle(c)} className="font-sans inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-amber-400/40 bg-amber-400/10 text-amber-200 hover:bg-amber-400/20 shrink-0">
+                      <button onClick={() => downloadRecoveryBundle(c)} className="font-sans inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border border-amber-400/40 light:border-amber-300 bg-amber-400/10 light:bg-amber-100 text-amber-200 light:text-amber-800 hover:bg-amber-400/20 light:hover:bg-amber-200 shrink-0">
                         <Download size={11} /> recovery bundle
                       </button>
                     </div>
@@ -944,7 +944,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
                   </div>
                 )}
                 {c.preimage && !c.spent && (
-                  <div className="text-[11px] text-amber-300 font-mono break-all">secret (save to redeem): {c.preimage} <CopyBtn text={c.preimage} /></div>
+                  <div className="text-[11px] text-amber-300 light:text-amber-800 font-mono break-all">secret (save to redeem): {c.preimage} <CopyBtn text={c.preimage} /></div>
                 )}
                 {c.lock_daa && !c.spent && (
                   <div className="text-[11px] text-gray-400 light:text-slate-600">unlocks at DAA {c.lock_daa}{tipDaa ? (tipDaa >= c.lock_daa ? ' (elapsed - redeemable now)' : ` (~${c.lock_daa - tipDaa} blocks to go)`) : ''}</div>

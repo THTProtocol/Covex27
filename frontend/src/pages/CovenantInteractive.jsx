@@ -1466,7 +1466,7 @@ export default function CovenantInteractive() {
                         {/* Rules table filling the side space */}
                         <div>
                           <div className="text-xs font-bold text-emerald-400 mb-1 tracking-widest">RULES</div>
-                          <table className="w-full text-xs border border-emerald-500/30 rounded-xl overflow-hidden bg-black/40 text-emerald-100">
+                          <table className="w-full text-xs border border-emerald-500/30 light:border-emerald-500/40 rounded-xl overflow-hidden bg-black/40 text-emerald-100 light:text-slate-700">
                             <tbody>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Game</td><td className="p-2">10 min per player (clock only on your turn)</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Stake</td><td className="p-2">Any amount. Match exactly or auto return in 5 min</td></tr>
@@ -1475,7 +1475,7 @@ export default function CovenantInteractive() {
                               <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome oracle-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
-                          <div className="text-[10px] text-emerald-300/70 mt-1 text-center">Transparent · Custody on-chain · Outcome oracle-attested</div>
+                          <div className="text-[10px] text-emerald-300/70 light:text-emerald-700 mt-1 text-center">Transparent · Custody on-chain · Outcome oracle-attested</div>
                         </div>
                       </div>
                     </div>
@@ -1645,10 +1645,10 @@ export default function CovenantInteractive() {
                       </div>
                     )}
                     {covenant.enforcement_reality === 'decorative' && !covenant.redeem_kind && (
-                      <div className="p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 text-xs text-amber-200/90 leading-relaxed">
+                      <div className="p-3 rounded-xl bg-amber-500/[0.06] light:bg-amber-50 border border-amber-500/25 light:border-amber-500/40 text-xs text-amber-200/90 light:text-amber-800 leading-relaxed">
                         <strong>Heads up:</strong> this covenant is metadata-only (not consensus-enforced). "Lock" sends KAS to the creator's address. There is no on-chain script forcing a payout back to you. Only interact if you trust the creator.
                         {covenant.creator_addr && (
-                          <> <Link to={`/address/${encodeURIComponent(covenant.creator_addr)}`} className="underline text-amber-300">View creator</Link>.</>
+                          <> <Link to={`/address/${encodeURIComponent(covenant.creator_addr)}`} className="underline text-amber-300 light:text-amber-700">View creator</Link>.</>
                         )}
                       </div>
                     )}

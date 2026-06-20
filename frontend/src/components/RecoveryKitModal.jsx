@@ -120,7 +120,7 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative w-full max-w-lg glass-panel rounded-2xl border border-white/10 p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-lg glass-panel rounded-2xl border border-white/10 light:border-slate-300 p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
@@ -165,7 +165,7 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
             <Download size={16} /> Download recovery kit (JSON)
           </button>
         ) : (
-          <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 text-[11px] text-amber-300/90">
+          <div className="mt-5 rounded-xl border border-amber-500/20 light:border-amber-500/40 bg-amber-500/[0.05] light:bg-amber-50 p-3 text-[11px] text-amber-300/90 light:text-amber-700">
             The redeem script for this covenant is not on record yet (it was created elsewhere). Claim it on this page with its redeem script first, then the recovery kit becomes available.
           </div>
         )}

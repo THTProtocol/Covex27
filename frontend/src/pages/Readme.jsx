@@ -139,10 +139,10 @@ export default function Readme() {
             how that works, from the 35 bytes of the lock to the zero-knowledge proofs that gate it.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link to="/sandbox" className="btn-shimmer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold hover:brightness-110 transition">
+            <Link to="/sandbox" className="btn-shimmer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black light:bg-emerald-800 light:text-white font-bold hover:brightness-110 transition">
               Open the Sandbox <ArrowRight size={16} />
             </Link>
-            <Link to="/" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 text-white font-semibold hover:bg-white/5 transition">
+            <Link to="/" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 text-white font-semibold hover:bg-white/5 light:hover:bg-slate-100 transition">
               <Eye size={16} /> Explore covenants
             </Link>
           </div>
@@ -399,10 +399,10 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">Money that keeps its own promises.</h2>
           <p className="text-gray-300 mb-6">Open the sandbox, pick any covenant, and watch exactly how it resolves, for free, with no wallet required to look.</p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link to="/sandbox" className="btn-shimmer inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold hover:brightness-110 transition">
+            <Link to="/sandbox" className="btn-shimmer inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black light:bg-emerald-800 light:text-white font-bold hover:brightness-110 transition">
               Open the Sandbox <ArrowRight size={16} />
             </Link>
-            <Link to="/whitepaper" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 text-white font-semibold hover:bg-white/5 transition">
+            <Link to="/whitepaper" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 light:border-slate-300 text-white font-semibold hover:bg-white/5 light:hover:bg-slate-100 transition">
               Read the whitepaper
             </Link>
           </div>

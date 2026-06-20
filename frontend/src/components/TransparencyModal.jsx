@@ -142,7 +142,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
             <div className="text-base font-black text-white light:text-slate-900 leading-tight truncate">{title}</div>
             <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ color: ui.accent, borderColor: `${ui.accent}55`, background: `${ui.accent}14` }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: ui.accent }} /> {ui.name}
-              {circuitId && <span className="text-gray-500 light:text-slate-400 font-mono normal-case tracking-normal">· {circuitId}</span>}
+              {circuitId && <span className="text-gray-500 light:text-slate-600 font-mono normal-case tracking-normal">· {circuitId}</span>}
             </span>
           </div>
           <button onClick={onClose} className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white light:hover:text-slate-900 hover:bg-white/5" aria-label="Close">
@@ -178,23 +178,23 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
             <Section icon={FileKey} title="Source you can inspect" accent={ui.accent}>
               {vkeyPath && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">Verification key (Groth16)</div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">Verification key (Groth16)</div>
                   <a href={vkeyPath} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[11px] font-mono text-kaspa-green hover:underline break-all">
                     {vkeyPath} <ExternalLink size={11} className="shrink-0" />
                   </a>
-                  {inBrowser && <div className="text-[11px] text-gray-500 light:text-slate-400 mt-1">In-browser prover available · wasm + zkey served alongside this key.</div>}
+                  {inBrowser && <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1">In-browser prover available · wasm + zkey served alongside this key.</div>}
                 </div>
               )}
               {involvesOracle && oracle.pubkey?.xonly_pubkey && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">Oracle public key ({oracle.pubkey.scheme || 'bip340-schnorr-secp256k1'})</div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">Oracle public key ({oracle.pubkey.scheme || 'bip340-schnorr-secp256k1'})</div>
                   <CopyChip text={oracle.pubkey.xonly_pubkey} />
-                  {oracle.pubkey.message_format && <div className="text-[11px] text-gray-500 light:text-slate-400 mt-1.5">Signs: <span className="font-mono text-gray-300 light:text-slate-600">{oracle.pubkey.message_format}</span></div>}
+                  {oracle.pubkey.message_format && <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5">Signs: <span className="font-mono text-gray-300 light:text-slate-600">{oracle.pubkey.message_format}</span></div>}
                 </div>
               )}
               {covenant && scriptHex && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">On-chain lock script</div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">On-chain lock script</div>
                   <CopyChip text={scriptHex} />
                   <div className={`text-[11px] mt-1.5 inline-flex items-center gap-1.5 ${p2shStructural ? 'text-kaspa-green' : 'text-amber-300'}`}>
                     {p2shStructural ? <Check size={12} /> : <AlertTriangle size={12} />}
@@ -210,7 +210,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
           {/* Live oracle status */}
           {involvesOracle && (
             <Section icon={Activity} title="Live oracle status" accent={ui.accent}>
-              {oracle.loading && <p className="text-gray-500 light:text-slate-400">Checking the oracle…</p>}
+              {oracle.loading && <p className="text-gray-500 light:text-slate-500">Checking the oracle…</p>}
               {oracle.error && <p className="text-amber-300">{oracle.error}</p>}
               {oracle.liveness && (
                 <div className="flex flex-wrap items-center gap-2">

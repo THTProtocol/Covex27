@@ -116,7 +116,7 @@ export default function StickyActionRail({
     >
       <div className="sticky top-24 rounded-2xl border border-white/10 light:border-slate-200 bg-white/5 light:bg-white/80 backdrop-blur-xl p-4 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)] light:shadow-[0_8px_28px_-12px_rgba(15,23,42,0.18)]">
         <div className="flex flex-col gap-3">
-          <WalletButton />
+          <WalletButton fullLabel />
           {primaryBtn}
           {shareBtn}
           {renderExtras()}
@@ -154,7 +154,7 @@ export default function StickyActionRail({
               <Share2 size={15} aria-hidden="true" />
             </button>
           </div>
-          <WalletButton />
+          <WalletButton fullLabel />
           {renderExtras()}
         </div>
       </div>

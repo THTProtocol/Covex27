@@ -715,6 +715,7 @@ export default function Explorer() {
                 role="tab"
                 data-tab-id={tab.id}
                 aria-selected={activeId === tab.id}
+                aria-label={tab.label}
                 tabIndex={activeId === tab.id ? 0 : -1}
                 onKeyDown={onTabKeyDown}
                 onClick={() => selectTab(tab.id)}
@@ -722,13 +723,14 @@ export default function Explorer() {
                   activeId === tab.id ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
               >
-                <tab.icon size={12} /><span className="hidden sm:inline">{tab.label}</span>
+                <tab.icon size={12} aria-hidden="true" /><span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
             <button
               role="tab"
               data-tab-id="arena"
               aria-selected={activeId === 'arena'}
+              aria-label="Arena"
               tabIndex={activeId === 'arena' ? 0 : -1}
               onKeyDown={onTabKeyDown}
               onClick={() => selectTab(showArena ? 'explore' : 'arena')}
@@ -736,7 +738,7 @@ export default function Explorer() {
                 showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
               }`}
             >
-              <Gamepad2 size={12} />
+              <Gamepad2 size={12} aria-hidden="true" />
               <span className="hidden sm:inline">Arena</span>
               {arenaWaiting.length > 0 && (
                 <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 text-amber-400'}`}>

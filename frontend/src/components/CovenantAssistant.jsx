@@ -120,7 +120,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') run(); }}
           placeholder="e.g. an escrow that refunds the buyer after 30 days"
-          className="flex-1 bg-transparent text-sm text-white light:text-slate-900 placeholder:text-gray-500 light:placeholder:text-slate-400 outline-none"
+          className="flex-1 min-w-0 bg-transparent text-sm text-white light:text-slate-900 placeholder:text-gray-500 light:placeholder:text-slate-400 outline-none"
         />
         <button onClick={() => run()} disabled={!q.trim()} className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_14px_rgba(73,234,203,0.35)] transition-all">
           <Send size={13} /> Suggest

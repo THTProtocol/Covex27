@@ -122,7 +122,7 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
   );
 }
 
-export default function WalletButton() {
+export default function WalletButton({ fullLabel = false } = {}) {
   const { address, balance, balanceLoading, activeWalletId, walletMeta, connecting, error, clearError, wallets, connect, disconnect, refreshBalance } = useWallet();
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -562,10 +562,14 @@ export default function WalletButton() {
         onClick={() => { clearError(); setLeaving(false); setOpen(true); }}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="btn-transition flex items-center gap-2 px-3.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
+        aria-label="Connect wallet"
+        className="btn-transition flex items-center justify-center gap-2 px-2.5 sm:px-5 py-2.5 bg-[#111111] light:bg-white border border-[#1f1f1f] light:border-slate-300 hover:border-[#49EACB] text-white light:text-slate-900 rounded-xl font-medium hover:shadow-[0_0_15px_rgba(73,234,203,0.15)] text-sm whitespace-nowrap"
       >
         <Wallet size={16} className="text-[#49EACB] shrink-0" />
-        CONNECT<span className="hidden sm:inline">&nbsp;WALLET</span>
+        {/* Icon-only below sm so the cramped 320px top nav still fits the hamburger;
+            the full "CONNECT WALLET" label returns at sm+. aria-label keeps it named.
+            fullLabel callers (e.g. the full-width action-rail button) always show text. */}
+        <span className={fullLabel ? 'inline' : 'hidden sm:inline'}>CONNECT&nbsp;WALLET</span>
       </button>
       {typeof document !== 'undefined' && drawer ? createPortal(drawer, document.body) : null}
     </>

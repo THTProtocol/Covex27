@@ -904,7 +904,7 @@ export default function CovenantInteractive() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 xl:pr-[312px] pt-10 sm:pt-12 pb-[180px] lg:pb-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 xl:pr-[312px] pt-10 sm:pt-12 pb-[180px] xl:pb-12">
       <Link
         to="/"
         className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors mb-4 font-mono text-sm uppercase tracking-wider"

@@ -145,6 +145,16 @@ const NL = ({ isActive }) =>
       : 'text-gray-200 hover:text-white dark:text-gray-200 dark:hover:text-white after:w-0 hover:after:w-full'
   }`;
 
+// Mobile drawer rows: full-width 44px tap targets (WCAG 2.5.5), not the desktop
+// inline underline link. The parent gap-3 spacing was visual only; the clickable
+// area was just the ~20px text. block + min-h-[44px] makes the whole row tappable.
+const NL_MOBILE = ({ isActive }) =>
+  `flex items-center min-h-[44px] -mx-2 px-2 rounded-lg text-sm font-medium transition-colors ${
+    isActive
+      ? 'text-kaspa-green'
+      : 'text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-slate-700 light:hover:text-slate-900 light:hover:bg-slate-100'
+  }`;
+
 function SmartDeployLink() {
   const { address } = useWallet();
   const [isPaid, setIsPaid] = useState(false);
@@ -458,16 +468,16 @@ export default function App() {
             {/* Mobile Menu Drawer */}
             {mobileMenuOpen && (
               <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
-                <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-3 text-sm">
-                  <NavLink to="/" end className={NL} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
-                  <NavLink to="/sandbox" className={NL} onClick={() => setMobileMenuOpen(false)}>Build</NavLink>
-                  <NavLink to="/pricing" className={NL} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
-                  <div className="mt-1 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
-                  <NavLink to="/readme" className={NL} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
-                  <NavLink to="/kaspa" className={NL} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
-                  <NavLink to="/docs" className={NL} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
-                  <NavLink to="/whitepaper" className={NL} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
-                  <div className="mt-1 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Network</div>
+                <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-0.5 text-sm">
+                  <NavLink to="/" end className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
+                  <NavLink to="/sandbox" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Build</NavLink>
+                  <NavLink to="/pricing" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
+                  <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
+                  <NavLink to="/readme" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
+                  <NavLink to="/kaspa" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
+                  <NavLink to="/docs" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
+                  <NavLink to="/whitepaper" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
+                  <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Network</div>
                   <NetworkSwitcher />
                   {/* Add Covex to your home screen (only shown when installable) */}
                   <InstallAppButton variant="menu" onInstalled={() => setMobileMenuOpen(false)} />

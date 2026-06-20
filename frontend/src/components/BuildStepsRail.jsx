@@ -32,6 +32,13 @@ export default function BuildStepsRail({ compact }) {
 
   const isCompact = compact === undefined ? COMPACT_ROUTE.test(location.pathname) : compact;
 
+  // On a covenant-detail route (step 5 "Share") the rail's snap-x scroller overflows
+  // with no affordance and eats ~70px of vertical space on a phone, above content the
+  // visitor actually came to use. Hide it below sm there; it returns at sm+ where it
+  // fits. Studio (compact) and the sandbox build flow keep the rail at every width.
+  const COVENANT_DETAIL_ROUTE = /^\/covenant\/[^/]+(\/|$)/;
+  const hideOnMobile = COVENANT_DETAIL_ROUTE.test(location.pathname) && !COMPACT_ROUTE.test(location.pathname);
+
   const chipBase = isCompact
     ? 'inline-flex items-center justify-center shrink-0 rounded-full border font-bold transition-all snap-start'
     : 'inline-flex items-center gap-2 shrink-0 pl-1.5 pr-3 py-2 rounded-full border text-xs font-bold transition-all snap-start';
@@ -41,7 +48,7 @@ export default function BuildStepsRail({ compact }) {
 
   return (
     <div
-      className={`relative sm:sticky sm:top-16 z-30 -mx-4 px-4 ${isCompact ? 'py-1.5' : 'py-3'} ${isCompact ? '' : 'mb-5'} bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200`}
+      className={`${hideOnMobile ? 'hidden sm:block' : ''} relative sm:sticky sm:top-16 z-30 -mx-4 px-4 ${isCompact ? 'py-1.5' : 'py-3'} ${isCompact ? '' : 'mb-5'} bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200`}
       role="navigation"
       aria-label="Covenant build steps"
     >

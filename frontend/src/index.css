@@ -180,17 +180,75 @@ body {
    Modern soft cards, nice glass, vibrant but professional
    ═══════════════════════════════════════════════════════════════ */
 .light {
-  --background: 248 250 252;
+  /* ═══════════════════════════════════════════════════════════════
+     COVEX LIGHT MODE - PREMIUM SEMANTIC DESIGN TOKENS
+     Single source of truth. Every reactive `.light .xxx` override and
+     every component-level `light:` class resolves to one of these, so
+     surfaces, borders, shadows, ink, and the brand accent stay cohesive
+     across all pages instead of drifting per-component. Proton-grade:
+     a calm cool canvas, mostly-opaque frosted surfaces that lift on a
+     soft diffuse shadow scale, hairline borders with a whisper of brand,
+     one teal accent family, and a four-step ink ramp.
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* - Canvas + surface elevation ramp - */
+  --lm-canvas: #eef2f7;                     /* page background: cool, lets white surfaces lift */
+  --lm-canvas-deep: #e7edf4;                /* recessed gutters behind cards / section wells */
+  --lm-surface: rgba(255, 255, 255, 0.86);  /* canonical card/panel: frosted, brand whispers through */
+  --lm-surface-solid: #ffffff;              /* opaque variant (QR, dense readouts, modals) */
+  --lm-surface-2: #eef2f7;                  /* inner tiles, input base, code track (recessed step) */
+  --lm-surface-3: #e3e9f1;                  /* deepest recess: chart tracks, hover wells */
+  --lm-overlay: #ffffff;                    /* modal / popover / dropdown shell */
+  --lm-elevated: rgba(255, 255, 255, 0.90); /* nav / sticky bars */
+
+  /* - Hairline border scale (cool, faint brand undertone) - */
+  --lm-border-subtle: #e6ebf2;
+  --lm-border: #d6deea;
+  --lm-border-strong: #c2cdda;
+  --lm-border-brand: rgba(13, 148, 136, 0.18);
+  --lm-border-brand-strong: rgba(13, 148, 136, 0.34);
+
+  /* - Ink ramp (resolves the secondary/tertiary contradictions) - */
+  --lm-ink-1: #0f172a;   /* primary: headings, key body */
+  --lm-ink-2: #475569;   /* secondary body */
+  --lm-ink-3: #64748b;   /* tertiary meta / captions */
+  --lm-ink-4: #94a3b8;   /* quaternary / placeholder / disabled */
+
+  /* - Brand teal: ONE family (kills emerald / teal-600 / #14B8A6 drift for
+       BRAND roles; the enforcement-reality palette is separate and untouched) - */
+  --lm-brand-ink: #0f766e;        /* brand text + links on white (AA) */
+  --lm-brand: #0d9488;            /* icons, borders, secondary accents */
+  --lm-brand-bright: #14b8a6;     /* hover / active highlight */
+  --lm-brand-vivid: #49EACB;      /* the signature bright: focus ring, micro-accents */
+  --lm-brand-tint: rgba(13, 148, 136, 0.07);
+  --lm-brand-tint-strong: rgba(13, 148, 136, 0.13);
+
+  /* - Soft, diffuse, cool elevation shadow scale (the premium "lift") - */
+  --lm-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --lm-shadow-2: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 20px -8px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --lm-shadow-3: 0 4px 12px -2px rgba(15, 23, 42, 0.10), 0 24px 48px -16px rgba(15, 23, 42, 0.22);
+  --lm-shadow-lift: 0 16px 36px -16px rgba(15, 23, 42, 0.22);
+  --lm-shadow-glow: 0 0 0 3px rgba(13, 148, 136, 0.16);
+  --lm-cta-shadow: 0 1px 2px rgba(13, 148, 136, 0.22), 0 10px 22px -10px rgba(13, 148, 136, 0.40);
+
+  /* - Primary CTA: vibrant brand teal, white text, premium gradient depth.
+       Single definition so the Button primitive and every raw bg-[#49EACB]
+       button render the SAME premium CTA in light mode. - */
+  --lm-cta: linear-gradient(180deg, #16b6a1 0%, #0f8c7e 100%);
+  --lm-cta-hover: linear-gradient(180deg, #1ac4ad 0%, #11998a 100%);
+
+  /* - Legacy variables, repointed onto the ramp above (back-compat) - */
+  --background: 238 242 247;       /* --lm-canvas */
   --foreground: 15 23 42;
   --card: 255 255 255;
   --card-foreground: 15 23 42;
-  --primary: 73 234 203;  /* exact brand #49EACB */
+  --primary: 73 234 203;
   --primary-foreground: 0 0 0;
   --border: 15 23 42 / 0.1;
   --muted: 15 23 42 / 0.05;
   --accent: 73 234 203;
   --input-bg: 255 255 255;
-  --kaspa-green: #49EACB;  /* bright brand for consistency */
+  --kaspa-green: #49EACB;
   --surface-elevated: 255 255 255;
   --text-muted: #64748b;
   --text-primary: #0f172a;
@@ -200,13 +258,16 @@ body {
    over the off-white base) so light mode has the same togetherness/cohesion as
    dark instead of a flat fill. Same 4-layer structure as the dark `body` rule. */
 .light body {
+  /* Premium cool canvas: a soft top-lit wash so white surfaces lift, with
+     restrained teal + gold brand glows for cohesion (the same 4-layer depth
+     as dark mode, tuned subtle for a bright screen). */
   background:
-    radial-gradient(55% 45% at 50% -8%, rgba(13, 148, 136, 0.07) 0%, transparent 60%),
-    radial-gradient(45% 38% at 92% 8%, rgba(232, 175, 52, 0.05) 0%, transparent 62%),
-    radial-gradient(50% 45% at 8% 30%, rgba(13, 148, 136, 0.045) 0%, transparent 60%),
-    radial-gradient(circle at 50% 0%, #ffffff 0%, #f8fafc 100%);
+    radial-gradient(60% 48% at 50% -10%, rgba(13, 148, 136, 0.06) 0%, transparent 60%),
+    radial-gradient(42% 36% at 94% 6%, rgba(232, 175, 52, 0.04) 0%, transparent 64%),
+    radial-gradient(48% 44% at 6% 28%, rgba(13, 148, 136, 0.035) 0%, transparent 62%),
+    radial-gradient(circle at 50% -5%, #ffffff 0%, var(--lm-canvas) 62%, var(--lm-canvas-deep) 100%);
   background-attachment: fixed;
-  color: #0f172a;
+  color: var(--lm-ink-1);
 }
 
 /* Crisp, high-contrast typography - all text visible */
@@ -220,35 +281,36 @@ body {
 .light .text-white,
 .light .text-gray-100,
 .light .text-gray-200 {
-  color: #0f172a !important; /* primary ink */
+  color: var(--lm-ink-1) !important; /* primary ink */
 }
 .light .text-gray-300,
 .light .text-gray-400 {
-  color: #334155 !important; /* secondary body */
+  color: var(--lm-ink-2) !important; /* secondary body */
 }
 .light .text-gray-500,
 .light .text-gray-600 {
-  color: #64748b !important; /* tertiary meta */
+  color: var(--lm-ink-3) !important; /* tertiary meta */
 }
-.light .text-gray-700 { color: #334155 !important; }
+.light .text-gray-700 { color: var(--lm-ink-2) !important; }
 .light .text-gray-800 { color: #1e293b !important; }
 
 /* Brand colors match dark mode exactly - #49EACB pops on light */
 .light .text-kaspa-green,
 .light .text-\[\#49EACB\] {
-  color: #0d9488 !important; /* deep teal: brand-true but readable on white */
+  color: var(--lm-brand) !important; /* deep teal: brand-true but readable on white */
 }
 .light a {
-  color: #0f766e;  /* darker for body links, good contrast */
+  color: var(--lm-brand-ink);  /* darker for body links, good contrast */
 }
 .light a:hover {
-  color: #49EACB;
+  color: var(--lm-brand-bright);
 }
 
 /* Premium light glass and cards - clean white with soft depth */
 .light .glass-panel,
 .light .card,
 .light [class*="rounded-2xl"],
+.light [class*="rounded-3xl border"],
 .light .bg-zinc-900\/80,
 .light .bg-zinc-800,
 .light .bg-\[\#0a0a0a\],
@@ -263,24 +325,26 @@ body {
 .light .bg-black\/60,
 .light .bg-black\/80,
 .light [class*="bg-black/"] {
-  /* Translucent so the body's radial gradient reads softly through the panel
-     (togetherness), teal-tinted border for brand connection, and a layered
-     shadow + inset highlight for real depth, mirroring dark's glass instead of
-     a flat opaque white. Still ~72% white, so text contrast stays excellent. */
-  background: rgba(255, 255, 255, 0.72) !important;
-  border: 1px solid rgba(13, 148, 136, 0.12) !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
-  color: #0f172a;
-  backdrop-filter: blur(14px) saturate(1.08) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(1.08) !important;
+  /* THE canonical light surface (single source of truth). Mostly-opaque frosted
+     white so it reads premium and readable, with the body's brand glow + DAG
+     whispering through at the edges (cohesion). Brand-tinted hairline + the
+     soft shadow-2 elevation give a real, intentional lift off the cool canvas. */
+  background: var(--lm-surface) !important;
+  border: 1px solid var(--lm-border-brand) !important;
+  box-shadow: var(--lm-shadow-2) !important;
+  color: var(--lm-ink-1);
+  backdrop-filter: blur(16px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.1) !important;
 }
 
 .light .glass-heavy {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border: 1px solid rgba(13, 148, 136, 0.16) !important;
-  box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(18px) saturate(1.1) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.1) !important;
+  /* Heavier sibling for modal/sheet shells where readability outranks translucency:
+     near-opaque white on the deepest shadow so the dialog clearly floats. */
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid var(--lm-border-brand-strong) !important;
+  box-shadow: var(--lm-shadow-3) !important;
+  backdrop-filter: blur(20px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.1) !important;
 }
 
 /* Base (dark) glass-heavy: a heavier, more opaque sibling of .glass-panel for
@@ -308,12 +372,12 @@ body {
 .light .bg-\[\#141414\],
 .light .bg-\[\#06080B\],
 .light .bg-\[\#05050A\] {
-  background: #f1f5f9 !important;
-  border-color: #e2e8f0 !important;
+  background: var(--lm-surface-2) !important;
+  border-color: var(--lm-border-subtle) !important;
 }
 /* Dark hardcoded borders that vanish/clash on light surfaces (code editors, modals). */
 .light .border-\[\#2a2a2a\],
-.light .border-\[\#1a1a1a\] { border-color: #e2e8f0 !important; }
+.light .border-\[\#1a1a1a\] { border-color: var(--lm-border-subtle) !important; }
 
 /* Dark gradient FADES (content fading down to the dark page bg) must fade to a LIGHT
    surface in light mode, otherwise they leave a dark strip over light cards - e.g. the
@@ -366,7 +430,7 @@ body {
 .light .border-white\/20,
 .light .border-white\/30,
 .light .border-\[\#1f1f1f\] {
-  border-color: #e2e8f0 !important;
+  border-color: var(--lm-border-subtle) !important;
 }
 
 /* Top nav - light elevated bar. Scope to the actual nav only: a bare `header`
@@ -374,15 +438,16 @@ body {
    them as a sharp-edged elevated bar in light mode. The nav is <nav>/.fixed.top-0. */
 .light nav,
 .light .fixed.top-0 {
-  /* Faint teal sheen + teal-tinted hairline so the bar reads as part of the brand
-     surface (the "connection" dark mode gets from its glow), over the translucent base. */
+  /* Premium frosted brand bar: a faint top-down teal sheen over a near-opaque
+     elevated surface, a brand-tinted hairline, and a whisper of depth shadow so
+     the bar reads as a deliberate, floating chrome layer over the content. */
   background:
-    linear-gradient(to bottom, rgba(13, 148, 136, 0.035), rgba(248, 250, 252, 0) 60%),
-    rgba(248, 250, 252, 0.95) !important;
-  border-bottom: 1px solid rgba(13, 148, 136, 0.12) !important;
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
-  box-shadow: 0 1px 0 rgba(13, 148, 136, 0.05);
+    linear-gradient(to bottom, rgba(13, 148, 136, 0.04), rgba(255, 255, 255, 0) 64%),
+    var(--lm-elevated) !important;
+  border-bottom: 1px solid var(--lm-border-brand) !important;
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 6px 20px -14px rgba(15, 23, 42, 0.20);
 }
 
 /* Brand wordmark in light - dark text, brand accent on hover */
@@ -405,37 +470,42 @@ body {
   color: #64748b !important;
 }
 
-/* Buttons - brand matching, visible */
+/* PRIMARY CTA - single premium definition. Vibrant brand-teal gradient with
+   white text + a soft teal shadow, so the Button primitive AND every raw
+   bg-[#49EACB] button render the identical CTA in light mode (resolves the old
+   #49EACB-black vs #0f766e-white contradiction). */
 .light .btn-kaspa-primary,
 .light button[class*="bg-\[#49EACB\]"] {
-  background: #49EACB !important;
-  color: #000 !important;
+  background: var(--lm-cta) !important;
+  color: #ffffff !important;
   border: none;
-  box-shadow: 0 1px 2px rgba(73, 234, 203, 0.3);
+  box-shadow: var(--lm-cta-shadow);
 }
-.light .btn-kaspa-primary:hover {
-  background: #3cd8b6 !important;
-  box-shadow: 0 4px 6px -1px rgba(73, 234, 203, 0.3);
+.light .btn-kaspa-primary:hover,
+.light button[class*="bg-\[#49EACB\]"]:hover {
+  background: var(--lm-cta-hover) !important;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.26), 0 14px 28px -10px rgba(13, 148, 136, 0.45);
 }
 
+/* Secondary (outline) buttons */
 .light button[class*="border-white\/20"] {
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
+  border-color: var(--lm-border-strong) !important;
+  color: var(--lm-ink-1) !important;
 }
 .light button[class*="border-white\/20"]:hover {
-  background: #f1f5f9 !important;
-  border-color: #94a3b8 !important;
+  background: var(--lm-surface-2) !important;
+  border-color: var(--lm-brand) !important;
 }
 
 /* Ghost buttons */
 .light button[class*="hover:bg-white\/10"],
 .light .ghost {
-  color: #475569;
+  color: var(--lm-ink-2);
 }
 .light button[class*="hover:bg-white\/10"]:hover,
 .light .ghost:hover {
-  background: #f1f5f9 !important;
-  color: #0f172a;
+  background: var(--lm-surface-2) !important;
+  color: var(--lm-ink-1);
 }
 
 /* Dark base for .cyber-input (only a .light variant existed, so the headline
@@ -454,27 +524,27 @@ body {
   box-shadow: 0 0 0 3px rgba(73, 234, 203, 0.15);
 }
 
-/* Inputs - clean white, dark text, brand focus */
+/* Inputs - clean white field, dark ink, premium brand focus ring */
 .light .cyber-input,
 .light .shadcn-input,
 .light input,
 .light textarea,
 .light select {
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  color: #0f172a !important;
+  background: var(--lm-surface-solid) !important;
+  border: 1px solid var(--lm-border-strong) !important;
+  color: var(--lm-ink-1) !important;
 }
 .light .cyber-input:focus,
 .light .shadcn-input:focus,
 .light input:focus,
 .light textarea:focus {
-  border-color: #49EACB !important;
-  box-shadow: 0 0 0 3px rgba(73, 234, 203, 0.15) !important;
+  border-color: var(--lm-brand) !important;
+  box-shadow: var(--lm-shadow-glow) !important;
   outline: none;
 }
 .light input::placeholder,
 .light textarea::placeholder {
-  color: #94a3b8 !important;
+  color: var(--lm-ink-4) !important;
 }
 
 /* Cards - translucent brand glass, matching the .glass-panel treatment so featured
@@ -485,12 +555,12 @@ body {
 .light .featured-covenant-card,
 .light .terminal-section,
 .light section[class*="bg-black/30"] {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(13, 148, 136, 0.12);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  color: #0f172a;
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  background: var(--lm-surface);
+  border: 1px solid var(--lm-border-brand);
+  box-shadow: var(--lm-shadow-2);
+  color: var(--lm-ink-1);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
 }
 
 /* Badges */
@@ -522,17 +592,19 @@ body {
 }
 .light .modal-content,
 .light [class*="bg-\[\#0a0a0a\]"] {
-  background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  color: #0f172a;
+  background: var(--lm-overlay) !important;
+  border: 1px solid var(--lm-border) !important;
+  box-shadow: var(--lm-shadow-3);
+  color: var(--lm-ink-1);
 }
 
 /* Sticky action bars */
 .light section[class*="sticky bottom"] {
-  background: rgba(248, 250, 252, 0.96) !important;
-  border-top: 1px solid #e2e8f0 !important;
-  backdrop-filter: blur(12px);
+  background: var(--lm-elevated) !important;
+  border-top: 1px solid var(--lm-border-brand) !important;
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  box-shadow: 0 -6px 24px -16px rgba(15, 23, 42, 0.22);
 }
 
 /* Explorer / tables */
@@ -558,15 +630,16 @@ body {
 .light .border-emerald-500\/25 { border-color: #86efac !important; }
 .light .border-blue-500\/20 { border-color: #93c5fd !important; }
 
-/* Glass in light - frosted white, brand accent border on focus */
+/* Glass in light - keep in lockstep with the canonical card surface (was a
+   separate 0.9-opacity / non-brand-border variant that broke cohesion). */
 .light .glass-panel.rounded-2xl {
-  background: rgba(255,255,255,0.9) !important;
-  border-color: #e2e8f0 !important;
+  background: var(--lm-surface) !important;
+  border-color: var(--lm-border-brand) !important;
 }
 .light .bg-white\/\[0\.03\],
 .light .bg-white\/\[0\.015\] {
-  background: #f1f5f9 !important;
-  border-color: #e2e8f0 !important;
+  background: var(--lm-surface-2) !important;
+  border-color: var(--lm-border-subtle) !important;
 }
 .light .text-white\/70,
 .light .text-white\/40,
@@ -717,7 +790,7 @@ body {
 }
 .light [class*="border-white\/10"],
 .light [class*="border-white\/20"] {
-  border-color: #cbd5e1 !important;
+  border-color: var(--lm-border) !important;
 }
 /* Game boards / grids in light */
 .light [class*="bg-\[#0a1628\]"],
@@ -735,13 +808,8 @@ body {
   border-color: #e2e8f0 !important;
 }
 
-/* Action buttons in games (hit/stand/resign) stay colorful but readable */
-.light button[class*="bg-emerald-600"],
-.light button[class*="bg-red-600"],
-.light button[class*="bg-blue-600"],
-.light button[class*="bg-amber-600"] {
-  /* keep the strong colors, they work great on light */
-}
+/* Game action buttons (hit/stand/resign) keep their strong dark-mode fills in
+   light mode by design - no override needed, so no rule here. */
 
 /* Chess / board specific squares get a nice light chessboard if not already */
 .light .chess-square.light { background: #ebecd0 !important; }
@@ -749,9 +817,10 @@ body {
 .light .ck-light { background: #f0d9b5 !important; }
 .light .ck-dark { background: #b58863 !important; }
 
-/* Dag background container in light */
+/* Dag background container in light (matches --lm-canvas; the JSX sets the same
+   value, this is the single CSS source if the class is reused elsewhere). */
 .light .dag-background {
-  background: #f8fafc !important;
+  background: var(--lm-canvas) !important;
 }
 
 /* Scrollbars for light */
@@ -877,17 +946,17 @@ body {
    lift, mirroring the dark .pricing-tier-card treatment (depth over the gradient
    body, brand-teal connection on hover) instead of a flat opaque card. */
 .light .pricing-tier-card {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(13, 148, 136, 0.12);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  background: var(--lm-surface);
+  border-color: var(--lm-border-brand);
+  box-shadow: var(--lm-shadow-2);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 /* See dark hover note: tier accent must survive the hover. */
 .light .pricing-tier-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.18);
+  box-shadow: var(--lm-shadow-lift);
 }
 
 /* Pricing tier cards: dark enhancements */
@@ -917,7 +986,7 @@ body {
 
 /* Search input glass-panel in light */
 .light [class*="focus-within:shadow"].glass-panel {
-  background: rgba(255, 255, 255, 0.85) !important;
+  background: var(--lm-surface) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1013,9 +1082,10 @@ body {
   background: rgba(248, 250, 252, 0.97) !important;
 }
 
-/* DAG background: pure white in light mode */
+/* DAG background base in light mode: the premium cool canvas (single value;
+   the earlier .light .dag-background rule and DagBackground.jsx agree on this). */
 .light .dag-background {
-  background: #fff !important;
+  background: var(--lm-canvas) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1122,8 +1192,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ticker-track { animation: none; }
 }
-.light .ticker-shell { background: #ffffff; border-color: rgba(15, 118, 110, 0.2); }
-.light .ticker-item { background: #f8fafc; border-color: #e2e8f0; }
+.light .ticker-shell { background: var(--lm-surface); border-color: var(--lm-border-brand); }
+.light .ticker-item { background: var(--lm-surface-2); border-color: var(--lm-border-subtle); }
 
 /* ===== Global supreme-polish tokens ===== */
 ::selection { background: rgba(73, 234, 203, 0.3); color: #fff; }
@@ -1180,26 +1250,32 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* Bare bg-white/* (no hover:/focus:/group-hover: prefix) at small alpha,
    mapped to an elevation ramp so cards/inputs keep depth. The selector list
    is finite to dodge the catch-all that previously killed hover deltas. */
+/* White-alpha elevation ramp -> named recessed surface steps. Now includes the
+   faintest alphas (.005/.008/.01) that previously fell through and rendered as
+   invisible whisper-panels on white (Readme/WhatIsKaspa/ApiDocs inner tiles). */
+.light .bg-white\/\[0\.005\],
+.light .bg-white\/\[0\.008\],
+.light .bg-white\/\[0\.01\],
 .light .bg-white\/\[0\.015\],
 .light .bg-white\/\[0\.02\],
 .light .bg-white\/\[0\.03\],
 .light .bg-white\/5 {
-  background: #f8fafc !important;
+  background: var(--lm-surface-2) !important;
 }
 .light .bg-white\/\[0\.04\],
 .light .bg-white\/\[0\.05\],
 .light .bg-white\/\[0\.06\],
 .light .bg-white\/\[0\.08\],
 .light .bg-white\/10 {
-  background: #f1f5f9 !important;
+  background: var(--lm-surface-3) !important;
 }
 .light .bg-white\/15,
 .light .bg-white\/20,
 .light .bg-white\/25 {
-  background: #e2e8f0 !important;
+  background: #dbe3ee !important;
 }
-.light [class*="border-white/"] { border-color: #e2e8f0 !important; }
-.light [class*="divide-white/"] > * + * { border-color: #e2e8f0 !important; }
+.light [class*="border-white/"] { border-color: var(--lm-border-subtle) !important; }
+.light [class*="divide-white/"] > * + * { border-color: var(--lm-border-subtle) !important; }
 
 /* Gradient-clipped numerals fall back to solid ink */
 .light .bg-clip-text.text-transparent {

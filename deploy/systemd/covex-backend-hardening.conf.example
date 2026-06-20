@@ -1,0 +1,47 @@
+# Proposed systemd hardening drop-in for covex-backend.service (audit Stage 5).
+#
+# NOT APPLIED automatically. This is a PROPOSAL. The live covex-backend.service runs
+# as User=root with no sandboxing (no NoNewPrivileges / ProtectSystem / PrivateTmp /
+# MemoryMax), so a backend compromise or memory blow-up has maximal blast radius on a
+# RAM-constrained shared box. These directives shrink that without changing behavior.
+#
+# INSTALL + TEST (the operator must do this; it RESTARTS the live backend):
+#   mkdir -p /etc/systemd/system/covex-backend.service.d
+#   cp deploy/systemd/covex-backend-hardening.conf.example \
+#      /etc/systemd/system/covex-backend.service.d/hardening.conf
+#   systemctl daemon-reload
+#   systemctl restart covex-backend
+#   # then VERIFY it actually started and is serving:
+#   systemctl is-active covex-backend
+#   curl -s http://127.0.0.1:3006/health
+#   journalctl -u covex-backend -n 30 --no-pager   # look for ReadOnly/permission errors
+#
+# IF IT FAILS TO START: a write path is missing from ReadWritePaths below. Add the
+# path the journal complains about (or remove ProtectSystem temporarily) and retry.
+# The backend writes the SQLite DB (DB_PATH=/opt/covex-db/covex.db, plus -wal/-shm) and
+# spawns short-lived node child processes for snarkjs verification (PrivateTmp covers
+# their /tmp scratch). WorkingDirectory is the repo on /mnt; it is read there, not written.
+
+[Service]
+# No privilege escalation by the backend or its snarkjs child processes.
+NoNewPrivileges=true
+
+# Filesystem is read-only except the explicit write paths below (+ /dev /proc /sys).
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/covex-db
+PrivateTmp=true
+
+# Reduce kernel / cgroup / device attack surface (all behavior-neutral for this service).
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+
+# MemoryMax: the box is RAM-constrained (7.6G total; the kaspad nodes are RAM-throttled).
+# A cap protects the box from a backend memory blow-up, but set TOO LOW it OOM-kills the
+# indexer. Leave commented until you observe steady-state RSS (systemctl status covex-backend),
+# then set ~1.5x that. Example starting point (TUNE, do not apply blind):
+# MemoryMax=2G

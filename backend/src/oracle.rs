@@ -1035,7 +1035,12 @@ mod tests {
         }
         // Aliases that share a binding-emitting circuit's verify script + zkey prefix, so their
         // proofs carry covenantId too: a missing binding is a hard reject for these.
-        for alias in ["merkle_dao", "merkle_airdrop", "range_collateral", "timelock_abs"] {
+        for alias in [
+            "merkle_dao",
+            "merkle_airdrop",
+            "range_collateral",
+            "timelock_abs",
+        ] {
             assert!(
                 circuit_emits_covenant_binding(alias),
                 "alias {alias} reuses a binding-emitting circuit's artifacts and must hard-close"
@@ -1050,7 +1055,9 @@ mod tests {
             );
         }
         // A circuit with no binding at all stays out of the set.
-        assert!(!circuit_emits_covenant_binding("some_legacy_attested_circuit"));
+        assert!(!circuit_emits_covenant_binding(
+            "some_legacy_attested_circuit"
+        ));
     }
 
     /// Test that verify_merkle_proof with a real valid proof returns Ok(true).

@@ -3043,6 +3043,60 @@ pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
     }
 }
 
+/// H4 (on-chain twin of the oracle.rs verify-and-sign gate): bind the verified proof to
+/// THIS covenant's deploy_tx_id so a proof generated for covenant A cannot be replayed to
+/// release a DIFFERENT covenant B of the same circuit type (cross-covenant proof reuse).
+///
+/// The off-chain /oracle/verify-and-sign path already enforces this: it requires the field
+/// element covenant_field_element(covenant_id) := sha256(covenant_id) mod BN254 to appear
+/// among the proof's public signals. The in-browser provers commit exactly this value
+/// (frontend covenantFieldElement(covenant.tx_id), byte-identical to the Rust helper), and
+/// deploy_tx_id IS the covenant id those provers bind to. We mirror that gate here EXACTLY,
+/// reusing the same crate::oracle helpers (no re-derived field-element math):
+///   * If the binding IS present among the public inputs -> bound, allow (replay-safe).
+///   * If it is ABSENT and the circuit emits the binding (circuit_emits_covenant_binding)
+///     OR COVEX_REQUIRE_COVENANT_BINDING=true -> hard reject fail-closed.
+///   * If it is ABSENT and the circuit legitimately carries no binding signal -> warn but
+///     allow, so legacy circuits keep working (identical to the off-chain default).
+///
+/// Returns Ok(()) when the payout may proceed, Err(message) when it must be refused.
+/// `deploy_tx_id` is the covenant id the proof must be bound to; `circuit_type` selects the
+/// fail-closed set; `public_inputs` are the proof's public signals already verified by
+/// verify_proof_for_circuit. Game-pot payouts are server-resolved and do NOT call this
+/// (they never carry a ZK binding), matching the off-chain path which skips the H4 gate for
+/// server-resolved game covenants.
+fn enforce_onchain_covenant_binding(
+    deploy_tx_id: &str,
+    circuit_type: &str,
+    public_inputs: &[String],
+) -> Result<(), String> {
+    let expected_covenant_fe = crate::oracle::covenant_field_element(deploy_tx_id);
+    let bound = public_inputs
+        .iter()
+        .any(|s| s.trim() == expected_covenant_fe);
+    if bound {
+        return Ok(());
+    }
+    let strict = crate::oracle::circuit_emits_covenant_binding(circuit_type)
+        || std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+    if strict {
+        return Err(format!(
+            "covenant binding missing: the proof for circuit '{circuit_type}' does not commit this covenant's deploy_tx_id (expected public input {expected_covenant_fe} = sha256(deploy_tx_id) mod BN254). Refusing to co-sign to prevent cross-covenant proof replay."
+        ));
+    }
+    tracing::warn!(
+        "H4 covenant binding ABSENT for covenant {} (circuit {}): proof does not commit \
+         sha256(deploy_tx_id) mod BN254 ({}) as a public input. Co-signing anyway for \
+         backward compatibility (legacy circuits omit the binding signal); this proof \
+         could be replayed onto another covenant of the same circuit type. Set \
+         COVEX_REQUIRE_COVENANT_BINDING=true to fail closed.",
+        &deploy_tx_id[..16.min(deploy_tx_id.len())],
+        circuit_type,
+        expected_covenant_fe
+    );
+    Ok(())
+}
+
 /// POST /covenant/oracle-payout - release an oracle-enforced 2-of-2 [oracle, winner]
 /// covenant. The oracle co-signs ONLY if the outcome verifies; the chain enforces the
 /// 2-of-2, so the disclosed oracle's signature is consensus-required (roadmap D1).
@@ -3119,6 +3173,21 @@ pub async fn oracle_payout_handler(
             "oracle declines to co-sign: outcome for circuit '{}' did not verify",
             req.circuit_type
         ));
+    }
+
+    // H4 (cross-covenant replay): a cryptographically valid proof bound to covenant A must
+    // NOT release a different covenant B of the same circuit type. For a non-game payout the
+    // proof must commit THIS covenant's deploy_tx_id as a public input; reject fail-closed
+    // otherwise. Game pots are server-resolved (no ZK binding), exactly as the off-chain
+    // path skips this gate for game covenants.
+    if !is_game_pot {
+        if let Err(e) = enforce_onchain_covenant_binding(
+            &req.deploy_tx_id,
+            &req.circuit_type,
+            &req.public_inputs,
+        ) {
+            return err(e);
+        }
     }
 
     let redeem = match hex::decode(&cov.redeem_script_hex) {
@@ -3579,6 +3648,19 @@ pub async fn prepare_oracle_payout_handler(
             "oracle declines to co-sign: outcome for circuit '{}' did not verify",
             req.circuit_type
         ));
+    }
+
+    // H4 (cross-covenant replay): identical to oracle_payout_handler. For a non-game payout
+    // the proof must commit THIS covenant's deploy_tx_id; reject fail-closed otherwise so a
+    // proof bound to covenant A cannot be replayed to co-sign a different covenant B.
+    if !is_game_pot {
+        if let Err(e) = enforce_onchain_covenant_binding(
+            &req.deploy_tx_id,
+            &req.circuit_type,
+            &req.public_inputs,
+        ) {
+            return err(e);
+        }
     }
 
     let redeem = match hex::decode(&cov.redeem_script_hex) {
@@ -6019,6 +6101,85 @@ mod tests {
     fn test_keypair(seed: u8) -> Keypair {
         let sk = [seed.max(1); 32];
         Keypair::from_seckey_slice(secp256k1::SECP256K1, &sk).unwrap()
+    }
+
+    /// H4 (cross-covenant proof replay): a proof bound to covenant A must NOT be accepted to
+    /// release a DIFFERENT covenant B of the same circuit type. This mirrors the off-chain
+    /// /oracle/verify-and-sign replay guard for the on-chain co-sign handlers. The two
+    /// handlers call enforce_onchain_covenant_binding after the proof verifies, so testing
+    /// that function with the SAME covenant_field_element values the in-browser provers commit
+    /// proves the on-chain gate rejects the replay and admits the correctly-bound proof.
+    #[test]
+    fn h4_onchain_binding_rejects_cross_covenant_proof_replay() {
+        // Use a circuit that emits the covenant binding (in circuit_emits_covenant_binding),
+        // so a missing/mismatched binding is a HARD reject regardless of the env var.
+        let circuit = "merkle_membership";
+        let covenant_a = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let covenant_b = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+        // The binding field elements the provers commit (sha256(covenant_id) mod BN254).
+        let fe_a = crate::oracle::covenant_field_element(covenant_a);
+        let fe_b = crate::oracle::covenant_field_element(covenant_b);
+        assert_ne!(fe_a, fe_b, "distinct covenants must yield distinct bindings");
+
+        // A real proof for covenant A carries fe_a among its public signals (plus the
+        // circuit's other public inputs, here a stand-in `valid` signal at index 0).
+        let public_inputs_for_a = vec!["1".to_string(), fe_a.clone()];
+
+        // REPLAY: present covenant A's proof to release covenant B -> REJECTED fail-closed.
+        let replay = enforce_onchain_covenant_binding(covenant_b, circuit, &public_inputs_for_a);
+        assert!(
+            replay.is_err(),
+            "a proof bound to covenant A must be REJECTED when used to release covenant B"
+        );
+        let msg = replay.unwrap_err();
+        assert!(
+            msg.contains("covenant binding missing") && msg.contains("cross-covenant"),
+            "rejection must name the cross-covenant binding failure, got: {msg}"
+        );
+
+        // LEGITIMATE: the correctly-bound proof for covenant A releases covenant A -> OK.
+        let legit = enforce_onchain_covenant_binding(covenant_a, circuit, &public_inputs_for_a);
+        assert!(
+            legit.is_ok(),
+            "a proof correctly bound to covenant A must SUCCEED for covenant A: {legit:?}"
+        );
+
+        // Whitespace-tolerant match (mirrors the off-chain .trim() comparison).
+        let padded = vec!["1".to_string(), format!("  {fe_a}  ")];
+        assert!(
+            enforce_onchain_covenant_binding(covenant_a, circuit, &padded).is_ok(),
+            "binding match must tolerate surrounding whitespace, as the off-chain path does"
+        );
+    }
+
+    /// A circuit that legitimately carries NO covenant binding (not in
+    /// circuit_emits_covenant_binding) must NOT be hard-rejected just for omitting it, UNLESS
+    /// COVEX_REQUIRE_COVENANT_BINDING=true. This mirrors the off-chain default exactly so we
+    /// do not break legacy circuits while still letting an operator opt into strict mode.
+    #[test]
+    fn h4_onchain_binding_legacy_circuit_without_binding_is_allowed_by_default() {
+        // A circuit name that is NOT in circuit_emits_covenant_binding.
+        let circuit = "some_legacy_attested_circuit_with_no_binding";
+        let covenant = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        // No binding among the public inputs.
+        let public_inputs = vec!["1".to_string(), "42".to_string()];
+
+        // Ensure strict env is off for the default-behavior assertion.
+        std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING");
+        assert!(
+            enforce_onchain_covenant_binding(covenant, circuit, &public_inputs).is_ok(),
+            "a circuit that legitimately omits the binding must be allowed by default"
+        );
+
+        // With the strict env var, even a legacy circuit is fail-closed.
+        std::env::set_var("COVEX_REQUIRE_COVENANT_BINDING", "true");
+        let strict = enforce_onchain_covenant_binding(covenant, circuit, &public_inputs);
+        std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING");
+        assert!(
+            strict.is_err(),
+            "COVEX_REQUIRE_COVENANT_BINDING=true must fail closed even for legacy circuits"
+        );
     }
 
     /// Multi-UTXO coin selection: bounded only by TOTAL balance (no single-UTXO cap).

@@ -66,6 +66,9 @@ function LearnMenu() {
     ['What is Kaspa', '/kaspa'],
     ['API Docs', '/docs'],
     ['Whitepaper', '/whitepaper'],
+    // Flagship non-custodial proof: claim your funds directly on Kaspa even if
+    // Covex is permanently offline. Was footer-only and nearly undiscoverable.
+    ['Claim funds if Covex is down', '/recover'],
   ];
   return (
     <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
@@ -473,10 +476,12 @@ export default function App() {
                   <NavLink to="/sandbox" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Build</NavLink>
                   <NavLink to="/pricing" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
+                  <NavLink to="/about" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>About Covex</NavLink>
                   <NavLink to="/readme" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
                   <NavLink to="/kaspa" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
                   <NavLink to="/docs" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
                   <NavLink to="/whitepaper" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
+                  <NavLink to="/recover" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Claim funds if Covex is down</NavLink>
                   <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Network</div>
                   <NetworkSwitcher />
                   {/* Add Covex to your home screen (only shown when installable) */}
@@ -562,7 +567,7 @@ export default function App() {
                   // Discoverable entry for "I have a redeem script, spend any covenant":
                   // the external-spend panel lives on the enforced deploy page.
                   ['Advanced: spend a redeem script', '/deploy/enforced'],
-                  ['Recover', '/recover'],
+                  ['Claim funds if Covex is down', '/recover'],
                   ['Stats', '/stats'],
                   ['Templates', '/templates'],
                   ['Terms', '/terms'],

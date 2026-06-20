@@ -497,7 +497,7 @@ export default function Sandbox() {
             <Badge variant="glass" dot>Free to explore</Badge>
           </div>
           <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl">
-            A real Kaspa covenant, built step by step. Exploring and simulating is free; deploying needs only your own wallet.
+            Build any Kaspa covenant - escrows, prediction markets, games, ZK-credential proofs, timelocks, multisig, or your own custom logic - then give it a full public website. Step by step, non-custodial. Exploring and simulating is free; deploying needs only your own wallet.
           </p>
           {/* Visible build-tour launcher. This is a BUILD tour, so the affordance
               belongs here, not only on the Explorer hero. */}

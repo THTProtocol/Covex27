@@ -200,7 +200,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
         <div className="text-gray-300 light:text-slate-700 leading-relaxed">
           <span className="text-white light:text-slate-900 font-semibold">Free to explore and simulate.</span> Inspecting the circuit, its real
           enforcement, and the payout math costs nothing and needs no wallet. To deploy a live covenant on Kaspa, open the
-          builder below; basic SilverScript is free and the advanced editor unlocks with a tier.
+          builder below. All building is free. Paid tiers buy priority placement only.
         </div>
       </div>
     </div>

@@ -40,8 +40,9 @@ const TIERS = [
     id: 'FREE',
     name: 'Free',
     price: 0,
-    desc: 'Deploy and bet any amount on the Kaspa BlockDAG. No cap, ever.',
+    desc: 'Build and deploy ANY covenant - games, markets, escrows, ZK proofs, vesting, custom logic. No cap, ever.',
     features: [
+      'Build any covenant type (all builders free)',
       'Lock or bet any amount, no maximum',
       'Browse all indexed covenants',
       'Public read-only contract view',
@@ -50,8 +51,7 @@ const TIERS = [
       'Search and filter capabilities',
     ],
     missing: [
-      'No custom website / interactive UI',
-      'No priority placement on the Explorer',
+      'No custom covenant website + priority placement (those are the paid add-ons)',
     ],
     cta: 'Explore Covenants',
     ctaAction: 'explore',

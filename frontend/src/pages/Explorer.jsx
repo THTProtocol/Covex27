@@ -178,6 +178,20 @@ const CATEGORY_QUERY = {
 
 const PAGE_SIZE = 60;
 
+// Capability chip strip shown in the hero so the full build range is VISIBLE and
+// REACHABLE in one click. Each chip with a `category` sets that Explorer filter (the
+// keys are exact ALL_CATEGORIES / CATEGORY_QUERY entries); chips with a `to` open the
+// builder directly (for ranges that have no single indexed category yet).
+const CAPABILITY_CHIPS = [
+  { label: 'Games', category: 'Games & Matches', Icon: Gamepad2 },
+  { label: 'Prediction markets', category: 'Predictive Markets', Icon: TrendingUp },
+  { label: 'Escrows', category: 'Escrow & Custody', Icon: ShieldCheck },
+  { label: 'Auctions', category: 'Auctions', Icon: Landmark },
+  { label: 'ZK proofs', category: 'ZK Proofs', Icon: Zap },
+  { label: 'Insurance', to: '/sandbox', Icon: Repeat },
+  { label: 'Custom logic', to: '/sandbox', Icon: Boxes },
+];
+
 const ALL_CATEGORIES = [
   'All',
   // Core types
@@ -217,12 +231,13 @@ function useCountUp(target, duration = 950) {
   return val;
 }
 
-function CountUpStat({ icon: Icon, label, value, fmt }) {
+function CountUpStat({ icon: Icon, label, value, fmt, tip }) {
   const n = useCountUp(value);
   return (
-    <div className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] light:hover:bg-slate-50 transition-colors">
+    <div className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] light:hover:bg-slate-50 transition-colors" title={tip || undefined}>
       <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 light:text-slate-500 font-mono uppercase tracking-[0.18em]">
-        <Icon size={11} className="text-kaspa-green/80" />{label}
+        <Icon size={11} className="text-kaspa-green/80" />
+        <span className={tip ? 'underline decoration-dotted decoration-white/30 light:decoration-slate-400 underline-offset-2 cursor-help' : undefined}>{label}</span>
       </p>
       <p className="text-lg sm:text-xl font-black text-white light:text-slate-900 tabular-nums">{fmt(n)}</p>
     </div>
@@ -547,11 +562,38 @@ export default function Explorer() {
           className="relative font-black text-white light:text-slate-900 mb-6 max-w-3xl leading-[1.1] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
           style={{ fontSize: 'clamp(2.25rem, 5.5vw, 4.5rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
         >
-          Interactive Covenants for <span className="text-kaspa-green">The Kaspa BlockDAG</span>
+          Build anything on <span className="text-kaspa-green">Kaspa</span>. Free.
         </h1>
-        <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-          Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
+        <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+          A covenant is a self-running on-chain app whose rules the Kaspa network enforces - your wallet signs, Covex never holds your keys. Build games, markets, escrows, ZK proofs, auctions and custom logic, each with its own website.
         </p>
+        <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
+          <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
+            Powered by SilverScript covenants on programmable UTXOs. Building is always free - paid tiers buy priority placement only.
+          </span>
+        </p>
+        {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
+            deep-links into the matching Explorer category filter (custom logic opens the
+            builder). Categories are the canonical ALL_CATEGORIES / CATEGORY_QUERY keys. */}
+        <div className="relative flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.12s_both]">
+          {CAPABILITY_CHIPS.map(({ label, category, to, Icon }) => {
+            const cls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-medium text-white/80 light:text-slate-700 hover:text-kaspa-green light:hover:text-emerald-700 hover:border-kaspa-green/40 light:hover:border-emerald-400 hover:bg-kaspa-green/[0.06] light:hover:bg-emerald-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60';
+            return to ? (
+              <Link key={label} to={to} className={cls}>
+                <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
+              </Link>
+            ) : (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { setActiveCategory(category); setShowCategoryPanel(false); if (typeof window !== 'undefined') requestAnimationFrame(() => document.getElementById('explorer-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}
+                className={cls}
+              >
+                <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
+              </button>
+            );
+          })}
+        </div>
         {/* Primary action row. Order is deliberate: the primary "Build a Covenant"
             CTA, then the promoted "Take the tour" secondary (glass Button + Compass),
             then a quiet "How It Works" link. "Deploy on-chain enforced" is demoted
@@ -614,10 +656,10 @@ export default function Explorer() {
         <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-6 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
-            { icon: TrendingUp, label: 'Paid Tiers', value: stats.paidCount, fmt: formatCount },
+            { icon: TrendingUp, label: 'Featured', value: stats.paidCount, fmt: formatCount, tip: 'Building is always free. Paid = priority placement only.' },
             { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
           ].map((s, i) => (
-            <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} />
+            <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} tip={s.tip} />
           ))}
         </div>
 
@@ -676,7 +718,8 @@ export default function Explorer() {
 
       {/* CONTROLS - Explore / Search / Arena, one segmented control with Arena as the amber-accent third tab */}
       {/* a11y: tablist with arrow-key / Home / End wrap-around (matches CovenantInteractive). Arena is a separate boolean (showArena) so the "active" id is derived. */}
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4">
+      {/* id="explorer-results": scroll target for the hero capability chips. */}
+      <div id="explorer-results" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-4 scroll-mt-20">
         <div className="flex flex-wrap items-center gap-2">
           {(() => {
             const visibleTabs = ['explore', 'search', 'arena'];

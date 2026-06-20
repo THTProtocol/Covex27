@@ -887,6 +887,75 @@ export async function assembleSigScript(redeemHex, satisfierBytes) {
 }
 
 /**
+ * Trust-audit item #1: verify a server `spend_plan` CLIENT-SIDE, then sign - so the main
+ * spend/claim flow no longer blind-signs a server-computed digest over a tx it never sees.
+ *
+ * Rebuilds the EXACT tx from the plan, asserts it pays the user's OWN `intendedDest` the derived
+ * amount (input - fee) and nothing else, asserts the fee + sig-op count are sane, then signs the
+ * LOCAL tx via buildUnsignedSpend + signInput. The returned signature is valid ONLY for that
+ * locally-built, output-verified tx: a server that stored a different tx than it described would
+ * have a different sighash and the node would reject the broadcast, so the server cannot redirect
+ * funds. FAIL-CLOSED: throws BEFORE signing on any mismatch (or a missing plan), which only blocks
+ * the spend - the safe direction - and never risks funds.
+ *
+ * @param {object} plan         - the `spend_plan` from /covenant/p2sh/prepare-spend
+ * @param {string} privKeyHex   - 32-byte browser-held key (never transmitted)
+ * @param {{intendedDest: string, networkId: string, maxFee?: bigint|number}} opts
+ *        intendedDest: the destination the USER chose in the UI (NOT the server's echo).
+ * @returns {Promise<{ signatureHex: string }>} the 64-byte BIP340 sig hex for submit-signed
+ */
+export async function verifyAndSignSpend(plan, privKeyHex, opts = {}) {
+  if (!plan || typeof plan !== 'object' || !plan.input) {
+    throw new Error('Local verify FAILED: the server did not return a verifiable spend_plan. Refusing to blind-sign.');
+  }
+  const { intendedDest, networkId } = opts;
+  if (!intendedDest) throw new Error('verifyAndSignSpend: opts.intendedDest (your destination) is required.');
+  if (!networkId) throw new Error('verifyAndSignSpend: opts.networkId is required.');
+
+  // (1) The server must spend TO the destination the user chose. We BUILD with intendedDest below
+  //     regardless (so the output is the user's by construction); this catches a quiet swap early.
+  if (plan.destination_addr !== intendedDest) {
+    throw new Error('Local verify FAILED: the server changed the destination address. Refusing to sign.');
+  }
+  // (2) Fee positive and below a sane cap (the server cannot siphon value as "fee").
+  const fee = BigInt(plan.fee_sompi);
+  const maxFee = BigInt(opts.maxFee !== undefined ? opts.maxFee : 100000);
+  if (fee <= 0n || fee > maxFee) {
+    throw new Error(`Local verify FAILED: fee ${fee} sompi is out of bounds (0, ${maxFee}]. Refusing to sign.`);
+  }
+  // (3) The sole output value must be exactly input - fee.
+  const inAmt = BigInt(plan.input.amount_sompi);
+  const outAmt = BigInt(plan.output_amount_sompi);
+  if (outAmt !== inAmt - fee) {
+    throw new Error(`Local verify FAILED: output ${outAmt} != input ${inAmt} - fee ${fee}. Refusing to sign.`);
+  }
+  // (4) The committed sig-op count must match the pure-core value for the kind (else the sighash
+  //     would differ from the server's stored tx and the broadcast would silently fail).
+  const localOps = sigOpCount(plan.kind_base, { total: plan.total });
+  if (Number(plan.sig_op_count) !== Number(localOps)) {
+    throw new Error(`Local verify FAILED: sig_op_count ${plan.sig_op_count} != local ${localOps} for ${plan.kind_base}. Refusing to sign.`);
+  }
+  // (5) Rebuild the EXACT tx locally. buildUnsignedSpend derives the output as inAmt - fee paying
+  //     intendedDest, validates the address prefix vs networkId, and couples lockTime/sequence to
+  //     the kind/branch - so the output is non-redirectable by construction.
+  const tx = await buildUnsignedSpend({
+    utxo: { transactionId: plan.input.transaction_id, index: Number(plan.input.index), amount: inAmt },
+    redeemHex: plan.redeem_hex,
+    destAddr: intendedDest,
+    networkId,
+    fee,
+    kind: plan.kind_base,
+    branch: plan.branch || undefined,
+    lockTime: plan.lock_time,
+    sequence: plan.sequence,
+    total: plan.total,
+  });
+  // (6) Sign the LOCAL tx. The sig binds to the locally-built, output-verified tx.
+  const sig = await signInput(tx, 0, privKeyHex);
+  return { signatureHex: bytesToHex(sig) };
+}
+
+/**
  * Broadcast a fully-signed transaction to the Kaspa network via a public node. Uses
  * kaspa-wasm's Resolver to find a node for `networkId` (so no Covex infrastructure is
  * required - this is the "Covex is down" path). Returns the accepted txid.

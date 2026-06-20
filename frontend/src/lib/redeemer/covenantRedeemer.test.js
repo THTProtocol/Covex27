@@ -21,6 +21,7 @@ import {
   parseRedeemPubkeys,
   sigOpCount,
   buildSatisfier,
+  verifyAndSignSpend,
 } from './covenantRedeemer.js';
 
 // ---------------------------------------------------------------------------
@@ -373,5 +374,79 @@ describe('sigOpCount', () => {
 
   it('unsupported kind throws', () => {
     expect(() => sigOpCount('nope')).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyAndSignSpend: the fail-closed verify-then-sign gate (trust-audit #1).
+// Asserts the SECURITY-CRITICAL rejections that run BEFORE any signing or wasm
+// load, so a tampered prepare-spend response is refused CLIENT-SIDE. The happy
+// path (a real BIP340 sig over a wasm-built tx) is covered by the mandatory
+// testnet-12 e2e, not here - this file never loads the ~15MB wasm.
+// ---------------------------------------------------------------------------
+describe('verifyAndSignSpend (fail-closed plan verification)', () => {
+  const DEST = 'kaspatest:qqexampledestinationaddressxxxxxxxxxxxxxxxxxxxx';
+  const NET = 'testnet-12';
+  const KEY = 'ab'.repeat(32);
+  const opts = { intendedDest: DEST, networkId: NET };
+  // A self-consistent singlesig plan: output == input - fee, sig_op_count matches the kind.
+  function validPlan(over = {}) {
+    return {
+      input: { transaction_id: 'aa'.repeat(32), index: 0, amount_sompi: 1_000_000 },
+      redeem_hex: '20' + 'cd'.repeat(32) + 'ac', // push32 <key> OP_CHECKSIG (singlesig shape)
+      destination_addr: DEST,
+      output_amount_sompi: 990_000,
+      fee_sompi: 10_000,
+      version: 0,
+      lock_time: 0,
+      sequence: 0,
+      sig_op_count: 1,
+      kind_base: 'singlesig',
+      total: null,
+      branch: '',
+      ...over,
+    };
+  }
+
+  it('refuses with no spend_plan (no blind-sign fallback)', async () => {
+    await expect(verifyAndSignSpend(null, KEY, opts)).rejects.toThrow(/spend_plan|blind-sign/i);
+    await expect(verifyAndSignSpend({}, KEY, opts)).rejects.toThrow(/spend_plan|blind-sign/i);
+  });
+
+  it('requires intendedDest and networkId', async () => {
+    await expect(verifyAndSignSpend(validPlan(), KEY, { networkId: NET })).rejects.toThrow(/intendedDest/i);
+    await expect(verifyAndSignSpend(validPlan(), KEY, { intendedDest: DEST })).rejects.toThrow(/networkId/i);
+  });
+
+  it('rejects a destination the server swapped away from the user choice', async () => {
+    const tampered = validPlan({ destination_addr: 'kaspatest:qqattackeraddrxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' });
+    await expect(verifyAndSignSpend(tampered, KEY, opts)).rejects.toThrow(/destination/i);
+  });
+
+  it('rejects an out-of-bounds fee (server siphoning value as a "fee")', async () => {
+    await expect(verifyAndSignSpend(validPlan({ fee_sompi: 0, output_amount_sompi: 1_000_000 }), KEY, opts)).rejects.toThrow(/fee/i);
+    // 200_000 > the 100_000 default cap; output kept self-consistent so the fee check is what fires.
+    await expect(verifyAndSignSpend(validPlan({ fee_sompi: 200_000, output_amount_sompi: 800_000 }), KEY, opts)).rejects.toThrow(/fee/i);
+  });
+
+  it('rejects an output that is not exactly input - fee', async () => {
+    await expect(verifyAndSignSpend(validPlan({ output_amount_sompi: 995_000 }), KEY, opts)).rejects.toThrow(/output/i);
+  });
+
+  it('rejects a sig_op_count that disagrees with the kind', async () => {
+    await expect(verifyAndSignSpend(validPlan({ sig_op_count: 2 }), KEY, opts)).rejects.toThrow(/sig_op_count/i);
+    // multisig N must match the committed count (sigOpCount('multisig', {total:2}) === 2, not 3).
+    await expect(verifyAndSignSpend(validPlan({ kind_base: 'multisig', total: 2, sig_op_count: 3 }), KEY, opts)).rejects.toThrow(/sig_op_count/i);
+  });
+
+  it('passes all client-side asserts on a self-consistent plan, then delegates to the tx builder', async () => {
+    // intendedDest is a MAINNET address but networkId is testnet-12: all four verifyAndSignSpend
+    // asserts pass, so control reaches buildUnsignedSpend, which rejects the prefix mismatch BEFORE
+    // loading wasm. Proves the gate is not over-eager and delegates to the parity-tested builder.
+    const mainnetDest = 'kaspa:qqexampledestinationaddressxxxxxxxxxxxxxxxxxxxxxx';
+    const plan = validPlan({ destination_addr: mainnetDest });
+    await expect(
+      verifyAndSignSpend(plan, KEY, { intendedDest: mainnetDest, networkId: 'testnet-12' }),
+    ).rejects.toThrow(/not a testnet-12 address/i);
   });
 });

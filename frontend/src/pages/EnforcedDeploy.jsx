@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
+import { verifyAndSignSpend } from '../lib/redeemer/covenantRedeemer';
 import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2, AlertTriangle } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
@@ -410,7 +411,22 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null }) 
         // it matches; pasted co-signer signatures cover the rest.
         const sigMap = {};
         (c.cosigs || []).forEach((cs) => { if (cs.xonly && cs.sig) sigMap[cs.xonly.toLowerCase().replace(/^0x/, '')] = cs.sig; });
-        const mySig = bytesToHex(schnorr.sign(prep.sighash, myKey)); // 64-byte BIP340 over the exact sighash
+        // Trust-audit item #1: do NOT blind-sign the server's digest. Rebuild the spend tx from
+        // the server's spend_plan CLIENT-SIDE, assert it pays OUR destination (the UI value `dest`)
+        // exactly input - fee and nothing else, then sign the LOCAL tx. Fail-closed: refuse to sign
+        // on any mismatch (the safe direction). The sig is valid only for the verified tx, so the
+        // server cannot have stored a tx that redirects funds.
+        let mySig;
+        try {
+          // Normalize the kit network id to what buildUnsignedSpend accepts (same as Recover.jsx):
+          // getCurrentNetwork() can return 'mainnet-1', which the strict prefix map would reject.
+          const netId = net === 'mainnet-1' ? 'mainnet' : net;
+          const verified = await verifyAndSignSpend(prep.spend_plan, myKey, { intendedDest: dest, networkId: netId });
+          mySig = verified.signatureHex; // 64-byte BIP340 over the locally rebuilt + output-verified tx
+        } catch (e) {
+          setError(`Local verification failed, refusing to sign: ${e && e.message ? e.message : e}. Do not proceed; report this.`);
+          return;
+        }
         let signedAny = false;
         required.forEach((r) => {
           const x = (r.xonly || '').toLowerCase().replace(/^0x/, '');

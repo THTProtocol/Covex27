@@ -4288,7 +4288,7 @@ pub async fn prepare_spend_handler(
                 kind: redeem_kind.clone(),
                 branch_refund,
                 winner_is_a: bos_winner_is_a,
-                member_pubkeys,
+                member_pubkeys: member_pubkeys.clone(), // also read below for spend_plan.total (multisig N)
                 created_at: now_ts,
             },
         );
@@ -4313,6 +4313,31 @@ pub async fn prepare_spend_handler(
         "destination": req.destination_addr,
         "redeem_kind": redeem_kind,
         "needs_preimage": needs_preimage,
+        // CLIENT-SIDE VERIFY (trust-audit item #1): the exact buildUnsignedSpend params so the
+        // wallet can rebuild THIS tx, assert it pays destination_addr the derived amount and
+        // nothing else, recompute the sighash locally, and REFUSE to sign on any mismatch -
+        // closing the "browser blind-signs a server-computed digest" vector. Purely additive;
+        // older clients ignore it and fall back to signing the `sighash` field.
+        "spend_plan": {
+            "input": {
+                "transaction_id": utxo.outpoint.transaction_id.to_string(),
+                "index": utxo.outpoint.index,
+                "amount_sompi": amount,
+            },
+            "redeem_hex": redeem_hex.clone(),
+            "destination_addr": req.destination_addr.clone(),
+            "output_amount_sompi": amount - TX_FEE,
+            "fee_sompi": TX_FEE,
+            "version": 0,
+            "lock_time": spend_lock_time,
+            "sequence": spend_sequence,
+            "sig_op_count": sig_op_count,
+            "kind_base": kind_base.clone(),
+            // The m-of-N N for multisig sigOpCount (the ONLY kind here that uses it; oracle kinds
+            // are rejected above). All other kinds have a fixed sig-op count, so null is correct.
+            "total": if kind_base == "multisig" { serde_json::json!(member_pubkeys.len()) } else { serde_json::Value::Null },
+            "branch": branch.clone(),
+        },
         "note": if is_multi {
             "Each required signer signs this exact sighash (BIP340 Schnorr) in their own wallet, then POST {session_id, signatures:[{signer_xonly, signature_hex}], ...} to /covenant/p2sh/submit-signed. No key is sent to the server."
         } else {

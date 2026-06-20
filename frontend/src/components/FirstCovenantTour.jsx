@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { X, ArrowRight, Compass } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, Compass } from 'lucide-react';
 import { enforcementSummary } from '../lib/enforcement-copy';
+import { Button } from './ui/Button';
 
 /*
  * FirstCovenantTour
@@ -156,12 +157,25 @@ export default function FirstCovenantTour() {
   const [anchorRect, setAnchorRect] = useState(null);
   const [visibleFade, setVisibleFade] = useState(false);
   const fetchedRef = useRef(false);
+  // Mirror `active` so the activation effect (which re-fires on every searchParams
+  // change, e.g. the tour appending ?tour=1 as it navigates between routes) can tell
+  // a fresh start from an already-running tour, and NOT reset the current step.
+  const activeRef = useRef(false);
+  activeRef.current = active;
 
-  // Activation: query param OR localStorage flag.
+  // Activation: query param OR localStorage flag. A single global instance is
+  // mounted in App.jsx; every trigger (the nav button, the Explorer hero CTA,
+  // the empty-state buttons, the hero invite) just sets covex_tour_active=1 and
+  // dispatches a 'storage' event, so this effect re-checks on that event too
+  // (the native 'storage' event only fires cross-tab; triggers dispatch a
+  // synthetic same-tab one). The component renders nothing until activated.
   useEffect(() => {
-    const fromQuery = searchParams.get('tour') === '1';
-    const fromStorage = readActiveFlag();
-    if (fromQuery || fromStorage) {
+    const activate = (fromQuery) => {
+      const fromStorage = readActiveFlag();
+      if (!fromQuery && !fromStorage) return;
+      // Already running (e.g. the tour just navigated and re-added ?tour=1): keep
+      // the current step, do not restart from the beginning.
+      if (activeRef.current) return;
       writeFlag(STORAGE_ACTIVE, '1');
       // Respect prior skip: if the user explicitly skipped, do not auto-resume
       // unless the URL query is explicitly set this session.
@@ -171,10 +185,17 @@ export default function FirstCovenantTour() {
       } catch {
         /* ignore */
       }
+      setStepIdx(0);
       setActive(true);
       // Fade in after mount.
       requestAnimationFrame(() => setVisibleFade(true));
-    }
+    };
+    activate(searchParams.get('tour') === '1');
+    const onStorage = (e) => {
+      if (!e.key || e.key === STORAGE_ACTIVE) activate(false);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, [searchParams]);
 
   // Fetch a demo covenant id once on mount (cached in localStorage).
@@ -331,6 +352,31 @@ export default function FirstCovenantTour() {
     window.setTimeout(() => setActive(false), reducedMotion ? 0 : 180);
   };
 
+  // Step back through the flow, skipping demo-dependent steps in reverse when
+  // there is no demo id (mirrors the forward skip in handleNext) and navigating
+  // back to the prior step's route so the anchor + spotlight resolve.
+  const handleBack = () => {
+    if (!step || stepIdx <= 0) return;
+    let prevIdx = stepIdx - 1;
+    if (demoMissing) {
+      while (
+        prevIdx > 0 &&
+        (STEPS[prevIdx].id === 'studio-block' || STEPS[prevIdx].id === 'public-page')
+      ) {
+        prevIdx -= 1;
+      }
+    }
+    const prev = STEPS[prevIdx];
+    setStepIdx(prevIdx);
+    // Resolve the prev step's route (demo-dependent routes are computed at runtime).
+    let prevPath = prev.route;
+    if (prev.id === 'studio-block') prevPath = demoId ? `/covenant/${demoId}/studio` : null;
+    if (prev.id === 'public-page') prevPath = demoId ? `/covenant/${demoId}` : null;
+    if (prevPath && prevPath !== location.pathname) {
+      navigate(appendTourParam(prevPath));
+    }
+  };
+
   const handleNext = () => {
     if (!step) return;
     const isLast = stepIdx >= STEPS.length - 1;
@@ -443,14 +489,17 @@ export default function FirstCovenantTour() {
     ? { transition: 'opacity 120ms linear' }
     : { transition: 'opacity 180ms ease' };
 
+  // Progress: fill at (stepIdx + 1) / total. Mirrors the deploy banner's brand
+  // treatment (glass-heavy shell + border-kaspa-green/30, light parity baked in).
+  const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
+
   const card = (
     <div
       role="dialog"
       aria-label={`Covex tour, step ${stepNumber} of ${totalSteps}`}
       className={[
-        'fixed z-[61] rounded-2xl border shadow-2xl backdrop-blur-md',
-        'bg-slate-950/95 border-emerald-500/30 text-slate-100',
-        'light:bg-white light:border-emerald-600/40 light:text-slate-900',
+        'fixed z-[61] rounded-2xl glass-heavy border border-kaspa-green/30',
+        'text-slate-100 light:text-slate-900 shadow-2xl',
         fadeClass,
       ].join(' ')}
       style={useBanner ? {
@@ -463,18 +512,28 @@ export default function FirstCovenantTour() {
       {arrowStyle && !useBanner && (
         <div
           aria-hidden="true"
-          className="absolute w-3.5 h-3.5 rotate-45 bg-slate-950/95 border border-emerald-500/30 light:bg-white light:border-emerald-600/40"
+          className="absolute w-3.5 h-3.5 rotate-45 glass-heavy border border-kaspa-green/30"
           style={arrowStyle}
         />
       )}
       <div className="p-4 sm:p-5">
+        {/* Progress bar above the title. */}
+        <div className="mb-3.5 h-1 w-full rounded-full bg-white/10 light:bg-slate-200 overflow-hidden" aria-hidden="true">
+          <div
+            className="h-full rounded-full bg-kaspa-green light:bg-emerald-600"
+            style={{
+              width: `${progressPct}%`,
+              transition: reducedMotion ? 'none' : 'width 280ms cubic-bezier(0.16,1,0.3,1)',
+            }}
+          />
+        </div>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/15 light:bg-emerald-600/15 text-emerald-300 light:text-emerald-700">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-kaspa-green/15 light:bg-emerald-600/15 text-kaspa-green light:text-emerald-700 shrink-0">
               <Compass className="w-3.5 h-3.5" />
             </span>
-            <span className="text-[11px] uppercase tracking-wider text-emerald-300 light:text-emerald-700 font-semibold">
-              Tour, step {stepNumber} of {totalSteps}
+            <span className="text-[11px] uppercase tracking-wider text-kaspa-green light:text-emerald-700 font-semibold">
+              Step {stepNumber} of {totalSteps}
             </span>
           </div>
           <button
@@ -492,22 +551,22 @@ export default function FirstCovenantTour() {
         <p className="mt-1.5 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {bodyText}
         </p>
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="text-xs font-medium text-slate-400 hover:text-slate-200 light:text-slate-500 light:hover:text-slate-900 transition-colors"
-          >
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" onClick={handleSkip} className="px-2">
             Skip
-          </button>
-          <button
-            type="button"
-            onClick={handleNextResolved}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-semibold transition-colors light:bg-emerald-600 light:hover:bg-emerald-500 light:text-white"
-          >
-            {nextText}
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          </Button>
+          <div className="flex items-center gap-2">
+            {stepIdx > 0 && !demoFallback && (
+              <Button variant="ghost" size="sm" onClick={handleBack}>
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back
+              </Button>
+            )}
+            <Button variant="kaspa" size="sm" shimmer onClick={handleNextResolved}>
+              {nextText}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

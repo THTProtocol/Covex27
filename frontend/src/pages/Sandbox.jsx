@@ -92,6 +92,18 @@ const PHASES = [
   { id: 'deploy', n: 3, label: 'Deploy', Icon: TerminalSquare },
 ];
 
+// The full 5-step model shown in the "Your build" rail. Steps 1-3 map to the
+// reachable PHASES; steps 4 (Website) and 5 (Share) happen AFTER deploy, on the
+// per-covenant Studio / public page, so they render as inert (non-interactive)
+// markers. shortLabel keeps the rail compact.
+const RAIL_STEPS = [
+  { id: 'create', n: 1, label: 'Create', Icon: Wand2, phase: 'create' },
+  { id: 'logic', n: 2, label: 'Logic', Icon: Cpu, phase: 'logic' },
+  { id: 'deploy', n: 3, label: 'Deploy', Icon: TerminalSquare, phase: 'deploy' },
+  { id: 'website', n: 4, label: 'Website', Icon: Rocket, phase: null },
+  { id: 'share', n: 5, label: 'Share', Icon: ArrowRight, phase: null },
+];
+
 // Phase 1 information architecture: three intentional, equal entry points. Persisted via ?tab=
 // so a deep link can land anywhere. Assistant is the default. Templates is a curated 6-card grid
 // of the most popular starting points; Catalog is the full circuit set.
@@ -136,6 +148,153 @@ function PhaseHeader({ eyebrow, title, action }) {
       <div className="label-xs text-kaspa-green light:text-emerald-700 mb-1">{eyebrow}</div>
       <h2 className="text-2xl sm:text-[28px] font-extrabold tracking-[-0.015em] leading-tight text-white light:text-slate-900">{title}</h2>
       <p className="text-[15px] text-gray-300 light:text-slate-700 mt-1.5 max-w-2xl">{action}</p>
+    </div>
+  );
+}
+
+// Guided | Pro segmented control. role=radiogroup + role=radio so the two-state
+// workspace toggle is keyboard + screen-reader honest. Hoisted to module scope.
+function ModeSegmented({ mode, onChange }) {
+  const opts = [
+    { id: 'guided', label: 'Guided', Icon: Wand2 },
+    { id: 'pro', label: 'Pro', Icon: TerminalSquare },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Workspace mode"
+      className="inline-flex items-center p-1 rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white light:shadow-sm"
+    >
+      {opts.map((o) => {
+        const active = mode === o.id;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(o.id)}
+            title={o.id === 'pro' ? 'Pro: a raw SilverScript terminal. No templates, no auto-fill, you write the covenant yourself.' : 'Guided: Covex walks you through create, logic, and deploy.'}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
+              active
+                ? 'bg-kaspa-green text-black light:bg-emerald-700 light:text-white shadow-sm'
+                : 'text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900'
+            }`}
+          >
+            <o.Icon size={14} />
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// "Your build" rail: the 5-step model with the live selection chip and the
+// Continue/Back action. role=tablist + aria-current="step" keep it accessible;
+// steps 4-5 (Website, Share) happen after deploy and render as inert <span>s.
+// Hoisted to module scope so it never remounts. The same component renders in the
+// sticky desktop rail; on mobile the action lives in a separate bottom bar.
+function BuildRail({
+  phase, circuit, reality, name, reachable, onGoto, onForward, onBack, learn,
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white light:shadow-sm p-4">
+      <div className="label-xs text-gray-400 light:text-slate-600 mb-3">Your build</div>
+      <ol role="tablist" aria-label="Build steps" aria-orientation="vertical" className="space-y-1">
+        {RAIL_STEPS.map((s) => {
+          const isPhase = !!s.phase;
+          const isActive = isPhase && s.phase === phase;
+          const idx = PHASES.findIndex((p) => p.id === s.phase);
+          const canReach = isPhase && reachable(idx);
+          const done = isPhase && idx > -1 && idx < PHASES.findIndex((p) => p.id === phase);
+          const common = 'flex items-center gap-2.5 w-full text-left px-2.5 py-2 rounded-xl text-[13px] transition-colors';
+          const inner = (
+            <>
+              <span
+                aria-hidden="true"
+                className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-[11px] font-bold shrink-0 border ${
+                  isActive
+                    ? 'bg-kaspa-green text-black border-kaspa-green light:bg-emerald-700 light:text-white light:border-emerald-700'
+                    : done
+                    ? 'bg-kaspa-green/15 text-kaspa-green border-kaspa-green/30 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-200'
+                    : 'bg-white/[0.03] text-gray-400 border-white/10 light:bg-slate-50 light:text-slate-500 light:border-slate-200'
+                }`}
+              >
+                {s.n}
+              </span>
+              <s.Icon size={14} className={isActive ? 'text-kaspa-green light:text-emerald-700' : 'text-gray-500 light:text-slate-400'} />
+              <span className={`font-semibold truncate ${isActive ? 'text-white light:text-slate-900' : isPhase ? 'text-gray-300 light:text-slate-700' : 'text-gray-500 light:text-slate-400'}`}>{s.label}</span>
+              {!isPhase && <span className="ml-auto text-[10px] uppercase tracking-wide text-gray-600 light:text-slate-400">after deploy</span>}
+            </>
+          );
+          if (!isPhase) {
+            // Inert post-deploy markers: a real <span>, not a button, so SR users
+            // do not perceive them as actionable before a covenant exists.
+            return (
+              <li key={s.id}>
+                <span className={`${common} cursor-default opacity-60`} aria-disabled="true">{inner}</span>
+              </li>
+            );
+          }
+          return (
+            <li key={s.id}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-current={isActive ? 'step' : undefined}
+                disabled={!canReach}
+                onClick={() => canReach && onGoto(s.phase)}
+                className={`${common} focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
+                  isActive
+                    ? 'bg-kaspa-green/[0.08] light:bg-emerald-50'
+                    : canReach
+                    ? 'hover:bg-white/[0.04] light:hover:bg-slate-50'
+                    : 'cursor-not-allowed opacity-50'
+                }`}
+              >
+                {inner}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Live selection + the Continue / Back action, on lg. */}
+      <div className="mt-4 pt-4 border-t border-white/[0.06] light:border-slate-200 space-y-3">
+        {circuit && reality ? (
+          <SelectionChip name={name} reality={reality} className="w-full light:ring-1 light:ring-emerald-100" />
+        ) : (
+          <p className="text-[12px] text-gray-400 light:text-slate-500">Pick a covenant to continue.</p>
+        )}
+        {phase !== 'deploy' && (
+          <div className="flex items-center gap-2">
+            {phase !== 'create' && (
+              <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
+                <ArrowLeft size={14} /> Back
+              </Button>
+            )}
+            <Button
+              variant="kaspa"
+              shimmer
+              size="sm"
+              disabled={!circuit}
+              onClick={onForward}
+              className="flex-1 light:shadow-sm"
+            >
+              {phase === 'create' ? 'Continue to logic' : 'Continue to deploy'}
+              <ArrowRight size={15} />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Quiet "Learn" disclosure: "What is a covenant?" lives here, not as a
+          bordered box stacked above the tabs. */}
+      <div className="mt-4 pt-4 border-t border-white/[0.06] light:border-slate-200">
+        {learn}
+      </div>
     </div>
   );
 }
@@ -255,101 +414,45 @@ export default function Sandbox() {
     </div>
   );
 
+  // The quiet "What is a covenant?" Learn disclosure lives in the right rail now,
+  // not as a bordered box above the tabs. Reused across phases via the rail.
+  const learnDisclosure = (
+    <HowThisWorks
+      title="What is a covenant?"
+      summary="A program that locks Kaspa funds until rules are met."
+      details={(
+        <p>
+          Covex compiles your covenant DSL into a Kaspa redeem script. Funds lock to its P2SH commitment.
+          Some redeem paths are consensus-enforced by Kaspa alone; oracle paths require the disclosed
+          Covex oracle to co-sign, which is the off-chain reality for ZK and parimutuel circuits.
+        </p>
+      )}
+    />
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-10 relative">
       <div className="covex-aurora hidden sm:block light:opacity-40" style={{ top: 48, left: -30, width: 420, height: 260 }} aria-hidden="true" />
 
-      {/* HEADER */}
-      <div className="relative z-10">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <Terminal size={22} className="text-kaspa-green light:text-emerald-700" />
-          <h1 className="h-page text-white light:text-slate-900">Covenant Sandbox</h1>
-          <Badge variant="glass" dot>Free to explore, wallet only for deploy</Badge>
-        </div>
-        <p className="text-sm sm:text-lg text-gray-300 light:text-slate-700 max-w-3xl mb-4 sm:mb-7">
-          Build a real Kaspa covenant.<span className="hidden sm:inline light:text-slate-700"> Exploring and simulating is free and needs no wallet; deploying and the advanced editor unlock with a tier.</span>
-        </p>
-      </div>
-
-      {/* HERO CTA: one obvious primary action on first paint. Pro terminal demoted to a ghost link
-          below so newcomers are not asked to make a paralysis decision before they know what a
-          covenant is. Selecting either path still mutates ?mode= so deep-links keep working. */}
-      {mode === 'guided' && (
-        <div className="relative z-10 mb-6">
-          <Card accent="#49EACB" className="overflow-hidden light:bg-gradient-to-br light:from-white light:to-emerald-50/40 light:border-emerald-200 light:shadow-md">
-            <span
-              aria-hidden="true"
-              className="absolute -top-16 -right-12 w-72 h-48 rounded-full pointer-events-none light:opacity-50"
-              style={{ background: 'radial-gradient(closest-side, #49EACB40, transparent 70%)', filter: 'blur(10px)', opacity: 0.7 }}
-            />
-            <div className="relative p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
-              <span className="p-3 rounded-xl shrink-0 border self-start light:shadow-sm" style={{ background: '#49EACB1f', borderColor: '#49EACB4d' }}>
-                <Wand2 size={26} className="text-[#49EACB]" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <Badge variant="builder" dot className="text-[10px] py-0">Recommended</Badge>
-                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border light:bg-emerald-50 text-[#49EACB]" style={{ borderColor: '#49EACB66' }}>For everyone</span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white light:text-slate-900 leading-tight">
-                  Start a guided build
-                </h2>
-                <p className="text-sm text-gray-400 light:text-slate-700 leading-snug mt-1.5 max-w-xl">
-                  Describe what you want or pick a template. Covex walks you through create, logic, and a website, step by step.
-                </p>
-              </div>
-              <Button
-                variant="kaspa"
-                size="lg"
-                shimmer
-                onClick={() => {
-                  setPhase('create');
-                  // Give visible feedback: bring the active create tabpanel into view
-                  // and focus it (the panel carries id create-tab-<createTab>).
-                  requestAnimationFrame(() => {
-                    const panel = document.getElementById(`create-tab-${createTab}`);
-                    if (panel) {
-                      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      panel.focus?.({ preventScroll: true });
-                    }
-                  });
-                }}
-                className="shrink-0 self-start sm:self-center light:shadow-md light:ring-1 light:ring-emerald-300"
-              >
-                Start guided build
-                <ArrowRight size={18} className="ml-1 light:drop-shadow-sm" />
-              </Button>
-            </div>
-          </Card>
-          <div className="mt-3 flex justify-center sm:justify-start">
-            <button
-              type="button"
-              onClick={() => setMode('pro')}
-              className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 light:bg-white light:border light:border-slate-200 light:rounded-full light:px-3 light:py-1.5 light:shadow-sm transition-colors"
-            >
-              <TerminalSquare size={14} />
-              Prefer to write it yourself? Open the pro terminal
-              <ArrowRight size={12} className="opacity-60" />
-            </button>
+      {/* SLIM HERO: H1 + one-line value prop + "Free to explore" badge, with the
+          Guided | Pro segmented control top-right. The old no-op "Start guided build"
+          card, the pro-terminal link/paragraph, and the "Back to guided build" link are
+          all replaced by this one control. */}
+      <div className="relative z-10 mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <Terminal size={22} className="text-kaspa-green light:text-emerald-700 shrink-0" />
+            <h1 className="h-page text-white light:text-slate-900">Build a covenant</h1>
+            <Badge variant="glass" dot>Free to explore</Badge>
           </div>
-          <p className="mt-2 text-center sm:text-left text-[11px] text-gray-500 light:text-slate-500 max-w-xl">
-            Pro is a raw SilverScript terminal: no templates, no auto-fill, no step-by-step. You write the covenant yourself.
+          <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl">
+            A real Kaspa covenant, built step by step. Exploring and simulating is free; deploying needs only your own wallet.
           </p>
         </div>
-      )}
-
-      {mode === 'pro' && (
-        <div className="relative z-10 mb-4 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setMode('guided')}
-            className="inline-flex items-center gap-2 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 light:bg-white light:border light:border-slate-200 light:rounded-full light:px-3 light:py-1.5 light:shadow-sm transition-colors"
-          >
-            <Wand2 size={14} />
-            Back to guided build
-          </button>
+        <div className="shrink-0">
+          <ModeSegmented mode={mode} onChange={setMode} />
         </div>
-      )}
+      </div>
 
       {mode === 'pro' && (
         <div className="relative z-10">
@@ -357,226 +460,181 @@ export default function Sandbox() {
         </div>
       )}
 
-      {mode === 'guided' && (<>
-      {/* 5-step rail is rendered globally in App.jsx; no per-page mount here to
-          avoid stacking two rails (the global one under the nav + an in-page copy). */}
-      {circuit && reality && (
-        <div className="relative z-10 mb-4 flex items-center justify-end light:bg-transparent">
-          <SelectionChip name={name} reality={reality} className="light:ring-1 light:ring-emerald-100" />
+      {mode === 'guided' && (
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+          {/* LEFT: the active phase panel. */}
+          <div className="min-w-0">
+            <AnimatePresence mode="wait">
+              <motion.div key={phase} {...panelMotion} className="min-w-0">
+
+                {/* PHASE 1 - CREATE. Three intentional, equal entry points (Assistant /
+                    Templates / Catalog). Tabs-first: the tab bar sits immediately under the
+                    PhaseHeader as a simple bottom border, not a full Card wrapper. */}
+                {phase === 'create' && (
+                  <div className="space-y-5 min-w-0">
+                    <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Create the covenant" action="Start from an idea, a template, or the full catalog." />
+                    {/* Segmented tab control as a simple bottom border. role=tablist + role=tab
+                        keep this keyboard + screen-reader honest. */}
+                    <div data-tour="sandbox-create" role="tablist" aria-label="Create entry points" className="flex items-stretch gap-1 border-b border-white/10 light:border-slate-200">
+                      {CREATE_TABS.map((t) => {
+                        const Icon = t.Icon;
+                        const active = createTab === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            aria-controls={`create-tab-${t.id}`}
+                            id={`create-tab-btn-${t.id}`}
+                            onClick={() => setCreateTab(t.id)}
+                            className={`relative flex items-center justify-center gap-2 px-3.5 py-2.5 -mb-px text-[13px] sm:text-sm font-semibold border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
+                              active
+                                ? 'text-kaspa-green light:text-emerald-700 border-kaspa-green light:border-emerald-600'
+                                : 'text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 border-transparent'
+                            }`}
+                          >
+                            <Icon size={15} className="shrink-0" />
+                            <span className="truncate">{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Shared content surface. One tab body mounts at a time so heavy children
+                        (the full catalog) only render when requested. */}
+                    <div
+                      id={`create-tab-${createTab}`}
+                      role="tabpanel"
+                      aria-labelledby={`create-tab-btn-${createTab}`}
+                      tabIndex={-1}
+                      className="min-w-0 focus:outline-none"
+                    >
+                      {createTab === 'assistant' && (
+                        <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
+                      )}
+                      {createTab === 'templates' && (
+                        <SandboxGallery circuits={templateCircuits} selectedId={selectedId} onSelect={select} />
+                      )}
+                      {createTab === 'catalog' && (
+                        <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* PHASE 2 - ADD LOGIC */}
+                {phase === 'logic' && (circuit && reality ? (
+                  <div className="space-y-4 min-w-0">
+                    <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Choose how it resolves" action="See exactly what the chain enforces and who decides the outcome, then tune it." />
+                    <Card data-tour="sandbox-logic" accent={reality.accent} className="overflow-hidden light:shadow-sm light:border light:border-slate-200">
+                      <div className="px-5 py-4 flex flex-wrap items-center gap-3 light:bg-slate-50/40 light:border-b light:border-slate-200">
+                        <Boxes size={18} className="text-kaspa-green light:text-emerald-700" />
+                        <span className="text-xs uppercase tracking-widest text-gray-400 light:text-slate-600 light:font-semibold">Selected</span>
+                        <span className="text-white light:text-slate-900 font-semibold">{name}</span>
+                        <Badge variant={reality.badgeVariant} dot className="ml-auto">{reality.label}</Badge>
+                      </div>
+                      <div className="px-5 pb-4 pt-4 grid md:grid-cols-3 gap-4 text-sm">
+                        <div className="md:col-span-2 min-w-0">
+                          <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">Circuit</div>
+                          <div className="text-white light:text-slate-900 font-mono text-xs mb-2 break-all light:bg-slate-100 light:px-2 light:py-1 light:rounded-md light:inline-block">{circuit.id}</div>
+                          <p className="text-gray-300 light:text-slate-700 leading-relaxed">{circuit.description}</p>
+                        </div>
+                        <div className="rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/5 light:border-slate-200 light:shadow-sm p-3">
+                          <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">What enforcement means</div>
+                          <p className="text-gray-300 light:text-slate-700 text-xs leading-relaxed">{reality.note}</p>
+                        </div>
+                      </div>
+                    </Card>
+                    <SandboxCircuitPreview key={circuit.id} circuit={circuit} kind={kind} />
+                  </div>
+                ) : emptyState)}
+
+                {/* PHASE 3 - DEPLOY (the real builder). The page / website step lives in /covenant/:id/studio. */}
+                {phase === 'deploy' && (circuit ? (
+                  <div className="space-y-5 min-w-0">
+                    <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Deploy" action="Sign the funding transaction in your wallet to create the covenant." />
+                    {/* Universal signing honesty banner. The single most important truth in the
+                        flow: the user's wallet signs, Covex never holds the key. Always visible. */}
+                    <div data-tour="sandbox-deploy" className="rounded-xl border border-kaspa-green/30 light:border-emerald-300 bg-kaspa-green/[0.04] light:bg-emerald-50 light:shadow-sm px-4 py-3 flex items-start gap-2.5">
+                      <ShieldCheck size={16} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
+                      <div className="text-xs">
+                        <div className="font-bold text-white light:text-slate-900">Your wallet signs this. Covex never holds your key.</div>
+                        <div className="text-gray-400 light:text-slate-700 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting P2SH address.</div>
+                      </div>
+                    </div>
+                    {/* THE REAL BUILDER. EnforcedDeploy owns the 12 primitive kinds end to end
+                        (signing, broadcast, covenant id). On a successful deploy it hands back the
+                        new covenant id and we open Studio with ?fresh=1 so the page starts empty.
+                        Everything outside that set still falls back to CovexTerminal. */}
+                    {ENFORCED_DEPLOY_KINDS.has(selectedId) ? (
+                      <EnforcedDeploy
+                        embedded
+                        onDeployed={(covenantId) => navigate('/covenant/' + covenantId + '/studio?fresh=1')}
+                      />
+                    ) : (
+                      <CovexTerminal externalCircuit={selectedId} />
+                    )}
+                    {/* Demoted post-deploy note: "design a website" is step 4 in the rail, so this is
+                        a single quiet line, not a premature promo card. */}
+                    <p className="flex items-start gap-2 text-xs text-gray-400 light:text-slate-600">
+                      <Rocket size={14} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
+                      <span>After your funding tx confirms, the visual Studio opens automatically so you can design the public page. You can also reach it later at /covenant/:id/studio.</span>
+                    </p>
+                  </div>
+                ) : emptyState)}
+
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* RIGHT: sticky "Your build" rail on lg. Holds the 5-step model, the live
+              selection chip, the Continue/Back action, and the quiet Learn disclosure. */}
+          <aside className="hidden lg:block lg:sticky lg:top-24 self-start">
+            <BuildRail
+              phase={phase}
+              circuit={circuit}
+              reality={reality}
+              name={name}
+              reachable={reachable}
+              onGoto={setPhase}
+              onForward={goForward}
+              onBack={goBack}
+              learn={learnDisclosure}
+            />
+          </aside>
         </div>
       )}
 
-      {/* ONE PHASE PANEL AT A TIME */}
-      <AnimatePresence mode="wait">
-        <motion.div key={phase} {...panelMotion} className="relative z-10 min-w-0 pb-24 sm:pb-20">
-
-          {/* PHASE 1 - CREATE. Three intentional, equal entry points (Assistant / Templates /
-              Catalog) above one shared content surface. The ToolsPalette sidebar belongs to the
-              Studio context in Phase 2 and is intentionally not mounted here. */}
-          {phase === 'create' && (
-            <div className="space-y-7 min-w-0">
-              <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Create the covenant" action="Start from an idea, a template, or the full catalog." />
-              <HowThisWorks
-                title="What is a covenant?"
-                summary="A small program that locks Kaspa funds until rules are satisfied."
-                details={(
-                  <p>
-                    Covex compiles your covenant DSL into a Kaspa redeem script. Funds lock to its P2SH commitment.
-                    Some redeem paths are consensus-enforced by Kaspa alone; oracle paths require the disclosed
-                    Covex oracle to co-sign, which is the off-chain reality for ZK and parimutuel circuits.
-                  </p>
-                )}
-              />
-              {/* Segmented tab control. role=tablist + role=tab keep this keyboard + screen-reader
-                  honest. The active tab gets the kaspa-green underline + text-kaspa-green per brief. */}
-              <Card className="overflow-hidden light:shadow-sm light:border light:border-slate-200">
-                <div role="tablist" aria-label="Create entry points" className="grid grid-cols-3 light:bg-white light:divide-x light:divide-slate-200">
-                  {CREATE_TABS.map((t) => {
-                    const Icon = t.Icon;
-                    const active = createTab === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        aria-controls={`create-tab-${t.id}`}
-                        id={`create-tab-btn-${t.id}`}
-                        onClick={() => setCreateTab(t.id)}
-                        className={`relative flex items-center justify-center gap-2 px-3 py-3 text-[13px] sm:text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
-                          active
-                            ? 'text-kaspa-green light:text-emerald-700 bg-white/[0.02] light:bg-emerald-50/40'
-                            : 'text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 light:hover:bg-slate-50'
-                        }`}
-                      >
-                        <Icon size={15} className="shrink-0" />
-                        <span className="truncate">{t.label}</span>
-                        <span
-                          aria-hidden="true"
-                          className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full transition-opacity ${
-                            active ? 'bg-kaspa-green light:bg-emerald-600 opacity-100' : 'opacity-0'
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </Card>
-              {/* Shared content surface. One tab body mounts at a time so heavy children (the full
-                  catalog) only render when requested. */}
-              <div
-                id={`create-tab-${createTab}`}
-                role="tabpanel"
-                aria-labelledby={`create-tab-btn-${createTab}`}
-                tabIndex={-1}
-                className="min-w-0 light:rounded-2xl light:bg-white/40 focus:outline-none"
-              >
-                {createTab === 'assistant' && (
-                  <CovenantAssistant circuits={ZK_CIRCUIT_TYPES} onSelect={useAndConfigure} />
-                )}
-                {createTab === 'templates' && (
-                  <SandboxGallery circuits={templateCircuits} selectedId={selectedId} onSelect={select} />
-                )}
-                {createTab === 'catalog' && (
-                  <SandboxGallery circuits={ZK_CIRCUIT_TYPES} selectedId={selectedId} onSelect={select} />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* PHASE 2 - ADD LOGIC */}
-          {phase === 'logic' && (circuit && reality ? (
-            <div className="space-y-4 min-w-0">
-              <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Choose how it resolves" action="See exactly what the chain enforces and who decides the outcome, then tune it." />
-              <HowThisWorks
-                title="What does 'how it resolves' mean?"
-                summary="This decides who or what can settle the covenant: the chain alone, the disclosed Covex oracle, or a mix."
-                details={(
-                  <p>
-                    On-chain enforced means the Kaspa script alone decides. Oracle co-signed means the disclosed Covex
-                    oracle attests the off-chain outcome and co-signs the payout transaction. Full-ZK circuits collapse
-                    to oracle co-signed because Kaspa has no on-chain pairing verifier.
-                  </p>
-                )}
-              />
-              <Card accent={reality.accent} className="overflow-hidden light:shadow-sm light:border light:border-slate-200">
-                <div className="px-5 py-4 flex flex-wrap items-center gap-3 light:bg-slate-50/40 light:border-b light:border-slate-200">
-                  <Boxes size={18} className="text-kaspa-green light:text-emerald-700" />
-                  <span className="text-xs uppercase tracking-widest text-gray-400 light:text-slate-600 light:font-semibold">Selected</span>
-                  <span className="text-white light:text-slate-900 font-semibold">{name}</span>
-                  <Badge variant={reality.badgeVariant} dot className="ml-auto">{reality.label}</Badge>
-                </div>
-                <div className="px-5 pb-4 pt-4 grid md:grid-cols-3 gap-4 text-sm">
-                  <div className="md:col-span-2 min-w-0">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">Circuit</div>
-                    <div className="text-white light:text-slate-900 font-mono text-xs mb-2 break-all light:bg-slate-100 light:px-2 light:py-1 light:rounded-md light:inline-block">{circuit.id}</div>
-                    <p className="text-gray-300 light:text-slate-700 leading-relaxed">{circuit.description}</p>
-                  </div>
-                  <div className="rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/5 light:border-slate-200 light:shadow-sm p-3">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-600 light:font-semibold mb-1">What enforcement means</div>
-                    <p className="text-gray-300 light:text-slate-700 text-xs leading-relaxed">{reality.note}</p>
-                  </div>
-                </div>
-              </Card>
-              <SandboxCircuitPreview key={circuit.id} circuit={circuit} kind={kind} />
-            </div>
-          ) : emptyState)}
-
-          {/* PHASE 3 - DEPLOY (the real builder). The page / website step lives in /covenant/:id/studio. */}
-          {phase === 'deploy' && (circuit ? (
-            <div className="space-y-5 min-w-0">
-              <PhaseHeader eyebrow={circuit && name ? `Building ${name}` : 'New covenant'} title="Deploy" action="Sign the funding transaction in your wallet to create the covenant." />
-              {/* Universal signing honesty banner. The single most important truth in the flow:
-                  the user's wallet signs, Covex never holds the key. Always visible, never tucked
-                  inside a collapsed details element. */}
-              <div className="rounded-xl border border-kaspa-green/30 light:border-emerald-300 bg-kaspa-green/[0.04] light:bg-emerald-50 light:shadow-sm px-4 py-3 flex items-start gap-2.5">
-                <ShieldCheck size={16} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
-                <div className="text-xs">
-                  <div className="font-bold text-white light:text-slate-900">Your wallet signs this. Covex never holds your key.</div>
-                  <div className="text-gray-400 light:text-slate-700 mt-0.5">The funding tx broadcasts to a Kaspa node and the covenant id is the resulting P2SH address.</div>
-                </div>
-              </div>
-              {/* THE REAL BUILDER. EnforcedDeploy owns the 12 primitive kinds end to end (signing,
-                  broadcast, covenant id). On a successful deploy it hands back the new covenant id
-                  and we open Studio with ?fresh=1 so the page starts empty. Everything outside that
-                  set still falls back to CovexTerminal, which owns the long-tail ZK / oracle circuits
-                  plus its own tier gating and Studio handoff. */}
-              {ENFORCED_DEPLOY_KINDS.has(selectedId) ? (
-                <EnforcedDeploy
-                  embedded
-                  onDeployed={(covenantId) => navigate('/covenant/' + covenantId + '/studio?fresh=1')}
-                />
-              ) : (
-                <CovexTerminal externalCircuit={selectedId} />
-              )}
-              {/* Post-deploy nudge. Moved BELOW the builder so it's a next-step pointer, not a
-                  pre-deploy primer that buries the signing banner. */}
-              <Card hover accent="#49EACB" className="p-5 light:bg-gradient-to-br light:from-white light:to-emerald-50/30 light:border-emerald-200 light:shadow-sm">
-                <div className="flex items-start gap-4">
-                  <span className="p-2.5 rounded-xl bg-[#49EACB]/15 border border-[#49EACB]/30 light:shadow-sm shrink-0">
-                    <Rocket size={20} className="text-[#49EACB]" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-white light:text-slate-900">After deploy: design the public page in Studio</h3>
-                    <p className="text-xs text-gray-400 light:text-slate-700 mt-1 leading-relaxed">
-                      The visual Studio (drag and drop, safe platform components only) binds to the new covenant id.
-                      Once the funding tx confirms, Studio opens automatically; you can also reach it later from your
-                      covenant page at /covenant/:id/studio or from the builder's Custom UI Integration section.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2 light:[&_button]:shadow-sm">
-                      <Button variant="glass" size="sm" onClick={() => navigate('/templates')}>Browse templates</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setPhase('logic')}>
-                        <ArrowLeft size={14} /> Back to logic
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          ) : emptyState)}
-
-        </motion.div>
-      </AnimatePresence>
-
-      {/* PERSISTENT BOTTOM ACTION BAR. Hidden on phase 'deploy' where CovexTerminal owns the deploy CTA. */}
-      {phase !== 'deploy' && (
+      {/* MOBILE-ONLY sticky bottom action bar (< lg). On lg the action lives in the
+          rail. Hidden on phase 'deploy' where CovexTerminal owns the deploy CTA. */}
+      {mode === 'guided' && phase !== 'deploy' && (
         <div
-          className="static sm:sticky z-20 mt-6 flex flex-wrap sm:flex-nowrap sm:items-center sm:justify-between gap-4 gap-y-2 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white light:shadow-md px-5 py-3.5"
+          className="lg:hidden sticky z-20 mt-6 flex items-center justify-between gap-3 rounded-2xl glass-panel border border-kaspa-green/30 light:border-emerald-300 light:bg-white light:shadow-md px-5 py-3.5"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="min-w-0 flex items-center gap-2">
-            {phase !== 'create' && (
-              <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">
-                <ArrowLeft size={14} /> Back
-              </Button>
-            )}
-            {circuit && (
-              <span className="text-sm text-gray-300 light:text-slate-700 truncate">
-                <span className="hidden sm:inline text-gray-500 light:text-slate-500 light:font-medium">Selected: </span>
-                <span className="font-semibold text-white light:text-slate-900">{name}</span>
-              </span>
-            )}
-          </div>
+          {phase !== 'create' ? (
+            <Button variant="ghost" size="sm" onClick={goBack} className="shrink-0">
+              <ArrowLeft size={14} /> Back
+            </Button>
+          ) : <span />}
           <Button
             variant="kaspa"
             shimmer
-            className="shrink-0 w-full sm:w-auto light:shadow-md"
+            className="shrink-0 light:shadow-md"
             disabled={!circuit}
             onClick={goForward}
           >
-            <span className="sm:hidden">Continue</span>
-            <span className="hidden sm:inline light:drop-shadow-sm">
-              {phase === 'create' ? 'Continue to logic' : 'Continue to deploy'}
-            </span>
+            Continue
             <ArrowRight size={15} className="light:drop-shadow-sm" />
           </Button>
         </div>
       )}
 
-      <div className="mt-8 text-center text-xs text-gray-500 light:text-slate-600">
-        Or browse ready-made starting points in the <Link to="/templates" className="text-kaspa-green light:text-emerald-700 hover:underline">template library</Link>.
-      </div>
-      </>)}
+      {mode === 'guided' && (
+        <div className="mt-8 text-center text-xs text-gray-500 light:text-slate-600">
+          Or browse ready-made starting points in the <Link to="/templates" className="text-kaspa-green light:text-emerald-700 hover:underline">template library</Link>.
+        </div>
+      )}
     </div>
   );
 }

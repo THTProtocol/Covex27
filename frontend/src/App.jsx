@@ -116,7 +116,12 @@ function StartTourButton() {
   }, []);
   if (!show) return null;
   const start = () => {
-    try { window.localStorage.setItem('covex_tour_active', '1'); } catch { /* private mode */ }
+    try {
+      window.localStorage.setItem('covex_tour_active', '1');
+      // Same-tab activation for the global <FirstCovenantTour/> (native 'storage'
+      // events only fire in other tabs); the tour listens for this synthetic one.
+      window.dispatchEvent(new StorageEvent('storage', { key: 'covex_tour_active', newValue: '1' }));
+    } catch { /* private mode */ }
     setShow(false);
     navigate('/');
   };
@@ -126,7 +131,7 @@ function StartTourButton() {
       onClick={start}
       className="text-xs text-gray-300 hover:text-white hover:underline underline-offset-4 transition-colors light:text-slate-500 light:hover:text-slate-900"
     >
-      Start the tour
+      Take the tour
     </button>
   );
 }

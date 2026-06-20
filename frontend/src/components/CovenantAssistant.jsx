@@ -4,6 +4,8 @@ import {
   Handshake, Clock, ListChecks, Fingerprint, TrendingUp, KeyRound, Gamepad2, Repeat,
 } from 'lucide-react';
 import { suggestCovenants } from '../lib/covenantAssistant';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 
 // Covenant assistant: type a plain-English goal and get a REAL, honest covenant suggestion that
 // pre-fills the builder. Grounded in the live catalog (suggestCovenants only returns circuits that
@@ -85,7 +87,7 @@ export default function CovenantAssistant({ circuits, onSelect }) {
   };
 
   return (
-    <div className="rounded-2xl border border-kaspa-green/20 bg-gradient-to-b from-kaspa-green/[0.06] to-transparent p-4 sm:p-5 relative overflow-hidden">
+    <Card className="p-4 sm:p-5 relative overflow-hidden">
       <div className="covex-aurora hidden sm:block" aria-hidden="true" style={{ top: -40, right: -20, left: 'auto', width: 260, height: 180, opacity: 0.4 }} />
       <div className="relative flex items-center gap-2 mb-1">
         <span className="w-8 h-8 rounded-xl bg-kaspa-green/15 border border-kaspa-green/30 flex items-center justify-center">
@@ -183,12 +185,15 @@ export default function CovenantAssistant({ circuits, onSelect }) {
                         <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed"><span className="text-gray-400 font-semibold">What the chain does:</span> {r.realityNote}</p>
                       </div>
                     </div>
-                    <button
+                    <Button
+                      variant="kaspa"
+                      size="sm"
+                      shimmer
                       onClick={() => onSelect(r.id, { name: r.name || r.circuit.name, desc: r.why })}
-                      className="btn-shimmer mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-white/[0.06] border border-white/10 hover:border-kaspa-green/40 hover:bg-kaspa-green/10 text-white transition-all"
+                      className="mt-3"
                     >
-                      Use this in the builder <ArrowRight size={13} className="text-kaspa-green" />
-                    </button>
+                      Use this in the builder <ArrowRight size={13} />
+                    </Button>
                   </div>
                 );
               })}
@@ -197,6 +202,6 @@ export default function CovenantAssistant({ circuits, onSelect }) {
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

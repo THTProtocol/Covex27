@@ -4,10 +4,11 @@ import { motion, useReducedMotion } from 'framer-motion';
 import {
   Database, Search, Sparkles, Play,
   Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
-  ShieldCheck, Zap, ChevronDown,
+  ShieldCheck, Zap, ChevronDown, Compass,
   Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes
 } from 'lucide-react';
 import Spinner from '../components/ui/Spinner';
+import { Button } from '../components/ui/Button';
 
 // Distinct icon per covenant category so cards are scannable at a glance (not all the same glyph).
 const CATEGORY_ICON = {
@@ -30,7 +31,6 @@ import { useWallet } from '../components/WalletContext';
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
-import FirstCovenantTour from '../components/FirstCovenantTour';
 import CopyButton from '../components/CopyButton';
 import { Badge } from '../components/ui/Badge';
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
@@ -262,21 +262,46 @@ export default function Explorer() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
-  // Tour mount flag. The tour itself reads localStorage `covex_tour_active`,
-  // so triggering it from a click means: clear the skipped flag, set the
-  // active flag, then mount the component. The tour falls back to a
-  // centered modal when the step-1 anchor is not present, so it never
-  // gets stuck even if no covenant cards are visible.
-  const [tourMounted, setTourMounted] = useState(false);
+  // Start the tour by flipping localStorage flags only. The single global
+  // <FirstCovenantTour/> mounted in App.jsx self-activates from
+  // covex_tour_active (it listens for the change), so there is no local mount
+  // here. The tour falls back to a centered banner when an anchor is missing,
+  // so it never gets stuck even if no covenant cards are visible.
   const startTour = useCallback(() => {
     try {
       window.localStorage.removeItem('covex_tour_skipped');
       window.localStorage.setItem('covex_tour_active', '1');
+      // Notify the global instance in this same tab (the native 'storage' event
+      // only fires in OTHER tabs); dispatch a synthetic one it already listens for.
+      window.dispatchEvent(new StorageEvent('storage', { key: 'covex_tour_active', newValue: '1' }));
     } catch {
       /* ignore quota / private mode */
     }
-    setTourMounted(true);
   }, []);
+
+  // First-visit tour invitation card in the hero. Shown only to visitors who have
+  // neither started nor skipped the tour. Dismissal persists to covex_tour_skipped
+  // (the same flag the tour writes on Skip), so it never auto-launches and never
+  // nags a returning visitor.
+  const [showTourInvite, setShowTourInvite] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return (
+        window.localStorage.getItem('covex_tour_active') == null &&
+        window.localStorage.getItem('covex_tour_skipped') == null
+      );
+    } catch {
+      return false;
+    }
+  });
+  const dismissTourInvite = useCallback(() => {
+    try { window.localStorage.setItem('covex_tour_skipped', '1'); } catch { /* private mode */ }
+    setShowTourInvite(false);
+  }, []);
+  const startTourFromInvite = useCallback(() => {
+    setShowTourInvite(false);
+    startTour();
+  }, [startTour]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -527,7 +552,11 @@ export default function Explorer() {
         <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
           Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-10 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
+        {/* Primary action row. Order is deliberate: the primary "Build a Covenant"
+            CTA, then the promoted "Take the tour" secondary (glass Button + Compass),
+            then a quiet "How It Works" link. "Deploy on-chain enforced" is demoted
+            out of the hero into the page body below. */}
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
           <Link
             data-tour="build-cta"
             to="/sandbox"
@@ -536,16 +565,16 @@ export default function Explorer() {
             <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
             Build a Covenant
           </Link>
-          {/* Secondary CTA: consensus-enforced primitives (hashlock, timelocks, HTLC, channel,
-              dead-man, multisig) stay one click away as a single neutral ghost button so
-              "Build a Covenant" is the only primary action. */}
-          <Link
-            to="/deploy/enforced"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+          {/* Promoted secondary CTA: launches the FirstCovenantTour overlay. */}
+          <Button
+            variant="glass"
+            size="lg"
+            onClick={startTour}
+            className="rounded-xl"
           >
-            <ShieldCheck size={16} className="text-white/70 light:text-slate-500 transition-transform duration-300 group-hover:scale-110" />
-            Deploy on-chain enforced
-          </Link>
+            <Compass size={16} className="text-kaspa-green light:text-emerald-700" />
+            Take the tour
+          </Button>
           {/* Quiet tertiary link: "How It Works" is informational, not an action. */}
           <Link
             to="/readme"
@@ -554,19 +583,34 @@ export default function Explorer() {
             How It Works
           </Link>
         </div>
-        {/* Calm tertiary text link: launches the FirstCovenantTour overlay,
-            which anchors step 1 to the first visible covenant card (with a
-            centered-modal fallback if no anchor matches). Honesty-first copy:
-            describes a guided walkthrough, not a product claim. */}
-        <div className="-mt-6 mb-10">
-          <button
-            type="button"
-            onClick={startTour}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-white/55 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
+
+        {/* First-visit invitation card. Dismissible, persists to localStorage, never
+            auto-launches. Shown only to visitors who have not started or skipped the tour. */}
+        {showTourInvite && (
+          <div
+            role="region"
+            aria-label="Tour invitation"
+            className="relative w-full max-w-md mx-auto mb-8 rounded-2xl border border-kaspa-green/30 light:border-emerald-300 glass-panel light:bg-white light:shadow-sm px-4 py-3.5 flex items-center gap-3 text-left animate-[slide-up_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
           >
-            Take the 60-second tour
-          </button>
-        </div>
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/15 light:bg-emerald-600/15 text-kaspa-green light:text-emerald-700 shrink-0">
+              <Compass size={16} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-white light:text-slate-900">New here? Take the tour.</div>
+              <div className="text-xs text-gray-400 light:text-slate-600 mt-0.5">A quick honest walkthrough of how covenants are built and enforced.</div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button variant="kaspa" size="sm" onClick={startTourFromInvite}>Take it</Button>
+              <button
+                type="button"
+                onClick={dismissTourInvite}
+                className="text-xs font-medium text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900 transition-colors px-2 py-1.5"
+              >
+                No thanks
+              </button>
+            </div>
+          </div>
+        )}
         <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-6 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
           {[
             { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
@@ -615,6 +659,20 @@ export default function Explorer() {
           </div>
         )}
       </section>
+
+      {/* Demoted from the hero: consensus-enforced primitives (hashlock, timelocks,
+          HTLC, channel, dead-man, multisig) stay one click away as a quiet body-level
+          affordance, so "Build a Covenant" is the only primary hero action. */}
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 -mt-2 mb-2 flex justify-center">
+        <Link
+          to="/deploy/enforced"
+          className="group inline-flex items-center gap-2 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
+        >
+          <ShieldCheck size={15} className="text-white/50 light:text-slate-400 group-hover:text-kaspa-green light:group-hover:text-emerald-700 transition-colors" />
+          Or deploy an on-chain enforced primitive
+          <span aria-hidden="true" className="opacity-60 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+        </Link>
+      </div>
 
       {/* CONTROLS - Explore / Search / Arena, one segmented control with Arena as the amber-accent third tab */}
       {/* a11y: tablist with arrow-key / Home / End wrap-around (matches CovenantInteractive). Arena is a separate boolean (showArena) so the "active" id is derived. */}
@@ -889,7 +947,7 @@ export default function Explorer() {
                     onClick={startTour}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
                   >
-                    Start the tour
+                    Take the tour
                   </button>
                   <Link
                     to="/sandbox"
@@ -937,7 +995,7 @@ export default function Explorer() {
                         onClick={startTour}
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
                       >
-                        Take the 60-second tour
+                        Take the tour
                       </button>
                       <button
                         type="button"
@@ -978,12 +1036,6 @@ export default function Explorer() {
           </>
         )}
       </div>
-      {/* Mount the FirstCovenantTour overlay only after the user clicks a
-          "Take the 60-second tour" trigger. The tour component itself reads
-          localStorage `covex_tour_active` to start; we also still respect the
-          ?tour=1 URL param activation by mounting unconditionally when that
-          flag is already set on first render. */}
-      {tourMounted && <FirstCovenantTour />}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, Layers, ArrowUpRight, Info, Eye, X } from 'lucide-react';
+import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, ArrowUpRight, Info, Eye, X } from 'lucide-react';
 import TransparencyModal from './TransparencyModal';
 import SandboxCircuitPreview from './SandboxCircuitPreview';
 
@@ -75,9 +75,9 @@ function CircuitCard({ c, active, onSelect, onInspect, onExample }) {
           : 'border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent hover:border-white/[0.16] light:border-slate-200 light:from-slate-50 light:to-white light:hover:border-slate-300 light:shadow-sm'
       }`}
     >
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] opacity-70 group-hover:opacity-100 transition-opacity z-10" style={{ background: `linear-gradient(90deg, transparent, ${active ? '#49EACB' : m.accent}, transparent)` }} />
-      <button onClick={() => onSelect(c.id)} title={`${c.name} - ${c.reality}`} className="block w-full text-left p-3 pb-1.5">
-        <div className="relative flex items-start gap-2 pr-16">
+      {/* Selecting is an explicit choice, not a CTA: the card body is the select target. */}
+      <button onClick={() => onSelect(c.id)} title={`Select ${c.name}`} aria-pressed={active} className="block w-full text-left p-3 pb-1.5">
+        <div className="relative flex items-start gap-2 pr-20">
           <span className={`text-sm font-bold leading-tight ${active ? 'text-kaspa-green' : 'text-white light:text-slate-900'}`}>{c.name}</span>
         </div>
         <p className="relative text-[11px] text-gray-400 light:text-slate-500 leading-snug mt-1 line-clamp-2 pr-2">{c.description}</p>
@@ -92,15 +92,22 @@ function CircuitCard({ c, active, onSelect, onInspect, onExample }) {
       >
         <Eye size={11} /> See an example
       </button>
-      {/* The reality badge is itself the inspect trigger: press it to see how this is verified + the source. */}
-      <button
-        type="button"
-        onClick={() => onInspect(c)}
-        title="How is this verified? Press to inspect the source"
-        className={`absolute top-2 right-2 inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition hover:brightness-125 z-10 ${m.bg} ${m.text} ${m.border}`}
-      >
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.accent }} /> {m.short} <Info size={9} className="opacity-60" />
-      </button>
+      {/* Reality label + a SEPARATE inspect button. The label is a visible chip (text-[10px]),
+          and the small (i) button is the only inspect trigger so the two affordances are distinct. */}
+      <div className="absolute top-2 right-2 inline-flex items-center gap-1 z-10">
+        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${m.bg} ${m.text} ${m.border}`}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.accent }} /> {m.short}
+        </span>
+        <button
+          type="button"
+          onClick={() => onInspect(c)}
+          aria-label={`How is ${c.name} verified? Inspect the source`}
+          title="How is this verified? Press to inspect the source"
+          className={`inline-flex items-center justify-center w-5 h-5 rounded-full border transition hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${m.bg} ${m.text} ${m.border}`}
+        >
+          <Info size={11} />
+        </button>
+      </div>
       {active && <Check size={13} className="text-kaspa-green absolute bottom-2.5 right-2.5" />}
     </div>
   );
@@ -248,22 +255,6 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
                 </Link>
               ))}
             </div>
-          </section>
-
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-7 h-7 rounded-lg bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
-                <Layers size={14} className="text-kaspa-green" />
-              </span>
-              <h3 className="text-sm font-bold text-white tracking-tight">Templates</h3>
-            </div>
-            <Link to="/templates" className="group flex items-center justify-between gap-3 p-4 rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.04] hover:bg-kaspa-green/[0.08] hover:border-kaspa-green/40 transition-all max-w-md">
-              <div>
-                <div className="text-sm font-bold text-white">Browse ready-made templates</div>
-                <div className="text-[11px] text-gray-400 mt-0.5">Pre-configured covenants across games, ZK, oracle markets, and DeFi.</div>
-              </div>
-              <ArrowUpRight size={18} className="text-kaspa-green group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
-            </Link>
           </section>
         </div>
       )}

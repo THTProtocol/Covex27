@@ -6120,7 +6120,10 @@ mod tests {
         // The binding field elements the provers commit (sha256(covenant_id) mod BN254).
         let fe_a = crate::oracle::covenant_field_element(covenant_a);
         let fe_b = crate::oracle::covenant_field_element(covenant_b);
-        assert_ne!(fe_a, fe_b, "distinct covenants must yield distinct bindings");
+        assert_ne!(
+            fe_a, fe_b,
+            "distinct covenants must yield distinct bindings"
+        );
 
         // A real proof for covenant A carries fe_a among its public signals (plus the
         // circuit's other public inputs, here a stand-in `valid` signal at index 0).

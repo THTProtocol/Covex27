@@ -3136,8 +3136,7 @@ mod enforcement_reality_override_tests {
         // Control: the bare P2SH on script alone is on-chain (so any "hybrid" below is
         // proven to come from the type override, not from the script classifier).
         assert_eq!(
-            covenant_catalog::reality_for_script(&format!("aa20{}87", "33".repeat(32)))
-                .as_str(),
+            covenant_catalog::reality_for_script(&format!("aa20{}87", "33".repeat(32))).as_str(),
             "on-chain"
         );
 

@@ -1,0 +1,4 @@
+hash_preimage: accept=true tamperReject=true n=2 sig=["1","18843658834580789322340927899311244524661592280871056680529540574000694566205"]
+timelock_absolute: accept=true tamperReject=true n=3 sig=["1","5000","1000"]
+relative_timelock: accept=true tamperReject=true n=4 sig=["1","2000","1000","500"]
+DONE

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Covex pre-push gate — mirrors .github/workflows/ci.yml locally so pushes to
+# master stay GREEN. Scoped to the changed area for speed. Bypass (emergencies
+# only) with: git push --no-verify
+set -uo pipefail
+ROOT="$(git rev-parse --show-toplevel)"; cd "$ROOT"
+
+# what changed vs the remote tracking branch (fallback: last commit)
+RANGE="origin/master...HEAD"; git rev-parse origin/master >/dev/null 2>&1 || RANGE="HEAD~1..HEAD"
+CHANGED="$(git diff --name-only "$RANGE" 2>/dev/null; git diff --name-only; git diff --cached --name-only)"
+echo "$CHANGED" | grep -q '^frontend/' && FE=1 || FE=0
+echo "$CHANGED" | grep -q '^backend/'  && BE=1 || BE=0
+
+fail(){ echo "❌ pre-push GATE FAILED: $1 — fix it or push --no-verify to override"; exit 1; }
+
+if [ "$FE" = 1 ]; then
+  echo "▶ frontend gates (npm ci / sandbox / vitest / build)…"
+  ( cd frontend && npm ci && npm run check:sandbox && npm test && npm run build ) || fail "frontend"
+fi
+if [ "$BE" = 1 ]; then
+  echo "▶ backend gates (cargo build+test --release)…"
+  . "$HOME/.cargo/env" 2>/dev/null || true; export PATH="$HOME/.cargo/bin:$PATH"
+  ( cd backend && cargo build --release && cargo test --release ) || fail "backend"
+fi
+echo "✅ pre-push: all CI gates green"

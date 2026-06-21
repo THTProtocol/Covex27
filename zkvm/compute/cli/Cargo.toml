@@ -1,0 +1,38 @@
+# covex-compute-prover: the open-source CLI around the Covex general verifiable-computation zkVM.
+#
+# Subcommands:
+#   prove  <input.json> <out_receipt.bin>  - read a program + inputs as JSON, produce a REAL zk
+#                                            receipt attesting {program_hash, inputs, output}.
+#   verify <receipt.bin>                    - verify a receipt against the embedded guest image id
+#                                            and print the committed Statement.
+#   hash   <program.json>                   - print sha256(program), the public program id.
+#   tamper-journal <in.bin> <out.bin>       - flip a journal byte (soundness self-test helper).
+#
+# The trustless baseline: a prover produces the receipt; anyone verifies it without re-running the
+# program. The prover wraps covex_compute_core::run_checked (a false statement cannot be proven).
+[package]
+name = "covex-compute-prover"
+version = { workspace = true }
+edition = { workspace = true }
+description = "Open-source CLI to prove a deterministic program ran on given inputs and produced a claimed output, using RISC0, and verify the resulting receipt off-chain."
+license = "MIT"
+
+[[bin]]
+name = "covex-compute-prover"
+path = "src/main.rs"
+
+[dependencies]
+# The prover/verifier runtime (default features include the local prover).
+risc0-zkvm = "3.0"
+# The generated guest ELF + image id, shared with the host.
+methods = { path = "../methods" }
+# The ISA + interpreter + contract types (same layout as the guest).
+covex-compute-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Compact, deterministic binary (de)serialization of the Receipt for the on-disk receipt file.
+bincode = "1"
+# Hex for the 32-byte program-hash / image-id fields.
+hex = "0.4"
+# Ergonomic error context for the CLI.
+anyhow = "1"

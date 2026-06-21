@@ -1,0 +1,25 @@
+# covex-compute-core: the pure-Rust ISA + interpreter for the Covex general verifiable
+# computation zkVM.
+#
+# This crate defines a tiny, deterministic stack machine (a minimal ISA over u64), a Program
+# (a Vec of Ops), the public statement shape (programHash + publicInputs + claimed output), and
+# a single `execute()` function the RISC0 guest wraps. There is NO risc0 dependency here: this is
+# the rules core only, exactly the same separation as covex-games. The same execute() runs inside
+# and outside the zkVM and is a deterministic function of (program, inputs).
+[package]
+name = "covex-compute-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust deterministic stack-machine ISA + interpreter for the Covex general verifiable-computation zkVM. A Program is a Vec of Ops over u64; execute() is wrapped by the RISC0 guest to prove 'I ran THIS program on THESE inputs and got THIS output'. No risc0 dependency."
+license = "MIT"
+
+# IMPORTANT: keep this crate pure-Rust and deterministic (no I/O, no threads, no system time, no
+# randomness). execute() must be a deterministic function of (Program, inputs) so the same input
+# always yields the same output inside and outside the zkVM.
+
+[dependencies]
+# Deterministic SHA-256: used both as the program-binding hash (sha256 of the serialized program)
+# and as an in-ISA Hash op (RISC0 has a hardware accelerator for sha2). serde for the contract
+# types so the guest can env::read / env::commit them.
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }

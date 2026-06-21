@@ -1,0 +1,15 @@
+{
+  "_comment": "NEGATIVE example: same quadratic f(x,y)=x*x+3*y on [5,7] (true output 46) but claims 47. The guest recomputes 46, sees 46 != 47, panics, and produces NO receipt. `prove` on this file MUST fail (non-zero exit). This demonstrates a dishonest output claim cannot be proven.",
+  "num_inputs": 2,
+  "ops": [
+    {"op": "load", "i": 0},
+    {"op": "dup"},
+    {"op": "mul"},
+    {"op": "push", "v": 3},
+    {"op": "load", "i": 1},
+    {"op": "mul"},
+    {"op": "add"}
+  ],
+  "inputs": [5, 7],
+  "claimed_output": 47
+}

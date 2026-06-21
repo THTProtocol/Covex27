@@ -1,0 +1,20 @@
+{
+  "_comment": "Custom predicate: is dot([a0,a1],[b0,b1]) >= threshold? inputs = [a0,a1,b0,b1,threshold]. Here dot([3,4],[5,6]) = 15 + 24 = 39 >= 30 -> output 1 (yes). Computes (dot < threshold) then 1 - that to get (dot >= threshold).",
+  "num_inputs": 5,
+  "ops": [
+    {"op": "load", "i": 0},
+    {"op": "load", "i": 2},
+    {"op": "mul"},
+    {"op": "load", "i": 1},
+    {"op": "load", "i": 3},
+    {"op": "mul"},
+    {"op": "add"},
+    {"op": "load", "i": 4},
+    {"op": "lt"},
+    {"op": "push", "v": 1},
+    {"op": "swap"},
+    {"op": "sub"}
+  ],
+  "inputs": [3, 4, 5, 6, 30],
+  "claimed_output": 1
+}

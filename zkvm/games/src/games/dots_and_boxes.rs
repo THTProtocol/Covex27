@@ -106,9 +106,10 @@ impl DotsAndBoxesGame {
         scored
     }
 
-    fn winner_by_boxes(&self) -> u8 {
-        let mut a = 0;
-        let mut b = 0;
+    /// (p1_boxes, p2_boxes) currently owned on the board.
+    fn box_counts(&self) -> (u64, u64) {
+        let mut a = 0u64;
+        let mut b = 0u64;
         for o in &self.box_owner {
             match o {
                 Some(WINNER_P1) => a += 1,
@@ -116,6 +117,11 @@ impl DotsAndBoxesGame {
                 _ => {}
             }
         }
+        (a, b)
+    }
+
+    fn winner_by_boxes(&self) -> u8 {
+        let (a, b) = self.box_counts();
         if a > b {
             WINNER_P1
         } else if b > a {
@@ -135,6 +141,14 @@ impl Default for DotsAndBoxesGame {
 impl GameRules for DotsAndBoxesGame {
     fn side_to_move(&self) -> u8 {
         self.turn
+    }
+
+    /// Verifiable score: the live box tally `[P1 boxes, P2 boxes]`. Read off the trusted board at
+    /// game end and committed in `GameResult::score`, so a verifying proof attests the exact final
+    /// box count.
+    fn score(&self) -> Option<[u64; 2]> {
+        let (a, b) = self.box_counts();
+        Some([a, b])
     }
 
     fn step(&mut self, mv: &str) -> Result<Option<u8>, String> {
@@ -201,6 +215,8 @@ mod tests {
         assert_eq!(r.winner, WINNER_P2, "P2 drew the closing edge");
         assert_eq!(r.reason, "most_boxes");
         assert_eq!(r.num_plies, 4);
+        // VERIFIABLE SCORE: P2 took the only box, so the committed box tally is [0, 1].
+        assert_eq!(r.score, Some([0, 1]), "final box tally must be committed");
     }
 
     /// Completing a box grants another move: on a 1x2 board, set up so P1 closes the first box then

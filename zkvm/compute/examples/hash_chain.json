@@ -1,0 +1,28 @@
+{
+  "_comment": "Hash chain of depth 4 over seed 12345: acc = seed, then 4 times fold acc with 7 zero bytes through Hash8 (sha256 of 8 low-bytes, first 8 digest bytes as a big-endian u64). claimed_output omitted so the CLI computes the honest final value on the host (the guest re-checks it). A verifying receipt proves the public chain run over the public seed yields the committed output.",
+  "num_inputs": 1,
+  "ops": [
+    {"op": "load", "i": 0},
+
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0},
+    {"op": "hash8"},
+
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0},
+    {"op": "hash8"},
+
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0},
+    {"op": "hash8"},
+
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0}, {"op": "push", "v": 0}, {"op": "push", "v": 0},
+    {"op": "push", "v": 0},
+    {"op": "hash8"}
+  ],
+  "inputs": [12345]
+}

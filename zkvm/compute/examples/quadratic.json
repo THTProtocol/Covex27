@@ -1,0 +1,14 @@
+{
+  "_comment": "f(x,y) = x*x + 3*y over inputs [5,7] = 25 + 21 = 46. claimed_output omitted so the CLI fills the honest output (46); the guest re-checks it.",
+  "num_inputs": 2,
+  "ops": [
+    {"op": "load", "i": 0},
+    {"op": "dup"},
+    {"op": "mul"},
+    {"op": "push", "v": 3},
+    {"op": "load", "i": 1},
+    {"op": "mul"},
+    {"op": "add"}
+  ],
+  "inputs": [5, 7]
+}

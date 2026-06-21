@@ -130,6 +130,14 @@ impl GameRules for MancalaGame {
         self.turn
     }
 
+    /// Verifiable score: the live store counts `[P1 store, P2 store]`. After a natural end the
+    /// end-of-game sweep has banked every remaining stone, so this is the final tally; on an early
+    /// resign/timeout it is the honest snapshot of stones banked so far. Committed in
+    /// `GameResult::score` and covered by the same proof.
+    fn score(&self) -> Option<[u64; 2]> {
+        Some([self.holes[P1_STORE] as u64, self.holes[P2_STORE] as u64])
+    }
+
     fn step(&mut self, mv: &str) -> Result<Option<u8>, String> {
         let side = self.turn;
 
@@ -286,6 +294,26 @@ mod tests {
         let r = replay(&game(&["2", "0", "resign"])).expect("legal moves then resign");
         assert_eq!(r.winner, WINNER_P1);
         assert_eq!(r.reason, "resign");
+        // VERIFIABLE SCORE: pit 2 banked one stone in P1's store (the extra-turn move), pit 0 reached
+        // no store. So the committed store tally at resign is [1, 0].
+        assert_eq!(r.score, Some([1, 0]), "store tally must be committed");
+    }
+
+    /// Natural-end score: the sweep banks every remaining stone, so the committed score is the final
+    /// store tally. Mirrors `endgame_sweep_decides_majority` but asserts the score via the trait.
+    #[test]
+    fn natural_end_commits_store_tally() {
+        let mut g = MancalaGame::new();
+        g.holes = [0u32; HOLES];
+        g.holes[5] = 1;
+        g.holes[P1_STORE] = 20;
+        g.holes[8] = 5;
+        g.holes[P2_STORE] = 10;
+        g.turn = WINNER_P1;
+        let w = g.step("5").unwrap().expect("this move ends the game");
+        assert_eq!(w, WINNER_P1);
+        // After the sweep: P1 store 21, P2 store 15.
+        assert_eq!(g.score(), Some([21, 15]), "scorer reads the live store tally");
     }
 
     // ---- negatives ----

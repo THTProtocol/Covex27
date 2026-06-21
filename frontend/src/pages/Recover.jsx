@@ -4,7 +4,7 @@ import {
   Upload, AlertTriangle, ArrowLeft, Coins, Loader2, Wallet, Send, Download, Snowflake,
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
-import { hasPublicApi, fetchAddressBalanceSompi, fetchAddressUtxos, sompiToKas } from '../lib/kaspaPublicApi';
+import { hasPublicApi, fetchAddressBalanceSompi, fetchAddressUtxos, sompiToKas, wrpcNodesFor } from '../lib/kaspaPublicApi';
 import { useWallet } from '../components/WalletContext';
 import {
   KIND_CLAIM_MATRIX, claimability, assertSignerForBranch,
@@ -149,6 +149,12 @@ function ClaimFlow({ kit, utxos }) {
   const needsPreimage = (kind === 'hashlock') || (kind === 'htlc' && branch === 'claim') || (kind === 'binary_oracle_select' && (branch === 'revealA' || branch === 'revealB'));
   const isRefund = branch === 'refund';
   const oracleNeeded = claim && !claim.offline;
+  // Whether an in-browser wRPC broadcast can actually reach a node for this network. The
+  // public Resolver covers mainnet + testnet-10; the Toccata testnet-12 has no public node
+  // a browser can open, so for tn12 we steer the holder to Sign & export (the working path)
+  // rather than letting an in-browser broadcast attempt fail. HONEST: do not claim a tn12
+  // node we cannot reach.
+  const canBroadcastInBrowser = net === 'mainnet' || net === 'testnet-10' || wrpcNodesFor(kit.network).length > 0;
 
   // Default the destination to the connected wallet address (the holder's own payout address).
   useEffect(() => {
@@ -236,9 +242,13 @@ function ClaimFlow({ kit, utxos }) {
         setResult({ json });
         setStatus({ kind: 'ok', msg: 'Signed transaction exported. Broadcast it from the cold-recovery tool or any Kaspa node.' });
       } else {
-        const txid = await broadcast(tx, net);
+        // Try known wRPC node URLs for this network first, then the public Resolver. This is
+        // the no-Covex broadcast path. tn12 has no browser-reachable public node, so its
+        // broadcast may fail - broadcast() then returns an honest error pointing here at the
+        // always-available Sign-and-export path.
+        const txid = await broadcast(tx, net, { nodeUrls: wrpcNodesFor(kit.network) });
         setResult({ txid });
-        setStatus({ kind: 'ok', msg: 'Broadcast accepted by a public Kaspa node.' });
+        setStatus({ kind: 'ok', msg: 'Broadcast accepted by a Kaspa node.' });
       }
     } catch (e) {
       setStatus({ kind: 'err', msg: e?.message || 'Could not complete the spend.' });
@@ -380,13 +390,14 @@ function ClaimFlow({ kit, utxos }) {
         <p className="text-[11px] text-gray-500 light:text-slate-400 mt-1">Output value is derived as the UTXO amount minus a {Number(DEFAULT_FEE_SOMPI)}-sompi fee, and is committed in the signature so it cannot be redirected.</p>
       </div>
 
-      {/* Actions: broadcast OR export (offline). */}
+      {/* Actions: broadcast OR export (offline). On testnet-12 there is no browser-reachable
+          public node, so Sign & broadcast is disabled there and Sign & export is the path. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button
           onClick={() => run('broadcast')}
-          disabled={busy || (oracleNeeded)}
+          disabled={busy || oracleNeeded || !canBroadcastInBrowser}
           className="btn-shimmer w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_18px_rgba(73,234,203,0.3)] transition-all"
-          title={oracleNeeded ? 'This branch needs the Covex oracle co-signature' : 'Build, sign locally, and broadcast'}
+          title={oracleNeeded ? 'This branch needs the Covex oracle co-signature' : (!canBroadcastInBrowser ? 'No browser-reachable public node for this network - use Sign & export instead' : 'Build, sign locally, and broadcast')}
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Sign &amp; broadcast
         </button>
@@ -399,6 +410,11 @@ function ClaimFlow({ kit, utxos }) {
           {busy ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Sign &amp; export
         </button>
       </div>
+      {!canBroadcastInBrowser && !oracleNeeded && (
+        <p className="text-[11px] text-gray-500 light:text-slate-400 -mt-1.5 leading-relaxed">
+          {kit.network} has no public node a browser can broadcast to. Use <span className="text-gray-300 light:text-slate-600 font-semibold">Sign &amp; export</span> (signed locally, never transmitted) and submit the transaction from a Kaspa node CLI, a block explorer, or the cold-recovery tool below.
+        </p>
+      )}
 
       {status && (
         <div className={`rounded-xl border p-3 text-[12px] leading-relaxed ${status.kind === 'ok' ? 'border-kaspa-green/30 bg-kaspa-green/[0.06] text-kaspa-green' : status.kind === 'err' ? 'border-red-500/30 bg-red-500/[0.06] text-red-300' : 'border-white/10 bg-white/[0.04] text-gray-300 light:text-slate-600'}`}>

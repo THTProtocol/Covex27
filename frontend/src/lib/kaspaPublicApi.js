@@ -18,6 +18,30 @@ export function hasPublicApi(network) {
   return !!PUBLIC_API[network] || BACKEND_FALLBACK.has(network);
 }
 
+// Known wRPC (Borsh) node URLs the in-browser redeemer can try BEFORE falling back to
+// the kaspa-wasm public Resolver. This is the "Covex is down" broadcast path: the spend
+// is assembled + signed locally and submitted directly to a node, with no Covex
+// infrastructure. Mirrors the standalone cold-recovery tool's PUBLIC_NODES list verbatim
+// so both paths use the same honest set.
+//
+// HONESTY: the public Resolver has NO Toccata testnet-12 nodes, and there is no public
+// CORS/wRPC testnet-12 endpoint a browser can open (the live tn12 node is server-local).
+// So tn12 has no entry here and the Resolver cannot reach it either - the broadcast()
+// caller surfaces that clearly and the always-available Sign-and-export path is the
+// answer for tn12. We do NOT invent a tn12 node URL we cannot stand behind.
+const WRPC_NODES = Object.freeze({
+  mainnet: Object.freeze(['wss://api.kaspa.org/borsh', 'wss://kas.fyi/borsh']),
+  'mainnet-1': Object.freeze(['wss://api.kaspa.org/borsh', 'wss://kas.fyi/borsh']),
+  'testnet-10': Object.freeze([]),
+  'testnet-12': Object.freeze([]),
+});
+
+// Returns the ordered list of known wRPC node URLs to try for a network (may be empty,
+// in which case the caller falls back to the kaspa-wasm Resolver).
+export function wrpcNodesFor(network) {
+  return WRPC_NODES[network] || [];
+}
+
 function parseBalance(j) {
   const bal = typeof j.balance === 'number' ? j.balance : Number(j.balance);
   if (!Number.isFinite(bal)) throw new Error('Unexpected balance response.');

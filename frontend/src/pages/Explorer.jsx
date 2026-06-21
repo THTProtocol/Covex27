@@ -151,7 +151,12 @@ const TIER_CONFIG = {
 
 const isSkillGame = (c) => {
   const t = (c.covenant_type || '').toLowerCase();
-  return /chess|connect.?4|poker|blackjack|checkers|tic.?tac|reversi|rps|rock.?paper|skill.?game|game|tournament|flip/i.test(t);
+  // `skill` first: the only indexed game covenant_type is `skill-covenant`, which has
+  // no "game" substring, so without it the Arena tab + badge never populated. The
+  // shared detectGameType() heuristic is a second pass for crawled covenants whose
+  // type is opaque but whose name/description names a game.
+  return /chess|connect.?4|poker|blackjack|checkers|tic.?tac|reversi|rps|rock.?paper|skill|game|tournament|flip/i.test(t)
+    || !!detectGameType(c);
 };
 
 // Server-side q terms per category (pipe-separated = OR). Keeps filters working
@@ -260,6 +265,7 @@ export default function Explorer() {
 
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
@@ -450,6 +456,22 @@ export default function Explorer() {
       .catch(err => { setSearchError(`Search failed: ${err.message}`); setSearchLoading(false); });
   }, []);
 
+  // Populate the search box with a format example and focus it, WITHOUT submitting.
+  // The "Try:" chips are illustrative formats (a bare "kaspa:" prefix is not a real
+  // address); auto-submitting one used to silently switch the whole app to empty
+  // mainnet via handleSearch's prefix detection. Filling + focusing keeps the action
+  // scoped to the search box and lets the user complete a real query on their network.
+  const fillSearch = useCallback((term) => {
+    setSearchQuery(term);
+    setSearchError(null);
+    requestAnimationFrame(() => {
+      const el = searchInputRef.current;
+      if (!el) return;
+      el.focus();
+      try { el.setSelectionRange(term.length, term.length); } catch { /* non-text input */ }
+    });
+  }, []);
+
   const handleSearch = useCallback((e, overrideTerm) => {
     if (e?.preventDefault) e.preventDefault();
     // Accept a pasted explorer URL or a bare 64-hex txid, not just clean queries.
@@ -471,22 +493,47 @@ export default function Explorer() {
 
     // KNS .kas name: resolve via the backend to an owner address, then run the
     // existing creator-address search for that owner. Honest: we say what resolved.
+    //
+    // KNS names are registered on MAINNET, so a resolve against the default network
+    // (testnet-12) returns resolved:false and the backend never sends a network_hint.
+    // Recovery: when the current-network resolve fails and we are not already on
+    // mainnet, retry the resolve on mainnet and use that. Only error if mainnet also
+    // fails. The optional network_hint is still honored when present.
     if (q.toLowerCase().endsWith('.kas')) {
-      fetch(`/api/resolve/${encodeURIComponent(q)}?network=${net}`)
-        .then(r => (r.ok ? r.json() : {}))
+      const resolveOn = (resolveNet) =>
+        fetch(`/api/resolve/${encodeURIComponent(q)}?network=${resolveNet}`)
+          .then(r => (r.ok ? r.json() : {}));
+
+      resolveOn(net)
         .then(d => {
-          // If the resolver returns a network hint that disagrees with the picker,
-          // follow it so a mainnet .kas resolved while on testnet still finds funds.
+          // Honor an explicit network_hint when the backend supplies one.
           let searchNet = net;
           if (d && d.network_hint === 'mainnet' && net !== 'mainnet') searchNet = switchNetwork('mainnet');
           else if (d && d.network_hint === 'testnet' && net === 'mainnet') searchNet = switchNetwork('testnet-10');
+
           if (d && d.resolved && d.address) {
             setResolvedChip({ name: q, address: d.address });
             runWalletSearch(d.address, searchNet);
-          } else {
-            setSearchError(`No KNS owner found for ${q} on ${searchNet}`);
-            setSearchLoading(false);
+            return;
           }
+
+          // Failed on the current network. KNS lives on mainnet, so retry there
+          // (unless we already tried mainnet).
+          if (net !== 'mainnet' && searchNet !== 'mainnet') {
+            return resolveOn('mainnet').then(dm => {
+              if (dm && dm.resolved && dm.address) {
+                const mainNet = switchNetwork('mainnet');
+                setResolvedChip({ name: q, address: dm.address });
+                runWalletSearch(dm.address, mainNet);
+              } else {
+                setSearchError(`No KNS owner found for ${q} on ${net} or mainnet`);
+                setSearchLoading(false);
+              }
+            });
+          }
+
+          setSearchError(`No KNS owner found for ${q} on ${searchNet}`);
+          setSearchLoading(false);
         })
         .catch(() => { setSearchError(`Could not reach the KNS resolver for ${q}`); setSearchLoading(false); });
       return;
@@ -810,7 +857,7 @@ export default function Explorer() {
             <form onSubmit={handleSearch} className="relative">
               <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-2xl glass-panel focus-within:border-kaspa-green/40 transition-all">
                 <Search size={18} className="text-kaspa-green shrink-0" />
-                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                <input type="text" ref={searchInputRef} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="name.kas, kaspa:qr... address, txid, or a covenant link"
                   className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white light:text-slate-900 placeholder:text-gray-200 light:placeholder:text-slate-400"
@@ -825,9 +872,9 @@ export default function Explorer() {
             </form>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-gray-200 light:text-slate-500">
               <span>Try:</span>
-              <button onClick={() => { setSearchQuery('covenant.kas'); handleSearch(null, 'covenant.kas'); }} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
-              <button onClick={() => { setSearchQuery('kaspa:'); handleSearch(null, 'kaspa:'); }} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
-              <button onClick={() => { setSearchQuery(':'); handleSearch(null, ':'); }} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
+              <button type="button" onClick={() => fillSearch('covenant.kas')} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">name.kas</button>
+              <button type="button" onClick={() => fillSearch('kaspa:')} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
+              <button type="button" onClick={() => fillSearch('txid:0')} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
             </div>
             {/* Resolved chip: a .kas name that resolved to an owner address, with a copy
                 button. covenant.kas -> kaspa:qpz2...n4uk5a. Honest: KNS owner, not a claim. */}

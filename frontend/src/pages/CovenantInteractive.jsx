@@ -41,13 +41,12 @@ const GAME_REGISTRY = {
 assertGamesInSync(Object.keys(GAME_REGISTRY), 'GAME_REGISTRY');
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, QrCode, Type, Ruler, Save, Crown, Star, Share2, Clock, Wallet } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, Type, Ruler, Save, Share2, Clock, Wallet } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import StickyActionRail from '../components/StickyActionRail';
 import { LifeBuoy } from 'lucide-react';
-import { QRCodeCanvas } from 'qrcode.react';
 import DevWalletModal from '../components/DevWalletModal';
 import OnChainLockSection from '../components/OnChainLockSection';
 import ZkClaimPanel from '../components/ZkClaimPanel';
@@ -72,7 +71,6 @@ const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s
 // DEPLOYER is the Covex treasury / creator-fee receiver address the backend matches against.
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
-const tierValue = (t) => ({ MAX: 3, PRO: 2, BUILDER: 1, FREE: 0, EXPLORER: 0 }[t] || 0);
 
 // Shared stake control for every game lobby (chess + the seven others). Hoisted to
 // module scope so it never remounts on a parent render (would otherwise lose input
@@ -274,17 +272,6 @@ export default function CovenantInteractive() {
   // Fix tab and looks/stake always available to creator after wallet login. No paid required for basic Fix or chess arena.
   const isCreator = !!(address && covenant?.creator_addr && address === covenant.creator_addr);
 
-  // Compute effective tier & paid status early so tab default works (paid only for advanced Studio elsewhere)
-  const effectiveTierLabel = covexPaidTier || 'FREE';
-  const effectiveTierVal = Math.max(
-    tierValue(covenant?.verified_tier || covenant?.tier || 'FREE'),
-    tierValue(effectiveTierLabel)
-  );
-  const TierIcon = effectiveTierLabel === 'MAX' ? Crown : effectiveTierLabel === 'PRO' ? Star : effectiveTierLabel === 'BUILDER' ? Terminal : Eye;
-  const canCustomize = isCreator;  // creator always can use Fix for looks + stake (public chess is always pro transparent)
-  const canBrand = isCreator;
-  const canMaxLayout = isCreator;
-
   // Viewer-first: when user "presses on the covenant" they see nice transparent UI (custom if set by creator, or full facts).
   // "Arena / Play" is default for everyone (especially chess). Terminal + advanced ONLY for creator.
   // Fix tab (creator only) for clean looks + single stake section.
@@ -296,31 +283,11 @@ export default function CovenantInteractive() {
     if (covenant?.custom_ui_html && covenant.custom_ui_html.length > 10) return 'interact';
     return 'interact';
   });
-  // Pass play mode to CovexTerminal
-  const playMode = searchParams.get('play') || null; // 'chess' | 'poker' | 'bj' | null
 
   // Transparency: always show full details for viewers (no hidden settings for regular users)
   const showTransparency = true; // Always for the "everything there is to know - fully transparent" requirement.
-  const TREASURY = (() => {
-    // Pay the upgrade fee to the treasury on the covenant's own network (a kaspatest:
-    // address is invalid on mainnet, so a hardcoded testnet treasury breaks mainnet pay).
-    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'testnet-12';
-    return (net === 'mainnet' || net === 'mainnet-1')
-      ? 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2'
-      : 'kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m';
-  })();
-  const TIER_OPTIONS = [
-    { id: 'BUILDER', price: 100, label: 'Builder', color: '#3B82F6', desc: 'Interactive UI generation, standard listing, verified badge.' },
-    { id: 'PRO', price: 500, label: 'PRO', color: '#E8AF34', desc: 'Featured placement, advanced UI tools, covenant images.' },
-    { id: 'MAX', price: 1000, label: 'MAX', color: '#A855F7', desc: 'Top placement, full UI suite, custom branding.' },
-  ];
 
-  // Upgrade payment state
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [upgradeTier, setUpgradeTier] = useState(null);
-  const [upgradeQr, setUpgradeQr] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const [upgradePaid, setUpgradePaid] = useState(false);
   const [fullscreenUI, setFullscreenUI] = useState(false);
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
@@ -396,39 +363,6 @@ export default function CovenantInteractive() {
       setClaimBusy(false);
     }
   };
-
-  const handleUpgrade = async (tier) => {
-    setUpgradeTier(tier);
-    setShowUpgrade(true);
-    setUpgradeQr(false);
-    setUpgradePaid(false);
-  };
-
-  const handleUpgradePay = async (tier) => {
-    // No wallet: never fake a payment and never open a dead protocol tab. Show the scannable
-    // payment URI/QR (which leads somewhere real) and offer the connect modal.
-    if (!address) {
-      setUpgradeQr(true);
-      setWalletModalOpen(true);
-      return;
-    }
-    try {
-      const result = await sendPayment(TREASURY, tier.price, { memo: `covex-upgrade:${id}:${tier.id}` });
-      if (result && result.success) {
-        setUpgradePaid(true);
-        toast.success(`${tier.label} tier payment broadcast${result.txid ? ': ' + String(result.txid).slice(0, 16) + '…' : ''}`);
-      } else {
-        toast.error((result && result.error) ? result.error : 'Payment failed to broadcast');
-        // Fall back to the scannable URI panel instead of a blank tab.
-        setUpgradeQr(true);
-      }
-    } catch (e) {
-      toast.error(e?.message || 'Payment error');
-      setUpgradeQr(true);
-    }
-  };
-
-  const getUpgradeUri = (tier) => `${TREASURY}?amount=${tier.price}`;
 
   const [actions, setActions] = useState([]);
   useEffect(() => {
@@ -676,8 +610,6 @@ export default function CovenantInteractive() {
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [routeCovenantIntent]);
-
-  const covenantTierVal = tierValue(covenant?.verified_tier || covenant?.tier || 'FREE');
 
   // React to loaded covenant (custom UI presence) and isCreator for correct default tab
   useEffect(() => {
@@ -968,13 +900,6 @@ export default function CovenantInteractive() {
   const creatorSurface = covenant?.custom_ui_config?.puck_data?.content?.length > 0
     ? 'puck'
     : (hasCreatorUI ? 'iframe' : null);
-
-  // Preview style based on config
-  const previewStyle = {
-    primaryColor: config.primaryColor,
-    background: config.bgColor || (config.bgStyle === 'glass' ? 'rgba(255,255,255,0.03)' : config.bgStyle === 'dark' ? '#0A0A0D' : '#111116'),
-    borderColor: config.bgStyle === 'glass' ? 'rgba(255,255,255,0.08)' : config.bgStyle === 'dark' ? '#222' : '#1a1a2e',
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 xl:pr-[312px] pt-10 sm:pt-12 pb-[180px] xl:pb-12">
@@ -2170,96 +2095,6 @@ export default function CovenantInteractive() {
       )}
 
       {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
-
-      {/* Upgrade Modal */}
-      {showUpgrade && upgradeTier && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
-          <div className="w-full max-w-lg bg-[#0f0f14] rounded-3xl border border-white/[0.06] shadow-2xl p-7 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white tracking-tight">
-                Upgrade Covenant: {covenant.name || TRUNC(covenant.tx_id)}
-              </h3>
-              <button onClick={() => setShowUpgrade(false)} aria-label="Close upgrade modal" className="text-gray-300 hover:text-white transition-colors text-2xl leading-none">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-
-            {upgradeQr ? (
-              <div className="flex flex-col items-center space-y-5">
-                <div className="p-4 bg-white rounded-xl">
-                  <QRCodeCanvas value={getUpgradeUri(upgradeTier)} size={200} level="H" includeMargin={false} />
-                </div>
-                <p className="text-sm text-gray-300 text-center">
-                  Pay exactly <span className="font-bold text-kaspa-green">{upgradeTier.price} KAS</span>
-                </p>
-                <p className="text-xs text-gray-300 break-all font-mono">{getUpgradeUri(upgradeTier)}</p>
-                <button onClick={() => setUpgradeQr(false)} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm hover:bg-white/10 transition-colors">
-                  Back to Payment Options
-                </button>
-              </div>
-            ) : upgradePaid ? (
-              <div className="text-center space-y-5">
-                <div className="h-16 w-16 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                  <Check size={28} className="text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-white">Payment Sent</p>
-                  <p className="text-sm text-gray-200 mt-1">
-                    Your payment of {upgradeTier.price} KAS is being processed. After 6 confirmations (approximately 1-2 minutes), your covenant will be upgraded to {upgradeTier.label} tier and unlock the interactive UI builder.
-                  </p>
-                </div>
-                <button onClick={() => setShowUpgrade(false)} className="w-full py-3 rounded-xl bg-kaspa-green text-black font-semibold text-sm active:scale-[0.97] transition-all">
-                  Done
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-200">
-                  Select a tier to upgrade this covenant. After payment, you will unlock the interactive UI builder, full disclosure, and a verified badge.
-                </p>
-                <div className="space-y-2">
-                  {TIER_OPTIONS.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setUpgradeTier(t)}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${
-                        upgradeTier.id === t.id
-                          ? 'border-kaspa-green/40 bg-kaspa-green/[0.04] ring-1 ring-kaspa-green/30'
-                          : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <div className="shrink-0 h-10 w-10 rounded-xl flex items-center justify-center border" style={{ backgroundColor: `${t.color}15`, borderColor: `${t.color}40` }}>
-                        <span className="text-sm font-bold" style={{ color: t.color }}>{t.label.slice(0, 1)}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white">{t.label}</p>
-                        <p className="text-xs text-gray-300">{t.desc}</p>
-                      </div>
-                      <span className="text-sm font-bold text-kaspa-green tabular-nums">{t.price} KAS</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => handleUpgradePay(upgradeTier)}
-                    className="flex-1 py-3 rounded-xl bg-kaspa-green text-black font-semibold text-sm active:scale-[0.97] transition-all"
-                  >
-                    Pay {upgradeTier.price} KAS
-                  </button>
-                  <button
-                    onClick={() => setUpgradeQr(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-white/10 text-gray-300 text-sm hover:bg-white/[0.04] transition-colors"
-                  >
-                    <QrCode size={16} />
-                    QR Code
-                  </button>
-                </div>
-                <p className="text-[11px] text-gray-200 text-center">All payments are one-time and non-refundable. Processing takes 6 confirmations.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <DevWalletModal isOpen={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
     </div>

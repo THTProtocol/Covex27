@@ -131,6 +131,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [mine, setMine] = useState([]); // deploys this session: {tx, p2sh, kind, kas, preimage, dev, lock_daa, spent}
+  // The just-deployed tx id, so its row in "Your enforced covenants" gets a one-shot
+  // arrival flourish (motion-safe). Cleared after the entrance finishes; purely visual.
+  const [justDeployedTx, setJustDeployedTx] = useState(null);
   // External-covenant interaction: spend ANY single-signer P2SH covenant (even ones not
   // created on Covex) with only your key + its redeem script. Kept subtle at the bottom.
   const [extOpen, setExtOpen] = useState(false);
@@ -185,6 +188,14 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       setExtOpen(true);
     } catch { /* ignore malformed hand-off */ }
   }, []);
+
+  // Clear the just-deployed arrival highlight once its entrance has played out, so the row
+  // settles into its resting state. Purely visual; no effect on the covenant itself.
+  useEffect(() => {
+    if (!justDeployedTx) return;
+    const t = setTimeout(() => setJustDeployedTx(null), 1600);
+    return () => clearTimeout(t);
+  }, [justDeployedTx]);
 
   // Read the deployer address's spendable balance from the backend (sums its UTXOs at the
   // node) for the available-balance hint + the "Max" convenience. Best-effort: on any failure
@@ -351,6 +362,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           preimage, dev: false, nonCustodialDeploy: true, lock_daa: redeem.lock_daa || null, spent: null,
           reality: isHybridKind ? 'hybrid' : 'on-chain',
         }, ...m]);
+        setJustDeployedTx(sub.deploy_tx_id);
         if (onDeployed && sub.deploy_tx_id) onDeployed(`${sub.deploy_tx_id}:0`);
         return;
       }
@@ -369,6 +381,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         preimage, dev: usesDevWallets, lock_daa: redeem.lock_daa || null, spent: null,
         reality: isHybridKind ? 'hybrid' : 'on-chain',
       }, ...m]);
+      setJustDeployedTx(j.deploy_tx_id);
       if (onDeployed && j.deploy_tx_id) onDeployed(`${j.deploy_tx_id}:0`);
     } catch (e) {
       setError('Network error: ' + e.message);
@@ -895,7 +908,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           </div>
           <div className="divide-y divide-white/[0.04] light:divide-slate-200">
             {mine.map((c) => (
-              <div key={c.tx} className="px-6 py-4 space-y-2">
+              <div
+                key={c.tx}
+                className={`px-6 py-4 space-y-2 transition-colors ${c.tx === justDeployedTx ? 'motion-safe:animate-[deploy-arrive_0.7s_cubic-bezier(0.16,1,0.3,1)] bg-kaspa-green/[0.06] ring-1 ring-inset ring-kaspa-green/30' : ''}`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 light:border-emerald-300 bg-emerald-500/10 light:bg-emerald-50 text-emerald-300 light:text-emerald-700 text-[10px] font-bold uppercase">on-chain</span>

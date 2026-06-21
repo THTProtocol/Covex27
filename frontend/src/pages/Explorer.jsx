@@ -8,6 +8,7 @@ import {
   Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight
 } from 'lucide-react';
 import Spinner from '../components/ui/Spinner';
+import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
 import { Button } from '../components/ui/Button';
 
 // Distinct icon per covenant category so cards are scannable at a glance (not all the same glyph).
@@ -694,7 +695,7 @@ export default function Explorer() {
                 <button
                   key={cat}
                   onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
-                  className={`px-3 py-2 rounded-xl border text-left transition-all ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50'}`}
+                  className={`px-3 py-2 rounded-xl border text-left transition-all duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
                 >
                   {cat}
                 </button>
@@ -767,7 +768,7 @@ export default function Explorer() {
                 tabIndex={activeId === tab.id ? 0 : -1}
                 onKeyDown={onTabKeyDown}
                 onClick={() => selectTab(tab.id)}
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 active:scale-[0.97] ${
                   activeId === tab.id ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
               >
@@ -782,7 +783,7 @@ export default function Explorer() {
               tabIndex={activeId === 'arena' ? 0 : -1}
               onKeyDown={onTabKeyDown}
               onClick={() => selectTab(showArena ? 'explore' : 'arena')}
-              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 active:scale-[0.97] ${
                 showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
               }`}
             >
@@ -871,11 +872,18 @@ export default function Explorer() {
                     {searchResults.type === 'wallet' ? `Found ${searchResults.data.length} covenant${searchResults.data.length !== 1 ? 's' : ''}` : 'Found covenant'}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <motion.div
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  variants={prefersReduced ? undefined : GRID_STAGGER}
+                  initial={prefersReduced ? false : 'hidden'}
+                  animate={prefersReduced ? false : 'show'}
+                >
                   {searchResults.data.map((c, i) => (
-                    <CovenantCard key={c.tx_id || i} covenant={c} index={i} ownerAddress={address} />
+                    <motion.div key={c.tx_id || i} variants={prefersReduced ? undefined : CARD_RISE}>
+                      <CovenantCard covenant={c} index={i} ownerAddress={address} />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               </div>
             )}
           </div>
@@ -938,9 +946,10 @@ export default function Explorer() {
               </div>
             )}
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" role="status" aria-busy="true">
+                <span className="sr-only">Loading live matches...</span>
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="skeleton rounded-3xl min-h-[210px]" />
+                  <CovenantCardSkeleton key={i} />
                 ))}
               </div>
             ) : arenaSorted.length === 0 && liveMatches.length === 0 ? (
@@ -1004,10 +1013,10 @@ export default function Explorer() {
         {activeTab === 'explore' && !showArena && (
           <>
             {loading && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7" aria-busy="true">
-                <span className="sr-only">Loading from the BlockDAG...</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7" role="status" aria-busy="true">
+                <span className="sr-only">Loading covenants from the BlockDAG...</span>
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="skeleton rounded-3xl min-h-[210px]" aria-hidden="true" />
+                  <CovenantCardSkeleton key={i} />
                 ))}
               </div>
             )}
@@ -1039,10 +1048,13 @@ export default function Explorer() {
               </div>
             )}
             {!loading && covenants.length === 0 && !isEmptyMainnet && (
-              <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
-                <Layers size={40} className="mx-auto text-gray-200 light:text-slate-400 mb-3" />
-                <p className="text-lg font-semibold text-white light:text-slate-900 mb-5">No covenants on this network yet. Be the first.</p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
+              <div data-tour="explorer-empty" className="relative glass-panel rounded-2xl p-10 text-center overflow-hidden">
+                <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
+                <span className="relative z-10 grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.06]">
+                  <Layers size={26} className="text-kaspa-green" />
+                </span>
+                <p className="relative z-10 text-lg font-semibold text-white light:text-slate-900 mb-5">No covenants on this network yet. Be the first.</p>
+                <div className="relative z-10 flex flex-wrap items-center justify-center gap-3">
                   <button
                     type="button"
                     onClick={startTour}
@@ -1087,10 +1099,14 @@ export default function Explorer() {
                      instead of a dead end we offer the guided tour (primary)
                      and a one-click filter reset (secondary). Light + dark
                      parity, no em dashes, no overclaims. */
-                  <div className="glass-panel rounded-2xl px-6 py-12 text-center">
-                    <p className="text-lg font-semibold text-white light:text-slate-900 mb-1">No covenants match those filters.</p>
-                    <p className="text-sm text-gray-300 light:text-slate-600 mb-5">Want to build one? It takes about a minute.</p>
-                    <div className="flex flex-wrap items-center justify-center gap-3">
+                  <div className="relative glass-panel rounded-2xl px-6 py-12 text-center overflow-hidden">
+                    <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 360, height: 190, maxWidth: '90vw', opacity: 0.45 }} />
+                    <span className="relative z-10 grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.06]">
+                      <Search size={24} className="text-kaspa-green" />
+                    </span>
+                    <p className="relative z-10 text-lg font-semibold text-white light:text-slate-900 mb-1">No covenants match those filters.</p>
+                    <p className="relative z-10 text-sm text-gray-300 light:text-slate-600 mb-5">Want to build one? It takes about a minute.</p>
+                    <div className="relative z-10 flex flex-wrap items-center justify-center gap-3">
                       <button
                         type="button"
                         onClick={startTour}
@@ -1126,9 +1142,9 @@ export default function Explorer() {
                     <button
                       onClick={loadMore}
                       disabled={loadingMore}
-                      className="btn-shimmer px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-colors disabled:opacity-50"
+                      className="btn-shimmer inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-all duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 disabled:opacity-50 disabled:cursor-wait"
                     >
-                      {loadingMore ? 'Loading...' : `Load more (${stats.total.toLocaleString()} total)`}
+                      {loadingMore ? <><Spinner size="sm" label="Loading more covenants" /> Loading...</> : `Load more (${stats.total.toLocaleString()} total)`}
                     </button>
                   </div>
                 )}
@@ -1214,7 +1230,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform hover:-translate-y-1 ${
+      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform hover:-translate-y-1 active:-translate-y-0 active:scale-[0.995] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f] light:focus-visible:ring-offset-white ${
         isPaid
           ? `${cfg.border} ${cfg.glow} holo-border hover:shadow-2xl`
           : 'border-white/[0.08] light:border-slate-200 hover:border-[color:var(--ca)] hover:shadow-[0_22px_55px_-22px_var(--cg)]'

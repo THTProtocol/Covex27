@@ -1439,6 +1439,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   from { transform: translateX(-120%) skewX(-18deg); }
   to { transform: translateX(240%) skewX(-18deg); }
 }
+/* copy-confirm micro-interaction: the check icon springs in on a successful copy.
+   Applied at the callsite via Tailwind's motion-safe: variant, which only emits the
+   animation inside @media (prefers-reduced-motion: no-preference), so a reduced-motion
+   user sees an instant, still check (no pop). */
+@keyframes copy-pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+/* post-deploy arrival flourish: the freshly deployed covenant row rises + fades in so the
+   "it's live" moment registers. Applied via motion-safe: at the callsite (no-preference
+   only), so reduced-motion users get the resting state with no slide. */
+@keyframes deploy-arrive {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 /* zero-specificity so Tailwind position utilities (fixed nav!) always win;
    nav is excluded entirely so its dropdown panels are never clipped */
 :where(.glass-panel:not(nav)) { position: relative; overflow: hidden; }

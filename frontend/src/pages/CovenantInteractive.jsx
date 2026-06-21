@@ -3,8 +3,8 @@ import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
-import Spinner from '../components/ui/Spinner';
-import { motion } from 'framer-motion';
+import CovenantDetailSkeleton from '../components/ui/CovenantDetailSkeleton';
+import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
@@ -242,6 +242,7 @@ function ColorSwatch({ color, active, onClick }) {
 export default function CovenantInteractive() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const prefersReduced = useReducedMotion();
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
@@ -913,17 +914,7 @@ export default function CovenantInteractive() {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-24">
-        <div className="relative glass-panel rounded-3xl p-12 sm:p-16 flex flex-col items-center justify-center gap-5 text-center overflow-hidden">
-          <div className="covex-aurora" aria-hidden="true" style={{ top: -40, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 220, maxWidth: '90vw' }} />
-          <Spinner size="xl" className="relative z-10" label="Initializing protocol sequence" />
-          <p className="relative z-10 text-sm font-mono tracking-widest text-kaspa-green/90 uppercase">
-            Initializing protocol sequence
-          </p>
-        </div>
-      </div>
-    );
+    return <CovenantDetailSkeleton />;
   }
 
   if (!covenant) {
@@ -1038,8 +1029,9 @@ export default function CovenantInteractive() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left: Covenant metadata */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={prefersReduced ? false : { opacity: 0, x: -20 }}
+          animate={prefersReduced ? false : { opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="glass-panel detail-hero-enhanced p-6 sm:p-8 rounded-3xl flex flex-col space-y-5 light:bg-white light:border light:border-slate-200 light:shadow-sm"
         >
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
@@ -1423,8 +1415,9 @@ export default function CovenantInteractive() {
 
         {/* Right: Tabs - Arena / Play (default, public, pro chess.com style for chess) | Fix (creator only, super clean garage + 1 stake section) | Terminal (creator advanced only) */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={prefersReduced ? false : { opacity: 0, x: 20 }}
+          animate={prefersReduced ? false : { opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="glass-panel rounded-3xl overflow-hidden flex flex-col light:bg-white light:border light:border-slate-200 light:shadow-sm"
         >
           {/* a11y: tablist with arrow-key / Home / End navigation + wrap-around. Visible tabs depend on isCreator. */}

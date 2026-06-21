@@ -80,6 +80,7 @@ fn card_game(game_type: GameType, deck: Vec<u8>, moves: &[&str]) -> GameInput {
         deck,
         deck_commitment: commitment,
         setup: vec![],
+        commitments: vec![],
     }
 }
 
@@ -101,6 +102,7 @@ fn checkers_game(setup: Vec<u8>, moves: &[&str]) -> GameInput {
         deck: vec![],
         deck_commitment: [0u8; 32],
         setup,
+        commitments: vec![],
     }
 }
 
@@ -133,7 +135,84 @@ fn untimed(game_type: GameType, moves: &[&str]) -> GameInput {
         deck: vec![],
         deck_commitment: [0u8; 32],
         setup: vec![],
+        commitments: vec![],
     }
+}
+
+/// sha256 of a byte slice (the same hash covex-games recomputes for its commitment gates).
+fn sha256(bytes: &[u8]) -> [u8; 32] {
+    let mut h = Sha256::new();
+    h.update(bytes);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&h.finalize());
+    out
+}
+
+/// Build a board GameInput that carries a custom `setup` witness + public `commitments`. Used by
+/// the commitment-gated board games: battleship (two board commitments) and backgammon (one seed).
+fn committed_game(
+    game_type: GameType,
+    setup: Vec<u8>,
+    commitments: Vec<[u8; 32]>,
+    moves: &[&str],
+) -> GameInput {
+    let moves: Vec<String> = moves.iter().map(|s| s.to_string()).collect();
+    let n = moves.len();
+    GameInput {
+        game_type,
+        moves,
+        elapsed_ms: vec![0u64; n],
+        initial_clock_ms: 0,
+        increment_ms: 0,
+        players: [pid(1), pid(2)],
+        stake_sompi: 5_000,
+        covenant_id: [0xCEu8; 32],
+        deck: vec![],
+        deck_commitment: [0u8; 32],
+        setup,
+        commitments,
+    }
+}
+
+/// One battleship player's 31-byte witness: salt(16) + 5 ships of (length,start,orient).
+fn bs_player_bytes(salt: [u8; 16], ships: [(u8, u8, u8); 5]) -> Vec<u8> {
+    let mut v = salt.to_vec();
+    for (len, start, orient) in ships {
+        v.push(len);
+        v.push(start);
+        v.push(orient);
+    }
+    v
+}
+
+/// The VRF dice for backgammon turn `t` from `seed` (MATCHES covex_games::games::backgammon):
+/// h = sha256(seed || t_le_bytes); d1 = h[0]%6+1, d2 = h[1]%6+1.
+fn backgammon_roll(seed: &[u8], t: u64) -> (u8, u8) {
+    let mut buf = seed.to_vec();
+    buf.extend_from_slice(&t.to_le_bytes());
+    let h = sha256(&buf);
+    ((h[0] % 6) + 1, (h[1] % 6) + 1)
+}
+
+/// Build a decisive backgammon demo input: find a 32-byte seed whose turn-0 roll is exactly (3,1),
+/// commit it honestly, and play the classic opening 8/5 (die 3) + 6/5 (die 1); then P2 resigns so
+/// P1 wins. Panics if no such seed is found in the scan (it always is - the roll space is tiny).
+fn backgammon_demo() -> GameInput {
+    for b in 0u32..=4096 {
+        let mut seed = [0u8; 32];
+        seed[0] = (b & 0xFF) as u8;
+        seed[1] = ((b >> 8) & 0xFF) as u8;
+        if backgammon_roll(&seed, 0) == (3, 1) {
+            let commit = sha256(&seed);
+            return committed_game(
+                GameType::Backgammon,
+                seed.to_vec(),
+                vec![commit],
+                &["8/5", "6/5", "resign"],
+            );
+        }
+    }
+    panic!("no backgammon seed found whose first roll is (3,1)");
 }
 
 /// Prove one game, verify the receipt against the image id, decode the journal, and assert the
@@ -351,6 +430,62 @@ fn main() {
     assert!(r.reason.starts_with("p1_"), "poker winner reason must name P1's hand, got {:?}", r.reason);
     timings.push(("poker(showdown)".into(), t));
 
+    // ----- REVERSI: P1 (black) plays a legal opening flip, then P2 resigns -> P1 wins. -----
+    // Cell 26 from the standard Othello start brackets the white disc at 27 (a real, legal flip);
+    // an illegal no-flip placement would make replay() Err -> no proof.
+    let reversi = untimed(GameType::Reversi, &["26", "resign"]);
+    let (_r, t, _) = prove_and_verify("REVERSI - legal flip then P2 resigns (P1 wins)", &reversi, WINNER_P1);
+    timings.push(("reversi".into(), t));
+
+    // ----- MANCALA (Kalah): P1 sows pit 2 (lands in own store -> extra turn), sows pit 0, P2 resigns.
+    // The store/extra-turn/sowing rules are fully replayed; an empty-pit sow would Err -> no proof.
+    let mancala = untimed(GameType::Mancala, &["2", "0", "resign"]);
+    let (_r, t, _) = prove_and_verify("MANCALA - legal sow w/ extra turn then P2 resigns (P1 wins)", &mancala, WINNER_P1);
+    timings.push(("mancala".into(), t));
+
+    // ----- DOTS AND BOXES (1x1 board): the player who draws the 4th edge takes the only box. -----
+    // setup [1,1] = a 1x1 grid (4 edges). Order 0,1,2,3 -> P2 draws the closing edge -> P2 wins 1-0.
+    let mut dab = untimed(GameType::DotsAndBoxes, &["0", "1", "2", "3"]);
+    dab.setup = vec![1, 1];
+    let (r, t, _) = prove_and_verify("DOTS_AND_BOXES - 1x1, P2 closes the box (P2 wins)", &dab, WINNER_P2);
+    assert_eq!(r.reason, "most_boxes");
+    timings.push(("dots_and_boxes".into(), t));
+
+    // ----- BATTLESHIP (HIDDEN committed boards): P1 sinks P2's whole fleet. -----
+    // Both boards are committed via sha256(salt || ships); replay() verifies BOTH commitments and
+    // BOTH placements before any shot. P1 fires at every P2 ship cell on its turns (17 hits) while
+    // P2 fires distinct empty misses; P1's 17th hit ends it. A forged board fails to prove (gate #5).
+    let bs_ships: [(u8, u8, u8); 5] = [(5, 0, 0), (4, 10, 0), (3, 20, 0), (3, 30, 0), (2, 40, 0)];
+    let bs_p0 = bs_player_bytes([7u8; 16], bs_ships);
+    let bs_p1 = bs_player_bytes([9u8; 16], bs_ships);
+    let bs_c0 = sha256(&bs_p0);
+    let bs_c1 = sha256(&bs_p1);
+    let mut bs_setup = bs_p0.clone();
+    bs_setup.extend_from_slice(&bs_p1);
+    let ship_cells: [usize; 17] = [0, 1, 2, 3, 4, 10, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40, 41];
+    let miss_cells: [usize; 16] = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65];
+    let mut bs_moves: Vec<String> = Vec::new();
+    for (i, &c) in ship_cells.iter().enumerate() {
+        bs_moves.push(c.to_string()); // P1 hits a P2 ship cell
+        if i + 1 < ship_cells.len() {
+            bs_moves.push(miss_cells[i].to_string()); // P2 distinct miss
+        }
+    }
+    let bs_refs: Vec<&str> = bs_moves.iter().map(|s| s.as_str()).collect();
+    let battleship = committed_game(GameType::Battleship, bs_setup, vec![bs_c0, bs_c1], &bs_refs);
+    let (r, t, _) = prove_and_verify("BATTLESHIP - committed boards, P1 sinks the fleet (P1 wins)", &battleship, WINNER_P1);
+    assert_eq!(r.reason, "all_sunk");
+    timings.push(("battleship".into(), t));
+
+    // ----- BACKGAMMON (VRF dice): committed seed -> deterministic dice; P1 plays BOTH dice of its
+    // first (non-double) roll with legal opening moves, the turn then passes to P2 who resigns -> P1
+    // wins. We scan for a seed whose turn-0 roll is exactly (3,1) and play the classic 8/5, 6/5
+    // opening (8/5 uses die 3, 6/5 uses die 1). A forged seed fails to prove (negative gate #6).
+    let bg = backgammon_demo();
+    let (r, t, _) = prove_and_verify("BACKGAMMON - VRF dice, legal opening then P2 resigns (P1 wins)", &bg, WINNER_P1);
+    assert_eq!(r.reason, "resign");
+    timings.push(("backgammon".into(), t));
+
     // ----- NEGATIVE GATE #1: an ILLEGAL chess move must fail to prove. -----
     // e1e3 is not a legal first move (king cannot jump two squares; not even pseudo-legal here).
     // replay() returns Err -> guest panics -> no receipt.
@@ -379,7 +514,29 @@ fn main() {
     );
     prove_must_fail("BLACKJACK - illegal card move \"double\"", &illegal_card);
 
-    // ----- NEGATIVE GATE #4: a TAMPERED receipt must fail verification (soundness). -----
+    // ----- NEGATIVE GATE #5: a FORGED BATTLESHIP BOARD must fail to prove (hidden-board gate). -----
+    // Build the legal battleship input, then TAMPER P1's board bytes after committing (move the
+    // carrier). Now sha256(board0) != commitments[0], so from_input() returns Err -> guest panics ->
+    // NO receipt. A player cannot present a board different from what they committed to.
+    let bs_p0b = bs_player_bytes([7u8; 16], bs_ships);
+    let bs_p1b = bs_player_bytes([9u8; 16], bs_ships);
+    let bs_c0b = sha256(&bs_p0b);
+    let bs_c1b = sha256(&bs_p1b);
+    let mut forged_setup = bs_p0b.clone();
+    forged_setup.extend_from_slice(&bs_p1b);
+    forged_setup[16 + 1] = 5; // change carrier start cell 0 -> 5; commitment is now stale
+    let forged_bs = committed_game(GameType::Battleship, forged_setup, vec![bs_c0b, bs_c1b], &["0"]);
+    prove_must_fail("BATTLESHIP - forged board (sha256 mismatch)", &forged_bs);
+
+    // ----- NEGATIVE GATE #6: a FORGED BACKGAMMON SEED must fail to prove (VRF dice gate). -----
+    // Build the legal backgammon input, then TAMPER the seed after committing. Now sha256(seed) !=
+    // commitments[0], so from_input() returns Err -> guest panics -> NO receipt. A player cannot
+    // swap in a seed that yields favourable dice after committing.
+    let mut forged_bg = backgammon_demo();
+    forged_bg.setup[0] ^= 0xFF; // corrupt the seed; commitment no longer matches
+    prove_must_fail("BACKGAMMON - forged seed (sha256 mismatch)", &forged_bg);
+
+    // ----- NEGATIVE GATE #7: a TAMPERED receipt must fail verification (soundness). -----
     tamper_must_be_rejected("CHESS - tampered Scholar's-mate receipt", &chess_receipt);
 
     // ----- SUMMARY -----
@@ -390,6 +547,8 @@ fn main() {
     println!("  illegal chess move:  rejected (no receipt)  - OK");
     println!("  forged deck:         rejected (no receipt)  - OK");
     println!("  illegal card move:   rejected (no receipt)  - OK");
+    println!("  forged battleship:   rejected (no receipt)  - OK");
+    println!("  forged bg seed:      rejected (no receipt)  - OK");
     println!("  tampered receipt:    rejected by verify()   - OK");
     println!("ALL GAMES PROVED, VERIFIED, AND WINNERS CORRECT. NEGATIVE GATES HELD.");
 }

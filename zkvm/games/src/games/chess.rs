@@ -87,6 +87,7 @@ mod tests {
             deck: vec![],
             deck_commitment: [0u8; 32],
             setup: vec![],
+            commitments: vec![],
         }
     }
 

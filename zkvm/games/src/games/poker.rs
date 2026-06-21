@@ -283,6 +283,7 @@ mod tests {
             deck,
             deck_commitment: commit,
             setup: vec![],
+            commitments: vec![],
         }
     }
 

@@ -42,6 +42,19 @@ pub enum GameType {
     Blackjack,
     /// 2-player Texas Hold'em SHOWDOWN (v1: no betting), from a committed 52-card deck.
     Poker,
+    /// Reversi / Othello on an 8x8 board. Moves flip opponent discs; most discs wins.
+    Reversi,
+    /// Mancala (Kalah), 2x6 pits + 2 stores. Sow with capture + extra-turn-on-store.
+    Mancala,
+    /// Dots and Boxes on a parameterized box grid (default 3x3). Complete a box -> score + go again.
+    DotsAndBoxes,
+    /// Battleship with HIDDEN boards: each player commits `sha256(board||salt)` (public) and the
+    /// board is a witness in `setup`. The commitment is verified and the placement validated before
+    /// any shot, so a forged board or illegal placement cannot be proven.
+    Battleship,
+    /// Backgammon with VRF dice: a committed seed (`sha256(seed)` public, `seed` witness in `setup`)
+    /// deterministically generates the dice sequence. v1 documents its simplifications in the module.
+    Backgammon,
 }
 
 impl GameType {
@@ -88,13 +101,31 @@ pub struct GameInput {
     #[serde(default)]
     pub deck_commitment: [u8; 32],
 
-    /// OPTIONAL per-game custom starting position (witness). EMPTY = use the game's default opening
-    /// (so all existing inputs are unaffected). Currently consumed by Checkers, which reads a
-    /// 65-byte board descriptor (see [`games::checkers::CheckersGame::from_setup`]) so that short
-    /// endgames (board wins by capture or by leaving the opponent with no legal move) are reachable
-    /// through [`replay`], not only resignations. A malformed setup makes `replay` return `Err`.
+    /// OPTIONAL per-game custom starting position / witness. EMPTY = use the game's default opening
+    /// (so all existing inputs are unaffected). Consumed by:
+    /// - **Checkers**: a 65-byte board descriptor (see [`games::checkers::CheckersGame::from_setup`])
+    ///   so short endgames (capture / no-legal-move wins) are reachable through [`replay`].
+    /// - **DotsAndBoxes**: empty = 3x3, or 2 bytes `[rows, cols]` to set the box grid (each 1..=8).
+    /// - **Battleship**: the 62-byte hidden-board witness (two 31-byte player slices); see below.
+    /// - **Backgammon**: the 32-byte committed VRF seed witness; see below.
+    /// A malformed setup makes the game's builder (and thus `replay`) return `Err`.
     #[serde(default)]
     pub setup: Vec<u8>,
+
+    /// OPTIONAL public commitments (witness-binding hashes), interpreted per game. EMPTY for games
+    /// that do not use them, so all existing inputs are unaffected. Consumed by:
+    ///
+    /// - **Battleship**: exactly two entries, `commitments[0] = sha256(board_p1 || salt_p1)` and
+    ///   `commitments[1] = sha256(board_p2 || salt_p2)`. Each player's hidden board + salt lives in
+    ///   the `setup` witness; [`replay`] verifies both commitments and that each placement is legal
+    ///   (ships in-bounds, non-overlapping) BEFORE any shot. A forged board (hash mismatch) or an
+    ///   illegal placement makes `replay` return `Err`, so no proof can be produced.
+    /// - **Backgammon**: exactly one entry, `commitments[0] = sha256(seed)`. The 32-byte VRF `seed`
+    ///   lives in the `setup` witness; the dice sequence is `sha256(seed || roll_index)` mapped to
+    ///   1..6, so neither player can choose dice after seeing the board. A forged seed (hash
+    ///   mismatch) makes `replay` return `Err`.
+    #[serde(default)]
+    pub commitments: Vec<[u8; 32]>,
 }
 
 /// The committed result of a replay. In the zkVM this is the journal.
@@ -149,6 +180,18 @@ fn build_rules(input: &GameInput) -> Result<Box<dyn GameRules>, String> {
         GameType::Connect4 => Box::new(games::connect4::Connect4Game::new()),
         GameType::TicTacToe => Box::new(games::tic_tac_toe::TicTacToeGame::new()),
         GameType::Checkers => Box::new(games::checkers::CheckersGame::from_setup(&input.setup)?),
+        GameType::Reversi => Box::new(games::reversi::ReversiGame::new()),
+        GameType::Mancala => Box::new(games::mancala::MancalaGame::new()),
+        GameType::DotsAndBoxes => Box::new(games::dots_and_boxes::DotsAndBoxesGame::from_setup(&input.setup)?),
+        // Battleship verifies its committed hidden boards against the public `commitments` here,
+        // before any shot. A forged board or illegal placement returns Err -> no proof.
+        GameType::Battleship => {
+            Box::new(games::battleship::BattleshipGame::from_input(&input.setup, &input.commitments)?)
+        }
+        // Backgammon verifies its committed VRF seed (`commitments[0] == sha256(seed)`) here.
+        GameType::Backgammon => {
+            Box::new(games::backgammon::BackgammonGame::from_input(&input.setup, &input.commitments)?)
+        }
         // Card games are handled by `replay` directly; this arm is unreachable in practice.
         GameType::Blackjack | GameType::Poker => {
             unreachable!("card games are resolved in replay(), not via build_rules")
@@ -351,6 +394,11 @@ fn end_reason(game_type: GameType, winner: u8) -> String {
         GameType::Connect4 => "connect4".to_string(),
         GameType::TicTacToe => "three_in_a_row".to_string(),
         GameType::Checkers => "no_moves".to_string(),
+        GameType::Reversi => "most_discs".to_string(),
+        GameType::Mancala => "most_stones".to_string(),
+        GameType::DotsAndBoxes => "most_boxes".to_string(),
+        GameType::Battleship => "all_sunk".to_string(),
+        GameType::Backgammon => "borne_off".to_string(),
         // Card games never reach end_reason (resolved in replay's card branch).
         GameType::Blackjack => "blackjack".to_string(),
         GameType::Poker => "showdown".to_string(),
@@ -380,6 +428,7 @@ mod tests {
             deck: vec![],
             deck_commitment: [0u8; 32],
             setup: vec![],
+            commitments: vec![],
         }
     }
 

@@ -987,8 +987,12 @@ export async function verifyAndSignSpend(plan, privKeyHex, opts = {}) {
  *
  * @param {object} signedTx   - a Transaction whose input signatureScripts are assembled
  * @param {string} networkId  - 'mainnet' | 'testnet-10' | 'testnet-12'
- * @param {{ nodeUrl?: string }} [opts] - pin a specific wRPC node URL (for the "Covex is down"
- *        scenario, or to avoid the public Resolver); otherwise a public Resolver node is used
+ * @param {{ nodeUrl?: string, nodeUrls?: string[] }} [opts] - pin specific wRPC node URL(s)
+ *        (for the "Covex is down" scenario, or to avoid the public Resolver). Each is tried
+ *        in order; the public Resolver is tried last as a fallback. The Toccata testnet-12
+ *        network has NO public node the Resolver knows about and no browser-reachable wRPC
+ *        URL, so a tn12 broadcast here can legitimately fail - the error then directs the
+ *        caller to the always-available Sign-and-export path.
  * @returns {Promise<string>} the broadcast transaction id
  */
 export const BROADCAST_NETWORKS = Object.freeze(['mainnet', 'testnet-10', 'testnet-12']);
@@ -999,23 +1003,41 @@ export async function broadcast(signedTx, networkId, opts = {}) {
   }
   const k = await loadWasm();
   const { RpcClient, Resolver } = k;
-  // A caller-pinned node URL takes precedence; otherwise discover a public node via Resolver.
-  // Only the fully-signed tx is sent (its sig + any revealed preimage are public on-chain
-  // anyway); the private key never touches this path.
-  const rpc = opts && opts.nodeUrl
-    ? new RpcClient({ url: opts.nodeUrl, networkId })
-    : new RpcClient({ resolver: new Resolver(), networkId });
-  await rpc.connect();
-  try {
-    const res = await rpc.submitTransaction({ transaction: signedTx, allowOrphan: false });
-    return res.transactionId || res.txId || res;
-  } finally {
+
+  // Build the ordered set of connection attempts: caller-pinned node URL(s) first, then the
+  // public Resolver as a last resort. Only the fully-signed tx is sent (its sig + any revealed
+  // preimage are public on-chain anyway); the private key never touches this path.
+  const pinned = [];
+  if (opts && Array.isArray(opts.nodeUrls)) pinned.push(...opts.nodeUrls.filter(Boolean));
+  if (opts && opts.nodeUrl) pinned.push(opts.nodeUrl);
+  const makers = pinned.map((url) => () => new RpcClient({ url, networkId }));
+  // Resolver fallback (mainnet / testnet-10 have public nodes; testnet-12 does not).
+  makers.push(() => new RpcClient({ resolver: new Resolver(), networkId }));
+
+  let lastErr = null;
+  for (const make of makers) {
+    let rpc = null;
     try {
-      await rpc.disconnect();
-    } catch (_) {
-      /* best effort */
+      rpc = make();
+      await rpc.connect();
+      const res = await rpc.submitTransaction({ transaction: signedTx, allowOrphan: false });
+      return res.transactionId || res.txId || res;
+    } catch (e) {
+      lastErr = e;
+    } finally {
+      if (rpc) {
+        try {
+          await rpc.disconnect();
+        } catch (_) {
+          /* best effort */
+        }
+      }
     }
   }
+  // Every node + the Resolver failed. Surface an honest, actionable error: the signed tx is
+  // complete and can still be broadcast via Sign-and-export from any node or explorer.
+  const detail = lastErr && lastErr.message ? lastErr.message : String(lastErr || 'no node reachable');
+  throw new Error(`Could not reach a Kaspa node to broadcast on ${networkId} (${detail}). The transaction is fully signed - use Sign & export and submit it from any node or block explorer.`);
 }
 
 /**

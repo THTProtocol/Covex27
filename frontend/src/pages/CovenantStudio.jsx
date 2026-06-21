@@ -263,18 +263,61 @@ export default function CovenantStudio() {
           setCovenant((c) => (c ? { ...c, amount_kaspa: f.amount_kaspa, is_active: f.is_active, block_daa_score: f.block_daa_score, timestamp: f.timestamp, tx_count: f.tx_count } : c));
         })
         .catch(() => {});
+      fetch(`/api/covenants/${encodeURIComponent(id)}/actions`)
+        .then((r) => r.json())
+        .then((d) => setActions(Array.isArray(d.actions) ? d.actions : []))
+        .catch(() => {});
     };
     const iv = setInterval(tick, 20000);
     return () => clearInterval(iv);
   }, [id]);
 
+  // On-chain action log + disclosed oracle key, so the Studio PREVIEW shows EXACTLY what a
+  // visitor sees: ActivityFeed / Leaderboard / PoolChart populate from real indexed actions,
+  // and {{oracle_pubkey}} resolves to the real disclosed BIP340 key instead of the literal
+  // token. Mirrors CovenantInteractive verbatim so the preview is faithful, not a hollow shell.
+  const [actions, setActions] = useState([]);
+  const [actionsLoading, setActionsLoading] = useState(true);
+  useEffect(() => {
+    if (!id) return;
+    setActionsLoading(true);
+    fetch(`/api/covenants/${encodeURIComponent(id)}/actions`)
+      .then((r) => r.json())
+      .then((d) => setActions(Array.isArray(d.actions) ? d.actions : []))
+      .catch(() => {})
+      .finally(() => setActionsLoading(false));
+  }, [id]);
+
+  const [oraclePubkey, setOraclePubkey] = useState('');
+  useEffect(() => {
+    fetch('/api/oracle/pubkey')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j && setOraclePubkey(j.xonly_pubkey || j.oracle_xonly_pubkey || j.oracle_pubkey || j.pubkey || ''))
+      .catch(() => {});
+  }, []);
+
   const isCreator = !!(address && covenant && (covenant.creator_addr === address || covenant.address === address));
   const defaultTemplateId = useMemo(() => matchTemplate(covenant?.covenant_type || covenant?.category || covenant?.game_type || ''), [covenant]);
 
-  // Live preview data so the creator sees real on-chain figures while designing.
+  // Live preview data so the creator sees EXACTLY what a visitor sees while designing. This
+  // mirrors CovenantInteractive's liveData (same fields, same honesty rules) so the Studio
+  // preview is faithful: ActivityFeed / Leaderboard / PoolChart populate from the real indexed
+  // action log, {{oracle_pubkey}} resolves to the disclosed key, and loading drives skeletons.
   const liveData = useMemo(() => {
-    if (!covenant) return {};
+    if (!covenant) return { loading: actionsLoading };
     const locked = Number(covenant.amount_kaspa || 0);
+
+    // Normalize the indexed on-chain action log into stable rows for the read-only blocks.
+    // Same shape CovenantInteractive uses; no row is synthesized.
+    const acts = (Array.isArray(actions) ? actions : []).map((a) => ({
+      label: a.label || a.action || a.type || 'Action',
+      detail: a.detail || '',
+      address: a.address || a.from || a.creator || a.bettor_addr || '',
+      amount_kaspa: Number(a.amount_kaspa ?? a.amount ?? 0) || 0,
+      timestamp: a.timestamp != null ? Number(a.timestamp) : null,
+      daa_score: a.daa_score != null ? Number(a.daa_score) : (covenant.block_daa_score || null),
+    }));
+
     const poolA = covenant.funded_pool_a_kas != null ? Number(covenant.funded_pool_a_kas)
       : (covenant.pool_yes != null ? Number(covenant.pool_yes) : null);
     const poolB = covenant.funded_pool_b_kas != null ? Number(covenant.funded_pool_b_kas)
@@ -288,17 +331,20 @@ export default function CovenantStudio() {
       return haveFees ? (1 - feeF) + (1 - feeF - rebateF) * (opp / your) : (your + opp) / your;
     };
     return {
+      loading: actionsLoading,
       name: covenant.name || covenant.covenant_type || 'Covenant',
       status: covenant.is_active === false ? 'Settled' : 'Active',
       network: covenant.network || 'mainnet',
       amount_kaspa: locked,
       total_locked: `${locked.toLocaleString()} KAS`,
-      tx_count: covenant.tx_count || 0,
+      tx_count: actions.length,
       fee_pct: covenant.fee_pct != null ? covenant.fee_pct : '',
       rebate_pct: covenant.rebate_pct != null ? covenant.rebate_pct : '',
       creator: (covenant.creator_addr || covenant.address || '').slice(0, 12),
       daa_score: covenant.block_daa_score || 0,
       verified_tier: covenant.verified_tier || 'FREE',
+      // Structured live data the premium read-only blocks consume off metadata.live.
+      actions: acts,
       pool: { total: locked, ...(hasSides ? { yes: poolA, no: poolB } : {}) },
       odds: hasSides ? { yes: winMult(poolA, poolB), no: winMult(poolB, poolA), basis: haveFees ? 'net-after-fee-rebate' : 'gross-before-fees' } : {},
       pool_total: locked,
@@ -309,10 +355,15 @@ export default function CovenantStudio() {
       kickoff: covenant.kickoff_utc || covenant.kickoff || '',
       settle_at: covenant.settle_at || covenant.settle_utc || covenant.resolved_at || '',
       timelock: covenant.lock_daa != null ? covenant.lock_daa : (covenant.timelock_daa != null ? covenant.timelock_daa : ''),
+      // Disclosed oracle identity (BIP340 x-only key) + outcome commitments, when present, so
+      // an oracle-signer display shows the REAL key instead of the literal {{oracle_pubkey}}.
+      oracle_pubkey: oraclePubkey || '',
+      commitment_a: covenant.h_a || '',
+      commitment_b: covenant.h_b || '',
       // Static honesty label for the EnforcementBadge block (never a fund flow).
       enforcement_reality: covenant.enforcement_reality || '',
     };
-  }, [covenant]);
+  }, [covenant, actions, actionsLoading, oraclePubkey]);
 
   // Load a starter template into the canvas (replaces current content). Premium
   // layouts are part of the paid template library: for a FREE creator, selecting one
@@ -373,8 +424,20 @@ export default function CovenantStudio() {
   const applyTheme = useCallback((preset) => {
     const cur = puckDataRef.current || EMPTY_PAGE;
     const accent = SAFE_COLOR(preset.palette.accent);
-    // Map palette hue to the closest built-in page-background preset.
-    const bgByPalette = { gold: 'gold-prestige', royal: 'purple-mystic', neon: 'aurora', mint: 'aurora', kaspa: 'kaspa-hero' };
+    // Map every one of the 16 designPresets palettes to the nearest built-in page-background
+    // preset (BG_PRESETS in puckConfig has 5: kaspa-hero, aurora, purple-mystic, gold-prestige,
+    // midnight). Previously only 5 palettes were mapped and the other 11 collapsed to one
+    // default background, so picking a theme often changed nothing visible. Grouped by hue:
+    //   teal/green   -> kaspa-hero   | blue        -> aurora
+    //   purple/pink  -> purple-mystic| warm/amber  -> gold-prestige
+    //   neutral/deep -> midnight
+    const bgByPalette = {
+      kaspa: 'kaspa-hero', mint: 'kaspa-hero', forest: 'kaspa-hero', neon: 'kaspa-hero',
+      aurora: 'aurora', ocean: 'aurora', cobalt: 'aurora',
+      royal: 'purple-mystic', rose: 'purple-mystic', magma: 'purple-mystic',
+      gold: 'gold-prestige', sand: 'gold-prestige', ember: 'gold-prestige', dusk: 'gold-prestige',
+      arctic: 'midnight', crimson: 'midnight',
+    };
     const backgroundPreset = bgByPalette[preset.palette.id] || (preset.mood?.id === 'minimal' ? 'midnight' : 'kaspa-hero');
     const next = { ...cur, root: { ...cur.root, props: { ...(cur.root?.props || {}), accentColor: accent, backgroundPreset } } };
     setInitialData(next);
@@ -1066,7 +1129,13 @@ function PageSettingsModal({ covenant, saving, onSave, onClose }) {
                 type="number"
                 min={1}
                 value={stake}
-                onChange={(e) => setStake(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                onChange={(e) => {
+                  // parseInt('') and parseInt('abc') both yield NaN, and Math.max(1, NaN) is
+                  // NaN - which would make the input uncontrolled and save NaN. Guard to a
+                  // finite >= 1 integer.
+                  const n = parseInt(e.target.value, 10);
+                  setStake(Number.isFinite(n) ? Math.max(1, n) : 1);
+                }}
                 className="w-full bg-transparent text-sm text-white light:text-slate-900 focus:outline-none"
               />
             </div>

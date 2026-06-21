@@ -1779,6 +1779,16 @@ pub struct RedeemSpec {
     /// preimage_hex is reused for outcome A. NEVER stored - re-supplied at spend.
     #[serde(default)]
     pub preimage_b_hex: Option<String>,
+    /// binary_oracle_select only: commit DIRECTLY to the two 32-byte branch hashes instead of
+    /// supplying the preimages. This is the trust-minimized path: the deployer commits to an
+    /// external resolver's published hashes WITHOUT learning the secrets, so only that resolver can
+    /// reveal a preimage (and only for the outcome that happened). When both are set they win over
+    /// preimage_hex/preimage_b_hex. blake2b256(revealed_secret) == the committed hash is enforced
+    /// on-chain at spend.
+    #[serde(default)]
+    pub hash_a_hex: Option<String>,
+    #[serde(default)]
+    pub hash_b_hex: Option<String>,
     /// binary_oracle_select only: the refund key that reclaims after the CSV delay if the
     /// oracle never reveals a secret. Defaults to the deployer.
     #[serde(default)]
@@ -2110,24 +2120,47 @@ pub async fn p2sh_deploy_handler(
             // H_B) + a CSV refund. preimage_hex -> H_A, preimage_b_hex -> H_B. Winners from
             // pubkeys_hex=[winner_a, winner_b] (or the two dev wallets); refund from
             // refund_pubkey_hex (or the deployer). lock_daa = the relative-timelock min_sequence.
-            let pa_hex = match &req.redeem.preimage_hex {
-                Some(p) => p,
-                None => return err("binary_oracle_select requires preimage_hex (outcome A secret)".into()),
+            // The two branch hashes: commit DIRECTLY to external hashes (the trust-minimized path,
+            // where the deployer never learns the secrets and only the resolver can reveal one), or
+            // derive them from supplied preimages (back-compat). blake2b(revealed_secret) == the
+            // committed hash is enforced on-chain at spend, so the deployer cannot pick the winner.
+            let decode32 = |s: &str, what: &str| -> Result<[u8; 32], String> {
+                match hex::decode(s.trim()) {
+                    Ok(b) if b.len() == 32 => {
+                        let mut a = [0u8; 32];
+                        a.copy_from_slice(&b);
+                        Ok(a)
+                    }
+                    Ok(_) => Err(format!("{what} must be 32 bytes (64 hex chars)")),
+                    Err(e) => Err(format!("bad {what}: {e}")),
+                }
             };
-            let pb_hex = match &req.redeem.preimage_b_hex {
-                Some(p) => p,
-                None => return err("binary_oracle_select requires preimage_b_hex (outcome B secret)".into()),
+            let (h_a, h_b) = match (&req.redeem.hash_a_hex, &req.redeem.hash_b_hex) {
+                (Some(ha), Some(hb)) => {
+                    let ha = match decode32(ha, "hash_a_hex") { Ok(x) => x, Err(e) => return err(e) };
+                    let hb = match decode32(hb, "hash_b_hex") { Ok(x) => x, Err(e) => return err(e) };
+                    (ha, hb)
+                }
+                _ => {
+                    let pa_hex = match &req.redeem.preimage_hex {
+                        Some(p) => p,
+                        None => return err("binary_oracle_select requires hash_a_hex+hash_b_hex (commit to the resolver's published hashes) or preimage_hex+preimage_b_hex".into()),
+                    };
+                    let pb_hex = match &req.redeem.preimage_b_hex {
+                        Some(p) => p,
+                        None => return err("binary_oracle_select requires hash_a_hex+hash_b_hex or preimage_hex+preimage_b_hex (outcome B secret)".into()),
+                    };
+                    let pa = match hex::decode(pa_hex.trim()) {
+                        Ok(b) => b,
+                        Err(e) => return err(format!("bad preimage_hex: {e}")),
+                    };
+                    let pb = match hex::decode(pb_hex.trim()) {
+                        Ok(b) => b,
+                        Err(e) => return err(format!("bad preimage_b_hex: {e}")),
+                    };
+                    (blake2b256(&pa), blake2b256(&pb))
+                }
             };
-            let pa = match hex::decode(pa_hex.trim()) {
-                Ok(b) => b,
-                Err(e) => return err(format!("bad preimage_hex: {e}")),
-            };
-            let pb = match hex::decode(pb_hex.trim()) {
-                Ok(b) => b,
-                Err(e) => return err(format!("bad preimage_b_hex: {e}")),
-            };
-            let h_a = blake2b256(&pa);
-            let h_b = blake2b256(&pb);
             let (winner_a, winner_b) = if let Some(pks) = &req.redeem.pubkeys_hex {
                 if pks.len() >= 2 {
                     match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {

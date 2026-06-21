@@ -1208,6 +1208,23 @@ pub(crate) fn determine_outcome_for_circuit(
         } else {
             1
         }
+    } else if matches!(
+        circuit_type,
+        "collateral_ltv" | "loan_health" | "financial_formula" | "auction_clearing"
+    ) {
+        // These DeFi/market circuits emit [computed_value, valid] - the gating result
+        // is the SECOND public signal (publicSignals[1]), not the first. A real, verifying
+        // proof can legitimately carry valid == "0" (e.g. an under-collateralized LTV, an
+        // unhealthy loan, a formula that evaluates false, an auction that did not clear),
+        // and that case MUST fail the gate. Reading index [1]: claimant wins (outcome 0)
+        // ONLY when the validity signal equals "1", otherwise the claim fails (outcome 1).
+        // Before this, they fell through to the proof_has_groth16_body => 0 fallback below,
+        // so MERE proof presence let a valid-but-false proof drain the pot.
+        if public_inputs.get(1).map(|s| s.as_str()) == Some("1") {
+            0
+        } else {
+            1
+        }
     } else if proof_has_groth16_body(proof) {
         0
     } else if circuit_type == "tictactoe_v1" || circuit_type == "connect4_v1" {
@@ -1451,6 +1468,55 @@ mod tests {
             ),
             0
         );
+    }
+
+    #[test]
+    fn defi_market_circuits_read_validity_at_index_one_not_proof_presence() {
+        // collateral_ltv / loan_health / financial_formula / auction_clearing emit
+        // [computed_value, valid] - the gating result is publicSignals[1], NOT [0]. Before the
+        // fix these fell through to the generic `proof_has_groth16_body => 0` arm, so a real,
+        // verifying proof whose validity signal was "0" (under-collateralized, unhealthy loan,
+        // formula false, auction did not clear) still signed "claimant wins" and drained the pot.
+        // A groth16 body is present (these are Hybrid/groth circuits in the registry), proving the
+        // fix reads the signal, not mere proof presence.
+        let proof = serde_json::json!({ "pi_a": ["1", "2", "3"] });
+        for circuit in [
+            "collateral_ltv",
+            "loan_health",
+            "financial_formula",
+            "auction_clearing",
+        ] {
+            // valid == "1" at index [1] -> claimant wins (outcome 0). The value at [0] is the
+            // circuit's computed quantity (e.g. LTV bps), which MUST NOT be mistaken for validity.
+            assert_eq!(
+                determine_outcome_for_circuit(
+                    circuit,
+                    &proof,
+                    &["5000".to_string(), "1".to_string()],
+                    None
+                ),
+                0,
+                "{circuit}: valid==1 at [1] must yield outcome 0"
+            );
+            // valid == "0" at index [1] -> claim fails (outcome 1), even though [0] is non-zero
+            // AND the proof body is present. This is the drain that the old fallback allowed.
+            assert_eq!(
+                determine_outcome_for_circuit(
+                    circuit,
+                    &proof,
+                    &["5000".to_string(), "0".to_string()],
+                    None
+                ),
+                1,
+                "{circuit}: valid==0 at [1] must FAIL the gate (outcome 1), not pass on proof presence"
+            );
+            // Defensive: a malformed proof missing the validity signal must NOT default to a win.
+            assert_eq!(
+                determine_outcome_for_circuit(circuit, &proof, &["5000".to_string()], None),
+                1,
+                "{circuit}: a missing validity signal must fail closed (outcome 1)"
+            );
+        }
     }
 
     #[test]

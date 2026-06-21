@@ -325,6 +325,33 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
     )
 }
 
+/// H4 fail-CLOSED default: the covenant-binding requirement is now GLOBAL. Every Strict/Hybrid
+/// circuit must commit covenant_field_element(covenant_id) as a public input before the oracle
+/// co-signs, UNLESS it is on this small, explicit allowlist of circuits whose SERVED vkey
+/// genuinely cannot carry the binding (their circom public list omits covenantId, confirmed
+/// against frontend/public/zk/<id>/<id>_vkey.json nPublic + the .circom main component).
+///
+/// These are the game / mixer / DeFi-market hybrids: their outcome is derived from their OWN
+/// public signals (e.g. winner index, mixer_valid, [value, valid]), so a cross-covenant replay
+/// would merely re-assert the SAME computed result onto another covenant of the exact same type
+/// and economics, not let an attacker pick an arbitrary outcome. Keeping them here preserves
+/// every legitimate hybrid proof; everything NOT on this list now fails closed by default
+/// (the previous default warned-and-signed, which let an UNLISTED future circuit be replayed
+/// silently). The blanket env escape hatch COVEX_ALLOW_NO_BINDING=true exists for emergencies
+/// only and must never be the steady state.
+pub(crate) fn circuit_allows_no_covenant_binding(circuit_type: &str) -> bool {
+    matches!(
+        circuit_type,
+        // Game / mixer hybrids: served vkeys nPublic 5 / 5 / 7, no covenantId signal.
+        "tictactoe_v1" | "connect4_v1" | "privacy_mixer_v1"
+            // DeFi / market hybrids: served vkeys nPublic 2 ([computed_value, valid]); the
+            // circom main omits covenantId. Outcome is derived from publicSignals[1] (the
+            // validity signal), so a replay re-asserts the same value/valid pair, never an
+            // attacker-chosen outcome.
+            | "collateral_ltv" | "loan_health" | "financial_formula" | "auction_clearing"
+    )
+}
+
 /// Sign sha256(message) with the oracle key (BIP340 Schnorr; 64-byte hex sig).
 pub fn sign_outcome(message: &str) -> String {
     let kp = oracle_keypair();
@@ -795,33 +822,41 @@ async fn verify_and_sign_handler(
         // the BN254 scalar field, so a proof can only mint a signature for the exact
         // covenant whose id was committed as a public input at proving time.
         //
-        // RESIDUAL RISK / why this is "partial": the existing strict circuits
-        // (merkle/range/timelock/hash/etc.) do NOT currently emit covenant_id as a public
-        // signal, so a HARD requirement would break every legitimate proof today. We
-        // therefore gate enforcement:
+        // ENFORCEMENT (now fail-CLOSED by default):
         //   * If H(covenant_id) IS among the public inputs -> the proof is correctly bound;
         //     allow (this is the sound, replay-safe path).
-        //   * If it is NOT present -> we cannot cryptographically bind. With
-        //     COVEX_REQUIRE_COVENANT_BINDING=true the oracle rejects loudly (recommended
-        //     once circuits emit the binding). By default we allow but emit a loud warning,
-        //     so merkle/range keep working. FULLY closing this requires a circuit-side
-        //     change: add a public `covenantId` signal to each non-game circuit and have
-        //     provers commit sha256(covenant_id) mod r. Until then a proof for one covenant
-        //     can still be replayed onto another covenant of the SAME circuit type when the
-        //     circuit omits the binding signal.
+        //   * If it is NOT present -> we cannot cryptographically bind, so the oracle REFUSES
+        //     to sign by default. The only exemptions are circuits on the explicit
+        //     circuit_allows_no_covenant_binding allowlist (the game / mixer / DeFi-market
+        //     hybrids whose served vkeys genuinely omit covenantId). Every other circuit -
+        //     including any added in the future - fails closed automatically.
         let expected_covenant_fe = covenant_field_element(&input.covenant_id);
         let bound = input
             .public_inputs
             .iter()
             .any(|s| s.trim() == expected_covenant_fe);
         if !bound {
-            // H4 fail-closed: the 14 recompiled strict circuits now emit a covenantId public signal,
-            // and their in-browser provers commit covenant_field_element(covenant_id). For those, a
-            // missing binding means the proof is NOT bound to this covenant (a replay or an old
-            // pre-H4 proof), so refuse to sign regardless of the env var. Other circuits keep the
-            // env-gated behavior so nothing legacy breaks.
-            let strict = circuit_emits_covenant_binding(&input.circuit_type)
-                || std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+            // H4 fail-CLOSED by GLOBAL DEFAULT: a proof that does not commit
+            // covenant_field_element(covenant_id) is NOT bound to this covenant (a cross-covenant
+            // replay or a stale pre-H4 proof), so the oracle refuses to sign it. The ONLY circuits
+            // exempted are the explicit allowlist whose served vkeys genuinely cannot carry the
+            // binding (circuit_allows_no_covenant_binding: the game / mixer / DeFi-market hybrids).
+            // This inverts the previous default, which warned-and-signed for every unlisted circuit
+            // - that fail-OPEN default meant any NEW circuit added later was silently replayable
+            // until someone remembered to register it. Now new circuits are safe by construction.
+            //
+            //   strict (reject)  := NOT on the no-binding allowlist
+            //                       OR COVEX_REQUIRE_COVENANT_BINDING=true (force-strict everything,
+            //                          overriding the allowlist).
+            //   relaxed (allow)  := on the allowlist AND not force-strict,
+            //                       OR the blanket emergency escape hatch COVEX_ALLOW_NO_BINDING=true.
+            let force_strict =
+                std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+            let blanket_allow =
+                std::env::var("COVEX_ALLOW_NO_BINDING").as_deref() == Ok("true");
+            let allowed_no_binding = !force_strict
+                && (blanket_allow || circuit_allows_no_covenant_binding(&input.circuit_type));
+            let strict = !allowed_no_binding;
             if strict {
                 return Json(OracleVerifyOutput {
                     success: false,
@@ -830,7 +865,7 @@ async fn verify_and_sign_handler(
                     timestamp: None,
                     message: None,
                     error: Some(format!(
-                        "covenant binding missing: proof for circuit '{}' does not commit covenant_id (expected public input {} = sha256(covenant_id) mod BN254). Refusing to sign to prevent cross-covenant proof replay (COVEX_REQUIRE_COVENANT_BINDING=true).",
+                        "covenant binding missing: proof for circuit '{}' does not commit covenant_id (expected public input {} = sha256(covenant_id) mod BN254). Refusing to sign to prevent cross-covenant proof replay (fail-closed default).",
                         input.circuit_type, expected_covenant_fe
                     )),
                     public_inputs: input.public_inputs,
@@ -838,12 +873,17 @@ async fn verify_and_sign_handler(
                     covenant_hint: None,
                 });
             }
+            // Reached only for circuits on the explicit no-binding allowlist (game / mixer /
+            // DeFi-market hybrids whose served vkeys cannot carry covenantId) or under the
+            // blanket COVEX_ALLOW_NO_BINDING emergency escape hatch. Their outcome is derived
+            // from their OWN verified public signals, so a replay re-asserts the same computed
+            // result, never an attacker-chosen one. Still warn so it is auditable.
             tracing::warn!(
                 "H4 covenant binding ABSENT for covenant {} (circuit {}): proof does not commit \
-                 sha256(covenant_id) mod BN254 ({}) as a public input. Signing anyway for \
-                 backward compatibility (legacy circuits omit the binding signal); this proof \
-                 could be replayed onto another covenant of the same circuit type. Set \
-                 COVEX_REQUIRE_COVENANT_BINDING=true once circuits emit the binding to fail closed.",
+                 sha256(covenant_id) mod BN254 ({}) as a public input. Signing because this circuit \
+                 is on the no-binding allowlist (its served vkey omits covenantId); the outcome is \
+                 derived from its own verified signals, so a same-type replay re-asserts the same \
+                 result. Unlisted circuits fail closed by default.",
                 &input.covenant_id[..16.min(input.covenant_id.len())],
                 input.circuit_type,
                 expected_covenant_fe
@@ -1058,6 +1098,107 @@ mod tests {
         assert!(!circuit_emits_covenant_binding(
             "some_legacy_attested_circuit"
         ));
+    }
+
+    /// H4 fail-CLOSED default: the no-binding allowlist must contain ONLY the circuits whose
+    /// served vkeys genuinely cannot carry covenantId (the game / mixer / DeFi-market hybrids).
+    /// Everything else - including any future circuit - must be off the allowlist so it fails
+    /// closed by default. This is the inversion the off-chain verify-and-sign gate now relies on.
+    #[test]
+    fn no_binding_allowlist_is_exactly_the_genuine_hybrids() {
+        // The genuine no-binding hybrids: their .circom main omits covenantId (served vkey
+        // nPublic 5 / 5 / 7 for the games/mixer, 2 for the DeFi/market pairs).
+        for c in [
+            "tictactoe_v1",
+            "connect4_v1",
+            "privacy_mixer_v1",
+            "collateral_ltv",
+            "loan_health",
+            "financial_formula",
+            "auction_clearing",
+        ] {
+            assert!(
+                circuit_allows_no_covenant_binding(c),
+                "{c} must be on the no-binding allowlist (its served vkey omits covenantId)"
+            );
+        }
+        // Binding-emitting circuits and their aliases must NOT be on the allowlist: a missing
+        // binding for them is a replay / stale proof and must hard-close.
+        for c in [
+            "merkle_membership",
+            "range_proof",
+            "escrow_2party",
+            "age_verification",
+            "timelock_absolute",
+            "merkle_dao",
+            "range_collateral",
+        ] {
+            assert!(
+                !circuit_allows_no_covenant_binding(c),
+                "{c} emits the binding and must NOT be on the no-binding allowlist"
+            );
+        }
+        // Any UNKNOWN / future circuit is off the allowlist -> fails closed by default.
+        assert!(!circuit_allows_no_covenant_binding("some_future_circuit"));
+        // A circuit cannot be BOTH binding-emitting and on the no-binding allowlist.
+        for c in [
+            "tictactoe_v1",
+            "collateral_ltv",
+            "merkle_membership",
+            "some_future_circuit",
+        ] {
+            assert!(
+                !(circuit_emits_covenant_binding(c) && circuit_allows_no_covenant_binding(c)),
+                "{c} must not be in both the binding-emitting set and the no-binding allowlist"
+            );
+        }
+    }
+
+    /// H4 fail-CLOSED default: mirror the EXACT boolean the verify-and-sign handler uses when a
+    /// proof is missing its covenant binding, and prove the inverted default. The handler signs
+    /// (relaxed) only when the circuit is on the no-binding allowlist (and not force-strict) OR
+    /// the blanket escape hatch is set; otherwise it rejects (strict). This is the decision in
+    /// oracle.rs ~ "let strict = !allowed_no_binding".
+    #[test]
+    fn unbound_proof_signing_decision_is_fail_closed_by_default() {
+        // Replicates the handler's branch so the policy is locked in by a test even though the
+        // surrounding handler is an async DB-bound fn.
+        fn signs_when_unbound(circuit: &str, force_strict: bool, blanket_allow: bool) -> bool {
+            let allowed_no_binding =
+                !force_strict && (blanket_allow || circuit_allows_no_covenant_binding(circuit));
+            !(!allowed_no_binding) // signs == relaxed == allowed_no_binding
+        }
+
+        // DEFAULT (no env knobs): unlisted circuit is REJECTED (fail-closed).
+        assert!(
+            !signs_when_unbound("some_future_circuit", false, false),
+            "unlisted circuit without a binding must FAIL CLOSED by default"
+        );
+        // DEFAULT: a binding-emitting circuit missing its binding is REJECTED.
+        assert!(
+            !signs_when_unbound("merkle_membership", false, false),
+            "a binding-emitting circuit missing its binding must FAIL CLOSED"
+        );
+        // DEFAULT: an allowlisted no-binding hybrid is allowed (its outcome is self-derived).
+        assert!(
+            signs_when_unbound("collateral_ltv", false, false),
+            "an allowlisted no-binding hybrid is allowed by default"
+        );
+        assert!(signs_when_unbound("tictactoe_v1", false, false));
+        // BLANKET ESCAPE HATCH relaxes the unlisted circuit.
+        assert!(
+            signs_when_unbound("some_future_circuit", false, true),
+            "COVEX_ALLOW_NO_BINDING=true must relax the fail-closed default"
+        );
+        // FORCE-STRICT overrides the allowlist AND the blanket allow.
+        assert!(
+            !signs_when_unbound("collateral_ltv", true, false),
+            "COVEX_REQUIRE_COVENANT_BINDING=true must fail closed even for allowlisted circuits"
+        );
+        assert!(
+            !signs_when_unbound("some_future_circuit", true, true),
+            "force-strict must win over the blanket allow"
+        );
     }
 
     /// Test that verify_merkle_proof with a real valid proof returns Ok(true).

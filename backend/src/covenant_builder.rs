@@ -3094,8 +3094,7 @@ fn enforce_onchain_covenant_binding(
     if bound {
         return Ok(());
     }
-    let force_strict =
-        std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+    let force_strict = std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
     // The blanket emergency escape hatch may NEVER relax a circuit that genuinely emits the
     // covenant binding (merkle/range/escrow/age/timelock): a cross-covenant replay on those is
     // attacker-chosen, so they stay unconditionally fail-closed when unbound. This mirrors the
@@ -4596,9 +4595,17 @@ pub async fn submit_signed_handler(
             }
             // A transient node read error must not let a stale spend through silently; the node
             // is the final authority, so surface the failure rather than broadcasting blind.
-            Err(e) => return err(format!("could not re-check the covenant UTXO before broadcast: {e}")),
+            Err(e) => {
+                return err(format!(
+                    "could not re-check the covenant UTXO before broadcast: {e}"
+                ))
+            }
         },
-        Err(e) => return err(format!("could not derive the covenant P2SH address to re-check the UTXO: {e}")),
+        Err(e) => {
+            return err(format!(
+                "could not derive the covenant P2SH address to re-check the UTXO: {e}"
+            ))
+        }
     }
     let rpc_tx = RpcTransaction::from(&signable.tx);
     match client.submit_transaction(rpc_tx, false).await {
@@ -5914,7 +5921,10 @@ pub async fn match_market_handler(
     let b_orders = db::list_open_orders_side(&db, &req.market_id, 1);
     // Bound the number of pairs funded in one call so a single /match cannot drain the escrow
     // in one shot (the per-market FUNDED cap below is the hard ceiling; this just chunks it).
-    let pairs = a_orders.len().min(b_orders.len()).min(MARKET_MAX_MATCH_PAIRS);
+    let pairs = a_orders
+        .len()
+        .min(b_orders.len())
+        .min(MARKET_MAX_MATCH_PAIRS);
     if pairs == 0 {
         return err("need at least one open order on EACH side to match".into());
     }
@@ -6108,7 +6118,11 @@ pub async fn settle_market_handler(
     // other key) is NOT server-settleable and we return a self-claim payload instead of
     // signing it with the wrong key (which would fail the script anyway).
     let dev_xonly: std::collections::HashSet<[u8; 32]> = dev_keys(&m.network)
-        .map(|ks| ks.iter().filter_map(|k| xonly_from_seckey(k).ok()).collect())
+        .map(|ks| {
+            ks.iter()
+                .filter_map(|k| xonly_from_seckey(k).ok())
+                .collect()
+        })
         .unwrap_or_default();
     // The winner key of a non-fee leg is the x-only payload of the winner's own address.
     let addr_xonly = |a: &str| -> Option<[u8; 32]> {

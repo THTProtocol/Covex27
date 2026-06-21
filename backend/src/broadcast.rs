@@ -66,7 +66,10 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
     // by the time it returns Ok the connection is up; this catches the residual case where it
     // dropped immediately, surfacing a clear error rather than a dead client whose RPCs hang.
     if !c.is_connected() {
-        return Err(format!("{} node is not connected (down or syncing)", network));
+        return Err(format!(
+            "{} node is not connected (down or syncing)",
+            network
+        ));
     }
     Ok(Arc::new(c))
 }
@@ -195,7 +198,9 @@ pub async fn utxos_handler(
         Err(e) => {
             return (
                 StatusCode::OK,
-                Json(serde_json::json!({ "utxos": [], "error": format!("Invalid address: {}", e) })),
+                Json(
+                    serde_json::json!({ "utxos": [], "error": format!("Invalid address: {}", e) }),
+                ),
             )
                 .into_response();
         }

@@ -41,7 +41,7 @@ const GAME_REGISTRY = {
 assertGamesInSync(Object.keys(GAME_REGISTRY), 'GAME_REGISTRY');
 import { Chessboard } from 'react-chessboard';
 import { chessLookFromConfig } from '../lib/chessTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, ArrowUp, Type, Ruler, Save, Share2, Clock, Wallet } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, Type, Ruler, Save, Share2, Clock, Wallet } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
@@ -251,22 +251,6 @@ export default function CovenantInteractive() {
   const [config, setConfig] = useState(DEFAULT_UI_CONFIG);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplatePreview, setShowTemplatePreview] = useState(null); // for modal full preview
-
-  // Paid tier comes from the backend (real verified on-chain payment), NOT attacker-writable
-  // localStorage. Starts null (FREE); populated by the auth-session fetch below.
-  const [covexPaidTier, setCovexPaidTier] = useState(null);
-  useEffect(() => {
-    if (!address) { setCovexPaidTier(null); return; }
-    const net = (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
-    fetch('/api/auth-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, network: net }),
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => setCovexPaidTier((data?.token && data?.tier && data.tier !== 'FREE') ? data.tier : null))
-      .catch(() => setCovexPaidTier(null));
-  }, [address]);
 
   // isCreator computed early (wallet + covenant creator_addr match). Only creator can deploy/set custom UI or see Terminal/Builder.
   // Fix tab and looks/stake always available to creator after wallet login. No paid required for basic Fix or chess arena.

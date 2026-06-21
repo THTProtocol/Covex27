@@ -852,8 +852,14 @@ async fn verify_and_sign_handler(
             //                       OR the blanket emergency escape hatch COVEX_ALLOW_NO_BINDING=true.
             let force_strict =
                 std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
-            let blanket_allow =
-                std::env::var("COVEX_ALLOW_NO_BINDING").as_deref() == Ok("true");
+            // The blanket emergency escape hatch may NEVER relax a circuit that genuinely
+            // emits the covenant binding (merkle_membership / range_proof / escrow_2party /
+            // age_verification / timelock_* and their aliases). Those stay unconditionally
+            // fail-closed when unbound - a cross-covenant replay on them is attacker-chosen,
+            // so no env var is allowed to weaken them. The hatch only covers circuits whose
+            // served vkey structurally cannot carry covenantId (the no-binding allowlist).
+            let blanket_allow = std::env::var("COVEX_ALLOW_NO_BINDING").as_deref() == Ok("true")
+                && !circuit_emits_covenant_binding(&input.circuit_type);
             let allowed_no_binding = !force_strict
                 && (blanket_allow || circuit_allows_no_covenant_binding(&input.circuit_type));
             let strict = !allowed_no_binding;
@@ -1163,10 +1169,13 @@ mod tests {
     fn unbound_proof_signing_decision_is_fail_closed_by_default() {
         // Replicates the handler's branch so the policy is locked in by a test even though the
         // surrounding handler is an async DB-bound fn.
-        fn signs_when_unbound(circuit: &str, force_strict: bool, blanket_allow: bool) -> bool {
+        fn signs_when_unbound(circuit: &str, force_strict: bool, blanket_allow_env: bool) -> bool {
+            // Mirror the handler exactly: the blanket hatch can NEVER relax a binding-emitting
+            // circuit, so it is gated on !circuit_emits_covenant_binding.
+            let blanket_allow = blanket_allow_env && !circuit_emits_covenant_binding(circuit);
             let allowed_no_binding =
                 !force_strict && (blanket_allow || circuit_allows_no_covenant_binding(circuit));
-            !(!allowed_no_binding) // signs == relaxed == allowed_no_binding
+            allowed_no_binding // signs == relaxed == allowed_no_binding
         }
 
         // DEFAULT (no env knobs): unlisted circuit is REJECTED (fail-closed).
@@ -1198,6 +1207,17 @@ mod tests {
         assert!(
             !signs_when_unbound("some_future_circuit", true, true),
             "force-strict must win over the blanket allow"
+        );
+        // HARDENED: the blanket escape hatch may NEVER relax a binding-emitting strict circuit.
+        // A cross-covenant replay on merkle/range/escrow/age/timelock is attacker-chosen, so no
+        // env knob is permitted to weaken them - they stay fail-closed when unbound.
+        assert!(
+            !signs_when_unbound("merkle_membership", false, true),
+            "COVEX_ALLOW_NO_BINDING must NOT relax a binding-emitting circuit"
+        );
+        assert!(
+            !signs_when_unbound("range_proof", false, true),
+            "COVEX_ALLOW_NO_BINDING must NOT relax range_proof"
         );
     }
 

@@ -56,6 +56,16 @@ const TX_FEE: u64 = 10_000;
 /// trip the node's dust relay rule). Aligned to the flat TX_FEE.
 const DUST_THRESHOLD: u64 = TX_FEE;
 
+// ── Parimutuel market funding caps (anti-drain) ─────────────────────────────
+// The matcher funds each bettor pair from the shared DEV_WALLET_1 testnet escrow, so an
+// unbounded order book is a direct drain on that wallet. These caps bound the exposure of
+// any single order, any single market, and any single match call. They are testnet-scale
+// (the dev wallet is testnet-funded); a mainnet non-custodial flow would not dev-fund at all.
+const MARKET_MAX_ORDER_SOMPI: i64 = 1_000_000_000_000; // 10,000 KAS per order
+const MARKET_MAX_OPEN_SOMPI_PER_SIDE: i64 = 5_000_000_000_000; // 50,000 KAS open per side per market
+const MARKET_MAX_FUNDED_SOMPI: i64 = 10_000_000_000_000; // 100,000 KAS dev-funded total per market
+const MARKET_MAX_MATCH_PAIRS: usize = 50; // pairs funded in one /match call
+
 /// The covenant kinds this builder can lock funds into. Each maps to a redeem
 /// script that is genuinely enforced by Kaspa consensus (no oracle, no silverc).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2763,8 +2773,13 @@ pub async fn p2sh_spend_handler(
         }
     };
     let amount = utxo.utxo_entry.amount;
-    if amount <= TX_FEE {
-        return err("locked amount does not cover the tx fee".into());
+    // The single output is amount - TX_FEE. It must clear the dust relay floor or the node
+    // rejects the spend (and a sub-dust output is unspendable even if it were accepted).
+    // Reject up front with a clear message instead of broadcasting a doomed tx.
+    if amount <= TX_FEE || amount - TX_FEE < DUST_THRESHOLD {
+        return err(format!(
+            "locked amount {amount} sompi is too small to spend: the output after the {TX_FEE} fee would fall below the {DUST_THRESHOLD} dust floor"
+        ));
     }
     let dest_script = match script_pub_key_from_address(&req.destination_addr) {
         Ok(s) => s,
@@ -4546,6 +4561,35 @@ pub async fn submit_signed_handler(
         Ok(c) => c,
         Err(e) => return err(e),
     };
+    // Re-check the outpoint at submit time. A session can sit open for up to 10 minutes; the
+    // covenant UTXO may have been spent in the meantime (a refund, a race, a double-claim).
+    // Broadcasting then fails deep in the node with an opaque message, so confirm the exact
+    // outpoint is still live and return a clear UTXO-already-spent error first.
+    let spent_outpoint = pending.unsigned_tx.inputs[0].previous_outpoint;
+    let p2sh_prefix = prefix_for_network(&pending.network);
+    match kaspa_txscript::extract_script_pub_key_address(
+        &pending.entry.script_public_key,
+        p2sh_prefix,
+    ) {
+        Ok(p2sh_addr) => match client.get_utxos_by_addresses(vec![p2sh_addr]).await {
+            Ok(live) => {
+                let still_live = live.iter().any(|u| {
+                    u.outpoint.transaction_id == spent_outpoint.transaction_id
+                        && u.outpoint.index == spent_outpoint.index
+                });
+                if !still_live {
+                    return err(format!(
+                        "UTXO already spent: the covenant output {}:{} is no longer in the live UTXO set (spent since prepare-spend). Refresh and prepare a new spend.",
+                        spent_outpoint.transaction_id, spent_outpoint.index
+                    ));
+                }
+            }
+            // A transient node read error must not let a stale spend through silently; the node
+            // is the final authority, so surface the failure rather than broadcasting blind.
+            Err(e) => return err(format!("could not re-check the covenant UTXO before broadcast: {e}")),
+        },
+        Err(e) => return err(format!("could not derive the covenant P2SH address to re-check the UTXO: {e}")),
+    }
     let rpc_tx = RpcTransaction::from(&signable.tx);
     match client.submit_transaction(rpc_tx, false).await {
         Ok(tx_id) => {
@@ -5739,6 +5783,25 @@ pub async fn place_order_handler(
     if stake_sompi <= 0 {
         return err("stake_kas must be > 0".into());
     }
+    // Anti-drain caps. Orders are unauthenticated, and matching funds them from the shared
+    // dev escrow, so bound the size of any one order and the total OPEN stake per side. The
+    // FUNDED total is bounded again at match time.
+    if stake_sompi > MARKET_MAX_ORDER_SOMPI {
+        return err(format!(
+            "stake exceeds the per-order cap of {} KAS",
+            MARKET_MAX_ORDER_SOMPI / 100_000_000
+        ));
+    }
+    let open_side: i64 = db::list_open_orders_side(&db, &req.market_id, req.side)
+        .iter()
+        .map(|o| o.stake_sompi)
+        .sum();
+    if open_side.saturating_add(stake_sompi) > MARKET_MAX_OPEN_SOMPI_PER_SIDE {
+        return err(format!(
+            "this would exceed the per-side open-stake cap of {} KAS for this market",
+            MARKET_MAX_OPEN_SOMPI_PER_SIDE / 100_000_000
+        ));
+    }
     let pk = match Address::try_from(req.bettor_addr.as_str()) {
         Ok(a) => {
             let p = a.payload.as_slice();
@@ -5788,6 +5851,16 @@ pub struct MatchMarketRequest {
     pub fee_bps: Option<u64>,
     #[serde(default)]
     pub rebate_bps: Option<u64>,
+    /// Authorization (same model as /resolve): only the recorded market creator may trigger a
+    /// match, since matching spends the shared dev escrow. `signer_address` MUST equal the
+    /// market creator, and `signature` must be a valid wallet signature of
+    /// `covex-market-match:{market_id}:{nonce}` by that address.
+    #[serde(default)]
+    pub signer_address: String,
+    #[serde(default)]
+    pub signature: String,
+    #[serde(default)]
+    pub nonce: String,
 }
 
 /// Refund delay (CSV min_sequence) baked into every matched bundle leg.
@@ -5807,12 +5880,41 @@ pub async fn match_market_handler(
     if m.revealed_outcome.is_some() {
         return err("market already resolved".into());
     }
+    // Authorize the match. Matching spends the shared dev escrow, so restrict it to the
+    // recorded market creator with a valid wallet signature (same model as /resolve). Fail
+    // closed if no creator was recorded (legacy row).
+    let creator = match db::get_bundle_market_creator(&db, &req.market_id) {
+        Some(c) => c,
+        None => {
+            return err(
+                "market has no recorded creator and cannot be matched (matching is restricted to the creator)".into(),
+            )
+        }
+    };
+    if req.signer_address.trim() != creator {
+        return err("signer_address is not the market creator; only the creator may match".into());
+    }
+    let msg = format!("covex-market-match:{}:{}", req.market_id, req.nonce);
+    match crate::kaspa_msg::verify_message(&creator, &msg, &req.signature) {
+        Ok(true) => {}
+        Ok(false) => return err("invalid creator signature for this match".into()),
+        Err(e) => return err(format!("signature verification failed: {e}")),
+    }
     let a_orders = db::list_open_orders_side(&db, &req.market_id, 0);
     let b_orders = db::list_open_orders_side(&db, &req.market_id, 1);
-    let pairs = a_orders.len().min(b_orders.len());
+    // Bound the number of pairs funded in one call so a single /match cannot drain the escrow
+    // in one shot (the per-market FUNDED cap below is the hard ceiling; this just chunks it).
+    let pairs = a_orders.len().min(b_orders.len()).min(MARKET_MAX_MATCH_PAIRS);
     if pairs == 0 {
         return err("need at least one open order on EACH side to match".into());
     }
+    // Per-market funded cap: sum the stake already funded into bundles for this market, and
+    // refuse to push the dev-escrow exposure past the ceiling.
+    let mut funded_so_far: i64 = db::list_market_orders(&db, &req.market_id)
+        .iter()
+        .filter(|o| o.status == "funded")
+        .map(|o| o.stake_sompi)
+        .sum();
     // Route any creator-set market fee to the market CREATOR (never Covex). A market with a
     // nonzero fee must have a resolvable creator x-only key, else build_bundle fails closed.
     let fee_recipient: Option<String> = if m.fee_bps > 0 {
@@ -5823,9 +5925,17 @@ pub async fn match_market_handler(
         None
     };
     let mut matches = Vec::new();
+    let mut capped = false;
     for i in 0..pairs {
         let ao = &a_orders[i];
         let bo = &b_orders[i];
+        // Stop before funding a pair that would push the dev-escrow exposure for this market
+        // past the cap. Already-matched pairs in this call stand; the rest stay open.
+        let pair_stake = ao.stake_sompi.saturating_add(bo.stake_sompi);
+        if funded_so_far.saturating_add(pair_stake) > MARKET_MAX_FUNDED_SOMPI {
+            capped = true;
+            break;
+        }
         let breq = BundleDeployRequest {
             network: m.network.clone(),
             funder_addr: dev_wallets::DEV_WALLET_1_ADDRESS_TN12.to_string(),
@@ -5857,6 +5967,7 @@ pub async fn match_market_handler(
                 .to_string();
             let _ = db::mark_order_funded(&db, &ao.order_id, &txid);
             let _ = db::mark_order_funded(&db, &bo.order_id, &txid);
+            funded_so_far = funded_so_far.saturating_add(pair_stake);
             // Persist the carved legs (role + redeem + outpoint) so /market/settle can claim
             // each one after resolution without recomputing the carve.
             let legs_json = res
@@ -5887,6 +5998,8 @@ pub async fn match_market_handler(
         "matches": matches,
         "unmatched_a": a_orders.len().saturating_sub(pairs),
         "unmatched_b": b_orders.len().saturating_sub(pairs),
+        "capped": capped,
+        "note": if capped { "Stopped early: the per-market funding cap was reached. Remaining orders stay open." } else { "" },
     }))
 }
 
@@ -5979,8 +6092,24 @@ pub async fn settle_market_handler(
         None => return err("no revealed secret on record".into()),
     };
     let select_mode = if outcome == 0 { "reveal_a" } else { "reveal_b" };
+
+    // The dev wallet can ONLY produce a valid OpCheckSig for a leg whose winner key is a key
+    // it actually holds. Compute the held x-only keys once; a leg won by a real bettor (any
+    // other key) is NOT server-settleable and we return a self-claim payload instead of
+    // signing it with the wrong key (which would fail the script anyway).
+    let dev_xonly: std::collections::HashSet<[u8; 32]> = dev_keys(&m.network)
+        .map(|ks| ks.iter().filter_map(|k| xonly_from_seckey(k).ok()).collect())
+        .unwrap_or_default();
+    // The winner key of a non-fee leg is the x-only payload of the winner's own address.
+    let addr_xonly = |a: &str| -> Option<[u8; 32]> {
+        Address::try_from(a)
+            .ok()
+            .and_then(|ad| ad.payload.as_slice().try_into().ok())
+    };
+
     let bundles = db::list_market_bundles(&db, &req.market_id);
     let mut settled = Vec::new();
+    let mut self_claim = Vec::new();
     for b in &bundles {
         let legs: Vec<serde_json::Value> = serde_json::from_str(&b.legs_json).unwrap_or_default();
         for leg in &legs {
@@ -6013,6 +6142,34 @@ pub async fn settle_market_handler(
                 .get("outpoint_index")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as u32;
+
+            // Only server-settle when the winner key is a held dev key. Otherwise this leg
+            // belongs to a real bettor: return the exact prepare-spend payload they (or anyone
+            // with the secret) can use to claim it non-custodially, and do NOT count it settled.
+            let winner_held = addr_xonly(&dest)
+                .map(|x| dev_xonly.contains(&x))
+                .unwrap_or(false);
+            if !winner_held {
+                self_claim.push(serde_json::json!({
+                    "bundle_tx": b.bundle_tx,
+                    "role": role,
+                    "winner_addr": dest,
+                    "prepare_spend": {
+                        "endpoint": "/covenant/p2sh/prepare-spend",
+                        "network": m.network,
+                        "deploy_tx_id": b.bundle_tx,
+                        "destination_addr": dest,
+                        "redeem_script_hex": redeem_hex,
+                        "redeem_kind": kind,
+                        "outpoint_index": idx,
+                        "preimage_hex": secret,
+                        "select_mode": select_mode,
+                    },
+                    "note": "This leg is won by a real bettor; the server holds no key for it. The winner calls prepare-spend with these fields, signs the returned sighash with their wallet, and submits via /covenant/p2sh/submit-signed."
+                }));
+                continue;
+            }
+
             let sreq = P2shSpendRequest {
                 network: m.network.clone(),
                 deploy_tx_id: b.bundle_tx.clone(),
@@ -6051,7 +6208,9 @@ pub async fn settle_market_handler(
         "legs_settled": ok_count,
         "legs_total": settled.len(),
         "settled": settled,
-        "note": "Each non-fee leg is claimed on-chain with the revealed secret; the fee leg is left for the treasury. In production each bettor claims their own leg non-custodially."
+        "self_claim_legs": self_claim.len(),
+        "self_claim": self_claim,
+        "note": "legs_settled counts ONLY legs the server could sign (winner key held by a dev wallet). Legs won by real bettors are returned under self_claim for non-custodial self-spend; the fee leg is left for the treasury."
     }))
 }
 
@@ -9128,5 +9287,56 @@ mod tests {
             checked, 23,
             "expected 23 golden satisfier vectors, checked {checked}"
         );
+    }
+
+    // The dust-floor guard on the flat-fee P2SH spend. The single output is amount - TX_FEE and
+    // must clear DUST_THRESHOLD; otherwise the node rejects the tx (and a sub-dust output would
+    // be unspendable). This is the exact predicate the spend handler uses before broadcasting.
+    fn spend_output_too_small(amount: u64) -> bool {
+        amount <= TX_FEE || amount - TX_FEE < DUST_THRESHOLD
+    }
+
+    #[test]
+    fn flat_fee_spend_rejects_sub_dust_outputs() {
+        // At or below the fee: nothing left to pay out.
+        assert!(spend_output_too_small(0));
+        assert!(spend_output_too_small(TX_FEE));
+        // Above the fee but the remainder is still below the dust floor.
+        assert!(spend_output_too_small(TX_FEE + DUST_THRESHOLD - 1));
+        // Exactly fee + dust floor is the first acceptable amount.
+        assert!(!spend_output_too_small(TX_FEE + DUST_THRESHOLD));
+        assert!(!spend_output_too_small(1_000_000_000));
+    }
+
+    // The settle handler may ONLY server-sign a leg whose winner key is one the dev wallet holds.
+    // The winner key of a non-fee leg is the x-only payload of the winner's OWN P2PK address, so
+    // settle compares that payload against the dev keys' x-only pubkeys. This proves the address
+    // -> x-only derivation matches xonly_from_seckey, which is the basis of that held-key check.
+    #[test]
+    fn settle_winner_key_matches_address_xonly_payload() {
+        let kp = test_keypair(7);
+        let sk: [u8; 32] = kp.secret_key().secret_bytes();
+        let xonly = xonly_from_seckey(&sk).unwrap();
+        // Build the bettor's schnorr P2PK address from that x-only key.
+        let addr = Address::new(Prefix::Testnet, kaspa_addresses::Version::PubKey, &xonly);
+        // settle's addr_xonly: the address payload IS the 32-byte winner key.
+        let payload: [u8; 32] = addr.payload.as_slice().try_into().unwrap();
+        assert_eq!(
+            payload, xonly,
+            "a P2PK address payload must equal the winner x-only key the leg pays"
+        );
+        // A different key must NOT match (held-key check would route this leg to self-claim).
+        let other = xonly_from_seckey(&test_keypair(8).secret_key().secret_bytes()).unwrap();
+        assert_ne!(payload, other);
+    }
+
+    // The anti-drain caps must be ordered so the funded ceiling is the hard ceiling, the per-side
+    // open cap is below it, and a single order cannot by itself blow either.
+    #[test]
+    fn market_funding_caps_are_consistent() {
+        assert!(MARKET_MAX_ORDER_SOMPI > 0);
+        assert!(MARKET_MAX_ORDER_SOMPI <= MARKET_MAX_OPEN_SOMPI_PER_SIDE);
+        assert!(MARKET_MAX_OPEN_SOMPI_PER_SIDE <= MARKET_MAX_FUNDED_SOMPI);
+        assert!(MARKET_MAX_MATCH_PAIRS >= 1);
     }
 }

@@ -974,6 +974,21 @@ pub fn get_events_conn(
     Ok(out)
 }
 
+/// True count of events (optionally for one network), so /events can report the real total
+/// instead of the returned page length. A single indexed COUNT(*), so it is cheap.
+pub fn count_events_conn(conn: &Connection, network: Option<&str>) -> anyhow::Result<i64> {
+    let n: i64 = if let Some(net) = network {
+        conn.query_row(
+            "SELECT COUNT(*) FROM events WHERE network = ?1",
+            params![net],
+            |r| r.get(0),
+        )?
+    } else {
+        conn.query_row("SELECT COUNT(*) FROM events", [], |r| r.get(0))?
+    };
+    Ok(n)
+}
+
 /// Paginated, filterable covenant query. Returns (page, total_matching).
 /// q matches name/type, description, category, tx_id and address (prefix or substring).
 pub fn query_covenants(
@@ -1421,7 +1436,16 @@ pub fn ui_config_for_tier(tier: &str) -> serde_json::Value {
 }
 
 pub fn get_covenant_by_txid(db: &Db, tx_id: &str) -> anyhow::Result<Option<DbCovenant>> {
-    let conn = db.lock().unwrap();
+    let conn = db.lock()?;
+    get_covenant_by_txid_conn(&conn, tx_id)
+}
+
+/// Connection-borrowing variant, so a handler that has already checked out a connection
+/// (e.g. inside `db::blocking`) can look up a covenant without a second pool checkout.
+pub fn get_covenant_by_txid_conn(
+    conn: &Connection,
+    tx_id: &str,
+) -> anyhow::Result<Option<DbCovenant>> {
     let sql = format!("{} WHERE tx_id = ?1", COVENANT_SELECT);
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query_map(params![tx_id], |row| row_to_covenant(row))?;

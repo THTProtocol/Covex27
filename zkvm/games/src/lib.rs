@@ -139,6 +139,18 @@ pub struct GameResult {
     pub num_plies: u32,
     /// `sha256` of the joined `moves` (newline-separated), binding the journal to the exact game.
     pub moves_digest: [u8; 32],
+    /// OPTIONAL verifiable per-player SCORE at the moment the game ended, for skill / esports use
+    /// (e.g. final reversi disc counts, mancala store stones, dots-and-boxes boxes). `score[0]` is
+    /// player 1, `score[1]` is player 2. `None` for games whose rules expose no natural score (the
+    /// outcome is purely win/loss/draw, e.g. chess / connect4 / tic-tac-toe), or when the game ended
+    /// before a score was meaningful (resign / timeout on a scoreless game).
+    ///
+    /// This rides INSIDE the same proof: the score is read off the trusted, fully-replayed final
+    /// position by the rules engine, so a verifying receipt attests the committed score is the
+    /// genuine score of the legally-played game. `#[serde(default)]` keeps the journal layout
+    /// backward compatible: older journals that predate this field still decode (score = `None`).
+    #[serde(default)]
+    pub score: Option<[u64; 2]>,
 }
 
 /// Universal winner codes, so games and `replay` never juggle bare integers.
@@ -164,6 +176,17 @@ pub trait GameRules {
     /// - `Err(msg)`        -> the move is ILLEGAL or unparseable. This is the honesty gate:
     ///                        `replay` propagates it and no proof can be produced.
     fn step(&mut self, mv: &str) -> Result<Option<u8>, String>;
+
+    /// OPTIONAL per-player score of the CURRENT position, `[player1, player2]`. `replay` reads this
+    /// off the trusted board AFTER the game ends and carries it into [`GameResult::score`], so the
+    /// committed score is part of the proof (verifiable speedrun / esports result).
+    ///
+    /// The default is `None`: a scoreless game (chess / connect4 / tic-tac-toe) has no natural
+    /// numeric score, only a winner. Score-based games (reversi disc count, mancala store stones,
+    /// dots-and-boxes boxes) override this to return `Some([p1, p2])` read from the live position.
+    fn score(&self) -> Option<[u64; 2]> {
+        None
+    }
 }
 
 /// The universal "resign" sentinel: the side to move forfeits.
@@ -297,6 +320,8 @@ pub fn replay(input: &GameInput) -> Result<GameResult, String> {
             reason,
             num_plies,
             moves_digest: moves_digest(&input.moves),
+            // Card games (blackjack/poker) are win/loss; v1 exposes no per-player numeric score.
+            score: None,
         });
     }
 
@@ -364,11 +389,18 @@ pub fn replay(input: &GameInput) -> Result<GameResult, String> {
         }
     };
 
+    // Read the verifiable per-player score off the TRUSTED final position. Score-based games
+    // (reversi / mancala / dots-and-boxes) return `Some([p1, p2])`; scoreless games return `None`.
+    // This rides inside the same proof, so a verifying receipt attests the committed score is the
+    // genuine score of the legally-played game.
+    let score = rules.score();
+
     Ok(GameResult {
         winner,
         reason,
         num_plies: plies_played,
         moves_digest: moves_digest(&input.moves),
+        score,
     })
 }
 
@@ -466,6 +498,25 @@ mod tests {
         // One legal move, no terminal event -> cannot claim a winner.
         let input = untimed(GameType::Chess, &["e2e4"]);
         assert!(replay(&input).is_err());
+    }
+
+    #[test]
+    fn scoreless_game_commits_no_score() {
+        // Chess has no natural numeric score: GameRules::score() defaults to None, so the committed
+        // result carries score = None. This locks the backward-compatible default for all the
+        // scoreless games (chess / connect4 / tic-tac-toe).
+        let input = untimed(GameType::Chess, &["e2e4", "resign"]);
+        let r = replay(&input).expect("legal move then resign");
+        assert_eq!(r.score, None, "a scoreless game must commit score = None");
+    }
+
+    #[test]
+    fn score_based_game_commits_score() {
+        // Reversi exposes a disc-count score; after the opening flip + resign the tally is [4, 1].
+        let mut input = untimed(GameType::Reversi, &["26", "resign"]);
+        input.covenant_id = [21u8; 32];
+        let r = replay(&input).expect("legal reversi opening then resign");
+        assert_eq!(r.score, Some([4, 1]), "a score-based game must commit its score");
     }
 
     #[test]

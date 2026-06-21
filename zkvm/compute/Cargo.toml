@@ -1,0 +1,24 @@
+# Workspace for the Covex general verifiable-computation zkVM.
+#
+# Proves "I ran THIS program on THESE public inputs and got THIS output". The guest interprets a
+# small deterministic stack-machine program (covex-compute-core), binds it by sha256(program), and
+# commits {program_hash, public_inputs, output}. A receipt exists ONLY when the witnessed program
+# hashes to the claimed hash, executes without trapping, and yields the claimed output; any
+# mismatch panics the guest -> no receipt. The host builds real programs, proves, verifies the
+# receipt against the image id, decodes the journal, and asserts the output; plus negative gates
+# (wrong claimed output, tampered receipt).
+[workspace]
+resolver = "2"
+members = ["host", "methods", "cli", "core"]
+
+# The guest crate (methods/guest) is built by risc0-build for the riscv32im-risc0-zkvm-elf target
+# and is intentionally NOT a member of this host-target workspace.
+exclude = ["methods/guest"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+# A release profile that keeps the host prover fast. RISC0 proving is CPU heavy; optimize.
+[profile.release]
+opt-level = 3

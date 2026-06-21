@@ -430,12 +430,23 @@ fn main() {
     assert!(r.reason.starts_with("p1_"), "poker winner reason must name P1's hand, got {:?}", r.reason);
     timings.push(("poker(showdown)".into(), t));
 
-    // ----- REVERSI: P1 (black) plays a legal opening flip, then P2 resigns -> P1 wins. -----
+    // ----- REVERSI (VERIFIABLE SCORE): P1 (black) plays a legal opening flip, then P2 resigns. -----
     // Cell 26 from the standard Othello start brackets the white disc at 27 (a real, legal flip);
-    // an illegal no-flip placement would make replay() Err -> no proof.
+    // an illegal no-flip placement would make replay() Err -> no proof. This case also exercises the
+    // VERIFIABLE PER-PLAYER SCORE (skill / esports / speedrun result): after 26 flips 27, the board
+    // holds black on 26,27,28,35 (4) and white on 36 (1), so the GENUINE disc tally is [4, 1]. The
+    // score is read off the trusted replayed board and committed in GameResult::score, so it rides
+    // inside the SAME proof - a verifying receipt attests both the winner AND the exact final score.
     let reversi = untimed(GameType::Reversi, &["26", "resign"]);
-    let (_r, t, _) = prove_and_verify("REVERSI - legal flip then P2 resigns (P1 wins)", &reversi, WINNER_P1);
-    timings.push(("reversi".into(), t));
+    let (r, t, _) = prove_and_verify("REVERSI - legal flip then P2 resigns (P1 wins, score 4-1)", &reversi, WINNER_P1);
+    let committed_score = r.score.expect("reversi must commit a verifiable disc-count score");
+    assert_eq!(
+        committed_score,
+        [4u64, 1u64],
+        "REVERSI: committed score {committed_score:?} != the genuine final disc tally [4, 1]"
+    );
+    println!("  VERIFIED SCORE  committed disc tally = {committed_score:?} (P1 black {}, P2 white {})", committed_score[0], committed_score[1]);
+    timings.push(("reversi(score 4-1)".into(), t));
 
     // ----- MANCALA (Kalah): P1 sows pit 2 (lands in own store -> extra turn), sows pit 0, P2 resigns.
     // The store/extra-turn/sowing rules are fully replayed; an empty-pit sow would Err -> no proof.
@@ -544,11 +555,12 @@ fn main() {
     for (name, secs) in &timings {
         println!("  {name:<20} proved+verified in {secs:.2}s");
     }
+    println!("  reversi score 4-1:   committed + verified     - OK");
     println!("  illegal chess move:  rejected (no receipt)  - OK");
     println!("  forged deck:         rejected (no receipt)  - OK");
     println!("  illegal card move:   rejected (no receipt)  - OK");
     println!("  forged battleship:   rejected (no receipt)  - OK");
     println!("  forged bg seed:      rejected (no receipt)  - OK");
     println!("  tampered receipt:    rejected by verify()   - OK");
-    println!("ALL GAMES PROVED, VERIFIED, AND WINNERS CORRECT. NEGATIVE GATES HELD.");
+    println!("ALL GAMES PROVED, VERIFIED, WINNERS CORRECT, AND THE REVERSI SCORE MATCHES. NEGATIVE GATES HELD.");
 }

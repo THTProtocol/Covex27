@@ -144,6 +144,14 @@ impl GameRules for ReversiGame {
         self.turn
     }
 
+    /// Verifiable score: the live disc count `[black (P1), white (P2)]`. Read off the trusted board
+    /// at game end and committed in `GameResult::score`, so a verifying proof attests the exact
+    /// final disc tally (a real Othello result, not just who won).
+    fn score(&self) -> Option<[u64; 2]> {
+        let (a, b) = self.counts();
+        Some([a as u64, b as u64])
+    }
+
     fn step(&mut self, mv: &str) -> Result<Option<u8>, String> {
         let side = self.turn;
 
@@ -270,6 +278,23 @@ mod tests {
         assert_eq!(r.winner, WINNER_P1);
         assert_eq!(r.reason, "resign");
         assert_eq!(r.num_plies, 2);
+        // VERIFIABLE SCORE rides in the same result. After 26 flips the white disc at 27, the board
+        // holds black on 26,27,28,35 (4) and white on 36 (1), so the committed disc tally is [4, 1].
+        assert_eq!(r.score, Some([4, 1]), "final disc count must be committed");
+    }
+
+    /// The committed score is the disc tally of the TRUE final position, read off the trusted board.
+    /// A board full of black with one white corner ends the game and scores 63-1 through replay().
+    #[test]
+    fn natural_end_commits_full_disc_count() {
+        let mut g = ReversiGame::new();
+        for c in g.board.iter_mut() {
+            *c = Some(WINNER_P1);
+        }
+        g.board[0] = Some(WINNER_P2);
+        // 63 black vs 1 white on a full board.
+        assert_eq!(g.score(), Some([63, 1]), "scorer reads the live disc count");
+        assert_eq!(g.winner_by_count(), WINNER_P1);
     }
 
     /// Both players passing in a row ends the game and scores the board. From the opening (no passes

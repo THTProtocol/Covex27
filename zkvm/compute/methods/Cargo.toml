@@ -1,0 +1,18 @@
+# The `methods` crate compiles the guest (via risc0-build) and re-exports its ELF + image id.
+# build.rs runs risc0_build::embed_methods(); src/lib.rs includes the generated methods.rs that
+# defines COMPUTE_GUEST_ELF and COMPUTE_GUEST_ID for the host/CLI to prove/verify against.
+[package]
+name = "methods"
+version = { workspace = true }
+edition = { workspace = true }
+
+[build-dependencies]
+risc0-build = "3.0"
+
+[dependencies]
+
+[package.metadata.risc0]
+# The guest package(s) to build, given as paths RELATIVE to this methods crate dir. risc0-build
+# does manifest_dir.join(inner), so this must be the guest crate DIRECTORY ("guest"), not the
+# guest package name. The guest crate inside is named "compute-guest".
+methods = ["guest"]

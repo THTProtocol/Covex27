@@ -228,6 +228,12 @@ fn print_result(result: &GameResult) {
     println!("  reason       : {}", result.reason);
     println!("  num_plies    : {}", result.num_plies);
     println!("  moves_digest : {}", hex32(&result.moves_digest));
+    // The optional verifiable per-player score (reversi disc count, mancala store stones,
+    // dots-and-boxes boxes). Part of the same proof; absent for scoreless games.
+    match result.score {
+        Some([p1, p2]) => println!("  score        : P1 {p1} - P2 {p2} (verified by the proof)"),
+        None => println!("  score        : (none - this game is win/loss only)"),
+    }
 }
 
 // ----------------------------------------------------------------------------------------------

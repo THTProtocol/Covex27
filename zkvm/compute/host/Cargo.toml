@@ -1,0 +1,19 @@
+# The host: builds real programs + GuestInputs, runs the prover, verifies the receipt against the
+# image id, decodes the journal (Statement), and asserts the output. Also runs negative gates: a
+# wrong claimed output, a wrong claimed program hash, and a runtime trap must each FAIL to prove
+# (no receipt); and a TAMPERED receipt must fail verification.
+[package]
+name = "host"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+# The prover/verifier runtime. Default features include the local prover.
+risc0-zkvm = "3.0"
+# The generated guest ELF + image id.
+methods = { path = "../methods" }
+# The ISA + interpreter + contract types (shared with the guest) so we build programs/inputs the
+# guest can read and can cross-check the expected output on the host before proving.
+covex-compute-core = { path = "../core" }
+# Timing.
+serde = { version = "1", features = ["derive"] }

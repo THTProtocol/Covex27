@@ -1,0 +1,33 @@
+{
+  "_comment": "Dot product of two length-3 vectors [1,2,3].[4,5,6] = 4+10+18 = 32, accumulated in register 0. inputs = [a0,a1,a2, b0,b1,b2]. This is the unrolled linear-algebra primitive that underlies simple zkML (a matrix-vector multiply is a stack of dot products).",
+  "num_inputs": 6,
+  "ops": [
+    {"op": "push", "v": 0},
+    {"op": "store", "r": 0},
+
+    {"op": "load", "i": 0},
+    {"op": "load", "i": 3},
+    {"op": "mul"},
+    {"op": "loadreg", "r": 0},
+    {"op": "add"},
+    {"op": "store", "r": 0},
+
+    {"op": "load", "i": 1},
+    {"op": "load", "i": 4},
+    {"op": "mul"},
+    {"op": "loadreg", "r": 0},
+    {"op": "add"},
+    {"op": "store", "r": 0},
+
+    {"op": "load", "i": 2},
+    {"op": "load", "i": 5},
+    {"op": "mul"},
+    {"op": "loadreg", "r": 0},
+    {"op": "add"},
+    {"op": "store", "r": 0},
+
+    {"op": "loadreg", "r": 0}
+  ],
+  "inputs": [1, 2, 3, 4, 5, 6],
+  "claimed_output": 32
+}

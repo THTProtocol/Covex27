@@ -3096,7 +3096,12 @@ fn enforce_onchain_covenant_binding(
     }
     let force_strict =
         std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
-    let blanket_allow = std::env::var("COVEX_ALLOW_NO_BINDING").as_deref() == Ok("true");
+    // The blanket emergency escape hatch may NEVER relax a circuit that genuinely emits the
+    // covenant binding (merkle/range/escrow/age/timelock): a cross-covenant replay on those is
+    // attacker-chosen, so they stay unconditionally fail-closed when unbound. This mirrors the
+    // off-chain oracle.rs guard so the on-chain co-sign path cannot be weakened by any env knob.
+    let blanket_allow = std::env::var("COVEX_ALLOW_NO_BINDING").as_deref() == Ok("true")
+        && !crate::oracle::circuit_emits_covenant_binding(circuit_type);
     let allowed_no_binding = !force_strict
         && (blanket_allow || crate::oracle::circuit_allows_no_covenant_binding(circuit_type));
     if !allowed_no_binding {

@@ -59,6 +59,24 @@ fn address_from_p2pk_script(spk_hex: &str) -> Option<String> {
     }
 }
 
+/// Derive the REAL bech32 address an output's script_public_key pays to (P2SH for a covenant
+/// output, P2PK/P2PKH otherwise), using the same consensus routine the rest of the codebase
+/// uses. Returns None when the script is not a standard pay-to form. This replaces the old
+/// fabricated `prefix:first-32-txid-hex` string, which was never a valid bech32 address.
+fn address_from_output_spk(
+    spk: &kaspa_rpc_core::RpcScriptPublicKey,
+    prefix: kaspa_addresses::Prefix,
+) -> Option<String> {
+    use kaspa_consensus_core::tx::{ScriptPublicKey, ScriptVec};
+    // Reconstruct a consensus ScriptPublicKey from the RPC spk (version + script bytes) so the
+    // derivation does not depend on the RPC/consensus type alias staying identical across
+    // crate versions.
+    let consensus_spk = ScriptPublicKey::new(spk.version(), ScriptVec::from_slice(spk.script()));
+    kaspa_txscript::extract_script_pub_key_address(&consensus_spk, prefix)
+        .ok()
+        .map(|a| a.to_string())
+}
+
 fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (String, u64) {
     if tx.outputs.len() < 2 {
         return ("EXPLORER".to_string(), 0);
@@ -323,6 +341,9 @@ pub async fn run_crawler(
                         || h.starts_with("aa23")
                 };
                 let mut has_covenant_opcode = is_envelope(&pl);
+                // The script_public_key of the output that actually carries the covenant opcode,
+                // so we can derive its REAL on-chain (P2SH) address instead of fabricating one.
+                let mut covenant_spk: Option<&kaspa_rpc_core::RpcScriptPublicKey> = None;
 
                 // Output scripts: covenants are P2SH-wrapped, so the envelope may sit
                 // mid-script (after preceding opcodes). Scripts are small and structured,
@@ -336,6 +357,7 @@ pub async fn run_crawler(
                         || sh.contains("aa23")
                     {
                         has_covenant_opcode = true;
+                        covenant_spk = Some(&out.script_public_key);
                         // Prefer the first output script that carries the opcode for classification
                         if covenant_script == pl {
                             covenant_script = sh;
@@ -374,12 +396,19 @@ pub async fn run_crawler(
                 let tid = format!("{}:{}", txh, 0);
                 let ctype = classify(&covenant_script);
                 let cat = categorize(&covenant_script);
-                let addr_prefix = if network.starts_with("mainnet") {
-                    "kaspa"
+                let prefix = if network.starts_with("mainnet") {
+                    kaspa_addresses::Prefix::Mainnet
                 } else {
-                    "kaspatest"
+                    kaspa_addresses::Prefix::Testnet
                 };
-                let addr = format!("{}:{}", addr_prefix, &txh[..32]);
+                // The covenant's address is the REAL on-chain address its locking output pays to
+                // (a valid bech32 P2SH for a covenant output). When the opcode was found only in
+                // the payload envelope (no derivable output script), we have no on-chain locking
+                // script to address, so use an honest `covenant_ref:<txid>` identifier rather than
+                // fabricating an invalid bech32 string (the old `prefix:first-32-hex-of-txid` bug).
+                let addr = covenant_spk
+                    .and_then(|spk| address_from_output_spk(spk, prefix))
+                    .unwrap_or_else(|| format!("covenant_ref:{txh}"));
                 // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
                 let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
                 let creator =
@@ -672,5 +701,29 @@ mod tests {
             !covenant_indexing_gated("testnet-12", true),
             "testnets unaffected by the flag"
         );
+    }
+
+    // The fabricated `prefix:first-32-hex-of-txid` address bug is replaced by deriving the REAL
+    // address from the locking output script. For a P2SH output, that is a valid kaspatest:
+    // bech32 P2SH address (NOT the txid-prefix string).
+    #[test]
+    fn output_spk_yields_real_p2sh_bech32_address() {
+        // A dummy redeem script; its P2SH-wrapping ScriptPublicKey is what an indexed covenant
+        // output carries. extract_script_pub_key_address must round-trip it to a valid address.
+        let redeem = vec![0x51u8]; // OpTrue, an arbitrary non-empty redeem
+        let spk = kaspa_txscript::pay_to_script_hash_script(&redeem);
+        let addr = address_from_output_spk(&spk, kaspa_addresses::Prefix::Testnet)
+            .expect("a P2SH output must yield a derivable address");
+        assert!(
+            addr.starts_with("kaspatest:"),
+            "derived address must be a real testnet bech32, got: {addr}"
+        );
+        // It must parse back as a real address (the old fabricated string never did).
+        assert!(
+            Address::try_from(addr.as_str()).is_ok(),
+            "derived address must be a valid bech32 address"
+        );
+        // And it must NOT be the old txid-prefix fabrication form.
+        assert!(!addr.contains("covenant_ref:"));
     }
 }

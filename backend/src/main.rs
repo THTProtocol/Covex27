@@ -591,14 +591,17 @@ async fn events_handler(
         .get("limit")
         .and_then(|s| s.parse().ok())
         .unwrap_or(30);
-    // Run the synchronous SQLite read on a blocking thread so it never stalls a
-    // Tokio worker (this is one of the hottest GET endpoints).
+    // Run the synchronous SQLite reads on a blocking thread so they never stall a
+    // Tokio worker (this is one of the hottest GET endpoints). Fetch the page AND the true
+    // total (a cheap COUNT) on the same checked-out connection.
     let result = db::blocking(&db, move |conn| {
-        db::get_events_conn(conn, network.as_deref(), limit)
+        let ev = db::get_events_conn(conn, network.as_deref(), limit)?;
+        let total = db::count_events_conn(conn, network.as_deref())?;
+        Ok::<_, anyhow::Error>((ev, total))
     })
     .await;
     match result {
-        Ok(ev) => Json(json!({"events": ev, "total": ev.len()})),
+        Ok((ev, total)) => Json(json!({"events": ev, "total": total, "returned": ev.len()})),
         Err(e) => Json(json!({"events": [], "error": e.to_string()})),
     }
 }
@@ -708,34 +711,35 @@ async fn covenant_actions_handler(
     Extension(db): Extension<db::Db>,
     axum::extract::Path(covenant_id): axum::extract::Path<String>,
 ) -> Json<serde_json::Value> {
-    let mut actions: Vec<serde_json::Value> = Vec::new();
-    if let Ok(Some(c)) = db::get_covenant_by_txid(&db, &covenant_id) {
-        actions.push(json!({
-            "action": "deployed",
-            "detail": c.covenant_type,
-            "amount_kaspa": c.amount_kaspa,
-            "timestamp": c.timestamp,
-            "daa_score": c.block_daa_score,
-            "network": c.network,
-        }));
-        if let (tier, Some(ts)) = (c.verified_tier.clone(), c.verified_at) {
-            if tier != "FREE" {
-                actions.push(json!({
-                    "action": "tier_verified",
-                    "detail": tier,
-                    "tx_id": c.verified_payment_tx,
-                    "timestamp": ts,
-                }));
+    // Both reads run on a blocking thread on ONE pooled connection, so this never stalls a
+    // Tokio worker and never panics on a pool checkout failure (the old db.lock().unwrap()).
+    let cid = covenant_id.clone();
+    let actions = db::blocking(&db, move |conn| {
+        let mut actions: Vec<serde_json::Value> = Vec::new();
+        if let Ok(Some(c)) = db::get_covenant_by_txid_conn(conn, &cid) {
+            actions.push(json!({
+                "action": "deployed",
+                "detail": c.covenant_type,
+                "amount_kaspa": c.amount_kaspa,
+                "timestamp": c.timestamp,
+                "daa_score": c.block_daa_score,
+                "network": c.network,
+            }));
+            if let (tier, Some(ts)) = (c.verified_tier.clone(), c.verified_at) {
+                if tier != "FREE" {
+                    actions.push(json!({
+                        "action": "tier_verified",
+                        "detail": tier,
+                        "tx_id": c.verified_payment_tx,
+                        "timestamp": ts,
+                    }));
+                }
             }
         }
-    }
-    {
-        let conn = db.lock().unwrap();
-        let stmt_res = conn.prepare(
+        if let Ok(mut stmt) = conn.prepare(
             "SELECT event_type, amount_kaspa, detail, timestamp FROM events WHERE covenant_id = ?1 ORDER BY id ASC LIMIT 200",
-        );
-        if let Ok(mut stmt) = stmt_res {
-            if let Ok(rows) = stmt.query_map(rusqlite::params![covenant_id], |r| {
+        ) {
+            if let Ok(rows) = stmt.query_map(rusqlite::params![cid], |r| {
                 Ok(json!({
                     "action": r.get::<_, String>(0)?,
                     "amount_kaspa": r.get::<_, f64>(1)?,
@@ -748,7 +752,9 @@ async fn covenant_actions_handler(
                 }
             }
         }
-    }
+        actions
+    })
+    .await;
     Json(json!({"covenant_id": covenant_id, "actions": actions, "total": actions.len()}))
 }
 
@@ -776,6 +782,10 @@ async fn rate_limit_middleware(
             | "/broadcast"
             | "/auth-session"
     ) || path.starts_with("/oracle/")
+        // /balance/:addr and /utxos/:addr each hit the wRPC node, so they are node-expensive
+        // and must be rate-limited alongside /broadcast.
+        || path.starts_with("/balance/")
+        || path.starts_with("/utxos/")
         || (req.method() == axum::http::Method::POST && path.starts_with("/covenant/"));
     if !expensive {
         return next.run(req).await;
@@ -2865,15 +2875,19 @@ async fn deploy_capacity_handler(
         return Json(json!({ "can_deploy": false, "error": "address required" }));
     }
 
-    let conn = db.lock().unwrap();
-    let (max_deploy, used): (i32, i32) = conn
-        .query_row(
+    // Run the synchronous SQLite read on a blocking thread (never stall a Tokio worker) and
+    // never panic on a pool checkout failure (the old db.lock().unwrap()).
+    let (addr_q, net_q) = (address.clone(), network.clone());
+    let (max_deploy, used): (i32, i32) = db::blocking(&db, move |conn| {
+        conn.query_row(
             "SELECT COALESCE(max_deployments, 0), COALESCE(deployments_used, 0)
          FROM accounts WHERE address = ?1 AND network = ?2 AND is_active = 1",
-            params![address, network],
+            params![addr_q, net_q],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
-        .unwrap_or((0, 0));
+        .unwrap_or((0, 0))
+    })
+    .await;
 
     let remaining = (max_deploy - used).max(0);
     let can_deploy = remaining > 0;

@@ -1,5 +1,7 @@
 use axum::{
     extract::{Path, Query},
+    http::StatusCode,
+    response::IntoResponse,
     routing::{get, post},
     Extension, Json, Router,
 };
@@ -11,10 +13,20 @@ use kaspa_wrpc_client::KaspaRpcClient;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{info, warn};
 use workflow_serializer::prelude::BorshDeserialize;
 
+/// Node connect timeout. A dead or unreachable wRPC endpoint must fail fast (503) instead of
+/// hanging a request indefinitely; mirrors the time-bounding the crawler uses.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(6);
+/// Per-RPC-call timeout. Bounds get_balance/get_utxos/submit so a stalled node returns 503.
+const RPC_TIMEOUT: Duration = Duration::from_secs(8);
+
 /// Resolve wRPC for network (on-demand, so /broadcast and balance checks target the chosen net).
+/// connect() is time-bounded and the result is CHECKED via is_connected() (mirrors crawler.rs):
+/// a node that is down or syncing returns a clear error instead of a silently-dead client whose
+/// every RPC then hangs.
 async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
@@ -38,7 +50,24 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
         None,
     )
     .map_err(|e| format!("wRPC create failed for {}: {}", network, e))?;
-    let _ = c.connect(None).await;
+    // Time-bound the connect: the default ConnectOptions block-and-retry would hang FOREVER if
+    // the node is down. Mirrors the proven covenant_builder::client_for_network pattern (match
+    // only the OUTER timeout; the inner connect result type is not destructured here).
+    match tokio::time::timeout(CONNECT_TIMEOUT, c.connect(None)).await {
+        Ok(inner) => {
+            if let Err(e) = inner {
+                return Err(format!("could not connect to {} node: {}", network, e));
+            }
+        }
+        Err(_) => return Err(format!("timed out connecting to {} node", network)),
+    }
+    // Gate on is_connected() (mirrors crawler.rs). connect(None) uses the default ConnectOptions,
+    // which BLOCK until the socket is established (that is the hang the timeout above bounds), so
+    // by the time it returns Ok the connection is up; this catches the residual case where it
+    // dropped immediately, surfacing a clear error rather than a dead client whose RPCs hang.
+    if !c.is_connected() {
+        return Err(format!("{} node is not connected (down or syncing)", network));
+    }
     Ok(Arc::new(c))
 }
 
@@ -73,67 +102,74 @@ fn default_network() -> String {
 pub async fn broadcast_handler(
     Extension(_client): Extension<Arc<KaspaRpcClient>>, // kept for router layer compat; we use on-demand below
     Json(payload): Json<BroadcastRequest>,
-) -> Json<serde_json::Value> {
+) -> axum::response::Response {
     let tx_hex = payload.tx_hex.trim();
     let net = &payload.network;
 
+    let bad_request = |msg: String| {
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({ "success": false, "tx_id": null, "error": msg })),
+        )
+            .into_response()
+    };
+
     // On-demand client so a broadcast POST with network=testnet-10 goes to the TN10 node.
+    // A node that is down/unreachable returns 503 (a node outage, not a client error).
     let client: Arc<KaspaRpcClient> = match client_for_network(net).await {
         Ok(c) => c,
         Err(e) => {
-            return Json(serde_json::json!({
-                "success": false,
-                "tx_id": null,
-                "error": format!("Failed to reach {} node for broadcast: {}", net, e)
-            }));
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "success": false,
+                    "tx_id": null,
+                    "error": format!("Failed to reach {} node for broadcast: {}", net, e)
+                })),
+            )
+                .into_response();
         }
     };
 
     // Decode hex into bytes
     let tx_bytes = match hex::decode(tx_hex) {
         Ok(b) => b,
-        Err(e) => {
-            return Json(serde_json::json!({
-                "success": false,
-                "tx_id": null,
-                "error": format!("Invalid hex: {}", e)
-            }));
-        }
+        Err(e) => return bad_request(format!("Invalid hex: {}", e)),
     };
 
     // Deserialize bytes -> consensus Transaction -> RpcTransaction
     let consensus_tx = match Transaction::try_from_slice(&tx_bytes) {
         Ok(tx) => tx,
-        Err(e) => {
-            return Json(serde_json::json!({
-                "success": false,
-                "tx_id": null,
-                "error": format!("Failed to parse transaction: {}", e)
-            }));
-        }
+        Err(e) => return bad_request(format!("Failed to parse transaction: {}", e)),
     };
 
     let rpc_tx: RpcTransaction = RpcTransaction::from(&consensus_tx);
 
-    // Submit to node via wRPC - no DB writes, no auto-indexing
-    match client.submit_transaction(rpc_tx, false).await {
-        Ok(tx_id) => {
+    // Submit to node via wRPC - no DB writes, no auto-indexing. Time-bounded so a stalled node
+    // returns 503 rather than hanging the request.
+    match tokio::time::timeout(RPC_TIMEOUT, client.submit_transaction(rpc_tx, false)).await {
+        Ok(Ok(tx_id)) => {
             let tx_id_str = tx_id.to_string();
             info!("Broadcast success: tx_id={}", tx_id_str);
-            Json(serde_json::json!({
-                "success": true,
-                "tx_id": tx_id_str,
-                "error": null
-            }))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({ "success": true, "tx_id": tx_id_str, "error": null })),
+            )
+                .into_response()
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             warn!("Broadcast failed: {}", e);
+            bad_request(format!("Broadcast rejected: {}", e))
+        }
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({
                 "success": false,
                 "tx_id": null,
-                "error": format!("Broadcast rejected: {}", e)
-            }))
-        }
+                "error": format!("Timed out submitting to {} node", net)
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -153,14 +189,15 @@ pub async fn utxos_handler(
     Path(addr_str): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     Extension(_client): Extension<Arc<KaspaRpcClient>>,
-) -> Json<serde_json::Value> {
+) -> axum::response::Response {
     let addr = match Address::try_from(addr_str.as_str()) {
         Ok(a) => a,
         Err(e) => {
-            return Json(serde_json::json!({
-                "utxos": [],
-                "error": format!("Invalid address: {}", e)
-            }));
+            return (
+                StatusCode::OK,
+                Json(serde_json::json!({ "utxos": [], "error": format!("Invalid address: {}", e) })),
+            )
+                .into_response();
         }
     };
 
@@ -171,15 +208,19 @@ pub async fn utxos_handler(
     let client: Arc<KaspaRpcClient> = match client_for_network(&net).await {
         Ok(c) => c,
         Err(e) => {
-            return Json(serde_json::json!({
-                "utxos": [],
-                "error": format!("Failed to reach {} node: {}", net, e)
-            }));
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "utxos": [],
+                    "error": format!("Failed to reach {} node: {}", net, e)
+                })),
+            )
+                .into_response();
         }
     };
 
-    match client.get_utxos_by_addresses(vec![addr]).await {
-        Ok(entries) => {
+    match tokio::time::timeout(RPC_TIMEOUT, client.get_utxos_by_addresses(vec![addr])).await {
+        Ok(Ok(entries)) => {
             let utxos: Vec<UtxoEntry> = entries
                 .into_iter()
                 .map(|entry| {
@@ -195,15 +236,24 @@ pub async fn utxos_handler(
                     }
                 })
                 .collect();
-            Json(serde_json::json!({ "utxos": utxos }))
+            (StatusCode::OK, Json(serde_json::json!({ "utxos": utxos }))).into_response()
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             warn!("UTXO fetch failed for {}: {}", addr_str, e);
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({ "utxos": [], "error": format!("wRPC error: {}", e) })),
+            )
+                .into_response()
+        }
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({
                 "utxos": [],
-                "error": format!("wRPC error: {}", e)
-            }))
-        }
+                "error": format!("Timed out fetching UTXOs from {} node", net)
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -213,13 +263,15 @@ pub async fn balance_handler(
     Path(addr_str): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     Extension(_client): Extension<Arc<KaspaRpcClient>>,
-) -> Json<serde_json::Value> {
+) -> axum::response::Response {
     let addr = match Address::try_from(addr_str.as_str()) {
         Ok(a) => a,
         Err(e) => {
-            return Json(
-                serde_json::json!({"balance": 0, "error": format!("Invalid address: {}", e)}),
-            );
+            return (
+                StatusCode::OK,
+                Json(serde_json::json!({"balance": 0, "error": format!("Invalid address: {}", e)})),
+            )
+                .into_response();
         }
     };
 
@@ -230,21 +282,33 @@ pub async fn balance_handler(
     let client: Arc<KaspaRpcClient> = match client_for_network(&net).await {
         Ok(c) => c,
         Err(e) => {
-            return Json(
-                serde_json::json!({"balance": 0, "error": format!("Failed to reach {} node: {}", net, e)}),
-            );
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({"balance": 0, "error": format!("Failed to reach {} node: {}", net, e)})),
+            )
+                .into_response();
         }
     };
 
-    match client.get_balance_by_address(addr).await {
-        Ok(balance) => Json(serde_json::json!({
-            "balance": balance,
-            "address": addr_str
-        })),
-        Err(e) => Json(serde_json::json!({
-            "balance": 0,
-            "error": format!("wRPC error: {}", e)
-        })),
+    match tokio::time::timeout(RPC_TIMEOUT, client.get_balance_by_address(addr)).await {
+        Ok(Ok(balance)) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "balance": balance, "address": addr_str })),
+        )
+            .into_response(),
+        Ok(Err(e)) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "balance": 0, "error": format!("wRPC error: {}", e) })),
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "balance": 0,
+                "error": format!("Timed out fetching balance from {} node", net)
+            })),
+        )
+            .into_response(),
     }
 }
 

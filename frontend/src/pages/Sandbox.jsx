@@ -175,8 +175,15 @@ function SelectionChip({ name, reality, className = '' }) {
 // Restates the single next step at the top of every phase, driving the literal
 // "Create -> Add logic -> Add a website" sentence model. Hoisted to module scope.
 function PhaseHeader({ eyebrow, title, action }) {
+  // Dark mode: transparent, sits directly on the page (unchanged). Light mode: the
+  // canonical premium light surface. The `light:rounded-2xl` class is what triggers
+  // index.css's single-source-of-truth `.light [class*="rounded-2xl"]` rule (frosted
+  // --lm-surface white + brand-hairline border + soft shadow-2 lift + backdrop blur),
+  // so the header reads as a deliberate, cohesive light panel instead of a flat
+  // white-on-white wash or a dark charcoal slab. Padding makes the surface breathe.
+  // Every override is `light:`-prefixed, so the dark appearance is unchanged.
   return (
-    <div className="light:bg-gradient-to-b light:from-white light:to-transparent light:rounded-xl light:px-1 light:py-1">
+    <div className="light:rounded-2xl light:px-5 light:py-4 sm:light:px-6 sm:light:py-5">
       <div className="label-xs text-kaspa-green light:text-emerald-700 mb-1">{eyebrow}</div>
       <h2 className="text-2xl sm:text-[28px] font-extrabold tracking-[-0.015em] leading-tight text-white light:text-slate-900">{title}</h2>
       <p className="text-[15px] text-gray-300 light:text-slate-700 mt-1.5 max-w-2xl">{action}</p>

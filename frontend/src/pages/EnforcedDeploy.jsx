@@ -124,7 +124,13 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   // External resolver for oracle kinds: the x-only pubkey the deployed covenant locks to.
   // Blank = the disclosed Covex oracle (for engine results). Set it to bind a real-world
   // covenant to an independent resolver you choose; the backend embeds THIS key in the redeem.
-  const [resolverKey, setResolverKey] = useState('');
+  // Prefillable via ?resolver=<64-hex> so an external oracle provider can hand the user a
+  // ready-to-deploy link (provider-agnostic: any resolver key, no provider named).
+  const initialResolver = (() => {
+    const r = (searchParams.get('resolver') || '').trim().toLowerCase();
+    return /^[0-9a-f]{64}$/.test(r) ? r : '';
+  })();
+  const [resolverKey, setResolverKey] = useState(initialResolver);
   // Prediction-market params (kind === 'market'). No stake is locked at creation; the
   // market is committed and lands on its own covenant page where bets are placed.
   const [mq, setMq] = useState('');

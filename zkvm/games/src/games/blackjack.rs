@@ -220,6 +220,7 @@ mod tests {
             deck,
             deck_commitment: commit,
             setup: vec![],
+            commitments: vec![],
         }
     }
 
@@ -370,6 +371,7 @@ mod tests {
             deck,
             deck_commitment: commit,
             setup: vec![],
+            commitments: vec![],
         };
         let err = replay(&input).unwrap_err();
         assert!(err.contains("permutation") || err.contains("twice"), "got: {err}");

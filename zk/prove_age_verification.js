@@ -13,10 +13,12 @@ async function main() {
     const birthYear = BigInt(process.argv[2] || "1990");
     const currentYear = BigInt(process.argv[3] || "2026");
     const minAge = BigInt(process.argv[4] || "18");
+    const covenantId = BigInt(process.argv[5] || "1");
     const m = await mimcjs.buildMimc7();
     const commitment = m.F.toObject(m.hash(m.F.e(birthYear), m.F.zero)).toString();
     const input = {
         commitment,
+        covenantId: covenantId.toString(),
         current_year: currentYear.toString(),
         min_age: minAge.toString(),
         birth_year: birthYear.toString(),

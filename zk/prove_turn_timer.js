@@ -13,12 +13,14 @@ async function main() {
     const lastMove = BigInt(process.argv[3] || "1000000");
     const maxDelta = BigInt(process.argv[4] || "300");
     const moveHash = BigInt(process.argv[5] || "777777");
+    const covenantId = BigInt(process.argv[6] || "1");
 
     const input = {
         current_daa: current.toString(),
         last_move_daa: lastMove.toString(),
         max_delta: maxDelta.toString(),
         move_hash: moveHash.toString(),
+        covenantId: covenantId.toString(),
     };
     const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);

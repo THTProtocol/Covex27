@@ -13,6 +13,7 @@ const FACES = 6n;
 async function main() {
     const secret = BigInt(process.argv[2] || "424242");
     const seed = BigInt(process.argv[3] || "123456789012345");
+    const covenantId = BigInt(process.argv[4] || "1");
 
     const computed = BigInt(await hash([secret.toString(), seed.toString()]));
     const r = computed % FACES;
@@ -22,6 +23,7 @@ async function main() {
     const input = {
         secret: secret.toString(),
         seed: seed.toString(),
+        covenantId: covenantId.toString(),
         roll: roll.toString(),
         q: q.toString(),
     };

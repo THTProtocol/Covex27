@@ -12,12 +12,14 @@ async function main() {
     const totalPot = BigInt(process.argv[2] || "1000000000");
     const feeBps = BigInt(process.argv[3] || "200");
     const returnBps = BigInt(process.argv[4] || "100");
+    const covenantId = BigInt(process.argv[5] || "12345");
     const fee = (totalPot * feeBps) / 10000n;
     const ret = (totalPot * returnBps) / 10000n;
     const winnerShare = totalPot - fee - ret;
 
     const input = {
         total_pot: totalPot.toString(),
+        covenantId: covenantId.toString(),
         fee_bps: feeBps.toString(),
         pot_return_bps: returnBps.toString(),
         winner_share: winnerShare.toString(),

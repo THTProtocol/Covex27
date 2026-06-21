@@ -74,6 +74,7 @@ async function main() {
     process.stdout.write("STEP 2: Generate witness\n");
     const input = {
         commitment,
+        covenantId: "777",
         min: MIN.toString(),
         max: MAX.toString(),
         value: SECRET_VALUE.toString()

@@ -1,0 +1,5 @@
+# Rust build output (built in WSL-native CARGO_TARGET_DIR; never commit)
+target/
+**/target/
+# RISC0 guest build artifacts
+**/methods/guest/target/

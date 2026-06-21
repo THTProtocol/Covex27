@@ -1,0 +1,9 @@
+{
+  "_comment": "Heads-up blackjack from a committed 52-card deck. Deal order is player, dealer, player, dealer off the top: player gets 10s + Kd = 20 and stands; dealer gets 9h + 8c = 17 and stands. 20 > 17 so player (player 1) wins, reason player_higher. deck_commitment is omitted, so the CLI fills in the honest sha256(deck); the guest re-checks sha256(deck) == deck_commitment inside the proof. Card id = suit*13 + rank (rank 0..12 = 2..Ace, suit 0..4).",
+  "game_type": "blackjack",
+  "moves": ["stand"],
+  "players": ["alice", "bob"],
+  "stake_sompi": 50000000,
+  "covenant_id": "covex-demo-match-0002",
+  "deck": [8, 20, 37, 45, 0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51]
+}

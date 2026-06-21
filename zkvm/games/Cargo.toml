@@ -1,0 +1,21 @@
+[package]
+name = "covex-games"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust, deterministic game-rules library for Covex staked matches. A unified replay() that the RISC0 zkVM guest wraps to prove a game was played legally and who won. NO risc0 dependency here - this is the rules core only."
+license = "MIT"
+
+# IMPORTANT: keep this crate pure-Rust and no_std-friendly in spirit (no I/O, no threads,
+# no system time, no randomness). replay() must be a deterministic function of GameInput
+# so the same input always yields the same GameResult inside and outside the zkVM.
+
+[dependencies]
+# Chess legality engine. 0.27 matches the backend (single source of truth for chess rules).
+shakmaty = "0.27"
+# Deterministic SHA-256 for moves_digest (RISC0 has an accelerator for this hash).
+sha2 = "0.10"
+# Serde for the contract types so the guest can env::read / env::commit them.
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+# (tests live in-crate; no extra deps needed)

@@ -1,0 +1,38 @@
+# covex-games-prover: the open-source CLI around the Covex zkVM games prover.
+#
+# Two subcommands:
+#   prove  <input.json> <out_receipt.bin>  - read a GameInput as JSON, produce a REAL zk receipt.
+#   verify <receipt.bin>                    - verify a receipt against the embedded guest image id.
+#
+# This is the trustless "winner generates the proof, anyone verifies the receipt" baseline. The
+# prover wraps covex_games::replay (illegal/forged/unfinished games cannot be proven). The verifier
+# is the piece a counterparty or an external party runs to trust the result without replaying.
+[package]
+name = "covex-games-prover"
+version = { workspace = true }
+edition = { workspace = true }
+description = "Open-source CLI to prove a Covex staked game with RISC0 and verify the resulting receipt off-chain."
+license = "MIT"
+
+[[bin]]
+name = "covex-games-prover"
+path = "src/main.rs"
+
+[dependencies]
+# The prover/verifier runtime (default features include the local prover).
+risc0-zkvm = "3.0"
+# The generated guest ELF + image id, shared with the host.
+methods = { path = "../methods" }
+# The shared GameInput / GameResult types (same layout as the guest).
+covex-games = { path = "../../games" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Compact, deterministic binary (de)serialization of the Receipt for the on-disk receipt file.
+bincode = "1"
+# Hex for the human-friendly 32-byte id fields in the input JSON + image-id printing.
+hex = "0.4"
+# Honest sha256 for the deck commitment (matches covex_games::verify_committed_deck) and for
+# deriving player ids from a pubkey/seed when the JSON gives a short label.
+sha2 = "0.10"
+# Ergonomic error context for the CLI.
+anyhow = "1"

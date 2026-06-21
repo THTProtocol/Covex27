@@ -1,0 +1,28 @@
+# The RISC0 zkVM guest: reads a GameInput, replays it under covex-games rules, commits the
+# GameResult. Compiled to riscv32im-risc0-zkvm-elf by risc0-build. An illegal game makes
+# replay() return Err; .expect() panics; the prover produces NO receipt (the honesty gate).
+[package]
+name = "games-guest"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+# Standalone workspace so the host workspace does not try to build this for the host target.
+
+[[bin]]
+name = "games-guest"
+path = "src/main.rs"
+
+[dependencies]
+# risc0 zkVM guest entry points (env::read / env::commit, sha2 accelerator). Default features
+# pull in the std-flavored guest runtime, which covex-games + shakmaty need (alloc + std).
+risc0-zkvm = { version = "3.0", default-features = false, features = ["std"] }
+# The pure-Rust rules core. Path dep so the guest and host agree on the exact GameInput/GameResult
+# layout. covex-games pulls in shakmaty (chess), sha2, serde - all of which build for the guest.
+covex-games = { path = "../../../games" }
+
+[profile.release]
+# Smaller, faster guest cycle counts.
+opt-level = 3
+lto = "thin"
+codegen-units = 1

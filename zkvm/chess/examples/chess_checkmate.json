@@ -1,0 +1,8 @@
+{
+  "_comment": "Scholar's mate. White (player 1) delivers checkmate on move 4 with Qxf7#. Moves are UCI. Untimed (elapsed_ms omitted). players/covenant_id are short labels that the CLI sha256-hashes into opaque 32-byte ids. Expected result: winner 0 (player 1), reason checkmate, num_plies 7.",
+  "game_type": "chess",
+  "moves": ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+  "players": ["alice", "bob"],
+  "stake_sompi": 100000000,
+  "covenant_id": "covex-demo-match-0001"
+}

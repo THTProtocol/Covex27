@@ -1,0 +1,8 @@
+{
+  "_comment": "NEGATIVE example. e1e3 is not a legal first move (the king cannot jump two squares). covex_games::replay returns Err, the guest panics, and NO receipt is produced. prove on this file MUST fail (non-zero exit) and write no receipt. This demonstrates the honesty gate: an illegal game cannot be proven.",
+  "game_type": "chess",
+  "moves": ["e1e3"],
+  "players": ["alice", "bob"],
+  "stake_sompi": 100000000,
+  "covenant_id": "covex-demo-illegal"
+}

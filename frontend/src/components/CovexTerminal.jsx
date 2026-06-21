@@ -1694,7 +1694,7 @@ contract VisualCovenant {
     let effectiveResolution = resolutionMode;
     switch (effectiveResolution) {
       case 'custom':
-        resolveBlock = `\n  ;; ── Resolution: Custom Oracle (recorded intent)\n  ;; Oracle pubkey (metadata only, NOT verified by the deployed covenant): ${customOracleKey || '(not set)'}\n  ;; Resolution today runs through the disclosed Covex oracle. On-chain binding to this key is a roadmap item.`;
+        resolveBlock = `\n  ;; ── Resolution: External Resolver (bring your own)\n  ;; Resolver x-only pubkey: ${customOracleKey || '(not set)'}\n  ;; Deploy this as an Oracle Escrow in Enforced Deploy with this key, and the covenant locks on-chain to THIS resolver: releasing funds needs the resolver's co-signature, and Covex's key is not in the path. Covex does not attest real-world facts.`;
         break;
       case 'zk':
         resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
@@ -3203,14 +3203,14 @@ ${gameMeta.outcomeBranches}
                 tier: 'Recommended for on-chain games',
               },
               {
-                id: 'oracle', icon: Shield, title: 'Covex Oracle (Trusted)',
-                desc: 'Uses the built-in Covex Oracle service. The oracle cryptographically signs outcomes as an authority. Faster and simpler than ZK, requires trusting the Covex infrastructure.',
-                tier: 'Good for hybrid / off-chain data',
+                id: 'oracle', icon: Shield, title: 'Covex Oracle (engine result)',
+                desc: 'For engine-resolved games only (chess, poker, dice). Covex replays the public move log, a result anyone can recompute, and co-signs it. Use this only when the outcome is a deterministic game result. For a real-world fact (a match score, a price, weather) choose External Resolver instead: Covex does not attest outside events.',
+                tier: 'Deterministic game results only',
               },
               {
-                id: 'custom', icon: Key, title: 'Custom Oracle (Your Key)',
-                desc: 'Record the oracle public key you intend to resolve against. This is metadata only today: the deployed covenant does NOT verify against it, and resolution still runs through the disclosed Covex oracle. To bind spend to a key on-chain, deploy an enforced single-sig covenant whose redeem script commits that key.',
-                tier: 'Advanced users',
+                id: 'custom', icon: Key, title: 'External Resolver (your key)',
+                desc: 'Bring your own resolver: the x-only pubkey of the independent provider you choose to attest the outcome. Deploy this as an Oracle Escrow in Enforced Deploy with this key, and the covenant locks on-chain to THIS resolver, requiring its co-signature to release. Covex is not in the path and does not attest real-world facts. Pair it with a refund backstop so a no-show resolver cannot strand the funds.',
+                tier: 'Real-world facts (recommended)',
               },
             ].map(opt => (
               <button
@@ -3303,7 +3303,7 @@ ${gameMeta.outcomeBranches}
           {resolutionMode === 'custom' && (
             <div className="ml-4 pl-4 border-l-2 border-amber-500/30 space-y-2">
               <p className="text-[11px] text-amber-300/80">
-                Enter your oracle&apos;s x-only public key (hex). This is recorded as covenant metadata only today; the deployed covenant does not verify against it (resolution uses the disclosed Covex oracle). On-chain binding to your key is a roadmap item.
+                Enter the x-only public key (hex) of the external resolver you choose. Deploy this covenant as an Oracle Escrow in Enforced Deploy with this key and it locks on-chain to THIS resolver: releasing funds requires the resolver&apos;s co-signature, and Covex&apos;s key is not in the path. Covex does not attest real-world facts. Always keep a deployer refund backstop so a no-show resolver cannot strand the funds.
               </p>
               <div>
                 <p className={LABEL}>Oracle Public Key</p>
@@ -3329,7 +3329,7 @@ ${gameMeta.outcomeBranches}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-gray-300 light:text-slate-600 leading-relaxed">
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">ZK vs Oracle</p>
-                <p>ZK proofs (where circuits and zkeys exist) provide cryptographic verification of computation. Currently, only Merkle Membership has a complete proving pipeline. Oracles are faster but require trust in the key holder. Range Proof circuit foundation exists, awaiting zkey generation for live verification. For external data (price feeds, weather), use an Oracle.</p>
+                <p>ZK proofs (where circuits and zkeys exist) provide cryptographic verification of computation. Currently, only Merkle Membership has a complete proving pipeline. Oracles are faster but require trust in the key holder. Range Proof circuit foundation exists, awaiting zkey generation for live verification. For external data (price feeds, weather, match results), bind an External Resolver you choose; Covex does not attest outside events.</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-white font-semibold">Reusability</p>
@@ -4257,8 +4257,8 @@ ${gameMeta.outcomeBranches}
           {/* Covex Oracle */}
           <ResolutionCard
             icon={Shield}
-            title="Covex Oracle (Default)"
-            desc="Uses the built-in Covex Oracle with a pre-filled verification key. Oracle-attested resolution: the disclosed oracle signs the outcome cryptographically and is the trusted verifier (Kaspa has no on-chain pairing verifier)."
+            title="Covex Oracle (engine result)"
+            desc="For engine-resolved games only: Covex replays the public move log (a result anyone can recompute) and co-signs it. Not for real-world facts. For a match score, a price, or weather, choose External Resolver below: Covex does not attest outside events."
             selected={resolutionMode === 'oracle'}
             onClick={() => setResolutionMode('oracle')}
             accent="kaspa-green"
@@ -4267,8 +4267,8 @@ ${gameMeta.outcomeBranches}
           {/* Custom Oracle */}
           <ResolutionCard
             icon={Cpu}
-            title="Custom Oracle"
-            desc="Record the oracle public key you intend to resolve against. This is metadata only today: the deployed covenant does NOT verify against it, and resolution still runs through the disclosed Covex oracle. To bind spend to a key on-chain, deploy an enforced single-sig covenant whose redeem script commits that key."
+            title="External Resolver (your key)"
+            desc="Bring your own resolver: the x-only pubkey of the independent provider you choose. Deploy this as an Oracle Escrow in Enforced Deploy with this key and the covenant locks on-chain to THIS resolver, requiring its co-signature to release. Covex is not in the path and does not attest real-world facts. Keep a deployer refund backstop for a no-show resolver."
             selected={resolutionMode === 'custom'}
             onClick={() => setResolutionMode('custom')}
             accent="kaspa-gold"

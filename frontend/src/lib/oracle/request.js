@@ -25,7 +25,11 @@ import { leaf, allOf, either } from '../composer/tree';
 
 export const REQUEST_VERSION = 1;
 // Recognizable magic so the indexer can pick request txs out of the DAG by payload prefix.
-export const REQUEST_MAGIC = 'covex-oracle-req:v1';
+// This is the NEUTRAL open wire format (no platform name): any wallet, indexer, or oracle
+// provider can produce + parse it. request_id is content-only (the magic is not hashed), so
+// the prefix carries no identity. Keeping it provider-agnostic is what lets a covenant bind to
+// ANY external resolver, not a Covex-run one.
+export const REQUEST_MAGIC = 'kaspa-oracle-req:v1';
 
 const isHex32 = (s) => typeof s === 'string' && /^[0-9a-fA-F]{64}$/.test(s);
 

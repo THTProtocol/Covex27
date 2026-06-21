@@ -556,7 +556,7 @@ export default function App() {
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center space-y-2.5">
-              <p>Custody is on-chain: funds lock to a Kaspa P2SH script hash and your wallet signs every spend. Covex holds no user keys. For oracle-resolved covenants (games, prediction markets, ZK circuits) the disclosed Covex oracle co-signs the winning branch, so payout is on-chain enforced but not trustless. Each covenant page shows its enforcement-reality badge.</p>
+              <p>Custody is on-chain: funds lock to a Kaspa P2SH script hash and your wallet signs every spend. Covex holds no user keys. For engine-resolved games and ZK circuits the disclosed Covex oracle co-signs the winning branch (a result Covex can recompute), so payout is on-chain enforced but not trustless. Real-world covenants like prediction markets bind to an external resolver the creator chooses; Covex does not resolve outside events. Each covenant page shows its enforcement-reality badge.</p>
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
                 {[
                   ['How it Works', '/readme'],

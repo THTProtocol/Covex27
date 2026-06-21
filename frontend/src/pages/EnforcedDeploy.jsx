@@ -256,7 +256,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     setError(null);
     const question = mq.trim();
     if (!question) { setError('Enter a question for the market.'); return; }
-    if (!address) { setError('Connect a wallet first - it becomes the only address that can resolve this market.'); return; }
+    if (!address) { setError('Connect a wallet first - it becomes the authorized resolver for this market (the settlement reveal is gated to your wallet signature).'); return; }
     const feePct = parseFloat(mfee);
     const rebatePct = parseFloat(mrebate);
     if (!(feePct >= 0) || !(rebatePct >= 0)) { setError('Fee and rebate must be zero or positive percentages.'); return; }
@@ -621,8 +621,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl leading-relaxed">
           {isHybridKind ? (
             <>Custody and payout settle on-chain: funds lock to a script hash and the chain pays the winning branch. The outcome
-            is decided by the disclosed Covex oracle, which co-signs or reveals only a verified result, so this is hybrid, not
-            trustless. Every spend was proven against the real Kaspa script engine before this shipped.</>
+            is decided by the covenant's named resolver (the disclosed Covex oracle for engine-resolved game results, or an
+            external resolver you choose for real-world facts), which co-signs or reveals only the declared result, so this is
+            hybrid, not trustless. Every spend was proven against the real Kaspa script engine before this shipped.</>
           ) : (
             <>These covenants are enforced by Kaspa consensus itself. Funds lock to a script hash and can only move by satisfying
             the script, no oracle, no trust. Every spend was proven against the real Kaspa script engine before this shipped.</>
@@ -796,7 +797,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               </div>
             )}
             <p className="text-[11px] text-gray-400 light:text-slate-600 leading-relaxed">
-              Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the disclosed oracle reveals one committed outcome secret; once it is revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
+              Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the market's authorized resolver (your wallet, gated by signature) reveals one committed outcome secret; once revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Today the committed secret is Covex-derived, a trust-minimized step toward binding the market to an external resolver you choose. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
             </p>
             <p className="text-[11px] text-gray-500 light:text-slate-500 leading-relaxed">
               Bets can be any amount with no maximum, on any tier including free. All building is free. Paid tiers add priority placement and the premium website templates.

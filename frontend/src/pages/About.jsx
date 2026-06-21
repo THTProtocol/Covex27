@@ -83,7 +83,7 @@ const PILLARS = [
   {
     icon: ShieldCheck,
     title: 'Trust',
-    body: 'On-chain custody for every covenant; oracle co-signed for resolved kinds (games, markets, ZK circuits). The enforcement-reality badge says which on each page.',
+    body: 'On-chain custody for every covenant. Engine-resolved games and ZK circuits are co-signed by the disclosed Covex oracle (results Covex can recompute); real-world covenants like markets bind to an external resolver the creator chooses, not Covex. The enforcement-reality badge says which on each page.',
     tag: 'Always on',
   },
 ];
@@ -100,7 +100,7 @@ const EXAMPLES = [
     icon: TrendingUp,
     name: 'Prediction market',
     kind: 'oracle-attested',
-    body: 'Funds sit in on-chain binary-select bundles, but a real-world fact must be attested off-chain. Honest target is k-of-n independent signers. The website shows live odds, pools, and a place-order panel.',
+    body: 'Funds sit in on-chain binary-select bundles, but a real-world fact must be attested off-chain by an external resolver the creator chooses (single key or k-of-n independent signers), never by Covex. Today the bundled market settles via a Covex-derived secret gated to the creator wallet, a trust-minimized step toward full external-resolver binding. The website shows live odds, pools, and a place-order panel.',
   },
   {
     icon: Lock,

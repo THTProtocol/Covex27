@@ -55,7 +55,7 @@ const REALITIES = [
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
-    trust: 'Named oracle', desc: 'An off-chain outcome (a game result, a market event, a data feed) is signed by the Covex oracle, whose co-signature the chain still requires via the redeem script. Trust sits with that named, publicly-keyed oracle; the settlement itself is on-chain.' },
+    trust: 'Named oracle', desc: 'An off-chain outcome is signed by a named oracle whose co-signature the chain requires via the redeem script. For an engine-resolved game result the disclosed Covex oracle co-signs (anyone can recompute it). For a real-world fact (a market event, a price, a data feed) the covenant binds to an external resolver the creator chooses; Covex does not attest outside events. Either way the settlement itself is on-chain.' },
 ];
 
 // Inline pill palette for PRIMITIVES (matches REALITIES above). Keyed by p.reality.
@@ -307,9 +307,11 @@ export default function Readme() {
           <Card>
             <Radio className="text-kaspa-green mb-3" size={22} />
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              When an outcome is genuinely off-chain (a game result, a settled market), the Covex oracle attests it with a
-              real <strong className="text-white">secp256k1 BIP340 Schnorr signature</strong>, never a forgeable keyed hash.
-              Its x-only public key is published openly, so anyone can verify the attestation.
+              When an engine-resolved game outcome is off-chain, the disclosed Covex oracle attests it (a result anyone can
+              recompute) with a real <strong className="text-white">secp256k1 BIP340 Schnorr signature</strong>, never a
+              forgeable keyed hash. For a real-world fact like a settled market, the covenant binds instead to an external
+              resolver the creator chooses, which signs the same way; Covex does not attest outside events. Every signer's
+              x-only public key is published openly, so anyone can verify the attestation.
             </p>
             <Script>{`message  = covex-oracle:{covenant_id}:{outcome}:{timestamp}
 signature = schnorr_sign( sha256(message), oracle_key )

@@ -371,6 +371,23 @@ export async function deriveFromPrivateKey(hexKey, networkId = 'mainnet') {
   return { privateKeyHex: cleanHex, address: addressStr };
 }
 
+// Sign a message with a dev wallet's private key using the wasm TOP-LEVEL
+// signMessage. PrivateKey has NO signMessage instance method, so any path that
+// reached pk.toString() would return the RAW PRIVATE KEY hex. The key must never
+// leave the browser, so there is deliberately no toString() fallback here:
+// missing wasm support throws, and the PrivateKey is always freed.
+export function signMessageWithWasm(wasm, privateKeyHex, message) {
+  if (!wasm) throw new Error('kaspa-wasm module failed to load');
+  const { PrivateKey, signMessage: wasmSignMessage } = wasm;
+  if (typeof wasmSignMessage !== 'function') throw new Error('kaspa-wasm signMessage unavailable');
+  const pk = new PrivateKey(privateKeyHex);
+  try {
+    return wasmSignMessage({ message, privateKey: pk });
+  } finally {
+    pk.free();
+  }
+}
+
 // ── Dev Connect Panel (internal, takes onConnect prop + network) ──
 function DevConnectPanelBase({ onConnect, compact = false, network }) {
   const [mode, setMode] = useState('mnemonic');
@@ -906,35 +923,8 @@ function WalletBridge({ children }) {
   const devSignMessage = useCallback(async (message) => {
     if (!devMode) throw new Error('Dev mode not active');
     const wasm = await loadKaspaWasm();
-    if (!wasm) throw new Error('kaspa-wasm module failed to load');
-    const { PrivateKey } = wasm;
-    const pk = new PrivateKey(devMode.privateKeyHex);
-    const signature = pk.signMessage ? pk.signMessage(message) : pk.toString();
-    pk.free();
-    return signature;
+    return signMessageWithWasm(wasm, devMode.privateKeyHex, message);
   }, [devMode]);
-
-  const devSendTransaction = useCallback(async (recipient, amountKas) => {
-    if (!devMode) throw new Error('Dev mode not active');
-    const wasm = await loadKaspaWasm();
-    if (!wasm) throw new Error('kaspa-wasm module failed to load');
-    const { PrivateKey, createTransaction, signTransaction } = wasm;
-    const pk = new PrivateKey(devMode.privateKeyHex);
-    const amountSompi = kasToSompi(amountKas);
-    try {
-      const utxos = [];
-      const outputs = [{ address: recipient, amount: BigInt(amountSompi) }];
-      const tx = createTransaction(utxos, outputs, 1000n);
-      const signed = signTransaction(tx, [pk], false);
-      const txHex = signed.toHex ? signed.toHex() : signed.toString();
-      pk.free();
-      return { success: true, method: 'dev-mode', txid: signed.id || txHex, txHex };
-    } catch (_) {
-      const sig = await devSignMessage(`PAYMENT:${recipient}:${amountSompi}`);
-      pk.free();
-      return { success: true, method: 'dev-mode-sig', sig, recipient, amountSompi: Number(amountSompi) };
-    }
-  }, [devMode, devSignMessage]);
 
   const sendPayment = useCallback(async (recipient, amountKas, meta = {}) => {
     if (devMode && activeAddress) {
@@ -973,7 +963,7 @@ function WalletBridge({ children }) {
     // show a scannable QR / connect prompt instead of a broken redirect.
     const uri = buildUri(recipient, amountKas, meta);
     return { success: false, error: 'No wallet connected to sign this transaction.', uri, needsWallet: true, method: 'uri' };
-  }, [activeAddress, activeWalletId, devMode, devSendTransaction, kf, buildUri]);
+  }, [activeAddress, activeWalletId, devMode, kf, buildUri]);
 
   const signMessage = useCallback(async (message) => {
     if (devMode && activeAddress) {
@@ -989,47 +979,6 @@ function WalletBridge({ children }) {
   // Every wallet is shown; platform is a priority sort, not an exclusion (so an installed
   // desktop wallet still appears on mobile and vice versa, and detection can surface it).
   const activeWallets = walletsForDevice();
-
-  const value = {
-    activeWalletId,
-    address: activeAddress,
-    balance: activeBalance,
-    balanceLoading,
-    connecting,
-    error,
-    network: activeWalletNetwork || (appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'mainnet' : 'kaspatest'),
-    appNetwork,
-
-    walletMeta,
-    wallets: activeWallets,
-    allWallets: ALL_WALLETS,
-
-    isDevMode: !!devMode,
-    devMode,
-    connectDevMode,
-    mnemonicPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} network={appNetwork} />,
-    DevConnectPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} network={appNetwork} />,
-    injections,
-    pollingActive,
-
-    connect: connectWallet,
-    disconnect: disconnectWallet,
-    sendPayment,
-    signMessage,
-    sendKaspa: async (recipient, amountSompi) => {
-      if (devMode) {
-        const result = await devSendTransaction(recipient, Number(amountSompi) / 100_000_000);
-        return result;
-      }
-      const provider = getActiveProvider();
-      if (!provider || !activeAddress) throw new Error('No wallet connected');
-      if (typeof provider.sendKaspa === 'function') return await provider.sendKaspa(recipient, amountSompi);
-      throw new Error('sendKaspa not supported');
-    },
-    buildUri,
-    refreshBalance: async () => { await refreshAnyBalance(); },
-    clearError: () => setError(null),
-  };
 
   // Prevent EventEmitter / ObjectMultiplex memory leaks from wallet providers (MetaMask, KasWare, etc.)
   // These warnings appear in contentscript when too many 'end'/'close' listeners are added on streams.
@@ -1059,22 +1008,61 @@ function WalletBridge({ children }) {
     } catch (_) {}
   };
 
+  // A safe disconnect the rest of the app should prefer: tears down the active wallet,
+  // then re-suppresses any lingering provider streams once the extension settles.
+  const disconnectWalletWithCleanup = async () => {
+    await disconnectWallet();
+    setTimeout(suppressWalletStreamLeaks, 80);
+  };
+
+  const value = {
+    activeWalletId,
+    address: activeAddress,
+    balance: activeBalance,
+    balanceLoading,
+    connecting,
+    error,
+    network: activeWalletNetwork || (appNetwork === 'mainnet' || appNetwork === 'mainnet-1' ? 'mainnet' : 'kaspatest'),
+    appNetwork,
+
+    walletMeta,
+    wallets: activeWallets,
+    allWallets: ALL_WALLETS,
+
+    isDevMode: !!devMode,
+    devMode,
+    connectDevMode,
+    mnemonicPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} network={appNetwork} />,
+    DevConnectPanel: (props) => <DevConnectPanelBase {...props} onConnect={connectDevMode} network={appNetwork} />,
+    injections,
+    pollingActive,
+
+    connect: connectWallet,
+    disconnect: disconnectWalletWithCleanup,
+    sendPayment,
+    signMessage,
+    sendKaspa: async (recipient, amountSompi) => {
+      // A generated/imported dev wallet's private key NEVER leaves this browser, so
+      // there is no dev-mode send path here: the removed dev branch built an empty-UTXO
+      // transaction that always failed and fell back to signing PAYMENT:... with the
+      // raw key. Deploy covenants non-custodially or use a wallet extension instead.
+      if (devMode) {
+        throw new Error('This wallet never sends its key off your device. Deploy covenants non-custodially (your key signs locally) or use a wallet extension to send.');
+      }
+      const provider = getActiveProvider();
+      if (!provider || !activeAddress) throw new Error('No wallet connected');
+      if (typeof provider.sendKaspa === 'function') return await provider.sendKaspa(recipient, amountSompi);
+      throw new Error('sendKaspa not supported');
+    },
+    buildUri,
+    refreshBalance: async () => { await refreshAnyBalance(); },
+    clearError: () => setError(null),
+  };
+
   // Run on initial mount and after any wallet connect
   useEffect(() => {
     suppressWalletStreamLeaks();
   }, [activeAddress]); // re-run when a new wallet appears
-
-  // Also run on disconnect to clean up any lingering streams from the previous provider
-  const originalDisconnect = disconnectWallet;
-  const disconnectWalletWithCleanup = async () => {
-    await originalDisconnect();
-    // Give the extension a moment to tear down streams, then re-suppress
-    setTimeout(suppressWalletStreamLeaks, 80);
-  };
-
-  // Expose a safe disconnect that the rest of the app should prefer
-  // (prevents the reference error we saw in earlier cleanup attempts)
-  const disconnect = disconnectWalletWithCleanup;
 
   return (
     <WalletContext.Provider value={value}>

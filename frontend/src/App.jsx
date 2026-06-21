@@ -488,10 +488,13 @@ export default function App() {
                 </div>
               </div>
             )}
-            <BuildStepsRail />
           </nav>
 
           <div className="relative z-10 pt-16">
+            {/* Build-steps rail lives in the content flow (not inside the fixed nav)
+                so it occupies layout height and never overlaps the page heading.
+                It sticks just below the 64px header on scroll. */}
+            <BuildStepsRail />
             <RouteErrorBoundary>
             <Suspense fallback={
               <div className="max-w-3xl mx-auto px-4 py-16 space-y-4" aria-hidden="true">

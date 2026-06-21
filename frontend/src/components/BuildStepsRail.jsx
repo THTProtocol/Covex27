@@ -48,15 +48,19 @@ export default function BuildStepsRail({ compact }) {
 
   return (
     <div
-      className={`${hideOnMobile ? 'hidden sm:block' : ''} relative sm:sticky sm:top-16 z-30 -mx-4 px-4 ${isCompact ? 'py-1.5' : 'py-3'} ${isCompact ? '' : 'mb-5'} bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200`}
+      className={`${hideOnMobile ? 'hidden sm:block' : ''} relative sm:sticky sm:top-16 z-30 ${isCompact ? 'py-1.5' : 'py-3'} ${isCompact ? 'mb-3' : 'mb-6'} bg-[#06070b]/85 light:bg-white/85 backdrop-blur-xl border-y border-white/[0.06] light:border-slate-200`}
       role="navigation"
       aria-label="Covenant build steps"
     >
-      <div
-        className="flex items-center gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        {STEPS.map((s) => {
+      {/* Centered container matches the nav header (max-w-6xl px-4) so the chips
+          line up under the logo instead of bleeding off the viewport edge. The
+          bar background/border stays full-bleed; only the chip row is inset. */}
+      <div className="max-w-6xl mx-auto px-4">
+        <div
+          className="flex items-center gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-none py-1 -mx-1 px-1"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {STEPS.map((s) => {
           const active = current === s.n;
           const done = typeof isDone === 'function' ? isDone(s.n) : current > s.n;
           const upcoming = !active && !done;
@@ -108,7 +112,8 @@ export default function BuildStepsRail({ compact }) {
               {inner}
             </button>
           );
-        })}
+          })}
+        </div>
       </div>
     </div>
   );

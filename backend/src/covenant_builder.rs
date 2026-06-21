@@ -3054,10 +3054,12 @@ pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
 /// deploy_tx_id IS the covenant id those provers bind to. We mirror that gate here EXACTLY,
 /// reusing the same crate::oracle helpers (no re-derived field-element math):
 ///   * If the binding IS present among the public inputs -> bound, allow (replay-safe).
-///   * If it is ABSENT and the circuit emits the binding (circuit_emits_covenant_binding)
-///     OR COVEX_REQUIRE_COVENANT_BINDING=true -> hard reject fail-closed.
-///   * If it is ABSENT and the circuit legitimately carries no binding signal -> warn but
-///     allow, so legacy circuits keep working (identical to the off-chain default).
+///   * If it is ABSENT -> hard reject fail-closed by GLOBAL DEFAULT, UNLESS the circuit is on
+///     the explicit no-binding allowlist (crate::oracle::circuit_allows_no_covenant_binding:
+///     the game / mixer / DeFi-market hybrids whose served vkeys cannot carry covenantId), in
+///     which case warn-and-allow. COVEX_REQUIRE_COVENANT_BINDING=true force-rejects even those;
+///     COVEX_ALLOW_NO_BINDING=true is a blanket emergency escape hatch. Identical posture to the
+///     off-chain /oracle/verify-and-sign default.
 ///
 /// Returns Ok(()) when the payout may proceed, Err(message) when it must be refused.
 /// `deploy_tx_id` is the covenant id the proof must be bound to; `circuit_type` selects the
@@ -3077,19 +3079,22 @@ fn enforce_onchain_covenant_binding(
     if bound {
         return Ok(());
     }
-    let strict = crate::oracle::circuit_emits_covenant_binding(circuit_type)
-        || std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
-    if strict {
+    let force_strict =
+        std::env::var("COVEX_REQUIRE_COVENANT_BINDING").as_deref() == Ok("true");
+    let blanket_allow = std::env::var("COVEX_ALLOW_NO_BINDING").as_deref() == Ok("true");
+    let allowed_no_binding = !force_strict
+        && (blanket_allow || crate::oracle::circuit_allows_no_covenant_binding(circuit_type));
+    if !allowed_no_binding {
         return Err(format!(
-            "covenant binding missing: the proof for circuit '{circuit_type}' does not commit this covenant's deploy_tx_id (expected public input {expected_covenant_fe} = sha256(deploy_tx_id) mod BN254). Refusing to co-sign to prevent cross-covenant proof replay."
+            "covenant binding missing: the proof for circuit '{circuit_type}' does not commit this covenant's deploy_tx_id (expected public input {expected_covenant_fe} = sha256(deploy_tx_id) mod BN254). Refusing to co-sign to prevent cross-covenant proof replay (fail-closed default)."
         ));
     }
     tracing::warn!(
         "H4 covenant binding ABSENT for covenant {} (circuit {}): proof does not commit \
-         sha256(deploy_tx_id) mod BN254 ({}) as a public input. Co-signing anyway for \
-         backward compatibility (legacy circuits omit the binding signal); this proof \
-         could be replayed onto another covenant of the same circuit type. Set \
-         COVEX_REQUIRE_COVENANT_BINDING=true to fail closed.",
+         sha256(deploy_tx_id) mod BN254 ({}) as a public input. Co-signing because this circuit \
+         is on the no-binding allowlist (its served vkey omits covenantId); the outcome is derived \
+         from its own verified signals, so a same-type replay re-asserts the same result. Unlisted \
+         circuits fail closed by default.",
         &deploy_tx_id[..16.min(deploy_tx_id.len())],
         circuit_type,
         expected_covenant_fe
@@ -6156,32 +6161,54 @@ mod tests {
         );
     }
 
-    /// A circuit that legitimately carries NO covenant binding (not in
-    /// circuit_emits_covenant_binding) must NOT be hard-rejected just for omitting it, UNLESS
-    /// COVEX_REQUIRE_COVENANT_BINDING=true. This mirrors the off-chain default exactly so we
-    /// do not break legacy circuits while still letting an operator opt into strict mode.
+    /// FAIL-CLOSED DEFAULT (inverted from the old warn-and-allow): a circuit that is NOT on the
+    /// no-binding allowlist (circuit_allows_no_covenant_binding) and does NOT carry the binding
+    /// must be REJECTED by default. Only circuits whose served vkey genuinely cannot carry
+    /// covenantId (the game / mixer / DeFi-market hybrids) are warn-and-allowed; the blanket
+    /// COVEX_ALLOW_NO_BINDING escape hatch relaxes the rest. This mirrors the off-chain default.
     #[test]
-    fn h4_onchain_binding_legacy_circuit_without_binding_is_allowed_by_default() {
-        // A circuit name that is NOT in circuit_emits_covenant_binding.
-        let circuit = "some_legacy_attested_circuit_with_no_binding";
-        let covenant = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
-        // No binding among the public inputs.
-        let public_inputs = vec!["1".to_string(), "42".to_string()];
-
-        // Ensure strict env is off for the default-behavior assertion.
+    fn h4_onchain_binding_unlisted_circuit_without_binding_fails_closed_by_default() {
+        // Make sure neither env knob is set (clean default).
         std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING");
+        std::env::remove_var("COVEX_ALLOW_NO_BINDING");
+
+        // A circuit name that is NOT on the no-binding allowlist and does NOT emit a binding.
+        let circuit = "some_unlisted_circuit_with_no_binding";
+        let covenant = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        let public_inputs = vec!["1".to_string(), "42".to_string()]; // no binding present
+
+        // Default: REJECTED fail-closed (this is the inverted behavior).
         assert!(
-            enforce_onchain_covenant_binding(covenant, circuit, &public_inputs).is_ok(),
-            "a circuit that legitimately omits the binding must be allowed by default"
+            enforce_onchain_covenant_binding(covenant, circuit, &public_inputs).is_err(),
+            "an UNLISTED circuit that omits the binding must now FAIL CLOSED by default"
         );
 
-        // With the strict env var, even a legacy circuit is fail-closed.
+        // A circuit on the explicit no-binding allowlist (DeFi-market hybrid) is warn-and-allowed.
+        assert!(
+            crate::oracle::circuit_allows_no_covenant_binding("collateral_ltv"),
+            "collateral_ltv must be on the no-binding allowlist"
+        );
+        assert!(
+            enforce_onchain_covenant_binding(covenant, "collateral_ltv", &public_inputs).is_ok(),
+            "an allowlisted no-binding hybrid must be allowed by default"
+        );
+
+        // The blanket emergency escape hatch relaxes the unlisted circuit too.
+        std::env::set_var("COVEX_ALLOW_NO_BINDING", "true");
+        let relaxed = enforce_onchain_covenant_binding(covenant, circuit, &public_inputs);
+        std::env::remove_var("COVEX_ALLOW_NO_BINDING");
+        assert!(
+            relaxed.is_ok(),
+            "COVEX_ALLOW_NO_BINDING=true must relax the fail-closed default"
+        );
+
+        // COVEX_REQUIRE_COVENANT_BINDING=true force-rejects even an allowlisted circuit.
         std::env::set_var("COVEX_REQUIRE_COVENANT_BINDING", "true");
-        let strict = enforce_onchain_covenant_binding(covenant, circuit, &public_inputs);
+        let forced = enforce_onchain_covenant_binding(covenant, "collateral_ltv", &public_inputs);
         std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING");
         assert!(
-            strict.is_err(),
-            "COVEX_REQUIRE_COVENANT_BINDING=true must fail closed even for legacy circuits"
+            forced.is_err(),
+            "COVEX_REQUIRE_COVENANT_BINDING=true must fail closed even for allowlisted circuits"
         );
     }
 

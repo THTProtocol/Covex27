@@ -68,7 +68,9 @@ describe('studio flagship schema', () => {
 
   it('no statement or note uses an em dash (CI honesty gate)', () => {
     for (const id of Object.keys(STUDIO_CIRCUITS)) {
-      expect(STUDIO_CIRCUITS[id].statement.includes('—')).toBe(false);
+      // Use char codes (not literal dash glyphs) so this test file itself stays dash-free for the CI gate.
+      expect(STUDIO_CIRCUITS[id].statement.includes(String.fromCharCode(0x2014))).toBe(false);
+      expect(STUDIO_CIRCUITS[id].statement.includes(String.fromCharCode(0x2013))).toBe(false);
     }
   });
 });

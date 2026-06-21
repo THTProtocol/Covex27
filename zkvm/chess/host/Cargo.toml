@@ -1,0 +1,20 @@
+# The host: builds a real GameInput per game, runs the prover, verifies the receipt against the
+# image id, decodes the journal, and asserts the winner. Also runs a negative test that an illegal
+# chess move fails to prove (no receipt).
+[package]
+name = "host"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+# The prover/verifier runtime. Default features include the local prover.
+risc0-zkvm = "3.0"
+# The generated guest ELF + image id.
+methods = { path = "../methods" }
+# The input/result types (shared with the guest) so we build inputs the guest can read.
+covex-games = { path = "../../games" }
+# Timing + nicer panics.
+serde = { version = "1", features = ["derive"] }
+# Compute the committed-deck commitment (sha256(deck)) for card games, the SAME hash the library's
+# verify_committed_deck checks. A wrong commitment makes proving fail, so we compute the honest one.
+sha2 = "0.10"

@@ -1,0 +1,4 @@
+# Default the guest to the RISC0 zkVM target so a bare `cargo build` in this crate targets the
+# zkVM. risc0-build also passes this target explicitly when embedding, so this is belt-and-braces.
+[build]
+target = "riscv32im-risc0-zkvm-elf"

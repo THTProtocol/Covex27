@@ -1,0 +1,22 @@
+# Workspace for the Covex RISC0 zkVM games prover.
+#
+# Proves that a Covex staked board game (chess, connect4, tic-tac-toe, checkers) was played
+# legally and reports the genuine winner. The guest wraps `covex-games::replay`; a proof exists
+# only if every move was legal (illegal move -> guest panic -> no receipt). The host builds a
+# real GameInput per game, proves, verifies the receipt against the image id, and asserts the
+# committed winner.
+[workspace]
+resolver = "2"
+members = ["host", "methods"]
+
+# The guest crate (methods/guest) is built by risc0-build for the riscv32im-risc0-zkvm-elf
+# target and is intentionally NOT a member of this host-target workspace.
+exclude = ["methods/guest"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+# A release profile that keeps the host prover fast. RISC0 proving is CPU heavy; optimize.
+[profile.release]
+opt-level = 3

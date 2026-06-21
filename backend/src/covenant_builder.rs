@@ -1783,6 +1783,13 @@ pub struct RedeemSpec {
     /// oracle never reveals a secret. Defaults to the deployer.
     #[serde(default)]
     pub refund_pubkey_hex: Option<String>,
+    /// oracle kinds (oracle_enforced / oracle_escrow): the x-only pubkey of the EXTERNAL oracle
+    /// resolver the creator chose (ANY provider). Absent -> the Covex default oracle key, so
+    /// existing covenants + the games path are unchanged. A covenant locked to a custom resolver
+    /// is co-signed by THAT resolver, not Covex; prefer a *_refundable kind so a no-show
+    /// resolver cannot strand the funds.
+    #[serde(default)]
+    pub oracle_pubkey_hex: Option<String>,
 }
 
 /// The two testnet dev-wallet secret keys for a network (used as default multisig
@@ -1805,6 +1812,17 @@ fn decode_xonly_hex(h: &str) -> BResult<[u8; 32]> {
         .ok()
         .and_then(|b| b.try_into().ok())
         .ok_or_else(|| format!("bad x-only pubkey hex '{h}' (need 64 hex chars)"))
+}
+
+// The x-only key of the oracle RESOLVER embedded in an oracle covenant: the creator-chosen
+// EXTERNAL resolver (any provider) when oracle_pubkey_hex is set, else the Covex default key.
+// This is what makes covenant creation provider-agnostic - a covenant can be locked to ANY
+// resolver, who then co-signs the payout (Covex does not, and cannot, for an external key).
+fn resolve_oracle_xonly(custom_hex: &Option<String>) -> BResult<[u8; 32]> {
+    match custom_hex {
+        Some(h) if !h.trim().is_empty() => decode_xonly_hex(h),
+        _ => Ok(crate::oracle::oracle_xonly_pubkey_bytes()),
+    }
 }
 
 #[derive(Deserialize)]
@@ -1948,13 +1966,13 @@ pub async fn p2sh_deploy_handler(
             // co-signature, and the oracle co-signs only a verified outcome (D1). This
             // upgrades an oracle covenant from "trust the oracle off-chain" to "the chain
             // enforced that the disclosed oracle signed". Member order: [oracle, winner=deployer].
-            let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
+            let oracle_xonly = match resolve_oracle_xonly(&req.redeem.oracle_pubkey_hex) { Ok(k) => k, Err(e) => return err(e) };
             RedeemKind::OracleEnforced { oracle: oracle_xonly, winner: xonly }
         }
         "oracle_escrow" => {
             // 2-player pot: the chain requires the oracle's co-signature AND the winning
             // player's signature. The oracle co-signs only the actual winner (D1, games).
-            let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
+            let oracle_xonly = match resolve_oracle_xonly(&req.redeem.oracle_pubkey_hex) { Ok(k) => k, Err(e) => return err(e) };
             let (pa, pb) = if let Some(pks) = &req.redeem.pubkeys_hex {
                 if pks.len() >= 2 {
                     match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
@@ -4691,7 +4709,7 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
             if pks.len() < 2 {
                 return Err("oracle_escrow needs pubkeys_hex=[player_a, player_b]".into());
             }
-            let oracle_xonly = crate::oracle::oracle_xonly_pubkey_bytes();
+            let oracle_xonly = resolve_oracle_xonly(&spec.oracle_pubkey_hex)?;
             Ok((
                 redeem_oracle_escrow(&oracle_xonly, &decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?)?,
                 "oracle_escrow".to_string(),

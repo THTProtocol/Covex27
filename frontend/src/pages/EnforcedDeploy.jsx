@@ -121,6 +121,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const [relSeq, setRelSeq] = useState('10');   // relative_timelock min_sequence (BIP68 relative blocks)
   const [reqNow, setReqNow] = useState('2');     // timedecay quorum now
   const [reqAfter, setReqAfter] = useState('1'); // timedecay quorum after the deadline
+  // External resolver for oracle kinds: the x-only pubkey the deployed covenant locks to.
+  // Blank = the disclosed Covex oracle (for engine results). Set it to bind a real-world
+  // covenant to an independent resolver you choose; the backend embeds THIS key in the redeem.
+  const [resolverKey, setResolverKey] = useState('');
   // Prediction-market params (kind === 'market'). No stake is locked at creation; the
   // market is committed and lands on its own covenant page where bets are placed.
   const [mq, setMq] = useState('');
@@ -321,8 +325,21 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       redeem.required = Math.max(1, parseInt(reqNow || '2', 10));   // quorum now
       redeem.req_after = Math.max(1, parseInt(reqAfter || '1', 10)); // quorum after the deadline
     }
-    // oracle_enforced / oracle_escrow: no extra params; the oracle key is server-side and
-    // the dev-wallet demo supplies the winner / player keys.
+    // oracle_enforced / oracle_escrow: bind to the creator-chosen EXTERNAL resolver if one is
+    // given, else fall back to the disclosed Covex oracle (server-side default). The backend's
+    // resolve_oracle_xonly embeds whichever key into the redeem script, so the deployed covenant
+    // requires THIS resolver's co-signature on-chain. The dev-wallet demo supplies the winner /
+    // player keys. Validated as a 32-byte x-only hex so a bad key fails before any funds lock.
+    if (kind === 'oracle_enforced' || kind === 'oracle_escrow') {
+      const rk = resolverKey.trim().toLowerCase();
+      if (rk) {
+        if (!/^[0-9a-f]{64}$/.test(rk)) {
+          setError('External resolver key must be a 32-byte x-only public key (64 hex chars). Leave blank to use the Covex oracle.');
+          return;
+        }
+        redeem.oracle_pubkey_hex = rk;
+      }
+    }
 
     setBusy(true);
     try {
@@ -870,10 +887,23 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           <p className="text-[11px] text-gray-400 light:text-slate-600">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
         )}
         {kind === 'oracle_enforced' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the Covex oracle and the winner (dev wallet 1). The chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. Server-assisted demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. Set an external resolver below to bind a real-world covenant to a key you choose, or leave it blank to use the disclosed Covex oracle (engine results only). Server-assisted demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
         )}
         {kind === 'oracle_escrow' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the oracle-declared winner: it needs the oracle co-signature plus the winning player on their branch. Server-assisted demo; oracle covenants activate on mainnet at Toccata.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. Set an external resolver below to bind to a key you choose, or leave it blank to use the disclosed Covex oracle. Server-assisted demo; oracle covenants activate on mainnet at Toccata.</p>
+        )}
+        {(kind === 'oracle_enforced' || kind === 'oracle_escrow') && (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">External resolver key (optional, x-only hex)</label>
+            <input
+              type="text"
+              value={resolverKey}
+              onChange={(e) => setResolverKey(e.target.value)}
+              placeholder="blank = Covex oracle. Paste a 64-hex resolver pubkey to bind on-chain to your own."
+              className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
+            />
+            <p className="text-[10px] text-gray-500 light:text-slate-500">When set, the deployed covenant embeds THIS key and requires its co-signature to release. Covex is not in the path. Covex does not attest real-world facts; bring your own resolver for those.</p>
+          </div>
         )}
 
         <DeployDisclosure reality={isHybridKind ? 'hybrid' : 'on-chain'} />

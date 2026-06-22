@@ -3,10 +3,11 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock,
-  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket, LayoutTemplate, Compass,
+  ArrowRight, ArrowLeft, Wand2, Cpu, Rocket, LayoutTemplate, Compass, FlaskConical,
 } from 'lucide-react';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
+import { ZkStudioEmbedded } from './ZkStudio';
 import SandboxGallery from '../components/SandboxGallery';
 import CovenantAssistant from '../components/CovenantAssistant';
 import SilverTerminal from '../components/SilverTerminal';
@@ -191,12 +192,20 @@ function PhaseHeader({ eyebrow, title, action }) {
   );
 }
 
-// Guided | Pro segmented control. role=radiogroup + role=radio so the two-state
-// workspace toggle is keyboard + screen-reader honest. Hoisted to module scope.
+// Guided | Pro | Prove (ZK) segmented control. role=radiogroup + role=radio so the workspace
+// toggle is keyboard + screen-reader honest. Hoisted to module scope. "Prove (ZK)" is how the
+// in-browser zero-knowledge prove + verify capability is chosen FROM Build (it is not a separate
+// top-level destination). The first two modes build a covenant; the third tests a ZK proof.
+const MODE_TITLES = {
+  guided: 'Guided: Covex walks you through create, logic, and deploy.',
+  pro: 'Pro: a raw SilverScript terminal. No templates, no auto-fill, you write the covenant yourself.',
+  prove: 'Prove (ZK): generate and verify a real Groth16 proof in your browser, before you deploy a covenant that uses it.',
+};
 function ModeSegmented({ mode, onChange }) {
   const opts = [
     { id: 'guided', label: 'Guided', Icon: Wand2 },
     { id: 'pro', label: 'Pro', Icon: TerminalSquare },
+    { id: 'prove', label: 'Prove (ZK)', Icon: FlaskConical },
   ];
   return (
     <div
@@ -213,7 +222,7 @@ function ModeSegmented({ mode, onChange }) {
             role="radio"
             aria-checked={active}
             onClick={() => onChange(o.id)}
-            title={o.id === 'pro' ? 'Pro: a raw SilverScript terminal. No templates, no auto-fill, you write the covenant yourself.' : 'Guided: Covex walks you through create, logic, and deploy.'}
+            title={MODE_TITLES[o.id]}
             className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 ${
               active
                 ? 'bg-kaspa-green text-black light:bg-emerald-700 light:text-white shadow-sm'
@@ -376,13 +385,19 @@ export default function Sandbox() {
     if (id && id !== 'create') next.set('phase', id); else next.delete('phase');
     setParams(next, { replace: true });
   };
-  // Workspace mode: 'guided' (Covex helps you build) or 'pro' (raw SilverScript terminal, no
-  // auto-fill). Persisted in the URL so a pro can bookmark or deep-link straight into the terminal.
-  const [mode, setModeState] = useState(() => (params.get('mode') === 'pro' ? 'pro' : 'guided'));
+  // Workspace mode: 'guided' (Covex helps you build), 'pro' (raw SilverScript terminal, no
+  // auto-fill), or 'prove' (the in-browser ZK prove + verify capability, chosen FROM Build).
+  // Persisted in the URL so a pro can bookmark or deep-link straight into the terminal, and so the
+  // /zk-studio redirect can land directly on ?mode=prove inside Build.
+  const VALID_MODES = ['guided', 'pro', 'prove'];
+  const [mode, setModeState] = useState(() => {
+    const m = params.get('mode');
+    return VALID_MODES.includes(m) ? m : 'guided';
+  });
   const setMode = (m) => {
     setModeState(m);
     const next = new URLSearchParams(params);
-    if (m === 'pro') next.set('mode', 'pro'); else next.delete('mode');
+    if (m && m !== 'guided') next.set('mode', m); else next.delete('mode');
     setParams(next, { replace: true });
   };
   // Phase-1 tab persistence. ?tab=templates|catalog lands a newcomer directly on either entry
@@ -482,7 +497,7 @@ export default function Sandbox() {
       setTplName(pName);
     }
     // mode
-    const wantMode = pMode === 'pro' ? 'pro' : 'guided';
+    const wantMode = VALID_MODES.includes(pMode) ? pMode : 'guided';
     if (wantMode !== mode) setModeState(wantMode);
     // create tab: an explicit ?tab= wins; otherwise a ?category= deep-link (the Arena
     // "Create a game" CTA) lands on the catalog so the filtered list is visible.
@@ -585,6 +600,16 @@ export default function Sandbox() {
       {mode === 'pro' && (
         <div className="relative z-10">
           <SilverTerminal />
+        </div>
+      )}
+
+      {/* Prove (ZK): the in-browser zero-knowledge prove + verify capability, surfaced AS PART of
+          Build (a workspace choice), not a separate top-level page. Same engine + circuits as the
+          standalone /zk-studio. A newcomer can test a circuit's ZK logic here before deploying a
+          covenant that uses it. */}
+      {mode === 'prove' && (
+        <div className="relative z-10">
+          <ZkStudioEmbedded />
         </div>
       )}
 

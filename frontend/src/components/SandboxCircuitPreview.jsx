@@ -1,7 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check, Info } from 'lucide-react';
+import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check, Info, FlaskConical, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import TransparencyModal from './TransparencyModal';
+import { FlagshipProver } from '../pages/ZkStudio';
+import { STUDIO_CIRCUITS } from '../lib/zk/studioProvers';
+import { IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 // generateSilverScriptForConfig lives in the 445kB CovexTerminal module. This component is
 // the Sandbox Phase 2 (logic) explore-only preview, which should not pull the creator-terminal
@@ -112,6 +116,14 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
 
   const [copied, setCopied] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  // Inline ZK test-prove: when the selected circuit has a working in-browser Groth16 prover with an
+  // editable Studio schema, the user can generate + verify a real proof RIGHT HERE while configuring
+  // the covenant, using the same engine as the Build "Prove (ZK)" view. Collapsed by default so the
+  // heavy snarkjs chunk only loads when the user opens it.
+  const canTestProve = !!circuit && IN_BROWSER_PROVERS.has(circuit.id) && !!STUDIO_CIRCUITS[circuit.id];
+  const [showProver, setShowProver] = useState(false);
+  // Reset the inline prover open-state whenever the selected circuit changes.
+  useEffect(() => { setShowProver(false); }, [circuit?.id]);
   const copyScript = async () => {
     if (!exampleScript) return;
     try {
@@ -157,6 +169,44 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
         </ol>
         <p className="text-xs text-gray-400 light:text-slate-600 mt-4 pt-3 border-t border-white/[0.06] light:border-slate-200 leading-relaxed">{flow.note}</p>
       </div>
+
+      {/* Inline ZK test-prove: when this circuit has a real in-browser Groth16 prover, the user can
+          generate + verify a proof here while configuring the covenant, using the SAME engine as the
+          Build "Prove (ZK)" view. Collapsed by default so snarkjs only loads on demand. */}
+      {canTestProve && (
+        <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.04] light:border-violet-200 light:bg-violet-50 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowProver((v) => !v)}
+            aria-expanded={showProver}
+            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-violet-500/[0.06] light:hover:bg-violet-100/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
+          >
+            <span className="grid place-items-center h-9 w-9 rounded-xl bg-violet-500/12 border border-violet-500/30 text-violet-300 light:bg-white light:text-violet-600 light:border-violet-200 shrink-0">
+              <FlaskConical size={17} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-bold text-white light:text-slate-900">Test-prove this circuit in your browser</span>
+              <span className="block text-[12px] text-gray-400 light:text-slate-600 leading-snug">
+                Generate AND verify a real Groth16 proof here, before you deploy. No server, no oracle.
+              </span>
+            </span>
+            <ChevronDown size={18} className={`shrink-0 text-gray-400 light:text-slate-500 transition-transform ${showProver ? 'rotate-180' : ''}`} />
+          </button>
+          {showProver && (
+            <div className="px-5 pb-5">
+              <FlagshipProver circuitId={circuit.id} />
+              <p className="mt-3 flex items-start gap-1.5 text-[11px] text-gray-500 light:text-slate-500 leading-relaxed">
+                <Info size={12} className="mt-0.5 shrink-0" />
+                <span>
+                  This is the same prove + verify engine as the Build{' '}
+                  <Link to="/sandbox?mode=prove" className="text-violet-300 light:text-violet-700 hover:underline font-semibold">Prove (ZK)</Link>{' '}
+                  view, which also lists every provable circuit. The proof is verified off-chain (here, or by the disclosed Covex oracle, fail-closed); Kaspa has no on-chain pairing verifier.
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Example covenant logic (SilverScript) - declared logic, regenerated live per circuit */}
       {exampleScript && (

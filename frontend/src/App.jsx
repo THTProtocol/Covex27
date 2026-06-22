@@ -46,7 +46,8 @@ const Stats = lazy(() => import('./pages/Stats'));
 const CovenantStudio = lazy(() => import('./pages/CovenantStudio'));
 const CovenantEmbed = lazy(() => import('./pages/CovenantEmbed'));
 const Sandbox = lazy(() => import('./pages/Sandbox'));
-const ZkStudio = lazy(() => import('./pages/ZkStudio'));
+// The standalone ZK Studio page is retired as a top-level route: its prove/verify engine is now
+// surfaced UNDER Build (Sandbox "Prove (ZK)" mode). /zk-studio + /zk redirect into Build below.
 const Readme = lazy(() => import('./pages/Readme'));
 const About = lazy(() => import('./pages/About'));
 const Recover = lazy(() => import('./pages/Recover'));
@@ -446,7 +447,6 @@ export default function App() {
               <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
                 <NavLink to="/sandbox" className={NL}>Build</NavLink>
-                <NavLink to="/zk-studio" className={NL}>ZK Studio</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
                 <StartTourButton />
@@ -475,7 +475,6 @@ export default function App() {
                 <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-0.5 text-sm">
                   <NavLink to="/" end className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
                   <NavLink to="/sandbox" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Build</NavLink>
-                  <NavLink to="/zk-studio" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>ZK Studio</NavLink>
                   <NavLink to="/pricing" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
                   <NavLink to="/about" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>About Covex</NavLink>
@@ -533,8 +532,11 @@ export default function App() {
               <Route path="/premium" element={<Navigate to="/sandbox?paid=1" replace />} />
               <Route path="/templates" element={<TemplateLibrary />} />
               <Route path="/sandbox" element={<Sandbox />} />
-              <Route path="/zk-studio" element={<ZkStudio />} />
-              <Route path="/zk" element={<Navigate to="/zk-studio" replace />} />
+              {/* The in-browser ZK prove/verify capability lives UNDER Build now (a "Prove (ZK)"
+                  workspace choice in the Sandbox), not as a separate top-level destination. Both the
+                  old standalone routes redirect into Build so any bookmark/deep-link lands there. */}
+              <Route path="/zk-studio" element={<Navigate to="/sandbox?mode=prove" replace />} />
+              <Route path="/zk" element={<Navigate to="/sandbox?mode=prove" replace />} />
               <Route path="/readme" element={<Readme />} />
               <Route path="/about" element={<About />} />
               <Route path="/recover" element={<Recover />} />

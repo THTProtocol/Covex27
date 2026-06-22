@@ -57,7 +57,9 @@ const ms = (n) => (n == null ? null : `${n} ms`);
 // ── flagship interactive prover card ─────────────────────────────────────────
 // Hoisted to module scope (never define-inside-render: it would remount on every parent render and
 // blow away the form/focus/proof state). One self-contained prove + verify cycle.
-function FlagshipProver({ circuitId }) {
+// Exported so the Build flow (Sandbox Phase 2 "Choose how it resolves") can reuse the SAME engine
+// to test-prove a circuit inline while the user is configuring it.
+export function FlagshipProver({ circuitId }) {
   const meta = STUDIO_CIRCUITS[circuitId];
   const [values, setValues] = useState(() => studioFieldDefaults(circuitId));
   const [status, setStatus] = useState('idle'); // idle | running | done | error
@@ -278,7 +280,10 @@ function CatalogGroup({ group, circuits, defaultOpen }) {
   );
 }
 
-export default function ZkStudio() {
+// The shared body: the honest trust framing, the flagship interactive provers, and the full
+// circuit catalog. Identical in the standalone page and the embedded-in-Build view, so there is
+// exactly ONE prove + verify engine. `embedded` only tunes the hero copy above this body.
+function ZkStudioBody() {
   // Group the full catalog by use case.
   const grouped = useMemo(() => {
     const byGroup = Object.fromEntries(GROUPS.map((g) => [g.key, []]));
@@ -297,34 +302,7 @@ export default function ZkStudio() {
   );
 
   return (
-    <div className="relative min-h-screen">
-      <div
-        className="covex-aurora"
-        aria-hidden="true"
-        style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 280, maxWidth: '92vw' }}
-      />
-
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-10">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-400 light:text-slate-500 hover:text-kaspa-green mb-7">
-          <ArrowLeft size={15} /> Back to Explorer
-        </Link>
-
-        {/* hero */}
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/35 bg-violet-500/12 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-violet-300 light:text-violet-700 light:bg-violet-50 light:border-violet-300 mb-4">
-            <ShieldCheck size={13} /> ZK Studio
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white light:text-slate-900 tracking-tight">
-            Generate and verify real ZK proofs in your browser
-          </h1>
-          <p className="mt-3 max-w-3xl text-[15px] text-gray-300 light:text-slate-600 leading-relaxed">
-            Covex's circom circuits, made usable. Pick a circuit, fill in a private statement, and a
-            real Groth16 proof is generated in your browser with snarkjs against the served wasm and
-            proving key, then verified in the same tab against the served verification key. No server,
-            no oracle: the whole cycle is yours.
-          </p>
-        </div>
-
+    <>
         {/* honest trust framing */}
         <div className="mb-9 rounded-2xl border border-amber-500/25 bg-amber-500/[0.05] p-4 sm:p-5 light:bg-amber-50 light:border-amber-200">
           <div className="flex items-center gap-2 mb-2">
@@ -393,6 +371,61 @@ export default function ZkStudio() {
             the disclosed Covex oracle, which co-signs the covenant spend.
           </p>
         </div>
+    </>
+  );
+}
+
+// Embedded view: the ZK prove/verify capability rendered AS PART OF Build (a workspace choice in
+// the Sandbox), not a separate top-level destination. No standalone hero, aurora, or "Back to
+// Explorer" link: it nests inside the Build page's own chrome. Same engine, same circuits.
+export function ZkStudioEmbedded() {
+  return (
+    <div className="min-w-0">
+      <div className="mb-6">
+        <p className="max-w-3xl text-[14px] text-gray-300 light:text-slate-600 leading-relaxed">
+          Test the zero-knowledge logic before you deploy a covenant that uses it. Pick a circuit,
+          fill in a private statement, and a real Groth16 proof is generated in your browser with
+          snarkjs against the served wasm and proving key, then verified in the same tab against the
+          served verification key. No server, no oracle: the whole cycle is yours.
+        </p>
+      </div>
+      <ZkStudioBody />
+    </div>
+  );
+}
+
+// Standalone page (kept for the internal /zk-studio route reached FROM Build, never a peer nav item).
+export default function ZkStudio() {
+  return (
+    <div className="relative min-h-screen">
+      <div
+        className="covex-aurora"
+        aria-hidden="true"
+        style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 280, maxWidth: '92vw' }}
+      />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-10">
+        <Link to="/sandbox" className="inline-flex items-center gap-2 text-sm text-gray-400 light:text-slate-500 hover:text-kaspa-green mb-7">
+          <ArrowLeft size={15} /> Back to Build
+        </Link>
+
+        {/* hero */}
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/35 bg-violet-500/12 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-violet-300 light:text-violet-700 light:bg-violet-50 light:border-violet-300 mb-4">
+            <ShieldCheck size={13} /> Prove (ZK)
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white light:text-slate-900 tracking-tight">
+            Generate and verify real ZK proofs in your browser
+          </h1>
+          <p className="mt-3 max-w-3xl text-[15px] text-gray-300 light:text-slate-600 leading-relaxed">
+            Covex's circom circuits, made usable. Pick a circuit, fill in a private statement, and a
+            real Groth16 proof is generated in your browser with snarkjs against the served wasm and
+            proving key, then verified in the same tab against the served verification key. No server,
+            no oracle: the whole cycle is yours.
+          </p>
+        </div>
+
+        <ZkStudioBody />
       </div>
     </div>
   );

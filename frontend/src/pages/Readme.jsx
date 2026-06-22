@@ -356,9 +356,9 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
               The <strong className="text-white">Toccata hard fork</strong> (KIP-17 extended scripting, KIP-20 covenant
               lineage, KIP-21 sequencing, plus the proposed KIP-16 ZK opcode set) completes the covenant toolkit on
-              mainnet. Kaspa has no on-chain pairing verifier, so ZK proofs are verified off-chain by the disclosed Covex
-              oracle and only its Schnorr co-signature is checked on-chain at unlock. Covex is built and proven against
-              this ruleset already.
+              mainnet. Kaspa has no on-chain pairing verifier, so ZK proofs are verified off-chain (by you, the
+              counterparty, or any external verifier) and only the resolver's Schnorr co-signature is checked on-chain
+              at unlock. Covex is built and proven against this ruleset already.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
               We do not fake the gap. Until Toccata activates, the mainnet explorer honestly shows <span className="text-white">zero</span> covenants, because

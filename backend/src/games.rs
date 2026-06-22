@@ -28,6 +28,15 @@ pub fn games_routes() -> Router {
         .route("/games/:covenant_id/submit-pot", post(submit_pot))
         .route("/games/:covenant_id/settle-pot", post(settle_pot))
         .route("/games/:covenant_id/submit-settle", post(submit_settle))
+        // De-oracle hashlock settle/refund (DEORACLE_PLAN stage 3): zero server signatures.
+        .route(
+            "/games/:covenant_id/settle-pot-hashlock",
+            post(settle_pot_hashlock),
+        )
+        .route(
+            "/games/:covenant_id/refund-pot-hashlock",
+            post(refund_pot_hashlock),
+        )
         .route("/games/:covenant_id/lock-channel", post(lock_channel))
         .route(
             "/games/:covenant_id/bind-channel-pot",
@@ -270,12 +279,25 @@ fn xonly_hex_from_address(addr: &str) -> Result<String, String> {
     Ok(hex::encode(p))
 }
 
-/// POST /games/:id/lock-pot {token, stake_kas, network?} : PREPARE a real on-chain pot for
-/// this match in an oracle_escrow covenant [oracle, player1, player2]. The chain releases the
-/// pot ONLY to the oracle-declared winner (settle-pot). NON-CUSTODIAL: this returns the
-/// UNSIGNED funding tx + sighash for player1's browser wallet to sign (no use_dev_mode, the
-/// server never holds player1's key). player1 signs and POSTs {session_id, signature_hex,
-/// token} to /games/:id/submit-pot, which broadcasts and links the pot to this match.
+/// Default CSV refund window (in DAA / block units) for a hashlock pot when the caller
+/// does not pass `refund_after_blocks`. The funder may reclaim the stake once the pot UTXO
+/// has aged this many units (BIP68, node-enforced) if the referee never reveals a secret.
+const DEFAULT_HASHLOCK_REFUND_BLOCKS: u64 = 720;
+
+/// POST /games/:id/lock-pot {token, stake_kas, network?, settle_mode?, refund_after_blocks?} :
+/// PREPARE a real on-chain pot for this match. NON-CUSTODIAL: returns the UNSIGNED funding tx +
+/// sighash for player1's browser wallet to sign (no use_dev_mode, the server never holds
+/// player1's key). player1 signs and POSTs {session_id, signature_hex, token} to
+/// /games/:id/submit-pot, which broadcasts and links the pot to this match.
+///
+/// `settle_mode` selects the settlement path (DEORACLE_PLAN stage 2):
+///   * "oracle_escrow" (DEFAULT, legacy): an oracle_escrow covenant [oracle, player1, player2].
+///     The chain releases the pot ONLY to the oracle-declared winner; the Covex oracle key
+///     co-signs the payout (settle-pot/submit-settle). UNCHANGED from before.
+///   * "hashlock" (NEW, de-oracle): a binary_oracle_select covenant with NO Covex key and NO
+///     referee key in the redeem - only the two player keys, two referee HASHLOCKS, a CSV
+///     refund to the funder (player1). The referee reveals the winner's secret at settle and
+///     the WINNER spends with their OWN key (settle-pot-hashlock + the non-custodial spend).
 async fn lock_pot(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -306,6 +328,13 @@ async fn lock_pot(
         .and_then(|v| v.as_str())
         .unwrap_or("testnet-12")
         .to_string();
+    // settle_mode flag (default off): "hashlock" picks the new de-oracle path, anything else
+    // (incl. absent / "oracle_escrow") keeps the legacy Covex-oracle co-sign path intact.
+    let settle_mode = req
+        .get("settle_mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("oracle_escrow")
+        .to_string();
     let p1x = match xonly_hex_from_address(&p1) {
         Ok(x) => x,
         Err(e) => return Json(json!({ "success": false, "error": e })),
@@ -315,35 +344,102 @@ async fn lock_pot(
         Err(e) => return Json(json!({ "success": false, "error": e })),
     };
 
-    // NON-CUSTODIAL: build the UNSIGNED oracle_escrow funding tx and return its sighash for
-    // player1's browser wallet to sign. No use_dev_mode, so the server never holds player1's
-    // key. The funder signs `sighash` and POSTs {session_id, signature_hex, token} to
-    // /games/:id/submit-pot, which broadcasts and links pot_tx to this match for the gate.
-    let preq: crate::covenant_builder::PrepareDeployRequest = match serde_json::from_value(json!({
-        "network": net, "deployer_addr": p1, "stake_kas": stake,
-        "redeem": { "kind": "oracle_escrow", "pubkeys_hex": [p1x, p2x] }
-    })) {
-        Ok(r) => r,
-        Err(e) => {
-            return Json(
-                json!({ "success": false, "error": format!("build prepare-deploy request: {e}") }),
-            )
-        }
+    // Build the PrepareDeployRequest. Legacy = oracle_escrow [oracle, p1, p2]; new = a
+    // binary_oracle_select with referee hashlocks and NO co-sign key in the redeem.
+    let (preq_json, mode_for_next): (serde_json::Value, &str) = if settle_mode == "hashlock" {
+        // DE-ORACLE PATH. Commit the referee's two outcome HASHLOCKS (no secrets, no key in
+        // the redeem). The domain is the match covenant_id (the stable per-pot id this match
+        // is keyed on), so a secret for match X can never satisfy match Y's hash. Outcome 0 =
+        // player1 wins (winner_a), outcome 1 = player2 wins (winner_b). Refund = the funder
+        // (player1), reclaimable after the CSV window if the referee stays silent.
+        let hash_a = crate::referee::outcome_hashlock_hex(&net, &covenant_id, 0);
+        let hash_b = crate::referee::outcome_hashlock_hex(&net, &covenant_id, 1);
+        let refund_blocks = req
+            .get("refund_after_blocks")
+            .and_then(|v| v.as_u64())
+            .filter(|d| *d > 0)
+            .unwrap_or(DEFAULT_HASHLOCK_REFUND_BLOCKS);
+        (
+            json!({
+                "network": net, "deployer_addr": p1, "stake_kas": stake,
+                "redeem": {
+                    "kind": "binary_oracle_select",
+                    "hash_a_hex": hash_a,
+                    "hash_b_hex": hash_b,
+                    "pubkeys_hex": [p1x, p2x],
+                    "lock_daa": refund_blocks,
+                    "refund_pubkey_hex": p1x
+                }
+            }),
+            "hashlock",
+        )
+    } else {
+        // LEGACY PATH (unchanged): oracle_escrow [oracle, player1, player2].
+        (
+            json!({
+                "network": net, "deployer_addr": p1, "stake_kas": stake,
+                "redeem": { "kind": "oracle_escrow", "pubkeys_hex": [p1x, p2x] }
+            }),
+            "oracle_escrow",
+        )
     };
+
+    // NON-CUSTODIAL: build the UNSIGNED funding tx and return its sighash for player1's browser
+    // wallet to sign. No use_dev_mode, so the server never holds player1's key. The funder signs
+    // `sighash` and POSTs {session_id, signature_hex, token} to /games/:id/submit-pot, which
+    // broadcasts and links pot_tx (+ settle_mode + match_id for the hashlock path) to this match.
+    let preq: crate::covenant_builder::PrepareDeployRequest =
+        match serde_json::from_value(preq_json) {
+            Ok(r) => r,
+            Err(e) => {
+                return Json(
+                    json!({ "success": false, "error": format!("build prepare-deploy request: {e}") }),
+                )
+            }
+        };
     let mut v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(preq))
         .await
         .0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        // SOUNDNESS ASSERTION (DEORACLE_PLAN stage 2): for the hashlock path the resulting
+        // redeem MUST embed NEITHER the Covex oracle xonly NOR the referee xonly - only the two
+        // player keys, the two referee hashlocks, and the funder refund key. If either control
+        // key leaked into the redeem we refuse to proceed (the pot would not be de-oracled).
+        if mode_for_next == "hashlock" {
+            if let Some(redeem_hex) = v.get("redeem_script_hex").and_then(|s| s.as_str()) {
+                let oracle_x = crate::oracle::oracle_xonly_pubkey_hex();
+                let referee_x = crate::referee::referee_xonly_pubkey_hex(&net);
+                let lower = redeem_hex.to_lowercase();
+                if lower.contains(&oracle_x.to_lowercase()) {
+                    return Json(json!({ "success": false, "error": "internal error: hashlock pot redeem unexpectedly embeds the Covex oracle key; refusing to lock a non-de-oracled pot" }));
+                }
+                if lower.contains(&referee_x.to_lowercase()) {
+                    return Json(json!({ "success": false, "error": "internal error: hashlock pot redeem unexpectedly embeds the referee key; the referee must never be a covenant signer" }));
+                }
+            }
+        }
+        // Record the chosen settle_mode in the response so the client knows which settle
+        // endpoint to call after funding. submit-pot persists it on the row.
+        v["settle_mode"] = json!(mode_for_next);
+        v["match_id"] = json!(covenant_id);
+        let settle_ep = if mode_for_next == "hashlock" {
+            "settle-pot-hashlock"
+        } else {
+            "submit-settle"
+        };
         v["next"] = json!(format!(
-            "Sign `sighash` (BIP340 Schnorr) with player1's wallet, then POST {{session_id, signature_hex, token}} to /games/{covenant_id}/submit-pot to broadcast and link the pot."
+            "Sign `sighash` (BIP340 Schnorr) with player1's wallet, then POST {{session_id, signature_hex, token, settle_mode}} to /games/{covenant_id}/submit-pot to broadcast and link the pot. Settle later via /games/{covenant_id}/{settle_ep}."
         ));
     }
     Json(v)
 }
 
-/// POST /games/:id/submit-pot {token, session_id, signature_hex} : broadcast the player1-signed
-/// oracle_escrow funding tx (non-custodial; the server never held player1's key) and LINK the
-/// resulting pot to this match so settle-pot's money gate (game_pot_outcome) can resolve it.
+/// POST /games/:id/submit-pot {token, session_id, signature_hex, settle_mode?} : broadcast the
+/// player1-signed funding tx (non-custodial; the server never held player1's key) and LINK the
+/// resulting pot to this match so the settle money gate (game_pot_outcome) can resolve it.
+/// `settle_mode` (echoed from lock-pot) records which settle path the pot uses: the legacy
+/// "oracle_escrow" co-sign, or the new "hashlock" referee-reveal. For "hashlock", match_id is
+/// bound to this match's covenant_id (the referee hashlock domain) so settle can re-derive it.
 async fn submit_pot(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -387,11 +483,28 @@ async fn submit_pot(
             // Persist the LOCKED amount the node accepted (from the broadcast result), not a
             // client-claimed stake, so the recorded pot matches what is actually on-chain.
             let kas = v.get("locked_kas").and_then(|k| k.as_f64()).unwrap_or(0.0);
+            // Record the settle path. "hashlock" binds match_id to this match's covenant_id
+            // (the referee hashlock domain) so settle-pot-hashlock can re-derive the winner's
+            // secret. Anything else stays on the legacy oracle_escrow co-sign path (match_id
+            // left NULL). settle_mode is echoed from lock-pot; default to oracle_escrow so an
+            // older client that omits it behaves exactly as before.
+            let settle_mode = req
+                .get("settle_mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("oracle_escrow")
+                .to_string();
             let conn = db.lock().unwrap();
-            let _ = conn.execute(
-                "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, updated_at = unixepoch() WHERE covenant_id = ?3",
-                params![tx, kas, covenant_id],
-            );
+            if settle_mode == "hashlock" {
+                let _ = conn.execute(
+                    "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, settle_mode = 'hashlock', match_id = ?3, updated_at = unixepoch() WHERE covenant_id = ?3",
+                    params![tx, kas, covenant_id],
+                );
+            } else {
+                let _ = conn.execute(
+                    "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, settle_mode = 'oracle_escrow', updated_at = unixepoch() WHERE covenant_id = ?3",
+                    params![tx, kas, covenant_id],
+                );
+            }
         }
     }
     Json(v)
@@ -578,6 +691,196 @@ async fn submit_settle(
                 params![tx, covenant_id],
             );
         }
+    }
+    Json(v)
+}
+
+/// Load the linked pot for a hashlock-settled match: (pot_tx, match_id, network). Returns
+/// Err(message) if there is no pot, the pot is not a hashlock pot, or the domain is missing.
+/// The network is read from the p2sh_covenants row (where the pot is recorded on funding).
+fn load_hashlock_pot(
+    db: &crate::db::Db,
+    covenant_id: &str,
+) -> Result<(String, String, String), String> {
+    let conn = db.lock().unwrap();
+    let (pot_tx, settle_mode, match_id): (Option<String>, Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT pot_tx, settle_mode, match_id FROM skill_games WHERE covenant_id = ?1",
+            params![covenant_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .map_err(|_| "no match for this covenant".to_string())?;
+    let pot_tx = match pot_tx {
+        Some(t) if !t.is_empty() => t,
+        _ => {
+            return Err(
+                "no pot locked for this game (call lock-pot with settle_mode=hashlock first)"
+                    .to_string(),
+            )
+        }
+    };
+    if settle_mode.as_deref() != Some("hashlock") {
+        return Err(
+            "this pot is not a hashlock pot; use /settle-pot (the legacy oracle co-sign) instead"
+                .to_string(),
+        );
+    }
+    // The referee hashlock domain bound at lock time. We default to the match covenant_id (the
+    // domain lock-pot used) if an older row somehow lacks it, so re-derivation stays consistent.
+    let domain = match_id.filter(|s| !s.is_empty()).unwrap_or_else(|| covenant_id.to_string());
+    let net: String = conn
+        .query_row(
+            "SELECT network FROM p2sh_covenants WHERE tx_id = ?1",
+            params![pot_tx],
+            |r| r.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "testnet-12".to_string());
+    Ok((pot_tx, domain, net))
+}
+
+/// POST /games/:id/settle-pot-hashlock {token} : settle a HASHLOCK pot with ZERO server
+/// signatures (DEORACLE_PLAN stage 3). The referee REVEALS the winning outcome's secret and
+/// the WINNER spends the binary_oracle_select covenant with THEIR OWN key.
+///
+/// Auth: a seated player (seat token), same as settle-pot. MONEY GATE: the winning side is
+/// re-derived from the server-authoritative engine replay (game_pot_outcome, FAIL CLOSED), so a
+/// poisoned `winner` field can never redirect the pot. The referee then re-derives the winning
+/// outcome's secret (deterministic from REFEREE_KEY + the match domain) and this handler returns
+/// it PLUS the UNSIGNED reveal-branch spend the winner must sign. The server/referee contributes
+/// NO signature on the spend: the winner signs `sighash` (BIP340) in their browser and POSTs
+/// {session_id, signature_hex, preimage_hex: <revealed_secret>} to /covenant/p2sh/submit-signed.
+async fn settle_pot_hashlock(
+    Extension(db): Extension<crate::db::Db>,
+    Path(covenant_id): Path<String>,
+    Json(auth): Json<AuthReq>,
+) -> Json<serde_json::Value> {
+    // Auth: only a seated player (holding this match's seat token) may settle.
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
+        return Json(json!({ "success": false, "error": e }));
+    }
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    let p2 = game["player2"].as_str().unwrap_or("").to_string();
+
+    let (pot_tx, domain, net) = match load_hashlock_pot(&db, &covenant_id) {
+        Ok(v) => v,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+
+    // MONEY GATE (identical posture to settle-pot): re-derive the winning side from the
+    // server-authoritative engine replay. game_pot_outcome FAILS CLOSED on anything that is not
+    // an engine-decisive board or a server-timed timeout, so a poisoned `winner` field can never
+    // pick the destination. 0 = player1 (winner_a / outcome A), 1 = player2 (winner_b / outcome B).
+    let outcome: u32 = match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
+        crate::covenant_builder::GamePot::Verified(o) => o,
+        crate::covenant_builder::GamePot::Rejected(msg) => {
+            return Json(json!({ "success": false, "error": format!("pot settle refused: {msg}") }))
+        }
+        crate::covenant_builder::GamePot::NotAGamePot => {
+            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }))
+        }
+    };
+    let (winner, select_mode) = if outcome == 0 {
+        (&p1, "reveal_a")
+    } else {
+        (&p2, "reveal_b")
+    };
+    if winner.is_empty() {
+        return Json(json!({ "success": false, "error": "winner address missing for the verified outcome" }));
+    }
+
+    // THE REFEREE REVEAL: re-derive the winning outcome's secret. This is deterministic from
+    // REFEREE_KEY + the match domain (bound at lock time), so it matches the on-chain hashlock
+    // committed in branch A/B. The referee is a secret-revealer, NOT a covenant signer: its key
+    // appears NOWHERE in the redeem and it signs NOTHING on the spend.
+    let preimage_hex = crate::referee::outcome_secret_hex(&net, &domain, outcome);
+
+    // Build the UNSIGNED winner-branch spend (reveal_a / reveal_b) via the EXISTING non-custodial
+    // prepare-spend path: the winner's OWN x-only key is the branch signer, the destination is the
+    // re-derived winner, and the server holds no key. The winner signs the returned sighash in the
+    // browser and submits with the revealed preimage. (We surface the preimage here so the winner
+    // can complete the spend; it is revealed on-chain by the spend anyway.)
+    let preq: crate::covenant_builder::WalletPrepareRequest = match serde_json::from_value(json!({
+        "network": net,
+        "deploy_tx_id": pot_tx,
+        "destination_addr": winner,
+        "branch": select_mode
+    })) {
+        Ok(r) => r,
+        Err(e) => {
+            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+        }
+    };
+    let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
+        .await
+        .0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        // The winner needs the revealed secret to complete the spend. The server signs nothing.
+        v["preimage_hex"] = json!(preimage_hex);
+        v["winner_addr"] = json!(winner);
+        v["outcome"] = json!(outcome);
+        v["next"] = json!(format!(
+            "Referee revealed the winner's secret (preimage_hex). Sign `sighash` (BIP340 Schnorr) with the WINNER's wallet ({winner}), then POST {{session_id, signature_hex, preimage_hex}} to /covenant/p2sh/submit-signed to broadcast. The server contributed no signature; only the winner's own key spends."
+        ));
+    }
+    Json(v)
+}
+
+/// POST /games/:id/refund-pot-hashlock {token} : reclaim a HASHLOCK pot to the funder
+/// (player1) via the CSV refund branch, once the pot UTXO has aged the lock window (so a silent
+/// referee cannot strand the stake). ZERO server signatures: the funder spends the refund branch
+/// with their OWN key. Auth: restricted to the FUNDER (player1), mirroring refund-channel.
+async fn refund_pot_hashlock(
+    Extension(db): Extension<crate::db::Db>,
+    Path(covenant_id): Path<String>,
+    Json(auth): Json<AuthReq>,
+) -> Json<serde_json::Value> {
+    // Auth: any seated player passes the base check, but only the FUNDER (player1) may take the
+    // refund branch (the redeem's CSV refund key is player1). Reject a player2 caller here.
+    match authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
+        Ok(Seat::Player1) => {}
+        Ok(Seat::Player2) => {
+            return Json(json!({ "success": false, "error": "only the funder (player1) may reclaim the pot via the refund branch" }))
+        }
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    }
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    if p1.is_empty() {
+        return Json(json!({ "success": false, "error": "funder (player1) address missing" }));
+    }
+    let (pot_tx, _domain, net) = match load_hashlock_pot(&db, &covenant_id) {
+        Ok(v) => v,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    // Build the UNSIGNED refund-branch spend via the non-custodial prepare-spend path. The CSV
+    // (BIP68) age requirement is enforced by the node at broadcast: if the UTXO has not aged the
+    // lock window, the submit will be rejected with a sequence-lock error (that is the timelock
+    // protecting the winner, not a Covex check). The funder signs with their OWN key.
+    let preq: crate::covenant_builder::WalletPrepareRequest = match serde_json::from_value(json!({
+        "network": net,
+        "deploy_tx_id": pot_tx,
+        "destination_addr": p1,
+        "branch": "refund"
+    })) {
+        Ok(r) => r,
+        Err(e) => {
+            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+        }
+    };
+    let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
+        .await
+        .0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        v["next"] = json!(format!(
+            "Sign `sighash` (BIP340 Schnorr) with the funder's wallet ({p1}), then POST {{session_id, signature_hex}} to /covenant/p2sh/submit-signed. The node enforces the CSV age window; the refund only confirms once the pot UTXO has aged."
+        ));
     }
     Json(v)
 }
@@ -1647,6 +1950,231 @@ mod tests {
         assert!(
             winner.is_none(),
             "no winner may be written before the clock expires"
+        );
+    }
+
+    // ── De-oracle hashlock games money path (DEORACLE_PLAN stage 2/3) ──
+
+    /// Insert a hashlock pot row directly: a 2-player match with pot_tx linked,
+    /// settle_mode='hashlock', and match_id bound. `status`/`end_reason`/`winner`/
+    /// `moves` let a test drive the money gate (game_pot_outcome) to a decisive
+    /// or rejected result without a chain. game_type 'chess' has a server engine.
+    #[allow(clippy::too_many_arguments)]
+    fn seed_hashlock_pot(
+        db: &Db,
+        covenant_id: &str,
+        pot_tx: &str,
+        status: &str,
+        end_reason: Option<&str>,
+        winner: Option<&str>,
+    ) {
+        let conn = db.lock().unwrap();
+        conn.execute(
+            "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms, pot_tx, settle_mode, match_id, end_reason, winner, moves) \
+             VALUES (?1, 'chess', 1.0, ?2, ?3, ?4, 'tok-p1', 'tok-p2', unixepoch(), 300000, 300000, ?5, 'hashlock', ?1, ?6, ?7, '[]')",
+            params![covenant_id, P1_ADDR, P2_ADDR, status, pot_tx, end_reason, winner],
+        )
+        .expect("seed hashlock pot row");
+    }
+
+    /// REFEREE determinism + binding (mirrors referee.rs unit tests at the games
+    /// boundary): the per-outcome secret and hashlock are deterministic, the
+    /// hashlock is blake2b256(secret), and different matches/outcomes are
+    /// independent so a loser's or a wrong-match secret never satisfies the
+    /// winner's branch hash.
+    #[test]
+    fn referee_hashlock_is_deterministic_and_bound() {
+        let net = "testnet-12";
+        let s = crate::referee::outcome_secret(net, "match-1", 0);
+        assert_eq!(
+            s,
+            crate::referee::outcome_secret(net, "match-1", 0),
+            "secret must be deterministic"
+        );
+        assert_eq!(
+            crate::referee::outcome_hashlock(net, "match-1", 0),
+            crate::covenant_builder::blake2b256(&s),
+            "hashlock == blake2b256(secret)"
+        );
+        // Cross-match and cross-outcome independence (request_id-style binding).
+        assert_ne!(
+            crate::covenant_builder::blake2b256(&crate::referee::outcome_secret(net, "match-1", 0)),
+            crate::referee::outcome_hashlock(net, "match-2", 0),
+            "match-1's secret must not satisfy match-2's hashlock"
+        );
+        assert_ne!(
+            crate::covenant_builder::blake2b256(&crate::referee::outcome_secret(net, "match-1", 0)),
+            crate::referee::outcome_hashlock(net, "match-1", 1),
+            "the loser's secret must not satisfy the winner's branch hashlock"
+        );
+    }
+
+    /// A hashlock pot's redeem must embed NEITHER the Covex oracle xonly NOR the
+    /// referee xonly: only the two player keys, the two referee HASHLOCKS, and the
+    /// funder refund key. We build the exact redeem the hashlock lock-pot path
+    /// produces (binary_oracle_select with referee hashlocks + player keys) and
+    /// assert both control keys are absent and both hashlocks are present.
+    #[test]
+    fn hashlock_pot_redeem_has_no_oracle_or_referee_key() {
+        let net = "testnet-12";
+        let domain = "match-redeem-check";
+        // A throwaway oracle key so oracle_xonly_pubkey_hex() does not fail closed
+        // in this test (env is process-global; we only SET it, never assert unset).
+        std::env::set_var("COVEX_ORACLE_KEY", "11".repeat(32));
+
+        let h_a = crate::referee::outcome_hashlock(net, domain, 0);
+        let h_b = crate::referee::outcome_hashlock(net, domain, 1);
+        // Player x-only keys from the test addresses (same derivation lock-pot uses).
+        let p1x_hex = xonly_hex_from_address(P1_ADDR).expect("p1 xonly");
+        let p2x_hex = xonly_hex_from_address(P2_ADDR).expect("p2 xonly");
+        let to32 = |h: &str| -> [u8; 32] {
+            let b = hex::decode(h).unwrap();
+            let mut a = [0u8; 32];
+            a.copy_from_slice(&b);
+            a
+        };
+        let p1x = to32(&p1x_hex);
+        let p2x = to32(&p2x_hex);
+        // refund = funder = player1.
+        let redeem = crate::covenant_builder::redeem_binary_oracle_select(
+            &h_a, &p1x, &h_b, &p2x, 720, &p1x,
+        )
+        .expect("build binary_oracle_select redeem");
+        let redeem_hex = hex::encode(&redeem).to_lowercase();
+
+        let oracle_x = crate::oracle::oracle_xonly_pubkey_hex().to_lowercase();
+        let referee_x = crate::referee::referee_xonly_pubkey_hex(net).to_lowercase();
+        assert!(
+            !redeem_hex.contains(&oracle_x),
+            "hashlock pot redeem must NOT contain the Covex oracle key"
+        );
+        assert!(
+            !redeem_hex.contains(&referee_x),
+            "hashlock pot redeem must NOT contain the referee key (the referee is never a signer)"
+        );
+        // The redeem DOES bind the referee hashlocks and both player keys.
+        assert!(
+            redeem_hex.contains(&hex::encode(h_a)),
+            "redeem must embed referee hashlock A"
+        );
+        assert!(
+            redeem_hex.contains(&hex::encode(h_b)),
+            "redeem must embed referee hashlock B"
+        );
+        assert!(redeem_hex.contains(&p1x_hex.to_lowercase()), "redeem embeds player1 key");
+        assert!(redeem_hex.contains(&p2x_hex.to_lowercase()), "redeem embeds player2 key");
+    }
+
+    /// The hashlock settle MONEY GATE fails closed when game_pot_outcome cannot
+    /// prove a winner: a pot whose match is NOT finished is refused BEFORE any
+    /// secret is revealed or any spend is built. (game_pot_outcome rejects a
+    /// non-finished match.)
+    #[tokio::test]
+    async fn settle_pot_hashlock_fails_closed_when_outcome_undecided() {
+        let db = fresh_db();
+        // Active (not finished) match with a linked hashlock pot. game_pot_outcome
+        // will Reject ("match is not finished"), so the settle must refuse.
+        seed_hashlock_pot(&db, "cov-hl-1", "pot-hl-1", "active", None, None);
+        let body = json!({ "token": "tok-p1" });
+        let resp = settle_pot_hashlock(Extension(db), Path("cov-hl-1".into()), Json(
+            serde_json::from_value(body).unwrap(),
+        ))
+        .await
+        .0;
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "an undecided match must not settle a hashlock pot"
+        );
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("settle refused") || err.contains("not finished"),
+            "rejection must come from the fail-closed money gate, got: {err}"
+        );
+        // Crucially, NO preimage (referee secret) is leaked on a refused settle.
+        assert!(
+            resp.get("preimage_hex").is_none(),
+            "no referee secret may be revealed when the outcome is undecided"
+        );
+    }
+
+    /// The hashlock settle requires a valid seat token (fail-closed auth), same as
+    /// the legacy settle-pot. An empty token is rejected before any DB lookup.
+    #[tokio::test]
+    async fn settle_pot_hashlock_rejects_missing_seat_token() {
+        let db = fresh_db();
+        seed_hashlock_pot(&db, "cov-hl-2", "pot-hl-2", "active", None, None);
+        let resp = settle_pot_hashlock(
+            Extension(db),
+            Path("cov-hl-2".into()),
+            Json(AuthReq { token: None }),
+        )
+        .await
+        .0;
+        assert_eq!(resp["success"], json!(false));
+        assert!(resp["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("seat token"));
+    }
+
+    /// The hashlock refund is restricted to the FUNDER (player1): a player2 seat
+    /// token is rejected on the refund branch (only the funder's key can take the
+    /// CSV refund).
+    #[tokio::test]
+    async fn refund_pot_hashlock_only_funder() {
+        let db = fresh_db();
+        seed_hashlock_pot(&db, "cov-hl-3", "pot-hl-3", "active", None, None);
+        // player2's token -> rejected (not the funder).
+        let resp = refund_pot_hashlock(
+            Extension(db),
+            Path("cov-hl-3".into()),
+            Json(AuthReq {
+                token: Some("tok-p2".into()),
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(resp["success"], json!(false));
+        assert!(
+            resp["error"].as_str().unwrap_or("").contains("funder"),
+            "player2 must be told only the funder may refund"
+        );
+    }
+
+    /// A pot locked on the LEGACY oracle_escrow path must NOT be settle-able via the
+    /// hashlock endpoint (and vice versa): the hashlock settle refuses a pot whose
+    /// settle_mode is not 'hashlock', so the two paths never cross.
+    #[tokio::test]
+    async fn settle_pot_hashlock_refuses_legacy_oracle_pot() {
+        let db = fresh_db();
+        // Seed a pot but mark it oracle_escrow (legacy), with a finished decisive
+        // board so the ONLY thing that can refuse is the settle_mode guard.
+        {
+            let conn = db.lock().unwrap();
+            conn.execute(
+                "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms, pot_tx, settle_mode, end_reason, winner, moves) \
+                 VALUES (?1, 'chess', 1.0, ?2, ?3, 'finished', 'tok-p1', 'tok-p2', unixepoch(), 300000, 300000, 'pot-legacy', 'oracle_escrow', 'timeout', 'player1', '[]')",
+                params!["cov-hl-4", P1_ADDR, P2_ADDR],
+            )
+            .expect("seed legacy oracle pot");
+        }
+        let resp = settle_pot_hashlock(
+            Extension(db),
+            Path("cov-hl-4".into()),
+            Json(AuthReq {
+                token: Some("tok-p1".into()),
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(resp["success"], json!(false));
+        assert!(
+            resp["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("not a hashlock pot"),
+            "a legacy oracle_escrow pot must be routed away from the hashlock settle"
         );
     }
 }

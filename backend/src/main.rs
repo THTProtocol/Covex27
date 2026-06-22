@@ -44,6 +44,11 @@ mod poker;
 mod oracle;
 mod oracle_verifier;
 mod payment_verifier;
+// referee.rs is the game referee (hashlock secret-revealer) for the de-oracle
+// games money path. Some helpers (disclosure pubkey, hex variants) are retained
+// for callers/tests and are not all wired into the running binary yet.
+#[allow(dead_code)]
+mod referee;
 mod resolve;
 mod resolver_failover;
 mod signer;

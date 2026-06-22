@@ -550,6 +550,20 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         let _ = conn.execute(ddl, []);
     }
 
+    // Migration: de-oracle games money path (DEORACLE_PLAN stage 2/3).
+    // settle_mode records WHICH settlement path a pot uses:
+    //   NULL/oracle_escrow = legacy Covex-oracle co-sign (lock-pot/settle-pot),
+    //   hashlock           = binary_oracle_select referee-hashlock (the new path).
+    // match_id is the stable per-pot domain bound into the referee hashlocks at
+    // lock time (the match covenant_id), so the settle handler can re-derive the
+    // winner's secret. Both default NULL so existing rows behave exactly as before.
+    for ddl in [
+        "ALTER TABLE skill_games ADD COLUMN settle_mode TEXT",
+        "ALTER TABLE skill_games ADD COLUMN match_id TEXT",
+    ] {
+        let _ = conn.execute(ddl, []);
+    }
+
     drop(conn);
     Ok(Db { pool })
 }

@@ -5,7 +5,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
 import { toast } from '../components/ToastContext';
 import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 
@@ -343,7 +342,7 @@ const Pricing = () => {
   ];
 
   return (
-    <div className="golden-container golden-section relative z-10">
+    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 golden-section--tight">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 660, height: 300, maxWidth: '90vw' }} />
 
       {/* Short header: one line, then straight to the prices. */}
@@ -362,29 +361,27 @@ const Pricing = () => {
             <Card key={tier.id} accent={!isFree ? tier.accent : undefined} className={`relative overflow-hidden flex flex-col h-full pricing-tier-card hover-lift ${!isFree ? 'border-2' : ''}`}
               style={!isFree ? { borderColor: tier.accent + '40', boxShadow: tier.id === 'PRO' ? `0 0 0 1px ${tier.accent}55, 0 22px 55px -24px ${tier.accent}77` : undefined } : {}}>
               <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {tier.id === 'FREE' && <Eye size={20} className="text-gray-400 light:text-slate-500 shrink-0" />}
-                    {tier.id === 'BUILDER' && <Terminal size={20} className="shrink-0" style={{ color: tier.accent }} />}
-                    {tier.id === 'PRO' && <Star size={20} className="shrink-0" style={{ color: tier.accent }} />}
-                    {tier.id === 'MAX' && <Crown size={20} className="shrink-0" style={{ color: tier.accent }} />}
-                    <CardTitle className="truncate">{tier.name}</CardTitle>
+                {/* Icon + full tier name. No duplicate badge, so the name never
+                    truncates (this was clipping "Builder" to "Bu..."). */}
+                <div className="flex items-center gap-2.5">
+                  {tier.id === 'FREE' && <Eye size={20} className="text-gray-400 light:text-slate-500 shrink-0" />}
+                  {tier.id === 'BUILDER' && <Terminal size={20} className="shrink-0" style={{ color: tier.accent }} />}
+                  {tier.id === 'PRO' && <Star size={20} className="shrink-0" style={{ color: tier.accent }} />}
+                  {tier.id === 'MAX' && <Crown size={20} className="shrink-0" style={{ color: tier.accent }} />}
+                  <CardTitle>{tier.name}</CardTitle>
+                </div>
+                {/* Price = the hero. The unit and cadence sit on their own lines so
+                    nothing overflows a narrow card (this was clipping "one-time"). */}
+                <div className="mt-4">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-4xl sm:text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">
+                      {isFree ? 'Free' : tier.price.toLocaleString()}
+                    </span>
+                    {!isFree && <span className="text-base font-bold" style={{ color: tier.accent }}>KAS</span>}
                   </div>
-                  <Badge variant={tier.variant} className="shrink-0">{tier.id}</Badge>
+                  <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5">{isFree ? 'free forever' : 'one-time payment'}</div>
                 </div>
-                {/* Price = the hero of each card */}
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  {isFree ? (
-                    <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">Free</span>
-                  ) : (
-                    <>
-                      <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">{tier.price.toLocaleString()}</span>
-                      <span className="text-sm font-semibold" style={{ color: tier.accent }}>KAS</span>
-                      <span className="text-xs text-gray-500 light:text-slate-500 ml-1">one-time</span>
-                    </>
-                  )}
-                </div>
-                <p className="text-sm text-gray-400 light:text-slate-600 mt-2 min-h-[2.5rem]">{TAGLINES[tier.id]}</p>
+                <p className="text-sm text-gray-400 light:text-slate-600 mt-3 leading-relaxed">{TAGLINES[tier.id]}</p>
               </CardHeader>
               <div className="mt-auto p-6 pt-0">
                 <Button

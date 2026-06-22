@@ -195,6 +195,10 @@ h3, h4 {
 }
 .golden-grid--center { align-items: center; }
 .golden-grid--stretch { align-items: stretch; }
+/* Gap modifiers stay on the phi scale (defined after the base rule so they win
+   at equal specificity). */
+.golden-grid--snug { gap: var(--gold-sm); }
+.golden-grid--flush { gap: var(--gold-2xs); }
 @media (min-width: 768px) {
   .golden-grid { grid-template-columns: minmax(0, 1.618fr) minmax(0, 1fr); }
   .golden-grid--reverse { grid-template-columns: minmax(0, 1fr) minmax(0, 1.618fr); }

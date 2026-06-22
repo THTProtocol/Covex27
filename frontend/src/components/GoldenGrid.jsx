@@ -47,12 +47,14 @@ export function GoldenSection({ as: As = 'section', spacing = 'base', className,
  * exactly two children (the two tracks). Stacks to one column below md.
  *   ratio: 'golden' (default, left wider) | 'reverse' (right wider) | 'even'
  *   align: 'start' (default) | 'center' | 'stretch'
+ *   gap:   'base' (default, phi^2) | 'snug' (phi) | 'flush' (1/phi)
  */
-export function GoldenGrid({ ratio = 'golden', align = 'start', className, children, ...rest }) {
+export function GoldenGrid({ ratio = 'golden', align = 'start', gap = 'base', className, children, ...rest }) {
   const r = ratio === 'reverse' ? 'golden-grid--reverse' : ratio === 'even' ? 'golden-grid--even' : '';
   const a = align === 'center' ? 'golden-grid--center' : align === 'stretch' ? 'golden-grid--stretch' : '';
+  const g = gap === 'snug' ? 'golden-grid--snug' : gap === 'flush' ? 'golden-grid--flush' : '';
   return (
-    <div className={cx('golden-grid', r, a, className)} {...rest}>
+    <div className={cx('golden-grid', r, a, g, className)} {...rest}>
       {children}
     </div>
   );

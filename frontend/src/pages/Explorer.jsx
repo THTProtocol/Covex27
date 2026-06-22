@@ -238,15 +238,61 @@ function useCountUp(target, duration = 950) {
   return val;
 }
 
-function CountUpStat({ icon: Icon, label, value, fmt, tip }) {
+// Count-up value with no layout of its own, for the live snapshot band.
+function CountUpValue({ value, fmt }) {
   const n = useCountUp(value);
+  return fmt(n);
+}
+
+// The hero "Live snapshot": a premium full-width KPI band laid on the golden
+// grid (phi = 1.618). Total value locked is the headline figure on the wider
+// phi track; the covenant and featured counts stack on the narrow track. The
+// surface is solid with a faint brand wash so the DAG backdrop does not bleed
+// through, and it is light/dark safe and stacks on mobile.
+function LiveSnapshotBand({ stats, netLabel, network }) {
+  const tvl = useCountUp(stats.totalTVL);
+  const tvlStr = formatKaspa(tvl);
+  const sp = tvlStr.lastIndexOf(' ');
+  const tvlNum = sp > 0 ? tvlStr.slice(0, sp) : tvlStr;
+  const tvlUnit = sp > 0 ? tvlStr.slice(sp + 1) : '';
   return (
-    <div className="flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-white/[0.025] light:hover:bg-slate-50 transition-colors" title={tip || undefined}>
-      <p className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-gray-400 light:text-slate-500 font-mono uppercase tracking-[0.18em]">
-        <Icon size={11} className="text-kaspa-green/80" />
-        <span className={tip ? 'underline decoration-dotted decoration-white/30 light:decoration-slate-400 underline-offset-2 cursor-help' : undefined}>{label}</span>
-      </p>
-      <p className="text-lg sm:text-xl font-black text-white light:text-slate-900 tabular-nums">{fmt(n)}</p>
+    <div className="hover-lift relative overflow-hidden rounded-2xl border border-white/10 light:border-slate-200 bg-gradient-to-br from-[#0c0c14]/90 to-[#0c0c14]/70 light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_64px_-28px_rgba(73,234,203,0.35)] light:shadow-[0_10px_30px_-14px_rgba(15,23,42,0.14)]">
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-[radial-gradient(120%_140%_at_0%_0%,rgba(73,234,203,0.08),transparent_55%)]" />
+      <div className="relative flex items-center gap-2 px-5 pt-4">
+        <span className="relative inline-flex h-1.5 w-1.5">
+          <span aria-hidden="true" className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 motion-safe:animate-ping" />
+          <span aria-hidden="true" className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
+        </span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/55 light:text-slate-500">Live snapshot</span>
+        <span className="ml-auto text-[10px] font-mono uppercase tracking-[0.14em] text-white/35 light:text-slate-400">{network}</span>
+      </div>
+      <GoldenGrid align="center" gap="snug" className="relative px-5 pb-5 pt-3">
+        {/* phi track: total value locked, the headline figure */}
+        <div className="text-center sm:text-left">
+          <div className="flex items-center justify-center sm:justify-start gap-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-gray-400 light:text-slate-500 mb-1.5">
+            <Coins size={12} className="text-kaspa-green/80" aria-hidden="true" /> Total value locked
+          </div>
+          <div className="inline-flex items-baseline gap-1.5 leading-none">
+            <span className="text-4xl md:text-5xl font-black tabular-nums text-white light:text-slate-900">{tvlNum}</span>
+            {tvlUnit && <span className="text-lg md:text-xl font-bold text-gray-400 light:text-slate-500">{tvlUnit}</span>}
+          </div>
+        </div>
+        {/* narrow track: covenant + featured counts, stacked */}
+        <div className="rounded-xl border border-white/[0.07] light:border-slate-200 divide-y divide-white/[0.06] light:divide-slate-200 bg-white/[0.02] light:bg-white/70">
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-gray-400 light:text-slate-500">
+              <Layers size={12} className="text-kaspa-green/80" aria-hidden="true" /> {netLabel} Covenants
+            </span>
+            <span className="text-base font-black tabular-nums text-white light:text-slate-900"><CountUpValue value={stats.total} fmt={formatCount} /></span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2.5" title="Building is always free. Paid tiers add priority placement and the premium template library.">
+            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-gray-400 light:text-slate-500">
+              <TrendingUp size={12} className="text-kaspa-green/80" aria-hidden="true" /> Featured
+            </span>
+            <span className="text-base font-black tabular-nums text-white light:text-slate-900"><CountUpValue value={stats.paidCount} fmt={formatCount} /></span>
+          </div>
+        </div>
+      </GoldenGrid>
     </div>
   );
 }
@@ -609,26 +655,27 @@ export default function Explorer() {
 
   return (
     <>
-      {/* HERO - recomposed on the golden grid (phi = 1.618). The live copy and
-          capability chips keep their wording but now sit on the wider phi track;
-          the live on-chain snapshot sits on the narrow track. Mobile-first: the
-          two tracks stack below md (copy first, then the snapshot). */}
+      {/* HERO - centered copy + capability chips, with the live on-chain snapshot
+          relocated to a full-width KPI band below (LiveSnapshotBand). The band is
+          itself laid on the golden grid (phi = 1.618): total value locked is the
+          headline figure on the wider phi track, the counts stack on the narrow
+          track. Stacks on mobile. */}
       <section data-tour="explorer-hero" className="relative z-10 golden-section px-4 sm:px-6">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
         <div className="relative max-w-6xl mx-auto">
-          <GoldenGrid align="center">
-            {/* LEFT (phi track): headline, copy, capability chips, and the actions. */}
-            <div className="text-center md:text-left">
+          {/* Centered hero copy: headline, lede, the SilverScript note, the
+              capability chips, and the action row. */}
+          <div className="text-center">
               <h1
-                className="font-black text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl md:max-w-none mx-auto md:mx-0 leading-[1.08] sm:leading-[1.05] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
+                className="font-black text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl mx-auto leading-[1.08] sm:leading-[1.05] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
                 style={{ fontSize: 'clamp(1.9rem, 5vw, 3.85rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
               >
                 Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto md:mx-0 leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+              <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
                 Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
               </p>
-              <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
+              <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
                 <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
                   Powered by SilverScript covenants on programmable UTXOs. Building is free; paid tiers add priority placement and the premium template library.
                 </span>
@@ -636,7 +683,7 @@ export default function Explorer() {
               {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
                   deep-links into the matching Explorer category filter (custom logic opens the
                   builder). Categories are the canonical ALL_CATEGORIES / CATEGORY_QUERY keys. */}
-              <div className="relative flex flex-wrap items-center justify-center md:justify-start gap-2 max-w-2xl mx-auto md:mx-0 mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.12s_both]">
+              <div className="relative flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.12s_both]">
                 {CAPABILITY_CHIPS.map(({ label, category, to, Icon }) => {
                   const cls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-medium text-white/80 light:text-slate-700 hover:text-kaspa-green light:hover:text-emerald-700 hover:border-kaspa-green/40 light:hover:border-emerald-400 hover:bg-kaspa-green/[0.06] light:hover:bg-emerald-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60';
                   return to ? (
@@ -659,7 +706,7 @@ export default function Explorer() {
                   CTA, then the promoted "Take the tour" secondary (glass Button + Compass),
                   then a quiet "How It Works" link. "Deploy on-chain enforced" is demoted
                   out of the hero into the page body below. */}
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
+              <div className="flex flex-wrap items-center justify-center gap-3 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
                 <Link
                   data-tour="build-cta"
                   to="/sandbox"
@@ -693,7 +740,7 @@ export default function Explorer() {
                 <div
                   role="region"
                   aria-label="Tour invitation"
-                  className="relative w-full max-w-md mx-auto md:mx-0 mt-8 rounded-2xl border border-kaspa-green/30 light:border-emerald-300 glass-panel light:bg-white light:shadow-sm px-4 py-3.5 flex items-center gap-3 text-left animate-[slide-up_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
+                  className="relative w-full max-w-md mx-auto mt-8 rounded-2xl border border-kaspa-green/30 light:border-emerald-300 glass-panel light:bg-white light:shadow-sm px-4 py-3.5 flex items-center gap-3 text-left animate-[slide-up_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
                 >
                   <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/15 light:bg-emerald-600/15 text-kaspa-green light:text-emerald-700 shrink-0">
                     <Compass size={16} />
@@ -716,29 +763,12 @@ export default function Explorer() {
               )}
             </div>
 
-            {/* RIGHT (narrow track): the live on-chain snapshot, as a stat rail so the
-                three figures read cleanly even in the slimmer golden column. */}
-            <div className="w-full animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
-              <div className="hover-lift rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06] light:border-slate-200">
-                  <span className="relative inline-flex h-1.5 w-1.5">
-                    <span aria-hidden="true" className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 motion-safe:animate-ping" />
-                    <span aria-hidden="true" className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
-                  </span>
-                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/50 light:text-slate-500">Live snapshot</span>
-                </div>
-                <div className="divide-y divide-white/[0.06] light:divide-slate-200">
-                  {[
-                    { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
-                    { icon: TrendingUp, label: 'Featured', value: stats.paidCount, fmt: formatCount, tip: 'Building is always free. Paid tiers add priority placement and the premium template library.' },
-                    { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
-                  ].map((s, i) => (
-                    <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} tip={s.tip} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </GoldenGrid>
+          {/* Live snapshot: the on-chain KPIs as a premium full-width band laid on
+              the golden grid (total value locked is the headline figure on the
+              wider phi track; the covenant + featured counts stack beside it). */}
+          <div className="mt-10 sm:mt-12 w-full max-w-2xl mx-auto animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
+            <LiveSnapshotBand stats={stats} netLabel={netLabel} network={kaspaNetwork} />
+          </div>
 
           <div className="mt-8">
             <LiveTicker network={kaspaNetwork} />

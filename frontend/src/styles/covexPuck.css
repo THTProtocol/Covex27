@@ -126,6 +126,27 @@
 .cvx-placeholder { border: 1px dashed rgba(255,255,255,0.15); color: #6b7280; }
 .light .cvx-placeholder { border-color: #cbd5e1; color: #94a3b8; }
 
+/* ---- Golden grid (layout) ----
+   A self-contained copy of the .golden-grid split from index.css so the
+   covenant builder's Golden Grid block renders identically in the Studio
+   editor canvas and the published/embedded covenant page, even if only this
+   stylesheet travels with the block. The gap consumes the shared --gold-sm
+   token when present and falls back to its literal value otherwise; the fr
+   tracks stay literal because CSS cannot append a unit to a var(). These
+   rules are layout only (no color), so they need no light override. phi = 1.618. */
+.cvx-golden {
+  display: grid;
+  gap: var(--gold-sm, 1.618rem);
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.cvx-golden.cvx-golden-center { align-items: center; }
+@media (min-width: 768px) {
+  .cvx-golden { grid-template-columns: minmax(0, 1.618fr) minmax(0, 1fr); }
+  .cvx-golden.cvx-golden-reverse { grid-template-columns: minmax(0, 1fr) minmax(0, 1.618fr); }
+  .cvx-golden.cvx-golden-even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Custom Puck fields (ColorField + IconPicker) + studio chrome
    ═══════════════════════════════════════════════════════════════ */

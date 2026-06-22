@@ -32,6 +32,7 @@ import { useWallet, getCurrentNetwork, DEFAULT_NETWORK } from '../components/Wal
 import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
+import { GoldenGrid } from '../components/GoldenGrid';
 import CopyButton from '../components/CopyButton';
 import { Badge } from '../components/ui/Badge';
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
@@ -608,115 +609,141 @@ export default function Explorer() {
 
   return (
     <>
-      {/* HERO */}
-      <section data-tour="explorer-hero" className="relative z-10 flex flex-col items-center justify-center pt-14 sm:pt-20 pb-10 px-4 sm:px-6 text-center">
+      {/* HERO - recomposed on the golden grid (phi = 1.618). The live copy and
+          capability chips keep their wording but now sit on the wider phi track;
+          the live on-chain snapshot sits on the narrow track. Mobile-first: the
+          two tracks stack below md (copy first, then the snapshot). */}
+      <section data-tour="explorer-hero" className="relative z-10 golden-section px-4 sm:px-6">
         <div className="covex-aurora" style={{ top: 8, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 560, height: 300, maxWidth: '88vw' }} aria-hidden="true" />
-        <h1
-          className="relative font-black text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl leading-[1.08] sm:leading-[1.05] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
-          style={{ fontSize: 'clamp(1.9rem, 5vw, 3.85rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
-        >
-          Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
-        </h1>
-        <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-          Self-running apps on Kaspa. Your wallet signs, your keys and funds stay yours, never ours. Build games, escrows, ZK proofs, auctions, or your own custom logic, each with its own website.
-        </p>
-        <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
-          <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
-            Powered by SilverScript covenants on programmable UTXOs. Building is free; paid tiers add priority placement and the premium template library.
-          </span>
-        </p>
-        {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
-            deep-links into the matching Explorer category filter (custom logic opens the
-            builder). Categories are the canonical ALL_CATEGORIES / CATEGORY_QUERY keys. */}
-        <div className="relative flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.12s_both]">
-          {CAPABILITY_CHIPS.map(({ label, category, to, Icon }) => {
-            const cls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-medium text-white/80 light:text-slate-700 hover:text-kaspa-green light:hover:text-emerald-700 hover:border-kaspa-green/40 light:hover:border-emerald-400 hover:bg-kaspa-green/[0.06] light:hover:bg-emerald-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60';
-            return to ? (
-              <Link key={label} to={to} className={cls}>
-                <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
-              </Link>
-            ) : (
-              <button
-                key={label}
-                type="button"
-                onClick={() => { setActiveCategory(category); setShowCategoryPanel(false); if (typeof window !== 'undefined') requestAnimationFrame(() => document.getElementById('explorer-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}
-                className={cls}
+        <div className="relative max-w-6xl mx-auto">
+          <GoldenGrid align="center">
+            {/* LEFT (phi track): headline, copy, capability chips, and the actions. */}
+            <div className="text-center md:text-left">
+              <h1
+                className="font-black text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl md:max-w-none mx-auto md:mx-0 leading-[1.08] sm:leading-[1.05] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
+                style={{ fontSize: 'clamp(1.9rem, 5vw, 3.85rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
               >
-                <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
-              </button>
-            );
-          })}
-        </div>
-        {/* Primary action row. Order is deliberate: the primary "Build a Covenant"
-            CTA, then the promoted "Take the tour" secondary (glass Button + Compass),
-            then a quiet "How It Works" link. "Deploy on-chain enforced" is demoted
-            out of the hero into the page body below. */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
-          <Link
-            data-tour="build-cta"
-            to="/sandbox"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
-          >
-            <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
-            Build a Covenant
-          </Link>
-          {/* Promoted secondary CTA: launches the FirstCovenantTour overlay. */}
-          <Button
-            variant="glass"
-            size="lg"
-            onClick={startTour}
-            className="rounded-xl"
-          >
-            <Compass size={16} className="text-kaspa-green light:text-emerald-700" />
-            Take the tour
-          </Button>
-          {/* Quiet tertiary link: "How It Works" is informational, not an action. */}
-          <Link
-            to="/readme"
-            className="inline-flex items-center gap-2 px-2 py-3 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
-          >
-            How It Works
-          </Link>
-        </div>
+                Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
+              </h1>
+              <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto md:mx-0 leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+                Self-running apps on Kaspa. Your wallet signs, your keys and funds stay yours, never ours. Build games, escrows, ZK proofs, auctions, or your own custom logic, each with its own website.
+              </p>
+              <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
+                <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
+                  Powered by SilverScript covenants on programmable UTXOs. Building is free; paid tiers add priority placement and the premium template library.
+                </span>
+              </p>
+              {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
+                  deep-links into the matching Explorer category filter (custom logic opens the
+                  builder). Categories are the canonical ALL_CATEGORIES / CATEGORY_QUERY keys. */}
+              <div className="relative flex flex-wrap items-center justify-center md:justify-start gap-2 max-w-2xl mx-auto md:mx-0 mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.12s_both]">
+                {CAPABILITY_CHIPS.map(({ label, category, to, Icon }) => {
+                  const cls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-medium text-white/80 light:text-slate-700 hover:text-kaspa-green light:hover:text-emerald-700 hover:border-kaspa-green/40 light:hover:border-emerald-400 hover:bg-kaspa-green/[0.06] light:hover:bg-emerald-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60';
+                  return to ? (
+                    <Link key={label} to={to} className={cls}>
+                      <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
+                    </Link>
+                  ) : (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => { setActiveCategory(category); setShowCategoryPanel(false); if (typeof window !== 'undefined') requestAnimationFrame(() => document.getElementById('explorer-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}
+                      className={cls}
+                    >
+                      <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Primary action row. Order is deliberate: the primary "Build a Covenant"
+                  CTA, then the promoted "Take the tour" secondary (glass Button + Compass),
+                  then a quiet "How It Works" link. "Deploy on-chain enforced" is demoted
+                  out of the hero into the page body below. */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
+                <Link
+                  data-tour="build-cta"
+                  to="/sandbox"
+                  className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                >
+                  <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
+                  Build a Covenant
+                </Link>
+                {/* Promoted secondary CTA: launches the FirstCovenantTour overlay. */}
+                <Button
+                  variant="glass"
+                  size="lg"
+                  onClick={startTour}
+                  className="rounded-xl"
+                >
+                  <Compass size={16} className="text-kaspa-green light:text-emerald-700" />
+                  Take the tour
+                </Button>
+                {/* Quiet tertiary link: "How It Works" is informational, not an action. */}
+                <Link
+                  to="/readme"
+                  className="inline-flex items-center gap-2 px-2 py-3 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
+                >
+                  How It Works
+                </Link>
+              </div>
 
-        {/* First-visit invitation card. Dismissible, persists to localStorage, never
-            auto-launches. Shown only to visitors who have not started or skipped the tour. */}
-        {showTourInvite && (
-          <div
-            role="region"
-            aria-label="Tour invitation"
-            className="relative w-full max-w-md mx-auto mb-8 rounded-2xl border border-kaspa-green/30 light:border-emerald-300 glass-panel light:bg-white light:shadow-sm px-4 py-3.5 flex items-center gap-3 text-left animate-[slide-up_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
-          >
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/15 light:bg-emerald-600/15 text-kaspa-green light:text-emerald-700 shrink-0">
-              <Compass size={16} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-white light:text-slate-900">New here? Take the tour.</div>
-              <div className="text-xs text-gray-400 light:text-slate-600 mt-0.5">A quick honest walkthrough of how covenants are built and enforced.</div>
+              {/* First-visit invitation card. Dismissible, persists to localStorage, never
+                  auto-launches. Shown only to visitors who have not started or skipped the tour. */}
+              {showTourInvite && (
+                <div
+                  role="region"
+                  aria-label="Tour invitation"
+                  className="relative w-full max-w-md mx-auto md:mx-0 mt-8 rounded-2xl border border-kaspa-green/30 light:border-emerald-300 glass-panel light:bg-white light:shadow-sm px-4 py-3.5 flex items-center gap-3 text-left animate-[slide-up_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
+                >
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/15 light:bg-emerald-600/15 text-kaspa-green light:text-emerald-700 shrink-0">
+                    <Compass size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-white light:text-slate-900">New here? Take the tour.</div>
+                    <div className="text-xs text-gray-400 light:text-slate-600 mt-0.5">A quick honest walkthrough of how covenants are built and enforced.</div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button variant="kaspa" size="sm" onClick={startTourFromInvite}>Take it</Button>
+                    <button
+                      type="button"
+                      onClick={dismissTourInvite}
+                      className="text-xs font-medium text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900 transition-colors px-2 py-1.5"
+                    >
+                      No thanks
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Button variant="kaspa" size="sm" onClick={startTourFromInvite}>Take it</Button>
-              <button
-                type="button"
-                onClick={dismissTourInvite}
-                className="text-xs font-medium text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900 transition-colors px-2 py-1.5"
-              >
-                No thanks
-              </button>
+
+            {/* RIGHT (narrow track): the live on-chain snapshot, as a stat rail so the
+                three figures read cleanly even in the slimmer golden column. */}
+            <div className="w-full animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
+              <div className="hover-lift rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06] light:border-slate-200">
+                  <span className="relative inline-flex h-1.5 w-1.5">
+                    <span aria-hidden="true" className="absolute inline-flex h-full w-full rounded-full bg-kaspa-green opacity-60 motion-safe:animate-ping" />
+                    <span aria-hidden="true" className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
+                  </span>
+                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/50 light:text-slate-500">Live snapshot</span>
+                </div>
+                <div className="divide-y divide-white/[0.06] light:divide-slate-200">
+                  {[
+                    { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
+                    { icon: TrendingUp, label: 'Featured', value: stats.paidCount, fmt: formatCount, tip: 'Building is always free. Paid tiers add priority placement and the premium template library.' },
+                    { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
+                  ].map((s, i) => (
+                    <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} tip={s.tip} />
+                  ))}
+                </div>
+              </div>
             </div>
+          </GoldenGrid>
+
+          <div className="mt-8">
+            <LiveTicker network={kaspaNetwork} />
           </div>
-        )}
-        <div className="hover-lift w-full max-w-2xl mx-auto rounded-2xl border border-white/[0.07] light:border-slate-200 bg-gradient-to-b from-white/[0.04] to-white/[0.01] light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_16px_48px_-24px_rgba(73,234,203,0.3)] light:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] grid grid-cols-3 divide-x divide-white/[0.06] light:divide-slate-200 mb-6 overflow-hidden animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
-          {[
-            { icon: Layers, label: `${netLabel} Covenants`, value: stats.total, fmt: formatCount },
-            { icon: TrendingUp, label: 'Featured', value: stats.paidCount, fmt: formatCount, tip: 'Building is always free. Paid tiers add priority placement and the premium template library.' },
-            { icon: Coins, label: 'Total TVL', value: stats.totalTVL, fmt: (n) => formatKaspa(n) },
-          ].map((s, i) => (
-            <CountUpStat key={i} icon={s.icon} label={s.label} value={s.value} fmt={s.fmt} tip={s.tip} />
-          ))}
         </div>
-
-        <LiveTicker network={kaspaNetwork} />
 
         {/* Category filter: single button that reveals all types/options when pressed (clean, not always listing everything) */}
         <div className="flex justify-center mb-4">

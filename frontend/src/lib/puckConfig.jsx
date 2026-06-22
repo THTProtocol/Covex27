@@ -234,7 +234,7 @@ export const puckConfig = {
   },
   categories: {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner', 'EnforcementBadge'] },
-    layout: { title: 'Layout', components: ['Hero', 'Spacer', 'Divider', 'TwoColumns', 'SectionBackground', 'Tabs', 'Accordion'] },
+    layout: { title: 'Layout', components: ['Hero', 'GoldenGrid', 'TwoColumns', 'Spacer', 'Divider', 'SectionBackground', 'Tabs', 'Accordion'] },
     content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'LogoStrip', 'Timeline', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
     covenant: { title: 'Covenant (live)', components: ['StatRow', 'AnimatedCounter', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'PoolChart', 'ActivityFeed', 'Leaderboard', 'Marquee', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
@@ -1223,6 +1223,37 @@ export const puckConfig = {
           <p className="text-xs cvx-fee-body leading-relaxed">{resolveTokens(feeText, puck?.metadata?.live || {})}</p>
         </div>
       ),
+    },
+    GoldenGrid: {
+      label: 'Golden Grid (layout)',
+      fields: {
+        ratio: {
+          type: 'select',
+          label: 'Column proportion',
+          options: [
+            { label: 'Golden - left wider (1.618 : 1)', value: 'golden' },
+            { label: 'Golden - right wider (1 : 1.618)', value: 'reverse' },
+            { label: 'Even halves (1 : 1)', value: 'even' },
+          ],
+        },
+        valign: { type: 'radio', label: 'Vertical align', options: [{ label: 'Top', value: 'start' }, { label: 'Center', value: 'center' }] },
+      },
+      defaultProps: { ratio: 'golden', valign: 'start' },
+      // Two drop zones laid out on the golden ratio (phi = 1.618). Creators drop
+      // ANY catalog blocks into the left/right columns, so a published covenant
+      // site composes on the exact same golden grid the main Covex app uses.
+      // Mobile-first: the columns stack below md, then the phi proportion applies.
+      render: ({ ratio, valign, puck }) => {
+        const Inner = puck?.renderDropZone || (() => null);
+        const variant = ratio === 'reverse' ? 'cvx-golden-reverse' : ratio === 'even' ? 'cvx-golden-even' : '';
+        const center = valign === 'center' ? 'cvx-golden-center' : '';
+        return (
+          <div className={`cvx-golden ${variant} ${center} px-2 md:px-4 mb-5`}>
+            <div className="min-w-0"><Inner zone="left" /></div>
+            <div className="min-w-0"><Inner zone="right" /></div>
+          </div>
+        );
+      },
     },
     TwoColumns: {
       label: 'Two Columns',

@@ -140,6 +140,78 @@ h3, h4 {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   GOLDEN GRID SYSTEM
+   One layout language built on the golden ratio (phi = 1.618). Every page
+   places its blocks on the same phi rhythm and phi column split, so spacing
+   and proportion are consistent instead of hand-tuned per page. The exact
+   same tokens back the <GoldenGrid>/<GoldenSection> React primitives
+   (components/GoldenGrid.jsx) and the covenant page builder's Golden Grid
+   block, so a creator's published covenant site inherits the same composition.
+   The numbers mirror src/lib/golden.js. Layout only (no color), so light +
+   dark are free and every utility is mobile-first.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --phi: 1.618;
+  --phi-inv: 0.618;
+  /* Phi-stepped spacing scale (geometric, ratio phi, anchored at 1rem):
+     the canonical vertical rhythm, stack gaps, and gutters. */
+  --gold-3xs: 0.382rem; /* 1 / phi^2 */
+  --gold-2xs: 0.618rem; /* 1 / phi   */
+  --gold-xs: 1rem;      /* anchor    */
+  --gold-sm: 1.618rem;  /* phi       */
+  --gold-md: 2.618rem;  /* phi^2     */
+  --gold-lg: 4.236rem;  /* phi^3     */
+  --gold-xl: 6.854rem;  /* phi^4     */
+  --gold-2xl: 11.089rem;/* phi^5     */
+  /* Comfortable phi-scaled reading column for the centered page container. */
+  --gold-measure: 62rem;
+}
+
+/* Centered page container on the golden measure with phi gutters. Drop-in for
+   the repeated `max-w-* mx-auto px-4` pattern. */
+.golden-container {
+  width: 100%;
+  max-width: var(--gold-measure);
+  margin-inline: auto;
+  padding-inline: var(--gold-xs);
+}
+@media (min-width: 640px) {
+  .golden-container { padding-inline: var(--gold-sm); }
+}
+
+/* Vertical rhythm: section block padding on the phi scale. */
+.golden-section { padding-block: var(--gold-lg); }
+.golden-section--tight { padding-block: var(--gold-md); }
+.golden-section--loose { padding-block: var(--gold-xl); }
+
+/* The golden split: a two-track grid at phi : 1. Mobile-first - one column
+   until there is room for two, then the phi proportion applies. The fr values
+   are literal because CSS cannot append a unit to a var(). */
+.golden-grid {
+  display: grid;
+  gap: var(--gold-md);
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.golden-grid--center { align-items: center; }
+.golden-grid--stretch { align-items: stretch; }
+@media (min-width: 768px) {
+  .golden-grid { grid-template-columns: minmax(0, 1.618fr) minmax(0, 1fr); }
+  .golden-grid--reverse { grid-template-columns: minmax(0, 1fr) minmax(0, 1.618fr); }
+  .golden-grid--even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* Vertical stack with a phi gap between children. */
+.golden-stack { display: flex; flex-direction: column; }
+.golden-stack > * + * { margin-top: var(--gold-sm); }
+.golden-stack--md > * + * { margin-top: var(--gold-md); }
+.golden-stack--lg > * + * { margin-top: var(--gold-lg); }
+
+/* Golden aspect-ratio frame for media / preview tiles. */
+.golden-ratio { aspect-ratio: 1.618 / 1; }
+.golden-ratio--portrait { aspect-ratio: 1 / 1.618; }
+
+/* ═══════════════════════════════════════════════════════════════
    CSS VARIABLE THEME ROOTS
    ═══════════════════════════════════════════════════════════════ */
 :root {

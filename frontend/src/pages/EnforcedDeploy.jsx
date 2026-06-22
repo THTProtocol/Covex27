@@ -25,6 +25,7 @@ const KINDS = [
   { id: 'oracle_enforced', label: 'Resolver-enforced', icon: Scale, blurb: 'A 2-of-2 of a deployer-bound resolver + winner: the chain requires the resolver co-signature, and the resolver co-signs only a verified outcome. On-chain-enforced resolver resolution; the deployer binds the resolver by pubkey at deploy.' },
   { id: 'oracle_escrow', label: 'Resolver escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the resolver-declared winner: needs the deployer-bound resolver co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
   { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the house fee and rebate.' },
+  { id: 'binary_oracle_select', label: 'External-oracle market', icon: Scale, blurb: 'A 2-outcome covenant bound to an EXTERNAL resolver you choose: commit the two published hashlocks and the two winner keys. The chain pays whichever side whose secret the resolver reveals; if neither is revealed, the refund key reclaims after a relative timelock. Covex is not in the payout path and attests nothing.' },
 ];
 
 // Single-signer primitives that deploy fully non-custodially (the key signs the funding tx in
@@ -131,6 +132,16 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     return /^[0-9a-f]{64}$/.test(r) ? r : '';
   })();
   const [resolverKey, setResolverKey] = useState(initialResolver);
+  // External-oracle market (binary_oracle_select): the two published hashlocks + winner keys. A
+  // resolver can hand the user a ready-to-deploy link (provider-agnostic: just hex hashes + keys).
+  const hexParam = (k) => {
+    const v = (searchParams.get(k) || '').trim().toLowerCase();
+    return /^[0-9a-f]{64}$/.test(v) ? v : '';
+  };
+  const [hashA, setHashA] = useState(hexParam('hash_a'));
+  const [hashB, setHashB] = useState(hexParam('hash_b'));
+  const [winnerA, setWinnerA] = useState(hexParam('winner_a'));
+  const [winnerB, setWinnerB] = useState(hexParam('winner_b'));
   // Prediction-market params (kind === 'market'). No stake is locked at creation; the
   // market is committed and lands on its own covenant page where bets are placed.
   const [mq, setMq] = useState('');
@@ -249,7 +260,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
   // Multi-party / oracle primitives deploy via server-assisted dev wallets,
   // exactly like the multisig demo. Single-signer kinds stay fully non-custodial.
-  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow'];
+  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow', 'binary_oracle_select'];
   const usesDevWallets = DEV_WALLET_KINDS.includes(kind);
   // Kinds whose redeem needs an ABSOLUTE unlock DAA (tip + lockBlocks).
   const ABS_LOCK_KINDS = ['timelock', 'htlc', 'channel', 'deadman', 'timedecay'];
@@ -345,6 +356,26 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         }
         redeem.oracle_pubkey_hex = rk;
       }
+    }
+    // External-oracle market: commit to the two hashlocks the resolver published + the two winner
+    // keys. The chain (not Covex) enforces blake2b(revealed_secret) == the committed hash at spend.
+    if (kind === 'binary_oracle_select') {
+      const ha = hashA.trim().toLowerCase(), hb = hashB.trim().toLowerCase();
+      const wa = winnerA.trim().toLowerCase(), wb = winnerB.trim().toLowerCase();
+      for (const [v, n] of [[ha, 'Outcome A hashlock'], [hb, 'Outcome B hashlock'], [wa, 'Winner A key'], [wb, 'Winner B key']]) {
+        if (!/^[0-9a-f]{64}$/.test(v)) {
+          setError(`${n} must be 64 hex characters (a 32-byte hash / x-only key).`);
+          return;
+        }
+      }
+      if (wa === wb) { setError('Winner A and Winner B must be different keys (each outcome pays a distinct side).'); return; }
+      if (ha === hb) { setError('Outcome A and Outcome B hashlocks must be different.'); return; }
+      redeem.hash_a_hex = ha;
+      redeem.hash_b_hex = hb;
+      redeem.pubkeys_hex = [wa, wb];
+      // BIP68 relative sequence is a 16-bit block count; clamp so a typo cannot push the refund
+      // branch past any practical horizon and brick the only fallback path. (|| 1 guards NaN.)
+      redeem.lock_daa = Math.min(65535, Math.max(1, parseInt(relSeq || '10', 10) || 1)); // CSV refund delay (relative)
     }
 
     setBusy(true);
@@ -597,7 +628,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const KindIcon = KINDS.find((k) => k.id === kind)?.icon || ShieldCheck;
   // Market and the oracle covenants are hybrid: custody/payout settle on-chain, but the
   // deployer-bound resolver decides the outcome. Only the pure P2SH primitives are on-chain-only.
-  const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market'].includes(kind);
+  const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market', 'binary_oracle_select'].includes(kind);
 
   return (
     <div className={effectiveEmbedded ? 'relative w-full space-y-6' : 'relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8'}>
@@ -910,6 +941,38 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
             />
             <p className="text-[10px] text-gray-500 light:text-slate-500">When set, the deployed covenant embeds THIS key and requires its co-signature to release. Covex is not in the path. Covex does not attest real-world facts; bring your own resolver for those.</p>
+          </div>
+        )}
+        {kind === 'binary_oracle_select' && (
+          <div className="space-y-2">
+            <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-outcome market bound to an EXTERNAL resolver you choose. Commit the two hashlocks it published (for a match: outcome A and outcome B, e.g. home win vs away win). The chain pays whichever side whose secret the resolver reveals; Covex attests nothing and is not in the payout path. If neither is revealed (a third outcome like a draw), the refund reclaims after the relative timelock below. Server-assisted demo (dev wallets fund).</p>
+            <p className="text-[11px] text-amber-300/90 light:text-amber-700 leading-snug">Mapping is positional: <b>Outcome A hashlock</b> pays <b>Winner A</b>, <b>Outcome B hashlock</b> pays <b>Winner B</b>. Keep A and B in the resolver's published order. Any third result (e.g. a draw) reveals a secret that matches NEITHER branch, so the pot returns to the refund key after the timelock. If you pasted these from a resolver deep-link they already line up; if you edit them by hand, double-check the order.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[['Outcome A hashlock', hashA, setHashA, '64-hex blake2b256 hash'], ['Outcome B hashlock', hashB, setHashB, '64-hex blake2b256 hash'], ['Winner A key (x-only)', winnerA, setWinnerA, '64-hex x-only pubkey'], ['Winner B key (x-only)', winnerB, setWinnerB, '64-hex x-only pubkey']].map(([lbl, val, set, ph]) => (
+                <div key={lbl} className="space-y-1">
+                  <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">{lbl}</label>
+                  <input
+                    type="text"
+                    value={val}
+                    onChange={(e) => set(e.target.value)}
+                    placeholder={ph}
+                    className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">Refund age (relative blocks)</label>
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                value={relSeq}
+                onChange={(e) => setRelSeq(e.target.value)}
+                className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 focus:outline-none focus:border-kaspa-green/50"
+              />
+            </div>
+            <p className="text-[10px] text-gray-500 light:text-slate-500">The covenant commits to THESE hashes. Only the resolver can reveal a secret, and only blake2b(secret) == the committed hash unlocks a branch on-chain. No resolver is named; you choose it.</p>
           </div>
         )}
 

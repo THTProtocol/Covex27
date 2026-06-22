@@ -1818,10 +1818,16 @@ fn dev_keys(network: &str) -> BResult<Vec<[u8; 32]>> {
 }
 
 fn decode_xonly_hex(h: &str) -> BResult<[u8; 32]> {
-    hex::decode(h.trim().trim_start_matches("0x"))
+    let bytes: [u8; 32] = hex::decode(h.trim().trim_start_matches("0x"))
         .ok()
         .and_then(|b| b.try_into().ok())
-        .ok_or_else(|| format!("bad x-only pubkey hex '{h}' (need 64 hex chars)"))
+        .ok_or_else(|| format!("bad x-only pubkey hex '{h}' (need 64 hex chars)"))?;
+    // Reject 32-byte values that are not a valid secp256k1 x-only point. A non-point key embedded in
+    // a redeem branch produces an OpCheckSig that can NEVER be satisfied, silently bricking that
+    // branch (e.g. a winner who can never claim). Fail at build time instead.
+    secp256k1::XOnlyPublicKey::from_slice(&bytes)
+        .map_err(|_| format!("x-only pubkey '{h}' is not a valid secp256k1 point"))?;
+    Ok(bytes)
 }
 
 // The x-only key of the oracle RESOLVER embedded in an oracle covenant: the creator-chosen
@@ -1868,6 +1874,17 @@ pub async fn p2sh_deploy_handler(
             "oracle-enforced covenants ('{}') are frozen on mainnet: the Covex oracle key is still in the payout path, so funds are not yet trustless. Use a deterministic primitive (timelock/hashlock/multisig/htlc) on mainnet, or this covenant on a testnet.",
             req.redeem.kind
         ));
+    }
+    // binary_oracle_select has two ways to set the branch hashes: commit to an EXTERNAL resolver's
+    // PUBLISHED hashes (hash_a_hex+hash_b_hex), or derive them from preimages the DEPLOYER supplies.
+    // The preimage path lets the market creator learn both secrets and pick which legitimate winner
+    // gets paid (acts as the oracle). That is fine for testnet development, but on mainnet real money
+    // must bind to an external resolver so the creator cannot self-resolve. Force the external path.
+    if is_mainnet
+        && req.redeem.kind.starts_with("binary_oracle_select")
+        && !(req.redeem.hash_a_hex.is_some() && req.redeem.hash_b_hex.is_some())
+    {
+        return err("binary_oracle_select on mainnet must commit to an external resolver's published hashes (hash_a_hex + hash_b_hex). The preimage_hex/preimage_b_hex path lets the market creator self-resolve and is disabled on mainnet.".into());
     }
 
     let (seckey, deployer_addr_str) = match resolve_signing_key(
@@ -2470,12 +2487,17 @@ pub async fn p2sh_spend_handler(
 
     // NON-CUSTODIAL KEYSTONE: never accept a raw MAINNET private key on the spend path either.
     // Mainnet redeem is non-custodial (the key signs the sighash in the browser); a raw mainnet
-    // key here would be the backend half of a custody breach. Testnet dev/demo flows are unaffected.
-    if (req.network == "mainnet" || req.network == "mainnet-1")
-        && !req.use_dev_mode
-        && !req.private_key_hex.trim().is_empty()
-    {
-        return err("mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into());
+    // key here would be the backend half of a custody breach. This covers BOTH the single-key
+    // arms (private_key_hex) and the multi-key arms (signer_keys_hex: multisig/timedecay/htlc/
+    // channel/binary_oracle_select). Testnet dev/demo flows are unaffected.
+    let sends_raw_key = !req.private_key_hex.trim().is_empty()
+        || req
+            .signer_keys_hex
+            .as_ref()
+            .map(|v| v.iter().any(|k| !k.trim().is_empty()))
+            .unwrap_or(false);
+    if (req.network == "mainnet" || req.network == "mainnet-1") && !req.use_dev_mode && sends_raw_key {
+        return err("mainnet signing is non-custodial: do not send a private key to the server (private_key_hex or signer_keys_hex). Use the prepare/submit flow so your key signs in your browser.".into());
     }
 
     // Resolve the covenant. If Covex deployed it, the DB has everything. If NOT (any

@@ -6,7 +6,7 @@ export default function WhatIsKaspaPage() {
   return (
     <div className="min-h-screen pt-16 pb-20 relative">
       <div className="covex-aurora" aria-hidden="true" style={{ top: '-4rem' }} />
-      <div className="max-w-5xl mx-auto px-5 sm:px-6 relative z-10">
+      <div className="golden-container relative z-10">
 
         <header className="mb-12 glass-panel rounded-2xl p-6 sm:p-8 border border-[#49EACB]/15 relative overflow-hidden detail-hero-enhanced">
           <div className="flex items-center gap-3 mb-4">

@@ -164,7 +164,7 @@ export default function AboutPage() {
         style={{ width: 620, height: 620, top: '-9rem', left: '50%', transform: 'translateX(-50%)' }}
       />
 
-      <div className="max-w-5xl mx-auto px-5 sm:px-6 relative z-10">
+      <div className="golden-container relative z-10">
 
         {/* ── Hero ─────────────────────────────────────────────── */}
         <motion.header

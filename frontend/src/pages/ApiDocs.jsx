@@ -108,7 +108,7 @@ export default function ApiDocs() {
   };
 
   return (
-    <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div className="relative z-10 golden-container golden-section--tight">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 520, height: 240, maxWidth: '90vw' }} />
       <div className="relative z-10 flex items-center gap-3 mb-2">
         <div className="w-12 h-12 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center shrink-0">

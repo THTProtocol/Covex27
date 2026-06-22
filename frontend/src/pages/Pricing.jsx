@@ -1,13 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Check, X as XIcon, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from 'lucide-react';
+import { Check, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { toast } from '../components/ToastContext';
-import TierTransparency from '../components/TierTransparency';
 import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 
 // Copyable address pill - same honest clipboard pattern as EnforcedDeploy's CopyBtn:
@@ -108,6 +107,15 @@ const TIERS = [
     variant: 'max',
   },
 ];
+
+// One-line tagline per tier for the simplified price cards (the detail lives in
+// the "How it works" explanations below, so the cards stay scannable).
+const TAGLINES = {
+  FREE: 'Build and deploy any covenant, with a custom website. No limits.',
+  BUILDER: 'The full premium website template library.',
+  PRO: 'Featured placement on the Explorer.',
+  MAX: 'Top placement, plus a TVL-weighted ranking boost.',
+};
 
 const MAINNET_TREASURY = 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2';
 
@@ -324,42 +332,30 @@ const Pricing = () => {
     );
   }
 
+  // Honest, simple explanations shown BELOW the prices so the page leads with the
+  // numbers. These carry the same claims the old banner/transparency block did:
+  // almost everything is free, paid only adds visibility, and there is no cap.
+  const EXPLAIN = [
+    { icon: Eye, title: 'Almost everything is free', body: 'Build and deploy any covenant - games, prediction markets, escrows, ZK proofs, vesting, custom logic - give it a custom website in the Studio, and claim non-custodially. No account, no cap.' },
+    { icon: Star, title: 'Paid tiers add visibility', body: 'Builder unlocks the full premium website template library. PRO adds featured placement on the Explorer. MAX adds top placement and a TVL-weighted ranking boost.' },
+    { icon: ShieldCheck, title: 'No maximum, ever', body: 'Any covenant on any tier, including free, can lock or bet any amount. Tiers only change how visible your covenant is, never how much you can lock or bet.' },
+    { icon: Crown, title: 'How payment works', body: 'A one-time KAS payment to the treasury. The tier unlocks for the wallet address you pay from, so pay from the wallet you will deploy with.' },
+  ];
+
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-16">
+    <div className="golden-container golden-section relative z-10">
       <div className="covex-aurora" aria-hidden="true" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 660, height: 300, maxWidth: '90vw' }} />
-      <div className="relative z-10 text-center max-w-2xl mx-auto mb-8">
-        <h1 className="h-display text-white light:text-slate-900 mb-4">Priority Placement and Premium Templates</h1>
-        <p className="text-lg md:text-xl text-gray-300 light:text-slate-600 leading-relaxed">
-          One-time payment. Almost everything is free, including the website builder. Paid tiers add priority placement and the full premium UI website template library. Higher tiers = better visibility on the Explorer.
-        </p>
-        <p className="mt-3 text-sm">
-          <Link to="/kaspa" className="text-kaspa-green light:text-[#14B8A6] underline">Learn about Kaspa</Link>
-          <span className="mx-2 text-gray-600 light:text-slate-400">|</span>
-          <Link to="/treasury" className="text-kaspa-green light:text-[#14B8A6] underline">Treasury and ranking transparency</Link>
-        </p>
-      </div>
 
-      {/* No-cap honesty banner: the single most important framing on this page. Tiers
-          are about visibility and the premium template library, never about how much
-          you can lock or bet. Any covenant, on any tier including free, can lock or bet
-          any amount. This is enforced in the backend (tier comes from a treasury
-          payment, not from the covenant's stake), and stated here so no one is misled. */}
-      <div className="relative z-10 max-w-3xl mx-auto mb-12 flex items-start gap-3 p-4 rounded-2xl border border-kaspa-green/30 bg-kaspa-green/[0.06] light:border-emerald-400 light:bg-emerald-50">
-        <ShieldCheck size={20} className="shrink-0 mt-0.5 text-kaspa-green light:text-[#14B8A6]" aria-hidden="true" />
-        <p className="text-sm leading-relaxed text-gray-200 light:text-slate-700">
-          <span className="font-semibold text-white light:text-slate-900">Every covenant can lock or bet any amount on the free tier, and free creators can build a custom website.</span>{' '}
-          Paid tiers add priority placement and the full premium UI website template library, never a higher limit. There is no maximum bet or lock size on any tier.
+      {/* Short header: one line, then straight to the prices. */}
+      <header className="relative z-10 text-center max-w-2xl mx-auto mb-10">
+        <h1 className="h-display text-white light:text-slate-900 mb-3">Pricing</h1>
+        <p className="lede text-gray-300 light:text-slate-600">
+          One-time payment. Almost everything is free, the website builder included. Paid tiers only add visibility, never a higher limit.
         </p>
-      </div>
+      </header>
 
-      {/* Always-visible tier transparency: the same component and copy rendered in the
-          Covex Terminal, so the crystal-clear "almost everything is free; paid adds only
-          placement and the premium template library" message is identical on both surfaces. */}
-      <div className="relative z-10 max-w-3xl mx-auto mb-12">
-        <TierTransparency currentTier="FREE" />
-      </div>
-
-      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* PRICES - listed first, at the top. */}
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
         {TIERS.map((tier) => {
           const isFree = tier.id === 'FREE';
           return (
@@ -368,15 +364,15 @@ const Pricing = () => {
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    {tier.id === 'FREE' && <Eye size={22} className="text-gray-400 light:text-slate-500 shrink-0" />}
-                    {tier.id === 'BUILDER' && <Terminal size={22} className="shrink-0" style={{ color: tier.accent }} />}
-                    {tier.id === 'PRO' && <Star size={22} className="shrink-0" style={{ color: tier.accent }} />}
-                    {tier.id === 'MAX' && <Crown size={22} className="shrink-0" style={{ color: tier.accent }} />}
+                    {tier.id === 'FREE' && <Eye size={20} className="text-gray-400 light:text-slate-500 shrink-0" />}
+                    {tier.id === 'BUILDER' && <Terminal size={20} className="shrink-0" style={{ color: tier.accent }} />}
+                    {tier.id === 'PRO' && <Star size={20} className="shrink-0" style={{ color: tier.accent }} />}
+                    {tier.id === 'MAX' && <Crown size={20} className="shrink-0" style={{ color: tier.accent }} />}
                     <CardTitle className="truncate">{tier.name}</CardTitle>
                   </div>
                   <Badge variant={tier.variant} className="shrink-0">{tier.id}</Badge>
                 </div>
-                {/* Price as the bold hero of each card */}
+                {/* Price = the hero of each card */}
                 <div className="mt-3 flex items-baseline gap-1.5">
                   {isFree ? (
                     <span className="text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">Free</span>
@@ -388,25 +384,9 @@ const Pricing = () => {
                     </>
                   )}
                 </div>
-                <p className="text-sm text-gray-400 light:text-slate-600 mt-2">{tier.desc}</p>
+                <p className="text-sm text-gray-400 light:text-slate-600 mt-2 min-h-[2.5rem]">{TAGLINES[tier.id]}</p>
               </CardHeader>
-              <CardContent className="flex-1">
-                <div className="space-y-2.5 mb-6">
-                  {tier.features.map((feature, i) => (
-                    <div key={i} className="flex gap-2.5 text-sm text-gray-300 light:text-slate-700">
-                      <Check size={16} className="shrink-0 mt-0.5 text-[#49EACB] light:text-[#14B8A6]" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                  {tier.missing.map((feature, i) => (
-                    <div key={i} className="flex gap-2.5 text-sm text-gray-300 light:text-slate-500 opacity-60">
-                      <XIcon size={16} className="shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-              <div className="p-6 pt-0">
+              <div className="mt-auto p-6 pt-0">
                 <Button
                   onClick={() => handlePay(tier)}
                   variant={isFree ? 'outline' : 'default'}
@@ -420,9 +400,26 @@ const Pricing = () => {
         })}
       </div>
 
-      <div className="text-center mt-10 text-sm text-gray-400 light:text-slate-600 max-w-xl mx-auto">
-        The Covenant Studio website builder and the base UI template set are free. Paid tiers add the full premium UI website template library, with higher tiers improving your covenant's visibility ranking on the Explorer. They never change how much you can lock or bet: any covenant, on any tier including free, can lock or bet any amount with no maximum.
-      </div>
+      {/* SIMPLE EXPLANATIONS - below the prices. */}
+      <section className="relative z-10 max-w-4xl mx-auto">
+        <h2 className="h-section text-white light:text-slate-900 text-center mb-6">How it works</h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {EXPLAIN.map((x, i) => (
+            <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 light:border-slate-200 light:bg-white">
+              <div className="flex items-center gap-2.5 mb-2">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/10 text-kaspa-green light:bg-emerald-50 light:text-[#14B8A6] shrink-0"><x.icon size={16} aria-hidden="true" /></span>
+                <h3 className="text-base font-bold text-white light:text-slate-900">{x.title}</h3>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-300 light:text-slate-600">{x.body}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-8 text-center text-sm text-gray-400 light:text-slate-500">
+          <Link to="/kaspa" className="text-kaspa-green light:text-[#14B8A6] underline underline-offset-4">Learn about Kaspa</Link>
+          <span className="mx-2 text-gray-600 light:text-slate-400">|</span>
+          <Link to="/treasury" className="text-kaspa-green light:text-[#14B8A6] underline underline-offset-4">Treasury and ranking transparency</Link>
+        </p>
+      </section>
     </div>
   );
 };

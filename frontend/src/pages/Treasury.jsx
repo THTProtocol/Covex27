@@ -93,7 +93,7 @@ export default function Treasury() {
   }, [treasury, network]);
 
   return (
-    <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div className="relative golden-container golden-section--tight">
       <div className="covex-aurora light:mix-blend-multiply" style={{ top: -10, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 420, height: 200, maxWidth: '90vw', opacity: 0.4 }} aria-hidden="true" />
 
       <div className="relative z-10">

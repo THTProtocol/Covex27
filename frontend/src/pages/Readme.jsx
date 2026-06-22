@@ -24,7 +24,7 @@ const MONO = 'font-mono text-[11px] sm:text-xs leading-relaxed break-words';
 // ── Reusable bits ─────────────────────────────────────────────────────────────
 function Section({ id, kicker, title, children }) {
   return (
-    <section id={id} className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <section id={id} className="relative golden-container golden-section">
       {kicker && <div className="text-[11px] uppercase tracking-[3px] text-kaspa-green mb-2">{kicker}</div>}
       <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-6">{title}</h2>
       {children}

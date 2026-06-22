@@ -49,6 +49,12 @@ mod payment_verifier;
 // for callers/tests and are not all wired into the running binary yet.
 #[allow(dead_code)]
 mod referee;
+// referee_zk.rs is the ZK winner-proof gate for the hashlock games settle: it shells
+// out to the covex-games-prover verify binary to cryptographically check a RISC0 game
+// receipt and bind its journal to the match. Some helpers are exercised only when a
+// verifier binary is provisioned, so allow dead_code for the unwired paths.
+#[allow(dead_code)]
+mod referee_zk;
 mod resolve;
 mod resolver_failover;
 mod signer;

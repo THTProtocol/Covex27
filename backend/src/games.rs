@@ -328,12 +328,17 @@ async fn lock_pot(
         .and_then(|v| v.as_str())
         .unwrap_or("testnet-12")
         .to_string();
-    // settle_mode flag (default off): "hashlock" picks the new de-oracle path, anything else
-    // (incl. absent / "oracle_escrow") keeps the legacy Covex-oracle co-sign path intact.
+    // settle_mode (DEORACLE_PLAN stage 4 FLIP): NEW game pots default to the de-oracle "hashlock"
+    // path (binary_oracle_select, NO Covex key in the redeem). A caller may still explicitly opt a
+    // NEW pot back onto the legacy Covex-oracle co-sign path by passing settle_mode="oracle_escrow"
+    // (kept working for migration / fallback). Anything other than a recognized value defaults to
+    // hashlock. ALREADY-DEPLOYED oracle_escrow pots are unaffected: their settle path is read from
+    // the stored row (load_hashlock_pot / settle_pot), not from this default.
     let settle_mode = req
         .get("settle_mode")
         .and_then(|v| v.as_str())
-        .unwrap_or("oracle_escrow")
+        .map(|s| if s == "oracle_escrow" { "oracle_escrow" } else { "hashlock" })
+        .unwrap_or("hashlock")
         .to_string();
     let p1x = match xonly_hex_from_address(&p1) {
         Ok(x) => x,
@@ -485,13 +490,15 @@ async fn submit_pot(
             let kas = v.get("locked_kas").and_then(|k| k.as_f64()).unwrap_or(0.0);
             // Record the settle path. "hashlock" binds match_id to this match's covenant_id
             // (the referee hashlock domain) so settle-pot-hashlock can re-derive the winner's
-            // secret. Anything else stays on the legacy oracle_escrow co-sign path (match_id
-            // left NULL). settle_mode is echoed from lock-pot; default to oracle_escrow so an
-            // older client that omits it behaves exactly as before.
+            // secret. Only an explicit "oracle_escrow" stays on the legacy Covex-oracle co-sign
+            // path (match_id left NULL). settle_mode is echoed from lock-pot; since stage 4 flips
+            // the NEW-pot default to hashlock, default here to hashlock too so a client that omits
+            // it on submit-pot labels the row to match the hashlock covenant lock-pot built.
             let settle_mode = req
                 .get("settle_mode")
                 .and_then(|v| v.as_str())
-                .unwrap_or("oracle_escrow")
+                .map(|s| if s == "oracle_escrow" { "oracle_escrow" } else { "hashlock" })
+                .unwrap_or("hashlock")
                 .to_string();
             let conn = db.lock().unwrap();
             if settle_mode == "hashlock" {
@@ -738,24 +745,37 @@ fn load_hashlock_pot(
     Ok((pot_tx, domain, net))
 }
 
-/// POST /games/:id/settle-pot-hashlock {token} : settle a HASHLOCK pot with ZERO server
-/// signatures (DEORACLE_PLAN stage 3). The referee REVEALS the winning outcome's secret and
-/// the WINNER spends the binary_oracle_select covenant with THEIR OWN key.
+/// POST /games/:id/settle-pot-hashlock {token, receipt_b64?} : settle a HASHLOCK pot with ZERO
+/// server signatures (DEORACLE_PLAN stage 3 + stage 4 ZK gate). The referee REVEALS the winning
+/// outcome's secret and the WINNER spends the binary_oracle_select covenant with THEIR OWN key.
 ///
-/// Auth: a seated player (seat token), same as settle-pot. MONEY GATE: the winning side is
-/// re-derived from the server-authoritative engine replay (game_pot_outcome, FAIL CLOSED), so a
-/// poisoned `winner` field can never redirect the pot. The referee then re-derives the winning
-/// outcome's secret (deterministic from REFEREE_KEY + the match domain) and this handler returns
-/// it PLUS the UNSIGNED reveal-branch spend the winner must sign. The server/referee contributes
-/// NO signature on the spend: the winner signs `sighash` (BIP340) in their browser and POSTs
-/// {session_id, signature_hex, preimage_hex: <revealed_secret>} to /covenant/p2sh/submit-signed.
+/// Auth: a seated player (seat token), same as settle-pot. MONEY GATE (two gates, both must pass):
+///   1. SERVER GATE: the winning side is re-derived from the server-authoritative engine replay
+///      (game_pot_outcome, FAIL CLOSED), so a poisoned `winner` field can never redirect the pot.
+///   2. ZK GATE (referee_zk::run_gate): when a RISC0 game receipt is supplied as `receipt_b64`
+///      (or `receipt_hex`), it is CRYPTOGRAPHICALLY verified by the covex-games-prover binary
+///      (real STARK proof against the prover-pinned guest image id) and its committed journal is
+///      bound to THIS match (winner + moves_digest must match the server record). A verified
+///      receipt is MANDATORY when COVEX_GAMES_ZK_REQUIRE=true; otherwise it is optional
+///      defense-in-depth (a supplied receipt is still verified; absence falls back to the server
+///      gate alone, disclosed honestly in the response). A supplied proof that cannot be verified
+///      (no binary, bad proof, or wrong-game journal) is REFUSED, never accepted unverified.
+///
+/// The referee then re-derives the winning outcome's secret (deterministic from REFEREE_KEY + the
+/// match domain) and this handler returns it PLUS the UNSIGNED reveal-branch spend the winner must
+/// sign. The server/referee contributes NO signature on the spend: the winner signs `sighash`
+/// (BIP340) in their browser and POSTs {session_id, signature_hex, preimage_hex: <revealed_secret>}
+/// to /covenant/p2sh/submit-signed.
 async fn settle_pot_hashlock(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
-    Json(auth): Json<AuthReq>,
+    Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    // Auth: only a seated player (holding this match's seat token) may settle.
-    if let Err(e) = authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
+    // Auth: only a seated player (holding this match's seat token) may settle. (The body is a
+    // raw Value so an optional receipt_b64/receipt_hex rides alongside the existing {token};
+    // deny_unknown_fields is used nowhere, so an older {token}-only client is unaffected.)
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if let Err(e) = authorize_money_caller(&db, &covenant_id, token) {
         return Json(json!({ "success": false, "error": e }));
     }
     let game = match fetch_game(&db, &covenant_id) {
@@ -770,7 +790,7 @@ async fn settle_pot_hashlock(
         Err(e) => return Json(json!({ "success": false, "error": e })),
     };
 
-    // MONEY GATE (identical posture to settle-pot): re-derive the winning side from the
+    // MONEY GATE 1 (identical posture to settle-pot): re-derive the winning side from the
     // server-authoritative engine replay. game_pot_outcome FAILS CLOSED on anything that is not
     // an engine-decisive board or a server-timed timeout, so a poisoned `winner` field can never
     // pick the destination. 0 = player1 (winner_a / outcome A), 1 = player2 (winner_b / outcome B).
@@ -783,6 +803,27 @@ async fn settle_pot_hashlock(
             return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }))
         }
     };
+
+    // MONEY GATE 2 (ZK winner-proof gate): if a RISC0 game receipt is supplied it is verified by
+    // the covex-games-prover binary and bound to this match (committed winner == server outcome AND
+    // committed moves_digest == sha256(this match's move log)). Both gates must agree. A required
+    // proof that is missing/unverifiable is REFUSED. The two gates are defense-in-depth: the ZK
+    // proof attests the move log is a legal terminal game the claimant won; the server gate attests
+    // the move log is the genuine record. (See referee_zk for the honest enforcement statement.)
+    let receipt = match crate::referee_zk::decode_receipt_param(&req) {
+        Ok(r) => r,
+        Err(e) => return Json(json!({ "success": false, "error": format!("invalid receipt param: {e}") })),
+    };
+    let moves: Vec<String> = serde_json::from_str(game["moves"].as_str().unwrap_or("[]"))
+        .unwrap_or_default();
+    let zk_note: String = match crate::referee_zk::run_gate(receipt.as_deref(), outcome, &moves) {
+        crate::referee_zk::ZkGate::Verified(note) => note,
+        crate::referee_zk::ZkGate::SkippedAllowed(note) => note,
+        crate::referee_zk::ZkGate::Refused(msg) => {
+            return Json(json!({ "success": false, "error": format!("ZK winner-proof gate refused: {msg}") }))
+        }
+    };
+
     let (winner, select_mode) = if outcome == 0 {
         (&p1, "reveal_a")
     } else {
@@ -822,6 +863,11 @@ async fn settle_pot_hashlock(
         v["preimage_hex"] = json!(preimage_hex);
         v["winner_addr"] = json!(winner);
         v["outcome"] = json!(outcome);
+        // Honest disclosure of what the ZK gate did for THIS settle (verified proof, or
+        // server-gated fallback). The caller can surface this so the winner knows whether a
+        // cryptographic proof backed the reveal or only the server replay did.
+        v["zk_gate"] = json!(zk_note);
+        v["zk_verified"] = json!(receipt.is_some());
         v["next"] = json!(format!(
             "Referee revealed the winner's secret (preimage_hex). Sign `sighash` (BIP340 Schnorr) with the WINNER's wallet ({winner}), then POST {{session_id, signature_hex, preimage_hex}} to /covenant/p2sh/submit-signed to broadcast. The server contributed no signature; only the winner's own key spends."
         ));
@@ -2075,10 +2121,11 @@ mod tests {
         // Active (not finished) match with a linked hashlock pot. game_pot_outcome
         // will Reject ("match is not finished"), so the settle must refuse.
         seed_hashlock_pot(&db, "cov-hl-1", "pot-hl-1", "active", None, None);
-        let body = json!({ "token": "tok-p1" });
-        let resp = settle_pot_hashlock(Extension(db), Path("cov-hl-1".into()), Json(
-            serde_json::from_value(body).unwrap(),
-        ))
+        let resp = settle_pot_hashlock(
+            Extension(db),
+            Path("cov-hl-1".into()),
+            Json(json!({ "token": "tok-p1" })),
+        )
         .await
         .0;
         assert_eq!(
@@ -2107,7 +2154,7 @@ mod tests {
         let resp = settle_pot_hashlock(
             Extension(db),
             Path("cov-hl-2".into()),
-            Json(AuthReq { token: None }),
+            Json(json!({})),
         )
         .await
         .0;
@@ -2162,9 +2209,7 @@ mod tests {
         let resp = settle_pot_hashlock(
             Extension(db),
             Path("cov-hl-4".into()),
-            Json(AuthReq {
-                token: Some("tok-p1".into()),
-            }),
+            Json(json!({ "token": "tok-p1" })),
         )
         .await
         .0;
@@ -2175,6 +2220,47 @@ mod tests {
                 .unwrap_or("")
                 .contains("not a hashlock pot"),
             "a legacy oracle_escrow pot must be routed away from the hashlock settle"
+        );
+    }
+
+    /// ZK gate: a SUPPLIED receipt with NO verifier binary provisioned must REFUSE the
+    /// settle (never accept an unverified proof as if real), and NO referee secret leaks.
+    /// Uses a finished decisive board so only the ZK gate can be the refuser.
+    #[tokio::test]
+    async fn settle_pot_hashlock_refuses_unverifiable_supplied_proof() {
+        std::env::remove_var("COVEX_GAMES_PROVER_BIN");
+        std::env::remove_var("COVEX_GAMES_ZK_REQUIRE");
+        let db = fresh_db();
+        // Finished, server-timed timeout to player1 so game_pot_outcome Verifies(0); the
+        // ONLY remaining gate is the ZK gate, which must refuse a proof it cannot verify.
+        seed_hashlock_pot(
+            &db,
+            "cov-hl-zk1",
+            "pot-hl-zk1",
+            "finished",
+            Some("timeout"),
+            Some("player1"),
+        );
+        let resp = settle_pot_hashlock(
+            Extension(db),
+            Path("cov-hl-zk1".into()),
+            Json(json!({ "token": "tok-p1", "receipt_b64": "Zm9vYmFy" })),
+        )
+        .await
+        .0;
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "a supplied proof with no verifier must refuse, not accept"
+        );
+        assert!(
+            resp["error"].as_str().unwrap_or("").contains("ZK winner-proof gate"),
+            "the refusal must come from the ZK gate, got: {}",
+            resp["error"]
+        );
+        assert!(
+            resp.get("preimage_hex").is_none(),
+            "no referee secret may leak when the ZK gate refuses"
         );
     }
 }
